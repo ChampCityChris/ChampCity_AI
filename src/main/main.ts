@@ -1,7 +1,14 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
-const appName = "ChampCity_AI Work Card MVP";
+import {
+  getNextWorkCardId,
+  previewDraftWorkCard,
+  saveDraftWorkCard,
+} from "./workCards/workCardFileStore";
+import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
+
+const appName = "ChampCity A/I";
 
 function createMainWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -22,6 +29,7 @@ function createMainWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerWorkCardIpc();
   createMainWindow();
 
   app.on("activate", () => {
@@ -36,3 +44,16 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+
+function registerWorkCardIpc(): void {
+  ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
+    getNextWorkCardId(phase),
+  );
+  ipcMain.handle(
+    "workCards:previewDraft",
+    (_event, input: WorkCardDraftInput) => previewDraftWorkCard(input),
+  );
+  ipcMain.handle("workCards:saveDraft", (_event, input: WorkCardDraftInput) =>
+    saveDraftWorkCard(input),
+  );
+}

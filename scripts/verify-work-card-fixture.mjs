@@ -1,54 +1,137 @@
-import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDir, "..");
-const renderedFixturePath = resolve(
-  repositoryRoot,
-  "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
-);
 
 const { workCardFixture } = require("../dist/shared/workCards/fixtures/workCardFixture.js");
-const { renderWorkCardMarkdown, workCardMarkdownHeadings } = require("../dist/shared/workCards/renderWorkCardMarkdown.js");
+const { workCardCaptureFixture } = require("../dist/shared/workCards/fixtures/workCardCaptureFixture.js");
+const {
+  buildDraftWorkCard,
+} = require("../dist/shared/workCards/workCardDraft.js");
+const {
+  renderWorkCardMarkdown,
+  workCardMarkdownHeadings,
+} = require("../dist/shared/workCards/renderWorkCardMarkdown.js");
 const { validateWorkCard } = require("../dist/shared/workCards/validateWorkCard.js");
+const {
+  validateSafePhaseFolder,
+} = require("../dist/shared/workCards/workCardFileNames.js");
+const {
+  resolveInside,
+} = require("../dist/main/workCards/workCardFileStore.js");
 
-const validation = validateWorkCard(workCardFixture);
+const renderedArtifacts = [
+  {
+    fixture: workCardFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
+    ),
+  },
+  {
+    fixture: workCardCaptureFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+    ),
+  },
+];
 
-if (!validation.valid) {
-  console.error("Work Card fixture validation failed:");
-  for (const error of validation.errors) {
-    console.error(`- ${error}`);
-  }
-  process.exit(1);
+for (const artifact of renderedArtifacts) {
+  assertFixtureArtifact(artifact.fixture, artifact.path);
 }
 
-const markdown = renderWorkCardMarkdown(workCardFixture);
-const requiredHeadings = [
-  `# Work Card: ${workCardFixture.title}`,
-  ...workCardMarkdownHeadings,
-];
-const missingHeadings = requiredHeadings.filter(
-  (heading) => !markdown.includes(heading),
+const draft = buildDraftWorkCard(
+  {
+    workCardId: "WC99",
+    title: "Capture a draft Work Card",
+    phase: "phase-01",
+    riskLevel: "medium",
+    problem: "The Operator needs to capture an idea without writing Builder instructions.",
+    importance: "The Architect needs structured source material.",
+    userOutcome: "The Operator can save a draft that waits for Architect review.",
+    scope: "Capture intent\nPreview Markdown",
+    outOfScope: "Architect automation",
+    knownSystems: "New Work Card screen",
+    evidence: "Example report text",
+    risks: "Draft could be mistaken for Builder-ready work",
+    operatorNotes: "Keep the workflow human-reviewed",
+  },
+  "2026-06-28T00:00:00.000Z",
 );
 
-if (missingHeadings.length > 0) {
-  console.error("Rendered Work Card Markdown is missing required headings:");
-  for (const heading of missingHeadings) {
-    console.error(`- ${heading}`);
-  }
+if (draft.status !== "ready_for_architect") {
+  console.error("Draft Work Card construction did not preserve ready_for_architect status.");
   process.exit(1);
 }
 
-const checkedInMarkdown = readFileSync(renderedFixturePath, "utf8");
+const draftMarkdown = renderWorkCardMarkdown(draft);
 
-if (checkedInMarkdown !== markdown) {
-  console.error(
-    "Checked-in WC01 Markdown does not match the renderer output.",
-  );
+if (!draftMarkdown.includes("## Builder Handoff Prompt")) {
+  console.error("Draft Work Card Markdown is missing the Builder Handoff Prompt heading.");
   process.exit(1);
+}
+
+if (!draftMarkdown.includes("Architect review is required")) {
+  console.error("Draft Work Card Markdown does not state that Architect review is required.");
+  process.exit(1);
+}
+
+if (validateSafePhaseFolder("../bad").length === 0) {
+  console.error("Safe phase folder validation failed to reject traversal input.");
+  process.exit(1);
+}
+
+try {
+  resolveInside(resolve(repositoryRoot, "planning", "phases"), "../bad");
+  console.error("Path sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
 }
 
 console.log("Work Card fixture validation passed.");
+
+function assertFixtureArtifact(fixture, renderedFixturePath) {
+  const validation = validateWorkCard(fixture);
+
+  if (!validation.valid) {
+    console.error(`Work Card fixture ${fixture.workCardId} validation failed:`);
+    for (const error of validation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const markdown = renderWorkCardMarkdown(fixture);
+  const requiredHeadings = [
+    `# Work Card: ${fixture.title}`,
+    ...workCardMarkdownHeadings,
+  ];
+  const missingHeadings = requiredHeadings.filter(
+    (heading) => !markdown.includes(heading),
+  );
+
+  if (missingHeadings.length > 0) {
+    console.error(
+      `Rendered Work Card Markdown for ${fixture.workCardId} is missing required headings:`,
+    );
+    for (const heading of missingHeadings) {
+      console.error(`- ${heading}`);
+    }
+    process.exit(1);
+  }
+
+  const checkedInMarkdown = readFileSync(renderedFixturePath, "utf8");
+
+  if (checkedInMarkdown !== markdown) {
+    console.error(
+      `Checked-in ${fixture.workCardId} Markdown does not match the renderer output.`,
+    );
+    process.exit(1);
+  }
+}

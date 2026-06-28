@@ -7,49 +7,9 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="intro" aria-labelledby="app-title">
-        <p class="eyebrow">Foundation scaffold</p>
-        <h1 id="app-title">ChampCity_AI Work Card MVP</h1>
-        <p class="summary">
-          A desktop workspace for turning rough user reports into bounded Work Cards,
-          Builder prompts, validation records, repairs, and closeout notes.
-        </p>
-      </section>
-
-      <section class="loop" aria-labelledby="loop-title">
-        <div>
-          <p class="eyebrow">Approved loop</p>
-          <h2 id="loop-title">Capture -> Frame -> Plan -> Build -> Prove</h2>
-        </div>
-        <ol id="core-loop" class="loop-list" aria-label="Core workflow"></ol>
-      </section>
-
-      <section class="foundation" aria-labelledby="foundation-title">
-        <p class="eyebrow">Current status</p>
-        <h2 id="foundation-title">Ready for Work Card schema design</h2>
-        <div class="status-grid">
-          <article>
-            <h3>In place</h3>
-            <ul>
-              <li>Project memory scaffold</li>
-              <li>Planning folders</li>
-              <li>Secure Electron window</li>
-              <li>Provider-neutral LLM stubs</li>
-            </ul>
-          </article>
-          <article>
-            <h3>Planned next</h3>
-            <ul>
-              <li>Markdown persistence</li>
-              <li>Work Card schema</li>
-              <li>Risk router</li>
-              <li>Workflow screens</li>
-            </ul>
-          </article>
-        </div>
-      </section>
-    </main>
+    <div id="app-root"></div>
+    <script src="./vendor/react.development.js"></script>
+    <script src="./vendor/react-dom.development.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>
