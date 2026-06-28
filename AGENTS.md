@@ -14,6 +14,17 @@
 - Do not add dependencies without approval beyond the approved Electron + TypeScript foundation.
 - Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or provider-specific LLM SDKs for the MVP foundation.
 
+## Durable Project Decisions
+
+- Remote repository URL: `https://github.com/ChampCityChris/ChampCity_AI`.
+- GitHub repository visibility: public.
+- Human-readable app name: `ChampCity A/I`.
+- Use `ChampCity A/I` for the Electron window title and package metadata where applicable.
+- Frontend framework direction: start with React for post-foundation UI work because Figma will be the UI designer and React is preferred for design handoff.
+- Evidence attachment policy: copy durable evidence into the repo when it is small and relevant, and also record original source paths when the file comes from outside the repo.
+- Future LLM provider policy: design for provider abstraction, but do not implement SDKs yet.
+- Likely future LLM providers include OpenAI API, Anthropic, local Ollama, and a generic OpenAI-compatible endpoint for providers such as Featherless or LM Studio.
+
 ## Security
 
 - Do not expose, request, print, or store secrets.
@@ -26,7 +37,35 @@
 
 - Run available validation commands before reporting completion.
 - If a check cannot be run, report the reason clearly.
-- Current foundation validation is typecheck/build focused until unit tests are added.
+- Required validation commands before release tags:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm test`
+  - `git status --short`
+- Future validation additions: add unit tests and renderer smoke tests once those exist.
+
+## Builder Report Artifacts
+
+- Every Builder pass must create a Markdown Builder Report and place it in the `Builder_Reports` folder for the respective phase being worked.
+- Required path pattern: `planning/phases/<phase-folder>/Builder_Reports/`.
+- Required report naming convention: `BUILDER_REPORT_<work_card_or_fix_id>_<short_task_name>.md`.
+- Example Work Card report: `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC01_work_card_schema_renderer.md`.
+- Example fix/governance report: `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX01_agents_report_rule.md`.
+- The report must identify whether the pass was for a numbered Work Card or a simple fix/governance update.
+- The report must be committed with the related work unless the prompt explicitly says not to commit.
+- Each Builder Report must include:
+  - Repository path inspected.
+  - Git branch and remote status.
+  - Files created.
+  - Files modified.
+  - Files intentionally not created.
+  - Commands run and results.
+  - Validation performed.
+  - Validation skipped and reason.
+  - Git actions performed, including commit hash and tag if applicable.
+  - Security/secret-safety notes.
+  - Blocking questions, if any.
+  - Recommended next Builder task.
 
 ## Final Report Requirements
 
