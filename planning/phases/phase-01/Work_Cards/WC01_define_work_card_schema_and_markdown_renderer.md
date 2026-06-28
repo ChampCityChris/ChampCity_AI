@@ -1,0 +1,160 @@
+# Work Card: Define Work Card schema and Markdown renderer
+
+## Work Card ID
+
+WC01
+
+Created: 2026-06-28T00:00:00.000Z
+Updated: 2026-06-28T00:00:00.000Z
+
+## Phase
+
+phase-01
+
+## Status
+
+ready_for_builder
+
+## What Problem Are We Solving?
+
+ChampCity A/I needs a durable, structured Work Card model before UI capture, Architect prompts, risk routing, or Builder handoff features can be built.
+
+## What Should This Accomplish?
+
+Create the TypeScript Work Card schema, validation helper, Markdown renderer, sample fixture, validation script, and phase-01 Work Card artifact for the MVP foundation.
+
+## What Should the User Be Able To Do?
+
+The Operator and Architect can reference a concrete Work Card artifact, and future Builder prompts can start from structured Work Card data instead of loose chat context.
+
+## What Is Included?
+
+- Create shared Work Card domain source under `src/shared/workCards/`.
+- Define TypeScript Work Card status and risk-level unions plus the Work Card interface.
+- Add a validation helper that returns structured validation results.
+- Add a Markdown renderer with durable human-readable headings and a Builder Handoff Prompt section.
+- Add a valid WC01 fixture and a simple validation script.
+- Create the `planning/phases/phase-01/Work_Cards/` convention and rendered WC01 Markdown artifact.
+- Create a WC01 Builder Report in `planning/phases/phase-01/Builder_Reports/`.
+
+## What Is Not Included?
+
+- Build the New Work Card capture form.
+- Add React or any UI screens.
+- Implement the risk router.
+- Implement LLM provider abstraction or provider SDKs.
+- Add authentication, databases, cloud services, deployment automation, MCP integrations, or connector integrations.
+- Refactor unrelated source files.
+
+## Requirements
+
+- Support structured TypeScript and JSON-compatible Work Card data.
+- Include all required Work Card fields from the WC01 prompt.
+- Allow only the approved Work Card workflow statuses.
+- Use only a basic `riskLevel` union with `low`, `medium`, and `high` values.
+- Keep validation simple and avoid external validation dependencies.
+- Render the required non-developer-friendly Markdown headings.
+- Generate a Builder Handoff Prompt from structured Work Card fields.
+- Keep renderer behavior free of filesystem writes.
+
+## How We Know This Is Done
+
+- The WC01 fixture passes `validateWorkCard`.
+- The Markdown renderer includes every required heading.
+- Rendered Markdown includes `## Builder Handoff Prompt`.
+- The phase-01 `Work_Cards` folder contains the rendered WC01 artifact.
+- `npm run typecheck`, `npm run build`, `npm test`, and the Work Card validation script pass.
+- Only WC01-scope files are staged and committed.
+
+## How This Should Be Validated
+
+- Run `npm run typecheck`.
+- Run `npm run build`.
+- Run `npm test`.
+- Run `npm run test:work-cards`.
+- Run `git status --short` and review changed files.
+
+## Risk Level
+
+low
+
+## Risks and Watch Items
+
+- Renderer output and the checked-in Markdown artifact could drift if future changes do not regenerate or compare artifacts.
+- Validation could become too strict for future draft Work Cards if requirements change.
+- The Builder Handoff Prompt is intentionally basic and may need expansion in later Work Cards.
+
+## Builder Instructions
+
+- Verify the repository path before editing.
+- Read `AGENTS.md`, the latest Builder Report, and `planning/project/WORK_CARD_BACKLOG.md` before implementation.
+- Keep the pass limited to Work Card schema, validation, rendering, fixture, validation script, phase folder convention, rendered Work Card artifact, and Builder Report.
+- Do not create UI, React, provider SDK, risk router, database, cloud, auth, deployment, MCP, or connector code.
+- Run the required validation commands and document results in the Builder Report.
+- Stage only files created or modified for WC01 and commit with `feat: add work card schema and markdown renderer`.
+
+## Operator Notes
+
+- A Work Card is the smallest buildable unit of work that can be handed to a Builder.
+- A Work Card should never be authored by the Operator alone.
+- The Architect is responsible for translating the Operator's words into a structured Work Card.
+- The future New Work Card capture form is deferred to Work Card 2.
+
+## Builder Handoff Prompt
+
+Use this as the starting Builder prompt:
+
+You are acting as Builder for ChampCity A/I.
+
+Before editing:
+- Verify the repository path before editing. Expected repository: `C:\Users\chapm\Projects\ChampCity_AI`.
+- Read `AGENTS.md` and relevant planning files.
+
+Work Card: WC01 - Define Work Card schema and Markdown renderer
+
+Goal: Create the TypeScript Work Card schema, validation helper, Markdown renderer, sample fixture, validation script, and phase-01 Work Card artifact for the MVP foundation.
+
+Scope:
+- Create shared Work Card domain source under `src/shared/workCards/`.
+- Define TypeScript Work Card status and risk-level unions plus the Work Card interface.
+- Add a validation helper that returns structured validation results.
+- Add a Markdown renderer with durable human-readable headings and a Builder Handoff Prompt section.
+- Add a valid WC01 fixture and a simple validation script.
+- Create the `planning/phases/phase-01/Work_Cards/` convention and rendered WC01 Markdown artifact.
+- Create a WC01 Builder Report in `planning/phases/phase-01/Builder_Reports/`.
+
+Out of scope:
+- Build the New Work Card capture form.
+- Add React or any UI screens.
+- Implement the risk router.
+- Implement LLM provider abstraction or provider SDKs.
+- Add authentication, databases, cloud services, deployment automation, MCP integrations, or connector integrations.
+- Refactor unrelated source files.
+
+Requirements:
+- Support structured TypeScript and JSON-compatible Work Card data.
+- Include all required Work Card fields from the WC01 prompt.
+- Allow only the approved Work Card workflow statuses.
+- Use only a basic `riskLevel` union with `low`, `medium`, and `high` values.
+- Keep validation simple and avoid external validation dependencies.
+- Render the required non-developer-friendly Markdown headings.
+- Generate a Builder Handoff Prompt from structured Work Card fields.
+- Keep renderer behavior free of filesystem writes.
+
+Acceptance criteria:
+- The WC01 fixture passes `validateWorkCard`.
+- The Markdown renderer includes every required heading.
+- Rendered Markdown includes `## Builder Handoff Prompt`.
+- The phase-01 `Work_Cards` folder contains the rendered WC01 artifact.
+- `npm run typecheck`, `npm run build`, `npm test`, and the Work Card validation script pass.
+- Only WC01-scope files are staged and committed.
+
+Validation plan:
+- Run `npm run typecheck`.
+- Run `npm run build`.
+- Run `npm test`.
+- Run `npm run test:work-cards`.
+- Run `git status --short` and review changed files.
+
+Builder Report:
+- Create a Builder Report under `planning/phases/phase-01/Builder_Reports/` and include commands run, validation results, security notes, git actions, and the recommended next Builder task.
