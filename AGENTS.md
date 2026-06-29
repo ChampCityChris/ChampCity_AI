@@ -25,6 +25,15 @@
 - Future LLM provider policy: design for provider abstraction, but do not implement SDKs yet.
 - Likely future LLM providers include OpenAI API, Anthropic, local Ollama, and a generic OpenAI-compatible endpoint for providers such as Featherless or LM Studio.
 
+## Work Card Artifacts
+
+- Every durable Work Card must be saved as both structured JSON for app workflows and rendered Markdown for human-readable planning records.
+- Required JSON path pattern: `planning/phases/<phase-folder>/Work_Cards/<work_card_id>_<slug>.json`.
+- Required Markdown path pattern: `planning/phases/<phase-folder>/Work_Cards/<work_card_id>_<slug>.md`.
+- The JSON artifact is the structured app-readable Work Card source.
+- The Markdown artifact is the durable human-readable rendering.
+- Builders must not create Markdown-only Work Cards unless the prompt explicitly says it is a temporary note and not an app-selectable Work Card.
+
 ## Security
 
 - Do not expose, request, print, or store secrets.

@@ -6,6 +6,8 @@ type AppScreen =
   | "risk-router";
 
 const defaultPhase = "phase-01";
+const workCardJsonSelectorHelp =
+  "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are not app-readable Work Cards.";
 
 const initialForm: ChampCityWorkCardDraftInput = {
   workCardId: "WC02",
@@ -571,6 +573,7 @@ function ArchitectPromptComposerScreen(): unknown {
         h("span", { className: "status-pill" }, phase),
       ),
       renderErrors(errors),
+      h("p", { className: "selector-help" }, workCardJsonSelectorHelp),
       invalidFiles.length > 0
         ? h(
             "div",
@@ -865,6 +868,7 @@ function RiskRouterScreen(): unknown {
         h("span", { className: "status-pill" }, phase),
       ),
       renderErrors(errors),
+      h("p", { className: "selector-help" }, workCardJsonSelectorHelp),
       invalidFiles.length > 0
         ? h(
             "div",

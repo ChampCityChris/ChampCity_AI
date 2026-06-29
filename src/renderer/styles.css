@@ -171,6 +171,13 @@ button {
   background: #eaf7ef;
 }
 
+.selector-help {
+  margin: -6px 0 18px;
+  color: #48606f;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .error-box,
 .save-result,
 .warning-box,

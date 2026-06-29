@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDir, "..");
+const checkedInWorkCardsDirectory = resolve(
+  repositoryRoot,
+  "planning/phases/phase-01/Work_Cards",
+);
 
 const { workCardFixture } = require("../dist/shared/workCards/fixtures/workCardFixture.js");
 const { workCardCaptureFixture } = require("../dist/shared/workCards/fixtures/workCardCaptureFixture.js");
@@ -39,6 +43,7 @@ const {
   validateSafePhaseFolder,
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
+  listSavedWorkCards,
   resolveInside,
   resolveRiskReviewsDirectory,
   validateSavedWorkCardJsonFileName,
@@ -78,6 +83,8 @@ const renderedArtifacts = [
 for (const artifact of renderedArtifacts) {
   assertFixtureArtifact(artifact.fixture, artifact.path);
 }
+
+assertCheckedInJsonArtifacts();
 
 const draft = buildDraftWorkCard(
   {
@@ -144,6 +151,7 @@ try {
 assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
+await assertSavedWorkCardListing();
 
 console.log("Work Card fixture validation passed.");
 
@@ -184,6 +192,77 @@ function assertFixtureArtifact(fixture, renderedFixturePath) {
       `Checked-in ${fixture.workCardId} Markdown does not match the renderer output.`,
     );
     process.exit(1);
+  }
+}
+
+function assertCheckedInJsonArtifacts() {
+  const jsonFileNames = readdirSync(checkedInWorkCardsDirectory)
+    .filter((fileName) => fileName.toLowerCase().endsWith(".json"))
+    .sort();
+
+  if (jsonFileNames.length === 0) {
+    console.error("No checked-in Work Card JSON artifacts were found.");
+    process.exit(1);
+  }
+
+  for (const fileName of jsonFileNames) {
+    const jsonPath = resolve(checkedInWorkCardsDirectory, fileName);
+    const markdownPath = resolve(
+      checkedInWorkCardsDirectory,
+      fileName.replace(/\.json$/i, ".md"),
+    );
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(readFileSync(jsonPath, "utf8"));
+    } catch (error) {
+      console.error(`Checked-in Work Card JSON could not be parsed: ${fileName}`);
+      console.error(error);
+      process.exit(1);
+    }
+
+    const validation = validateWorkCard(parsed);
+
+    if (!validation.valid) {
+      console.error(`Checked-in Work Card JSON ${fileName} validation failed:`);
+      for (const error of validation.errors) {
+        console.error(`- ${error}`);
+      }
+      process.exit(1);
+    }
+
+    if (!existsSync(markdownPath)) {
+      console.error(
+        `Checked-in Work Card JSON ${fileName} does not have a matching Markdown artifact.`,
+      );
+      process.exit(1);
+    }
+
+    const markdown = renderWorkCardMarkdown(parsed);
+    const requiredHeadings = [`# Work Card: ${parsed.title}`, ...workCardMarkdownHeadings];
+    const missingHeadings = requiredHeadings.filter(
+      (heading) => !markdown.includes(heading),
+    );
+
+    if (missingHeadings.length > 0) {
+      console.error(
+        `Rendered checked-in Work Card Markdown for ${fileName} is missing required headings:`,
+      );
+      for (const heading of missingHeadings) {
+        console.error(`- ${heading}`);
+      }
+      process.exit(1);
+    }
+
+    const checkedInMarkdown = readFileSync(markdownPath, "utf8");
+
+    if (checkedInMarkdown !== markdown) {
+      console.error(
+        `Checked-in Work Card JSON ${fileName} does not render to its matching Markdown artifact.`,
+      );
+      process.exit(1);
+    }
   }
 }
 
@@ -394,6 +473,33 @@ function assertRiskReviewMarkdown() {
 
   if (buildRiskReviewFileName(workCardRiskRouterFixture) !== expectedFileName) {
     console.error("Risk Review filename builder returned the wrong filename.");
+    process.exit(1);
+  }
+}
+
+async function assertSavedWorkCardListing() {
+  const result = await listSavedWorkCards("phase-01");
+
+  if (!result.ok) {
+    console.error("Saved Work Card listing failed for phase-01:");
+    for (const error of result.errorMessages ?? []) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const listedWorkCardIds = new Set(
+    (result.workCards ?? []).map((workCard) => workCard.workCardId),
+  );
+  const expectedWorkCardIds = ["WC01", "WC02", "WC03", "WC04"];
+  const missingWorkCardIds = expectedWorkCardIds.filter(
+    (workCardId) => !listedWorkCardIds.has(workCardId),
+  );
+
+  if (missingWorkCardIds.length > 0) {
+    console.error(
+      `Saved Work Card listing is missing expected Work Cards: ${missingWorkCardIds.join(", ")}.`,
+    );
     process.exit(1);
   }
 }
