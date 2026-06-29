@@ -12,6 +12,12 @@ import type {
   ListSavedWorkCardsResult,
   SavedWorkCardSummary,
 } from "../shared/workCards/renderArchitectFramingPrompt";
+import type {
+  RiskReviewPreviewResult,
+  RiskReviewRequest,
+  RiskReviewSaveResult,
+} from "../shared/workCards/renderRiskReviewMarkdown";
+import type { WorkCardRiskReview } from "../shared/workCards/riskRouter";
 
 type ReactStateSetter<T> = (value: T | ((previous: T) => T)) => void;
 
@@ -51,6 +57,10 @@ declare global {
   type ChampCityListSavedWorkCardsResult = ListSavedWorkCardsResult;
   type ChampCityArchitectPromptPreviewResult = ArchitectPromptPreviewResult;
   type ChampCityArchitectPromptSaveResult = ArchitectPromptSaveResult;
+  type ChampCityRiskReviewRequest = RiskReviewRequest;
+  type ChampCityRiskReviewPreviewResult = RiskReviewPreviewResult;
+  type ChampCityRiskReviewSaveResult = RiskReviewSaveResult;
+  type ChampCityWorkCardRiskReview = WorkCardRiskReview;
 
   interface Window {
     champCity: {
@@ -75,6 +85,12 @@ declare global {
       saveArchitectPrompt: (
         input: ArchitectPromptRequest,
       ) => Promise<ArchitectPromptSaveResult>;
+      previewRiskReview: (
+        input: RiskReviewRequest,
+      ) => Promise<RiskReviewPreviewResult>;
+      saveRiskReview: (
+        input: RiskReviewRequest,
+      ) => Promise<RiskReviewSaveResult>;
     };
   }
 }

@@ -8,6 +8,7 @@ export interface SavedWorkCardSummary {
   title: string;
   status: string;
   phase: string;
+  riskLevel: string;
 }
 
 export interface InvalidSavedWorkCardFile {

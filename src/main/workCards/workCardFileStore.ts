@@ -22,7 +22,15 @@ import {
   renderArchitectFramingPrompt,
   type SavedWorkCardSummary,
 } from "../../shared/workCards/renderArchitectFramingPrompt";
+import {
+  buildRiskReviewFileName,
+  type RiskReviewPreviewResult,
+  type RiskReviewRequest,
+  type RiskReviewSaveResult,
+  renderRiskReviewMarkdown,
+} from "../../shared/workCards/renderRiskReviewMarkdown";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
+import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
 import { validateWorkCard } from "../../shared/workCards/validateWorkCard";
 
@@ -252,6 +260,77 @@ export async function saveArchitectPrompt(
   }
 }
 
+export async function previewRiskReview(
+  input: RiskReviewRequest,
+): Promise<RiskReviewPreviewResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const review = routeWorkCardRisk(workCard);
+    const markdown = renderRiskReviewMarkdown(
+      workCard,
+      review,
+      new Date().toISOString(),
+    );
+
+    return {
+      ok: true,
+      review,
+      markdown,
+      workCard,
+      sourceFileName: input.fileName,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveRiskReview(
+  input: RiskReviewRequest,
+): Promise<RiskReviewSaveResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const review = routeWorkCardRisk(workCard);
+    const markdown = renderRiskReviewMarkdown(
+      workCard,
+      review,
+      new Date().toISOString(),
+    );
+    const directory = resolveRiskReviewsDirectory(workCard.phase);
+    const savedFileName = buildRiskReviewFileName(workCard);
+    const markdownPath = resolveInside(directory, savedFileName);
+
+    await failIfExists(
+      markdownPath,
+      "A Risk Review artifact for this Work Card already exists.",
+    );
+    await mkdir(directory, { recursive: true });
+    await writeFile(markdownPath, markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ok: true,
+      review,
+      markdown,
+      workCard,
+      sourceFileName: input.fileName,
+      markdownPath,
+      savedFileName,
+    };
+  } catch (error) {
+    console.error("Failed to save risk review.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export function resolveWorkCardsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -270,6 +349,16 @@ export function resolveArchitectPromptsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Architect_Prompts");
+}
+
+export function resolveRiskReviewsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Risk_Reviews");
 }
 
 export function resolveInside(root: string, ...segments: string[]): string {
@@ -349,6 +438,7 @@ function toSavedWorkCardSummary(
     title: workCard.title,
     status: workCard.status,
     phase: workCard.phase,
+    riskLevel: workCard.riskLevel,
   };
 }
 

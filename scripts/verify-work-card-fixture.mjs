@@ -13,6 +13,9 @@ const {
   workCardArchitectPromptFixture,
 } = require("../dist/shared/workCards/fixtures/workCardArchitectPromptFixture.js");
 const {
+  workCardRiskRouterFixture,
+} = require("../dist/shared/workCards/fixtures/workCardRiskRouterFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
 const {
@@ -23,12 +26,21 @@ const {
   renderWorkCardMarkdown,
   workCardMarkdownHeadings,
 } = require("../dist/shared/workCards/renderWorkCardMarkdown.js");
+const {
+  buildRiskReviewFileName,
+  renderRiskReviewMarkdown,
+  riskReviewNoApprovalNote,
+} = require("../dist/shared/workCards/renderRiskReviewMarkdown.js");
+const {
+  routeWorkCardRisk,
+} = require("../dist/shared/workCards/riskRouter.js");
 const { validateWorkCard } = require("../dist/shared/workCards/validateWorkCard.js");
 const {
   validateSafePhaseFolder,
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
   resolveInside,
+  resolveRiskReviewsDirectory,
   validateSavedWorkCardJsonFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
 
@@ -52,6 +64,13 @@ const renderedArtifacts = [
     path: resolve(
       repositoryRoot,
       "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
+    ),
+  },
+  {
+    fixture: workCardRiskRouterFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
     ),
   },
 ];
@@ -114,7 +133,17 @@ try {
   // Expected.
 }
 
+try {
+  resolveRiskReviewsDirectory("../bad");
+  console.error("Risk Review directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
 assertArchitectPrompt(workCardArchitectPromptFixture);
+assertRiskRouter();
+assertRiskReviewMarkdown();
 
 console.log("Work Card fixture validation passed.");
 
@@ -176,4 +205,219 @@ function assertArchitectPrompt(fixture) {
     }
     process.exit(1);
   }
+}
+
+function assertRiskRouter() {
+  const highRiskCases = [
+    {
+      category: "Secrets or credentials",
+      text: "Use an API key, secret token, and credentials in the workflow.",
+    },
+    {
+      category: "Authentication or authorization",
+      text: "Add authentication, authorization, and login behavior.",
+    },
+    {
+      category: "Filesystem writes outside approved planning paths",
+      text: "Allow arbitrary filesystem writes outside approved planning folders.",
+    },
+    {
+      category: "Database or migration changes",
+      text: "Run a database migration that changes SQL tables.",
+    },
+    {
+      category: "Cloud, deployment, or infrastructure changes",
+      text: "Update cloud deployment, hosting, and infrastructure settings.",
+    },
+    {
+      category: "External API/provider integration",
+      text: "Add an OpenAI provider SDK and external API integration.",
+    },
+    {
+      category: "MCP or connector integration",
+      text: "Add MCP connector integration for saved Work Cards.",
+    },
+    {
+      category: "Payment, billing, or account deletion",
+      text: "Change Stripe payment, billing, refund, and account deletion behavior.",
+    },
+    {
+      category: "Security policy changes",
+      text: "Change the security policy and content security policy.",
+    },
+    {
+      category: "Destructive Git/GitHub actions",
+      text: "Run git reset --hard and force push the branch.",
+    },
+    {
+      category: "Large dependency upgrades or audit fixes",
+      text: "Run npm audit fix and upgrade dependencies across the app.",
+    },
+    {
+      category: "Broad refactors",
+      text: "Perform a broad refactor and rewrite the architecture.",
+    },
+  ];
+
+  highRiskCases.forEach((riskCase, index) => {
+    const review = routeWorkCardRisk(
+      makeWorkCard({
+        workCardId: `WCRISK${index + 1}`,
+        title: riskCase.category,
+        problem: riskCase.text,
+        scope: [riskCase.text],
+      }),
+    );
+
+    if (review.assessedRiskLevel !== "high") {
+      console.error(`${riskCase.category} was not classified as high risk.`);
+      process.exit(1);
+    }
+
+    if (
+      !review.flaggedCategories.some(
+        (flag) => flag.category === riskCase.category,
+      )
+    ) {
+      console.error(`${riskCase.category} was not flagged by the risk router.`);
+      process.exit(1);
+    }
+  });
+
+  const scopeCreepReview = routeWorkCardRisk(
+    makeWorkCard({
+      workCardId: "WCSCOPE",
+      title: "Scope creep sample",
+      problem:
+        "Combine a UI redesign with a database migration and cloud deployment work.",
+      scope: [
+        "UI redesign",
+        "Database migration",
+        "Cloud deployment",
+      ],
+    }),
+  );
+
+  if (scopeCreepReview.scopeCreepSignals.length === 0) {
+    console.error("Risk router did not detect a simple scope-creep combination.");
+    process.exit(1);
+  }
+
+  const lowRiskReview = routeWorkCardRisk(
+    makeWorkCard({
+      workCardId: "WCLOW",
+      title: "Update planning note",
+      riskLevel: "low",
+      problem: "Make a documentation-only Markdown planning note update.",
+      goal: "Tighten prompt wording in a report update.",
+      userOutcome: "The Operator can read clearer documentation.",
+      scope: ["Update Markdown wording."],
+      requirements: ["Keep this to documentation-only copy edits."],
+      acceptanceCriteria: ["The Markdown note is easier to read."],
+      validationPlan: ["Read the Markdown note."],
+      risks: ["Wording could still need Architect review."],
+      builderInstructions: ["Keep the update documentation-only."],
+      operatorNotes: ["Documentation-only note."],
+    }),
+  );
+
+  if (lowRiskReview.assessedRiskLevel !== "low") {
+    console.error("Documentation-only Work Card was not classified as low risk.");
+    process.exit(1);
+  }
+
+  const lowRiskMarkdown = renderRiskReviewMarkdown(
+    makeWorkCard({
+      workCardId: "WCLOW",
+      title: "Update planning note",
+      riskLevel: "low",
+      problem: "Make a documentation-only Markdown planning note update.",
+      goal: "Tighten prompt wording in a report update.",
+      userOutcome: "The Operator can read clearer documentation.",
+      scope: ["Update Markdown wording."],
+      requirements: ["Keep this to documentation-only copy edits."],
+      acceptanceCriteria: ["The Markdown note is easier to read."],
+      validationPlan: ["Read the Markdown note."],
+      risks: ["Wording could still need Architect review."],
+      builderInstructions: ["Keep the update documentation-only."],
+      operatorNotes: ["Documentation-only note."],
+    }),
+    lowRiskReview,
+    "2026-06-29T00:00:00.000Z",
+  );
+
+  if (!lowRiskMarkdown.includes("Normal Architect review is still required")) {
+    console.error("Low-risk Markdown does not require normal Architect review.");
+    process.exit(1);
+  }
+
+  if (/auto-approve|automatically approved|approved for Builder/i.test(lowRiskMarkdown)) {
+    console.error("Low-risk Markdown implies automatic approval.");
+    process.exit(1);
+  }
+}
+
+function assertRiskReviewMarkdown() {
+  const highRiskWorkCard = makeWorkCard({
+    workCardId: "WCREVIEW",
+    title: "Review secrets",
+    problem: "Handle an API key and secret token.",
+    scope: ["Check credential handling."],
+  });
+  const review = routeWorkCardRisk(highRiskWorkCard);
+  const markdown = renderRiskReviewMarkdown(
+    highRiskWorkCard,
+    review,
+    "2026-06-29T00:00:00.000Z",
+  );
+
+  const requiredText = [
+    "- Assessed risk level: high",
+    "## Flagged Categories",
+    "Secrets or credentials",
+    "## Architect Review Questions",
+    "Does this Work Card need access to secrets or credentials, and can that be avoided?",
+    riskReviewNoApprovalNote,
+    "does not modify or approve",
+  ];
+  const missingText = requiredText.filter((text) => !markdown.includes(text));
+
+  if (missingText.length > 0) {
+    console.error("Risk Review Markdown is missing required text:");
+    for (const text of missingText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const expectedFileName = "RISK_REVIEW_WC04_add_risk_router.md";
+
+  if (buildRiskReviewFileName(workCardRiskRouterFixture) !== expectedFileName) {
+    console.error("Risk Review filename builder returned the wrong filename.");
+    process.exit(1);
+  }
+}
+
+function makeWorkCard(overrides = {}) {
+  return {
+    workCardId: "WCTEST",
+    title: "Risk router test card",
+    phase: "phase-01",
+    status: "ready_for_architect",
+    createdAt: "2026-06-29T00:00:00.000Z",
+    updatedAt: "2026-06-29T00:00:00.000Z",
+    problem: "Build a small UI validation change.",
+    goal: "Make the workflow clearer.",
+    userOutcome: "The Operator can review clearer guidance.",
+    scope: ["Make a narrow change."],
+    outOfScope: ["Avoid unrelated work."],
+    requirements: ["Keep the change narrow."],
+    acceptanceCriteria: ["The behavior is visible."],
+    validationPlan: ["Run the lightweight validation script."],
+    riskLevel: "medium",
+    risks: ["Manual review is still required."],
+    builderInstructions: ["Keep the Builder task narrow."],
+    operatorNotes: ["This is a deterministic test card."],
+    ...overrides,
+  };
 }

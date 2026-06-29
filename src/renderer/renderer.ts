@@ -1,6 +1,9 @@
 const h = React.createElement;
 
-type AppScreen = "new-work-card" | "architect-prompt-composer";
+type AppScreen =
+  | "new-work-card"
+  | "architect-prompt-composer"
+  | "risk-router";
 
 const defaultPhase = "phase-01";
 
@@ -35,13 +38,7 @@ function App(): unknown {
         "div",
         null,
         h("p", { className: "eyebrow" }, appInfo.name),
-        h(
-          "h1",
-          null,
-          activeScreen === "new-work-card"
-            ? "New Work Card"
-            : "Architect Prompt Composer",
-        ),
+        h("h1", null, getScreenTitle(activeScreen)),
       ),
       h(
         "nav",
@@ -56,12 +53,31 @@ function App(): unknown {
           activeScreen === "architect-prompt-composer",
           () => setActiveScreen("architect-prompt-composer"),
         ),
+        renderNavButton(
+          "Risk Router",
+          activeScreen === "risk-router",
+          () => setActiveScreen("risk-router"),
+        ),
       ),
     ),
     activeScreen === "new-work-card"
       ? h(NewWorkCardScreen)
-      : h(ArchitectPromptComposerScreen),
+      : activeScreen === "architect-prompt-composer"
+        ? h(ArchitectPromptComposerScreen)
+        : h(RiskRouterScreen),
   );
+}
+
+function getScreenTitle(activeScreen: AppScreen): string {
+  if (activeScreen === "new-work-card") {
+    return "New Work Card";
+  }
+
+  if (activeScreen === "architect-prompt-composer") {
+    return "Architect Prompt Composer";
+  }
+
+  return "Risk Router";
 }
 
 function renderNavButton(
@@ -673,6 +689,274 @@ function ArchitectPromptComposerScreen(): unknown {
   );
 }
 
+function RiskRouterScreen(): unknown {
+  const [phase, setPhase] = React.useState(defaultPhase);
+  const [workCards, setWorkCards] = React.useState<
+    ChampCitySavedWorkCardSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = React.useState<
+    ChampCityInvalidSavedWorkCardFile[]
+  >([]);
+  const [selectedFileName, setSelectedFileName] = React.useState("");
+  const [riskReview, setRiskReview] =
+    React.useState<ChampCityWorkCardRiskReview | null>(null);
+  const [errors, setErrors] = React.useState<string[]>([]);
+  const [statusMessage, setStatusMessage] =
+    React.useState("Loading saved Work Cards.");
+  const [isListBusy, setIsListBusy] = React.useState(false);
+  const [isReviewBusy, setIsReviewBusy] = React.useState(false);
+  const [saveResult, setSaveResult] =
+    React.useState<ChampCityRiskReviewSaveResult | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    setIsListBusy(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedWorkCards(phase)
+      .then((result: ChampCityListSavedWorkCardsResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+
+        if (!result.ok) {
+          setWorkCards([]);
+          setInvalidFiles([]);
+          setSelectedFileName("");
+          setRiskReview(null);
+          setErrors(result.errorMessages ?? ["Saved Work Cards could not be loaded."]);
+          setStatusMessage("Saved Work Cards could not be loaded.");
+          return;
+        }
+
+        const nextWorkCards = result.workCards ?? [];
+
+        setWorkCards(nextWorkCards);
+        setInvalidFiles(result.invalidFiles ?? []);
+        setSelectedFileName((previous) =>
+          nextWorkCards.some((workCard) => workCard.fileName === previous)
+            ? previous
+            : nextWorkCards[0]?.fileName ?? "",
+        );
+
+        if (nextWorkCards.length === 0) {
+          setRiskReview(null);
+          setStatusMessage("No saved Work Card JSON files found.");
+          return;
+        }
+
+        setStatusMessage("Saved Work Cards loaded.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+        setWorkCards([]);
+        setInvalidFiles([]);
+        setSelectedFileName("");
+        setRiskReview(null);
+        setErrors(["Saved Work Cards could not be loaded."]);
+        setStatusMessage("Saved Work Cards could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  React.useEffect(() => {
+    if (selectedFileName.trim().length === 0) {
+      setRiskReview(null);
+      setSaveResult(null);
+      return;
+    }
+
+    let active = true;
+
+    setIsReviewBusy(true);
+    setErrors([]);
+    setSaveResult(null);
+
+    window.champCity
+      .previewRiskReview({ phase, fileName: selectedFileName })
+      .then((result: ChampCityRiskReviewPreviewResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsReviewBusy(false);
+
+        if (!result.ok || !result.review) {
+          setRiskReview(null);
+          setErrors(result.errorMessages ?? ["The risk review could not be generated."]);
+          setStatusMessage("Risk review generation needs attention.");
+          return;
+        }
+
+        setRiskReview(result.review);
+        setStatusMessage("Risk review generated.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsReviewBusy(false);
+        setRiskReview(null);
+        setErrors(["The risk review could not be generated."]);
+        setStatusMessage("Risk review generation needs attention.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, selectedFileName]);
+
+  const selectedWorkCard =
+    workCards.find((workCard) => workCard.fileName === selectedFileName) ?? null;
+  const hasWorkCards = workCards.length > 0;
+
+  async function saveReview(): Promise<void> {
+    if (selectedFileName.trim().length === 0) {
+      setErrors(["Select a saved Work Card before saving a risk review."]);
+      return;
+    }
+
+    setIsReviewBusy(true);
+    setErrors([]);
+
+    const result = await window.champCity.saveRiskReview({
+      phase,
+      fileName: selectedFileName,
+    });
+
+    setIsReviewBusy(false);
+
+    if (!result.ok || !result.review) {
+      setErrors(result.errorMessages ?? ["The risk review could not be saved."]);
+      setStatusMessage("Save needs attention.");
+      return;
+    }
+
+    setRiskReview(result.review);
+    setSaveResult(result);
+    setStatusMessage("Risk review saved.");
+  }
+
+  return h(
+    "section",
+    {
+      className: "workspace prompt-workspace",
+      "aria-label": "Risk Router",
+    },
+    h(
+      "div",
+      { className: "selector-panel" },
+      h(
+        "div",
+        { className: "form-header" },
+        h("h2", null, "Saved Work Cards"),
+        h("span", { className: "status-pill" }, phase),
+      ),
+      renderErrors(errors),
+      invalidFiles.length > 0
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            h("h3", null, "Skipped files"),
+            h(
+              "ul",
+              null,
+              ...invalidFiles.map((file) =>
+                h(
+                  "li",
+                  { key: file.fileName },
+                  `${file.fileName}: ${file.errorMessages.join(" ")}`,
+                ),
+              ),
+            ),
+          )
+        : null,
+      renderPhaseField(phase, setPhase),
+      !hasWorkCards
+        ? h(
+            "div",
+            { className: "empty-state", role: "status" },
+            "No saved Work Card JSON files were found. Create a draft Work Card from the New Work Card screen first.",
+          )
+        : h(
+            "label",
+            { className: "field" },
+            h("span", null, "Saved Work Card"),
+            h(
+              "select",
+              {
+                value: selectedFileName,
+                disabled: isListBusy,
+                onChange: (event: Event) => {
+                  setSelectedFileName((event.target as HTMLSelectElement).value);
+                },
+              },
+              ...workCards.map((workCard) =>
+                h(
+                  "option",
+                  { key: workCard.fileName, value: workCard.fileName },
+                  `${workCard.workCardId} - ${workCard.title} (${workCard.phase})`,
+                ),
+              ),
+            ),
+          ),
+      selectedWorkCard ? renderSelectedWorkCardSummary(selectedWorkCard) : null,
+    ),
+    h(
+      "aside",
+      { className: "composer-panel", "aria-label": "Risk review" },
+      h(
+        "div",
+        { className: "preview-header" },
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, "Deterministic"),
+          h("h2", null, "Risk Review"),
+        ),
+        h("span", { className: "status-text" }, statusMessage),
+      ),
+      saveResult?.markdownPath
+        ? h(
+            "div",
+            { className: "save-result", role: "status" },
+            h("h3", null, "Saved"),
+            h("p", null, "Markdown: ", h("code", null, saveResult.markdownPath)),
+          )
+        : null,
+      riskReview ? renderRiskReview(riskReview) : renderNoRiskReviewState(),
+      h(
+        "div",
+        { className: "actions prompt-actions" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "button primary",
+            disabled: isReviewBusy || selectedFileName.trim().length === 0,
+            onClick: () => {
+              void saveReview();
+            },
+          },
+          "Save Risk Review",
+        ),
+      ),
+    ),
+  );
+}
+
 function renderPhaseField(
   value: string,
   setPhase: (value: string) => void,
@@ -700,7 +984,125 @@ function renderSelectedWorkCardSummary(
     h("div", null, h("dt", null, "Title"), h("dd", null, workCard.title)),
     h("div", null, h("dt", null, "Status"), h("dd", null, workCard.status)),
     h("div", null, h("dt", null, "Phase"), h("dd", null, workCard.phase)),
+    h("div", null, h("dt", null, "Current Risk Level"), h("dd", null, workCard.riskLevel)),
   );
+}
+
+function renderRiskReview(review: ChampCityWorkCardRiskReview): unknown {
+  return h(
+    "div",
+    { className: "risk-review" },
+    h(
+      "dl",
+      { className: "summary-grid risk-summary-grid" },
+      h("div", null, h("dt", null, "Work Card ID"), h("dd", null, review.workCardId)),
+      h("div", null, h("dt", null, "Title"), h("dd", null, review.title)),
+      h("div", null, h("dt", null, "Phase"), h("dd", null, review.phase)),
+      h(
+        "div",
+        null,
+        h("dt", null, "Assessed Risk"),
+        h(
+          "dd",
+          { className: riskLevelClassName(review.assessedRiskLevel) },
+          review.assessedRiskLevel,
+        ),
+      ),
+    ),
+    review.assessedRiskLevel === "high"
+      ? h(
+          "div",
+          { className: "warning-box", role: "status" },
+          "This Work Card appears high risk. Do not send it directly to Builder until the Architect reviews the flagged items.",
+        )
+      : null,
+    review.assessedRiskLevel === "low"
+      ? h(
+          "div",
+          { className: "notice-box", role: "status" },
+          "No major risk flags were detected. Normal Architect review is still required.",
+        )
+      : null,
+    h(
+      "section",
+      { className: "review-section" },
+      h("h3", null, "Summary"),
+      h("p", null, review.summary),
+    ),
+    h(
+      "section",
+      { className: "review-section" },
+      h("h3", null, "Flagged Categories"),
+      review.flaggedCategories.length === 0
+        ? h("p", null, "No flagged categories.")
+        : h(
+            "ul",
+            { className: "flag-list" },
+            ...review.flaggedCategories.map((flag) =>
+              h(
+                "li",
+                { key: flag.category, className: "flag-item" },
+                h(
+                  "div",
+                  { className: "flag-heading" },
+                  h("strong", null, flag.category),
+                  h("span", { className: riskLevelClassName(flag.severity) }, flag.severity),
+                ),
+                h("p", null, flag.rationale),
+                h(
+                  "p",
+                  { className: "matched-terms" },
+                  "Matched terms: ",
+                  flag.matchedTerms.join(", "),
+                ),
+                h("p", null, flag.suggestedArchitectQuestion),
+              ),
+            ),
+          ),
+    ),
+    h(
+      "section",
+      { className: "review-section" },
+      h("h3", null, "Scope-Creep Signals"),
+      renderSimpleList(
+        review.scopeCreepSignals,
+        "No scope-creep signals were detected.",
+      ),
+    ),
+    h(
+      "section",
+      { className: "review-section review-section-last" },
+      h("h3", null, "Architect Review Questions"),
+      renderSimpleList(
+        review.architectReviewQuestions,
+        "No extra Architect review questions were generated.",
+      ),
+    ),
+  );
+}
+
+function renderNoRiskReviewState(): unknown {
+  return h(
+    "div",
+    { className: "empty-state", role: "status" },
+    "Select a saved Work Card JSON file to generate a deterministic risk review.",
+  );
+}
+
+function renderSimpleList(items: string[], emptyMessage: string): unknown {
+  if (items.length === 0) {
+    return h("p", null, emptyMessage);
+  }
+
+  return h(
+    "ul",
+    null,
+    ...items.map((item) => h("li", { key: item }, item)),
+  );
+}
+
+function riskLevelClassName(level: string): string {
+  return `risk-level risk-level-${level}`;
 }
 
 function renderErrors(errors: string[]): unknown {

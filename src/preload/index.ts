@@ -12,6 +12,11 @@ import type {
   ArchitectPromptSaveResult,
   ListSavedWorkCardsResult,
 } from "../shared/workCards/renderArchitectFramingPrompt";
+import type {
+  RiskReviewPreviewResult,
+  RiskReviewRequest,
+  RiskReviewSaveResult,
+} from "../shared/workCards/renderRiskReviewMarkdown";
 
 const api = {
   getAppInfo: () => ({
@@ -37,6 +42,12 @@ const api = {
     input: ArchitectPromptRequest,
   ): Promise<ArchitectPromptSaveResult> =>
     ipcRenderer.invoke("workCards:saveArchitectPrompt", input),
+  previewRiskReview: (
+    input: RiskReviewRequest,
+  ): Promise<RiskReviewPreviewResult> =>
+    ipcRenderer.invoke("workCards:previewRiskReview", input),
+  saveRiskReview: (input: RiskReviewRequest): Promise<RiskReviewSaveResult> =>
+    ipcRenderer.invoke("workCards:saveRiskReview", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);

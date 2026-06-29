@@ -262,6 +262,98 @@ button {
   line-height: 1.35;
 }
 
+.risk-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.risk-level {
+  display: inline-grid;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.risk-level-low {
+  border: 1px solid #9fd5b4;
+  background: #eaf7ef;
+  color: #0f5132;
+}
+
+.risk-level-medium {
+  border: 1px solid #d6bd68;
+  background: #fff8dc;
+  color: #6b4e00;
+}
+
+.risk-level-high {
+  border: 1px solid #efb0a6;
+  background: #fff4f2;
+  color: #7f1d1d;
+}
+
+.risk-review {
+  margin-bottom: 74px;
+}
+
+.review-section {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dce4ec;
+}
+
+.review-section-last {
+  border-bottom: 0;
+}
+
+.review-section h3 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 0.98rem;
+}
+
+.review-section p,
+.review-section li {
+  color: #263744;
+  line-height: 1.5;
+}
+
+.review-section p {
+  margin: 0 0 10px;
+}
+
+.flag-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flag-item {
+  padding: 14px;
+  border: 1px solid #cbd5df;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.flag-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.matched-terms {
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
 .field-grid,
 .two-column {
   display: grid;
