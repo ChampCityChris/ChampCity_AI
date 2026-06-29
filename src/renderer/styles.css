@@ -216,13 +216,15 @@ button {
 
 .error-box h3,
 .save-result h3,
-.warning-box h3 {
+.warning-box h3,
+.notice-box h3 {
   margin: 0 0 8px;
   font-size: 0.92rem;
 }
 
 .error-box ul,
-.warning-box ul {
+.warning-box ul,
+.notice-box ul {
   margin: 0;
   padding-left: 18px;
   line-height: 1.5;
@@ -362,7 +364,8 @@ button {
 }
 
 .field-grid,
-.two-column {
+.two-column,
+.artifact-selector-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
@@ -379,6 +382,13 @@ button {
 
 .field span {
   line-height: 1.25;
+}
+
+.field-note {
+  color: #48606f;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .field input,
@@ -489,6 +499,7 @@ button {
   .workspace,
   .field-grid,
   .two-column,
+  .artifact-selector-grid,
   .summary-grid {
     grid-template-columns: 1fr;
   }

@@ -23,6 +23,20 @@ import {
   type SavedWorkCardSummary,
 } from "../../shared/workCards/renderArchitectFramingPrompt";
 import {
+  buildBuilderPromptFileName,
+  hasHighRiskReviewContext,
+  type BuilderPromptArtifactListResult,
+  type BuilderPromptArtifactOption,
+  type BuilderPromptArtifactOptions,
+  type BuilderPromptRequest,
+  type BuilderPromptSaveResult,
+  type BuilderPromptSupportingArtifact,
+  type BuilderPromptSupportingArtifactFileNames,
+  type BuilderPromptSupportingArtifacts,
+  type BuilderPromptPreviewResult,
+  renderBuilderPrompt,
+} from "../../shared/workCards/renderBuilderPrompt";
+import {
   buildRiskReviewFileName,
   type RiskReviewPreviewResult,
   type RiskReviewRequest,
@@ -36,6 +50,11 @@ import { validateWorkCard } from "../../shared/workCards/validateWorkCard";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
+type SupportingArtifactFolder =
+  | "Work_Cards"
+  | "Architect_Prompts"
+  | "Risk_Reviews"
+  | "Builder_Reports";
 
 export async function getNextWorkCardId(
   phase: string,
@@ -331,6 +350,149 @@ export async function saveRiskReview(
   }
 }
 
+export async function listBuilderPromptSupportingArtifacts(
+  input: BuilderPromptRequest,
+): Promise<BuilderPromptArtifactListResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const workCardMarkdownFileName = input.fileName.replace(/\.json$/i, ".md");
+    const invalidFiles: BuilderPromptArtifactListResult["invalidFiles"] = [];
+    const options: BuilderPromptArtifactOptions = {
+      workCardMarkdown: await listMarkdownArtifactOptions(
+        workCard.phase,
+        "Work_Cards",
+        workCard.workCardId,
+        workCardMarkdownFileName,
+        invalidFiles,
+      ),
+      architectPrompts: await listMarkdownArtifactOptions(
+        workCard.phase,
+        "Architect_Prompts",
+        workCard.workCardId,
+        undefined,
+        invalidFiles,
+      ),
+      riskReviews: await listMarkdownArtifactOptions(
+        workCard.phase,
+        "Risk_Reviews",
+        workCard.workCardId,
+        undefined,
+        invalidFiles,
+      ),
+      priorBuilderReports: await listMarkdownArtifactOptions(
+        workCard.phase,
+        "Builder_Reports",
+        workCard.workCardId,
+        undefined,
+        invalidFiles,
+      ),
+    };
+    const defaultSelections: BuilderPromptSupportingArtifactFileNames = {
+      workCardMarkdown: pickDefaultArtifactFileName(options.workCardMarkdown),
+      architectPrompt: pickDefaultArtifactFileName(options.architectPrompts),
+      riskReview: pickDefaultArtifactFileName(options.riskReviews),
+      priorBuilderReport: pickDefaultArtifactFileName(
+        options.priorBuilderReports,
+      ),
+    };
+
+    return {
+      ok: true,
+      workCard,
+      options,
+      defaultSelections,
+      notes: buildMissingArtifactNotes(defaultSelections),
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewBuilderPrompt(
+  input: BuilderPromptRequest,
+): Promise<BuilderPromptPreviewResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const supportingArtifacts = await readBuilderPromptSupportingArtifacts(
+      workCard.phase,
+      input.supportingArtifactFileNames,
+    );
+    const prompt = renderBuilderPrompt(workCard, supportingArtifacts);
+
+    return {
+      ok: true,
+      prompt,
+      workCard,
+      sourceFileName: input.fileName,
+      selectedArtifactFileNames:
+        toSelectedSupportingArtifactFileNames(supportingArtifacts),
+      hasHighRiskContext: hasBuilderPromptHighRiskContext(
+        workCard,
+        supportingArtifacts,
+      ),
+      hasRiskReviewSelected: Boolean(supportingArtifacts.riskReview),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveBuilderPrompt(
+  input: BuilderPromptRequest,
+): Promise<BuilderPromptSaveResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const supportingArtifacts = await readBuilderPromptSupportingArtifacts(
+      workCard.phase,
+      input.supportingArtifactFileNames,
+    );
+    const prompt = renderBuilderPrompt(workCard, supportingArtifacts);
+    const directory = resolveBuilderPromptsDirectory(workCard.phase);
+    const savedFileName = buildBuilderPromptFileName(workCard);
+    const markdownPath = resolveInside(directory, savedFileName);
+
+    await failIfExists(
+      markdownPath,
+      "A Builder Prompt artifact for this Work Card already exists.",
+    );
+    await mkdir(directory, { recursive: true });
+    await writeFile(markdownPath, `${prompt}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ok: true,
+      prompt,
+      workCard,
+      sourceFileName: input.fileName,
+      selectedArtifactFileNames:
+        toSelectedSupportingArtifactFileNames(supportingArtifacts),
+      hasHighRiskContext: hasBuilderPromptHighRiskContext(
+        workCard,
+        supportingArtifacts,
+      ),
+      hasRiskReviewSelected: Boolean(supportingArtifacts.riskReview),
+      markdownPath,
+      savedFileName,
+    };
+  } catch (error) {
+    console.error("Failed to save Builder prompt.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export function resolveWorkCardsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -359,6 +521,26 @@ export function resolveRiskReviewsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Risk_Reviews");
+}
+
+export function resolveBuilderReportsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Builder_Reports");
+}
+
+export function resolveBuilderPromptsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Builder_Prompts");
 }
 
 export function resolveInside(root: string, ...segments: string[]): string {
@@ -397,6 +579,30 @@ export function validateSavedWorkCardJsonFileName(fileName: string): string[] {
   return [];
 }
 
+export function validateMarkdownArtifactFileName(fileName: string): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a Markdown artifact or leave it unselected."];
+  }
+
+  if (value !== path.basename(value)) {
+    return ["Markdown artifact file names must not include folders."];
+  }
+
+  if (!value.toLowerCase().endsWith(".md")) {
+    return ["Supporting artifacts must be Markdown files."];
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*\.md$/.test(value)) {
+    return [
+      "Markdown artifact file names must use only letters, numbers, hyphens, underscores, and the .md extension.",
+    ];
+  }
+
+  return [];
+}
+
 async function readSavedWorkCardFile(
   phase: string,
   fileName: string,
@@ -426,6 +632,215 @@ async function readSavedWorkCardFile(
   }
 
   return workCard;
+}
+
+async function listMarkdownArtifactOptions(
+  phase: string,
+  folder: SupportingArtifactFolder,
+  workCardId: string,
+  preferredFileName: string | undefined,
+  invalidFiles: NonNullable<BuilderPromptArtifactListResult["invalidFiles"]>,
+): Promise<BuilderPromptArtifactOption[]> {
+  const directory = resolveSupportingArtifactDirectory(phase, folder);
+  let entries: string[] = [];
+
+  try {
+    entries = await readdir(directory);
+  } catch (error) {
+    if (!isNodeErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+  }
+
+  const options: BuilderPromptArtifactOption[] = [];
+
+  for (const fileName of entries.filter((entry) =>
+    entry.toLowerCase().endsWith(".md"),
+  )) {
+    const fileNameErrors = validateMarkdownArtifactFileName(fileName);
+
+    if (fileNameErrors.length > 0) {
+      invalidFiles.push({
+        folder,
+        fileName,
+        errorMessages: fileNameErrors,
+      });
+      continue;
+    }
+
+    options.push({
+      fileName,
+      label: fileName,
+      isDefaultMatch:
+        fileName === preferredFileName ||
+        fileNameMatchesWorkCardId(fileName, workCardId),
+    });
+  }
+
+  return options.sort((left, right) => {
+    if (left.fileName === preferredFileName) {
+      return -1;
+    }
+
+    if (right.fileName === preferredFileName) {
+      return 1;
+    }
+
+    if (left.isDefaultMatch !== right.isDefaultMatch) {
+      return left.isDefaultMatch ? -1 : 1;
+    }
+
+    return left.fileName.localeCompare(right.fileName);
+  });
+}
+
+async function readBuilderPromptSupportingArtifacts(
+  phase: string,
+  fileNames: BuilderPromptSupportingArtifactFileNames | undefined,
+): Promise<BuilderPromptSupportingArtifacts> {
+  const selected = fileNames ?? {};
+
+  return {
+    workCardMarkdown: await readOptionalMarkdownArtifact(
+      phase,
+      "Work_Cards",
+      selected.workCardMarkdown,
+    ),
+    architectPrompt: await readOptionalMarkdownArtifact(
+      phase,
+      "Architect_Prompts",
+      selected.architectPrompt,
+    ),
+    riskReview: await readOptionalMarkdownArtifact(
+      phase,
+      "Risk_Reviews",
+      selected.riskReview,
+    ),
+    priorBuilderReport: await readOptionalMarkdownArtifact(
+      phase,
+      "Builder_Reports",
+      selected.priorBuilderReport,
+    ),
+  };
+}
+
+async function readOptionalMarkdownArtifact(
+  phase: string,
+  folder: SupportingArtifactFolder,
+  fileName: string | undefined,
+): Promise<BuilderPromptSupportingArtifact | undefined> {
+  const value = fileName?.trim() ?? "";
+
+  if (value.length === 0) {
+    return undefined;
+  }
+
+  const fileNameErrors = validateMarkdownArtifactFileName(value);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveSupportingArtifactDirectory(phase, folder);
+  const filePath = resolveInside(directory, value);
+  const content = await readFile(filePath, "utf8");
+
+  return {
+    fileName: value,
+    content,
+  };
+}
+
+function resolveSupportingArtifactDirectory(
+  phase: string,
+  folder: SupportingArtifactFolder,
+): string {
+  if (folder === "Work_Cards") {
+    return resolveWorkCardsDirectory(phase);
+  }
+
+  if (folder === "Architect_Prompts") {
+    return resolveArchitectPromptsDirectory(phase);
+  }
+
+  if (folder === "Risk_Reviews") {
+    return resolveRiskReviewsDirectory(phase);
+  }
+
+  return resolveBuilderReportsDirectory(phase);
+}
+
+function pickDefaultArtifactFileName(
+  options: BuilderPromptArtifactOption[],
+): string | undefined {
+  return options.find((option) => option.isDefaultMatch)?.fileName;
+}
+
+function buildMissingArtifactNotes(
+  defaultSelections: BuilderPromptSupportingArtifactFileNames,
+): string[] {
+  const notes: string[] = [];
+
+  if (!defaultSelections.workCardMarkdown) {
+    notes.push(
+      "No matching Work Card Markdown artifact was found. Prompt generation will use the Work Card JSON as the primary source.",
+    );
+  }
+
+  if (!defaultSelections.architectPrompt) {
+    notes.push(
+      "No matching Architect Prompt artifact was found. You can still generate a Builder prompt from the Work Card JSON.",
+    );
+  }
+
+  if (!defaultSelections.riskReview) {
+    notes.push(
+      "No matching Risk Review artifact was found. The generated prompt will include a no-risk-review warning.",
+    );
+  }
+
+  if (!defaultSelections.priorBuilderReport) {
+    notes.push(
+      "No matching Prior Builder Report artifact was found. Implementation-history context will be omitted unless selected.",
+    );
+  }
+
+  return notes;
+}
+
+function fileNameMatchesWorkCardId(
+  fileName: string,
+  workCardId: string,
+): boolean {
+  const normalizedFileName = fileName.toLowerCase();
+  const normalizedWorkCardId = workCardId.toLowerCase();
+
+  return (
+    normalizedFileName.startsWith(`${normalizedWorkCardId}_`) ||
+    normalizedFileName.includes(`_${normalizedWorkCardId}_`) ||
+    normalizedFileName.includes(`_${normalizedWorkCardId}.`)
+  );
+}
+
+function toSelectedSupportingArtifactFileNames(
+  supportingArtifacts: BuilderPromptSupportingArtifacts,
+): BuilderPromptSupportingArtifactFileNames {
+  return {
+    workCardMarkdown: supportingArtifacts.workCardMarkdown?.fileName,
+    architectPrompt: supportingArtifacts.architectPrompt?.fileName,
+    riskReview: supportingArtifacts.riskReview?.fileName,
+    priorBuilderReport: supportingArtifacts.priorBuilderReport?.fileName,
+  };
+}
+
+function hasBuilderPromptHighRiskContext(
+  workCard: WorkCard,
+  supportingArtifacts: BuilderPromptSupportingArtifacts,
+): boolean {
+  return (
+    workCard.riskLevel === "high" ||
+    hasHighRiskReviewContext(supportingArtifacts.riskReview?.content ?? "")
+  );
 }
 
 function toSavedWorkCardSummary(

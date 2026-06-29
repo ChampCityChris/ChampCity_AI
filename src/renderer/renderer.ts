@@ -3,7 +3,8 @@ const h = React.createElement;
 type AppScreen =
   | "new-work-card"
   | "architect-prompt-composer"
-  | "risk-router";
+  | "risk-router"
+  | "builder-prompt-generator";
 
 const defaultPhase = "phase-01";
 const workCardJsonSelectorHelp =
@@ -60,13 +61,20 @@ function App(): unknown {
           activeScreen === "risk-router",
           () => setActiveScreen("risk-router"),
         ),
+        renderNavButton(
+          "Builder Prompt Generator",
+          activeScreen === "builder-prompt-generator",
+          () => setActiveScreen("builder-prompt-generator"),
+        ),
       ),
     ),
     activeScreen === "new-work-card"
       ? h(NewWorkCardScreen)
       : activeScreen === "architect-prompt-composer"
         ? h(ArchitectPromptComposerScreen)
-        : h(RiskRouterScreen),
+        : activeScreen === "risk-router"
+          ? h(RiskRouterScreen)
+          : h(BuilderPromptGeneratorScreen),
   );
 }
 
@@ -77,6 +85,10 @@ function getScreenTitle(activeScreen: AppScreen): string {
 
   if (activeScreen === "architect-prompt-composer") {
     return "Architect Prompt Composer";
+  }
+
+  if (activeScreen === "builder-prompt-generator") {
+    return "Builder Prompt Generator";
   }
 
   return "Risk Router";
@@ -961,6 +973,508 @@ function RiskRouterScreen(): unknown {
   );
 }
 
+function BuilderPromptGeneratorScreen(): unknown {
+  const [phase, setPhase] = React.useState(defaultPhase);
+  const [workCards, setWorkCards] = React.useState<
+    ChampCitySavedWorkCardSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = React.useState<
+    ChampCityInvalidSavedWorkCardFile[]
+  >([]);
+  const [selectedFileName, setSelectedFileName] = React.useState("");
+  const [artifactOptions, setArtifactOptions] =
+    React.useState<ChampCityBuilderPromptArtifactOptions>(
+      emptyBuilderPromptArtifactOptions,
+    );
+  const [supportSelections, setSupportSelections] =
+    React.useState<ChampCityBuilderPromptSupportingArtifactFileNames>({});
+  const [artifactNotes, setArtifactNotes] = React.useState<string[]>([]);
+  const [artifactInvalidFiles, setArtifactInvalidFiles] = React.useState<
+    ChampCityInvalidBuilderPromptArtifactFile[]
+  >([]);
+  const [prompt, setPrompt] = React.useState("");
+  const [errors, setErrors] = React.useState<string[]>([]);
+  const [statusMessage, setStatusMessage] =
+    React.useState("Loading saved Work Cards.");
+  const [copyMessage, setCopyMessage] = React.useState("");
+  const [isListBusy, setIsListBusy] = React.useState(false);
+  const [isArtifactBusy, setIsArtifactBusy] = React.useState(false);
+  const [isPromptBusy, setIsPromptBusy] = React.useState(false);
+  const [hasHighRiskContext, setHasHighRiskContext] = React.useState(false);
+  const [hasRiskReviewSelected, setHasRiskReviewSelected] =
+    React.useState(false);
+  const [saveResult, setSaveResult] =
+    React.useState<ChampCityBuilderPromptSaveResult | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    setIsListBusy(true);
+    setErrors([]);
+    setCopyMessage("");
+
+    window.champCity
+      .listSavedWorkCards(phase)
+      .then((result: ChampCityListSavedWorkCardsResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+
+        if (!result.ok) {
+          setWorkCards([]);
+          setInvalidFiles([]);
+          setSelectedFileName("");
+          setPrompt("");
+          setErrors(result.errorMessages ?? ["Saved Work Cards could not be loaded."]);
+          setStatusMessage("Saved Work Cards could not be loaded.");
+          return;
+        }
+
+        const nextWorkCards = result.workCards ?? [];
+
+        setWorkCards(nextWorkCards);
+        setInvalidFiles(result.invalidFiles ?? []);
+        setSelectedFileName((previous) =>
+          nextWorkCards.some((workCard) => workCard.fileName === previous)
+            ? previous
+            : nextWorkCards[0]?.fileName ?? "",
+        );
+
+        if (nextWorkCards.length === 0) {
+          setPrompt("");
+          setStatusMessage("No saved Work Card JSON files found.");
+          return;
+        }
+
+        setStatusMessage("Saved Work Cards loaded.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+        setWorkCards([]);
+        setInvalidFiles([]);
+        setSelectedFileName("");
+        setPrompt("");
+        setErrors(["Saved Work Cards could not be loaded."]);
+        setStatusMessage("Saved Work Cards could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  React.useEffect(() => {
+    if (selectedFileName.trim().length === 0) {
+      setArtifactOptions(emptyBuilderPromptArtifactOptions());
+      setSupportSelections({});
+      setArtifactNotes([]);
+      setArtifactInvalidFiles([]);
+      setPrompt("");
+      setSaveResult(null);
+      return;
+    }
+
+    let active = true;
+
+    setIsArtifactBusy(true);
+    setErrors([]);
+    setCopyMessage("");
+    setSaveResult(null);
+
+    window.champCity
+      .listBuilderPromptSupportingArtifacts({
+        phase,
+        fileName: selectedFileName,
+      })
+      .then((result: ChampCityBuilderPromptArtifactListResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsArtifactBusy(false);
+
+        if (!result.ok) {
+          setArtifactOptions(emptyBuilderPromptArtifactOptions());
+          setSupportSelections({});
+          setArtifactNotes([]);
+          setArtifactInvalidFiles([]);
+          setPrompt("");
+          setErrors(result.errorMessages ?? ["Supporting artifacts could not be loaded."]);
+          setStatusMessage("Supporting artifacts could not be loaded.");
+          return;
+        }
+
+        setArtifactOptions(
+          result.options ?? emptyBuilderPromptArtifactOptions(),
+        );
+        setSupportSelections(result.defaultSelections ?? {});
+        setArtifactNotes(result.notes ?? []);
+        setArtifactInvalidFiles(result.invalidFiles ?? []);
+        setStatusMessage("Supporting artifact selectors loaded.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsArtifactBusy(false);
+        setArtifactOptions(emptyBuilderPromptArtifactOptions());
+        setSupportSelections({});
+        setArtifactNotes([]);
+        setArtifactInvalidFiles([]);
+        setPrompt("");
+        setErrors(["Supporting artifacts could not be loaded."]);
+        setStatusMessage("Supporting artifacts could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, selectedFileName]);
+
+  React.useEffect(() => {
+    if (selectedFileName.trim().length === 0) {
+      setPrompt("");
+      setHasHighRiskContext(false);
+      setHasRiskReviewSelected(false);
+      setSaveResult(null);
+      return;
+    }
+
+    let active = true;
+
+    setIsPromptBusy(true);
+    setErrors([]);
+    setCopyMessage("");
+    setSaveResult(null);
+
+    window.champCity
+      .previewBuilderPrompt({
+        phase,
+        fileName: selectedFileName,
+        supportingArtifactFileNames:
+          cleanBuilderPromptSelections(supportSelections),
+      })
+      .then((result: ChampCityBuilderPromptPreviewResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsPromptBusy(false);
+
+        if (!result.ok || !result.prompt) {
+          setPrompt("");
+          setHasHighRiskContext(false);
+          setHasRiskReviewSelected(false);
+          setErrors(result.errorMessages ?? ["The Builder prompt could not be generated."]);
+          setStatusMessage("Builder prompt generation needs attention.");
+          return;
+        }
+
+        setPrompt(result.prompt);
+        setHasHighRiskContext(Boolean(result.hasHighRiskContext));
+        setHasRiskReviewSelected(Boolean(result.hasRiskReviewSelected));
+        setStatusMessage("Builder prompt generated.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsPromptBusy(false);
+        setPrompt("");
+        setHasHighRiskContext(false);
+        setHasRiskReviewSelected(false);
+        setErrors(["The Builder prompt could not be generated."]);
+        setStatusMessage("Builder prompt generation needs attention.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    phase,
+    selectedFileName,
+    supportSelections.workCardMarkdown,
+    supportSelections.architectPrompt,
+    supportSelections.riskReview,
+    supportSelections.priorBuilderReport,
+  ]);
+
+  const selectedWorkCard =
+    workCards.find((workCard) => workCard.fileName === selectedFileName) ?? null;
+  const hasWorkCards = workCards.length > 0;
+
+  function updateSupportSelection(
+    field: keyof ChampCityBuilderPromptSupportingArtifactFileNames,
+    value: string,
+  ): void {
+    setSupportSelections((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
+
+  async function copyPrompt(): Promise<void> {
+    if (prompt.trim().length === 0) {
+      setCopyMessage("Generate a Builder prompt before copying.");
+      return;
+    }
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard unavailable.");
+      }
+
+      await navigator.clipboard.writeText(prompt);
+      setCopyMessage("Prompt copied to clipboard.");
+    } catch {
+      setCopyMessage(
+        "Clipboard access failed. Please manually select and copy the prompt text.",
+      );
+    }
+  }
+
+  async function savePrompt(): Promise<void> {
+    if (selectedFileName.trim().length === 0) {
+      setErrors(["Select a saved Work Card before saving a Builder prompt."]);
+      return;
+    }
+
+    setIsPromptBusy(true);
+    setErrors([]);
+    setCopyMessage("");
+
+    const result = await window.champCity.saveBuilderPrompt({
+      phase,
+      fileName: selectedFileName,
+      supportingArtifactFileNames: cleanBuilderPromptSelections(supportSelections),
+    });
+
+    setIsPromptBusy(false);
+
+    if (!result.ok || !result.prompt) {
+      setErrors(result.errorMessages ?? ["The Builder prompt could not be saved."]);
+      setStatusMessage("Save needs attention.");
+      return;
+    }
+
+    setPrompt(result.prompt);
+    setHasHighRiskContext(Boolean(result.hasHighRiskContext));
+    setHasRiskReviewSelected(Boolean(result.hasRiskReviewSelected));
+    setSaveResult(result);
+    setStatusMessage("Builder prompt saved.");
+  }
+
+  return h(
+    "section",
+    {
+      className: "workspace prompt-workspace",
+      "aria-label": "Builder Prompt Generator",
+    },
+    h(
+      "div",
+      { className: "selector-panel" },
+      h(
+        "div",
+        { className: "form-header" },
+        h("h2", null, "Source Artifacts"),
+        h("span", { className: "status-pill" }, phase),
+      ),
+      renderErrors(errors),
+      h("p", { className: "selector-help" }, workCardJsonSelectorHelp),
+      invalidFiles.length > 0
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            h("h3", null, "Skipped Work Card files"),
+            h(
+              "ul",
+              null,
+              ...invalidFiles.map((file) =>
+                h(
+                  "li",
+                  { key: file.fileName },
+                  `${file.fileName}: ${file.errorMessages.join(" ")}`,
+                ),
+              ),
+            ),
+          )
+        : null,
+      renderPhaseField(phase, setPhase),
+      !hasWorkCards
+        ? h(
+            "div",
+            { className: "empty-state", role: "status" },
+            "No saved Work Card JSON files were found. Create or backfill a JSON Work Card artifact first.",
+          )
+        : h(
+            "label",
+            { className: "field" },
+            h("span", null, "Saved Work Card JSON"),
+            h(
+              "select",
+              {
+                value: selectedFileName,
+                disabled: isListBusy,
+                onChange: (event: Event) => {
+                  setSelectedFileName((event.target as HTMLSelectElement).value);
+                },
+              },
+              ...workCards.map((workCard) =>
+                h(
+                  "option",
+                  { key: workCard.fileName, value: workCard.fileName },
+                  `${workCard.workCardId} - ${workCard.title} (${workCard.status}, ${workCard.phase})`,
+                ),
+              ),
+            ),
+          ),
+      selectedWorkCard ? renderSelectedWorkCardSummary(selectedWorkCard) : null,
+      selectedWorkCard?.riskLevel === "high"
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            "This Work Card has high risk marked in the JSON. The generated prompt will preserve narrow scope and blocker language.",
+          )
+        : null,
+      artifactInvalidFiles.length > 0
+        ? renderBuilderPromptInvalidFiles(artifactInvalidFiles)
+        : null,
+      artifactNotes.length > 0
+        ? h(
+            "div",
+            { className: "notice-box", role: "status" },
+            h("h3", null, "Optional artifact notes"),
+            h(
+              "ul",
+              null,
+              ...artifactNotes.map((note) => h("li", { key: note }, note)),
+            ),
+          )
+        : null,
+      h(
+        "div",
+        { className: "artifact-selector-grid" },
+        renderOptionalArtifactSelect(
+          "Work Card Markdown",
+          supportSelections.workCardMarkdown ?? "",
+          artifactOptions.workCardMarkdown,
+          (value) => updateSupportSelection("workCardMarkdown", value),
+          "No Work Card Markdown artifact is available.",
+        ),
+        renderOptionalArtifactSelect(
+          "Architect Prompt",
+          supportSelections.architectPrompt ?? "",
+          artifactOptions.architectPrompts,
+          (value) => updateSupportSelection("architectPrompt", value),
+          "No Architect Prompt artifact is available.",
+        ),
+        renderOptionalArtifactSelect(
+          "Risk Review",
+          supportSelections.riskReview ?? "",
+          artifactOptions.riskReviews,
+          (value) => updateSupportSelection("riskReview", value),
+          "No Risk Review artifact is available.",
+        ),
+        renderOptionalArtifactSelect(
+          "Prior Builder Report",
+          supportSelections.priorBuilderReport ?? "",
+          artifactOptions.priorBuilderReports,
+          (value) => updateSupportSelection("priorBuilderReport", value),
+          "No Prior Builder Report artifact is available.",
+        ),
+      ),
+      isArtifactBusy
+        ? h(
+            "div",
+            { className: "notice-box", role: "status" },
+            "Loading supporting artifact selectors.",
+          )
+        : null,
+    ),
+    h(
+      "aside",
+      { className: "composer-panel", "aria-label": "Builder prompt preview" },
+      h(
+        "div",
+        { className: "preview-header" },
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, "Builder"),
+          h("h2", null, "Prompt"),
+        ),
+        h("span", { className: "status-text" }, statusMessage),
+      ),
+      saveResult?.markdownPath
+        ? h(
+            "div",
+            { className: "save-result", role: "status" },
+            h("h3", null, "Saved"),
+            h("p", null, "Markdown: ", h("code", null, saveResult.markdownPath)),
+          )
+        : null,
+      copyMessage.length > 0
+        ? h("div", { className: "notice-box", role: "status" }, copyMessage)
+        : null,
+      hasHighRiskContext
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            "High-risk context is present. The generated prompt tells Builder not to broaden scope and to stop for blocking questions if risky work appears.",
+          )
+        : null,
+      !hasRiskReviewSelected
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            "No Risk Review artifact is selected. The generated prompt warns Builder not to infer approval.",
+          )
+        : null,
+      h(
+        "pre",
+        { className: "markdown-preview prompt-preview" },
+        prompt || "No Builder prompt generated yet.",
+      ),
+      h(
+        "div",
+        { className: "actions prompt-actions" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "button secondary",
+            disabled: isPromptBusy || prompt.trim().length === 0,
+            onClick: () => {
+              void copyPrompt();
+            },
+          },
+          "Copy Prompt",
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "button primary",
+            disabled: isPromptBusy || selectedFileName.trim().length === 0,
+            onClick: () => {
+              void savePrompt();
+            },
+          },
+          "Save Builder Prompt",
+        ),
+      ),
+    ),
+  );
+}
+
 function renderPhaseField(
   value: string,
   setPhase: (value: string) => void,
@@ -975,6 +1489,86 @@ function renderPhaseField(
         setPhase((event.target as HTMLInputElement).value);
       },
     }),
+  );
+}
+
+function emptyBuilderPromptArtifactOptions(): ChampCityBuilderPromptArtifactOptions {
+  return {
+    workCardMarkdown: [],
+    architectPrompts: [],
+    riskReviews: [],
+    priorBuilderReports: [],
+  };
+}
+
+function cleanBuilderPromptSelections(
+  selections: ChampCityBuilderPromptSupportingArtifactFileNames,
+): ChampCityBuilderPromptSupportingArtifactFileNames {
+  return {
+    workCardMarkdown: nonBlankSelection(selections.workCardMarkdown),
+    architectPrompt: nonBlankSelection(selections.architectPrompt),
+    riskReview: nonBlankSelection(selections.riskReview),
+    priorBuilderReport: nonBlankSelection(selections.priorBuilderReport),
+  };
+}
+
+function nonBlankSelection(value: string | undefined): string | undefined {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function renderOptionalArtifactSelect(
+  label: string,
+  value: string,
+  options: ChampCityBuilderPromptArtifactOption[],
+  onChange: (value: string) => void,
+  emptyMessage: string,
+): unknown {
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, label),
+    h(
+      "select",
+      {
+        value,
+        onChange: (event: Event) => {
+          onChange((event.target as HTMLSelectElement).value);
+        },
+      },
+      h("option", { value: "" }, "Do not include"),
+      ...options.map((option) =>
+        h(
+          "option",
+          { key: option.fileName, value: option.fileName },
+          option.isDefaultMatch ? `${option.label} (match)` : option.label,
+        ),
+      ),
+    ),
+    options.length === 0
+      ? h("small", { className: "field-note" }, emptyMessage)
+      : null,
+  );
+}
+
+function renderBuilderPromptInvalidFiles(
+  files: ChampCityInvalidBuilderPromptArtifactFile[],
+): unknown {
+  return h(
+    "div",
+    { className: "warning-box", role: "status" },
+    h("h3", null, "Skipped supporting files"),
+    h(
+      "ul",
+      null,
+      ...files.map((file) =>
+        h(
+          "li",
+          { key: `${file.folder}/${file.fileName}` },
+          `${file.folder}/${file.fileName}: ${file.errorMessages.join(" ")}`,
+        ),
+      ),
+    ),
   );
 }
 

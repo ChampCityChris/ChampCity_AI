@@ -13,6 +13,16 @@ import type {
   SavedWorkCardSummary,
 } from "../shared/workCards/renderArchitectFramingPrompt";
 import type {
+  BuilderPromptArtifactListResult,
+  BuilderPromptArtifactOption,
+  BuilderPromptArtifactOptions,
+  BuilderPromptPreviewResult,
+  BuilderPromptRequest,
+  BuilderPromptSaveResult,
+  BuilderPromptSupportingArtifactFileNames,
+  InvalidBuilderPromptArtifactFile,
+} from "../shared/workCards/renderBuilderPrompt";
+import type {
   RiskReviewPreviewResult,
   RiskReviewRequest,
   RiskReviewSaveResult,
@@ -61,6 +71,17 @@ declare global {
   type ChampCityRiskReviewPreviewResult = RiskReviewPreviewResult;
   type ChampCityRiskReviewSaveResult = RiskReviewSaveResult;
   type ChampCityWorkCardRiskReview = WorkCardRiskReview;
+  type ChampCityBuilderPromptRequest = BuilderPromptRequest;
+  type ChampCityBuilderPromptArtifactListResult =
+    BuilderPromptArtifactListResult;
+  type ChampCityBuilderPromptArtifactOptions = BuilderPromptArtifactOptions;
+  type ChampCityBuilderPromptArtifactOption = BuilderPromptArtifactOption;
+  type ChampCityInvalidBuilderPromptArtifactFile =
+    InvalidBuilderPromptArtifactFile;
+  type ChampCityBuilderPromptSupportingArtifactFileNames =
+    BuilderPromptSupportingArtifactFileNames;
+  type ChampCityBuilderPromptPreviewResult = BuilderPromptPreviewResult;
+  type ChampCityBuilderPromptSaveResult = BuilderPromptSaveResult;
 
   interface Window {
     champCity: {
@@ -91,6 +112,15 @@ declare global {
       saveRiskReview: (
         input: RiskReviewRequest,
       ) => Promise<RiskReviewSaveResult>;
+      listBuilderPromptSupportingArtifacts: (
+        input: BuilderPromptRequest,
+      ) => Promise<BuilderPromptArtifactListResult>;
+      previewBuilderPrompt: (
+        input: BuilderPromptRequest,
+      ) => Promise<BuilderPromptPreviewResult>;
+      saveBuilderPrompt: (
+        input: BuilderPromptRequest,
+      ) => Promise<BuilderPromptSaveResult>;
     };
   }
 }

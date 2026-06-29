@@ -13,6 +13,12 @@ import type {
   ListSavedWorkCardsResult,
 } from "../shared/workCards/renderArchitectFramingPrompt";
 import type {
+  BuilderPromptArtifactListResult,
+  BuilderPromptPreviewResult,
+  BuilderPromptRequest,
+  BuilderPromptSaveResult,
+} from "../shared/workCards/renderBuilderPrompt";
+import type {
   RiskReviewPreviewResult,
   RiskReviewRequest,
   RiskReviewSaveResult,
@@ -48,6 +54,18 @@ const api = {
     ipcRenderer.invoke("workCards:previewRiskReview", input),
   saveRiskReview: (input: RiskReviewRequest): Promise<RiskReviewSaveResult> =>
     ipcRenderer.invoke("workCards:saveRiskReview", input),
+  listBuilderPromptSupportingArtifacts: (
+    input: BuilderPromptRequest,
+  ): Promise<BuilderPromptArtifactListResult> =>
+    ipcRenderer.invoke("workCards:listBuilderPromptSupportingArtifacts", input),
+  previewBuilderPrompt: (
+    input: BuilderPromptRequest,
+  ): Promise<BuilderPromptPreviewResult> =>
+    ipcRenderer.invoke("workCards:previewBuilderPrompt", input),
+  saveBuilderPrompt: (
+    input: BuilderPromptRequest,
+  ): Promise<BuilderPromptSaveResult> =>
+    ipcRenderer.invoke("workCards:saveBuilderPrompt", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);

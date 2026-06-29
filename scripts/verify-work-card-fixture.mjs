@@ -20,6 +20,9 @@ const {
   workCardRiskRouterFixture,
 } = require("../dist/shared/workCards/fixtures/workCardRiskRouterFixture.js");
 const {
+  workCardBuilderPromptFixture,
+} = require("../dist/shared/workCards/fixtures/workCardBuilderPromptFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
 const {
@@ -36,6 +39,13 @@ const {
   riskReviewNoApprovalNote,
 } = require("../dist/shared/workCards/renderRiskReviewMarkdown.js");
 const {
+  buildBuilderPromptFileName,
+  builderPromptHighRiskWarning,
+  builderPromptNoRiskReviewWarning,
+  renderBuilderPrompt,
+  standardBuilderValidationCommands,
+} = require("../dist/shared/workCards/renderBuilderPrompt.js");
+const {
   routeWorkCardRisk,
 } = require("../dist/shared/workCards/riskRouter.js");
 const { validateWorkCard } = require("../dist/shared/workCards/validateWorkCard.js");
@@ -44,8 +54,10 @@ const {
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
   listSavedWorkCards,
+  resolveBuilderPromptsDirectory,
   resolveInside,
   resolveRiskReviewsDirectory,
+  validateMarkdownArtifactFileName,
   validateSavedWorkCardJsonFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
 
@@ -76,6 +88,13 @@ const renderedArtifacts = [
     path: resolve(
       repositoryRoot,
       "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
+    ),
+  },
+  {
+    fixture: workCardBuilderPromptFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
     ),
   },
 ];
@@ -132,6 +151,11 @@ if (validateSavedWorkCardJsonFileName("../bad").length === 0) {
   process.exit(1);
 }
 
+if (validateMarkdownArtifactFileName("../bad").length === 0) {
+  console.error("Markdown artifact file validation failed to reject traversal input.");
+  process.exit(1);
+}
+
 try {
   resolveInside(resolve(repositoryRoot, "planning", "phases"), "../bad");
   console.error("Path sanitizer failed to reject traversal input.");
@@ -148,9 +172,18 @@ try {
   // Expected.
 }
 
+try {
+  resolveBuilderPromptsDirectory("../bad");
+  console.error("Builder Prompt directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
 assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
+assertBuilderPrompt();
 await assertSavedWorkCardListing();
 
 console.log("Work Card fixture validation passed.");
@@ -477,6 +510,67 @@ function assertRiskReviewMarkdown() {
   }
 }
 
+function assertBuilderPrompt() {
+  const noRiskReviewPrompt = renderBuilderPrompt(workCardBuilderPromptFixture);
+  const requiredNoRiskText = [
+    workCardBuilderPromptFixture.workCardId,
+    workCardBuilderPromptFixture.title,
+    "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+    "git status --short --branch",
+    "git remote -v",
+    "Builder Report Requirement",
+    "BUILDER_REPORT_WC05_generate_builder_prompt.md",
+    "Do not push unless explicitly instructed.",
+    "Do not create a release tag unless explicitly instructed.",
+    "Do not call an LLM API unless explicitly in scope.",
+    "Do not broaden scope.",
+    builderPromptNoRiskReviewWarning,
+    ...standardBuilderValidationCommands,
+  ];
+  const missingNoRiskText = requiredNoRiskText.filter(
+    (text) => !noRiskReviewPrompt.includes(text),
+  );
+
+  if (missingNoRiskText.length > 0) {
+    console.error("Builder prompt without Risk Review is missing required text:");
+    for (const text of missingNoRiskText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const highRiskPrompt = renderBuilderPrompt(workCardBuilderPromptFixture, {
+    riskReview: {
+      fileName: "RISK_REVIEW_WC05_generate_builder_prompt.md",
+      content:
+        "- Assessed risk level: high\nThis Work Card appears high risk and needs Architect review.",
+    },
+  });
+  const requiredHighRiskText = [
+    builderPromptHighRiskWarning,
+    "Selected Risk Review Context",
+    "RISK_REVIEW_WC05_generate_builder_prompt.md",
+  ];
+  const missingHighRiskText = requiredHighRiskText.filter(
+    (text) => !highRiskPrompt.includes(text),
+  );
+
+  if (missingHighRiskText.length > 0) {
+    console.error("Builder prompt with high-risk Risk Review is missing required text:");
+    for (const text of missingHighRiskText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const expectedFileName = "BUILDER_PROMPT_WC05_generate_builder_prompt.md";
+
+  if (buildBuilderPromptFileName(workCardBuilderPromptFixture) !== expectedFileName) {
+    console.error("Builder Prompt filename builder returned the wrong filename.");
+    process.exit(1);
+  }
+}
+
 async function assertSavedWorkCardListing() {
   const result = await listSavedWorkCards("phase-01");
 
@@ -491,7 +585,7 @@ async function assertSavedWorkCardListing() {
   const listedWorkCardIds = new Set(
     (result.workCards ?? []).map((workCard) => workCard.workCardId),
   );
-  const expectedWorkCardIds = ["WC01", "WC02", "WC03", "WC04"];
+  const expectedWorkCardIds = ["WC01", "WC02", "WC03", "WC04", "WC05"];
   const missingWorkCardIds = expectedWorkCardIds.filter(
     (workCardId) => !listedWorkCardIds.has(workCardId),
   );
