@@ -19,6 +19,11 @@ import type {
   BuilderPromptSaveResult,
 } from "../shared/workCards/renderBuilderPrompt";
 import type {
+  BuilderReportCapturePreviewResult,
+  BuilderReportCaptureRequest,
+  BuilderReportCaptureSaveResult,
+} from "../shared/workCards/validateBuilderReport";
+import type {
   RiskReviewPreviewResult,
   RiskReviewRequest,
   RiskReviewSaveResult,
@@ -66,6 +71,14 @@ const api = {
     input: BuilderPromptRequest,
   ): Promise<BuilderPromptSaveResult> =>
     ipcRenderer.invoke("workCards:saveBuilderPrompt", input),
+  previewBuilderReportCapture: (
+    input: BuilderReportCaptureRequest,
+  ): Promise<BuilderReportCapturePreviewResult> =>
+    ipcRenderer.invoke("workCards:previewBuilderReportCapture", input),
+  saveBuilderReportCapture: (
+    input: BuilderReportCaptureRequest,
+  ): Promise<BuilderReportCaptureSaveResult> =>
+    ipcRenderer.invoke("workCards:saveBuilderReportCapture", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);

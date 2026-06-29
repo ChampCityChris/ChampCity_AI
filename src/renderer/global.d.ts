@@ -23,6 +23,13 @@ import type {
   InvalidBuilderPromptArtifactFile,
 } from "../shared/workCards/renderBuilderPrompt";
 import type {
+  BuilderReportCapturePreviewResult,
+  BuilderReportCaptureRequest,
+  BuilderReportCaptureSaveResult,
+  BuilderReportType,
+  BuilderReportValidationResult,
+} from "../shared/workCards/validateBuilderReport";
+import type {
   RiskReviewPreviewResult,
   RiskReviewRequest,
   RiskReviewSaveResult,
@@ -82,6 +89,13 @@ declare global {
     BuilderPromptSupportingArtifactFileNames;
   type ChampCityBuilderPromptPreviewResult = BuilderPromptPreviewResult;
   type ChampCityBuilderPromptSaveResult = BuilderPromptSaveResult;
+  type ChampCityBuilderReportType = BuilderReportType;
+  type ChampCityBuilderReportValidationResult = BuilderReportValidationResult;
+  type ChampCityBuilderReportCaptureRequest = BuilderReportCaptureRequest;
+  type ChampCityBuilderReportCapturePreviewResult =
+    BuilderReportCapturePreviewResult;
+  type ChampCityBuilderReportCaptureSaveResult =
+    BuilderReportCaptureSaveResult;
 
   interface Window {
     champCity: {
@@ -121,6 +135,12 @@ declare global {
       saveBuilderPrompt: (
         input: BuilderPromptRequest,
       ) => Promise<BuilderPromptSaveResult>;
+      previewBuilderReportCapture: (
+        input: BuilderReportCaptureRequest,
+      ) => Promise<BuilderReportCapturePreviewResult>;
+      saveBuilderReportCapture: (
+        input: BuilderReportCaptureRequest,
+      ) => Promise<BuilderReportCaptureSaveResult>;
     };
   }
 }

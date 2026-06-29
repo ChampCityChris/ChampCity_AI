@@ -43,6 +43,13 @@ import {
   type RiskReviewSaveResult,
   renderRiskReviewMarkdown,
 } from "../../shared/workCards/renderRiskReviewMarkdown";
+import {
+  buildBuilderReportFileName,
+  type BuilderReportCapturePreviewResult,
+  type BuilderReportCaptureRequest,
+  type BuilderReportCaptureSaveResult,
+  validateBuilderReport,
+} from "../../shared/workCards/validateBuilderReport";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
 import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
@@ -488,6 +495,79 @@ export async function saveBuilderPrompt(
 
     return {
       ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewBuilderReportCapture(
+  input: BuilderReportCaptureRequest,
+): Promise<BuilderReportCapturePreviewResult> {
+  const validation = validateBuilderReport(input.reportText);
+
+  try {
+    const workCard = input.workCardFileName
+      ? await readSavedWorkCardFile(input.phase, input.workCardFileName)
+      : undefined;
+    const savedFileName = buildBuilderReportFileName({
+      reportType: input.reportType,
+      workCardId: workCard?.workCardId,
+      workCardTitle: workCard?.title,
+      topic: input.topic,
+    });
+
+    return {
+      ok: true,
+      savedFileName,
+      validation,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      validation,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveBuilderReportCapture(
+  input: BuilderReportCaptureRequest,
+): Promise<BuilderReportCaptureSaveResult> {
+  try {
+    const preview = await previewBuilderReportCapture(input);
+
+    if (!preview.ok || !preview.savedFileName || !preview.validation) {
+      return preview;
+    }
+
+    if (!preview.validation.validEnoughToSave) {
+      throw new Error("Paste or import Builder Report text before saving.");
+    }
+
+    const directory = resolveBuilderReportsDirectory(input.phase);
+    const markdownPath = resolveInside(directory, preview.savedFileName);
+
+    await failIfExists(
+      markdownPath,
+      "A Builder Report with this generated filename already exists.",
+    );
+    await mkdir(directory, { recursive: true });
+    await writeFile(markdownPath, `${input.reportText.trimEnd()}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      markdownPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Builder Report capture.", error);
+
+    return {
+      ok: false,
+      validation: validateBuilderReport(input.reportText),
       errorMessages: [toPlainSaveError(error)],
     };
   }

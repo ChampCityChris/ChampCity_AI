@@ -275,6 +275,10 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.report-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .risk-level {
   display: inline-grid;
   min-height: 28px;
@@ -415,6 +419,10 @@ button {
   line-height: 1.45;
 }
 
+.report-text-field textarea {
+  min-height: 420px;
+}
+
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
@@ -500,6 +508,7 @@ button {
   .field-grid,
   .two-column,
   .artifact-selector-grid,
+  .report-summary-grid,
   .summary-grid {
     grid-template-columns: 1fr;
   }

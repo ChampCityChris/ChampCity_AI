@@ -7,16 +7,19 @@ import {
   listSavedWorkCards,
   previewArchitectPrompt,
   previewBuilderPrompt,
+  previewBuilderReportCapture,
   previewDraftWorkCard,
   previewRiskReview,
   saveArchitectPrompt,
   saveBuilderPrompt,
+  saveBuilderReportCapture,
   saveDraftWorkCard,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
+import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
 import type { RiskReviewRequest } from "../shared/workCards/renderRiskReviewMarkdown";
 
 const appName = "ChampCity A/I";
@@ -97,5 +100,15 @@ function registerWorkCardIpc(): void {
   ipcMain.handle(
     "workCards:saveBuilderPrompt",
     (_event, input: BuilderPromptRequest) => saveBuilderPrompt(input),
+  );
+  ipcMain.handle(
+    "workCards:previewBuilderReportCapture",
+    (_event, input: BuilderReportCaptureRequest) =>
+      previewBuilderReportCapture(input),
+  );
+  ipcMain.handle(
+    "workCards:saveBuilderReportCapture",
+    (_event, input: BuilderReportCaptureRequest) =>
+      saveBuilderReportCapture(input),
   );
 }

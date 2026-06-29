@@ -4,7 +4,8 @@ type AppScreen =
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
-  | "builder-prompt-generator";
+  | "builder-prompt-generator"
+  | "builder-report-capture";
 
 const defaultPhase = "phase-01";
 const workCardJsonSelectorHelp =
@@ -66,6 +67,11 @@ function App(): unknown {
           activeScreen === "builder-prompt-generator",
           () => setActiveScreen("builder-prompt-generator"),
         ),
+        renderNavButton(
+          "Builder Report Capture",
+          activeScreen === "builder-report-capture",
+          () => setActiveScreen("builder-report-capture"),
+        ),
       ),
     ),
     activeScreen === "new-work-card"
@@ -74,7 +80,9 @@ function App(): unknown {
         ? h(ArchitectPromptComposerScreen)
         : activeScreen === "risk-router"
           ? h(RiskRouterScreen)
-          : h(BuilderPromptGeneratorScreen),
+          : activeScreen === "builder-prompt-generator"
+            ? h(BuilderPromptGeneratorScreen)
+            : h(BuilderReportCaptureScreen),
   );
 }
 
@@ -89,6 +97,10 @@ function getScreenTitle(activeScreen: AppScreen): string {
 
   if (activeScreen === "builder-prompt-generator") {
     return "Builder Prompt Generator";
+  }
+
+  if (activeScreen === "builder-report-capture") {
+    return "Builder Report Capture";
   }
 
   return "Risk Router";
@@ -1475,6 +1487,382 @@ function BuilderPromptGeneratorScreen(): unknown {
   );
 }
 
+function BuilderReportCaptureScreen(): unknown {
+  const [phase, setPhase] = React.useState(defaultPhase);
+  const [workCards, setWorkCards] = React.useState<
+    ChampCitySavedWorkCardSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = React.useState<
+    ChampCityInvalidSavedWorkCardFile[]
+  >([]);
+  const [selectedFileName, setSelectedFileName] = React.useState("");
+  const [reportType, setReportType] =
+    React.useState<ChampCityBuilderReportType>("Work Card");
+  const [topic, setTopic] = React.useState("");
+  const [topicEdited, setTopicEdited] = React.useState(false);
+  const [reportText, setReportText] = React.useState("");
+  const [errors, setErrors] = React.useState<string[]>([]);
+  const [statusMessage, setStatusMessage] =
+    React.useState("Loading saved Work Cards.");
+  const [isListBusy, setIsListBusy] = React.useState(false);
+  const [isPreviewBusy, setIsPreviewBusy] = React.useState(false);
+  const [isSaveBusy, setIsSaveBusy] = React.useState(false);
+  const [previewResult, setPreviewResult] =
+    React.useState<ChampCityBuilderReportCapturePreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    React.useState<ChampCityBuilderReportCaptureSaveResult | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    setIsListBusy(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedWorkCards(phase)
+      .then((result: ChampCityListSavedWorkCardsResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+
+        if (!result.ok) {
+          setWorkCards([]);
+          setInvalidFiles([]);
+          setSelectedFileName("");
+          setErrors(result.errorMessages ?? ["Saved Work Cards could not be loaded."]);
+          setStatusMessage("Saved Work Cards could not be loaded.");
+          return;
+        }
+
+        const nextWorkCards = result.workCards ?? [];
+
+        setWorkCards(nextWorkCards);
+        setInvalidFiles(result.invalidFiles ?? []);
+        setSelectedFileName((previous) =>
+          nextWorkCards.some((workCard) => workCard.fileName === previous)
+            ? previous
+            : nextWorkCards[0]?.fileName ?? "",
+        );
+
+        if (nextWorkCards.length === 0) {
+          setStatusMessage("No saved Work Card JSON files found.");
+          return;
+        }
+
+        setStatusMessage("Saved Work Cards loaded.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+        setWorkCards([]);
+        setInvalidFiles([]);
+        setSelectedFileName("");
+        setErrors(["Saved Work Cards could not be loaded."]);
+        setStatusMessage("Saved Work Cards could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  const selectedWorkCard =
+    workCards.find((workCard) => workCard.fileName === selectedFileName) ?? null;
+  const hasWorkCards = workCards.length > 0;
+  const isWorkCardReport = reportType === "Work Card";
+  const validation = previewResult?.validation ?? null;
+  const combinedErrors = [
+    ...errors,
+    ...(previewResult?.ok === false ? previewResult.errorMessages ?? [] : []),
+  ];
+
+  React.useEffect(() => {
+    if (!topicEdited && selectedWorkCard) {
+      setTopic(selectedWorkCard.title);
+    }
+  }, [selectedWorkCard?.fileName, topicEdited]);
+
+  React.useEffect(() => {
+    let active = true;
+
+    setIsPreviewBusy(true);
+
+    window.champCity
+      .previewBuilderReportCapture({
+        phase,
+        reportType,
+        workCardFileName: nonBlankSelection(selectedFileName),
+        topic,
+        reportText,
+      })
+      .then((result: ChampCityBuilderReportCapturePreviewResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsPreviewBusy(false);
+        setPreviewResult(result);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsPreviewBusy(false);
+        setPreviewResult({
+          ok: false,
+          errorMessages: ["Builder Report preview could not be generated."],
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, reportType, selectedFileName, topic, reportText]);
+
+  function updateReportType(value: ChampCityBuilderReportType): void {
+    setReportType(value);
+    setSaveResult(null);
+  }
+
+  function updateTopic(value: string): void {
+    setTopic(value);
+    setTopicEdited(true);
+    setSaveResult(null);
+  }
+
+  async function importReportFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    input.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const lowerName = file.name.toLowerCase();
+
+    if (!lowerName.endsWith(".md") && !lowerName.endsWith(".txt")) {
+      setErrors(["Import accepts only .md or .txt report files."]);
+      setStatusMessage("Import needs attention.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+
+      setReportText(text);
+      setSaveResult(null);
+      setErrors([]);
+      setStatusMessage(`Imported ${file.name}. Review the text before saving.`);
+    } catch {
+      setErrors(["The selected report file could not be read as text."]);
+      setStatusMessage("Import needs attention.");
+    }
+  }
+
+  async function saveReport(): Promise<void> {
+    setIsSaveBusy(true);
+    setErrors([]);
+
+    const result = await window.champCity.saveBuilderReportCapture({
+      phase,
+      reportType,
+      workCardFileName: nonBlankSelection(selectedFileName),
+      topic,
+      reportText,
+    });
+
+    setIsSaveBusy(false);
+    setPreviewResult(result);
+
+    if (!result.ok || !result.markdownPath) {
+      setSaveResult(null);
+      setErrors(result.errorMessages ?? ["The Builder Report could not be saved."]);
+      setStatusMessage("Save needs attention.");
+      return;
+    }
+
+    setSaveResult(result);
+    setStatusMessage("Builder Report saved.");
+  }
+
+  return h(
+    "section",
+    {
+      className: "workspace report-workspace",
+      "aria-label": "Builder Report Capture",
+    },
+    h(
+      "div",
+      { className: "selector-panel report-selector-panel" },
+      h(
+        "div",
+        { className: "form-header" },
+        h("h2", null, "Report Source"),
+        h("span", { className: "status-pill" }, phase),
+      ),
+      renderErrors(combinedErrors),
+      h("p", { className: "selector-help" }, workCardJsonSelectorHelp),
+      invalidFiles.length > 0
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            h("h3", null, "Skipped Work Card files"),
+            h(
+              "ul",
+              null,
+              ...invalidFiles.map((file) =>
+                h(
+                  "li",
+                  { key: file.fileName },
+                  `${file.fileName}: ${file.errorMessages.join(" ")}`,
+                ),
+              ),
+            ),
+          )
+        : null,
+      renderPhaseField(phase, setPhase),
+      renderReportTypeSelect(reportType, updateReportType),
+      !hasWorkCards
+        ? h(
+            "div",
+            { className: "empty-state", role: "status" },
+            "No saved Work Card JSON files were found. Work Card reports require a saved Work Card JSON artifact.",
+          )
+        : h(
+            "label",
+            { className: "field" },
+            h("span", null, isWorkCardReport ? "Saved Work Card JSON" : "Associated Work Card"),
+            h(
+              "select",
+              {
+                value: selectedFileName,
+                disabled: isListBusy,
+                onChange: (event: Event) => {
+                  setSelectedFileName((event.target as HTMLSelectElement).value);
+                  setSaveResult(null);
+                },
+              },
+              ...(isWorkCardReport
+                ? []
+                : [h("option", { key: "none", value: "" }, "No associated Work Card")]),
+              ...workCards.map((workCard) =>
+                h(
+                  "option",
+                  { key: workCard.fileName, value: workCard.fileName },
+                  `${workCard.workCardId} - ${workCard.title} (${workCard.status}, ${workCard.phase})`,
+                ),
+              ),
+            ),
+          ),
+      selectedWorkCard ? renderSelectedWorkCardSummary(selectedWorkCard) : null,
+      h(
+        "label",
+        { className: "field" },
+        h("span", null, "Short topic / slug"),
+        h("input", {
+          value: topic,
+          onChange: (event: Event) => {
+            updateTopic((event.target as HTMLInputElement).value);
+          },
+        }),
+      ),
+      h(
+        "label",
+        { className: "field" },
+        h("span", null, "Import Markdown or text report"),
+        h("input", {
+          type: "file",
+          accept: ".md,.txt,text/markdown,text/plain",
+          onChange: (event: Event) => {
+            void importReportFile(event);
+          },
+        }),
+      ),
+      previewResult?.savedFileName
+        ? h(
+            "div",
+            { className: "notice-box", role: "status" },
+            h("h3", null, "Generated filename"),
+            h("p", null, h("code", null, previewResult.savedFileName)),
+          )
+        : null,
+      isPreviewBusy
+        ? h(
+            "div",
+            { className: "notice-box", role: "status" },
+            "Checking report text and filename.",
+          )
+        : null,
+    ),
+    h(
+      "aside",
+      { className: "composer-panel report-editor-panel", "aria-label": "Builder Report text" },
+      h(
+        "div",
+        { className: "preview-header" },
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, "Builder Report"),
+          h("h2", null, "Capture"),
+        ),
+        h("span", { className: "status-text" }, statusMessage),
+      ),
+      saveResult?.markdownPath
+        ? h(
+            "div",
+            { className: "save-result", role: "status" },
+            h("h3", null, "Saved"),
+            h("p", null, "Markdown: ", h("code", null, saveResult.markdownPath)),
+          )
+        : null,
+      h(
+        "label",
+        { className: "field report-text-field" },
+        h("span", null, "Builder Report Markdown"),
+        h("textarea", {
+          value: reportText,
+          rows: 18,
+          onChange: (event: Event) => {
+            setReportText((event.target as HTMLTextAreaElement).value);
+            setSaveResult(null);
+          },
+        }),
+      ),
+      validation ? renderBuilderReportDetection(validation) : null,
+      validation ? renderBuilderReportWarnings(validation) : null,
+      h(
+        "div",
+        { className: "actions prompt-actions" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "button primary",
+            disabled:
+              isSaveBusy ||
+              !previewResult?.ok ||
+              !validation?.validEnoughToSave ||
+              (isWorkCardReport && selectedFileName.trim().length === 0),
+            onClick: () => {
+              void saveReport();
+            },
+          },
+          "Save Builder Report",
+        ),
+      ),
+    ),
+  );
+}
+
 function renderPhaseField(
   value: string,
   setPhase: (value: string) => void,
@@ -1489,6 +1877,96 @@ function renderPhaseField(
         setPhase((event.target as HTMLInputElement).value);
       },
     }),
+  );
+}
+
+function renderReportTypeSelect(
+  value: ChampCityBuilderReportType,
+  onChange: (value: ChampCityBuilderReportType) => void,
+): unknown {
+  const options: ChampCityBuilderReportType[] = [
+    "Work Card",
+    "Fix",
+    "Repair",
+    "Other",
+  ];
+
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, "Report Type"),
+    h(
+      "select",
+      {
+        value,
+        onChange: (event: Event) => {
+          onChange((event.target as HTMLSelectElement).value as ChampCityBuilderReportType);
+        },
+      },
+      ...options.map((option) => h("option", { key: option, value: option }, option)),
+    ),
+  );
+}
+
+function renderBuilderReportDetection(
+  validation: ChampCityBuilderReportValidationResult,
+): unknown {
+  return h(
+    "dl",
+    { className: "summary-grid report-summary-grid" },
+    renderDetectionItem("Commit hash", validation.detected.hasCommitHash),
+    renderDetectionItem(
+      "Validation results",
+      validation.detected.hasValidationResults,
+    ),
+    renderDetectionItem(
+      "Blocking questions",
+      validation.detected.hasBlockingQuestions || validation.detected.hasBlockers,
+    ),
+    renderDetectionItem(
+      "Recommended next task",
+      validation.detected.hasRecommendedNextTask,
+    ),
+  );
+}
+
+function renderDetectionItem(label: string, detected: boolean): unknown {
+  return h(
+    "div",
+    null,
+    h("dt", null, label),
+    h("dd", null, detected ? "Detected" : "Not detected"),
+  );
+}
+
+function renderBuilderReportWarnings(
+  validation: ChampCityBuilderReportValidationResult,
+): unknown {
+  if (validation.warnings.length === 0) {
+    return h(
+      "div",
+      { className: "notice-box", role: "status" },
+      "No required-section warnings detected.",
+    );
+  }
+
+  return h(
+    "div",
+    { className: "warning-box", role: "status" },
+    h(
+      "h3",
+      null,
+      validation.validEnoughToSave
+        ? "Validation warnings"
+        : "Cannot save yet",
+    ),
+    h(
+      "ul",
+      null,
+      ...validation.warnings.map((warning) =>
+        h("li", { key: warning }, warning),
+      ),
+    ),
   );
 }
 

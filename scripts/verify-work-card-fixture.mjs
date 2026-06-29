@@ -23,6 +23,9 @@ const {
   workCardBuilderPromptFixture,
 } = require("../dist/shared/workCards/fixtures/workCardBuilderPromptFixture.js");
 const {
+  workCardBuilderReportFixture,
+} = require("../dist/shared/workCards/fixtures/workCardBuilderReportFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
 const {
@@ -46,6 +49,12 @@ const {
   standardBuilderValidationCommands,
 } = require("../dist/shared/workCards/renderBuilderPrompt.js");
 const {
+  buildBuilderReportFileName,
+  validateBuilderReport,
+  validateBuilderReportMarkdownFileName,
+  validateBuilderReportTopic,
+} = require("../dist/shared/workCards/validateBuilderReport.js");
+const {
   routeWorkCardRisk,
 } = require("../dist/shared/workCards/riskRouter.js");
 const { validateWorkCard } = require("../dist/shared/workCards/validateWorkCard.js");
@@ -55,6 +64,7 @@ const {
 const {
   listSavedWorkCards,
   resolveBuilderPromptsDirectory,
+  resolveBuilderReportsDirectory,
   resolveInside,
   resolveRiskReviewsDirectory,
   validateMarkdownArtifactFileName,
@@ -95,6 +105,13 @@ const renderedArtifacts = [
     path: resolve(
       repositoryRoot,
       "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+    ),
+  },
+  {
+    fixture: workCardBuilderReportFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
     ),
   },
 ];
@@ -180,10 +197,19 @@ try {
   // Expected.
 }
 
+try {
+  resolveBuilderReportsDirectory("../bad");
+  console.error("Builder Report directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
 assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
 assertBuilderPrompt();
+assertBuilderReportCapture();
 await assertSavedWorkCardListing();
 
 console.log("Work Card fixture validation passed.");
@@ -571,6 +597,214 @@ function assertBuilderPrompt() {
   }
 }
 
+function assertBuilderReportCapture() {
+  const completeReport = [
+    "# Builder Report - WC06 Capture Builder Report",
+    "",
+    "## Repository Path Inspected",
+    "Current working directory inspected: C:\\Users\\chapm\\Projects\\ChampCity_AI",
+    "",
+    "## Git Branch And Remote Status",
+    "Current branch: master. git remote -v confirmed origin.",
+    "",
+    "## Files Created",
+    "- planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+    "",
+    "## Files Modified",
+    "- src/renderer/renderer.ts",
+    "",
+    "## Files Intentionally Not Created",
+    "- No report index was created.",
+    "",
+    "## Commands Run And Results",
+    "- npm run typecheck - passed",
+    "",
+    "## Validation Performed",
+    "- npm run build - passed",
+    "",
+    "## Validation Skipped And Reason",
+    "- Manual Electron UI validation was skipped because this is an automated script.",
+    "",
+    "## Git Actions Performed",
+    "- Commit hash: abc1234",
+    "",
+    "## Security/Secret-Safety Notes",
+    "- No secrets were stored.",
+    "",
+    "## Blocking Questions",
+    "None.",
+    "",
+    "## Recommended Next Builder Task",
+    "Operator should manually validate the screen.",
+  ].join("\n");
+  const completeValidation = validateBuilderReport(completeReport);
+
+  if (!completeValidation.validEnoughToSave) {
+    console.error("Complete Builder Report was not valid enough to save.");
+    process.exit(1);
+  }
+
+  const completeMissingSignals = Object.entries(completeValidation.detected)
+    .filter(([_key, value]) => !value)
+    .map(([key]) => key);
+
+  if (completeMissingSignals.length > 0) {
+    console.error(
+      `Complete Builder Report did not detect expected signals: ${completeMissingSignals.join(", ")}.`,
+    );
+    process.exit(1);
+  }
+
+  const imperfectReport = [
+    "# Builder Report - quick note",
+    "",
+    "## Repository Path Inspected",
+    "Checked C:\\Users\\chapm\\Projects\\ChampCity_AI.",
+  ].join("\n");
+  const imperfectValidation = validateBuilderReport(imperfectReport);
+
+  if (!imperfectValidation.validEnoughToSave) {
+    console.error("Imperfect non-empty Builder Report should still be valid enough to save.");
+    process.exit(1);
+  }
+
+  if (imperfectValidation.warnings.length === 0) {
+    console.error("Imperfect Builder Report did not return warnings.");
+    process.exit(1);
+  }
+
+  if (validateBuilderReport("").validEnoughToSave) {
+    console.error("Empty Builder Report text should not be valid enough to save.");
+    process.exit(1);
+  }
+
+  const detectionReport = [
+    "# Builder Report",
+    "Commit hash: 1a2b3c4d",
+    "npm run test:work-cards - passed",
+    "## Blocking Questions",
+    "No blockers.",
+    "## Recommended Next Builder Task",
+    "Manual validation.",
+  ].join("\n");
+  const detectionValidation = validateBuilderReport(detectionReport);
+
+  if (!detectionValidation.detected.hasCommitHash) {
+    console.error("Builder Report commit hash detection failed.");
+    process.exit(1);
+  }
+
+  if (!detectionValidation.detected.hasValidationResults) {
+    console.error("Builder Report validation results detection failed.");
+    process.exit(1);
+  }
+
+  if (!detectionValidation.detected.hasBlockingQuestions) {
+    console.error("Builder Report blocking question detection failed.");
+    process.exit(1);
+  }
+
+  if (!detectionValidation.detected.hasRecommendedNextTask) {
+    console.error("Builder Report recommended next task detection failed.");
+    process.exit(1);
+  }
+
+  const expectedFileNames = [
+    {
+      input: {
+        reportType: "Work Card",
+        workCardId: "WC06",
+        workCardTitle: "Capture Builder Report",
+        topic: "Capture Builder Report",
+      },
+      fileName: "BUILDER_REPORT_WC06_capture_builder_report.md",
+    },
+    {
+      input: {
+        reportType: "Fix",
+        topic: "FIX07 save button issue",
+      },
+      fileName: "BUILDER_REPORT_FIX07_save_button_issue.md",
+    },
+    {
+      input: {
+        reportType: "Fix",
+        topic: "config issue",
+      },
+      fileName: "BUILDER_REPORT_FIX_config_issue.md",
+    },
+    {
+      input: {
+        reportType: "Repair",
+        workCardId: "WC06",
+        topic: "capture builder report save issue",
+      },
+      fileName: "BUILDER_REPORT_REPAIR_WC06_capture_builder_report_save_issue.md",
+    },
+    {
+      input: {
+        reportType: "Repair",
+        topic: "artifact backfill",
+      },
+      fileName: "BUILDER_REPORT_REPAIR_artifact_backfill.md",
+    },
+    {
+      input: {
+        reportType: "Other",
+        topic: "planning note",
+      },
+      fileName: "BUILDER_REPORT_OTHER_planning_note.md",
+    },
+  ];
+
+  for (const expected of expectedFileNames) {
+    const actual = buildBuilderReportFileName(expected.input);
+
+    if (actual !== expected.fileName) {
+      console.error(
+        `Builder Report filename generation returned ${actual}; expected ${expected.fileName}.`,
+      );
+      process.exit(1);
+    }
+  }
+
+  if (validateBuilderReportTopic("../bad").length === 0) {
+    console.error("Builder Report topic sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    buildBuilderReportFileName({
+      reportType: "Other",
+      topic: "../bad",
+    });
+    console.error("Builder Report filename builder failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    buildBuilderReportFileName({
+      reportType: "Work Card",
+      workCardId: "WC06",
+      topic: "../bad",
+    });
+    console.error("Work Card Builder Report filename builder failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    validateBuilderReportMarkdownFileName("../bad.md");
+    console.error("Builder Report filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+}
+
 async function assertSavedWorkCardListing() {
   const result = await listSavedWorkCards("phase-01");
 
@@ -585,7 +819,7 @@ async function assertSavedWorkCardListing() {
   const listedWorkCardIds = new Set(
     (result.workCards ?? []).map((workCard) => workCard.workCardId),
   );
-  const expectedWorkCardIds = ["WC01", "WC02", "WC03", "WC04", "WC05"];
+  const expectedWorkCardIds = ["WC01", "WC02", "WC03", "WC04", "WC05", "WC06"];
   const missingWorkCardIds = expectedWorkCardIds.filter(
     (workCardId) => !listedWorkCardIds.has(workCardId),
   );
