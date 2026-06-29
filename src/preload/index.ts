@@ -6,6 +6,12 @@ import type {
   WorkCardPreviewResult,
   WorkCardSaveResult,
 } from "../shared/workCards/workCardDraft";
+import type {
+  ArchitectPromptPreviewResult,
+  ArchitectPromptRequest,
+  ArchitectPromptSaveResult,
+  ListSavedWorkCardsResult,
+} from "../shared/workCards/renderArchitectFramingPrompt";
 
 const api = {
   getAppInfo: () => ({
@@ -21,6 +27,16 @@ const api = {
     ipcRenderer.invoke("workCards:previewDraft", input),
   saveWorkCardDraft: (input: WorkCardDraftInput): Promise<WorkCardSaveResult> =>
     ipcRenderer.invoke("workCards:saveDraft", input),
+  listSavedWorkCards: (phase: string): Promise<ListSavedWorkCardsResult> =>
+    ipcRenderer.invoke("workCards:listSaved", phase),
+  previewArchitectPrompt: (
+    input: ArchitectPromptRequest,
+  ): Promise<ArchitectPromptPreviewResult> =>
+    ipcRenderer.invoke("workCards:previewArchitectPrompt", input),
+  saveArchitectPrompt: (
+    input: ArchitectPromptRequest,
+  ): Promise<ArchitectPromptSaveResult> =>
+    ipcRenderer.invoke("workCards:saveArchitectPrompt", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);

@@ -4,6 +4,14 @@ import type {
   WorkCardPreviewResult,
   WorkCardSaveResult,
 } from "../shared/workCards/workCardDraft";
+import type {
+  ArchitectPromptPreviewResult,
+  ArchitectPromptRequest,
+  ArchitectPromptSaveResult,
+  InvalidSavedWorkCardFile,
+  ListSavedWorkCardsResult,
+  SavedWorkCardSummary,
+} from "../shared/workCards/renderArchitectFramingPrompt";
 
 type ReactStateSetter<T> = (value: T | ((previous: T) => T)) => void;
 
@@ -37,6 +45,12 @@ declare global {
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
   type ChampCityWorkCardSaveResult = WorkCardSaveResult;
   type ChampCityNextWorkCardIdResult = NextWorkCardIdResult;
+  type ChampCitySavedWorkCardSummary = SavedWorkCardSummary;
+  type ChampCityInvalidSavedWorkCardFile = InvalidSavedWorkCardFile;
+  type ChampCityArchitectPromptRequest = ArchitectPromptRequest;
+  type ChampCityListSavedWorkCardsResult = ListSavedWorkCardsResult;
+  type ChampCityArchitectPromptPreviewResult = ArchitectPromptPreviewResult;
+  type ChampCityArchitectPromptSaveResult = ArchitectPromptSaveResult;
 
   interface Window {
     champCity: {
@@ -52,6 +66,15 @@ declare global {
       saveWorkCardDraft: (
         input: WorkCardDraftInput,
       ) => Promise<WorkCardSaveResult>;
+      listSavedWorkCards: (
+        phase: string,
+      ) => Promise<ListSavedWorkCardsResult>;
+      previewArchitectPrompt: (
+        input: ArchitectPromptRequest,
+      ) => Promise<ArchitectPromptPreviewResult>;
+      saveArchitectPrompt: (
+        input: ArchitectPromptRequest,
+      ) => Promise<ArchitectPromptSaveResult>;
     };
   }
 }

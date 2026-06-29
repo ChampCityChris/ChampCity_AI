@@ -10,8 +10,15 @@ const repositoryRoot = resolve(scriptDir, "..");
 const { workCardFixture } = require("../dist/shared/workCards/fixtures/workCardFixture.js");
 const { workCardCaptureFixture } = require("../dist/shared/workCards/fixtures/workCardCaptureFixture.js");
 const {
+  workCardArchitectPromptFixture,
+} = require("../dist/shared/workCards/fixtures/workCardArchitectPromptFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
+const {
+  finalBuilderPromptBoundary,
+  renderArchitectFramingPrompt,
+} = require("../dist/shared/workCards/renderArchitectFramingPrompt.js");
 const {
   renderWorkCardMarkdown,
   workCardMarkdownHeadings,
@@ -22,6 +29,7 @@ const {
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
   resolveInside,
+  validateSavedWorkCardJsonFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
 
 const renderedArtifacts = [
@@ -37,6 +45,13 @@ const renderedArtifacts = [
     path: resolve(
       repositoryRoot,
       "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+    ),
+  },
+  {
+    fixture: workCardArchitectPromptFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
     ),
   },
 ];
@@ -86,6 +101,11 @@ if (validateSafePhaseFolder("../bad").length === 0) {
   process.exit(1);
 }
 
+if (validateSavedWorkCardJsonFileName("../bad").length === 0) {
+  console.error("Saved Work Card JSON file validation failed to reject traversal input.");
+  process.exit(1);
+}
+
 try {
   resolveInside(resolve(repositoryRoot, "planning", "phases"), "../bad");
   console.error("Path sanitizer failed to reject traversal input.");
@@ -93,6 +113,8 @@ try {
 } catch {
   // Expected.
 }
+
+assertArchitectPrompt(workCardArchitectPromptFixture);
 
 console.log("Work Card fixture validation passed.");
 
@@ -132,6 +154,26 @@ function assertFixtureArtifact(fixture, renderedFixturePath) {
     console.error(
       `Checked-in ${fixture.workCardId} Markdown does not match the renderer output.`,
     );
+    process.exit(1);
+  }
+}
+
+function assertArchitectPrompt(fixture) {
+  const prompt = renderArchitectFramingPrompt(fixture);
+  const requiredText = [
+    fixture.workCardId,
+    fixture.title,
+    "Ask only clarifying questions that are necessary",
+    "Provide recommended defaults",
+    finalBuilderPromptBoundary,
+  ];
+  const missingText = requiredText.filter((text) => !prompt.includes(text));
+
+  if (missingText.length > 0) {
+    console.error("Architect framing prompt is missing required text:");
+    for (const text of missingText) {
+      console.error(`- ${text}`);
+    }
     process.exit(1);
   }
 }

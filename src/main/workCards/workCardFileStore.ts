@@ -1,4 +1,4 @@
-import { access, mkdir, readdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -12,7 +12,19 @@ import {
   buildWorkCardFileStem,
   validateSafePhaseFolder,
 } from "../../shared/workCards/workCardFileNames";
+import {
+  buildArchitectPromptFileName,
+  type ArchitectPromptRequest,
+  type ArchitectPromptPreviewResult,
+  type ArchitectPromptSaveResult,
+  type InvalidSavedWorkCardFile,
+  type ListSavedWorkCardsResult,
+  renderArchitectFramingPrompt,
+  type SavedWorkCardSummary,
+} from "../../shared/workCards/renderArchitectFramingPrompt";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
+import type { WorkCard } from "../../shared/workCards/workCardSchema";
+import { validateWorkCard } from "../../shared/workCards/validateWorkCard";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
@@ -87,8 +99,14 @@ export async function saveDraftWorkCard(
     const markdownPath = resolveInside(directory, `${fileStem}.md`);
     const jsonPath = resolveInside(directory, `${fileStem}.json`);
 
-    await failIfExists(markdownPath);
-    await failIfExists(jsonPath);
+    await failIfExists(
+      markdownPath,
+      "A Work Card file with this ID and title already exists.",
+    );
+    await failIfExists(
+      jsonPath,
+      "A Work Card file with this ID and title already exists.",
+    );
     await mkdir(directory, { recursive: true });
     await writeFile(jsonPath, `${JSON.stringify(workCard, null, 2)}\n`, {
       encoding: "utf8",
@@ -116,6 +134,124 @@ export async function saveDraftWorkCard(
   }
 }
 
+export async function listSavedWorkCards(
+  phase: string,
+): Promise<ListSavedWorkCardsResult> {
+  try {
+    const directory = resolveWorkCardsDirectory(phase);
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const workCards: SavedWorkCardSummary[] = [];
+    const invalidFiles: InvalidSavedWorkCardFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateSavedWorkCardJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const workCard = await readSavedWorkCardFile(phase, fileName);
+        workCards.push(toSavedWorkCardSummary(fileName, workCard));
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    workCards.sort((left, right) =>
+      `${left.workCardId} ${left.title}`.localeCompare(
+        `${right.workCardId} ${right.title}`,
+      ),
+    );
+
+    return {
+      ok: true,
+      workCards,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewArchitectPrompt(
+  input: ArchitectPromptRequest,
+): Promise<ArchitectPromptPreviewResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const prompt = renderArchitectFramingPrompt(workCard);
+
+    return {
+      ok: true,
+      prompt,
+      workCard,
+      sourceFileName: input.fileName,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveArchitectPrompt(
+  input: ArchitectPromptRequest,
+): Promise<ArchitectPromptSaveResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
+    const prompt = renderArchitectFramingPrompt(workCard);
+    const directory = resolveArchitectPromptsDirectory(workCard.phase);
+    const savedFileName = buildArchitectPromptFileName(workCard);
+    const markdownPath = resolveInside(directory, savedFileName);
+
+    await failIfExists(
+      markdownPath,
+      "An Architect prompt artifact for this Work Card already exists.",
+    );
+    await mkdir(directory, { recursive: true });
+    await writeFile(markdownPath, `${prompt}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ok: true,
+      prompt,
+      workCard,
+      sourceFileName: input.fileName,
+      markdownPath,
+      savedFileName,
+    };
+  } catch (error) {
+    console.error("Failed to save Architect prompt.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export function resolveWorkCardsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -124,6 +260,16 @@ export function resolveWorkCardsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Work_Cards");
+}
+
+export function resolveArchitectPromptsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Architect_Prompts");
 }
 
 export function resolveInside(root: string, ...segments: string[]): string {
@@ -138,7 +284,78 @@ export function resolveInside(root: string, ...segments: string[]): string {
   return resolvedPath;
 }
 
-async function failIfExists(filePath: string): Promise<void> {
+export function validateSavedWorkCardJsonFileName(fileName: string): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Work Card JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return ["Saved Work Card file names must not include folders."];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Work Card files must be JSON files."];
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*\.json$/.test(value)) {
+    return [
+      "Saved Work Card file names must use only letters, numbers, hyphens, underscores, and the .json extension.",
+    ];
+  }
+
+  return [];
+}
+
+async function readSavedWorkCardFile(
+  phase: string,
+  fileName: string,
+): Promise<WorkCard> {
+  const fileNameErrors = validateSavedWorkCardJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveWorkCardsDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validateWorkCard(parsed);
+
+  if (!validation.valid) {
+    throw new Error(
+      `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  const workCard = parsed as WorkCard;
+
+  if (workCard.phase !== phase.trim()) {
+    throw new Error("Saved Work Card phase must match the selected phase folder.");
+  }
+
+  return workCard;
+}
+
+function toSavedWorkCardSummary(
+  fileName: string,
+  workCard: WorkCard,
+): SavedWorkCardSummary {
+  return {
+    fileName,
+    workCardId: workCard.workCardId,
+    title: workCard.title,
+    status: workCard.status,
+    phase: workCard.phase,
+  };
+}
+
+async function failIfExists(
+  filePath: string,
+  message: string,
+): Promise<void> {
   try {
     await access(filePath);
   } catch (error) {
@@ -149,7 +366,7 @@ async function failIfExists(filePath: string): Promise<void> {
     throw error;
   }
 
-  throw new Error("A Work Card file with this ID and title already exists.");
+  throw new Error(message);
 }
 
 function toPlainSaveError(error: unknown): string {

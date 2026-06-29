@@ -3,10 +3,14 @@ import path from "node:path";
 
 import {
   getNextWorkCardId,
+  listSavedWorkCards,
+  previewArchitectPrompt,
   previewDraftWorkCard,
+  saveArchitectPrompt,
   saveDraftWorkCard,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
+import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 
 const appName = "ChampCity A/I";
 
@@ -55,5 +59,16 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:saveDraft", (_event, input: WorkCardDraftInput) =>
     saveDraftWorkCard(input),
+  );
+  ipcMain.handle("workCards:listSaved", (_event, phase: string) =>
+    listSavedWorkCards(phase),
+  );
+  ipcMain.handle(
+    "workCards:previewArchitectPrompt",
+    (_event, input: ArchitectPromptRequest) => previewArchitectPrompt(input),
+  );
+  ipcMain.handle(
+    "workCards:saveArchitectPrompt",
+    (_event, input: ArchitectPromptRequest) => saveArchitectPrompt(input),
   );
 }
