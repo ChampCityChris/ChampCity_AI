@@ -3,6 +3,7 @@ import path from "node:path";
 
 import {
   getNextWorkCardId,
+  getPhaseCloseoutSummary,
   listBuilderPromptSupportingArtifacts,
   listHumanValidationBuilderReports,
   listSavedWorkCards,
@@ -11,12 +12,14 @@ import {
   previewBuilderReportCapture,
   previewDraftWorkCard,
   previewHumanValidationRecord,
+  previewPhaseCloseoutRecord,
   previewRiskReview,
   saveArchitectPrompt,
   saveBuilderPrompt,
   saveBuilderReportCapture,
   saveDraftWorkCard,
   saveHumanValidationRecord,
+  savePhaseCloseoutRecord,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
@@ -28,6 +31,7 @@ import type {
   HumanValidationBuilderReportListRequest,
   HumanValidationFormInput,
 } from "../shared/workCards/validationRecord";
+import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRecord";
 
 const appName = "ChampCity A/I";
 
@@ -132,5 +136,18 @@ function registerWorkCardIpc(): void {
     "workCards:saveHumanValidationRecord",
     (_event, input: HumanValidationFormInput) =>
       saveHumanValidationRecord(input),
+  );
+  ipcMain.handle("workCards:getPhaseCloseoutSummary", (_event, phase: string) =>
+    getPhaseCloseoutSummary(phase),
+  );
+  ipcMain.handle(
+    "workCards:previewPhaseCloseoutRecord",
+    (_event, input: PhaseCloseoutFormInput) =>
+      previewPhaseCloseoutRecord(input),
+  );
+  ipcMain.handle(
+    "workCards:savePhaseCloseoutRecord",
+    (_event, input: PhaseCloseoutFormInput) =>
+      savePhaseCloseoutRecord(input),
   );
 }

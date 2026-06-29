@@ -47,6 +47,19 @@ import type {
   InvalidHumanValidationBuilderReportFile,
   ManualValidationChecklistExtraction,
 } from "../shared/workCards/validationRecord";
+import type {
+  PhaseArtifactFolderSummary,
+  PhaseArtifactSummary,
+  PhaseWorkCardArtifactPair,
+} from "../shared/workCards/phaseCloseout";
+import type {
+  PhaseCloseoutDecision,
+  PhaseCloseoutFormInput,
+  PhaseCloseoutPreviewResult,
+  PhaseCloseoutRecord,
+  PhaseCloseoutSaveResult,
+  PhaseCloseoutSummaryResult,
+} from "../shared/workCards/phaseCloseoutRecord";
 
 type ReactStateSetter<T> = (value: T | ((previous: T) => T)) => void;
 
@@ -124,6 +137,15 @@ declare global {
     HumanValidationBuilderReportListResult;
   type ChampCityHumanValidationPreviewResult = HumanValidationPreviewResult;
   type ChampCityHumanValidationSaveResult = HumanValidationSaveResult;
+  type ChampCityPhaseArtifactFolderSummary = PhaseArtifactFolderSummary;
+  type ChampCityPhaseArtifactSummary = PhaseArtifactSummary;
+  type ChampCityPhaseWorkCardArtifactPair = PhaseWorkCardArtifactPair;
+  type ChampCityPhaseCloseoutDecision = PhaseCloseoutDecision;
+  type ChampCityPhaseCloseoutFormInput = PhaseCloseoutFormInput;
+  type ChampCityPhaseCloseoutRecord = PhaseCloseoutRecord;
+  type ChampCityPhaseCloseoutSummaryResult = PhaseCloseoutSummaryResult;
+  type ChampCityPhaseCloseoutPreviewResult = PhaseCloseoutPreviewResult;
+  type ChampCityPhaseCloseoutSaveResult = PhaseCloseoutSaveResult;
 
   interface Window {
     champCity: {
@@ -178,6 +200,15 @@ declare global {
       saveHumanValidationRecord: (
         input: HumanValidationFormInput,
       ) => Promise<HumanValidationSaveResult>;
+      getPhaseCloseoutSummary: (
+        phase: string,
+      ) => Promise<PhaseCloseoutSummaryResult>;
+      previewPhaseCloseoutRecord: (
+        input: PhaseCloseoutFormInput,
+      ) => Promise<PhaseCloseoutPreviewResult>;
+      savePhaseCloseoutRecord: (
+        input: PhaseCloseoutFormInput,
+      ) => Promise<PhaseCloseoutSaveResult>;
     };
   }
 }

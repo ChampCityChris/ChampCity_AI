@@ -51,6 +51,25 @@ import {
   validateBuilderReport,
 } from "../../shared/workCards/validateBuilderReport";
 import { buildRepairPromptFileName, renderRepairPrompt } from "../../shared/workCards/renderRepairPrompt";
+import {
+  createEmptyPhaseArtifactFiles,
+  getAllowedPhaseArtifactExtensions,
+  phaseArtifactFolderNames,
+  summarizePhaseArtifacts,
+  validatePhaseArtifactFileName,
+  type PhaseArtifactFilesByFolder,
+  type PhaseArtifactFolderName,
+} from "../../shared/workCards/phaseCloseout";
+import {
+  buildPhaseCloseoutJsonFileName,
+  buildPhaseCloseoutMarkdownFileName,
+  buildPhaseCloseoutRecord,
+  type PhaseCloseoutFormInput,
+  type PhaseCloseoutPreviewResult,
+  type PhaseCloseoutSaveResult,
+  type PhaseCloseoutSummaryResult,
+} from "../../shared/workCards/phaseCloseoutRecord";
+import { renderPhaseCloseoutMarkdown } from "../../shared/workCards/renderPhaseCloseoutMarkdown";
 import { renderValidationRecordMarkdown } from "../../shared/workCards/renderValidationRecordMarkdown";
 import {
   buildHumanValidationRecord,
@@ -747,6 +766,96 @@ export async function saveHumanValidationRecord(
   }
 }
 
+export async function getPhaseCloseoutSummary(
+  phase: string,
+): Promise<PhaseCloseoutSummaryResult> {
+  try {
+    return {
+      ok: true,
+      summary: await readPhaseArtifactSummary(phase),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewPhaseCloseoutRecord(
+  input: PhaseCloseoutFormInput,
+): Promise<PhaseCloseoutPreviewResult> {
+  try {
+    const createdAt = new Date().toISOString();
+    const summary = await readPhaseArtifactSummary(input.phase);
+    const record = buildPhaseCloseoutRecord(input, summary, createdAt);
+    const markdown = renderPhaseCloseoutMarkdown(record);
+
+    return {
+      ok: true,
+      summary,
+      record,
+      markdown,
+      savedJsonFileName: buildPhaseCloseoutJsonFileName(record),
+      savedMarkdownFileName: buildPhaseCloseoutMarkdownFileName(record),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function savePhaseCloseoutRecord(
+  input: PhaseCloseoutFormInput,
+): Promise<PhaseCloseoutSaveResult> {
+  try {
+    const createdAt = new Date().toISOString();
+    const summary = await readPhaseArtifactSummary(input.phase);
+    const record = buildPhaseCloseoutRecord(input, summary, createdAt);
+    const markdown = renderPhaseCloseoutMarkdown(record);
+    const directory = resolveCloseoutReportsDirectory(record.phase);
+    const targets = await resolveAvailableFilePair(
+      directory,
+      buildPhaseCloseoutJsonFileName(record),
+      buildPhaseCloseoutMarkdownFileName(record),
+    );
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(record, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ok: true,
+      summary,
+      record,
+      markdown,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Phase Closeout record.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export function resolveWorkCardsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -815,6 +924,16 @@ export function resolveRepairPromptsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Repair_Prompts");
+}
+
+export function resolveCloseoutReportsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Closeout_Reports");
 }
 
 export function resolveInside(root: string, ...segments: string[]): string {
@@ -1124,6 +1243,90 @@ function resolveSupportingArtifactDirectory(
   }
 
   return resolveBuilderReportsDirectory(phase);
+}
+
+async function readPhaseArtifactSummary(phase: string) {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  const filesByFolder: PhaseArtifactFilesByFolder =
+    createEmptyPhaseArtifactFiles();
+
+  for (const folder of phaseArtifactFolderNames) {
+    filesByFolder[folder] = await readPhaseArtifactFileNames(phase, folder);
+  }
+
+  return summarizePhaseArtifacts({
+    phase,
+    filesByFolder,
+  });
+}
+
+async function readPhaseArtifactFileNames(
+  phase: string,
+  folder: PhaseArtifactFolderName,
+): Promise<string[]> {
+  const directory = resolvePhaseArtifactDirectory(phase, folder);
+  const allowedExtensions = getAllowedPhaseArtifactExtensions(folder);
+  let entries: string[] = [];
+
+  try {
+    entries = await readdir(directory);
+  } catch (error) {
+    if (!isNodeErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+  }
+
+  return entries
+    .filter((entry) =>
+      allowedExtensions.some((extension) =>
+        entry.toLowerCase().endsWith(extension),
+      ),
+    )
+    .filter(
+      (entry) =>
+        validatePhaseArtifactFileName(entry, allowedExtensions).length === 0,
+    )
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function resolvePhaseArtifactDirectory(
+  phase: string,
+  folder: PhaseArtifactFolderName,
+): string {
+  if (folder === "Work_Cards") {
+    return resolveWorkCardsDirectory(phase);
+  }
+
+  if (folder === "Architect_Prompts") {
+    return resolveArchitectPromptsDirectory(phase);
+  }
+
+  if (folder === "Risk_Reviews") {
+    return resolveRiskReviewsDirectory(phase);
+  }
+
+  if (folder === "Builder_Prompts") {
+    return resolveBuilderPromptsDirectory(phase);
+  }
+
+  if (folder === "Builder_Reports") {
+    return resolveBuilderReportsDirectory(phase);
+  }
+
+  if (folder === "Validation_Reports") {
+    return resolveValidationReportsDirectory(phase);
+  }
+
+  if (folder === "Repair_Prompts") {
+    return resolveRepairPromptsDirectory(phase);
+  }
+
+  return resolveCloseoutReportsDirectory(phase);
 }
 
 function pickDefaultArtifactFileName(

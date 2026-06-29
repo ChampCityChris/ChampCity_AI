@@ -6,7 +6,8 @@ type AppScreen =
   | "risk-router"
   | "builder-prompt-generator"
   | "builder-report-capture"
-  | "human-validation";
+  | "human-validation"
+  | "phase-closeout";
 
 const defaultPhase = "phase-01";
 const workCardJsonSelectorHelp =
@@ -42,6 +43,17 @@ const initialHumanValidationForm: Omit<
   observedErrors: "",
   additionalOperatorObservations: "",
   operatorDecision: "Deferred - not validated yet",
+  recommendedNextAction: "",
+};
+
+const initialPhaseCloseoutForm: ChampCityPhaseCloseoutFormInput = {
+  phase: defaultPhase,
+  decision: "Continue phase",
+  closeoutSummary: "",
+  completedItems: "",
+  remainingItems: "",
+  knownRisks: "",
+  operatorNotes: "",
   recommendedNextAction: "",
 };
 
@@ -95,6 +107,11 @@ function App(): unknown {
           activeScreen === "human-validation",
           () => setActiveScreen("human-validation"),
         ),
+        renderNavButton(
+          "Phase Closeout",
+          activeScreen === "phase-closeout",
+          () => setActiveScreen("phase-closeout"),
+        ),
       ),
     ),
     activeScreen === "new-work-card"
@@ -107,7 +124,9 @@ function App(): unknown {
             ? h(BuilderPromptGeneratorScreen)
             : activeScreen === "builder-report-capture"
               ? h(BuilderReportCaptureScreen)
-              : h(HumanValidationScreen),
+              : activeScreen === "human-validation"
+                ? h(HumanValidationScreen)
+                : h(PhaseCloseoutScreen),
   );
 }
 
@@ -130,6 +149,10 @@ function getScreenTitle(activeScreen: AppScreen): string {
 
   if (activeScreen === "human-validation") {
     return "Human Validation";
+  }
+
+  if (activeScreen === "phase-closeout") {
+    return "Phase Closeout";
   }
 
   return "Risk Router";
@@ -2437,6 +2460,237 @@ function HumanValidationScreen(): unknown {
   );
 }
 
+function PhaseCloseoutScreen(): unknown {
+  const [form, setForm] =
+    React.useState<ChampCityPhaseCloseoutFormInput>(initialPhaseCloseoutForm);
+  const [summary, setSummary] =
+    React.useState<ChampCityPhaseArtifactSummary | null>(null);
+  const [previewResult, setPreviewResult] =
+    React.useState<ChampCityPhaseCloseoutPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    React.useState<ChampCityPhaseCloseoutSaveResult | null>(null);
+  const [errors, setErrors] = React.useState<string[]>([]);
+  const [isPreviewBusy, setIsPreviewBusy] = React.useState(false);
+  const [isSaveBusy, setIsSaveBusy] = React.useState(false);
+  const [statusMessage, setStatusMessage] =
+    React.useState("Loading phase artifacts.");
+
+  React.useEffect(() => {
+    let active = true;
+
+    setIsPreviewBusy(true);
+    setErrors([]);
+
+    window.champCity
+      .previewPhaseCloseoutRecord(form)
+      .then((result: ChampCityPhaseCloseoutPreviewResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsPreviewBusy(false);
+        setPreviewResult(result);
+        setSummary(result.summary ?? null);
+
+        if (!result.ok) {
+          setErrors(result.errorMessages ?? ["Phase Closeout preview could not be generated."]);
+          setStatusMessage("Phase Closeout preview needs attention.");
+          return;
+        }
+
+        setStatusMessage("Phase Closeout preview refreshed.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsPreviewBusy(false);
+        setPreviewResult(null);
+        setSummary(null);
+        setErrors(["Phase Closeout preview could not be generated."]);
+        setStatusMessage("Phase Closeout preview needs attention.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    form.phase,
+    form.decision,
+    form.closeoutSummary,
+    form.completedItems,
+    form.remainingItems,
+    form.knownRisks,
+    form.operatorNotes,
+    form.recommendedNextAction,
+  ]);
+
+  function updateCloseoutField(
+    field: keyof ChampCityPhaseCloseoutFormInput,
+    value: string,
+  ): void {
+    setForm(
+      (previous) =>
+        ({
+          ...previous,
+          [field]: value,
+        }) as ChampCityPhaseCloseoutFormInput,
+    );
+    setSaveResult(null);
+  }
+
+  async function saveCloseout(): Promise<void> {
+    setIsSaveBusy(true);
+    setErrors([]);
+
+    const result = await window.champCity.savePhaseCloseoutRecord(form);
+    setIsSaveBusy(false);
+    setPreviewResult(result);
+    setSummary(result.summary ?? null);
+
+    if (!result.ok || !result.markdown) {
+      setErrors(result.errorMessages ?? ["The Phase Closeout record could not be saved."]);
+      setStatusMessage("Save needs attention.");
+      return;
+    }
+
+    setSaveResult(result);
+    setStatusMessage("Phase Closeout record saved.");
+  }
+
+  return h(
+    "section",
+    {
+      className: "workspace prompt-workspace",
+      "aria-label": "Phase Closeout",
+    },
+    h(
+      "div",
+      { className: "selector-panel" },
+      h(
+        "div",
+        { className: "form-header" },
+        h("h2", null, "Phase Artifacts"),
+        h("span", { className: "status-pill" }, form.phase),
+      ),
+      renderErrors(errors),
+      renderPhaseField(form.phase, (value) => updateCloseoutField("phase", value)),
+      summary ? renderPhaseArtifactCounts(summary) : renderPhaseCloseoutLoading(),
+      summary ? renderPhaseArtifactFileNames(summary) : null,
+      summary ? renderPhaseWorkCardPairing(summary) : null,
+      summary ? renderPhaseCloseoutObservations(summary) : null,
+      summary
+        ? h(
+            "div",
+            { className: "notice-box", role: "status" },
+            h("h3", null, "Deterministic recommendation"),
+            h("p", null, previewResult?.record?.deterministicRecommendation ?? summary.deterministicRecommendation),
+          )
+        : null,
+    ),
+    h(
+      "aside",
+      {
+        className: "composer-panel validation-editor-panel",
+        "aria-label": "Phase Closeout record",
+      },
+      h(
+        "div",
+        { className: "preview-header" },
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, "Closeout"),
+          h("h2", null, "Decision Record"),
+        ),
+        h("span", { className: "status-text" }, statusMessage),
+      ),
+      saveResult?.jsonPath && saveResult.markdownPath
+        ? h(
+            "div",
+            { className: "save-result", role: "status" },
+            h("h3", null, "Saved"),
+            h("p", null, "JSON: ", h("code", null, saveResult.jsonPath)),
+            h("p", null, "Markdown: ", h("code", null, saveResult.markdownPath)),
+          )
+        : null,
+      h(
+        "div",
+        { className: "field-grid" },
+        renderPhaseCloseoutDecisionSelect(form.decision, (value) =>
+          updateCloseoutField("decision", value),
+        ),
+      ),
+      renderPhaseCloseoutTextAreaField(
+        "Closeout summary",
+        form.closeoutSummary,
+        (value) => updateCloseoutField("closeoutSummary", value),
+        4,
+      ),
+      h(
+        "div",
+        { className: "two-column" },
+        renderPhaseCloseoutTextAreaField(
+          "What was completed?",
+          form.completedItems,
+          (value) => updateCloseoutField("completedItems", value),
+          5,
+        ),
+        renderPhaseCloseoutTextAreaField(
+          "What remains?",
+          form.remainingItems,
+          (value) => updateCloseoutField("remainingItems", value),
+          5,
+        ),
+      ),
+      h(
+        "div",
+        { className: "two-column" },
+        renderPhaseCloseoutTextAreaField(
+          "Known risks",
+          form.knownRisks,
+          (value) => updateCloseoutField("knownRisks", value),
+          4,
+        ),
+        renderPhaseCloseoutTextAreaField(
+          "Operator notes",
+          form.operatorNotes,
+          (value) => updateCloseoutField("operatorNotes", value),
+          4,
+        ),
+      ),
+      renderPhaseCloseoutTextAreaField(
+        "Recommended next action",
+        form.recommendedNextAction,
+        (value) => updateCloseoutField("recommendedNextAction", value),
+        4,
+      ),
+      h(
+        "pre",
+        { className: "markdown-preview prompt-preview" },
+        previewResult?.markdown ?? "No Phase Closeout preview generated yet.",
+      ),
+      h(
+        "div",
+        { className: "actions prompt-actions" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "button primary",
+            disabled: isSaveBusy || isPreviewBusy || !previewResult?.ok,
+            onClick: () => {
+              void saveCloseout();
+            },
+          },
+          "Save Closeout",
+        ),
+      ),
+    ),
+  );
+}
+
 function renderPhaseField(
   value: string,
   setPhase: (value: string) => void,
@@ -2449,6 +2703,218 @@ function renderPhaseField(
       value,
       onChange: (event: Event) => {
         setPhase((event.target as HTMLInputElement).value);
+      },
+    }),
+  );
+}
+
+function renderPhaseArtifactCounts(
+  summary: ChampCityPhaseArtifactSummary,
+): unknown {
+  return h(
+    "dl",
+    { className: "summary-grid report-summary-grid" },
+    ...summary.folders.map((folder) =>
+      h(
+        "div",
+        { key: folder.folder },
+        h("dt", null, folder.folder.replace(/_/g, " ")),
+        h("dd", null, String(folder.count)),
+      ),
+    ),
+  );
+}
+
+function renderPhaseArtifactFileNames(
+  summary: ChampCityPhaseArtifactSummary,
+): unknown {
+  return h(
+    "section",
+    { className: "review-section" },
+    h("h3", null, "Artifact filenames"),
+    ...summary.folders.map((folder) =>
+      h(
+        "div",
+        { key: `files-${folder.folder}`, className: "artifact-folder" },
+        h("h4", null, `${folder.folder.replace(/_/g, " ")} (${folder.count})`),
+        renderSimpleList(
+          folder.fileNames,
+          "No matching artifacts found in this folder.",
+        ),
+      ),
+    ),
+  );
+}
+
+function renderPhaseWorkCardPairing(
+  summary: ChampCityPhaseArtifactSummary,
+): unknown {
+  return h(
+    "section",
+    { className: "review-section" },
+    h("h3", null, "Work Card pairing"),
+    h(
+      "dl",
+      { className: "summary-grid" },
+      h(
+        "div",
+        null,
+        h("dt", null, "Unique Work Cards"),
+        h("dd", null, String(summary.workCardCount)),
+      ),
+      h(
+        "div",
+        null,
+        h("dt", null, "Paired JSON + Markdown"),
+        h("dd", null, String(summary.workCardsWithBothJsonAndMarkdown.length)),
+      ),
+      h(
+        "div",
+        null,
+        h("dt", null, "Missing JSON"),
+        h("dd", null, String(summary.workCardsMissingJson.length)),
+      ),
+      h(
+        "div",
+        null,
+        h("dt", null, "Missing Markdown"),
+        h("dd", null, String(summary.workCardsMissingMarkdown.length)),
+      ),
+    ),
+    h("h4", null, "Paired Work Cards"),
+    renderPhaseWorkCardPairList(
+      summary.workCardsWithBothJsonAndMarkdown,
+      "No paired Work Card artifacts found.",
+    ),
+    summary.workCardsMissingJson.length > 0
+      ? h(
+          "div",
+          { className: "warning-box", role: "status" },
+          h("h3", null, "Missing JSON"),
+          renderPhaseWorkCardPairList(
+            summary.workCardsMissingJson,
+            "No Work Cards are missing JSON.",
+          ),
+        )
+      : null,
+    summary.workCardsMissingMarkdown.length > 0
+      ? h(
+          "div",
+          { className: "warning-box", role: "status" },
+          h("h3", null, "Missing Markdown"),
+          renderPhaseWorkCardPairList(
+            summary.workCardsMissingMarkdown,
+            "No Work Cards are missing Markdown.",
+          ),
+        )
+      : null,
+  );
+}
+
+function renderPhaseCloseoutObservations(
+  summary: ChampCityPhaseArtifactSummary,
+): unknown {
+  if (summary.missingExpectedArtifactObservations.length === 0) {
+    return h(
+      "div",
+      { className: "notice-box", role: "status" },
+      "No missing expected artifact observations were detected.",
+    );
+  }
+
+  return h(
+    "div",
+    { className: "warning-box", role: "status" },
+    h("h3", null, "Missing or warning observations"),
+    h(
+      "ul",
+      null,
+      ...summary.missingExpectedArtifactObservations.map((observation) =>
+        h("li", { key: observation }, observation),
+      ),
+    ),
+  );
+}
+
+function renderPhaseCloseoutLoading(): unknown {
+  return h(
+    "div",
+    { className: "empty-state", role: "status" },
+    "Loading phase artifact summary.",
+  );
+}
+
+function renderPhaseWorkCardPairList(
+  pairs: ChampCityPhaseWorkCardArtifactPair[],
+  emptyMessage: string,
+): unknown {
+  if (pairs.length === 0) {
+    return h("p", null, emptyMessage);
+  }
+
+  return h(
+    "ul",
+    null,
+    ...pairs.map((pair) =>
+      h(
+        "li",
+        { key: pair.stem },
+        `${pair.workCardId}: ${pair.jsonFileName ?? "missing JSON"} + ${
+          pair.markdownFileName ?? "missing Markdown"
+        }`,
+      ),
+    ),
+  );
+}
+
+function renderPhaseCloseoutDecisionSelect(
+  value: ChampCityPhaseCloseoutDecision,
+  onChange: (value: ChampCityPhaseCloseoutDecision) => void,
+): unknown {
+  const options: ChampCityPhaseCloseoutDecision[] = [
+    "Close phase",
+    "Continue phase",
+    "Needs repair",
+    "Needs UI cleanup",
+    "Ready for release/package pass",
+    "Ready for next phase",
+  ];
+
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, "Closeout decision"),
+    h(
+      "select",
+      {
+        value,
+        onChange: (event: Event) => {
+          onChange(
+            (event.target as HTMLSelectElement)
+              .value as ChampCityPhaseCloseoutDecision,
+          );
+        },
+      },
+      ...options.map((option) => h("option", { key: option, value: option }, option)),
+    ),
+  );
+}
+
+function renderPhaseCloseoutTextAreaField(
+  label: string,
+  value: string,
+  onChange: (value: string) => void,
+  rows: number,
+): unknown {
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, label),
+    h("textarea", {
+      value,
+      rows,
+      onChange: (event: Event) => {
+        onChange((event.target as HTMLTextAreaElement).value);
       },
     }),
   );

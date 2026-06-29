@@ -29,6 +29,9 @@ const {
   workCardHumanValidationFixture,
 } = require("../dist/shared/workCards/fixtures/workCardHumanValidationFixture.js");
 const {
+  workCardPhaseCloseoutFixture,
+} = require("../dist/shared/workCards/fixtures/workCardPhaseCloseoutFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
 const {
@@ -68,6 +71,24 @@ const {
   validationRecordNonMutatingNote,
 } = require("../dist/shared/workCards/renderValidationRecordMarkdown.js");
 const {
+  createEmptyPhaseArtifactFiles,
+  getAllowedPhaseArtifactExtensions,
+  phaseArtifactFolderNames,
+  summarizePhaseArtifacts,
+  validatePhaseArtifactFileName,
+} = require("../dist/shared/workCards/phaseCloseout.js");
+const {
+  buildPhaseCloseoutJsonFileName,
+  buildPhaseCloseoutMarkdownFileName,
+  buildPhaseCloseoutRecord,
+  validatePhaseCloseoutRecord,
+  validatePhaseCloseoutReportFileName,
+} = require("../dist/shared/workCards/phaseCloseoutRecord.js");
+const {
+  phaseCloseoutNonMutatingNote,
+  renderPhaseCloseoutMarkdown,
+} = require("../dist/shared/workCards/renderPhaseCloseoutMarkdown.js");
+const {
   buildHumanValidationRecord,
   buildValidationReportJsonFileName,
   buildValidationReportMarkdownFileName,
@@ -90,6 +111,7 @@ const {
   previewHumanValidationRecord,
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
+  resolveCloseoutReportsDirectory,
   resolveInside,
   resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
@@ -146,6 +168,13 @@ const renderedArtifacts = [
     path: resolve(
       repositoryRoot,
       "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
+    ),
+  },
+  {
+    fixture: workCardPhaseCloseoutFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
     ),
   },
 ];
@@ -255,12 +284,21 @@ try {
   // Expected.
 }
 
+try {
+  resolveCloseoutReportsDirectory("../bad");
+  console.error("Closeout Reports directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
 assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
 assertBuilderPrompt();
 assertBuilderReportCapture();
 await assertHumanValidationAndRepair();
+assertPhaseCloseout();
 await assertSavedWorkCardListing();
 
 console.log("Work Card fixture validation passed.");
@@ -856,6 +894,185 @@ function assertBuilderReportCapture() {
   }
 }
 
+function assertPhaseCloseout() {
+  const filesByFolder = createEmptyPhaseArtifactFiles();
+
+  filesByFolder.Work_Cards = [
+    "WC01_define_work_card_schema_and_markdown_renderer.json",
+    "WC01_define_work_card_schema_and_markdown_renderer.md",
+    "WC02_build_new_work_card_capture_form.json",
+    "WC03_add_architect_framing_prompt_composer.md",
+  ];
+  filesByFolder.Builder_Reports = [
+    "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+  ];
+  filesByFolder.Repair_Prompts = [
+    "REPAIR_PROMPT_WC02_build_new_work_card_capture_form.md",
+  ];
+
+  const incompleteSummary = summarizePhaseArtifacts({
+    phase: "phase-01",
+    filesByFolder,
+  });
+
+  const missingFolders = phaseArtifactFolderNames.filter(
+    (folder) => typeof incompleteSummary.artifactCounts[folder] !== "number",
+  );
+
+  if (
+    incompleteSummary.folders.length !== phaseArtifactFolderNames.length ||
+    missingFolders.length > 0
+  ) {
+    console.error("Phase artifact summary did not include expected folders.");
+    process.exit(1);
+  }
+
+  if (incompleteSummary.artifactCounts.Work_Cards !== 4) {
+    console.error("Phase artifact summary returned the wrong Work_Cards count.");
+    process.exit(1);
+  }
+
+  if (incompleteSummary.workCardsWithBothJsonAndMarkdown.length !== 1) {
+    console.error("Work Card pairing did not detect the paired WC01 artifacts.");
+    process.exit(1);
+  }
+
+  if (!incompleteSummary.workCardsMissingMarkdown.some((pair) => pair.workCardId === "WC02")) {
+    console.error("Work Card pairing did not detect missing Markdown.");
+    process.exit(1);
+  }
+
+  if (!incompleteSummary.workCardsMissingJson.some((pair) => pair.workCardId === "WC03")) {
+    console.error("Work Card pairing did not detect missing JSON.");
+    process.exit(1);
+  }
+
+  if (
+    !incompleteSummary.deterministicRecommendation.includes(
+      "Phase has missing Work Card JSON/Markdown pairs. Repair before closeout.",
+    )
+  ) {
+    console.error("Phase closeout recommendation did not warn about missing Work Card pairs.");
+    process.exit(1);
+  }
+
+  if (
+    !incompleteSummary.deterministicRecommendation.includes(
+      "Phase has repair prompts. Review repairs before closing.",
+    )
+  ) {
+    console.error("Phase closeout recommendation did not warn about repair prompts.");
+    process.exit(1);
+  }
+
+  const completeFilesByFolder = createEmptyPhaseArtifactFiles();
+
+  for (let index = 1; index <= 8; index += 1) {
+    const workCardId = `WC${String(index).padStart(2, "0")}`;
+    completeFilesByFolder.Work_Cards.push(`${workCardId}_sample.json`);
+    completeFilesByFolder.Work_Cards.push(`${workCardId}_sample.md`);
+    completeFilesByFolder.Builder_Reports.push(
+      `BUILDER_REPORT_${workCardId}_sample.md`,
+    );
+  }
+
+  completeFilesByFolder.Validation_Reports = [
+    "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
+    "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.md",
+  ];
+
+  const completeSummary = summarizePhaseArtifacts({
+    phase: "phase-01",
+    filesByFolder: completeFilesByFolder,
+  });
+  const record = buildPhaseCloseoutRecord(
+    {
+      phase: "phase-01",
+      decision: "Ready for release/package pass",
+      closeoutSummary: "Phase 1 artifacts have been reviewed for closeout.",
+      completedItems: "WC01 through WC08 foundation workflows.",
+      remainingItems: "Manual UI validation and release/package readiness planning.",
+      knownRisks: "Manual validation evidence still requires Operator review.",
+      operatorNotes: "Closeout record is non-mutating.",
+      recommendedNextAction: "Run manual validation, then plan release/package readiness.",
+    },
+    completeSummary,
+    "2026-06-29T12:00:00.000Z",
+  );
+  const validation = validatePhaseCloseoutRecord(record);
+
+  if (!validation.valid) {
+    console.error("Phase Closeout record did not validate:");
+    for (const error of validation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const markdown = renderPhaseCloseoutMarkdown(record);
+  const requiredCloseoutText = [
+    "# Phase Closeout Report - phase-01",
+    "## Closeout Decision",
+    "Ready for release/package pass",
+    "## Deterministic Recommendation",
+    "Phase may be ready for release/package readiness pass.",
+    "## Artifact Summary",
+    "## Missing Or Warning Observations",
+    "## Recommended Next Action",
+    phaseCloseoutNonMutatingNote,
+  ];
+  const missingCloseoutText = requiredCloseoutText.filter(
+    (text) => !markdown.includes(text),
+  );
+
+  if (missingCloseoutText.length > 0) {
+    console.error("Phase Closeout Markdown is missing required text:");
+    for (const text of missingCloseoutText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  if (
+    buildPhaseCloseoutJsonFileName(record) !==
+    "CLOSEOUT_REPORT_phase-01_phase_1_closeout.json"
+  ) {
+    console.error("Phase Closeout JSON filename generation returned the wrong filename.");
+    process.exit(1);
+  }
+
+  if (
+    buildPhaseCloseoutMarkdownFileName(record) !==
+    "CLOSEOUT_REPORT_phase-01_phase_1_closeout.md"
+  ) {
+    console.error("Phase Closeout Markdown filename generation returned the wrong filename.");
+    process.exit(1);
+  }
+
+  if (validatePhaseArtifactFileName("../bad", [".md"]).length === 0) {
+    console.error("Phase artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validatePhaseArtifactFileName(
+      "CLOSEOUT_REPORT_phase-01_phase_1_closeout.json",
+      getAllowedPhaseArtifactExtensions("Closeout_Reports"),
+    ).length > 0
+  ) {
+    console.error("Phase artifact filename sanitizer rejected a valid closeout filename.");
+    process.exit(1);
+  }
+
+  try {
+    validatePhaseCloseoutReportFileName("../bad.json");
+    console.error("Phase Closeout filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+}
+
 async function assertHumanValidationAndRepair() {
   const baseInput = {
     phase: "phase-01",
@@ -1160,6 +1377,7 @@ async function assertSavedWorkCardListing() {
     "WC05",
     "WC06",
     "WC07",
+    "WC08",
   ];
   const missingWorkCardIds = expectedWorkCardIds.filter(
     (workCardId) => !listedWorkCardIds.has(workCardId),

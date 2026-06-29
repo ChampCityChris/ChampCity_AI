@@ -35,6 +35,12 @@ import type {
   HumanValidationPreviewResult,
   HumanValidationSaveResult,
 } from "../shared/workCards/validationRecord";
+import type {
+  PhaseCloseoutFormInput,
+  PhaseCloseoutPreviewResult,
+  PhaseCloseoutSaveResult,
+  PhaseCloseoutSummaryResult,
+} from "../shared/workCards/phaseCloseoutRecord";
 
 const api = {
   getAppInfo: () => ({
@@ -98,6 +104,18 @@ const api = {
     input: HumanValidationFormInput,
   ): Promise<HumanValidationSaveResult> =>
     ipcRenderer.invoke("workCards:saveHumanValidationRecord", input),
+  getPhaseCloseoutSummary: (
+    phase: string,
+  ): Promise<PhaseCloseoutSummaryResult> =>
+    ipcRenderer.invoke("workCards:getPhaseCloseoutSummary", phase),
+  previewPhaseCloseoutRecord: (
+    input: PhaseCloseoutFormInput,
+  ): Promise<PhaseCloseoutPreviewResult> =>
+    ipcRenderer.invoke("workCards:previewPhaseCloseoutRecord", input),
+  savePhaseCloseoutRecord: (
+    input: PhaseCloseoutFormInput,
+  ): Promise<PhaseCloseoutSaveResult> =>
+    ipcRenderer.invoke("workCards:savePhaseCloseoutRecord", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);
