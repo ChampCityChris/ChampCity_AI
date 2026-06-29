@@ -10,6 +10,19 @@ const checkedInWorkCardsDirectory = resolve(
   repositoryRoot,
   "planning/phases/phase-01/Work_Cards",
 );
+const uiDesignHandoffDirectory = resolve(
+  repositoryRoot,
+  "planning/phases/phase-01/UI_Design_Handoff",
+);
+const currentUiScreens = [
+  "New Work Card",
+  "Architect Prompt Composer",
+  "Risk Router",
+  "Builder Prompt Generator",
+  "Builder Report Capture",
+  "Human Validation",
+  "Phase Closeout",
+];
 
 const { workCardFixture } = require("../dist/shared/workCards/fixtures/workCardFixture.js");
 const { workCardCaptureFixture } = require("../dist/shared/workCards/fixtures/workCardCaptureFixture.js");
@@ -184,6 +197,7 @@ for (const artifact of renderedArtifacts) {
 }
 
 assertCheckedInJsonArtifacts();
+assertUiDesignHandoffPackage();
 
 const draft = buildDraftWorkCard(
   {
@@ -1378,6 +1392,7 @@ async function assertSavedWorkCardListing() {
     "WC06",
     "WC07",
     "WC08",
+    "WC09",
   ];
   const missingWorkCardIds = expectedWorkCardIds.filter(
     (workCardId) => !listedWorkCardIds.has(workCardId),
@@ -1388,6 +1403,86 @@ async function assertSavedWorkCardListing() {
       `Saved Work Card listing is missing expected Work Cards: ${missingWorkCardIds.join(", ")}.`,
     );
     process.exit(1);
+  }
+}
+
+function assertUiDesignHandoffPackage() {
+  const requiredFiles = [
+    "README.md",
+    "CURRENT_UI_INVENTORY.md",
+    "UX_FLOW_MAP.md",
+    "BRAND_AND_UI_DIRECTION.md",
+    "FIGMA_PROMPT.md",
+    "SOURCE_REFERENCES.md",
+    "SCREENSHOT_CAPTURE_INSTRUCTIONS.md",
+  ];
+
+  for (const fileName of requiredFiles) {
+    const filePath = resolve(uiDesignHandoffDirectory, fileName);
+
+    if (!existsSync(filePath)) {
+      console.error(`UI design handoff package is missing ${fileName}.`);
+      process.exit(1);
+    }
+  }
+
+  const figmaPrompt = readFileSync(
+    resolve(uiDesignHandoffDirectory, "FIGMA_PROMPT.md"),
+    "utf8",
+  );
+  const requiredPromptText = [
+    "ChampCity A/I",
+    "Architect / Implementer",
+    "dark",
+    "compact",
+    "React",
+  ];
+  const missingPromptText = requiredPromptText.filter(
+    (text) => !figmaPrompt.includes(text),
+  );
+
+  if (missingPromptText.length > 0) {
+    console.error("Figma prompt is missing required text:");
+    for (const text of missingPromptText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const screenshotInstructions = readFileSync(
+    resolve(uiDesignHandoffDirectory, "SCREENSHOT_CAPTURE_INSTRUCTIONS.md"),
+    "utf8",
+  );
+  const missingScreens = currentUiScreens.filter(
+    (screen) => !screenshotInstructions.includes(screen),
+  );
+
+  if (missingScreens.length > 0) {
+    console.error("Screenshot capture instructions are missing screens:");
+    for (const screen of missingScreens) {
+      console.error(`- ${screen}`);
+    }
+    process.exit(1);
+  }
+
+  const zipPath = resolve(
+    uiDesignHandoffDirectory,
+    "ChampCity_AI_Figma_UI_Handoff.zip",
+  );
+
+  if (existsSync(zipPath)) {
+    const zipText = readFileSync(zipPath).toString("latin1").replace(/\\/g, "/");
+    const forbiddenEntries = ["node_modules/", ".git/"];
+    const foundForbiddenEntry = forbiddenEntries.find((entry) =>
+      zipText.includes(entry),
+    );
+
+    if (foundForbiddenEntry) {
+      console.error(
+        `UI handoff zip includes a forbidden folder: ${foundForbiddenEntry}`,
+      );
+      process.exit(1);
+    }
   }
 }
 

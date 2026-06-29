@@ -1,0 +1,98 @@
+{
+  "workCardId": "WC09",
+  "title": "Prepare Figma UI design handoff package",
+  "phase": "phase-01",
+  "status": "ready_for_builder",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "updatedAt": "2026-06-29T00:00:00.000Z",
+  "problem": "ChampCity A/I has a complete Phase 1 MVP workflow, but the current Electron UI is utilitarian and needs a focused Figma design handoff before a UI cleanup implementation pass.",
+  "goal": "Create a focused UI design handoff package that documents the current screens, workflow, source references, brand direction, screenshot capture guidance, and a copy-ready Figma prompt without implementing UI changes.",
+  "userOutcome": "The Operator can give Figma a compact, accurate package for redesigning ChampCity A/I as a modern dark consumer-friendly guided cockpit while preserving all Phase 1 workflows.",
+  "scope": [
+    "Create `planning/phases/phase-01/UI_Design_Handoff/`.",
+    "Create a package README explaining purpose, current app state, redesign target, preserved functionality, avoid-list, and usage steps.",
+    "Create a current UI inventory covering New Work Card, Architect Prompt Composer, Risk Router, Builder Prompt Generator, Builder Report Capture, Human Validation, and Phase Closeout.",
+    "Create a UX flow map from Operator intent through Work Card draft, Architect prompt, Risk Review, Builder prompt, Builder Report, Human Validation, Repair Prompt, and Phase Closeout.",
+    "Create a brand and UI direction brief for the ChampCity A/I Architect / Implementer concept.",
+    "Create a copy-ready Figma prompt for a compact modern dark React-friendly Electron app redesign.",
+    "Create source references for renderer files, shared workflow files, Work Card artifacts, Builder Reports, and generated artifact folders.",
+    "Create screenshot capture instructions if current UI screenshots cannot be captured with existing lightweight tooling.",
+    "Create the WC09 Work Card JSON and rendered Markdown artifacts.",
+    "Update lightweight validation to check the UI handoff package requirements.",
+    "Create a WC09 Builder Report."
+  ],
+  "outOfScope": [
+    "Do not implement the redesigned UI.",
+    "Do not modify the current app UI.",
+    "Do not add UI dependencies.",
+    "Do not add Playwright or heavy screenshot tooling.",
+    "Do not package the app.",
+    "Do not create installers.",
+    "Do not create release tags.",
+    "Do not push to GitHub.",
+    "Do not start Phase 2.",
+    "Do not call an LLM API.",
+    "Do not add provider SDKs.",
+    "Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or provider-specific LLM SDKs.",
+    "Do not refactor unrelated source files."
+  ],
+  "requirements": [
+    "The handoff package must be documentation-focused and must not implement UI changes.",
+    "The README must explain purpose, current app state, redesign target, preserved functionality, avoid-list, and Operator usage.",
+    "The current UI inventory must cover all seven current screens and document inputs, outputs, saved artifact folder, warnings, clutter risks, and preserved access.",
+    "The UX flow map must document Operator intent -> Work Card draft -> Architect framing prompt -> Risk review -> Builder prompt -> Builder report capture -> Human validation -> Repair prompt or phase closeout.",
+    "The brand/design brief must include `ChampCity A/I`, `Architect / Implementer`, compact modern dark consumer-friendly direction, avoid-list, and guided cockpit preference.",
+    "The Figma prompt must include `ChampCity A/I`, `Architect / Implementer`, `dark`, `compact`, and `React`.",
+    "The source reference file must list relevant renderer files, shared Work Card/domain files, WC01-WC09 Work Card artifacts, relevant Builder Reports, and generated artifact folders.",
+    "If screenshots are not captured, screenshot instructions must list all seven current screens.",
+    "If a zip package is created, it must not include `node_modules`, `.git`, secrets, credentials, or large build artifacts.",
+    "Validation must confirm WC09 JSON/Markdown parity and existing Work Card paired artifact validation still passes."
+  ],
+  "acceptanceCriteria": [
+    "`planning/phases/phase-01/UI_Design_Handoff/README.md` exists.",
+    "`CURRENT_UI_INVENTORY.md` exists and covers all seven current screens.",
+    "`UX_FLOW_MAP.md` exists and describes the full Operator/Architect/Implementer workflow.",
+    "`BRAND_AND_UI_DIRECTION.md` exists and reflects compact modern dark consumer UI direction.",
+    "`FIGMA_PROMPT.md` exists and is copy-ready.",
+    "`SOURCE_REFERENCES.md` exists and references relevant source and planning artifacts.",
+    "`SCREENSHOT_CAPTURE_INSTRUCTIONS.md` exists if screenshots are not captured.",
+    "WC09 JSON validates against the existing Work Card schema.",
+    "WC09 Markdown matches the existing Work Card renderer output.",
+    "Existing WC01-WC08 paired Work Card validation still passes.",
+    "The UI handoff validation checks required files, Figma prompt keywords, screenshot instruction screen coverage, and zip exclusions when a zip exists.",
+    "No current app UI source files are modified for the redesign.",
+    "A WC09 Builder Report is created.",
+    "No release tag is created.",
+    "No push is performed."
+  ],
+  "validationPlan": [
+    "Run `npm run typecheck`.",
+    "Run `npm run build`.",
+    "Run `npm test`.",
+    "Run `npm run test:work-cards`.",
+    "Run `git status --short` and review changed files.",
+    "Manually confirm the handoff folder exists and the Figma prompt is copy-ready.",
+    "Manually confirm screenshot files exist or screenshot capture instructions are clear."
+  ],
+  "riskLevel": "medium",
+  "risks": [
+    "The handoff could become too generic if it does not reflect the actual current renderer workflows.",
+    "The design brief could accidentally imply new implementation scope, so out-of-scope boundaries must stay explicit.",
+    "Screenshot capture may not be feasible without adding tooling, so instructions must be precise if screenshots are not captured.",
+    "A zip package could accidentally include forbidden folders if not checked."
+  ],
+  "builderInstructions": [
+    "Verify the repository path and Git root before editing.",
+    "Read `AGENTS.md`, WC01-WC08 Builder Reports, current renderer files, shared workflow files, and Work Card artifacts before writing the handoff package.",
+    "Keep this pass limited to documentation, validation coverage, WC09 Work Card artifacts, optional safe zip packaging, and the WC09 Builder Report.",
+    "Do not implement UI changes or add screenshot dependencies.",
+    "Run required validation commands and document results in the Builder Report.",
+    "Stage only files created or modified for WC09 and commit with `docs: add figma ui design handoff package`."
+  ],
+  "operatorNotes": [
+    "This Work Card prepares a handoff for Figma, not an implementation pass.",
+    "The Figma design should preserve current workflow capability while improving the visual and interaction model.",
+    "The desired direction is compact, modern, dark, consumer-friendly, and guided.",
+    "The product name is `ChampCity A/I`; `A/I` means `Architect / Implementer`."
+  ]
+}
