@@ -35,6 +35,18 @@ import type {
   RiskReviewSaveResult,
 } from "../shared/workCards/renderRiskReviewMarkdown";
 import type { WorkCardRiskReview } from "../shared/workCards/riskRouter";
+import type {
+  HumanValidationBuilderReportListRequest,
+  HumanValidationBuilderReportListResult,
+  HumanValidationBuilderReportOption,
+  HumanValidationFormInput,
+  HumanValidationOperatorDecision,
+  HumanValidationPreviewResult,
+  HumanValidationResult,
+  HumanValidationSaveResult,
+  InvalidHumanValidationBuilderReportFile,
+  ManualValidationChecklistExtraction,
+} from "../shared/workCards/validationRecord";
 
 type ReactStateSetter<T> = (value: T | ((previous: T) => T)) => void;
 
@@ -96,6 +108,22 @@ declare global {
     BuilderReportCapturePreviewResult;
   type ChampCityBuilderReportCaptureSaveResult =
     BuilderReportCaptureSaveResult;
+  type ChampCityHumanValidationResult = HumanValidationResult;
+  type ChampCityHumanValidationOperatorDecision =
+    HumanValidationOperatorDecision;
+  type ChampCityHumanValidationFormInput = HumanValidationFormInput;
+  type ChampCityHumanValidationBuilderReportOption =
+    HumanValidationBuilderReportOption;
+  type ChampCityInvalidHumanValidationBuilderReportFile =
+    InvalidHumanValidationBuilderReportFile;
+  type ChampCityManualValidationChecklistExtraction =
+    ManualValidationChecklistExtraction;
+  type ChampCityHumanValidationBuilderReportListRequest =
+    HumanValidationBuilderReportListRequest;
+  type ChampCityHumanValidationBuilderReportListResult =
+    HumanValidationBuilderReportListResult;
+  type ChampCityHumanValidationPreviewResult = HumanValidationPreviewResult;
+  type ChampCityHumanValidationSaveResult = HumanValidationSaveResult;
 
   interface Window {
     champCity: {
@@ -141,6 +169,15 @@ declare global {
       saveBuilderReportCapture: (
         input: BuilderReportCaptureRequest,
       ) => Promise<BuilderReportCaptureSaveResult>;
+      listHumanValidationBuilderReports: (
+        input: HumanValidationBuilderReportListRequest,
+      ) => Promise<HumanValidationBuilderReportListResult>;
+      previewHumanValidationRecord: (
+        input: HumanValidationFormInput,
+      ) => Promise<HumanValidationPreviewResult>;
+      saveHumanValidationRecord: (
+        input: HumanValidationFormInput,
+      ) => Promise<HumanValidationSaveResult>;
     };
   }
 }

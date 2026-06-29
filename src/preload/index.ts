@@ -28,6 +28,13 @@ import type {
   RiskReviewRequest,
   RiskReviewSaveResult,
 } from "../shared/workCards/renderRiskReviewMarkdown";
+import type {
+  HumanValidationBuilderReportListRequest,
+  HumanValidationBuilderReportListResult,
+  HumanValidationFormInput,
+  HumanValidationPreviewResult,
+  HumanValidationSaveResult,
+} from "../shared/workCards/validationRecord";
 
 const api = {
   getAppInfo: () => ({
@@ -79,6 +86,18 @@ const api = {
     input: BuilderReportCaptureRequest,
   ): Promise<BuilderReportCaptureSaveResult> =>
     ipcRenderer.invoke("workCards:saveBuilderReportCapture", input),
+  listHumanValidationBuilderReports: (
+    input: HumanValidationBuilderReportListRequest,
+  ): Promise<HumanValidationBuilderReportListResult> =>
+    ipcRenderer.invoke("workCards:listHumanValidationBuilderReports", input),
+  previewHumanValidationRecord: (
+    input: HumanValidationFormInput,
+  ): Promise<HumanValidationPreviewResult> =>
+    ipcRenderer.invoke("workCards:previewHumanValidationRecord", input),
+  saveHumanValidationRecord: (
+    input: HumanValidationFormInput,
+  ): Promise<HumanValidationSaveResult> =>
+    ipcRenderer.invoke("workCards:saveHumanValidationRecord", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);

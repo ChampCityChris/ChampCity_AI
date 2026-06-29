@@ -4,16 +4,19 @@ import path from "node:path";
 import {
   getNextWorkCardId,
   listBuilderPromptSupportingArtifacts,
+  listHumanValidationBuilderReports,
   listSavedWorkCards,
   previewArchitectPrompt,
   previewBuilderPrompt,
   previewBuilderReportCapture,
   previewDraftWorkCard,
+  previewHumanValidationRecord,
   previewRiskReview,
   saveArchitectPrompt,
   saveBuilderPrompt,
   saveBuilderReportCapture,
   saveDraftWorkCard,
+  saveHumanValidationRecord,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
@@ -21,6 +24,10 @@ import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitect
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
 import type { RiskReviewRequest } from "../shared/workCards/renderRiskReviewMarkdown";
+import type {
+  HumanValidationBuilderReportListRequest,
+  HumanValidationFormInput,
+} from "../shared/workCards/validationRecord";
 
 const appName = "ChampCity A/I";
 
@@ -110,5 +117,20 @@ function registerWorkCardIpc(): void {
     "workCards:saveBuilderReportCapture",
     (_event, input: BuilderReportCaptureRequest) =>
       saveBuilderReportCapture(input),
+  );
+  ipcMain.handle(
+    "workCards:listHumanValidationBuilderReports",
+    (_event, input: HumanValidationBuilderReportListRequest) =>
+      listHumanValidationBuilderReports(input),
+  );
+  ipcMain.handle(
+    "workCards:previewHumanValidationRecord",
+    (_event, input: HumanValidationFormInput) =>
+      previewHumanValidationRecord(input),
+  );
+  ipcMain.handle(
+    "workCards:saveHumanValidationRecord",
+    (_event, input: HumanValidationFormInput) =>
+      saveHumanValidationRecord(input),
   );
 }

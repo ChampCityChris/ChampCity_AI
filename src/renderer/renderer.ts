@@ -5,7 +5,8 @@ type AppScreen =
   | "architect-prompt-composer"
   | "risk-router"
   | "builder-prompt-generator"
-  | "builder-report-capture";
+  | "builder-report-capture"
+  | "human-validation";
 
 const defaultPhase = "phase-01";
 const workCardJsonSelectorHelp =
@@ -25,6 +26,23 @@ const initialForm: ChampCityWorkCardDraftInput = {
   evidence: "",
   risks: "",
   operatorNotes: "",
+};
+
+const initialHumanValidationForm: Omit<
+  ChampCityHumanValidationFormInput,
+  "phase" | "workCardFileName" | "builderReportFileName"
+> = {
+  validationResult: "Not Tested",
+  testedItems: "",
+  passedItems: "",
+  failedItems: "",
+  evidenceReferences: "",
+  screenshotOrFileReferences: "",
+  commandsRun: "",
+  observedErrors: "",
+  additionalOperatorObservations: "",
+  operatorDecision: "Deferred - not validated yet",
+  recommendedNextAction: "",
 };
 
 function App(): unknown {
@@ -72,6 +90,11 @@ function App(): unknown {
           activeScreen === "builder-report-capture",
           () => setActiveScreen("builder-report-capture"),
         ),
+        renderNavButton(
+          "Human Validation",
+          activeScreen === "human-validation",
+          () => setActiveScreen("human-validation"),
+        ),
       ),
     ),
     activeScreen === "new-work-card"
@@ -82,7 +105,9 @@ function App(): unknown {
           ? h(RiskRouterScreen)
           : activeScreen === "builder-prompt-generator"
             ? h(BuilderPromptGeneratorScreen)
-            : h(BuilderReportCaptureScreen),
+            : activeScreen === "builder-report-capture"
+              ? h(BuilderReportCaptureScreen)
+              : h(HumanValidationScreen),
   );
 }
 
@@ -101,6 +126,10 @@ function getScreenTitle(activeScreen: AppScreen): string {
 
   if (activeScreen === "builder-report-capture") {
     return "Builder Report Capture";
+  }
+
+  if (activeScreen === "human-validation") {
+    return "Human Validation";
   }
 
   return "Risk Router";
@@ -1863,6 +1892,551 @@ function BuilderReportCaptureScreen(): unknown {
   );
 }
 
+function HumanValidationScreen(): unknown {
+  const [phase, setPhase] = React.useState(defaultPhase);
+  const [workCards, setWorkCards] = React.useState<
+    ChampCitySavedWorkCardSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = React.useState<
+    ChampCityInvalidSavedWorkCardFile[]
+  >([]);
+  const [selectedFileName, setSelectedFileName] = React.useState("");
+  const [builderReports, setBuilderReports] = React.useState<
+    ChampCityHumanValidationBuilderReportOption[]
+  >([]);
+  const [invalidBuilderReports, setInvalidBuilderReports] = React.useState<
+    ChampCityInvalidHumanValidationBuilderReportFile[]
+  >([]);
+  const [selectedBuilderReportFileName, setSelectedBuilderReportFileName] =
+    React.useState("");
+  const [form, setForm] = React.useState(initialHumanValidationForm);
+  const [errors, setErrors] = React.useState<string[]>([]);
+  const [statusMessage, setStatusMessage] =
+    React.useState("Loading saved Work Cards.");
+  const [isListBusy, setIsListBusy] = React.useState(false);
+  const [isReportListBusy, setIsReportListBusy] = React.useState(false);
+  const [isPreviewBusy, setIsPreviewBusy] = React.useState(false);
+  const [isSaveBusy, setIsSaveBusy] = React.useState(false);
+  const [previewResult, setPreviewResult] =
+    React.useState<ChampCityHumanValidationPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    React.useState<ChampCityHumanValidationSaveResult | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    setIsListBusy(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedWorkCards(phase)
+      .then((result: ChampCityListSavedWorkCardsResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+
+        if (!result.ok) {
+          setWorkCards([]);
+          setInvalidFiles([]);
+          setSelectedFileName("");
+          setErrors(result.errorMessages ?? ["Saved Work Cards could not be loaded."]);
+          setStatusMessage("Saved Work Cards could not be loaded.");
+          return;
+        }
+
+        const nextWorkCards = result.workCards ?? [];
+
+        setWorkCards(nextWorkCards);
+        setInvalidFiles(result.invalidFiles ?? []);
+        setSelectedFileName((previous) =>
+          nextWorkCards.some((workCard) => workCard.fileName === previous)
+            ? previous
+            : nextWorkCards[0]?.fileName ?? "",
+        );
+
+        if (nextWorkCards.length === 0) {
+          setStatusMessage("No saved Work Card JSON files found.");
+          return;
+        }
+
+        setStatusMessage("Saved Work Cards loaded.");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsListBusy(false);
+        setWorkCards([]);
+        setInvalidFiles([]);
+        setSelectedFileName("");
+        setErrors(["Saved Work Cards could not be loaded."]);
+        setStatusMessage("Saved Work Cards could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  React.useEffect(() => {
+    if (selectedFileName.trim().length === 0) {
+      setBuilderReports([]);
+      setInvalidBuilderReports([]);
+      setSelectedBuilderReportFileName("");
+      return;
+    }
+
+    let active = true;
+
+    setIsReportListBusy(true);
+    setErrors([]);
+
+    window.champCity
+      .listHumanValidationBuilderReports({
+        phase,
+        workCardFileName: selectedFileName,
+      })
+      .then((result: ChampCityHumanValidationBuilderReportListResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsReportListBusy(false);
+
+        if (!result.ok) {
+          setBuilderReports([]);
+          setInvalidBuilderReports([]);
+          setSelectedBuilderReportFileName("");
+          setErrors(result.errorMessages ?? ["Builder Reports could not be loaded."]);
+          setStatusMessage("Builder Reports could not be loaded.");
+          return;
+        }
+
+        const nextReports = result.options ?? [];
+
+        setBuilderReports(nextReports);
+        setInvalidBuilderReports(result.invalidFiles ?? []);
+        setSelectedBuilderReportFileName((previous) =>
+          nextReports.some((report) => report.fileName === previous)
+            ? previous
+            : "",
+        );
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsReportListBusy(false);
+        setBuilderReports([]);
+        setInvalidBuilderReports([]);
+        setSelectedBuilderReportFileName("");
+        setErrors(["Builder Reports could not be loaded."]);
+        setStatusMessage("Builder Reports could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, selectedFileName]);
+
+  React.useEffect(() => {
+    if (selectedFileName.trim().length === 0) {
+      setPreviewResult(null);
+      return;
+    }
+
+    let active = true;
+
+    setIsPreviewBusy(true);
+
+    window.champCity
+      .previewHumanValidationRecord({
+        phase,
+        workCardFileName: selectedFileName,
+        builderReportFileName: nonBlankSelection(selectedBuilderReportFileName),
+        ...form,
+      })
+      .then((result: ChampCityHumanValidationPreviewResult) => {
+        if (!active) {
+          return;
+        }
+
+        setIsPreviewBusy(false);
+        setPreviewResult(result);
+
+        if (result.ok) {
+          setStatusMessage("Human Validation preview refreshed.");
+        }
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsPreviewBusy(false);
+        setPreviewResult({
+          ok: false,
+          errorMessages: ["Human Validation preview could not be generated."],
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    phase,
+    selectedFileName,
+    selectedBuilderReportFileName,
+    form.validationResult,
+    form.testedItems,
+    form.passedItems,
+    form.failedItems,
+    form.evidenceReferences,
+    form.screenshotOrFileReferences,
+    form.commandsRun,
+    form.observedErrors,
+    form.additionalOperatorObservations,
+    form.operatorDecision,
+    form.recommendedNextAction,
+  ]);
+
+  const selectedWorkCard =
+    workCards.find((workCard) => workCard.fileName === selectedFileName) ?? null;
+  const hasWorkCards = workCards.length > 0;
+  const combinedErrors = [
+    ...errors,
+    ...(previewResult?.ok === false ? previewResult.errorMessages ?? [] : []),
+  ];
+
+  function updateValidationField<
+    TField extends keyof typeof initialHumanValidationForm,
+  >(field: TField, value: (typeof initialHumanValidationForm)[TField]): void {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    setSaveResult(null);
+  }
+
+  async function saveValidation(): Promise<void> {
+    if (selectedFileName.trim().length === 0) {
+      setErrors(["Select a saved Work Card before saving validation."]);
+      setStatusMessage("Save needs attention.");
+      return;
+    }
+
+    setIsSaveBusy(true);
+    setErrors([]);
+
+    const result = await window.champCity.saveHumanValidationRecord({
+      phase,
+      workCardFileName: selectedFileName,
+      builderReportFileName: nonBlankSelection(selectedBuilderReportFileName),
+      ...form,
+    });
+
+    setIsSaveBusy(false);
+    setPreviewResult(result);
+
+    if (
+      !result.ok ||
+      !result.validationJsonPath ||
+      !result.validationMarkdownPath
+    ) {
+      setSaveResult(null);
+      setErrors(result.errorMessages ?? ["Human Validation could not be saved."]);
+      setStatusMessage("Save needs attention.");
+      return;
+    }
+
+    setSaveResult(result);
+    setStatusMessage("Human Validation saved.");
+  }
+
+  return h(
+    "section",
+    {
+      className: "workspace validation-workspace",
+      "aria-label": "Human Validation",
+    },
+    h(
+      "div",
+      { className: "selector-panel validation-selector-panel" },
+      h(
+        "div",
+        { className: "form-header" },
+        h("h2", null, "Validation Source"),
+        h("span", { className: "status-pill" }, phase),
+      ),
+      renderErrors(combinedErrors),
+      h("p", { className: "selector-help" }, workCardJsonSelectorHelp),
+      invalidFiles.length > 0
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            h("h3", null, "Skipped Work Card files"),
+            h(
+              "ul",
+              null,
+              ...invalidFiles.map((file) =>
+                h(
+                  "li",
+                  { key: file.fileName },
+                  `${file.fileName}: ${file.errorMessages.join(" ")}`,
+                ),
+              ),
+            ),
+          )
+        : null,
+      renderPhaseField(phase, setPhase),
+      !hasWorkCards
+        ? h(
+            "div",
+            { className: "empty-state", role: "status" },
+            "No saved Work Card JSON files were found. Human Validation requires a saved Work Card JSON artifact.",
+          )
+        : h(
+            "label",
+            { className: "field" },
+            h("span", null, "Saved Work Card JSON"),
+            h(
+              "select",
+              {
+                value: selectedFileName,
+                disabled: isListBusy,
+                onChange: (event: Event) => {
+                  setSelectedFileName((event.target as HTMLSelectElement).value);
+                  setSaveResult(null);
+                },
+              },
+              ...workCards.map((workCard) =>
+                h(
+                  "option",
+                  { key: workCard.fileName, value: workCard.fileName },
+                  `${workCard.workCardId} - ${workCard.title} (${workCard.status}, ${workCard.phase})`,
+                ),
+              ),
+            ),
+          ),
+      selectedWorkCard ? renderSelectedWorkCardSummary(selectedWorkCard) : null,
+      h(
+        "label",
+        { className: "field" },
+        h("span", null, "Associated Builder Report"),
+        h(
+          "select",
+          {
+            value: selectedBuilderReportFileName,
+            disabled: isReportListBusy || selectedFileName.trim().length === 0,
+            onChange: (event: Event) => {
+              setSelectedBuilderReportFileName(
+                (event.target as HTMLSelectElement).value,
+              );
+              setSaveResult(null);
+            },
+          },
+          h("option", { value: "" }, "No Builder Report selected"),
+          ...builderReports.map((report) =>
+            h(
+              "option",
+              { key: report.fileName, value: report.fileName },
+              report.isDefaultMatch ? `${report.label} (match)` : report.label,
+            ),
+          ),
+        ),
+        builderReports.length === 0
+          ? h(
+              "small",
+              { className: "field-note" },
+              "No Builder Report Markdown files were found for this phase.",
+            )
+          : null,
+      ),
+      selectedBuilderReportFileName.trim().length === 0
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            previewResult?.builderReportWarning ??
+              "No Builder Report is selected. You can still save validation, but the evidence chain is incomplete.",
+          )
+        : null,
+      invalidBuilderReports.length > 0
+        ? h(
+            "div",
+            { className: "warning-box", role: "status" },
+            h("h3", null, "Skipped Builder Report files"),
+            h(
+              "ul",
+              null,
+              ...invalidBuilderReports.map((file) =>
+                h(
+                  "li",
+                  { key: file.fileName },
+                  `${file.fileName}: ${file.errorMessages.join(" ")}`,
+                ),
+              ),
+            ),
+          )
+        : null,
+      renderManualValidationChecklist(
+        selectedBuilderReportFileName,
+        previewResult?.manualValidationChecklist,
+      ),
+    ),
+    h(
+      "aside",
+      {
+        className: "composer-panel validation-editor-panel",
+        "aria-label": "Human Validation record",
+      },
+      h(
+        "div",
+        { className: "preview-header" },
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, "Operator Validation"),
+          h("h2", null, "Record"),
+        ),
+        h("span", { className: "status-text" }, statusMessage),
+      ),
+      saveResult?.validationJsonPath && saveResult.validationMarkdownPath
+        ? h(
+            "div",
+            { className: "save-result", role: "status" },
+            h("h3", null, "Saved"),
+            h("p", null, "JSON: ", h("code", null, saveResult.validationJsonPath)),
+            h(
+              "p",
+              null,
+              "Markdown: ",
+              h("code", null, saveResult.validationMarkdownPath),
+            ),
+            saveResult.repairPromptPath
+              ? h(
+                  "p",
+                  null,
+                  "Repair Prompt: ",
+                  h("code", null, saveResult.repairPromptPath),
+                )
+              : null,
+          )
+        : null,
+      h(
+        "div",
+        { className: "field-grid" },
+        renderHumanValidationResultSelect(
+          form.validationResult,
+          (value) => updateValidationField("validationResult", value),
+        ),
+        renderHumanValidationDecisionSelect(
+          form.operatorDecision,
+          (value) => updateValidationField("operatorDecision", value),
+        ),
+      ),
+      renderHumanValidationTextAreaField(
+        "What was tested?",
+        form.testedItems,
+        (value) => updateValidationField("testedItems", value),
+        4,
+      ),
+      h(
+        "div",
+        { className: "two-column" },
+        renderHumanValidationTextAreaField(
+          "What passed?",
+          form.passedItems,
+          (value) => updateValidationField("passedItems", value),
+          5,
+        ),
+        renderHumanValidationTextAreaField(
+          "What failed?",
+          form.failedItems,
+          (value) => updateValidationField("failedItems", value),
+          5,
+        ),
+      ),
+      h(
+        "div",
+        { className: "two-column" },
+        renderHumanValidationTextAreaField(
+          "Evidence references or paths",
+          form.evidenceReferences,
+          (value) => updateValidationField("evidenceReferences", value),
+          4,
+        ),
+        renderHumanValidationTextAreaField(
+          "Screenshots or files referenced by path",
+          form.screenshotOrFileReferences,
+          (value) =>
+            updateValidationField("screenshotOrFileReferences", value),
+          4,
+        ),
+      ),
+      h(
+        "div",
+        { className: "two-column" },
+        renderHumanValidationTextAreaField(
+          "Manual commands run",
+          form.commandsRun,
+          (value) => updateValidationField("commandsRun", value),
+          4,
+        ),
+        renderHumanValidationTextAreaField(
+          "Observed errors",
+          form.observedErrors,
+          (value) => updateValidationField("observedErrors", value),
+          4,
+        ),
+      ),
+      renderHumanValidationTextAreaField(
+        "Additional Operator observations",
+        form.additionalOperatorObservations,
+        (value) => updateValidationField("additionalOperatorObservations", value),
+        4,
+      ),
+      renderHumanValidationTextAreaField(
+        "Recommended next action",
+        form.recommendedNextAction,
+        (value) => updateValidationField("recommendedNextAction", value),
+        4,
+      ),
+      renderRepairPromptState(previewResult),
+      previewResult?.repairPrompt
+        ? h(
+            "pre",
+            { className: "markdown-preview prompt-preview repair-prompt-preview" },
+            previewResult.repairPrompt,
+          )
+        : null,
+      h(
+        "div",
+        { className: "actions prompt-actions" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "button primary",
+            disabled:
+              isSaveBusy ||
+              isPreviewBusy ||
+              selectedFileName.trim().length === 0 ||
+              !previewResult?.ok,
+            onClick: () => {
+              void saveValidation();
+            },
+          },
+          "Save Validation",
+        ),
+      ),
+    ),
+  );
+}
+
 function renderPhaseField(
   value: string,
   setPhase: (value: string) => void,
@@ -1905,6 +2479,154 @@ function renderReportTypeSelect(
       },
       ...options.map((option) => h("option", { key: option, value: option }, option)),
     ),
+  );
+}
+
+function renderHumanValidationResultSelect(
+  value: ChampCityHumanValidationResult,
+  onChange: (value: ChampCityHumanValidationResult) => void,
+): unknown {
+  const options: ChampCityHumanValidationResult[] = [
+    "Pass",
+    "Fail",
+    "Partial",
+    "Blocked",
+    "Not Tested",
+  ];
+
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, "Validation result"),
+    h(
+      "select",
+      {
+        value,
+        onChange: (event: Event) => {
+          onChange(
+            (event.target as HTMLSelectElement)
+              .value as ChampCityHumanValidationResult,
+          );
+        },
+      },
+      ...options.map((option) => h("option", { key: option, value: option }, option)),
+    ),
+  );
+}
+
+function renderHumanValidationDecisionSelect(
+  value: ChampCityHumanValidationOperatorDecision,
+  onChange: (value: ChampCityHumanValidationOperatorDecision) => void,
+): unknown {
+  const options: ChampCityHumanValidationOperatorDecision[] = [
+    "Passed - proceed",
+    "Failed - repair needed",
+    "Partial - repair or follow-up needed",
+    "Blocked - operator/build environment issue",
+    "Deferred - not validated yet",
+    "Different problem found - open new Work Card",
+  ];
+
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, "Operator decision"),
+    h(
+      "select",
+      {
+        value,
+        onChange: (event: Event) => {
+          onChange(
+            (event.target as HTMLSelectElement)
+              .value as ChampCityHumanValidationOperatorDecision,
+          );
+        },
+      },
+      ...options.map((option) => h("option", { key: option, value: option }, option)),
+    ),
+  );
+}
+
+function renderHumanValidationTextAreaField(
+  label: string,
+  value: string,
+  onChange: (value: string) => void,
+  rows: number,
+): unknown {
+  return h(
+    "label",
+    { className: "field" },
+    h("span", null, label),
+    h("textarea", {
+      value,
+      rows,
+      onChange: (event: Event) => {
+        onChange((event.target as HTMLTextAreaElement).value);
+      },
+    }),
+  );
+}
+
+function renderManualValidationChecklist(
+  selectedBuilderReportFileName: string,
+  checklist: ChampCityManualValidationChecklistExtraction | undefined,
+): unknown {
+  if (selectedBuilderReportFileName.trim().length === 0) {
+    return null;
+  }
+
+  if (!checklist) {
+    return h(
+      "div",
+      { className: "notice-box", role: "status" },
+      "Checking the selected Builder Report for manual validation guidance.",
+    );
+  }
+
+  return h(
+    "div",
+    {
+      className: checklist.detected ? "notice-box" : "warning-box",
+      role: "status",
+    },
+    h(
+      "h3",
+      null,
+      checklist.detected
+        ? "Manual validation checklist"
+        : "Manual validation checklist",
+    ),
+    h("pre", { className: "checklist-preview" }, checklist.text),
+  );
+}
+
+function renderRepairPromptState(
+  previewResult: ChampCityHumanValidationPreviewResult | null,
+): unknown {
+  if (!previewResult?.ok) {
+    return null;
+  }
+
+  if (previewResult.differentProblemGuidance) {
+    return h(
+      "div",
+      { className: "notice-box", role: "status" },
+      previewResult.differentProblemGuidance,
+    );
+  }
+
+  if (previewResult.shouldGenerateRepairPrompt) {
+    return h(
+      "div",
+      { className: "warning-box", role: "status" },
+      "A draft Repair Builder Prompt will be generated and saved with this validation record.",
+    );
+  }
+
+  return h(
+    "div",
+    { className: "notice-box", role: "status" },
+    "No Repair Builder Prompt will be generated for the current result and Operator decision.",
   );
 }
 

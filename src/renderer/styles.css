@@ -492,6 +492,22 @@ button {
   margin-bottom: 72px;
 }
 
+.repair-prompt-preview {
+  min-height: 260px;
+}
+
+.checklist-preview {
+  max-height: 260px;
+  margin: 0;
+  overflow: auto;
+  color: inherit;
+  font-family:
+    "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 980px) {
   .top-bar {
     align-items: start;

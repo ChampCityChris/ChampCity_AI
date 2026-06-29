@@ -26,6 +26,9 @@ const {
   workCardBuilderReportFixture,
 } = require("../dist/shared/workCards/fixtures/workCardBuilderReportFixture.js");
 const {
+  workCardHumanValidationFixture,
+} = require("../dist/shared/workCards/fixtures/workCardHumanValidationFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
 const {
@@ -55,6 +58,27 @@ const {
   validateBuilderReportTopic,
 } = require("../dist/shared/workCards/validateBuilderReport.js");
 const {
+  buildRepairPromptFileName,
+  repairPromptScopeGuard,
+  renderRepairPrompt,
+  validateRepairPromptFileName,
+} = require("../dist/shared/workCards/renderRepairPrompt.js");
+const {
+  renderValidationRecordMarkdown,
+  validationRecordNonMutatingNote,
+} = require("../dist/shared/workCards/renderValidationRecordMarkdown.js");
+const {
+  buildHumanValidationRecord,
+  buildValidationReportJsonFileName,
+  buildValidationReportMarkdownFileName,
+  differentProblemFoundGuidance,
+  extractManualValidationChecklist,
+  noBuilderReportSelectedWarning,
+  shouldGenerateRepairPrompt,
+  validateHumanValidationRecord,
+  validateValidationReportFileName,
+} = require("../dist/shared/workCards/validationRecord.js");
+const {
   routeWorkCardRisk,
 } = require("../dist/shared/workCards/riskRouter.js");
 const { validateWorkCard } = require("../dist/shared/workCards/validateWorkCard.js");
@@ -63,10 +87,13 @@ const {
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
   listSavedWorkCards,
+  previewHumanValidationRecord,
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
   resolveInside,
+  resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
+  resolveValidationReportsDirectory,
   validateMarkdownArtifactFileName,
   validateSavedWorkCardJsonFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
@@ -112,6 +139,13 @@ const renderedArtifacts = [
     path: resolve(
       repositoryRoot,
       "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+    ),
+  },
+  {
+    fixture: workCardHumanValidationFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
     ),
   },
 ];
@@ -205,11 +239,28 @@ try {
   // Expected.
 }
 
+try {
+  resolveValidationReportsDirectory("../bad");
+  console.error("Validation Reports directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
+try {
+  resolveRepairPromptsDirectory("../bad");
+  console.error("Repair Prompts directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
 assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
 assertBuilderPrompt();
 assertBuilderReportCapture();
+await assertHumanValidationAndRepair();
 await assertSavedWorkCardListing();
 
 console.log("Work Card fixture validation passed.");
@@ -805,6 +856,288 @@ function assertBuilderReportCapture() {
   }
 }
 
+async function assertHumanValidationAndRepair() {
+  const baseInput = {
+    phase: "phase-01",
+    workCardFileName: "WC07_human_validation_and_repair_loop.json",
+    validationResult: "Fail",
+    testedItems: "Opened the Human Validation screen and attempted a failed save flow.",
+    passedItems: "Navigation loaded and Work Card details displayed.",
+    failedItems: "Repair prompt preview did not appear.",
+    evidenceReferences: "Manual note: screenshot path C:\\Temp\\wc07-failure.png",
+    screenshotOrFileReferences: "C:\\Temp\\wc07-failure.png",
+    commandsRun: "npm start",
+    observedErrors: "No repair prompt preview was visible.",
+    additionalOperatorObservations: "The validation record should remain non-mutating.",
+    operatorDecision: "Failed - repair needed",
+    recommendedNextAction: "Repair the missing prompt preview.",
+  };
+  const record = buildHumanValidationRecord(
+    workCardHumanValidationFixture,
+    baseInput,
+    "2026-06-29T12:00:00.000Z",
+  );
+  const validation = validateHumanValidationRecord(record);
+
+  if (!validation.valid) {
+    console.error("Human Validation record did not validate:");
+    for (const error of validation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const validationMarkdown = renderValidationRecordMarkdown(record);
+  const requiredValidationText = [
+    "# Human Validation Report - WC07 Human validation and repair loop",
+    "## Work Card",
+    "## Validation Result",
+    "## What Was Tested?",
+    "## What Passed?",
+    "## What Failed?",
+    "## Evidence References Or Paths",
+    "## Screenshots Or Files Referenced By Path",
+    "## Manual Commands Run",
+    "## Observed Errors",
+    "## Additional Operator Observations",
+    "## Operator Decision",
+    "## Recommended Next Action",
+    validationRecordNonMutatingNote,
+  ];
+  const missingValidationText = requiredValidationText.filter(
+    (text) => !validationMarkdown.includes(text),
+  );
+
+  if (missingValidationText.length > 0) {
+    console.error("Human Validation Markdown is missing required text:");
+    for (const text of missingValidationText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const checklistReport = [
+    "# Builder Report - sample",
+    "",
+    "## Manual Validation Required",
+    "",
+    "Manual validation should confirm:",
+    "",
+    "- The app opens.",
+    "- Fail validation generates a draft Repair Prompt.",
+    "",
+    "## Git Actions Performed",
+    "None.",
+  ].join("\n");
+  const checklist = extractManualValidationChecklist(checklistReport);
+
+  if (!checklist.detected || !checklist.text.includes("draft Repair Prompt")) {
+    console.error("Manual validation checklist extraction failed.");
+    process.exit(1);
+  }
+
+  if (extractManualValidationChecklist("# Report\nNo checklist.").detected) {
+    console.error("Checklist extraction should not detect unrelated text.");
+    process.exit(1);
+  }
+
+  const noReportPreview = await previewHumanValidationRecord(baseInput);
+
+  if (!noReportPreview.ok) {
+    console.error("Human Validation preview without Builder Report failed.");
+    process.exit(1);
+  }
+
+  if (noReportPreview.builderReportWarning !== noBuilderReportSelectedWarning) {
+    console.error("Missing Builder Report warning was not returned.");
+    process.exit(1);
+  }
+
+  const repairCases = [
+    {
+      validationResult: "Fail",
+      operatorDecision: "Deferred - not validated yet",
+    },
+    {
+      validationResult: "Partial",
+      operatorDecision: "Deferred - not validated yet",
+    },
+    {
+      validationResult: "Blocked",
+      operatorDecision: "Deferred - not validated yet",
+    },
+    {
+      validationResult: "Pass",
+      operatorDecision: "Failed - repair needed",
+    },
+    {
+      validationResult: "Pass",
+      operatorDecision: "Partial - repair or follow-up needed",
+    },
+    {
+      validationResult: "Pass",
+      operatorDecision: "Blocked - operator/build environment issue",
+    },
+  ];
+
+  for (const repairCase of repairCases) {
+    const repairRecord = buildHumanValidationRecord(
+      workCardHumanValidationFixture,
+      {
+        ...baseInput,
+        validationResult: repairCase.validationResult,
+        operatorDecision: repairCase.operatorDecision,
+      },
+      "2026-06-29T12:00:00.000Z",
+    );
+
+    if (!shouldGenerateRepairPrompt(repairRecord)) {
+      console.error(
+        `Repair prompt was not generated for ${repairCase.validationResult} / ${repairCase.operatorDecision}.`,
+      );
+      process.exit(1);
+    }
+  }
+
+  const noRepairCases = [
+    {
+      validationResult: "Pass",
+      operatorDecision: "Passed - proceed",
+    },
+    {
+      validationResult: "Not Tested",
+      operatorDecision: "Deferred - not validated yet",
+    },
+    {
+      validationResult: "Fail",
+      operatorDecision: "Different problem found - open new Work Card",
+    },
+  ];
+
+  for (const noRepairCase of noRepairCases) {
+    const noRepairRecord = buildHumanValidationRecord(
+      workCardHumanValidationFixture,
+      {
+        ...baseInput,
+        validationResult: noRepairCase.validationResult,
+        operatorDecision: noRepairCase.operatorDecision,
+      },
+      "2026-06-29T12:00:00.000Z",
+    );
+
+    if (shouldGenerateRepairPrompt(noRepairRecord)) {
+      console.error(
+        `Repair prompt should not be generated for ${noRepairCase.validationResult} / ${noRepairCase.operatorDecision}.`,
+      );
+      process.exit(1);
+    }
+  }
+
+  const differentProblemRecord = buildHumanValidationRecord(
+    workCardHumanValidationFixture,
+    {
+      ...baseInput,
+      operatorDecision: "Different problem found - open new Work Card",
+    },
+    "2026-06-29T12:00:00.000Z",
+  );
+  const differentProblemPreview = await previewHumanValidationRecord({
+    ...baseInput,
+    operatorDecision: "Different problem found - open new Work Card",
+  });
+
+  if (
+    differentProblemPreview.differentProblemGuidance !==
+    differentProblemFoundGuidance
+  ) {
+    console.error("Different problem guidance did not tell the Operator to open a new Work Card.");
+    process.exit(1);
+  }
+
+  if (shouldGenerateRepairPrompt(differentProblemRecord)) {
+    console.error("Different problem decisions must not generate repair prompts.");
+    process.exit(1);
+  }
+
+  const repairPrompt = renderRepairPrompt(record, {
+    validationRecordFileName: "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
+  });
+  const requiredRepairPromptText = [
+    "You are acting as Builder for ChampCity A/I.",
+    "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+    "## Required Repo Checks",
+    "git status --short --branch",
+    "git remote -v",
+    "Read `AGENTS.md`.",
+    "Read the validation record",
+    "## Validation Commands",
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "npm run test:work-cards",
+    "git status --short",
+    repairPromptScopeGuard,
+    "Do not broaden implementation.",
+    "Do not update Work Card status.",
+    "Builder Report Requirement",
+    "BUILDER_REPORT_REPAIR_WC07_human_validation_and_repair_loop.md",
+    "Do not create a release tag.",
+    "Do not push unless explicitly instructed.",
+  ];
+  const missingRepairPromptText = requiredRepairPromptText.filter(
+    (text) => !repairPrompt.includes(text),
+  );
+
+  if (missingRepairPromptText.length > 0) {
+    console.error("Repair prompt is missing required text:");
+    for (const text of missingRepairPromptText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const expectedValidationJsonFileName =
+    "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json";
+  const expectedValidationMarkdownFileName =
+    "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.md";
+  const expectedRepairPromptFileName =
+    "REPAIR_PROMPT_WC07_human_validation_and_repair_loop.md";
+
+  if (buildValidationReportJsonFileName(record) !== expectedValidationJsonFileName) {
+    console.error("Validation Report JSON filename generation returned the wrong filename.");
+    process.exit(1);
+  }
+
+  if (
+    buildValidationReportMarkdownFileName(record) !==
+    expectedValidationMarkdownFileName
+  ) {
+    console.error("Validation Report Markdown filename generation returned the wrong filename.");
+    process.exit(1);
+  }
+
+  if (buildRepairPromptFileName(record) !== expectedRepairPromptFileName) {
+    console.error("Repair Prompt filename generation returned the wrong filename.");
+    process.exit(1);
+  }
+
+  try {
+    validateValidationReportFileName("../bad.json");
+    console.error("Validation Report filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    validateRepairPromptFileName("../bad.md");
+    console.error("Repair Prompt filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+}
+
 async function assertSavedWorkCardListing() {
   const result = await listSavedWorkCards("phase-01");
 
@@ -819,7 +1152,15 @@ async function assertSavedWorkCardListing() {
   const listedWorkCardIds = new Set(
     (result.workCards ?? []).map((workCard) => workCard.workCardId),
   );
-  const expectedWorkCardIds = ["WC01", "WC02", "WC03", "WC04", "WC05", "WC06"];
+  const expectedWorkCardIds = [
+    "WC01",
+    "WC02",
+    "WC03",
+    "WC04",
+    "WC05",
+    "WC06",
+    "WC07",
+  ];
   const missingWorkCardIds = expectedWorkCardIds.filter(
     (workCardId) => !listedWorkCardIds.has(workCardId),
   );

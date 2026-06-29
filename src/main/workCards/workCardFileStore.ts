@@ -50,6 +50,24 @@ import {
   type BuilderReportCaptureSaveResult,
   validateBuilderReport,
 } from "../../shared/workCards/validateBuilderReport";
+import { buildRepairPromptFileName, renderRepairPrompt } from "../../shared/workCards/renderRepairPrompt";
+import { renderValidationRecordMarkdown } from "../../shared/workCards/renderValidationRecordMarkdown";
+import {
+  buildHumanValidationRecord,
+  buildValidationReportJsonFileName,
+  buildValidationReportMarkdownFileName,
+  extractManualValidationChecklist,
+  getDifferentProblemGuidance,
+  noBuilderReportSelectedWarning,
+  type HumanValidationBuilderReportListRequest,
+  type HumanValidationBuilderReportListResult,
+  type HumanValidationBuilderReportOption,
+  type HumanValidationFormInput,
+  type HumanValidationPreviewResult,
+  type HumanValidationSaveResult,
+  shouldGenerateRepairPrompt,
+  validateHumanValidationRecord,
+} from "../../shared/workCards/validationRecord";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
 import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
@@ -573,6 +591,162 @@ export async function saveBuilderReportCapture(
   }
 }
 
+export async function listHumanValidationBuilderReports(
+  input: HumanValidationBuilderReportListRequest,
+): Promise<HumanValidationBuilderReportListResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(
+      input.phase,
+      input.workCardFileName,
+    );
+    const directory = resolveBuilderReportsDirectory(workCard.phase);
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const options: HumanValidationBuilderReportOption[] = [];
+    const invalidFiles: HumanValidationBuilderReportListResult["invalidFiles"] =
+      [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".md"),
+    )) {
+      const fileNameErrors = validateMarkdownArtifactFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      options.push({
+        fileName,
+        label: fileName,
+        isDefaultMatch: fileNameMatchesWorkCardId(fileName, workCard.workCardId),
+      });
+    }
+
+    options.sort((left, right) => {
+      if (left.isDefaultMatch !== right.isDefaultMatch) {
+        return left.isDefaultMatch ? -1 : 1;
+      }
+
+      return left.fileName.localeCompare(right.fileName);
+    });
+
+    return {
+      ok: true,
+      workCard,
+      options,
+      defaultFileName: options.find((option) => option.isDefaultMatch)?.fileName,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewHumanValidationRecord(
+  input: HumanValidationFormInput,
+): Promise<HumanValidationPreviewResult> {
+  try {
+    return await buildHumanValidationPreview(input, new Date().toISOString());
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveHumanValidationRecord(
+  input: HumanValidationFormInput,
+): Promise<HumanValidationSaveResult> {
+  try {
+    const createdAt = new Date().toISOString();
+    const preview = await buildHumanValidationPreview(input, createdAt);
+
+    if (!preview.ok || !preview.record || !preview.validationMarkdown) {
+      return preview;
+    }
+
+    const validationDirectory = resolveValidationReportsDirectory(
+      preview.record.phase,
+    );
+    const validationTargets = await resolveAvailableFilePair(
+      validationDirectory,
+      buildValidationReportJsonFileName(preview.record),
+      buildValidationReportMarkdownFileName(preview.record),
+    );
+
+    await mkdir(validationDirectory, { recursive: true });
+    await writeFile(
+      validationTargets.firstPath,
+      `${JSON.stringify(preview.record, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(validationTargets.secondPath, preview.validationMarkdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    let repairPromptPath: string | undefined;
+    let savedRepairPromptFileName: string | undefined;
+    let repairPrompt = preview.repairPrompt;
+
+    if (preview.shouldGenerateRepairPrompt) {
+      const repairDirectory = resolveRepairPromptsDirectory(preview.record.phase);
+      const repairTarget = await resolveAvailableMarkdownPath(
+        repairDirectory,
+        buildRepairPromptFileName(preview.record),
+      );
+
+      repairPrompt = renderRepairPrompt(preview.record, {
+        validationRecordFileName: validationTargets.firstFileName,
+      });
+
+      await mkdir(repairDirectory, { recursive: true });
+      await writeFile(repairTarget.filePath, `${repairPrompt}\n`, {
+        encoding: "utf8",
+        flag: "wx",
+      });
+
+      repairPromptPath = repairTarget.filePath;
+      savedRepairPromptFileName = repairTarget.fileName;
+    }
+
+    return {
+      ...preview,
+      ok: true,
+      repairPrompt,
+      savedValidationJsonFileName: validationTargets.firstFileName,
+      savedValidationMarkdownFileName: validationTargets.secondFileName,
+      savedRepairPromptFileName,
+      validationJsonPath: validationTargets.firstPath,
+      validationMarkdownPath: validationTargets.secondPath,
+      repairPromptPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Human Validation record.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export function resolveWorkCardsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -621,6 +795,26 @@ export function resolveBuilderPromptsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Builder_Prompts");
+}
+
+export function resolveValidationReportsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Validation_Reports");
+}
+
+export function resolveRepairPromptsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Repair_Prompts");
 }
 
 export function resolveInside(root: string, ...segments: string[]): string {
@@ -683,6 +877,63 @@ export function validateMarkdownArtifactFileName(fileName: string): string[] {
   return [];
 }
 
+async function buildHumanValidationPreview(
+  input: HumanValidationFormInput,
+  createdAt: string,
+): Promise<HumanValidationPreviewResult> {
+  const workCard = await readSavedWorkCardFile(
+    input.phase,
+    input.workCardFileName,
+  );
+  const builderReport = await readOptionalBuilderReport(
+    workCard.phase,
+    input.builderReportFileName,
+  );
+  const record = buildHumanValidationRecord(
+    workCard,
+    {
+      ...input,
+      phase: workCard.phase,
+      builderReportFileName: builderReport?.fileName,
+    },
+    createdAt,
+  );
+  const recordValidation = validateHumanValidationRecord(record);
+
+  if (!recordValidation.valid) {
+    return {
+      ok: false,
+      record,
+      errorMessages: recordValidation.errors,
+    };
+  }
+
+  const shouldRepair = shouldGenerateRepairPrompt(record);
+  const validationMarkdown = renderValidationRecordMarkdown(record);
+  const repairPrompt = shouldRepair ? renderRepairPrompt(record) : undefined;
+
+  return {
+    ok: true,
+    record,
+    validationMarkdown,
+    repairPrompt,
+    shouldGenerateRepairPrompt: shouldRepair,
+    manualValidationChecklist: builderReport
+      ? extractManualValidationChecklist(builderReport.content)
+      : undefined,
+    builderReportWarning: builderReport
+      ? undefined
+      : noBuilderReportSelectedWarning,
+    differentProblemGuidance: getDifferentProblemGuidance(record),
+    savedValidationJsonFileName: buildValidationReportJsonFileName(record),
+    savedValidationMarkdownFileName:
+      buildValidationReportMarkdownFileName(record),
+    savedRepairPromptFileName: shouldRepair
+      ? buildRepairPromptFileName(record)
+      : undefined,
+  };
+}
+
 async function readSavedWorkCardFile(
   phase: string,
   fileName: string,
@@ -712,6 +963,31 @@ async function readSavedWorkCardFile(
   }
 
   return workCard;
+}
+
+async function readOptionalBuilderReport(
+  phase: string,
+  fileName: string | undefined,
+): Promise<{ fileName: string; content: string } | undefined> {
+  const value = fileName?.trim() ?? "";
+
+  if (value.length === 0) {
+    return undefined;
+  }
+
+  const fileNameErrors = validateMarkdownArtifactFileName(value);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveBuilderReportsDirectory(phase);
+  const filePath = resolveInside(directory, value);
+
+  return {
+    fileName: value,
+    content: await readFile(filePath, "utf8"),
+  };
 }
 
 async function listMarkdownArtifactOptions(
@@ -952,6 +1228,72 @@ async function failIfExists(
   }
 
   throw new Error(message);
+}
+
+async function resolveAvailableFilePair(
+  directory: string,
+  firstFileName: string,
+  secondFileName: string,
+): Promise<{
+  firstPath: string;
+  secondPath: string;
+  firstFileName: string;
+  secondFileName: string;
+}> {
+  for (let suffix = 1; suffix <= 99; suffix += 1) {
+    const nextFirstFileName = appendFileNameSuffix(firstFileName, suffix);
+    const nextSecondFileName = appendFileNameSuffix(secondFileName, suffix);
+    const firstPath = resolveInside(directory, nextFirstFileName);
+    const secondPath = resolveInside(directory, nextSecondFileName);
+
+    if (!(await pathExists(firstPath)) && !(await pathExists(secondPath))) {
+      return {
+        firstPath,
+        secondPath,
+        firstFileName: nextFirstFileName,
+        secondFileName: nextSecondFileName,
+      };
+    }
+  }
+
+  throw new Error("A safe validation report filename could not be generated.");
+}
+
+async function resolveAvailableMarkdownPath(
+  directory: string,
+  fileName: string,
+): Promise<{ filePath: string; fileName: string }> {
+  for (let suffix = 1; suffix <= 99; suffix += 1) {
+    const nextFileName = appendFileNameSuffix(fileName, suffix);
+    const filePath = resolveInside(directory, nextFileName);
+
+    if (!(await pathExists(filePath))) {
+      return { filePath, fileName: nextFileName };
+    }
+  }
+
+  throw new Error("A safe repair prompt filename could not be generated.");
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch (error) {
+    if (isNodeErrorWithCode(error, "ENOENT")) {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
+function appendFileNameSuffix(fileName: string, suffix: number): string {
+  if (suffix === 1) {
+    return fileName;
+  }
+
+  return fileName.replace(/(\.[^.]+)$/, `_${suffix}$1`);
 }
 
 function toPlainSaveError(error: unknown): string {
