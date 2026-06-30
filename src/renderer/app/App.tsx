@@ -2795,12 +2795,12 @@ function ActionBar({
   statusType?: "success" | "error";
 }) {
   return (
-    <div className="sticky bottom-0 mt-auto flex items-center justify-between gap-3 border-t border-white/[0.05] bg-card/95 pt-3 max-[520px]:flex-col max-[520px]:items-stretch">
-      <div className="min-h-[20px] min-w-0">
+    <div className="sticky bottom-0 mt-auto flex flex-wrap items-start justify-between gap-2 border-t border-white/[0.05] bg-card/95 pt-3">
+      <div className="min-h-[20px] min-w-[14rem] flex-1 basis-64">
         {statusMessage ? (
           <span
             className={cn(
-              "break-anywhere flex items-center gap-1.5 text-[11px] font-medium",
+              "inline-flex max-w-full items-start gap-1.5 whitespace-normal break-words text-[11px] font-medium leading-snug",
               statusType === "success" ? "text-emerald-400" : "text-red-400",
             )}
           >
@@ -2813,7 +2813,7 @@ function ActionBar({
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         {onPreview ? (
           <IconButton icon={Eye} label="Preview" onClick={onPreview} />
         ) : null}
@@ -2858,7 +2858,7 @@ function IconButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40",
+        "inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40",
         primary
           ? "bg-primary text-primary-foreground hover:bg-primary/85"
           : "border border-border text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
