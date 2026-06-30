@@ -13,6 +13,15 @@ import type {
 } from "../shared/workCards/projectIntake";
 import type { ProjectIntakeValidationResult } from "../shared/workCards/validateProjectIntake";
 import type {
+  InvalidSavedProjectIntakeFile,
+  ListSavedProjectIntakesResult,
+  ProjectArchitectInterviewPrompt,
+  ProjectArchitectInterviewPromptPreviewResult,
+  ProjectArchitectInterviewPromptRequest,
+  ProjectArchitectInterviewPromptSaveResult,
+  SavedProjectIntakeSummary,
+} from "../shared/workCards/projectArchitectInterviewPrompt";
+import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
   ArchitectPromptSaveResult,
@@ -78,6 +87,19 @@ declare global {
     ProjectIntakeValidationResult;
   type ChampCityProjectIntakePreviewResult = ProjectIntakePreviewResult;
   type ChampCityProjectIntakeSaveResult = ProjectIntakeSaveResult;
+  type ChampCityProjectArchitectInterviewPrompt =
+    ProjectArchitectInterviewPrompt;
+  type ChampCityProjectArchitectInterviewPromptRequest =
+    ProjectArchitectInterviewPromptRequest;
+  type ChampCityProjectArchitectInterviewPromptPreviewResult =
+    ProjectArchitectInterviewPromptPreviewResult;
+  type ChampCityProjectArchitectInterviewPromptSaveResult =
+    ProjectArchitectInterviewPromptSaveResult;
+  type ChampCitySavedProjectIntakeSummary = SavedProjectIntakeSummary;
+  type ChampCityInvalidSavedProjectIntakeFile =
+    InvalidSavedProjectIntakeFile;
+  type ChampCityListSavedProjectIntakesResult =
+    ListSavedProjectIntakesResult;
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
   type ChampCityWorkCardSaveResult = WorkCardSaveResult;
   type ChampCityNextWorkCardIdResult = NextWorkCardIdResult;
@@ -148,6 +170,13 @@ declare global {
       saveProjectIntake: (
         input: ProjectIntakeInput,
       ) => Promise<ProjectIntakeSaveResult>;
+      listSavedProjectIntakes: () => Promise<ListSavedProjectIntakesResult>;
+      previewProjectArchitectInterviewPrompt: (
+        input: ProjectArchitectInterviewPromptRequest,
+      ) => Promise<ProjectArchitectInterviewPromptPreviewResult>;
+      saveProjectArchitectInterviewPrompt: (
+        input: ProjectArchitectInterviewPromptRequest,
+      ) => Promise<ProjectArchitectInterviewPromptSaveResult>;
       getNextWorkCardId: (phase: string) => Promise<NextWorkCardIdResult>;
       previewWorkCardDraft: (
         input: WorkCardDraftInput,

@@ -93,6 +93,9 @@ const {
   workCardProjectIntakeFixture,
 } = require("../dist/shared/workCards/fixtures/workCardProjectIntakeFixture.js");
 const {
+  workCardProjectArchitectInterviewPromptFixture,
+} = require("../dist/shared/workCards/fixtures/workCardProjectArchitectInterviewPromptFixture.js");
+const {
   projectIntakeFixture,
 } = require("../dist/shared/workCards/fixtures/projectIntakeFixture.js");
 const {
@@ -112,6 +115,20 @@ const {
 const {
   validateProjectIntake,
 } = require("../dist/shared/workCards/validateProjectIntake.js");
+const {
+  buildProjectArchitectInterviewPrompt,
+  buildProjectArchitectInterviewPromptFileNames,
+  projectArchitectInterviewOperatorInstruction,
+  projectArchitectInterviewPromptPurpose,
+  validateProjectArchitectInterviewPrompt,
+  validateProjectArchitectInterviewPromptArtifactFileName,
+  validateProjectArchitectInterviewPromptSlug,
+} = require("../dist/shared/workCards/projectArchitectInterviewPrompt.js");
+const {
+  projectArchitectInterviewPromptMarkdownHeadings,
+  projectArchitectInterviewPromptNextStepText,
+  renderProjectArchitectInterviewPromptMarkdown,
+} = require("../dist/shared/workCards/renderProjectArchitectInterviewPromptMarkdown.js");
 const {
   finalBuilderPromptBoundary,
   renderArchitectFramingPrompt,
@@ -190,12 +207,14 @@ const {
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
   resolveCloseoutReportsDirectory,
+  resolveProjectArchitectInterviewPromptsDirectory,
   resolveProjectIntakeDirectory,
   resolveInside,
   resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
   resolveValidationReportsDirectory,
   validateMarkdownArtifactFileName,
+  validateSavedProjectIntakeJsonFileName,
   validateSavedWorkCardJsonFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
 
@@ -263,6 +282,13 @@ const renderedArtifacts = [
       "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
     ),
   },
+  {
+    fixture: workCardProjectArchitectInterviewPromptFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md",
+    ),
+  },
 ];
 
 for (const artifact of renderedArtifacts) {
@@ -274,6 +300,7 @@ assertCheckedInJsonArtifacts(phase02WorkCardsDirectory);
 assertUiDesignHandoffPackage();
 assertWc10UiAndTerminology();
 assertProjectIntake();
+assertProjectArchitectInterviewPrompt();
 
 const draft = buildDraftWorkCard(
   {
@@ -1917,6 +1944,171 @@ function assertProjectIntake() {
 
   if (missingSourceText.length > 0) {
     console.error("Project Intake source wiring is missing required text:");
+    for (const text of missingSourceText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+}
+
+function assertProjectArchitectInterviewPrompt() {
+  const promptRecord = buildProjectArchitectInterviewPrompt(
+    projectIntakeFixture,
+    "PROJECT_INTAKE_champcity_a_i.json",
+    "PROJECT_INTAKE_champcity_a_i.md",
+    "2026-06-30T18:30:00.000Z",
+  );
+  const validation = validateProjectArchitectInterviewPrompt(promptRecord);
+
+  if (!validation.valid) {
+    console.error("Project Architect Interview Prompt validation failed:");
+    for (const error of validation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  if (promptRecord.promptPurpose !== projectArchitectInterviewPromptPurpose) {
+    console.error("Project Architect Interview Prompt purpose changed unexpectedly.");
+    process.exit(1);
+  }
+
+  if (
+    promptRecord.operatorInstruction !==
+    projectArchitectInterviewOperatorInstruction
+  ) {
+    console.error("Project Architect Interview operator instruction changed unexpectedly.");
+    process.exit(1);
+  }
+
+  const requiredPromptText = [
+    "Act as Architect for the project described below.",
+    "Project Intake:",
+    projectIntakeFixture.projectName,
+    projectIntakeFixture.productSummary,
+    "Do not create the final Project Profile yet.",
+    "Do not create a roadmap yet.",
+    "Do not create Phase Plans yet.",
+    "Do not create Work Cards yet.",
+    "Do not write implementation code.",
+    "Do not pretend you saved files.",
+    "Your goal is not to create the final Project Profile yet.",
+    "Ask only the questions that truly require Operator judgment.",
+    "When a reasonable default is available, propose the default and mark it as an assumption",
+    "For every question you ask, provide suggested answers in plain language.",
+    "Preserve the Architect / Implementer mental model.",
+    "Builder/Implementer tooling",
+    "Required project-profile areas to complete:",
+    "Source-of-truth location",
+    "Initial phase candidates",
+    "Key risks and drift warnings",
+    "Produce a structured Project Architect Interview Completion Summary",
+    "Suggested next step: generate Project Planning Documents.",
+    "Do not generate the Project Planning Documents yet.",
+  ];
+  const missingPromptText = requiredPromptText.filter(
+    (text) => !promptRecord.promptText.includes(text),
+  );
+
+  if (missingPromptText.length > 0) {
+    console.error("Project Architect Interview prompt text is missing required text:");
+    for (const text of missingPromptText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const markdown = renderProjectArchitectInterviewPromptMarkdown(promptRecord);
+  const requiredMarkdownText = [
+    `# Project Architect Interview Prompt: ${projectIntakeFixture.projectName}`,
+    ...projectArchitectInterviewPromptMarkdownHeadings,
+    promptRecord.promptText,
+    projectArchitectInterviewPromptNextStepText,
+  ];
+  const missingMarkdownText = requiredMarkdownText.filter(
+    (text) => !markdown.includes(text),
+  );
+
+  if (missingMarkdownText.length > 0) {
+    console.error("Project Architect Interview Prompt Markdown is missing required text:");
+    for (const text of missingMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const promptFileNames =
+    buildProjectArchitectInterviewPromptFileNames("ChampCity A/I");
+
+  if (
+    promptFileNames.jsonFileName !==
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json" ||
+    promptFileNames.markdownFileName !==
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md"
+  ) {
+    console.error("Project Architect Interview Prompt filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validateProjectArchitectInterviewPromptSlug("../bad").length === 0) {
+    console.error("Project Architect Interview Prompt slug sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateProjectArchitectInterviewPromptArtifactFileName("../bad.json")
+      .length === 0
+  ) {
+    console.error("Project Architect Interview Prompt artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateSavedProjectIntakeJsonFileName("../bad.json").length === 0) {
+    console.error("Saved Project Intake JSON filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateSavedProjectIntakeJsonFileName("PROJECT_INTAKE_bad.md").length ===
+    0
+  ) {
+    console.error("Saved Project Intake JSON filename sanitizer failed to require JSON.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolveProjectArchitectInterviewPromptsDirectory(), "../bad");
+    console.error("Project Architect Interview Prompt path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const source = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredSourceText = [
+    'label: "Project Architect"',
+    "Project Architect Interview",
+    "Saved Project Intake",
+    "Generate Interview Prompt",
+    "Copy Architect Prompt",
+    "Save Architect Prompt",
+    "Project_Architect_Interview_Prompts",
+    "listSavedProjectIntakes",
+    "previewProjectArchitectInterviewPrompt",
+    "saveProjectArchitectInterviewPrompt",
+    "validateSavedProjectIntakeJsonFileName",
+    "validateProjectArchitectInterviewPromptArtifactFileName",
+  ];
+  const missingSourceText = requiredSourceText.filter(
+    (text) => !source.includes(text),
+  );
+
+  if (missingSourceText.length > 0) {
+    console.error("Project Architect Interview source wiring is missing required text:");
     for (const text of missingSourceText) {
       console.error(`- ${text}`);
     }

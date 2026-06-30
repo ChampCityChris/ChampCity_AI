@@ -95,12 +95,25 @@ import {
   buildProjectIntake,
   buildProjectIntakeFileNames,
   validateProjectIntakeArtifactFileName,
+  type ProjectIntake,
   type ProjectIntakeInput,
   type ProjectIntakePreviewResult,
   type ProjectIntakeSaveResult,
 } from "../../shared/workCards/projectIntake";
 import { renderProjectIntakeMarkdown } from "../../shared/workCards/renderProjectIntakeMarkdown";
 import { validateProjectIntake } from "../../shared/workCards/validateProjectIntake";
+import {
+  buildProjectArchitectInterviewPrompt,
+  buildProjectArchitectInterviewPromptFileNames,
+  validateProjectArchitectInterviewPromptArtifactFileName,
+  type InvalidSavedProjectIntakeFile,
+  type ListSavedProjectIntakesResult,
+  type ProjectArchitectInterviewPromptPreviewResult,
+  type ProjectArchitectInterviewPromptRequest,
+  type ProjectArchitectInterviewPromptSaveResult,
+  type SavedProjectIntakeSummary,
+} from "../../shared/workCards/projectArchitectInterviewPrompt";
+import { renderProjectArchitectInterviewPromptMarkdown } from "../../shared/workCards/renderProjectArchitectInterviewPromptMarkdown";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
@@ -319,6 +332,175 @@ export async function saveProjectIntake(
         errors: [toPlainSaveError(error)],
         warnings: [],
       },
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedProjectIntakes(): Promise<ListSavedProjectIntakesResult> {
+  try {
+    const directory = resolveProjectIntakeDirectory();
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const projectIntakes: SavedProjectIntakeSummary[] = [];
+    const invalidFiles: InvalidSavedProjectIntakeFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateSavedProjectIntakeJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const projectIntake = await readSavedProjectIntakeFile(fileName);
+        projectIntakes.push({
+          fileName,
+          projectIntakeId: projectIntake.projectIntakeId,
+          projectName: projectIntake.projectName,
+          currentStage: projectIntake.currentStage,
+          architectSurface: projectIntake.architectSurface || "ChatGPT",
+          updatedAt: projectIntake.updatedAt,
+        });
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    projectIntakes.sort((left, right) =>
+      `${left.projectName} ${left.fileName}`.localeCompare(
+        `${right.projectName} ${right.fileName}`,
+      ),
+    );
+
+    return {
+      ok: true,
+      projectIntakes,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewProjectArchitectInterviewPrompt(
+  input: ProjectArchitectInterviewPromptRequest,
+): Promise<ProjectArchitectInterviewPromptPreviewResult> {
+  try {
+    const sourceProjectIntake = await readSavedProjectIntakeFile(
+      input.projectIntakeFileName,
+    );
+    const sourceProjectIntakeMarkdownFileName =
+      await findMatchingProjectIntakeMarkdownFileName(input.projectIntakeFileName);
+    const promptRecord = buildProjectArchitectInterviewPrompt(
+      sourceProjectIntake,
+      input.projectIntakeFileName.trim(),
+      sourceProjectIntakeMarkdownFileName,
+      new Date().toISOString(),
+    );
+    const suggestedFileNames =
+      buildProjectArchitectInterviewPromptFileNames(promptRecord.projectName);
+    const markdown =
+      renderProjectArchitectInterviewPromptMarkdown(promptRecord);
+
+    return {
+      ok: true,
+      promptRecord,
+      promptText: promptRecord.promptText,
+      markdown,
+      sourceProjectIntake,
+      sourceProjectIntakeFileName: input.projectIntakeFileName.trim(),
+      sourceProjectIntakeMarkdownFileName,
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveProjectArchitectInterviewPrompt(
+  input: ProjectArchitectInterviewPromptRequest,
+): Promise<ProjectArchitectInterviewPromptSaveResult> {
+  try {
+    const preview = await previewProjectArchitectInterviewPrompt(input);
+
+    if (
+      !preview.ok ||
+      !preview.promptRecord ||
+      !preview.markdown ||
+      !preview.suggestedFileNames
+    ) {
+      return preview;
+    }
+
+    const directory = resolveProjectArchitectInterviewPromptsDirectory();
+    const targets = await resolveAvailableFilePair(
+      directory,
+      preview.suggestedFileNames.jsonFileName,
+      preview.suggestedFileNames.markdownFileName,
+      "A safe Project Architect Interview Prompt filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validateProjectArchitectInterviewPromptArtifactFileName(
+        targets.firstFileName,
+      ),
+      ...validateProjectArchitectInterviewPromptArtifactFileName(
+        targets.secondFileName,
+      ),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(preview.promptRecord, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, preview.markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Project Architect Interview Prompt.", error);
+
+    return {
+      ok: false,
       errorMessages: [toPlainSaveError(error)],
     };
   }
@@ -1059,6 +1241,10 @@ export function resolveProjectIntakeDirectory(): string {
   return resolveInside(planningProjectRoot, "Project_Intake");
 }
 
+export function resolveProjectArchitectInterviewPromptsDirectory(): string {
+  return resolveInside(planningProjectRoot, "Project_Architect_Interview_Prompts");
+}
+
 export function resolveInside(root: string, ...segments: string[]): string {
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(resolvedRoot, ...segments);
@@ -1093,6 +1279,26 @@ export function validateSavedWorkCardJsonFileName(fileName: string): string[] {
   }
 
   return [];
+}
+
+export function validateSavedProjectIntakeJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Project Intake JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return ["Saved Project Intake file names must not include folders."];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Project Intake files must be JSON files."];
+  }
+
+  return validateProjectIntakeArtifactFileName(value);
 }
 
 export function validateMarkdownArtifactFileName(fileName: string): string[] {
@@ -1174,6 +1380,45 @@ async function buildHumanValidationPreview(
       ? buildRepairPromptFileName(record)
       : undefined,
   };
+}
+
+async function readSavedProjectIntakeFile(
+  fileName: string,
+): Promise<ProjectIntake> {
+  const fileNameErrors = validateSavedProjectIntakeJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveProjectIntakeDirectory();
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validateProjectIntake(parsed);
+
+  if (!validation.valid) {
+    throw new Error(
+      `Saved Project Intake JSON is not valid: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  return parsed as ProjectIntake;
+}
+
+async function findMatchingProjectIntakeMarkdownFileName(
+  projectIntakeJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = projectIntakeJsonFileName.replace(/\.json$/i, ".md");
+  const fileNameErrors = validateProjectIntakeArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(resolveProjectIntakeDirectory(), markdownFileName);
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
 }
 
 async function readSavedWorkCardFile(

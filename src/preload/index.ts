@@ -12,6 +12,12 @@ import type {
   ProjectIntakeSaveResult,
 } from "../shared/workCards/projectIntake";
 import type {
+  ListSavedProjectIntakesResult,
+  ProjectArchitectInterviewPromptPreviewResult,
+  ProjectArchitectInterviewPromptRequest,
+  ProjectArchitectInterviewPromptSaveResult,
+} from "../shared/workCards/projectArchitectInterviewPrompt";
+import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
   ArchitectPromptSaveResult,
@@ -53,6 +59,7 @@ const api = {
     stage: "guided work card pipeline",
     coreLoop: [
       "Project Intake",
+      "Project Architect",
       "Capture",
       "Architect",
       "Risk",
@@ -70,6 +77,16 @@ const api = {
     input: ProjectIntakeInput,
   ): Promise<ProjectIntakeSaveResult> =>
     ipcRenderer.invoke("projectIntake:save", input),
+  listSavedProjectIntakes: (): Promise<ListSavedProjectIntakesResult> =>
+    ipcRenderer.invoke("projectArchitectInterview:listProjectIntakes"),
+  previewProjectArchitectInterviewPrompt: (
+    input: ProjectArchitectInterviewPromptRequest,
+  ): Promise<ProjectArchitectInterviewPromptPreviewResult> =>
+    ipcRenderer.invoke("projectArchitectInterview:previewPrompt", input),
+  saveProjectArchitectInterviewPrompt: (
+    input: ProjectArchitectInterviewPromptRequest,
+  ): Promise<ProjectArchitectInterviewPromptSaveResult> =>
+    ipcRenderer.invoke("projectArchitectInterview:savePrompt", input),
   getNextWorkCardId: (phase: string): Promise<NextWorkCardIdResult> =>
     ipcRenderer.invoke("workCards:getNextId", phase),
   previewWorkCardDraft: (

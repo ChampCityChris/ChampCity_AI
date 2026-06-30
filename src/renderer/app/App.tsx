@@ -17,6 +17,7 @@ import {
   FileText,
   FolderOpen,
   Info,
+  MessageSquareText,
   Save,
   ShieldAlert,
   Upload,
@@ -30,6 +31,7 @@ import logoImage from "../assets/champcity_ai_ui_branding.png";
 
 type AppScreen =
   | "project-intake"
+  | "project-architect-interview"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -84,6 +86,15 @@ const workflowSteps: WorkflowStep[] = [
     screenTitle: "Project Intake",
     nextAction: "Capture plain-language project intent before Architect interview.",
     Icon: ClipboardList,
+  },
+  {
+    id: "project-architect-interview",
+    label: "Project Architect",
+    mode: "architect",
+    shortDesc: "Interview prompt",
+    screenTitle: "Project Architect Interview",
+    nextAction: "Generate a copy-ready Architect interview prompt from saved intake.",
+    Icon: MessageSquareText,
   },
   {
     id: "new-work-card",
@@ -247,6 +258,9 @@ export default function App() {
   const screen = {
     "project-intake": (
       <ProjectIntakeScreen onActiveCardChange={setActiveCard} />
+    ),
+    "project-architect-interview": (
+      <ProjectArchitectInterviewScreen onActiveCardChange={setActiveCard} />
     ),
     "new-work-card": (
       <NewWorkCardScreen
@@ -435,9 +449,9 @@ function PipelineStepper({
     );
   };
 
-  const architectSteps = workflowSteps.slice(0, 4);
-  const implementerSteps = workflowSteps.slice(4, 6);
-  const finalSteps = workflowSteps.slice(6);
+  const architectSteps = workflowSteps.slice(0, 5);
+  const implementerSteps = workflowSteps.slice(5, 7);
+  const finalSteps = workflowSteps.slice(7);
 
   return (
     <nav
@@ -452,7 +466,7 @@ function PipelineStepper({
           <div className="flex items-center">
             {architectSteps.map((step, index) => (
               <div key={step.id} className="flex items-center">
-                {renderStep(step, index)}
+                {renderStep(step, workflowSteps.indexOf(step))}
                 {index < architectSteps.length - 1 ? (
                   <ChevronRight
                     size={9}
@@ -475,7 +489,7 @@ function PipelineStepper({
           <div className="flex items-center">
             {implementerSteps.map((step, index) => (
               <div key={step.id} className="flex items-center">
-                {renderStep(step, index + 4)}
+                {renderStep(step, workflowSteps.indexOf(step))}
                 {index < implementerSteps.length - 1 ? (
                   <ChevronRight
                     size={9}
@@ -490,7 +504,7 @@ function PipelineStepper({
         <div className="ml-3 flex items-center border-l border-white/[0.07] pl-3">
           {finalSteps.map((step, index) => (
             <div key={step.id} className="flex items-center">
-              {renderStep(step, index + 6, true)}
+              {renderStep(step, workflowSteps.indexOf(step), true)}
               {index < finalSteps.length - 1 ? (
                 <ChevronRight
                   size={10}
@@ -779,6 +793,220 @@ function ProjectIntakeScreen({
           </Notice>
           <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
             {previewMarkdown || "No Project Intake preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function ProjectArchitectInterviewScreen({
+  onActiveCardChange,
+}: {
+  onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+}) {
+  const { projectIntakes, invalidFiles, errors, isLoading } =
+    useProjectIntakes();
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [promptText, setPromptText] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Choose a saved Project Intake to generate an Architect interview prompt.",
+  );
+  const [saveResult, setSaveResult] =
+    useState<ChampCityProjectArchitectInterviewPromptSaveResult | null>(null);
+
+  const selectedProjectIntake =
+    projectIntakes.find((intake) => intake.fileName === selectedFileName) ??
+    null;
+  const allErrors = [...errors, ...screenErrors];
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    if (projectIntakes.some((intake) => intake.fileName === selectedFileName)) {
+      return;
+    }
+
+    setSelectedFileName(projectIntakes[0]?.fileName ?? "");
+  }, [projectIntakes, selectedFileName]);
+
+  function handleSelectedFileChange(fileName: string) {
+    setSelectedFileName(fileName);
+    setPromptText("");
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(
+      fileName
+        ? "Saved Project Intake selected."
+        : "Choose a saved Project Intake first.",
+    );
+  }
+
+  async function generateInterviewPrompt() {
+    if (!selectedFileName) {
+      setScreenErrors(["Choose a saved Project Intake first."]);
+      setStatusMessage("Project Intake selection is required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewProjectArchitectInterviewPrompt({
+      projectIntakeFileName: selectedFileName,
+    });
+    setIsBusy(false);
+
+    if (!result.ok || !result.promptText) {
+      setPromptText("");
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Architect prompt could not be generated."],
+      );
+      setStatusMessage("Architect prompt generation needs attention.");
+      return;
+    }
+
+    setPromptText(result.promptText);
+    setSaveResult(null);
+    setStatusMessage("Architect prompt preview refreshed.");
+  }
+
+  async function saveInterviewPrompt() {
+    if (!selectedFileName) {
+      setScreenErrors(["Choose a saved Project Intake first."]);
+      setStatusMessage("Project Intake selection is required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.saveProjectArchitectInterviewPrompt({
+      projectIntakeFileName: selectedFileName,
+    });
+    setIsBusy(false);
+
+    if (!result.ok || !result.promptText) {
+      setPromptText("");
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Architect prompt could not be saved."],
+      );
+      setStatusMessage("Architect prompt save needs attention.");
+      return;
+    }
+
+    setPromptText(result.promptText);
+    setSaveResult(result);
+    setStatusMessage("Architect prompt saved for the Operator to copy.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Project Architect Interview"
+            description="Generate a copy-ready Architect prompt from a saved Project Intake."
+            badge="upstream"
+          />
+          <Notice type="info">
+            This prompt asks the Architect to interview you before creating
+            project planning documents.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <InvalidProjectIntakeFiles files={invalidFiles} />
+          {projectIntakes.length === 0 && !isLoading ? (
+            <Notice type="warning">
+              No saved Project Intake JSON artifacts were found. Save a Project
+              Intake first.
+            </Notice>
+          ) : null}
+          <FieldGroup title="Source">
+            <Field label="Saved Project Intake">
+              <select
+                className={selectCls}
+                value={selectedFileName}
+                disabled={isLoading || projectIntakes.length === 0}
+                onChange={(event) =>
+                  handleSelectedFileChange(event.target.value)
+                }
+              >
+                <option value="">
+                  {isLoading ? "Loading Project Intakes..." : "Select Project Intake"}
+                </option>
+                {projectIntakes.map((projectIntake) => (
+                  <option
+                    key={projectIntake.fileName}
+                    value={projectIntake.fileName}
+                  >
+                    {projectIntake.projectName} ({projectIntake.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectIntake ? (
+              <ProjectIntakeSummary projectIntake={selectedProjectIntake} />
+            ) : null}
+          </FieldGroup>
+          <FieldGroup title="What happens next?">
+            <Notice type="info">
+              Copy this prompt into the Architect surface. The Architect should
+              complete a guided interview, not create the Project Profile,
+              roadmap, phase plan, Work Cards, or implementation code yet.
+            </Notice>
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void generateInterviewPrompt()}
+            onSave={() => void saveInterviewPrompt()}
+            onCopy={() => void copyText(promptText, setCopyMessage)}
+            previewLabel="Generate Interview Prompt"
+            saveLabel="Save Architect Prompt"
+            copyLabel="Copy Architect Prompt"
+            saveDisabled={isBusy || !selectedFileName}
+            copyDisabled={promptText.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Project Architect Interview"
+          title="Preview Architect Prompt"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Generate an Architect prompt to preview the copy-ready text."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Project Architect Interview Prompt artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          <Notice type="info">
+            Next step: copy the prompt into the Architect surface, complete the
+            interview, then use that output to generate Project Planning
+            Documents.
+          </Notice>
+          <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
+            {promptText || "No Architect prompt preview yet."}
           </MonoBlock>
         </ArtifactPanel>
       }
@@ -2777,6 +3005,7 @@ function ActionBar({
   onPreview,
   onSave,
   onCopy,
+  previewLabel = "Preview",
   saveLabel = "Save",
   copyLabel = "Copy",
   saveDisabled,
@@ -2787,6 +3016,7 @@ function ActionBar({
   onPreview?: () => void;
   onSave?: () => void;
   onCopy?: () => void;
+  previewLabel?: string;
   saveLabel?: string;
   copyLabel?: string;
   saveDisabled?: boolean;
@@ -2815,7 +3045,7 @@ function ActionBar({
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         {onPreview ? (
-          <IconButton icon={Eye} label="Preview" onClick={onPreview} />
+          <IconButton icon={Eye} label={previewLabel} onClick={onPreview} />
         ) : null}
         {onCopy ? (
           <IconButton
@@ -3120,6 +3350,30 @@ function WorkCardSelect({
   );
 }
 
+function ProjectIntakeSummary({
+  projectIntake,
+}: {
+  projectIntake: ChampCitySavedProjectIntakeSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={projectIntake.projectName} />
+      <SummaryItem
+        label="Project Intake ID"
+        value={projectIntake.projectIntakeId}
+        mono
+      />
+      <SummaryItem label="Stage" value={projectIntake.currentStage} mono />
+      <SummaryItem
+        label="Architect Surface"
+        value={projectIntake.architectSurface}
+      />
+      <SummaryItem label="File" value={projectIntake.fileName} mono />
+      <SummaryItem label="Updated" value={projectIntake.updatedAt} mono />
+    </div>
+  );
+}
+
 function WorkCardSummary({ card }: { card: UiWorkCardSummary }) {
   return (
     <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
@@ -3221,6 +3475,31 @@ function InvalidWorkCardFiles({
     <Notice type="warning">
       <div className="grid gap-2">
         <strong>Skipped Work Card files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidProjectIntakeFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedProjectIntakeFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Project Intake files</strong>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -3683,6 +3962,62 @@ function useWorkCards(phase: string) {
   }, [phase]);
 
   return { workCards, invalidFiles, errors, isLoading };
+}
+
+function useProjectIntakes() {
+  const [projectIntakes, setProjectIntakes] = useState<
+    ChampCitySavedProjectIntakeSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectIntakeFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedProjectIntakes()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setProjectIntakes([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? ["Saved Project Intakes could not be loaded."],
+          );
+          return;
+        }
+
+        setProjectIntakes(result.projectIntakes ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setProjectIntakes([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Project Intakes could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { projectIntakes, invalidFiles, errors, isLoading };
 }
 
 function useDefaultSelectedFile(

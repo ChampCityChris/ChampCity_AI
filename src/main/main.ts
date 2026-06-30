@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain } from "electron";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -6,6 +7,7 @@ import {
   getPhaseCloseoutSummary,
   listBuilderPromptSupportingArtifacts,
   listHumanValidationBuilderReports,
+  listSavedProjectIntakes,
   listSavedWorkCards,
   previewArchitectPrompt,
   previewBuilderPrompt,
@@ -13,6 +15,7 @@ import {
   previewDraftWorkCard,
   previewHumanValidationRecord,
   previewPhaseCloseoutRecord,
+  previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
   previewRiskReview,
   saveArchitectPrompt,
@@ -21,11 +24,13 @@ import {
   saveDraftWorkCard,
   saveHumanValidationRecord,
   savePhaseCloseoutRecord,
+  saveProjectArchitectInterviewPrompt,
   saveProjectIntake,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
 import type { ProjectIntakeInput } from "../shared/workCards/projectIntake";
+import type { ProjectArchitectInterviewPromptRequest } from "../shared/workCards/projectArchitectInterviewPrompt";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -37,6 +42,28 @@ import type {
 import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRecord";
 
 const appName = "ChampCity A/I";
+const repositoryRoot = path.resolve(__dirname, "..", "..");
+const electronRuntimeRoot = path.join(repositoryRoot, "tmp", "electron-runtime");
+
+configureLocalElectronRuntimePaths();
+
+function configureLocalElectronRuntimePaths(): void {
+  const runtimePaths = {
+    userData: path.join(electronRuntimeRoot, "user-data"),
+    sessionData: path.join(electronRuntimeRoot, "session-data"),
+    logs: path.join(electronRuntimeRoot, "logs"),
+    crashDumps: path.join(electronRuntimeRoot, "crash-dumps"),
+  };
+
+  for (const directory of Object.values(runtimePaths)) {
+    mkdirSync(directory, { recursive: true });
+  }
+
+  app.setPath("userData", runtimePaths.userData);
+  app.setPath("sessionData", runtimePaths.sessionData);
+  app.setPath("logs", runtimePaths.logs);
+  app.setPath("crashDumps", runtimePaths.crashDumps);
+}
 
 function createMainWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -88,6 +115,19 @@ function registerWorkCardIpc(): void {
   ipcMain.handle(
     "projectIntake:save",
     (_event, input: ProjectIntakeInput) => saveProjectIntake(input),
+  );
+  ipcMain.handle("projectArchitectInterview:listProjectIntakes", () =>
+    listSavedProjectIntakes(),
+  );
+  ipcMain.handle(
+    "projectArchitectInterview:previewPrompt",
+    (_event, input: ProjectArchitectInterviewPromptRequest) =>
+      previewProjectArchitectInterviewPrompt(input),
+  );
+  ipcMain.handle(
+    "projectArchitectInterview:savePrompt",
+    (_event, input: ProjectArchitectInterviewPromptRequest) =>
+      saveProjectArchitectInterviewPrompt(input),
   );
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),
