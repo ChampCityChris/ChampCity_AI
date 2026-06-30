@@ -43,7 +43,7 @@ export interface ArchitectPromptSaveResult
 }
 
 export const finalBuilderPromptBoundary =
-  "Do not produce the final Builder prompt until the Operator confirms or corrects the Architect framing decisions.";
+  "Do not produce the final Implementer prompt until the Operator confirms or corrects the Architect framing decisions.";
 
 export function renderArchitectFramingPrompt(workCard: WorkCard): string {
   const validation = validateWorkCard(workCard);
@@ -59,28 +59,28 @@ export function renderArchitectFramingPrompt(workCard: WorkCard): string {
     "",
     "You are acting as Architect for ChampCity A/I.",
     "",
-    "Review the selected draft Work Card and frame the next Builder-ready Work Card. Preserve the manual MVP workflow: this prompt is for Architect framing only, and it must not call an LLM API, edit files, or produce implementation work.",
+    "Review the selected draft Work Card and frame the next Implementer-ready Work Card. Preserve the manual MVP workflow: this prompt is for Architect framing only, and it must not call an LLM API, edit files, or produce implementation work.",
     "",
     "Core product rule:",
-    "- A Work Card is the smallest buildable unit of work that can be handed to a Builder.",
+    "- A Work Card is the smallest buildable unit of work that can be handed to an Implementer.",
     "- A Work Card should never be authored by the Operator alone.",
     "- The Architect is responsible for translating the Operator's words into a structured Work Card.",
     "",
     "Architect task:",
     "- Review the selected draft Work Card.",
-    "- Preserve the rule that the Operator does not author Builder-ready Work Cards alone.",
-    "- Translate the Operator's plain-language intent into a Builder-ready Work Card.",
-    "- Ask only clarifying questions that are necessary to convert this draft into a Builder-ready Work Card.",
+    "- Preserve the rule that the Operator does not author Implementer-ready Work Cards alone.",
+    "- Translate the Operator's plain-language intent into an Implementer-ready Work Card.",
+    "- Ask only clarifying questions that are necessary to convert this draft into an Implementer-ready Work Card.",
     "- Avoid asking questions already answered by the draft Work Card.",
     "- Provide recommended defaults for any decision the Operator may not care about.",
     "- Explain options in plain language for a non-developer Operator.",
     "- Push back on scope creep, unsafe assumptions, or premature implementation.",
-    "- Keep the future Builder task narrow and testable.",
+    "- Keep the future Implementer task narrow and testable.",
     "- Do not implement, call tools, edit files, run commands, or call APIs directly in this Architect prompt.",
     "",
     "Return one of these:",
     "- A small set of clarifying questions with suggested answers, if clarification is needed.",
-    "- A proposed Builder-ready Work Card, if no clarification is needed.",
+    "- A proposed Implementer-ready Work Card, if no clarification is needed.",
     "",
     finalBuilderPromptBoundary,
     "",
@@ -113,7 +113,7 @@ function renderStructuredWorkCard(workCard: WorkCard): string {
     section("How This Should Be Validated", formatList(workCard.validationPlan)),
     section("Risk Level", workCard.riskLevel),
     section("Risks and Watch Items", formatList(workCard.risks)),
-    section("Builder Instructions", formatList(workCard.builderInstructions)),
+    section("Implementer Instructions", formatList(workCard.builderInstructions)),
     section("Operator Notes", formatList(workCard.operatorNotes)),
   ].join("\n\n");
 }

@@ -24,6 +24,9 @@
 - Evidence attachment policy: copy durable evidence into the repo when it is small and relevant, and also record original source paths when the file comes from outside the repo.
 - Future LLM provider policy: design for provider abstraction, but do not implement SDKs yet.
 - Likely future LLM providers include OpenAI API, Anthropic, local Ollama, and a generic OpenAI-compatible endpoint for providers such as Featherless or LM Studio.
+- Product-facing role terminology: use `Implementer` for the coding/build agent role in visible UI, prompts, and new explanatory copy.
+- Legacy artifact compatibility: existing schema fields, filenames, and folders may still use `Builder_*` names, including `Builder_Prompts`, `Builder_Reports`, and `BUILDER_REPORT_*`, until a dedicated migration Work Card updates storage paths safely.
+- Historical records should not be renamed casually; when legacy Builder artifact paths are shown, explain that they are compatibility storage names for Implementer-facing work.
 
 ## Work Card Artifacts
 
@@ -32,7 +35,7 @@
 - Required Markdown path pattern: `planning/phases/<phase-folder>/Work_Cards/<work_card_id>_<slug>.md`.
 - The JSON artifact is the structured app-readable Work Card source.
 - The Markdown artifact is the durable human-readable rendering.
-- Builders must not create Markdown-only Work Cards unless the prompt explicitly says it is a temporary note and not an app-selectable Work Card.
+- Implementers/builders must not create Markdown-only Work Cards unless the prompt explicitly says it is a temporary note and not an app-selectable Work Card.
 
 ## Security
 
@@ -74,7 +77,7 @@
   - Git actions performed, including commit hash and tag if applicable.
   - Security/secret-safety notes.
   - Blocking questions, if any.
-  - Recommended next Builder task.
+  - Recommended next Implementer task.
 
 ## Final Report Requirements
 

@@ -42,7 +42,14 @@ function createMainWindow(): void {
     minWidth: 760,
     minHeight: 560,
     title: appName,
-    backgroundColor: "#f7f6f2",
+    backgroundColor: "#080a0d",
+    icon: path.join(
+      __dirname,
+      "..",
+      "renderer",
+      "assets",
+      "champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
+    ),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

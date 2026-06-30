@@ -105,7 +105,7 @@ const requiredReportSignals = [
   },
   {
     key: "hasRecommendedNextTask",
-    label: "Recommended next Builder task.",
+    label: "Recommended next Implementer task.",
   },
 ] as const satisfies readonly {
   key: keyof BuilderReportValidationResult["detected"];
@@ -157,7 +157,7 @@ export function validateBuilderReport(
         normalized,
       ),
     hasRecommendedNextTask:
-      /recommended next builder task|next builder task|recommended next task/i.test(
+      /recommended next implementer task|next implementer task|recommended next builder task|next builder task|recommended next task/i.test(
         normalized,
       ),
     hasCommitHash: /\b[0-9a-f]{7,40}\b/i.test(normalized),
@@ -173,9 +173,9 @@ export function validateBuilderReport(
     warnings.push("Report text is empty.");
   }
 
-  if (!/builder report/i.test(normalized)) {
+  if (!/(implementer|builder) report/i.test(normalized)) {
     warnings.push(
-      "Report text does not include an obvious Builder Report heading.",
+      "Report text does not include an obvious Implementer Report or legacy Builder Report heading.",
     );
   }
 
@@ -285,20 +285,20 @@ export function validateBuilderReportMarkdownFileName(
   const value = fileName.trim();
 
   if (value.length === 0) {
-    throw new Error("Builder Report filename must not be blank.");
+    throw new Error("Implementer Report filename must not be blank.");
   }
 
   if (/[\\/]/.test(value) || value.includes("..")) {
-    throw new Error("Builder Report filename must not include folders.");
+    throw new Error("Implementer Report filename must not include folders.");
   }
 
   if (!value.endsWith(".md")) {
-    throw new Error("Builder Report filename must use the .md extension.");
+    throw new Error("Implementer Report filename must use the .md extension.");
   }
 
   if (!/^BUILDER_REPORT_[A-Za-z0-9][A-Za-z0-9_-]*\.md$/.test(value)) {
     throw new Error(
-      "Builder Report filename must use only letters, numbers, hyphens, underscores, and the .md extension.",
+      "Implementer Report filename must use only letters, numbers, hyphens, underscores, and the .md extension. Legacy files still use the BUILDER_REPORT_ prefix.",
     );
   }
 
@@ -344,7 +344,7 @@ export function isBuilderReportType(
 
 function validateBuilderReportType(value: BuilderReportType): BuilderReportType {
   if (!isBuilderReportType(value)) {
-    throw new Error("Choose a valid Builder Report type.");
+    throw new Error("Choose a valid Implementer Report type.");
   }
 
   return value;

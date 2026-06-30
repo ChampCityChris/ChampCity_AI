@@ -76,10 +76,10 @@ export const champCityRepositoryPath =
   "C:\\Users\\chapm\\Projects\\ChampCity_AI";
 
 export const builderPromptHighRiskWarning =
-  "This Work Card has high-risk review context. Do not broaden scope. If implementation requires secrets, authentication changes, destructive Git/GitHub actions, deployment changes, provider integrations, broad refactors, or other high-risk work not explicitly approved in this prompt, stop and report a blocking question.";
+  "This Work Card has high-risk review context. The Implementer must not broaden scope. If implementation requires secrets, authentication changes, destructive Git/GitHub actions, deployment changes, provider integrations, broad refactors, or other high-risk work not explicitly approved in this prompt, stop and report a blocking question.";
 
 export const builderPromptNoRiskReviewWarning =
-  "No Risk Review artifact was selected. Do not infer approval. Keep the work limited to this prompt and report blockers if risk-sensitive work is discovered.";
+  "No Risk Review artifact was selected. The Implementer must not infer approval. Keep the work limited to this prompt and report blockers if risk-sensitive work is discovered.";
 
 export const standardBuilderValidationCommands = [
   "npm run typecheck",
@@ -99,7 +99,7 @@ export function renderBuilderPrompt(
 
   if (!validation.valid) {
     throw new Error(
-      `Cannot render Builder prompt for invalid Work Card: ${validation.errors.join("; ")}`,
+      `Cannot render Implementer prompt for invalid Work Card: ${validation.errors.join("; ")}`,
     );
   }
 
@@ -110,7 +110,9 @@ export function renderBuilderPrompt(
   const reportFileName = buildBuilderReportFileName(workCard);
 
   return [
-    "You are acting as Builder for ChampCity A/I.",
+    "You are acting as Implementer for ChampCity A/I.",
+    "",
+    "The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured handoff and preserve the approved scope.",
     "",
     "Repository:",
     champCityRepositoryPath,
@@ -192,17 +194,19 @@ export function renderBuilderPrompt(
     "",
     ...renderSupportingArtifactContext(supportingArtifacts),
     "",
-    "## Builder Report Requirement",
+    "## Implementer Report Requirement",
     "",
-    "Create a Builder Report for this pass.",
+    "Create an Implementer Report for this pass.",
     "",
     `Required report folder: \`planning/phases/${workCard.phase}/Builder_Reports/\``,
+    "",
+    "Compatibility note: the product-facing role is Implementer, but this MVP still stores reports in the legacy `Builder_Reports` folder and uses `BUILDER_REPORT_*` filenames.",
     "",
     "Required report filename pattern: `BUILDER_REPORT_<work_card_id>_<slug>.md`",
     "",
     `Expected report name: \`${reportFileName}\``,
     "",
-    "The Builder Report must include:",
+    "The Implementer Report must include:",
     "",
     formatList([
       "Repository path inspected.",
@@ -217,7 +221,7 @@ export function renderBuilderPrompt(
       "Git actions performed, including commit hash and tag if applicable.",
       "Security/secret-safety notes.",
       "Blocking questions, if any.",
-      "Recommended next Builder task.",
+      "Recommended next Implementer task.",
     ]),
     "",
     "## Git Instructions",
@@ -282,7 +286,7 @@ function renderRiskReviewSummary(
   }
 
   const lines = [
-    `Risk Review artifact selected: \`${riskReview.fileName}\`. Risk context is included below. Builder must not broaden scope.`,
+    `Risk Review artifact selected: \`${riskReview.fileName}\`. Risk context is included below. The Implementer must not broaden scope.`,
   ];
 
   if (hasHighRiskContext) {
@@ -309,7 +313,7 @@ function renderSupportingArtifactContext(
       supportingArtifacts.riskReview,
     ),
     renderArtifactSection(
-      "Selected Prior Builder Report Context",
+      "Selected Prior Implementer Report Context",
       supportingArtifacts.priorBuilderReport,
     ),
   ].filter((section) => section.length > 0);
@@ -365,7 +369,7 @@ function selectedArtifactLabels(
 
   if (supportingArtifacts.priorBuilderReport) {
     labels.push(
-      `Prior Builder Report: \`${supportingArtifacts.priorBuilderReport.fileName}\``,
+      `Prior Implementer Report: \`${supportingArtifacts.priorBuilderReport.fileName}\``,
     );
   }
 

@@ -119,10 +119,10 @@ export interface HumanValidationRecordValidationResult {
 }
 
 export const noBuilderReportSelectedWarning =
-  "No Builder Report is selected. You can still save validation, but the evidence chain is incomplete.";
+  "No Implementer Report is selected. You can still save validation, but the evidence chain is incomplete.";
 
 export const noManualValidationChecklistDetectedMessage =
-  "No manual validation checklist was detected in the selected Builder Report.";
+  "No manual validation checklist was detected in the selected Implementer Report.";
 
 export const differentProblemFoundGuidance =
   "Different problem found. Create a new Work Card instead of repairing the selected Work Card.";

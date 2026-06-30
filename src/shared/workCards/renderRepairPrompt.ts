@@ -19,7 +19,9 @@ export function renderRepairPrompt(
   const repairReportFileName = buildRepairBuilderReportFileName(record);
 
   return [
-    "You are acting as Builder for ChampCity A/I.",
+    "You are acting as Implementer for ChampCity A/I.",
+    "",
+    "The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Repair only from the validation evidence below.",
     "",
     "Repository:",
     champCityRepositoryPath,
@@ -30,7 +32,7 @@ export function renderRepairPrompt(
     `- Selected Work Card ID: ${record.workCardId}`,
     `- Selected Work Card title: ${record.workCardTitle}`,
     `- Phase: ${record.phase}`,
-    `- Associated Builder Report: ${record.builderReportFile ?? "None selected."}`,
+    `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
     `- Validation record: ${options.validationRecordFileName ?? "Use the saved validation record created with this prompt."}`,
     "",
     "## Operator Validation Result",
@@ -91,8 +93,8 @@ export function renderRepairPrompt(
       "Read `AGENTS.md`.",
       `Read the selected Work Card from \`planning/phases/${record.phase}/Work_Cards/\`.`,
       record.builderReportFile
-        ? `Read the associated Builder Report \`${record.builderReportFile}\`.`
-        : "No Builder Report was selected; note that the evidence chain is incomplete.",
+        ? `Read the associated Implementer Report \`${record.builderReportFile}\`.`
+        : "No Implementer Report was selected; note that the evidence chain is incomplete.",
       options.validationRecordFileName
         ? `Read the validation record \`${options.validationRecordFileName}\`.`
         : "Read the saved validation record for this repair.",
@@ -104,9 +106,11 @@ export function renderRepairPrompt(
     ...standardBuilderValidationCommands,
     "```",
     "",
-    "## Builder Report Requirement",
+    "## Implementer Report Requirement",
     "",
-    `Create a repair Builder Report under \`planning/phases/${record.phase}/Builder_Reports/\`.`,
+    `Create a repair Implementer Report under \`planning/phases/${record.phase}/Builder_Reports/\`.`,
+    "",
+    "Compatibility note: the product-facing role is Implementer, but repair reports still use the legacy `Builder_Reports` folder and `BUILDER_REPORT_REPAIR_*` filename pattern.",
     "",
     "Filename pattern: `BUILDER_REPORT_REPAIR_<work_card_id>_<slug>.md`",
     "",

@@ -92,7 +92,7 @@ const highRiskCategoryRules: RiskCategoryRule[] = [
     rationale:
       "The Work Card mentions login, permissions, sessions, roles, or related access-control behavior.",
     suggestedArchitectQuestion:
-      "Is this asking Builder to change authentication or authorization behavior?",
+      "Is this asking the Implementer to change authentication or authorization behavior?",
   },
   {
     category: "Filesystem writes outside approved planning paths",
@@ -175,7 +175,7 @@ const highRiskCategoryRules: RiskCategoryRule[] = [
     rationale:
       "The Work Card mentions money movement, subscriptions, billing records, refunds, or account deletion.",
     suggestedArchitectQuestion:
-      "Is this asking Builder to change payment, billing, subscription, or account deletion behavior?",
+      "Is this asking the Implementer to change payment, billing, subscription, or account deletion behavior?",
   },
   {
     category: "External API/provider integration",
@@ -232,7 +232,7 @@ const highRiskCategoryRules: RiskCategoryRule[] = [
     rationale:
       "The Work Card mentions security policy, content security policy, vulnerabilities, or security review.",
     suggestedArchitectQuestion:
-      "Is this asking Builder to change a security policy, and does it need a dedicated security review?",
+      "Is this asking the Implementer to change a security policy, and does it need a dedicated security review?",
   },
   {
     category: "Destructive Git/GitHub actions",
@@ -364,6 +364,7 @@ const lowRiskTerms = [
   word("docs"),
   word("markdown"),
   phrase("builder report"),
+  phrase("implementer report"),
   phrase("prompt wording"),
   phrase("planning note"),
   phrase("report update"),
@@ -411,7 +412,7 @@ export function routeWorkCardRisk(workCard: WorkCard): WorkCardRiskReview {
   const architectReviewQuestions = unique([
     ...flaggedCategories.map((flag) => flag.suggestedArchitectQuestion),
     ...scopeCreepSignals.map(
-      () => "Should this be split into a smaller Work Card before Builder handoff?",
+      () => "Should this be split into a smaller Work Card before Implementer handoff?",
     ),
   ]);
 
@@ -507,11 +508,11 @@ function buildSummary(
   if (assessedRiskLevel === "high") {
     return `${flaggedCategoryCount} high-risk category signal${
       flaggedCategoryCount === 1 ? "" : "s"
-    } detected. Architect review should resolve the flagged items before Builder handoff.`;
+    } detected. Architect review should resolve the flagged items before Implementer handoff.`;
   }
 
   if (assessedRiskLevel === "medium") {
-    return "No high-risk categories were detected, but this appears to involve implementation, UI, validation, or limited planning-file work. Architect review should confirm the scope before Builder handoff.";
+    return "No high-risk categories were detected, but this appears to involve implementation, UI, validation, or limited planning-file work. Architect review should confirm the scope before Implementer handoff.";
   }
 
   return "No major risk flags were detected. Normal Architect review is still required.";

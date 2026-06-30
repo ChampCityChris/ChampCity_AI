@@ -64,6 +64,10 @@ export function renderWorkCardMarkdown(workCard: WorkCard): string {
 }
 
 export function renderBuilderHandoffPrompt(workCard: WorkCard): string {
+  if (usesImplementerTerminology(workCard)) {
+    return renderImplementerHandoffPrompt(workCard);
+  }
+
   return [
     "Use this as the starting Builder prompt:",
     "",
@@ -95,6 +99,48 @@ export function renderBuilderHandoffPrompt(workCard: WorkCard): string {
     "Builder Report:",
     `- Create a Builder Report under \`planning/phases/${workCard.phase}/Builder_Reports/\` and include commands run, validation results, security notes, git actions, and the recommended next Builder task.`,
   ].join("\n");
+}
+
+function renderImplementerHandoffPrompt(workCard: WorkCard): string {
+  return [
+    "Use this as the starting Implementer prompt. The section heading remains a legacy Builder handoff heading for artifact compatibility.",
+    "",
+    "You are acting as Implementer for ChampCity A/I.",
+    "",
+    "The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured handoff and preserve the approved scope.",
+    "",
+    "Before editing:",
+    `- ${repositoryPathInstruction}`,
+    "- Read `AGENTS.md` and relevant planning files.",
+    "",
+    `Work Card: ${workCard.workCardId} - ${workCard.title}`,
+    "",
+    `Goal: ${workCard.goal}`,
+    "",
+    "Scope:",
+    formatList(workCard.scope),
+    "",
+    "Out of scope:",
+    formatList(workCard.outOfScope),
+    "",
+    "Requirements:",
+    formatList(workCard.requirements),
+    "",
+    "Acceptance criteria:",
+    formatList(workCard.acceptanceCriteria),
+    "",
+    "Validation plan:",
+    formatList(workCard.validationPlan),
+    "",
+    "Implementer Report:",
+    `- Create an Implementer Report under the legacy \`planning/phases/${workCard.phase}/Builder_Reports/\` folder and include commands run, validation results, security notes, git actions, and the recommended next Implementer task.`,
+  ].join("\n");
+}
+
+function usesImplementerTerminology(workCard: WorkCard): boolean {
+  return workCard.builderInstructions.some((value) =>
+    /\bImplementer\b/.test(value),
+  );
 }
 
 function section(title: string, body: string): string {

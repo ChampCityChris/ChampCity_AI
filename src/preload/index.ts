@@ -45,8 +45,16 @@ import type {
 const api = {
   getAppInfo: () => ({
     name: "ChampCity A/I",
-    stage: "work card capture",
-    coreLoop: ["Capture", "Frame", "Plan", "Build", "Prove"],
+    stage: "guided work card pipeline",
+    coreLoop: [
+      "Capture",
+      "Architect",
+      "Risk",
+      "Build",
+      "Report",
+      "Validate",
+      "Closeout",
+    ],
   }),
   getNextWorkCardId: (phase: string): Promise<NextWorkCardIdResult> =>
     ipcRenderer.invoke("workCards:getNextId", phase),

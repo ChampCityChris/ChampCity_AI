@@ -23,7 +23,7 @@ export interface RiskReviewSaveResult extends RiskReviewPreviewResult {
 }
 
 export const riskReviewNoApprovalNote =
-  "This review does not modify or approve the Work Card. It does not change Work Card status, riskLevel, or Builder readiness.";
+  "This review does not modify or approve the Work Card. It does not change Work Card status, riskLevel, or Implementer readiness.";
 
 export function renderRiskReviewMarkdown(
   workCard: WorkCard,

@@ -10,8 +10,78 @@ type AppScreen =
   | "phase-closeout";
 
 const defaultPhase = "phase-01";
+const appIconPath =
+  "./assets/champcity_ai_icon_clean_no_shadow_TRANSPARENT.png";
 const workCardJsonSelectorHelp =
   "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are not app-readable Work Cards.";
+
+interface WorkflowStep {
+  id: AppScreen;
+  label: string;
+  detail: string;
+  lane: "Architect" | "Implementer";
+  screenTitle: string;
+  nextAction: string;
+}
+
+const workflowSteps: WorkflowStep[] = [
+  {
+    id: "new-work-card",
+    label: "Capture",
+    detail: "Define intent",
+    lane: "Architect",
+    screenTitle: "New Work Card",
+    nextAction: "Capture the Operator intent and save paired JSON/Markdown.",
+  },
+  {
+    id: "architect-prompt-composer",
+    label: "Architect",
+    detail: "Refine scope",
+    lane: "Architect",
+    screenTitle: "Architect Prompt Composer",
+    nextAction: "Send the Work Card to the Architect for framing.",
+  },
+  {
+    id: "risk-router",
+    label: "Risk",
+    detail: "Pre-flight check",
+    lane: "Architect",
+    screenTitle: "Risk Router",
+    nextAction: "Check risk before implementation handoff.",
+  },
+  {
+    id: "builder-prompt-generator",
+    label: "Build",
+    detail: "Implementer handoff",
+    lane: "Implementer",
+    screenTitle: "Implementer Prompt Generator",
+    nextAction: "Generate a copy-ready prompt for Codex, Claude Code, Cursor, or another coding agent.",
+  },
+  {
+    id: "builder-report-capture",
+    label: "Report",
+    detail: "Capture evidence",
+    lane: "Implementer",
+    screenTitle: "Implementer Report Capture",
+    nextAction: "Record what the Implementer actually changed and validated.",
+  },
+  {
+    id: "human-validation",
+    label: "Validate",
+    detail: "Confirm it worked",
+    lane: "Implementer",
+    screenTitle: "Human Validation",
+    nextAction: "Capture manual validation and generate repair prompts only when needed.",
+  },
+  {
+    id: "phase-closeout",
+    label: "Closeout",
+    detail: "Phase decision",
+    lane: "Implementer",
+    screenTitle: "Phase Closeout",
+    nextAction: "Review phase artifacts and record the closeout decision.",
+  },
+];
 
 const initialForm: ChampCityWorkCardDraftInput = {
   workCardId: "WC02",
@@ -61,6 +131,7 @@ function App(): unknown {
   const appInfo = React.useMemo(() => window.champCity.getAppInfo(), []);
   const [activeScreen, setActiveScreen] =
     React.useState<AppScreen>("new-work-card");
+  const activeStep = getWorkflowStep(activeScreen);
 
   return h(
     "main",
@@ -70,47 +141,30 @@ function App(): unknown {
       { className: "top-bar" },
       h(
         "div",
-        null,
-        h("p", { className: "eyebrow" }, appInfo.name),
-        h("h1", null, getScreenTitle(activeScreen)),
+        { className: "brand-block" },
+        h("img", {
+          src: appIconPath,
+          alt: "ChampCity A/I",
+          className: "brand-mark",
+        }),
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, "Architect / Implementer"),
+          h("h1", null, appInfo.name),
+        ),
       ),
+      renderWorkflowStepper(activeScreen, setActiveScreen),
       h(
-        "nav",
-        { className: "screen-nav", "aria-label": "Work Card screens" },
-        renderNavButton(
-          "New Work Card",
-          activeScreen === "new-work-card",
-          () => setActiveScreen("new-work-card"),
-        ),
-        renderNavButton(
-          "Architect Prompt Composer",
-          activeScreen === "architect-prompt-composer",
-          () => setActiveScreen("architect-prompt-composer"),
-        ),
-        renderNavButton(
-          "Risk Router",
-          activeScreen === "risk-router",
-          () => setActiveScreen("risk-router"),
-        ),
-        renderNavButton(
-          "Builder Prompt Generator",
-          activeScreen === "builder-prompt-generator",
-          () => setActiveScreen("builder-prompt-generator"),
-        ),
-        renderNavButton(
-          "Builder Report Capture",
-          activeScreen === "builder-report-capture",
-          () => setActiveScreen("builder-report-capture"),
-        ),
-        renderNavButton(
-          "Human Validation",
-          activeScreen === "human-validation",
-          () => setActiveScreen("human-validation"),
-        ),
-        renderNavButton(
-          "Phase Closeout",
-          activeScreen === "phase-closeout",
-          () => setActiveScreen("phase-closeout"),
+        "div",
+        { className: "step-context", "aria-label": "Current workflow context" },
+        h("span", { className: "context-chip" }, defaultPhase),
+        h("span", { className: "context-chip" }, activeStep.lane),
+        h(
+          "div",
+          { className: "context-copy" },
+          h("strong", null, activeStep.screenTitle),
+          h("span", null, activeStep.nextAction),
         ),
       ),
     ),
@@ -131,46 +185,50 @@ function App(): unknown {
 }
 
 function getScreenTitle(activeScreen: AppScreen): string {
-  if (activeScreen === "new-work-card") {
-    return "New Work Card";
-  }
-
-  if (activeScreen === "architect-prompt-composer") {
-    return "Architect Prompt Composer";
-  }
-
-  if (activeScreen === "builder-prompt-generator") {
-    return "Builder Prompt Generator";
-  }
-
-  if (activeScreen === "builder-report-capture") {
-    return "Builder Report Capture";
-  }
-
-  if (activeScreen === "human-validation") {
-    return "Human Validation";
-  }
-
-  if (activeScreen === "phase-closeout") {
-    return "Phase Closeout";
-  }
-
-  return "Risk Router";
+  return getWorkflowStep(activeScreen).screenTitle;
 }
 
-function renderNavButton(
-  label: string,
-  isActive: boolean,
-  onClick: () => void,
+function getWorkflowStep(activeScreen: AppScreen): WorkflowStep {
+  return (
+    workflowSteps.find((step) => step.id === activeScreen) ?? workflowSteps[0]
+  );
+}
+
+function renderWorkflowStepper(
+  activeScreen: AppScreen,
+  setActiveScreen: (screen: AppScreen) => void,
 ): unknown {
   return h(
-    "button",
-    {
-      type: "button",
-      className: isActive ? "nav-button active" : "nav-button",
-      onClick,
-    },
-    label,
+    "nav",
+    { className: "workflow-rail", "aria-label": "Work Card pipeline" },
+    ...workflowSteps.map((step, index) =>
+      h(
+        "div",
+        { key: step.id, className: "workflow-node-wrap" },
+        h(
+          "button",
+          {
+            type: "button",
+            className:
+              step.id === activeScreen
+                ? `nav-button active ${step.lane.toLowerCase()}`
+                : `nav-button ${step.lane.toLowerCase()}`,
+            title: step.detail,
+            onClick: () => setActiveScreen(step.id),
+          },
+          h("span", { className: "step-dot" }, String(index + 1)),
+          h(
+            "span",
+            { className: "step-copy" },
+            h("strong", null, step.label),
+            h("small", null, step.detail),
+          ),
+        ),
+        index === 2
+          ? h("span", { className: "ai-divider", "aria-label": "A/I boundary" }, "A/I")
+          : null,
+      ),
+    ),
   );
 }
 
@@ -1236,15 +1294,15 @@ function BuilderPromptGeneratorScreen(): unknown {
           setPrompt("");
           setHasHighRiskContext(false);
           setHasRiskReviewSelected(false);
-          setErrors(result.errorMessages ?? ["The Builder prompt could not be generated."]);
-          setStatusMessage("Builder prompt generation needs attention.");
+          setErrors(result.errorMessages ?? ["The Implementer prompt could not be generated."]);
+          setStatusMessage("Implementer prompt generation needs attention.");
           return;
         }
 
         setPrompt(result.prompt);
         setHasHighRiskContext(Boolean(result.hasHighRiskContext));
         setHasRiskReviewSelected(Boolean(result.hasRiskReviewSelected));
-        setStatusMessage("Builder prompt generated.");
+        setStatusMessage("Implementer prompt generated.");
       })
       .catch(() => {
         if (!active) {
@@ -1255,8 +1313,8 @@ function BuilderPromptGeneratorScreen(): unknown {
         setPrompt("");
         setHasHighRiskContext(false);
         setHasRiskReviewSelected(false);
-        setErrors(["The Builder prompt could not be generated."]);
-        setStatusMessage("Builder prompt generation needs attention.");
+        setErrors(["The Implementer prompt could not be generated."]);
+        setStatusMessage("Implementer prompt generation needs attention.");
       });
 
     return () => {
@@ -1287,7 +1345,7 @@ function BuilderPromptGeneratorScreen(): unknown {
 
   async function copyPrompt(): Promise<void> {
     if (prompt.trim().length === 0) {
-      setCopyMessage("Generate a Builder prompt before copying.");
+      setCopyMessage("Generate an Implementer prompt before copying.");
       return;
     }
 
@@ -1307,7 +1365,7 @@ function BuilderPromptGeneratorScreen(): unknown {
 
   async function savePrompt(): Promise<void> {
     if (selectedFileName.trim().length === 0) {
-      setErrors(["Select a saved Work Card before saving a Builder prompt."]);
+      setErrors(["Select a saved Work Card before saving an Implementer prompt."]);
       return;
     }
 
@@ -1324,7 +1382,7 @@ function BuilderPromptGeneratorScreen(): unknown {
     setIsPromptBusy(false);
 
     if (!result.ok || !result.prompt) {
-      setErrors(result.errorMessages ?? ["The Builder prompt could not be saved."]);
+      setErrors(result.errorMessages ?? ["The Implementer prompt could not be saved."]);
       setStatusMessage("Save needs attention.");
       return;
     }
@@ -1333,14 +1391,14 @@ function BuilderPromptGeneratorScreen(): unknown {
     setHasHighRiskContext(Boolean(result.hasHighRiskContext));
     setHasRiskReviewSelected(Boolean(result.hasRiskReviewSelected));
     setSaveResult(result);
-    setStatusMessage("Builder prompt saved.");
+    setStatusMessage("Implementer prompt saved.");
   }
 
   return h(
     "section",
     {
       className: "workspace prompt-workspace",
-      "aria-label": "Builder Prompt Generator",
+      "aria-label": "Implementer Prompt Generator",
     },
     h(
       "div",
@@ -1448,11 +1506,11 @@ function BuilderPromptGeneratorScreen(): unknown {
           "No Risk Review artifact is available.",
         ),
         renderOptionalArtifactSelect(
-          "Prior Builder Report",
+          "Prior Implementer Report",
           supportSelections.priorBuilderReport ?? "",
           artifactOptions.priorBuilderReports,
           (value) => updateSupportSelection("priorBuilderReport", value),
-          "No Prior Builder Report artifact is available.",
+          "No prior Implementer Report artifact is available.",
         ),
       ),
       isArtifactBusy
@@ -1465,14 +1523,14 @@ function BuilderPromptGeneratorScreen(): unknown {
     ),
     h(
       "aside",
-      { className: "composer-panel", "aria-label": "Builder prompt preview" },
+      { className: "composer-panel", "aria-label": "Implementer prompt preview" },
       h(
         "div",
         { className: "preview-header" },
         h(
           "div",
           null,
-          h("p", { className: "eyebrow" }, "Builder"),
+          h("p", { className: "eyebrow" }, "Implementer"),
           h("h2", null, "Prompt"),
         ),
         h("span", { className: "status-text" }, statusMessage),
@@ -1492,20 +1550,20 @@ function BuilderPromptGeneratorScreen(): unknown {
         ? h(
             "div",
             { className: "warning-box", role: "status" },
-            "High-risk context is present. The generated prompt tells Builder not to broaden scope and to stop for blocking questions if risky work appears.",
+            "High-risk context is present. The generated prompt tells the Implementer not to broaden scope and to stop for blocking questions if risky work appears.",
           )
         : null,
       !hasRiskReviewSelected
         ? h(
             "div",
             { className: "warning-box", role: "status" },
-            "No Risk Review artifact is selected. The generated prompt warns Builder not to infer approval.",
+            "No Risk Review artifact is selected. The generated prompt warns the Implementer not to infer approval.",
           )
         : null,
       h(
         "pre",
         { className: "markdown-preview prompt-preview" },
-        prompt || "No Builder prompt generated yet.",
+        prompt || "No Implementer prompt generated yet.",
       ),
       h(
         "div",
@@ -1532,7 +1590,7 @@ function BuilderPromptGeneratorScreen(): unknown {
               void savePrompt();
             },
           },
-          "Save Builder Prompt",
+          "Save Implementer Prompt",
         ),
       ),
     ),
@@ -1668,7 +1726,7 @@ function BuilderReportCaptureScreen(): unknown {
         setIsPreviewBusy(false);
         setPreviewResult({
           ok: false,
-          errorMessages: ["Builder Report preview could not be generated."],
+          errorMessages: ["Implementer Report preview could not be generated."],
         });
       });
 
@@ -1736,20 +1794,20 @@ function BuilderReportCaptureScreen(): unknown {
 
     if (!result.ok || !result.markdownPath) {
       setSaveResult(null);
-      setErrors(result.errorMessages ?? ["The Builder Report could not be saved."]);
+      setErrors(result.errorMessages ?? ["The Implementer Report could not be saved."]);
       setStatusMessage("Save needs attention.");
       return;
     }
 
     setSaveResult(result);
-    setStatusMessage("Builder Report saved.");
+    setStatusMessage("Implementer Report saved.");
   }
 
   return h(
     "section",
     {
       className: "workspace report-workspace",
-      "aria-label": "Builder Report Capture",
+      "aria-label": "Implementer Report Capture",
     },
     h(
       "div",
@@ -1856,14 +1914,14 @@ function BuilderReportCaptureScreen(): unknown {
     ),
     h(
       "aside",
-      { className: "composer-panel report-editor-panel", "aria-label": "Builder Report text" },
+      { className: "composer-panel report-editor-panel", "aria-label": "Implementer Report text" },
       h(
         "div",
         { className: "preview-header" },
         h(
           "div",
           null,
-          h("p", { className: "eyebrow" }, "Builder Report"),
+          h("p", { className: "eyebrow" }, "Implementer Report"),
           h("h2", null, "Capture"),
         ),
         h("span", { className: "status-text" }, statusMessage),
@@ -1879,7 +1937,7 @@ function BuilderReportCaptureScreen(): unknown {
       h(
         "label",
         { className: "field report-text-field" },
-        h("span", null, "Builder Report Markdown"),
+        h("span", null, "Implementer Report Markdown"),
         h("textarea", {
           value: reportText,
           rows: 18,
@@ -1908,7 +1966,7 @@ function BuilderReportCaptureScreen(): unknown {
               void saveReport();
             },
           },
-          "Save Builder Report",
+          "Save Implementer Report",
         ),
       ),
     ),
@@ -2033,8 +2091,8 @@ function HumanValidationScreen(): unknown {
           setBuilderReports([]);
           setInvalidBuilderReports([]);
           setSelectedBuilderReportFileName("");
-          setErrors(result.errorMessages ?? ["Builder Reports could not be loaded."]);
-          setStatusMessage("Builder Reports could not be loaded.");
+          setErrors(result.errorMessages ?? ["Implementer Reports could not be loaded."]);
+          setStatusMessage("Implementer Reports could not be loaded.");
           return;
         }
 
@@ -2057,8 +2115,8 @@ function HumanValidationScreen(): unknown {
         setBuilderReports([]);
         setInvalidBuilderReports([]);
         setSelectedBuilderReportFileName("");
-        setErrors(["Builder Reports could not be loaded."]);
-        setStatusMessage("Builder Reports could not be loaded.");
+        setErrors(["Implementer Reports could not be loaded."]);
+        setStatusMessage("Implementer Reports could not be loaded.");
       });
 
     return () => {
@@ -2249,7 +2307,7 @@ function HumanValidationScreen(): unknown {
       h(
         "label",
         { className: "field" },
-        h("span", null, "Associated Builder Report"),
+        h("span", null, "Associated Implementer Report"),
         h(
           "select",
           {
@@ -2262,7 +2320,7 @@ function HumanValidationScreen(): unknown {
               setSaveResult(null);
             },
           },
-          h("option", { value: "" }, "No Builder Report selected"),
+          h("option", { value: "" }, "No Implementer Report selected"),
           ...builderReports.map((report) =>
             h(
               "option",
@@ -2275,7 +2333,7 @@ function HumanValidationScreen(): unknown {
           ? h(
               "small",
               { className: "field-note" },
-              "No Builder Report Markdown files were found for this phase.",
+              "No Implementer Report Markdown files were found for this phase.",
             )
           : null,
       ),
@@ -2284,14 +2342,14 @@ function HumanValidationScreen(): unknown {
             "div",
             { className: "warning-box", role: "status" },
             previewResult?.builderReportWarning ??
-              "No Builder Report is selected. You can still save validation, but the evidence chain is incomplete.",
+              "No Implementer Report is selected. You can still save validation, but the evidence chain is incomplete.",
           )
         : null,
       invalidBuilderReports.length > 0
         ? h(
             "div",
             { className: "warning-box", role: "status" },
-            h("h3", null, "Skipped Builder Report files"),
+            h("h3", null, "Skipped Implementer Report files"),
             h(
               "ul",
               null,
@@ -3045,7 +3103,7 @@ function renderManualValidationChecklist(
     return h(
       "div",
       { className: "notice-box", role: "status" },
-      "Checking the selected Builder Report for manual validation guidance.",
+      "Checking the selected Implementer Report for manual validation guidance.",
     );
   }
 
@@ -3085,14 +3143,14 @@ function renderRepairPromptState(
     return h(
       "div",
       { className: "warning-box", role: "status" },
-      "A draft Repair Builder Prompt will be generated and saved with this validation record.",
+      "A draft Repair Implementer Prompt will be generated and saved with this validation record.",
     );
   }
 
   return h(
     "div",
     { className: "notice-box", role: "status" },
-    "No Repair Builder Prompt will be generated for the current result and Operator decision.",
+    "No Repair Implementer Prompt will be generated for the current result and Operator decision.",
   );
 }
 
@@ -3277,7 +3335,7 @@ function renderRiskReview(review: ChampCityWorkCardRiskReview): unknown {
       ? h(
           "div",
           { className: "warning-box", role: "status" },
-          "This Work Card appears high risk. Do not send it directly to Builder until the Architect reviews the flagged items.",
+          "This Work Card appears high risk. Do not send it directly to the Implementer until the Architect reviews the flagged items.",
         )
       : null,
     review.assessedRiskLevel === "low"

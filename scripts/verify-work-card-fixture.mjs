@@ -14,6 +14,16 @@ const uiDesignHandoffDirectory = resolve(
   repositoryRoot,
   "planning/phases/phase-01/UI_Design_Handoff",
 );
+const rendererSourcePath = resolve(repositoryRoot, "src/renderer/renderer.ts");
+const rendererStylePath = resolve(repositoryRoot, "src/renderer/styles.css");
+const rendererIconPath = resolve(
+  repositoryRoot,
+  "src/renderer/assets/champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
+);
+const figmaSourcePackagePath = resolve(
+  uiDesignHandoffDirectory,
+  "figma_source/Design Dark UI for ChampCity.zip",
+);
 const currentUiScreens = [
   "New Work Card",
   "Architect Prompt Composer",
@@ -22,6 +32,15 @@ const currentUiScreens = [
   "Builder Report Capture",
   "Human Validation",
   "Phase Closeout",
+];
+const wc10PipelineLabels = [
+  "Capture",
+  "Architect",
+  "Risk",
+  "Build",
+  "Report",
+  "Validate",
+  "Closeout",
 ];
 
 const { workCardFixture } = require("../dist/shared/workCards/fixtures/workCardFixture.js");
@@ -198,6 +217,7 @@ for (const artifact of renderedArtifacts) {
 
 assertCheckedInJsonArtifacts();
 assertUiDesignHandoffPackage();
+assertWc10UiAndTerminology();
 
 const draft = buildDraftWorkCard(
   {
@@ -592,7 +612,7 @@ function assertRiskRouter() {
     process.exit(1);
   }
 
-  if (/auto-approve|automatically approved|approved for Builder/i.test(lowRiskMarkdown)) {
+  if (/auto-approve|automatically approved|approved for (Builder|Implementer)/i.test(lowRiskMarkdown)) {
     console.error("Low-risk Markdown implies automatic approval.");
     process.exit(1);
   }
@@ -645,9 +665,11 @@ function assertBuilderPrompt() {
     workCardBuilderPromptFixture.workCardId,
     workCardBuilderPromptFixture.title,
     "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+    "You are acting as Implementer for ChampCity A/I.",
+    "The Implementer may be Codex, Claude Code, Cursor, or another coding agent.",
     "git status --short --branch",
     "git remote -v",
-    "Builder Report Requirement",
+    "Implementer Report Requirement",
     "BUILDER_REPORT_WC05_generate_builder_prompt.md",
     "Do not push unless explicitly instructed.",
     "Do not create a release tag unless explicitly instructed.",
@@ -661,7 +683,7 @@ function assertBuilderPrompt() {
   );
 
   if (missingNoRiskText.length > 0) {
-    console.error("Builder prompt without Risk Review is missing required text:");
+    console.error("Implementer prompt without Risk Review is missing required text:");
     for (const text of missingNoRiskText) {
       console.error(`- ${text}`);
     }
@@ -685,7 +707,7 @@ function assertBuilderPrompt() {
   );
 
   if (missingHighRiskText.length > 0) {
-    console.error("Builder prompt with high-risk Risk Review is missing required text:");
+    console.error("Implementer prompt with high-risk Risk Review is missing required text:");
     for (const text of missingHighRiskText) {
       console.error(`- ${text}`);
     }
@@ -981,7 +1003,7 @@ function assertPhaseCloseout() {
 
   const completeFilesByFolder = createEmptyPhaseArtifactFiles();
 
-  for (let index = 1; index <= 8; index += 1) {
+  for (let index = 1; index <= 10; index += 1) {
     const workCardId = `WC${String(index).padStart(2, "0")}`;
     completeFilesByFolder.Work_Cards.push(`${workCardId}_sample.json`);
     completeFilesByFolder.Work_Cards.push(`${workCardId}_sample.md`);
@@ -1294,7 +1316,8 @@ async function assertHumanValidationAndRepair() {
     validationRecordFileName: "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
   });
   const requiredRepairPromptText = [
-    "You are acting as Builder for ChampCity A/I.",
+    "You are acting as Implementer for ChampCity A/I.",
+    "The Implementer may be Codex, Claude Code, Cursor, or another coding agent.",
     "C:\\Users\\chapm\\Projects\\ChampCity_AI",
     "## Required Repo Checks",
     "git status --short --branch",
@@ -1310,7 +1333,7 @@ async function assertHumanValidationAndRepair() {
     repairPromptScopeGuard,
     "Do not broaden implementation.",
     "Do not update Work Card status.",
-    "Builder Report Requirement",
+    "Implementer Report Requirement",
     "BUILDER_REPORT_REPAIR_WC07_human_validation_and_repair_loop.md",
     "Do not create a release tag.",
     "Do not push unless explicitly instructed.",
@@ -1393,6 +1416,7 @@ async function assertSavedWorkCardListing() {
     "WC07",
     "WC08",
     "WC09",
+    "WC10",
   ];
   const missingWorkCardIds = expectedWorkCardIds.filter(
     (workCardId) => !listedWorkCardIds.has(workCardId),
@@ -1483,6 +1507,143 @@ function assertUiDesignHandoffPackage() {
       );
       process.exit(1);
     }
+  }
+}
+
+function assertWc10UiAndTerminology() {
+  const requiredFiles = [
+    rendererSourcePath,
+    rendererStylePath,
+    rendererIconPath,
+    figmaSourcePackagePath,
+    resolve(
+      checkedInWorkCardsDirectory,
+      "WC10_implement_figma_ui_and_terminology_alignment.json",
+    ),
+    resolve(
+      checkedInWorkCardsDirectory,
+      "WC10_implement_figma_ui_and_terminology_alignment.md",
+    ),
+  ];
+
+  for (const filePath of requiredFiles) {
+    if (!existsSync(filePath)) {
+      console.error(`WC10 required artifact is missing: ${filePath}`);
+      process.exit(1);
+    }
+  }
+
+  const rendererSource = readFileSync(rendererSourcePath, "utf8");
+  const rendererStyles = readFileSync(rendererStylePath, "utf8");
+
+  for (const label of wc10PipelineLabels) {
+    if (!rendererSource.includes(`label: "${label}"`)) {
+      console.error(`Renderer pipeline is missing step label: ${label}`);
+      process.exit(1);
+    }
+  }
+
+  const requiredRendererText = [
+    "Architect / Implementer",
+    "Implementer Prompt Generator",
+    "Implementer Report Capture",
+    "Save Implementer Prompt",
+    "Save Implementer Report",
+    "champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
+  ];
+  const missingRendererText = requiredRendererText.filter(
+    (text) => !rendererSource.includes(text),
+  );
+
+  if (missingRendererText.length > 0) {
+    console.error("Renderer is missing WC10 UI terminology or icon text:");
+    for (const text of missingRendererText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const forbiddenRendererText = [
+    '"Builder Prompt Generator"',
+    '"Builder Report Capture"',
+    "DEMO_CARDS",
+    "ARTIFACT_SUMMARY",
+  ];
+  const foundForbiddenText = forbiddenRendererText.filter((text) =>
+    rendererSource.includes(text),
+  );
+
+  if (foundForbiddenText.length > 0) {
+    console.error("Renderer contains old visible labels or Figma demo data:");
+    for (const text of foundForbiddenText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const requiredStyleText = [
+    "color-scheme: dark",
+    "#080a0d",
+    "--cyan: #00cce6",
+    ".workflow-rail",
+    ".brand-mark",
+  ];
+  const missingStyleText = requiredStyleText.filter(
+    (text) => !rendererStyles.includes(text),
+  );
+
+  if (missingStyleText.length > 0) {
+    console.error("Renderer stylesheet is missing WC10 dark UI tokens:");
+    for (const text of missingStyleText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const implementerReport = [
+    "# Implementer Report - sample",
+    "",
+    "## Repository Path Inspected",
+    "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+    "",
+    "## Git Branch And Remote Status",
+    "git status and git remote were checked.",
+    "",
+    "## Files Created",
+    "None.",
+    "",
+    "## Files Modified",
+    "None.",
+    "",
+    "## Files Intentionally Not Created",
+    "None.",
+    "",
+    "## Commands Run And Results",
+    "npm run typecheck - passed",
+    "",
+    "## Validation Performed",
+    "npm run build - passed",
+    "",
+    "## Validation Skipped And Reason",
+    "Manual UI validation skipped in script.",
+    "",
+    "## Git Actions Performed",
+    "Commit hash: abc1234",
+    "",
+    "## Security/Secret-Safety Notes",
+    "No secrets.",
+    "",
+    "## Blocking Questions",
+    "None.",
+    "",
+    "## Recommended Next Implementer Task",
+    "Manual validation.",
+  ].join("\n");
+  const reportValidation = validateBuilderReport(implementerReport);
+
+  if (!reportValidation.validEnoughToSave) {
+    console.error("Implementer Report heading was not accepted by the report validator.");
+    process.exit(1);
   }
 }
 

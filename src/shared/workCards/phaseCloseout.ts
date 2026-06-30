@@ -200,7 +200,7 @@ export function getExpectedWorkCardIdsForPhase(phase: string): string[] {
     return [];
   }
 
-  return Array.from({ length: 8 }, (_value, index) =>
+  return Array.from({ length: 10 }, (_value, index) =>
     `WC${String(index + 1).padStart(2, "0")}`,
   );
 }
@@ -339,7 +339,7 @@ function buildMissingExpectedArtifactObservations(input: {
 
     if (!hasMatchingBuilderReport(input.builderReportFileNames, expectedWorkCardId)) {
       observations.push(
-        `Expected Work Card ${expectedWorkCardId} does not have a matching Builder Report filename.`,
+        `Expected Work Card ${expectedWorkCardId} does not have a matching Implementer Report filename in the legacy Builder_Reports folder.`,
       );
     }
   }

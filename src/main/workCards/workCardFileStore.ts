@@ -504,7 +504,7 @@ export async function saveBuilderPrompt(
 
     await failIfExists(
       markdownPath,
-      "A Builder Prompt artifact for this Work Card already exists.",
+      "An Implementer Prompt artifact for this Work Card already exists.",
     );
     await mkdir(directory, { recursive: true });
     await writeFile(markdownPath, `${prompt}\n`, {
@@ -528,7 +528,7 @@ export async function saveBuilderPrompt(
       savedFileName,
     };
   } catch (error) {
-    console.error("Failed to save Builder prompt.", error);
+    console.error("Failed to save Implementer prompt.", error);
 
     return {
       ok: false,
@@ -578,7 +578,7 @@ export async function saveBuilderReportCapture(
     }
 
     if (!preview.validation.validEnoughToSave) {
-      throw new Error("Paste or import Builder Report text before saving.");
+      throw new Error("Paste or import Implementer Report text before saving.");
     }
 
     const directory = resolveBuilderReportsDirectory(input.phase);
@@ -586,7 +586,7 @@ export async function saveBuilderReportCapture(
 
     await failIfExists(
       markdownPath,
-      "A Builder Report with this generated filename already exists.",
+      "An Implementer Report with this generated filename already exists.",
     );
     await mkdir(directory, { recursive: true });
     await writeFile(markdownPath, `${input.reportText.trimEnd()}\n`, {
@@ -600,7 +600,7 @@ export async function saveBuilderReportCapture(
       markdownPath,
     };
   } catch (error) {
-    console.error("Failed to save Builder Report capture.", error);
+    console.error("Failed to save Implementer Report capture.", error);
 
     return {
       ok: false,
@@ -1348,7 +1348,7 @@ function buildMissingArtifactNotes(
 
   if (!defaultSelections.architectPrompt) {
     notes.push(
-      "No matching Architect Prompt artifact was found. You can still generate a Builder prompt from the Work Card JSON.",
+      "No matching Architect Prompt artifact was found. You can still generate an Implementer prompt from the Work Card JSON.",
     );
   }
 
@@ -1360,7 +1360,7 @@ function buildMissingArtifactNotes(
 
   if (!defaultSelections.priorBuilderReport) {
     notes.push(
-      "No matching Prior Builder Report artifact was found. Implementation-history context will be omitted unless selected.",
+      "No matching prior Implementer Report artifact was found. Implementation-history context will be omitted unless selected.",
     );
   }
 

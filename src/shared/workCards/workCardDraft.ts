@@ -108,8 +108,8 @@ export function buildDraftWorkCard(
     risks: parseLineList(input.risks),
     builderInstructions: [
       "This Work Card is a draft captured from Operator intent.",
-      "Architect review is required before any Builder uses this Work Card.",
-      "Do not treat this draft as ready_for_builder until the Architect reframes and approves it.",
+      "Architect review is required before any Implementer uses this Work Card.",
+      "Do not treat this draft as Implementer-ready until the Architect reframes and approves it. The legacy schema status for that later state is `ready_for_builder`.",
     ],
     operatorNotes: buildOperatorNotes(operatorNotes, evidence),
   };
@@ -134,7 +134,7 @@ function buildRequirements(knownSystems: string[]): string[] {
   return [
     "Keep the Work Card status as `ready_for_architect` until Architect review is complete.",
     "Use the existing WC01 Work Card schema and Markdown renderer.",
-    "Do not add Builder-ready instructions beyond the draft Builder Handoff Prompt.",
+    "Do not add Implementer-ready instructions beyond the draft handoff prompt.",
     ...knownSystems.map((item) => `Known file, screen, or system: ${item}`),
   ];
 }
@@ -142,7 +142,7 @@ function buildRequirements(knownSystems: string[]): string[] {
 function buildAcceptanceCriteria(userOutcome: string, scope: string[]): string[] {
   return [
     `A user can: ${userOutcome}`,
-    "The saved Markdown includes `## Builder Handoff Prompt`.",
+    "The saved Markdown includes the legacy `## Builder Handoff Prompt` section.",
     "The saved Work Card clearly states that Architect review is required.",
     ...scope.map((item) => `Included scope is represented: ${item}`),
   ];

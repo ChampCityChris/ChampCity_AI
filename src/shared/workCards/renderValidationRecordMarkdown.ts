@@ -23,7 +23,7 @@ export function renderValidationRecordMarkdown(
     `- Work Card ID: ${record.workCardId}`,
     `- Work Card title: ${record.workCardTitle}`,
     `- Phase: ${record.phase}`,
-    `- Associated Builder Report: ${record.builderReportFile ?? "None selected."}`,
+    `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
     "",
     "## Validation Result",
     "",
