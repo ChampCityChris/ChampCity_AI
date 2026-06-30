@@ -1820,7 +1820,9 @@ function assertWc10UiAndTerminology() {
   }
 
   const requiredAppStyleText = [
-    "overflow-x-auto",
+    "flex-col gap-2",
+    "border-t border-border/70",
+    "whitespace-nowrap",
     "break-anywhere",
     "bg-background",
     "text-primary",

@@ -365,54 +365,63 @@ function AppHeader({
   onCardChange: (fileName: string) => void;
 }) {
   return (
-    <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card/70 px-4 py-2 backdrop-blur-sm">
-      <div className="flex shrink-0 items-center border-r border-border pr-4">
-        <img
-          src={logoImage}
-          alt={`${appName} Architect / Implementer`}
-          className="h-11 w-auto max-w-[220px] object-contain"
-        />
-      </div>
-
-      <div className="flex min-w-[320px] flex-1 items-center justify-center max-[720px]:order-3 max-[720px]:w-full">
-        <PipelineStepper active={activeScreen} onNav={onNav} />
-      </div>
-
-      <div className="flex min-w-0 flex-1 basis-[380px] flex-wrap items-center justify-end gap-2 border-l border-border pl-4 max-[720px]:border-l-0 max-[720px]:pl-0">
-        <select
-          value={phase}
-          onChange={(event) => onPhaseChange(event.target.value)}
-          className={cn(selectCls, "w-[108px] shrink-0 py-1.5 font-mono text-xs")}
-        >
-          {phaseOptions.map((phaseOption) => (
-            <option key={phaseOption} value={phaseOption}>
-              {phaseOption}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={activeCard?.fileName ?? ""}
-          onChange={(event) => onCardChange(event.target.value)}
-          className={cn(
-            selectCls,
-            "min-w-[12rem] max-w-[24rem] flex-1 basis-56 truncate py-1.5 text-xs",
-          )}
-        >
-          <option value="">- Select Work Card -</option>
-          {workCards.map((workCard) => (
-            <option key={workCard.fileName} value={workCard.fileName}>
-              {workCard.workCardId} - {workCard.title}
-            </option>
-          ))}
-        </select>
-
-        {activeCard ? (
-          <div className="flex min-w-0 items-center gap-1.5">
-            <RiskBadge level={activeCard.riskLevel} />
-            <StatusBadge status={activeCard.status} />
+    <header className="shrink-0 border-b border-border bg-card/70 px-4 py-2 backdrop-blur-sm">
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex shrink-0 items-center border-r border-border pr-4 max-[900px]:border-r-0 max-[900px]:pr-0">
+            <img
+              src={logoImage}
+              alt={`${appName} Architect / Implementer`}
+              className="h-11 w-auto max-w-[220px] object-contain"
+            />
           </div>
-        ) : null}
+
+          <div className="min-w-[34rem] flex-1 max-[900px]:min-w-full">
+            <PipelineStepper active={activeScreen} onNav={onNav} />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-border/70 pt-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <select
+              value={phase}
+              onChange={(event) => onPhaseChange(event.target.value)}
+              className={cn(
+                selectCls,
+                "w-[112px] max-w-full shrink-0 py-1.5 font-mono text-xs",
+              )}
+            >
+              {phaseOptions.map((phaseOption) => (
+                <option key={phaseOption} value={phaseOption}>
+                  {phaseOption}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={activeCard?.fileName ?? ""}
+              onChange={(event) => onCardChange(event.target.value)}
+              className={cn(
+                selectCls,
+                "min-w-[14rem] max-w-[42rem] flex-1 basis-[24rem] truncate py-1.5 text-xs",
+              )}
+            >
+              <option value="">- Select Work Card -</option>
+              {workCards.map((workCard) => (
+                <option key={workCard.fileName} value={workCard.fileName}>
+                  {workCard.workCardId} - {workCard.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {activeCard ? (
+            <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 max-[720px]:w-full">
+              <RiskBadge level={activeCard.riskLevel} />
+              <StatusBadge status={activeCard.status} />
+            </div>
+          ) : null}
+        </div>
       </div>
     </header>
   );
@@ -442,7 +451,7 @@ function PipelineStepper({
         onClick={() => onNav(step.id)}
         title={step.shortDesc}
         className={cn(
-          "flex items-center gap-1.5 rounded-md font-medium transition-all",
+          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all",
           larger ? "px-3 py-2 text-sm" : "px-2.5 py-1.5 text-xs",
           isActive && step.mode === "architect" && "bg-blue-500/12 text-blue-300",
           isActive && step.mode === "implementer" && "bg-primary/12 text-primary",
@@ -476,14 +485,14 @@ function PipelineStepper({
   return (
     <nav
       aria-label="Work Card pipeline"
-      className="min-w-0 overflow-x-auto overflow-y-hidden py-1"
+      className="w-full min-w-0 py-1"
     >
-      <div className="flex min-w-max items-end gap-0">
-        <div className="flex flex-col items-center gap-1">
+      <div className="flex min-w-0 flex-wrap items-end justify-center gap-x-3 gap-y-2">
+        <div className="flex max-w-full flex-col items-center gap-1">
           <span className="text-[9px] font-bold uppercase leading-none tracking-[0.18em] text-blue-400/70">
             Architect
           </span>
-          <div className="flex items-center">
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-y-1">
             {architectSteps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 {renderStep(step, workflowSteps.indexOf(step))}
@@ -498,15 +507,15 @@ function PipelineStepper({
           </div>
         </div>
 
-        <span className="mx-3 mb-0.5 text-3xl font-thin leading-none text-muted-foreground/45">
+        <span className="mb-0.5 text-3xl font-thin leading-none text-muted-foreground/45">
           /
         </span>
 
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex max-w-full flex-col items-center gap-1">
           <span className="text-[9px] font-bold uppercase leading-none tracking-[0.18em] text-primary/70">
             Implementer
           </span>
-          <div className="flex items-center">
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-y-1">
             {implementerSteps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 {renderStep(step, workflowSteps.indexOf(step))}
@@ -521,7 +530,7 @@ function PipelineStepper({
           </div>
         </div>
 
-        <div className="ml-3 flex items-center border-l border-white/[0.07] pl-3">
+        <div className="flex max-w-full flex-wrap items-center justify-center gap-y-1 border-l border-white/[0.07] pl-3 max-[720px]:border-l-0 max-[720px]:pl-0">
           {finalSteps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               {renderStep(step, workflowSteps.indexOf(step), true)}
@@ -2372,7 +2381,9 @@ function HumanValidationScreen({
 }: ScreenProps) {
   const { workCards, invalidFiles, errors: listErrors, isLoading } =
     useWorkCards(phase);
-  const [selectedFileName, setSelectedFileName] = useState("");
+  const [selectedFileName, setSelectedFileName] = useState(() =>
+    activeCard?.phase === phase ? activeCard.fileName ?? "" : "",
+  );
   const [builderReports, setBuilderReports] = useState<
     ChampCityHumanValidationBuilderReportOption[]
   >([]);
@@ -2393,26 +2404,49 @@ function HumanValidationScreen({
     [],
   );
 
-  const selectedWorkCard = useSelectedWorkCard(
-    workCards,
-    selectedFileName,
-    onActiveCardChange,
+  const selectedSavedWorkCard =
+    workCards.find((workCard) => workCard.fileName === selectedFileName) ?? null;
+  const selectedWorkCard = useMemo(
+    () =>
+      selectedSavedWorkCard
+        ? toUiWorkCardSummary(selectedSavedWorkCard)
+        : null,
+    [selectedSavedWorkCard],
   );
 
-  useDefaultSelectedFile(workCards, selectedFileName, setSelectedFileName);
+  useEffect(() => {
+    if (selectedWorkCard) {
+      onActiveCardChange(selectedWorkCard);
+      return;
+    }
+
+    if (selectedFileName.trim().length === 0 || workCards.length > 0) {
+      onActiveCardChange(null);
+    }
+  }, [onActiveCardChange, selectedFileName, selectedWorkCard, workCards.length]);
 
   useEffect(() => {
+    if (workCards.length === 0) {
+      return;
+    }
+
     const headerSelectedFileName =
       activeCard?.phase === phase ? activeCard.fileName ?? "" : "";
 
-    if (
-      headerSelectedFileName &&
-      workCards.some((workCard) => workCard.fileName === headerSelectedFileName)
-    ) {
-      setSelectedFileName((previous) =>
-        previous === headerSelectedFileName ? previous : headerSelectedFileName,
-      );
-    }
+    setSelectedFileName((previous) => {
+      if (
+        headerSelectedFileName &&
+        workCards.some((workCard) => workCard.fileName === headerSelectedFileName)
+      ) {
+        return previous === headerSelectedFileName
+          ? previous
+          : headerSelectedFileName;
+      }
+
+      return workCards.some((workCard) => workCard.fileName === previous)
+        ? previous
+        : workCards[0]?.fileName ?? "";
+    });
   }, [activeCard?.fileName, activeCard?.phase, phase, workCards]);
 
   useEffect(() => {
