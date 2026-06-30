@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   CheckCircle,
   CheckSquare,
+  ChevronRight,
   ClipboardList,
   Copy,
   Eye,
@@ -59,6 +60,7 @@ interface UiWorkCardSummary {
 }
 
 const defaultPhase = "phase-01";
+const PHASES = ["phase-01", "phase-02", "phase-03"];
 const workCardJsonSelectorHelp =
   "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are compatibility records, not app-readable Work Cards.";
 
@@ -185,52 +187,68 @@ export default function App() {
     useState<AppScreen>("new-work-card");
   const [phase, setPhase] = useState(defaultPhase);
   const [activeCard, setActiveCard] = useState<UiWorkCardSummary | null>(null);
+  const { workCards: headerWorkCards } = useWorkCards(phase);
+
+  function handlePhaseChange(nextPhase: string) {
+    setPhase(nextPhase);
+    setActiveCard(null);
+  }
+
+  function handleHeaderCardChange(fileName: string) {
+    const selectedWorkCard =
+      headerWorkCards.find((workCard) => workCard.fileName === fileName) ??
+      null;
+
+    setActiveCard(
+      selectedWorkCard ? toUiWorkCardSummary(selectedWorkCard) : null,
+    );
+  }
 
   const screen = {
     "new-work-card": (
       <NewWorkCardScreen
         phase={phase}
-        onPhaseChange={setPhase}
+        onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
     "architect-prompt-composer": (
       <ArchitectPromptComposerScreen
         phase={phase}
-        onPhaseChange={setPhase}
+        onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
     "risk-router": (
       <RiskRouterScreen
         phase={phase}
-        onPhaseChange={setPhase}
+        onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
     "builder-prompt-generator": (
       <BuilderPromptGeneratorScreen
         phase={phase}
-        onPhaseChange={setPhase}
+        onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
     "builder-report-capture": (
       <BuilderReportCaptureScreen
         phase={phase}
-        onPhaseChange={setPhase}
+        onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
     "human-validation": (
       <HumanValidationScreen
         phase={phase}
-        onPhaseChange={setPhase}
+        onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
     "phase-closeout": (
-      <PhaseCloseoutScreen phase={phase} onPhaseChange={setPhase} />
+      <PhaseCloseoutScreen phase={phase} onPhaseChange={handlePhaseChange} />
     ),
   }[activeScreen];
 
@@ -242,6 +260,9 @@ export default function App() {
         activeCard={activeCard}
         activeScreen={activeScreen}
         onNav={setActiveScreen}
+        onPhaseChange={handlePhaseChange}
+        workCards={headerWorkCards}
+        onCardChange={handleHeaderCardChange}
       />
       <div className="min-h-0 flex-1 overflow-hidden">{screen}</div>
     </div>
@@ -254,51 +275,67 @@ function AppHeader({
   activeCard,
   activeScreen,
   onNav,
+  onPhaseChange,
+  workCards,
+  onCardChange,
 }: {
   appName: string;
   phase: string;
   activeCard: UiWorkCardSummary | null;
   activeScreen: AppScreen;
   onNav: (screen: AppScreen) => void;
+  onPhaseChange: (phase: string) => void;
+  workCards: ChampCitySavedWorkCardSummary[];
+  onCardChange: (fileName: string) => void;
 }) {
-  const activeStep = getWorkflowStep(activeScreen);
+  const phaseOptions = PHASES.includes(phase) ? PHASES : [phase, ...PHASES];
 
   return (
-    <header className="shrink-0 border-b border-border bg-card/95">
-      <div className="flex min-h-[76px] items-center gap-4 px-4 py-3 max-[1060px]:grid max-[1060px]:grid-cols-[minmax(180px,260px)_1fr] max-[1060px]:items-center max-[720px]:grid-cols-1">
-        <div className="min-w-0 shrink-0">
-          <img
-            src={logoImage}
-            alt={`${appName} Architect / Implementer`}
-            className="block h-auto w-[min(250px,30vw)] min-w-[170px] object-contain max-[720px]:w-[230px]"
-          />
-        </div>
+    <header className="flex h-16 shrink-0 items-center gap-4 overflow-hidden border-b border-border bg-card/70 px-5 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center border-r border-border pr-4">
+        <img
+          src={logoImage}
+          alt={`${appName} Architect / Implementer`}
+          className="h-11 w-auto max-w-[220px] object-contain"
+        />
+      </div>
+
+      <div className="flex min-w-0 flex-1 items-center justify-center">
         <PipelineStepper active={activeScreen} onNav={onNav} />
-        <div className="ml-auto grid min-w-[230px] max-w-[330px] grid-cols-[auto_auto_1fr] items-center gap-2 border-l border-border pl-4 max-[1060px]:col-span-2 max-[1060px]:ml-0 max-[1060px]:max-w-none max-[1060px]:border-l-0 max-[1060px]:pl-0 max-[720px]:grid-cols-1">
-          <Badge className="border-border bg-white/[0.03] text-muted-foreground">
-            {phase}
-          </Badge>
-          <Badge
-            className={cn(
-              "border-border bg-white/[0.03]",
-              activeStep.mode === "architect"
-                ? "text-blue-300"
-                : "text-primary",
-            )}
-          >
-            {activeStep.mode}
-          </Badge>
-          <div className="min-w-0">
-            <div className="truncate text-xs font-semibold text-foreground">
-              {activeStep.screenTitle}
-            </div>
-            <div className="break-anywhere text-[11px] leading-snug text-muted-foreground/70">
-              {activeCard
-                ? `${activeCard.workCardId} - ${activeCard.title}`
-                : activeStep.nextAction}
-            </div>
+      </div>
+
+      <div className="flex min-w-0 shrink-0 items-center gap-2 border-l border-border pl-4">
+        <select
+          value={phase}
+          onChange={(event) => onPhaseChange(event.target.value)}
+          className={cn(selectCls, "w-[100px] py-1.5 font-mono text-xs")}
+        >
+          {phaseOptions.map((phaseOption) => (
+            <option key={phaseOption} value={phaseOption}>
+              {phaseOption}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={activeCard?.fileName ?? ""}
+          onChange={(event) => onCardChange(event.target.value)}
+          className={cn(selectCls, "w-[200px] py-1.5 text-xs")}
+        >
+          <option value="">- Select Work Card -</option>
+          {workCards.map((workCard) => (
+            <option key={workCard.fileName} value={workCard.fileName}>
+              {workCard.workCardId} - {workCard.title}
+            </option>
+          ))}
+        </select>
+
+        {activeCard ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <RiskBadge level={activeCard.riskLevel} />
+            <StatusBadge status={activeCard.status} />
           </div>
-        </div>
+        ) : null}
       </div>
     </header>
   );
@@ -313,43 +350,114 @@ function PipelineStepper({
 }) {
   const activeIndex = workflowSteps.findIndex((step) => step.id === active);
 
+  const renderStep = (
+    step: WorkflowStep,
+    globalIndex: number,
+    larger = false,
+  ) => {
+    const isActive = step.id === active;
+    const isDone = globalIndex < activeIndex;
+
+    return (
+      <button
+        key={step.id}
+        type="button"
+        onClick={() => onNav(step.id)}
+        title={step.shortDesc}
+        className={cn(
+          "flex items-center gap-1.5 rounded-md font-medium transition-all",
+          larger ? "px-3 py-2 text-sm" : "px-2.5 py-1.5 text-xs",
+          isActive && step.mode === "architect" && "bg-blue-500/12 text-blue-300",
+          isActive && step.mode === "implementer" && "bg-primary/12 text-primary",
+          !isActive &&
+            isDone &&
+            "text-muted-foreground/80 hover:bg-white/[0.04] hover:text-foreground",
+          !isActive &&
+            !isDone &&
+            "text-muted-foreground/55 hover:bg-white/[0.03] hover:text-muted-foreground",
+        )}
+      >
+        <div
+          className={cn(
+            "shrink-0 rounded-full transition-colors",
+            larger ? "h-2 w-2" : "h-1.5 w-1.5",
+            isActive && step.mode === "architect" && "bg-blue-400",
+            isActive && step.mode === "implementer" && "bg-primary",
+            !isActive && isDone && "bg-muted-foreground/45",
+            !isActive && !isDone && "bg-muted-foreground/20",
+          )}
+        />
+        {step.label}
+      </button>
+    );
+  };
+
+  const architectSteps = workflowSteps.slice(0, 3);
+  const implementerSteps = workflowSteps.slice(3, 5);
+  const finalSteps = workflowSteps.slice(5);
+
   return (
     <nav
       aria-label="Work Card pipeline"
-      className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto overflow-y-hidden py-1 max-[1060px]:col-span-2 max-[1060px]:justify-start"
+      className="min-w-0 overflow-x-auto overflow-y-hidden py-1"
     >
-      {workflowSteps.map((step, index) => {
-        const isActive = step.id === active;
-        const isDone = index < activeIndex;
-        const Icon = step.Icon;
+      <div className="flex min-w-max items-end gap-0">
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[9px] font-bold uppercase leading-none tracking-[0.18em] text-blue-400/70">
+            Architect
+          </span>
+          <div className="flex items-center">
+            {architectSteps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                {renderStep(step, index)}
+                {index < architectSteps.length - 1 ? (
+                  <ChevronRight
+                    size={9}
+                    className="mx-0.5 text-muted-foreground/15"
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
 
-        return (
-          <button
-            key={step.id}
-            type="button"
-            title={step.shortDesc}
-            onClick={() => onNav(step.id)}
-            className={cn(
-              "flex min-w-max items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-              isActive &&
-                step.mode === "architect" &&
-                "bg-blue-500/15 text-blue-300",
-              isActive &&
-                step.mode === "implementer" &&
-                "bg-primary/15 text-primary",
-              !isActive &&
-                isDone &&
-                "text-muted-foreground/80 hover:bg-white/[0.04] hover:text-foreground",
-              !isActive &&
-                !isDone &&
-                "text-muted-foreground/55 hover:bg-white/[0.03] hover:text-muted-foreground",
-            )}
-          >
-            <Icon size={13} className="shrink-0" />
-            <span>{step.label}</span>
-          </button>
-        );
-      })}
+        <span className="mx-3 mb-0.5 text-3xl font-thin leading-none text-muted-foreground/45">
+          /
+        </span>
+
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[9px] font-bold uppercase leading-none tracking-[0.18em] text-primary/70">
+            Implementer
+          </span>
+          <div className="flex items-center">
+            {implementerSteps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                {renderStep(step, index + 3)}
+                {index < implementerSteps.length - 1 ? (
+                  <ChevronRight
+                    size={9}
+                    className="mx-0.5 text-muted-foreground/15"
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ml-3 flex items-center border-l border-white/[0.07] pl-3">
+          {finalSteps.map((step, index) => (
+            <div key={step.id} className="flex items-center">
+              {renderStep(step, index + 5, true)}
+              {index < finalSteps.length - 1 ? (
+                <ChevronRight
+                  size={10}
+                  className="mx-1 text-muted-foreground/15"
+                />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
     </nav>
   );
 }
