@@ -12,6 +12,7 @@ type AppScreen =
 const defaultPhase = "phase-01";
 const appIconPath =
   "./assets/champcity_ai_icon_clean_no_shadow_TRANSPARENT.png";
+const uiBrandingPath = "./assets/champcity_ai_ui_branding.png";
 const workCardJsonSelectorHelp =
   "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are not app-readable Work Cards.";
 
@@ -51,7 +52,7 @@ const workflowSteps: WorkflowStep[] = [
   },
   {
     id: "builder-prompt-generator",
-    label: "Build",
+    label: "Implement",
     detail: "Implementer handoff",
     lane: "Implementer",
     screenTitle: "Implementer Prompt Generator",
@@ -144,14 +145,23 @@ function App(): unknown {
         { className: "brand-block" },
         h("img", {
           src: appIconPath,
-          alt: "ChampCity A/I",
+          alt: "",
+          "aria-hidden": true,
           className: "brand-mark",
         }),
         h(
           "div",
-          null,
+          { className: "brand-copy" },
           h("p", { className: "eyebrow" }, "Architect / Implementer"),
-          h("h1", null, appInfo.name),
+          h(
+            "h1",
+            { className: "brand-title" },
+            h("img", {
+              src: uiBrandingPath,
+              alt: appInfo.name,
+              className: "brand-art",
+            }),
+          ),
         ),
       ),
       renderWorkflowStepper(activeScreen, setActiveScreen),

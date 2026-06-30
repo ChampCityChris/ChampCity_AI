@@ -50,7 +50,7 @@ const api = {
       "Capture",
       "Architect",
       "Risk",
-      "Build",
+      "Implement",
       "Report",
       "Validate",
       "Closeout",

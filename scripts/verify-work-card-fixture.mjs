@@ -20,6 +20,10 @@ const rendererIconPath = resolve(
   repositoryRoot,
   "src/renderer/assets/champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
 );
+const rendererBrandingPath = resolve(
+  repositoryRoot,
+  "src/renderer/assets/champcity_ai_ui_branding.png",
+);
 const figmaSourcePackagePath = resolve(
   uiDesignHandoffDirectory,
   "figma_source/Design Dark UI for ChampCity.zip",
@@ -37,7 +41,7 @@ const wc10PipelineLabels = [
   "Capture",
   "Architect",
   "Risk",
-  "Build",
+  "Implement",
   "Report",
   "Validate",
   "Closeout",
@@ -1515,6 +1519,7 @@ function assertWc10UiAndTerminology() {
     rendererSourcePath,
     rendererStylePath,
     rendererIconPath,
+    rendererBrandingPath,
     figmaSourcePackagePath,
     resolve(
       checkedInWorkCardsDirectory,
@@ -1550,6 +1555,7 @@ function assertWc10UiAndTerminology() {
     "Save Implementer Prompt",
     "Save Implementer Report",
     "champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
+    "champcity_ai_ui_branding.png",
   ];
   const missingRendererText = requiredRendererText.filter(
     (text) => !rendererSource.includes(text),
@@ -1564,6 +1570,7 @@ function assertWc10UiAndTerminology() {
   }
 
   const forbiddenRendererText = [
+    'label: "Build"',
     '"Builder Prompt Generator"',
     '"Builder Report Capture"',
     "DEMO_CARDS",
@@ -1587,6 +1594,8 @@ function assertWc10UiAndTerminology() {
     "--cyan: #00cce6",
     ".workflow-rail",
     ".brand-mark",
+    ".brand-art",
+    "overflow-wrap: anywhere",
   ];
   const missingStyleText = requiredStyleText.filter(
     (text) => !rendererStyles.includes(text),

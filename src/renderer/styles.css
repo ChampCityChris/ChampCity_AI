@@ -38,10 +38,16 @@ input,
 select,
 textarea {
   font: inherit;
+  min-width: 0;
+  max-width: 100%;
 }
 
 button {
   border: 0;
+}
+
+img {
+  max-width: 100%;
 }
 
 ::selection {
@@ -71,7 +77,7 @@ button {
 
 .top-bar {
   display: grid;
-  grid-template-columns: minmax(190px, auto) minmax(420px, 1fr) minmax(240px, 360px);
+  grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1.2fr) minmax(240px, 360px);
   gap: 18px;
   align-items: center;
   padding: 14px 18px;
@@ -88,9 +94,27 @@ button {
 }
 
 .brand-mark {
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.brand-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.brand-title {
+  max-width: min(330px, 100%);
+}
+
+.brand-art {
+  display: block;
+  width: clamp(200px, 24vw, 330px);
+  max-width: 100%;
+  max-height: 86px;
   object-fit: contain;
 }
 
@@ -119,6 +143,7 @@ button {
 .workflow-rail {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 5px;
@@ -126,12 +151,15 @@ button {
 
 .workflow-node-wrap {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 5px;
 }
 
 .nav-button {
+  min-width: 0;
   min-height: 42px;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -184,6 +212,7 @@ button {
   color: inherit;
   font-size: 0.82rem;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .step-copy small {
@@ -191,6 +220,7 @@ button {
   font-size: 0.66rem;
   font-weight: 700;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .nav-button.active .step-copy small {
@@ -257,6 +287,7 @@ button {
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .workspace {
@@ -289,6 +320,7 @@ button {
 .form-header,
 .preview-header {
   display: flex;
+  min-width: 0;
   justify-content: space-between;
   gap: 18px;
   align-items: start;
@@ -300,22 +332,27 @@ button {
   color: var(--text);
   font-size: 1.02rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .status-pill {
+  max-width: 100%;
   border-color: rgba(0, 204, 230, 0.22);
   background: rgba(0, 204, 230, 0.08);
   color: var(--cyan);
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .status-text {
+  min-width: 0;
   max-width: 300px;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 750;
   line-height: 1.35;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .selector-help {
@@ -330,10 +367,14 @@ button {
 .warning-box,
 .notice-box,
 .empty-state {
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 16px;
   padding: 13px 14px;
   border-radius: 8px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .error-box {
@@ -377,6 +418,16 @@ button {
   padding-left: 18px;
 }
 
+.error-box li,
+.warning-box li,
+.notice-box li,
+.review-section li,
+.artifact-folder li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .save-result p,
 .notice-box p {
   margin: 6px 0 0;
@@ -391,6 +442,7 @@ code {
 
 .summary-grid {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 0 0 16px;
@@ -450,9 +502,12 @@ code {
 }
 
 .review-section {
+  min-width: 0;
   margin-bottom: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .review-section-last {
@@ -486,10 +541,13 @@ code {
 
 .flag-item,
 .artifact-folder {
+  min-width: 0;
   padding: 13px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .artifact-folder {
@@ -514,12 +572,14 @@ code {
 .two-column,
 .artifact-selector-grid {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 13px;
 }
 
 .field {
   display: grid;
+  min-width: 0;
   gap: 7px;
   margin-bottom: 13px;
   color: #d7e0ec;
@@ -529,6 +589,7 @@ code {
 
 .field span {
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .field-note {
@@ -542,11 +603,22 @@ code {
 .field select,
 .field textarea {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.045);
   color: var(--text);
   outline: none;
+}
+
+.field input,
+.field select {
+  text-overflow: ellipsis;
+}
+
+.field textarea {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .field input,
@@ -587,6 +659,7 @@ code {
   position: sticky;
   bottom: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: end;
   gap: 10px;
   margin: 8px -24px -30px;
@@ -600,12 +673,13 @@ code {
 }
 
 .button {
-  min-width: 144px;
+  min-width: min(144px, 100%);
   min-height: 38px;
   padding: 0 15px;
   border-radius: 8px;
   font-weight: 850;
   cursor: pointer;
+  white-space: normal;
 }
 
 .button:disabled {
@@ -635,6 +709,7 @@ code {
 }
 
 .markdown-preview {
+  min-width: 0;
   min-height: calc(100vh - 190px);
   margin: 0;
   padding: 16px;
@@ -649,6 +724,8 @@ code {
   font-size: 0.81rem;
   line-height: 1.55;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .prompt-preview {
@@ -661,6 +738,7 @@ code {
 }
 
 .checklist-preview {
+  min-width: 0;
   max-height: 260px;
   margin: 0;
   overflow: auto;
@@ -670,6 +748,8 @@ code {
   font-size: 0.81rem;
   line-height: 1.5;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @media (max-width: 1180px) {
