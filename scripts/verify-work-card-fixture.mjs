@@ -1554,7 +1554,6 @@ function assertWc10UiAndTerminology() {
     "Implementer Report Capture",
     "Save Implementer Prompt",
     "Save Implementer Report",
-    "champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
     "champcity_ai_ui_branding.png",
   ];
   const missingRendererText = requiredRendererText.filter(
@@ -1562,7 +1561,7 @@ function assertWc10UiAndTerminology() {
   );
 
   if (missingRendererText.length > 0) {
-    console.error("Renderer is missing WC10 UI terminology or icon text:");
+    console.error("Renderer is missing WC10 UI terminology or branding text:");
     for (const text of missingRendererText) {
       console.error(`- ${text}`);
     }
@@ -1573,6 +1572,9 @@ function assertWc10UiAndTerminology() {
     'label: "Build"',
     '"Builder Prompt Generator"',
     '"Builder Report Capture"',
+    "champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
+    'className: "brand-mark"',
+    'h("p", { className: "eyebrow" }, "Architect / Implementer")',
     "DEMO_CARDS",
     "ARTIFACT_SUMMARY",
   ];
@@ -1593,8 +1595,10 @@ function assertWc10UiAndTerminology() {
     "#080a0d",
     "--cyan: #00cce6",
     ".workflow-rail",
-    ".brand-mark",
     ".brand-art",
+    "flex-wrap: nowrap",
+    "white-space: nowrap",
+    "overflow-x: auto",
     "overflow-wrap: anywhere",
   ];
   const missingStyleText = requiredStyleText.filter(

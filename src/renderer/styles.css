@@ -77,44 +77,33 @@ img {
 
 .top-bar {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1.2fr) minmax(240px, 360px);
-  gap: 18px;
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-areas: "brand rail context";
+  gap: 12px;
   align-items: center;
-  padding: 14px 18px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: rgba(12, 15, 20, 0.96);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .brand-block {
+  grid-area: brand;
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 12px;
-}
-
-.brand-mark {
-  width: 42px;
-  height: 42px;
-  flex: 0 0 auto;
-  object-fit: contain;
-}
-
-.brand-copy {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
 }
 
 .brand-title {
-  max-width: min(330px, 100%);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .brand-art {
   display: block;
-  width: clamp(200px, 24vw, 330px);
+  width: clamp(185px, 19vw, 250px);
   max-width: 100%;
-  max-height: 86px;
+  height: auto;
   object-fit: contain;
 }
 
@@ -141,34 +130,43 @@ img {
 }
 
 .workflow-rail {
+  grid-area: rail;
   min-width: 0;
+  max-width: 100%;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+  align-content: center;
   justify-content: center;
   gap: 5px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0 4px;
+  white-space: nowrap;
 }
 
 .workflow-node-wrap {
   display: flex;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
   align-items: center;
   gap: 5px;
 }
 
 .nav-button {
-  min-width: 0;
-  min-height: 42px;
-  max-width: 100%;
+  min-width: max-content;
+  min-height: 34px;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
-  padding: 6px 9px;
+  gap: 7px;
+  padding: 5px 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: rgba(122, 144, 170, 0.8);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .nav-button:hover {
@@ -190,21 +188,20 @@ img {
 }
 
 .step-dot {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   border-radius: 999px;
   border: 1px solid currentColor;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 900;
 }
 
 .step-copy {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
+  display: block;
+  min-width: max-content;
   text-align: left;
 }
 
@@ -212,15 +209,15 @@ img {
   color: inherit;
   font-size: 0.82rem;
   line-height: 1.1;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .step-copy small {
+  display: none;
   color: var(--quiet);
   font-size: 0.66rem;
   font-weight: 700;
   line-height: 1.1;
-  overflow-wrap: anywhere;
 }
 
 .nav-button.active .step-copy small {
@@ -230,6 +227,7 @@ img {
 
 .ai-divider {
   display: inline-grid;
+  flex: 0 0 auto;
   min-width: 30px;
   min-height: 20px;
   place-items: center;
@@ -242,12 +240,13 @@ img {
 }
 
 .step-context {
+  grid-area: context;
   min-width: 0;
   display: grid;
   grid-template-columns: auto auto 1fr;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding-left: 16px;
+  padding-left: 12px;
   border-left: 1px solid var(--border);
 }
 
@@ -752,19 +751,39 @@ code {
   word-break: break-word;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1260px) {
   .top-bar {
-    grid-template-columns: 1fr;
-    align-items: start;
+    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    grid-template-areas:
+      "brand context"
+      "rail rail";
+    gap: 8px 12px;
   }
 
   .workflow-rail {
     justify-content: start;
-    overflow-x: auto;
-    padding-bottom: 2px;
   }
 
   .step-context {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 720px) {
+  .top-bar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "rail"
+      "context";
+  }
+
+  .brand-art {
+    width: clamp(170px, 70vw, 230px);
+  }
+
+  .step-context {
+    justify-self: stretch;
     border-left: 0;
     padding-left: 0;
   }

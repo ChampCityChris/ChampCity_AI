@@ -10,8 +10,6 @@ type AppScreen =
   | "phase-closeout";
 
 const defaultPhase = "phase-01";
-const appIconPath =
-  "./assets/champcity_ai_icon_clean_no_shadow_TRANSPARENT.png";
 const uiBrandingPath = "./assets/champcity_ai_ui_branding.png";
 const workCardJsonSelectorHelp =
   "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are not app-readable Work Cards.";
@@ -143,25 +141,14 @@ function App(): unknown {
       h(
         "div",
         { className: "brand-block" },
-        h("img", {
-          src: appIconPath,
-          alt: "",
-          "aria-hidden": true,
-          className: "brand-mark",
-        }),
         h(
-          "div",
-          { className: "brand-copy" },
-          h("p", { className: "eyebrow" }, "Architect / Implementer"),
-          h(
-            "h1",
-            { className: "brand-title" },
-            h("img", {
-              src: uiBrandingPath,
-              alt: appInfo.name,
-              className: "brand-art",
-            }),
-          ),
+          "h1",
+          { className: "brand-title" },
+          h("img", {
+            src: uiBrandingPath,
+            alt: `${appInfo.name} Architect / Implementer`,
+            className: "brand-art",
+          }),
         ),
       ),
       renderWorkflowStepper(activeScreen, setActiveScreen),
