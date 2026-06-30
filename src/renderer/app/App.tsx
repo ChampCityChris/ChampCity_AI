@@ -238,6 +238,11 @@ export default function App() {
     useState<AppScreen>("project-intake");
   const [phase, setPhase] = useState(defaultPhase);
   const [activeCard, setActiveCard] = useState<UiWorkCardSummary | null>(null);
+  const { phases: availablePhases } = useAvailablePhases();
+  const phaseOptions = useMemo(
+    () => buildPhaseOptions(phase, availablePhases),
+    [phase, availablePhases],
+  );
   const { workCards: headerWorkCards } = useWorkCards(phase);
 
   function handlePhaseChange(nextPhase: string) {
@@ -265,6 +270,7 @@ export default function App() {
     "new-work-card": (
       <NewWorkCardScreen
         phase={phase}
+        phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
@@ -272,6 +278,7 @@ export default function App() {
     "architect-prompt-composer": (
       <ArchitectPromptComposerScreen
         phase={phase}
+        phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
@@ -279,6 +286,7 @@ export default function App() {
     "risk-router": (
       <RiskRouterScreen
         phase={phase}
+        phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
@@ -286,6 +294,7 @@ export default function App() {
     "builder-prompt-generator": (
       <BuilderPromptGeneratorScreen
         phase={phase}
+        phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
@@ -293,6 +302,7 @@ export default function App() {
     "builder-report-capture": (
       <BuilderReportCaptureScreen
         phase={phase}
+        phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
@@ -300,12 +310,18 @@ export default function App() {
     "human-validation": (
       <HumanValidationScreen
         phase={phase}
+        phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
+        activeCard={activeCard}
         onActiveCardChange={setActiveCard}
       />
     ),
     "phase-closeout": (
-      <PhaseCloseoutScreen phase={phase} onPhaseChange={handlePhaseChange} />
+      <PhaseCloseoutScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+      />
     ),
   }[activeScreen];
 
@@ -314,6 +330,7 @@ export default function App() {
       <AppHeader
         appName={appInfo.name}
         phase={phase}
+        phaseOptions={phaseOptions}
         activeCard={activeCard}
         activeScreen={activeScreen}
         onNav={setActiveScreen}
@@ -329,6 +346,7 @@ export default function App() {
 function AppHeader({
   appName,
   phase,
+  phaseOptions,
   activeCard,
   activeScreen,
   onNav,
@@ -338,6 +356,7 @@ function AppHeader({
 }: {
   appName: string;
   phase: string;
+  phaseOptions: string[];
   activeCard: UiWorkCardSummary | null;
   activeScreen: AppScreen;
   onNav: (screen: AppScreen) => void;
@@ -345,10 +364,8 @@ function AppHeader({
   workCards: ChampCitySavedWorkCardSummary[];
   onCardChange: (fileName: string) => void;
 }) {
-  const phaseOptions = PHASES.includes(phase) ? PHASES : [phase, ...PHASES];
-
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 overflow-hidden border-b border-border bg-card/70 px-5 backdrop-blur-sm">
+    <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card/70 px-4 py-2 backdrop-blur-sm">
       <div className="flex shrink-0 items-center border-r border-border pr-4">
         <img
           src={logoImage}
@@ -357,15 +374,15 @@ function AppHeader({
         />
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-center">
+      <div className="flex min-w-[320px] flex-1 items-center justify-center max-[720px]:order-3 max-[720px]:w-full">
         <PipelineStepper active={activeScreen} onNav={onNav} />
       </div>
 
-      <div className="flex min-w-0 shrink-0 items-center gap-2 border-l border-border pl-4">
+      <div className="flex min-w-0 flex-1 basis-[380px] flex-wrap items-center justify-end gap-2 border-l border-border pl-4 max-[720px]:border-l-0 max-[720px]:pl-0">
         <select
           value={phase}
           onChange={(event) => onPhaseChange(event.target.value)}
-          className={cn(selectCls, "w-[100px] py-1.5 font-mono text-xs")}
+          className={cn(selectCls, "w-[108px] shrink-0 py-1.5 font-mono text-xs")}
         >
           {phaseOptions.map((phaseOption) => (
             <option key={phaseOption} value={phaseOption}>
@@ -377,7 +394,10 @@ function AppHeader({
         <select
           value={activeCard?.fileName ?? ""}
           onChange={(event) => onCardChange(event.target.value)}
-          className={cn(selectCls, "w-[200px] py-1.5 text-xs")}
+          className={cn(
+            selectCls,
+            "min-w-[12rem] max-w-[24rem] flex-1 basis-56 truncate py-1.5 text-xs",
+          )}
         >
           <option value="">- Select Work Card -</option>
           {workCards.map((workCard) => (
@@ -1016,6 +1036,7 @@ function ProjectArchitectInterviewScreen({
 
 function NewWorkCardScreen({
   phase,
+  phaseOptions,
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
@@ -1283,6 +1304,7 @@ function NewWorkCardScreen({
 
 function ArchitectPromptComposerScreen({
   phase,
+  phaseOptions,
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
@@ -1399,7 +1421,11 @@ function ArchitectPromptComposerScreen({
           <ErrorList errors={[...listErrors, ...errors]} />
           <Notice type="info">{workCardJsonSelectorHelp}</Notice>
           <FieldGroup title="Source">
-            <PhaseField phase={phase} onPhaseChange={onPhaseChange} />
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
             <WorkCardSelect
               workCards={workCards}
               selectedFileName={selectedFileName}
@@ -1458,6 +1484,7 @@ function ArchitectPromptComposerScreen({
 
 function RiskRouterScreen({
   phase,
+  phaseOptions,
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
@@ -1566,7 +1593,11 @@ function RiskRouterScreen({
           />
           <ErrorList errors={[...listErrors, ...errors]} />
           <FieldGroup title="Source">
-            <PhaseField phase={phase} onPhaseChange={onPhaseChange} />
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
             <WorkCardSelect
               workCards={workCards}
               selectedFileName={selectedFileName}
@@ -1633,6 +1664,7 @@ function RiskRouterScreen({
 
 function BuilderPromptGeneratorScreen({
   phase,
+  phaseOptions,
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
@@ -1843,7 +1875,11 @@ function BuilderPromptGeneratorScreen({
           />
           <ErrorList errors={[...listErrors, ...errors]} />
           <FieldGroup title="Work Card">
-            <PhaseField phase={phase} onPhaseChange={onPhaseChange} />
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
             <WorkCardSelect
               workCards={workCards}
               selectedFileName={selectedFileName}
@@ -1956,6 +1992,7 @@ function BuilderPromptGeneratorScreen({
 
 function BuilderReportCaptureScreen({
   phase,
+  phaseOptions,
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
@@ -1973,6 +2010,11 @@ function BuilderReportCaptureScreen({
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
     useState<ChampCityBuilderReportCaptureSaveResult | null>(null);
+  const [importableReports, setImportableReports] = useState<
+    ChampCityHumanValidationBuilderReportOption[]
+  >([]);
+  const [selectedImportReportFileName, setSelectedImportReportFileName] =
+    useState("");
 
   const selectedWorkCard = useSelectedWorkCard(
     workCards,
@@ -1989,6 +2031,55 @@ function BuilderReportCaptureScreen({
       );
     }
   }, [reportType, workCards]);
+
+  useEffect(() => {
+    if (reportType !== "Work Card" || selectedFileName.trim().length === 0) {
+      setImportableReports([]);
+      setSelectedImportReportFileName("");
+      return;
+    }
+
+    let active = true;
+
+    window.champCity
+      .listHumanValidationBuilderReports({
+        phase,
+        workCardFileName: selectedFileName,
+      })
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        if (!result.ok) {
+          setImportableReports([]);
+          setSelectedImportReportFileName("");
+          return;
+        }
+
+        const options = result.options ?? [];
+        const defaultFileName = result.defaultFileName ?? "";
+
+        setImportableReports(options);
+        setSelectedImportReportFileName(defaultFileName);
+
+        if (defaultFileName) {
+          void loadSavedReportText(defaultFileName, () => active);
+        }
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setImportableReports([]);
+        setSelectedImportReportFileName("");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, reportType, selectedFileName]);
 
   useEffect(() => {
     let active = true;
@@ -2054,13 +2145,65 @@ function BuilderReportCaptureScreen({
       return;
     }
 
-    const text = await file.text();
+    try {
+      const text = await file.text();
+      applyImportedReportText(file.name, text);
+    } catch {
+      setErrors(["The selected report file could not be imported."]);
+      setStatusMessage("Report import needs attention.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function loadSavedReportText(fileName: string, isActive?: () => boolean) {
+    if (fileName.trim().length === 0) {
+      return;
+    }
+
+    setIsBusy(true);
+    setErrors([]);
+
+    try {
+      const result = await window.champCity.loadBuilderReportFile({
+        phase,
+        fileName,
+      });
+
+      if (isActive && !isActive()) {
+        return;
+      }
+
+      setIsBusy(false);
+
+      if (!result.ok || !result.content || !result.fileName) {
+        setErrors(
+          result.errorMessages ?? ["The saved Implementer Report could not be loaded."],
+        );
+        setStatusMessage("Report import needs attention.");
+        return;
+      }
+
+      applyImportedReportText(result.fileName, result.content);
+    } catch {
+      if (isActive && !isActive()) {
+        return;
+      }
+
+      setIsBusy(false);
+      setErrors(["The saved Implementer Report could not be loaded."]);
+      setStatusMessage("Report import needs attention.");
+    }
+  }
+
+  function applyImportedReportText(fileName: string, text: string) {
     setReportText(text);
     setTopic((previous) =>
       previous.trim().length > 0
         ? previous
-        : file.name.replace(/\.(md|txt)$/i, "").replace(/[_-]+/g, " "),
+        : fileName.replace(/\.(md|txt)$/i, "").replace(/[_-]+/g, " "),
     );
+    setStatusMessage("Implementer Report text imported.");
   }
 
   async function saveReport() {
@@ -2100,7 +2243,11 @@ function BuilderReportCaptureScreen({
           />
           <ErrorList errors={[...listErrors, ...errors]} />
           <FieldGroup title="Report Setup">
-            <PhaseField phase={phase} onPhaseChange={onPhaseChange} />
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
             <Field label="Report Type">
               <select
                 className={selectCls}
@@ -2129,6 +2276,29 @@ function BuilderReportCaptureScreen({
             <TextField label="Topic" value={topic} onChange={setTopic} />
           </FieldGroup>
           <FieldGroup title="Report Text">
+            {importableReports.length > 0 ? (
+              <Field label="Saved Implementer Report">
+                <select
+                  className={selectCls}
+                  value={selectedImportReportFileName}
+                  onChange={(event) => {
+                    const fileName = event.target.value;
+
+                    setSelectedImportReportFileName(fileName);
+                    void loadSavedReportText(fileName);
+                  }}
+                >
+                  <option value="">Select saved report to import</option>
+                  {importableReports.map((option) => (
+                    <option key={option.fileName} value={option.fileName}>
+                      {option.isDefaultMatch
+                        ? `${option.label} (match)`
+                        : option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
             <Field label="Import .md or .txt file">
               <label className="flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground">
                 <Upload size={13} />
@@ -2195,6 +2365,8 @@ function BuilderReportCaptureScreen({
 
 function HumanValidationScreen({
   phase,
+  phaseOptions,
+  activeCard,
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
@@ -2217,6 +2389,9 @@ function HumanValidationScreen({
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
     useState<ChampCityHumanValidationSaveResult | null>(null);
+  const [importedEvidencePaths, setImportedEvidencePaths] = useState<string[]>(
+    [],
+  );
 
   const selectedWorkCard = useSelectedWorkCard(
     workCards,
@@ -2225,6 +2400,24 @@ function HumanValidationScreen({
   );
 
   useDefaultSelectedFile(workCards, selectedFileName, setSelectedFileName);
+
+  useEffect(() => {
+    const headerSelectedFileName =
+      activeCard?.phase === phase ? activeCard.fileName ?? "" : "";
+
+    if (
+      headerSelectedFileName &&
+      workCards.some((workCard) => workCard.fileName === headerSelectedFileName)
+    ) {
+      setSelectedFileName((previous) =>
+        previous === headerSelectedFileName ? previous : headerSelectedFileName,
+      );
+    }
+  }, [activeCard?.fileName, activeCard?.phase, phase, workCards]);
+
+  useEffect(() => {
+    setImportedEvidencePaths([]);
+  }, [phase, selectedFileName]);
 
   useEffect(() => {
     if (selectedFileName.trim().length === 0) {
@@ -2263,11 +2456,7 @@ function HumanValidationScreen({
         const options = result.options ?? [];
         setBuilderReports(options);
         setInvalidBuilderReports(result.invalidFiles ?? []);
-        setSelectedBuilderReportFileName((previous) =>
-          options.some((option) => option.fileName === previous)
-            ? previous
-            : result.defaultFileName ?? "",
-        );
+        setSelectedBuilderReportFileName(result.defaultFileName ?? "");
         setStatusMessage("Validation source loaded.");
       })
       .catch(() => {
@@ -2359,6 +2548,68 @@ function HumanValidationScreen({
     setForm((previous) => ({ ...previous, [field]: value }));
   }
 
+  async function importEvidenceFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!selectedFileName) {
+      setErrors(["Select a saved Work Card before attaching evidence."]);
+      event.target.value = "";
+      return;
+    }
+
+    if (!/\.(png|jpe?g|webp|gif|txt|md)$/i.test(file.name)) {
+      setErrors(["Attach a .png, .jpg, .jpeg, .webp, .gif, .txt, or .md file."]);
+      event.target.value = "";
+      return;
+    }
+
+    setIsBusy(true);
+    setErrors([]);
+
+    try {
+      const content = await file.arrayBuffer();
+      const result = await window.champCity.attachValidationEvidenceFile({
+        phase,
+        workCardFileName: selectedFileName,
+        fileName: file.name,
+        content,
+      });
+
+      setIsBusy(false);
+
+      if (!result.ok || !result.savedRelativePath) {
+        setErrors(
+          result.errorMessages ?? ["The evidence file could not be attached."],
+        );
+        setStatusMessage("Evidence import needs attention.");
+        return;
+      }
+
+      setImportedEvidencePaths((previous) => [
+        result.savedRelativePath as string,
+        ...previous,
+      ]);
+      setForm((previous) => ({
+        ...previous,
+        screenshotOrFileReferences: appendLine(
+          previous.screenshotOrFileReferences,
+          result.savedRelativePath as string,
+        ),
+      }));
+      setStatusMessage("Evidence file attached.");
+    } catch {
+      setIsBusy(false);
+      setErrors(["The evidence file could not be attached."]);
+      setStatusMessage("Evidence import needs attention.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   async function saveValidation() {
     if (!validationInput) {
       setErrors(["Select a saved Work Card before saving validation."]);
@@ -2394,7 +2645,11 @@ function HumanValidationScreen({
           />
           <ErrorList errors={[...listErrors, ...errors]} />
           <FieldGroup title="Source">
-            <PhaseField phase={phase} onPhaseChange={onPhaseChange} />
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
             <WorkCardSelect
               workCards={workCards}
               selectedFileName={selectedFileName}
@@ -2471,9 +2726,6 @@ function HumanValidationScreen({
           title="Operator Record"
           status={statusMessage}
           filename={previewResult?.savedValidationMarkdownFileName}
-          onSave={() => void saveValidation()}
-          saveLabel="Save"
-          saveDisabled={!validationInput || isBusy}
           emptyMessage="Select a Work Card to preview validation."
         >
           <div className="grid gap-4">
@@ -2551,14 +2803,40 @@ function HumanValidationScreen({
                 rows={2}
                 onChange={(value) => updateForm("evidenceReferences", value)}
               />
-              <TextAreaField
-                label="Screenshots or files by path"
-                value={form.screenshotOrFileReferences}
-                rows={2}
-                onChange={(value) =>
-                  updateForm("screenshotOrFileReferences", value)
-                }
-              />
+              <Field label="Screenshots or files by path">
+                <div className="grid gap-2">
+                  <textarea
+                    className={cn(textareaCls, "break-anywhere")}
+                    value={form.screenshotOrFileReferences}
+                    rows={2}
+                    onChange={(event) =>
+                      updateForm(
+                        "screenshotOrFileReferences",
+                        event.target.value,
+                      )
+                    }
+                  />
+                  <label className="flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground">
+                    <Upload size={13} />
+                    <span>Import Screenshot/File</span>
+                    <input
+                      className="sr-only"
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp,.gif,.txt,.md,image/png,image/jpeg,image/webp,image/gif,text/plain,text/markdown"
+                      onChange={(event) => void importEvidenceFile(event)}
+                    />
+                  </label>
+                  {importedEvidencePaths.length > 0 ? (
+                    <div className="grid gap-1 text-[10px] text-muted-foreground/70">
+                      {importedEvidencePaths.slice(0, 3).map((filePath) => (
+                        <code key={filePath} className="break-anywhere">
+                          {filePath}
+                        </code>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </Field>
             </FieldRow>
             <FieldRow>
               <TextAreaField
@@ -2605,9 +2883,11 @@ function HumanValidationScreen({
 
 function PhaseCloseoutScreen({
   phase,
+  phaseOptions,
   onPhaseChange,
 }: {
   phase: string;
+  phaseOptions: string[];
   onPhaseChange: (phase: string) => void;
 }) {
   const [form, setForm] = useState<ChampCityPhaseCloseoutFormInput>({
@@ -2754,7 +3034,11 @@ function PhaseCloseoutScreen({
           />
           <ErrorList errors={errors} />
           <FieldGroup title="Phase">
-            <PhaseField phase={phase} onPhaseChange={onPhaseChange} />
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
             {summary ? <PhaseArtifactSummaryView summary={summary} compact /> : null}
           </FieldGroup>
           {saveResult?.jsonPath ? (
@@ -2874,6 +3158,8 @@ function PhaseCloseoutScreen({
 
 interface ScreenProps {
   phase: string;
+  phaseOptions: string[];
+  activeCard?: UiWorkCardSummary | null;
   onPhaseChange: (phase: string) => void;
   onActiveCardChange: (card: UiWorkCardSummary | null) => void;
 }
@@ -3304,13 +3590,30 @@ function TextAreaField({
 
 function PhaseField({
   phase,
+  phaseOptions,
   onPhaseChange,
 }: {
   phase: string;
+  phaseOptions: string[];
   onPhaseChange: (phase: string) => void;
 }) {
+  const options = buildPhaseOptions(phase, phaseOptions);
+
   return (
-    <TextField label="Phase" value={phase} onChange={onPhaseChange} required />
+    <Field label="Phase">
+      <select
+        className={selectCls}
+        value={phase}
+        onChange={(event) => onPhaseChange(event.target.value)}
+        required
+      >
+        {options.map((phaseOption) => (
+          <option key={phaseOption} value={phaseOption}>
+            {phaseOption}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }
 
@@ -3964,6 +4267,39 @@ function useWorkCards(phase: string) {
   return { workCards, invalidFiles, errors, isLoading };
 }
 
+function useAvailablePhases() {
+  const [phases, setPhases] = useState<string[]>(PHASES);
+
+  useEffect(() => {
+    let active = true;
+
+    window.champCity
+      .listAvailablePhases()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        if (result.ok && result.phases && result.phases.length > 0) {
+          setPhases(result.phases);
+        }
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setPhases(PHASES);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { phases };
+}
+
 function useProjectIntakes() {
   const [projectIntakes, setProjectIntakes] = useState<
     ChampCitySavedProjectIntakeSummary[]
@@ -4055,6 +4391,20 @@ function getWorkflowStep(activeScreen: AppScreen) {
   return (
     workflowSteps.find((step) => step.id === activeScreen) ?? workflowSteps[0]
   );
+}
+
+function buildPhaseOptions(currentPhase: string, availablePhases: string[]): string[] {
+  const basePhases = availablePhases.length > 0 ? availablePhases : PHASES;
+
+  return basePhases.includes(currentPhase)
+    ? basePhases
+    : [currentPhase, ...basePhases];
+}
+
+function appendLine(value: string, nextLine: string): string {
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? `${trimmed}\n${nextLine}` : nextLine;
 }
 
 function validateWorkCardForm(form: ChampCityWorkCardDraftInput): string[] {

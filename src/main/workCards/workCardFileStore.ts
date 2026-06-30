@@ -1,4 +1,5 @@
-import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import path from "node:path";
 
 import {
@@ -10,6 +11,7 @@ import {
 } from "../../shared/workCards/workCardDraft";
 import {
   buildWorkCardFileStem,
+  slugifyWorkCardTitle,
   validateSafePhaseFolder,
 } from "../../shared/workCards/workCardFileNames";
 import {
@@ -75,6 +77,9 @@ import {
   buildHumanValidationRecord,
   buildValidationReportJsonFileName,
   buildValidationReportMarkdownFileName,
+  type AvailablePhaseFoldersResult,
+  type BuilderReportFileLoadRequest,
+  type BuilderReportFileLoadResult,
   extractManualValidationChecklist,
   getDifferentProblemGuidance,
   noBuilderReportSelectedWarning,
@@ -84,7 +89,10 @@ import {
   type HumanValidationFormInput,
   type HumanValidationPreviewResult,
   type HumanValidationSaveResult,
+  type InvalidHumanValidationBuilderReportFile,
   shouldGenerateRepairPrompt,
+  type ValidationEvidenceFileImportRequest,
+  type ValidationEvidenceFileImportResult,
   validateHumanValidationRecord,
 } from "../../shared/workCards/validationRecord";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
@@ -118,11 +126,50 @@ import { renderProjectArchitectInterviewPromptMarkdown } from "../../shared/work
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
 const planningProjectRoot = path.join(repositoryRoot, "planning", "project");
+const validationEvidenceAllowedExtensions = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".txt",
+  ".md",
+]);
 type SupportingArtifactFolder =
   | "Work_Cards"
   | "Architect_Prompts"
   | "Risk_Reviews"
   | "Builder_Reports";
+
+export async function listAvailablePhaseFolders(): Promise<AvailablePhaseFoldersResult> {
+  try {
+    let entries: Dirent[] = [];
+
+    try {
+      entries = await readdir(planningPhasesRoot, { withFileTypes: true });
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const phases = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((entry) => validateSafePhaseFolder(entry).length === 0)
+      .sort((left, right) => left.localeCompare(right));
+
+    return {
+      ok: true,
+      phases,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
 
 export async function getNextWorkCardId(
   phase: string,
@@ -911,6 +958,35 @@ export async function saveBuilderReportCapture(
   }
 }
 
+export async function loadBuilderReportFile(
+  input: BuilderReportFileLoadRequest,
+): Promise<BuilderReportFileLoadResult> {
+  try {
+    const value = input.fileName.trim();
+
+    if (value.length === 0) {
+      throw new Error("Choose an Implementer Report to import.");
+    }
+
+    const builderReport = await readOptionalBuilderReport(input.phase, value);
+
+    if (!builderReport) {
+      throw new Error("Choose an Implementer Report to import.");
+    }
+
+    return {
+      ok: true,
+      fileName: builderReport.fileName,
+      content: builderReport.content,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export async function listHumanValidationBuilderReports(
   input: HumanValidationBuilderReportListRequest,
 ): Promise<HumanValidationBuilderReportListResult> {
@@ -919,45 +995,9 @@ export async function listHumanValidationBuilderReports(
       input.phase,
       input.workCardFileName,
     );
-    const directory = resolveBuilderReportsDirectory(workCard.phase);
-    let entries: string[] = [];
-
-    try {
-      entries = await readdir(directory);
-    } catch (error) {
-      if (!isNodeErrorWithCode(error, "ENOENT")) {
-        throw error;
-      }
-    }
-
-    const options: HumanValidationBuilderReportOption[] = [];
-    const invalidFiles: HumanValidationBuilderReportListResult["invalidFiles"] =
-      [];
-
-    for (const fileName of entries.filter((entry) =>
-      entry.toLowerCase().endsWith(".md"),
-    )) {
-      const fileNameErrors = validateMarkdownArtifactFileName(fileName);
-
-      if (fileNameErrors.length > 0) {
-        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
-        continue;
-      }
-
-      options.push({
-        fileName,
-        label: fileName,
-        isDefaultMatch: fileNameMatchesWorkCardId(fileName, workCard.workCardId),
-      });
-    }
-
-    options.sort((left, right) => {
-      if (left.isDefaultMatch !== right.isDefaultMatch) {
-        return left.isDefaultMatch ? -1 : 1;
-      }
-
-      return left.fileName.localeCompare(right.fileName);
-    });
+    const { options, invalidFiles } = await listBuilderReportOptionsForWorkCard(
+      workCard,
+    );
 
     return {
       ok: true,
@@ -1059,6 +1099,46 @@ export async function saveHumanValidationRecord(
     };
   } catch (error) {
     console.error("Failed to save Human Validation record.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function attachValidationEvidenceFile(
+  input: ValidationEvidenceFileImportRequest,
+): Promise<ValidationEvidenceFileImportResult> {
+  try {
+    const workCard = await readSavedWorkCardFile(
+      input.phase,
+      input.workCardFileName,
+    );
+    const safeFileName = buildValidationEvidenceFileName(input.fileName);
+    const content = Buffer.from(input.content);
+
+    if (content.byteLength === 0) {
+      throw new Error("Evidence file is empty.");
+    }
+
+    const directory = resolveValidationEvidenceDirectory(workCard);
+    const target = await resolveAvailableFilePath(
+      directory,
+      safeFileName,
+      "A safe validation evidence filename could not be generated.",
+    );
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(target.filePath, content, { flag: "wx" });
+
+    return {
+      ok: true,
+      savedFileName: target.fileName,
+      savedRelativePath: toRepositoryRelativePath(target.filePath),
+    };
+  } catch (error) {
+    console.error("Failed to attach validation evidence file.", error);
 
     return {
       ok: false,
@@ -1217,6 +1297,23 @@ export function resolveValidationReportsDirectory(phase: string): string {
   return resolveInside(planningPhasesRoot, phase.trim(), "Validation_Reports");
 }
 
+export function resolveValidationEvidenceDirectory(
+  workCard: Pick<WorkCard, "workCardId" | "title" | "phase">,
+): string {
+  const phaseErrors = validateSafePhaseFolder(workCard.phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(
+    planningPhasesRoot,
+    workCard.phase.trim(),
+    "Validation_Evidence",
+    buildWorkCardFileStem(workCard.workCardId, workCard.title),
+  );
+}
+
 export function resolveRepairPromptsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -1325,6 +1422,47 @@ export function validateMarkdownArtifactFileName(fileName: string): string[] {
   return [];
 }
 
+export function validateValidationEvidenceFileName(fileName: string): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose an evidence file."];
+  }
+
+  if (value !== path.basename(value) || value.includes("..")) {
+    return ["Evidence file names must not include folders or traversal."];
+  }
+
+  const extension = path.extname(value).toLowerCase();
+
+  if (!validationEvidenceAllowedExtensions.has(extension)) {
+    return [
+      "Evidence files must use .png, .jpg, .jpeg, .webp, .gif, .txt, or .md.",
+    ];
+  }
+
+  return [];
+}
+
+function buildValidationEvidenceFileName(fileName: string): string {
+  const value = fileName.trim();
+  const errors = validateValidationEvidenceFileName(value);
+
+  if (errors.length > 0) {
+    throw new Error(errors.join(" "));
+  }
+
+  const extension = path.extname(value).toLowerCase();
+  const stem = path
+    .basename(value, path.extname(value))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+
+  return `${stem || "validation_evidence"}${extension}`;
+}
+
 async function buildHumanValidationPreview(
   input: HumanValidationFormInput,
   createdAt: string,
@@ -1337,6 +1475,23 @@ async function buildHumanValidationPreview(
     workCard.phase,
     input.builderReportFileName,
   );
+  const matchingBuilderReports = await listBuilderReportOptionsForWorkCard(
+    workCard,
+  );
+  const bestMatchingBuilderReport = matchingBuilderReports.options.find(
+    (option) => option.isDefaultMatch,
+  );
+
+  if (
+    builderReport &&
+    bestMatchingBuilderReport &&
+    !fileNameMatchesWorkCard(builderReport.fileName, workCard)
+  ) {
+    throw new Error(
+      `Selected Implementer Report does not match ${workCard.workCardId}. Choose ${bestMatchingBuilderReport.fileName} or clear the association before saving.`,
+    );
+  }
+
   const record = buildHumanValidationRecord(
     workCard,
     {
@@ -1475,6 +1630,68 @@ async function readOptionalBuilderReport(
     fileName: value,
     content: await readFile(filePath, "utf8"),
   };
+}
+
+async function listBuilderReportOptionsForWorkCard(
+  workCard: WorkCard,
+): Promise<{
+  options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }>;
+  invalidFiles: InvalidHumanValidationBuilderReportFile[];
+}> {
+  const directory = resolveBuilderReportsDirectory(workCard.phase);
+  let entries: string[] = [];
+
+  try {
+    entries = await readdir(directory);
+  } catch (error) {
+    if (!isNodeErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+  }
+
+  const options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }> =
+    [];
+  const invalidFiles: InvalidHumanValidationBuilderReportFile[] = [];
+
+  for (const fileName of entries.filter((entry) =>
+    entry.toLowerCase().endsWith(".md"),
+  )) {
+    const fileNameErrors = validateMarkdownArtifactFileName(fileName);
+
+    if (fileNameErrors.length > 0) {
+      invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+      continue;
+    }
+
+    const filePath = resolveInside(directory, fileName);
+    const fileStats = await stat(filePath);
+
+    options.push({
+      fileName,
+      label: fileName,
+      isDefaultMatch: fileNameMatchesWorkCard(fileName, workCard),
+      modifiedAt: fileStats.mtime.toISOString(),
+      modifiedMs: fileStats.mtimeMs,
+    });
+  }
+
+  options.sort((left, right) => {
+    if (left.isDefaultMatch !== right.isDefaultMatch) {
+      return left.isDefaultMatch ? -1 : 1;
+    }
+
+    if (left.isDefaultMatch && right.isDefaultMatch) {
+      const modifiedDelta = right.modifiedMs - left.modifiedMs;
+
+      if (modifiedDelta !== 0) {
+        return modifiedDelta;
+      }
+    }
+
+    return left.fileName.localeCompare(right.fileName);
+  });
+
+  return { options, invalidFiles };
 }
 
 async function listMarkdownArtifactOptions(
@@ -1749,6 +1966,19 @@ function fileNameMatchesWorkCardId(
   );
 }
 
+function fileNameMatchesWorkCard(
+  fileName: string,
+  workCard: Pick<WorkCard, "workCardId" | "title">,
+): boolean {
+  const normalizedFileName = fileName.toLowerCase();
+  const normalizedSlug = slugifyWorkCardTitle(workCard.title).toLowerCase();
+
+  return (
+    fileNameMatchesWorkCardId(fileName, workCard.workCardId) ||
+    (normalizedSlug.length > 0 && normalizedFileName.includes(normalizedSlug))
+  );
+}
+
 function toSelectedSupportingArtifactFileNames(
   supportingArtifacts: BuilderPromptSupportingArtifacts,
 ): BuilderPromptSupportingArtifactFileNames {
@@ -1835,6 +2065,18 @@ async function resolveAvailableMarkdownPath(
   directory: string,
   fileName: string,
 ): Promise<{ filePath: string; fileName: string }> {
+  return resolveAvailableFilePath(
+    directory,
+    fileName,
+    "A safe repair prompt filename could not be generated.",
+  );
+}
+
+async function resolveAvailableFilePath(
+  directory: string,
+  fileName: string,
+  failureMessage: string,
+): Promise<{ filePath: string; fileName: string }> {
   for (let suffix = 1; suffix <= 99; suffix += 1) {
     const nextFileName = appendFileNameSuffix(fileName, suffix);
     const filePath = resolveInside(directory, nextFileName);
@@ -1844,7 +2086,7 @@ async function resolveAvailableMarkdownPath(
     }
   }
 
-  throw new Error("A safe repair prompt filename could not be generated.");
+  throw new Error(failureMessage);
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
@@ -1866,6 +2108,16 @@ function appendFileNameSuffix(fileName: string, suffix: number): string {
   }
 
   return fileName.replace(/(\.[^.]+)$/, `_${suffix}$1`);
+}
+
+function toRepositoryRelativePath(filePath: string): string {
+  const relative = path.relative(repositoryRoot, filePath);
+
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Saved evidence path must stay inside the repository.");
+  }
+
+  return relative.split(path.sep).join("/");
 }
 
 function toPlainSaveError(error: unknown): string {

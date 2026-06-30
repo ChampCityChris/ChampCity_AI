@@ -53,6 +53,9 @@ import type {
 } from "../shared/workCards/renderRiskReviewMarkdown";
 import type { WorkCardRiskReview } from "../shared/workCards/riskRouter";
 import type {
+  AvailablePhaseFoldersResult,
+  BuilderReportFileLoadRequest,
+  BuilderReportFileLoadResult,
   HumanValidationBuilderReportListRequest,
   HumanValidationBuilderReportListResult,
   HumanValidationBuilderReportOption,
@@ -63,6 +66,8 @@ import type {
   HumanValidationSaveResult,
   InvalidHumanValidationBuilderReportFile,
   ManualValidationChecklistExtraction,
+  ValidationEvidenceFileImportRequest,
+  ValidationEvidenceFileImportResult,
 } from "../shared/workCards/validationRecord";
 import type {
   PhaseArtifactFolderSummary,
@@ -156,6 +161,14 @@ declare global {
   type ChampCityPhaseCloseoutSummaryResult = PhaseCloseoutSummaryResult;
   type ChampCityPhaseCloseoutPreviewResult = PhaseCloseoutPreviewResult;
   type ChampCityPhaseCloseoutSaveResult = PhaseCloseoutSaveResult;
+  type ChampCityAvailablePhaseFoldersResult = AvailablePhaseFoldersResult;
+  type ChampCityBuilderReportFileLoadRequest =
+    BuilderReportFileLoadRequest;
+  type ChampCityBuilderReportFileLoadResult = BuilderReportFileLoadResult;
+  type ChampCityValidationEvidenceFileImportRequest =
+    ValidationEvidenceFileImportRequest;
+  type ChampCityValidationEvidenceFileImportResult =
+    ValidationEvidenceFileImportResult;
 
   interface Window {
     champCity: {
@@ -164,6 +177,7 @@ declare global {
         stage: string;
         coreLoop: string[];
       };
+      listAvailablePhases: () => Promise<AvailablePhaseFoldersResult>;
       previewProjectIntake: (
         input: ProjectIntakeInput,
       ) => Promise<ProjectIntakePreviewResult>;
@@ -214,6 +228,9 @@ declare global {
       saveBuilderReportCapture: (
         input: BuilderReportCaptureRequest,
       ) => Promise<BuilderReportCaptureSaveResult>;
+      loadBuilderReportFile: (
+        input: BuilderReportFileLoadRequest,
+      ) => Promise<BuilderReportFileLoadResult>;
       listHumanValidationBuilderReports: (
         input: HumanValidationBuilderReportListRequest,
       ) => Promise<HumanValidationBuilderReportListResult>;
@@ -223,6 +240,9 @@ declare global {
       saveHumanValidationRecord: (
         input: HumanValidationFormInput,
       ) => Promise<HumanValidationSaveResult>;
+      attachValidationEvidenceFile: (
+        input: ValidationEvidenceFileImportRequest,
+      ) => Promise<ValidationEvidenceFileImportResult>;
       getPhaseCloseoutSummary: (
         phase: string,
       ) => Promise<PhaseCloseoutSummaryResult>;

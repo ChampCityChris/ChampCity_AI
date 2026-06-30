@@ -65,6 +65,7 @@ export interface HumanValidationBuilderReportOption {
   fileName: string;
   label: string;
   isDefaultMatch: boolean;
+  modifiedAt?: string;
 }
 
 export interface InvalidHumanValidationBuilderReportFile {
@@ -111,6 +112,38 @@ export interface HumanValidationSaveResult
   validationJsonPath?: string;
   validationMarkdownPath?: string;
   repairPromptPath?: string;
+}
+
+export interface AvailablePhaseFoldersResult {
+  ok: boolean;
+  phases?: string[];
+  errorMessages?: string[];
+}
+
+export interface BuilderReportFileLoadRequest {
+  phase: string;
+  fileName: string;
+}
+
+export interface BuilderReportFileLoadResult {
+  ok: boolean;
+  fileName?: string;
+  content?: string;
+  errorMessages?: string[];
+}
+
+export interface ValidationEvidenceFileImportRequest {
+  phase: string;
+  workCardFileName: string;
+  fileName: string;
+  content: ArrayBuffer;
+}
+
+export interface ValidationEvidenceFileImportResult {
+  ok: boolean;
+  savedFileName?: string;
+  savedRelativePath?: string;
+  errorMessages?: string[];
 }
 
 export interface HumanValidationRecordValidationResult {

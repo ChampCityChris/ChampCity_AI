@@ -1,0 +1,19 @@
+{
+  "validationId": "VALIDATION_WC02_20260630195321",
+  "workCardId": "WC02",
+  "workCardTitle": "Add Project Architect Interview prompt generator",
+  "phase": "phase-02",
+  "builderReportFile": "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+  "validationResult": "Not Tested",
+  "testedItems": "",
+  "passedItems": "",
+  "failedItems": "",
+  "evidenceReferences": "",
+  "screenshotOrFileReferences": "planning/phases/phase-02/Validation_Evidence/WC02_add_project_architect_interview_prompt_generator/screenshot_2026_06_29_114214.png",
+  "commandsRun": "",
+  "observedErrors": "",
+  "additionalOperatorObservations": "",
+  "operatorDecision": "Deferred - not validated yet",
+  "recommendedNextAction": "",
+  "createdAt": "2026-06-30T19:53:21.737Z"
+}

@@ -202,7 +202,10 @@ const {
   validateSafePhaseFolder,
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
+  listAvailablePhaseFolders,
+  listHumanValidationBuilderReports,
   listSavedWorkCards,
+  loadBuilderReportFile,
   previewHumanValidationRecord,
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
@@ -212,10 +215,12 @@ const {
   resolveInside,
   resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
+  resolveValidationEvidenceDirectory,
   resolveValidationReportsDirectory,
   validateMarkdownArtifactFileName,
   validateSavedProjectIntakeJsonFileName,
   validateSavedWorkCardJsonFileName,
+  validateValidationEvidenceFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
 
 const renderedArtifacts = [
@@ -413,7 +418,7 @@ assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
 assertBuilderPrompt();
-assertBuilderReportCapture();
+await assertBuilderReportCapture();
 await assertHumanValidationAndRepair();
 assertPhaseCloseout();
 await assertSavedWorkCardListing();
@@ -805,7 +810,7 @@ function assertBuilderPrompt() {
   }
 }
 
-function assertBuilderReportCapture() {
+async function assertBuilderReportCapture() {
   const completeReport = [
     "# Builder Report - WC06 Capture Builder Report",
     "",
@@ -1010,6 +1015,39 @@ function assertBuilderReportCapture() {
     process.exit(1);
   } catch {
     // Expected.
+  }
+
+  const loadedReport = await loadBuilderReportFile({
+    phase: "phase-02",
+    fileName: "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+  });
+
+  if (!loadedReport.ok || !loadedReport.content?.includes("WC02")) {
+    console.error("Saved WC02 Implementer Report could not be loaded through the file-store API.");
+    process.exit(1);
+  }
+
+  const reportSource = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredReportImportSource = [
+    "loadBuilderReportFile",
+    "Saved Implementer Report",
+    "Implementer Report text imported.",
+    "workCards:loadBuilderReportFile",
+  ];
+  const missingReportImportSource = requiredReportImportSource.filter(
+    (text) => !reportSource.includes(text),
+  );
+
+  if (missingReportImportSource.length > 0) {
+    console.error("Implementer Report import source wiring is missing required text:");
+    for (const text of missingReportImportSource) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
   }
 }
 
@@ -1289,6 +1327,28 @@ async function assertHumanValidationAndRepair() {
     process.exit(1);
   }
 
+  const phaseFolders = await listAvailablePhaseFolders();
+
+  if (!phaseFolders.ok || !phaseFolders.phases?.includes("phase-02")) {
+    console.error("Available phase folder listing did not include phase-02.");
+    process.exit(1);
+  }
+
+  const wc02BuilderReports = await listHumanValidationBuilderReports({
+    phase: "phase-02",
+    workCardFileName:
+      "WC02_add_project_architect_interview_prompt_generator.json",
+  });
+
+  if (
+    !wc02BuilderReports.ok ||
+    wc02BuilderReports.defaultFileName !==
+      "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md"
+  ) {
+    console.error("WC02 validation did not default to the matching WC02 Implementer Report.");
+    process.exit(1);
+  }
+
   const repairCases = [
     {
       validationResult: "Fail",
@@ -1472,6 +1532,58 @@ async function assertHumanValidationAndRepair() {
     process.exit(1);
   } catch {
     // Expected.
+  }
+
+  const evidenceDirectory = resolveValidationEvidenceDirectory({
+    workCardId: "WC02",
+    title: "Add Project Architect Interview prompt generator",
+    phase: "phase-02",
+  });
+
+  if (
+    !evidenceDirectory
+      .replace(/\\/g, "/")
+      .endsWith(
+        "planning/phases/phase-02/Validation_Evidence/WC02_add_project_architect_interview_prompt_generator",
+      )
+  ) {
+    console.error("Validation evidence directory did not resolve to the expected phase/work-card folder.");
+    process.exit(1);
+  }
+
+  if (validateValidationEvidenceFileName("../bad.png").length === 0) {
+    console.error("Validation evidence filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateValidationEvidenceFileName("screenshot.png").length > 0) {
+    console.error("Validation evidence filename sanitizer rejected a valid image.");
+    process.exit(1);
+  }
+
+  const validationSource = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredValidationRepairSource = [
+    "listAvailablePhases",
+    "attachValidationEvidenceFile",
+    "Import Screenshot/File",
+    "Validation_Evidence",
+    "Selected Implementer Report does not match",
+    "workCards:attachValidationEvidenceFile",
+  ];
+  const missingValidationRepairSource = requiredValidationRepairSource.filter(
+    (text) => !validationSource.includes(text),
+  );
+
+  if (missingValidationRepairSource.length > 0) {
+    console.error("Human Validation repair source wiring is missing required text:");
+    for (const text of missingValidationRepairSource) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
   }
 }
 

@@ -3,9 +3,11 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import {
+  attachValidationEvidenceFile,
   getNextWorkCardId,
   getPhaseCloseoutSummary,
   listBuilderPromptSupportingArtifacts,
+  listAvailablePhaseFolders,
   listHumanValidationBuilderReports,
   listSavedProjectIntakes,
   listSavedWorkCards,
@@ -18,6 +20,7 @@ import {
   previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
   previewRiskReview,
+  loadBuilderReportFile,
   saveArchitectPrompt,
   saveBuilderPrompt,
   saveBuilderReportCapture,
@@ -36,8 +39,10 @@ import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderProm
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
 import type { RiskReviewRequest } from "../shared/workCards/renderRiskReviewMarkdown";
 import type {
+  BuilderReportFileLoadRequest,
   HumanValidationBuilderReportListRequest,
   HumanValidationFormInput,
+  ValidationEvidenceFileImportRequest,
 } from "../shared/workCards/validationRecord";
 import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRecord";
 
@@ -108,6 +113,9 @@ app.on("window-all-closed", () => {
 });
 
 function registerWorkCardIpc(): void {
+  ipcMain.handle("workCards:listAvailablePhases", () =>
+    listAvailablePhaseFolders(),
+  );
   ipcMain.handle(
     "projectIntake:preview",
     (_event, input: ProjectIntakeInput) => previewProjectIntake(input),
@@ -181,6 +189,11 @@ function registerWorkCardIpc(): void {
       saveBuilderReportCapture(input),
   );
   ipcMain.handle(
+    "workCards:loadBuilderReportFile",
+    (_event, input: BuilderReportFileLoadRequest) =>
+      loadBuilderReportFile(input),
+  );
+  ipcMain.handle(
     "workCards:listHumanValidationBuilderReports",
     (_event, input: HumanValidationBuilderReportListRequest) =>
       listHumanValidationBuilderReports(input),
@@ -194,6 +207,11 @@ function registerWorkCardIpc(): void {
     "workCards:saveHumanValidationRecord",
     (_event, input: HumanValidationFormInput) =>
       saveHumanValidationRecord(input),
+  );
+  ipcMain.handle(
+    "workCards:attachValidationEvidenceFile",
+    (_event, input: ValidationEvidenceFileImportRequest) =>
+      attachValidationEvidenceFile(input),
   );
   ipcMain.handle("workCards:getPhaseCloseoutSummary", (_event, phase: string) =>
     getPhaseCloseoutSummary(phase),

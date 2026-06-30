@@ -40,11 +40,16 @@ import type {
   RiskReviewSaveResult,
 } from "../shared/workCards/renderRiskReviewMarkdown";
 import type {
+  AvailablePhaseFoldersResult,
+  BuilderReportFileLoadRequest,
+  BuilderReportFileLoadResult,
   HumanValidationBuilderReportListRequest,
   HumanValidationBuilderReportListResult,
   HumanValidationFormInput,
   HumanValidationPreviewResult,
   HumanValidationSaveResult,
+  ValidationEvidenceFileImportRequest,
+  ValidationEvidenceFileImportResult,
 } from "../shared/workCards/validationRecord";
 import type {
   PhaseCloseoutFormInput,
@@ -69,6 +74,8 @@ const api = {
       "Closeout",
     ],
   }),
+  listAvailablePhases: (): Promise<AvailablePhaseFoldersResult> =>
+    ipcRenderer.invoke("workCards:listAvailablePhases"),
   previewProjectIntake: (
     input: ProjectIntakeInput,
   ): Promise<ProjectIntakePreviewResult> =>
@@ -131,6 +138,10 @@ const api = {
     input: BuilderReportCaptureRequest,
   ): Promise<BuilderReportCaptureSaveResult> =>
     ipcRenderer.invoke("workCards:saveBuilderReportCapture", input),
+  loadBuilderReportFile: (
+    input: BuilderReportFileLoadRequest,
+  ): Promise<BuilderReportFileLoadResult> =>
+    ipcRenderer.invoke("workCards:loadBuilderReportFile", input),
   listHumanValidationBuilderReports: (
     input: HumanValidationBuilderReportListRequest,
   ): Promise<HumanValidationBuilderReportListResult> =>
@@ -143,6 +154,10 @@ const api = {
     input: HumanValidationFormInput,
   ): Promise<HumanValidationSaveResult> =>
     ipcRenderer.invoke("workCards:saveHumanValidationRecord", input),
+  attachValidationEvidenceFile: (
+    input: ValidationEvidenceFileImportRequest,
+  ): Promise<ValidationEvidenceFileImportResult> =>
+    ipcRenderer.invoke("workCards:attachValidationEvidenceFile", input),
   getPhaseCloseoutSummary: (
     phase: string,
   ): Promise<PhaseCloseoutSummaryResult> =>
