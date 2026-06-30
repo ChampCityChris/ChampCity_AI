@@ -13,6 +13,7 @@ import {
   previewDraftWorkCard,
   previewHumanValidationRecord,
   previewPhaseCloseoutRecord,
+  previewProjectIntake,
   previewRiskReview,
   saveArchitectPrompt,
   saveBuilderPrompt,
@@ -20,9 +21,11 @@ import {
   saveDraftWorkCard,
   saveHumanValidationRecord,
   savePhaseCloseoutRecord,
+  saveProjectIntake,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
+import type { ProjectIntakeInput } from "../shared/workCards/projectIntake";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -78,6 +81,14 @@ app.on("window-all-closed", () => {
 });
 
 function registerWorkCardIpc(): void {
+  ipcMain.handle(
+    "projectIntake:preview",
+    (_event, input: ProjectIntakeInput) => previewProjectIntake(input),
+  );
+  ipcMain.handle(
+    "projectIntake:save",
+    (_event, input: ProjectIntakeInput) => saveProjectIntake(input),
+  );
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),
   );

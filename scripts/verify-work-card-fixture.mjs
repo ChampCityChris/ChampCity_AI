@@ -10,6 +10,10 @@ const checkedInWorkCardsDirectory = resolve(
   repositoryRoot,
   "planning/phases/phase-01/Work_Cards",
 );
+const phase02WorkCardsDirectory = resolve(
+  repositoryRoot,
+  "planning/phases/phase-02/Work_Cards",
+);
 const uiDesignHandoffDirectory = resolve(
   repositoryRoot,
   "planning/phases/phase-01/UI_Design_Handoff",
@@ -17,6 +21,11 @@ const uiDesignHandoffDirectory = resolve(
 const packageJsonPath = resolve(repositoryRoot, "package.json");
 const rendererAppPath = resolve(repositoryRoot, "src/renderer/app/App.tsx");
 const rendererEntryPath = resolve(repositoryRoot, "src/renderer/main.tsx");
+const preloadPath = resolve(repositoryRoot, "src/preload/index.ts");
+const mainWorkCardFileStorePath = resolve(
+  repositoryRoot,
+  "src/main/workCards/workCardFileStore.ts",
+);
 const rendererTailwindPath = resolve(
   repositoryRoot,
   "src/renderer/styles/tailwind.css",
@@ -81,8 +90,28 @@ const {
   workCardPhaseCloseoutFixture,
 } = require("../dist/shared/workCards/fixtures/workCardPhaseCloseoutFixture.js");
 const {
+  workCardProjectIntakeFixture,
+} = require("../dist/shared/workCards/fixtures/workCardProjectIntakeFixture.js");
+const {
+  projectIntakeFixture,
+} = require("../dist/shared/workCards/fixtures/projectIntakeFixture.js");
+const {
   buildDraftWorkCard,
 } = require("../dist/shared/workCards/workCardDraft.js");
+const {
+  buildProjectIntake,
+  buildProjectIntakeFileNames,
+  validateProjectIntakeArtifactFileName,
+  validateProjectIntakeSlug,
+} = require("../dist/shared/workCards/projectIntake.js");
+const {
+  projectIntakeMarkdownHeadings,
+  projectIntakeNextStepText,
+  renderProjectIntakeMarkdown,
+} = require("../dist/shared/workCards/renderProjectIntakeMarkdown.js");
+const {
+  validateProjectIntake,
+} = require("../dist/shared/workCards/validateProjectIntake.js");
 const {
   finalBuilderPromptBoundary,
   renderArchitectFramingPrompt,
@@ -161,6 +190,7 @@ const {
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
   resolveCloseoutReportsDirectory,
+  resolveProjectIntakeDirectory,
   resolveInside,
   resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
@@ -226,15 +256,24 @@ const renderedArtifacts = [
       "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
     ),
   },
+  {
+    fixture: workCardProjectIntakeFixture,
+    path: resolve(
+      repositoryRoot,
+      "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+    ),
+  },
 ];
 
 for (const artifact of renderedArtifacts) {
   assertFixtureArtifact(artifact.fixture, artifact.path);
 }
 
-assertCheckedInJsonArtifacts();
+assertCheckedInJsonArtifacts(checkedInWorkCardsDirectory);
+assertCheckedInJsonArtifacts(phase02WorkCardsDirectory);
 assertUiDesignHandoffPackage();
 assertWc10UiAndTerminology();
+assertProjectIntake();
 
 const draft = buildDraftWorkCard(
   {
@@ -394,8 +433,8 @@ function assertFixtureArtifact(fixture, renderedFixturePath) {
   }
 }
 
-function assertCheckedInJsonArtifacts() {
-  const jsonFileNames = readdirSync(checkedInWorkCardsDirectory)
+function assertCheckedInJsonArtifacts(workCardsDirectory) {
+  const jsonFileNames = readdirSync(workCardsDirectory)
     .filter((fileName) => fileName.toLowerCase().endsWith(".json"))
     .sort();
 
@@ -405,9 +444,9 @@ function assertCheckedInJsonArtifacts() {
   }
 
   for (const fileName of jsonFileNames) {
-    const jsonPath = resolve(checkedInWorkCardsDirectory, fileName);
+    const jsonPath = resolve(workCardsDirectory, fileName);
     const markdownPath = resolve(
-      checkedInWorkCardsDirectory,
+      workCardsDirectory,
       fileName.replace(/\.json$/i, ".md"),
     );
 
@@ -1726,6 +1765,161 @@ function assertWc10UiAndTerminology() {
 
   if (!reportValidation.validEnoughToSave) {
     console.error("Implementer Report heading was not accepted by the report validator.");
+    process.exit(1);
+  }
+}
+
+function assertProjectIntake() {
+  const validation = validateProjectIntake(projectIntakeFixture);
+
+  if (!validation.valid) {
+    console.error("Project Intake fixture validation failed:");
+    for (const error of validation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  if (validation.warnings.length > 0) {
+    console.error("Project Intake fixture should include optional warning context.");
+    for (const warning of validation.warnings) {
+      console.error(`- ${warning}`);
+    }
+    process.exit(1);
+  }
+
+  const markdown = renderProjectIntakeMarkdown(projectIntakeFixture);
+  const requiredMarkdownText = [
+    `# Project Intake: ${projectIntakeFixture.projectName}`,
+    ...projectIntakeMarkdownHeadings,
+    projectIntakeNextStepText,
+  ];
+  const missingMarkdownText = requiredMarkdownText.filter(
+    (text) => !markdown.includes(text),
+  );
+
+  if (missingMarkdownText.length > 0) {
+    console.error("Project Intake Markdown is missing required text:");
+    for (const text of missingMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const missingRequired = validateProjectIntake({
+    ...projectIntakeFixture,
+    projectName: "",
+    productSummary: "",
+    targetUsers: "",
+    userProblem: "",
+    desiredUserOutcome: "",
+    sourceOfTruthLocation: "",
+  });
+
+  if (missingRequired.valid || missingRequired.errors.length < 6) {
+    console.error("Project Intake validation did not reject missing required fields.");
+    process.exit(1);
+  }
+
+  const missingHelpfulContext = validateProjectIntake({
+    ...projectIntakeFixture,
+    knownConstraints: "",
+    nonGoals: "",
+    securityOrDataConcerns: "",
+    operatorUncertainties: "",
+  });
+
+  if (!missingHelpfulContext.valid) {
+    console.error("Project Intake warnings should not block save.");
+    process.exit(1);
+  }
+
+  if (missingHelpfulContext.warnings.length < 4) {
+    console.error("Project Intake did not warn for missing optional-but-important fields.");
+    process.exit(1);
+  }
+
+  const builtProjectIntake = buildProjectIntake(
+    {
+      projectName: "ChampCity A/I",
+      workingTitle: "Upstream intake",
+      productSummary: "Capture the project idea.",
+      targetUsers: "Operator",
+      userProblem: "Project starts are hard to express.",
+      desiredUserOutcome: "Operator can save intake.",
+      businessOrPersonalGoal: "Improve planning.",
+      currentStage: "mvp",
+      sourceOfTruthLocation: "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+      preferredImplementerTool: "Codex",
+      architectSurface: "ChatGPT",
+      knownConstraints: "",
+      nonGoals: "",
+      securityOrDataConcerns: "",
+      examplesOrReferences: "",
+      operatorUncertainties: "",
+      notesForArchitect: "",
+    },
+    "2026-06-30T15:00:00.000Z",
+  );
+
+  if (builtProjectIntake.projectIntakeId !== "PROJECT_INTAKE_champcity_a_i") {
+    console.error("Project Intake builder did not create the expected intake ID.");
+    process.exit(1);
+  }
+
+  const intakeFileNames = buildProjectIntakeFileNames("ChampCity A/I");
+
+  if (
+    intakeFileNames.jsonFileName !== "PROJECT_INTAKE_champcity_a_i.json" ||
+    intakeFileNames.markdownFileName !== "PROJECT_INTAKE_champcity_a_i.md"
+  ) {
+    console.error("Project Intake filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validateProjectIntakeSlug("../bad").length === 0) {
+    console.error("Project Intake slug sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateProjectIntakeArtifactFileName("../bad.json").length === 0) {
+    console.error("Project Intake artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolveProjectIntakeDirectory(), "../bad");
+    console.error("Project Intake path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const intakeSource = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredSourceText = [
+    'label: "Project Intake"',
+    "What are you trying to build?",
+    "previewProjectIntake",
+    "saveProjectIntake",
+    "Project Architect Interview",
+    "Project Profile",
+    "planningProjectRoot",
+    "resolveProjectIntakeDirectory",
+    "validateProjectIntakeArtifactFileName",
+  ];
+  const missingSourceText = requiredSourceText.filter(
+    (text) => !intakeSource.includes(text),
+  );
+
+  if (missingSourceText.length > 0) {
+    console.error("Project Intake source wiring is missing required text:");
+    for (const text of missingSourceText) {
+      console.error(`- ${text}`);
+    }
     process.exit(1);
   }
 }

@@ -29,6 +29,7 @@ import {
 import logoImage from "../assets/champcity_ai_ui_branding.png";
 
 type AppScreen =
+  | "project-intake"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -61,10 +62,29 @@ interface UiWorkCardSummary {
 
 const defaultPhase = "phase-01";
 const PHASES = ["phase-01", "phase-02", "phase-03"];
+const projectIntakeStageOptions: ChampCityProjectIntakeStage[] = [
+  "idea",
+  "prototype",
+  "mvp",
+  "alpha",
+  "beta",
+  "production",
+  "maintenance",
+  "unknown",
+];
 const workCardJsonSelectorHelp =
   "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are compatibility records, not app-readable Work Cards.";
 
 const workflowSteps: WorkflowStep[] = [
+  {
+    id: "project-intake",
+    label: "Project Intake",
+    mode: "architect",
+    shortDesc: "Start upstream",
+    screenTitle: "Project Intake",
+    nextAction: "Capture plain-language project intent before Architect interview.",
+    Icon: ClipboardList,
+  },
   {
     id: "new-work-card",
     label: "Capture",
@@ -174,6 +194,26 @@ const initialPhaseCloseoutForm: ChampCityPhaseCloseoutFormInput = {
   recommendedNextAction: "",
 };
 
+const initialProjectIntakeForm: ChampCityProjectIntakeInput = {
+  projectName: "",
+  workingTitle: "",
+  productSummary: "",
+  targetUsers: "",
+  userProblem: "",
+  desiredUserOutcome: "",
+  businessOrPersonalGoal: "",
+  currentStage: "mvp",
+  sourceOfTruthLocation: "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+  preferredImplementerTool: "Codex",
+  architectSurface: "ChatGPT",
+  knownConstraints: "",
+  nonGoals: "",
+  securityOrDataConcerns: "",
+  examplesOrReferences: "",
+  operatorUncertainties: "",
+  notesForArchitect: "",
+};
+
 const inputCls =
   "w-full min-w-0 rounded-md border border-border bg-white/[0.04] px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/40";
 const selectCls =
@@ -184,7 +224,7 @@ const textareaCls =
 export default function App() {
   const appInfo = useMemo(() => window.champCity.getAppInfo(), []);
   const [activeScreen, setActiveScreen] =
-    useState<AppScreen>("new-work-card");
+    useState<AppScreen>("project-intake");
   const [phase, setPhase] = useState(defaultPhase);
   const [activeCard, setActiveCard] = useState<UiWorkCardSummary | null>(null);
   const { workCards: headerWorkCards } = useWorkCards(phase);
@@ -205,6 +245,9 @@ export default function App() {
   }
 
   const screen = {
+    "project-intake": (
+      <ProjectIntakeScreen onActiveCardChange={setActiveCard} />
+    ),
     "new-work-card": (
       <NewWorkCardScreen
         phase={phase}
@@ -392,9 +435,9 @@ function PipelineStepper({
     );
   };
 
-  const architectSteps = workflowSteps.slice(0, 3);
-  const implementerSteps = workflowSteps.slice(3, 5);
-  const finalSteps = workflowSteps.slice(5);
+  const architectSteps = workflowSteps.slice(0, 4);
+  const implementerSteps = workflowSteps.slice(4, 6);
+  const finalSteps = workflowSteps.slice(6);
 
   return (
     <nav
@@ -432,7 +475,7 @@ function PipelineStepper({
           <div className="flex items-center">
             {implementerSteps.map((step, index) => (
               <div key={step.id} className="flex items-center">
-                {renderStep(step, index + 3)}
+                {renderStep(step, index + 4)}
                 {index < implementerSteps.length - 1 ? (
                   <ChevronRight
                     size={9}
@@ -447,7 +490,7 @@ function PipelineStepper({
         <div className="ml-3 flex items-center border-l border-white/[0.07] pl-3">
           {finalSteps.map((step, index) => (
             <div key={step.id} className="flex items-center">
-              {renderStep(step, index + 5, true)}
+              {renderStep(step, index + 6, true)}
               {index < finalSteps.length - 1 ? (
                 <ChevronRight
                   size={10}
@@ -459,6 +502,287 @@ function PipelineStepper({
         </div>
       </div>
     </nav>
+  );
+}
+
+function ProjectIntakeScreen({
+  onActiveCardChange,
+}: {
+  onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+}) {
+  const [form, setForm] = useState<ChampCityProjectIntakeInput>({
+    ...initialProjectIntakeForm,
+  });
+  const [validation, setValidation] =
+    useState<ChampCityProjectIntakeValidationResult>({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
+  const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Project Intake is ready for plain-language capture.",
+  );
+  const [saveResult, setSaveResult] =
+    useState<ChampCityProjectIntakeSaveResult | null>(null);
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  function updateField<Field extends keyof ChampCityProjectIntakeInput>(
+    field: Field,
+    value: ChampCityProjectIntakeInput[Field],
+  ) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    setSaveResult(null);
+    setCopyMessage("");
+  }
+
+  async function previewProjectIntake() {
+    setIsBusy(true);
+    setCopyMessage("");
+
+    const result = await window.champCity.previewProjectIntake(form);
+    setIsBusy(false);
+    setValidation(result.validation);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewMarkdown("");
+      setStatusMessage("Please fill in the required Project Intake details.");
+      return;
+    }
+
+    setPreviewMarkdown(result.markdown);
+    setSaveResult(null);
+    setStatusMessage("Project Intake preview refreshed.");
+  }
+
+  async function saveProjectIntake() {
+    setIsBusy(true);
+    setCopyMessage("");
+
+    const result = await window.champCity.saveProjectIntake(form);
+    setIsBusy(false);
+    setValidation(result.validation);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewMarkdown("");
+      setStatusMessage("Project Intake save needs attention.");
+      return;
+    }
+
+    setPreviewMarkdown(result.markdown);
+    setSaveResult(result);
+    setStatusMessage("Project Intake saved for future Architect work.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Project Intake"
+            description="Capture what the Operator wants to build before asking the Architect to shape it."
+            badge="upstream"
+          />
+          <Notice type="info">
+            This saves an intake artifact only. It does not generate an
+            Architect Interview prompt, Project Profile, roadmap, phase plan, or
+            Work Cards.
+          </Notice>
+          <ErrorList errors={validation.errors} />
+          <WarningList warnings={validation.warnings} />
+          <FieldGroup title="Project">
+            <FieldRow>
+              <TextField
+                label="Project Name"
+                value={form.projectName}
+                onChange={(value) => updateField("projectName", value)}
+                required
+              />
+              <TextField
+                label="Working Title"
+                value={form.workingTitle}
+                onChange={(value) => updateField("workingTitle", value)}
+              />
+            </FieldRow>
+          </FieldGroup>
+          <FieldGroup title="What You Want">
+            <TextAreaField
+              label="What are you trying to build?"
+              value={form.productSummary}
+              rows={4}
+              onChange={(value) => updateField("productSummary", value)}
+              required
+            />
+            <FieldRow>
+              <TextAreaField
+                label="Who is this for?"
+                value={form.targetUsers}
+                rows={4}
+                onChange={(value) => updateField("targetUsers", value)}
+                required
+              />
+              <TextAreaField
+                label="What problem does this solve?"
+                value={form.userProblem}
+                rows={4}
+                onChange={(value) => updateField("userProblem", value)}
+                required
+              />
+            </FieldRow>
+            <TextAreaField
+              label="What should the user be able to do?"
+              value={form.desiredUserOutcome}
+              rows={4}
+              onChange={(value) => updateField("desiredUserOutcome", value)}
+              required
+            />
+            <TextAreaField
+              label="Goal for this project"
+              value={form.businessOrPersonalGoal}
+              rows={3}
+              onChange={(value) => updateField("businessOrPersonalGoal", value)}
+            />
+          </FieldGroup>
+          <FieldGroup title="Setup">
+            <FieldRow>
+              <Field label="Current stage">
+                <select
+                  className={selectCls}
+                  value={form.currentStage}
+                  onChange={(event) =>
+                    updateField(
+                      "currentStage",
+                      event.target.value as ChampCityProjectIntakeStage,
+                    )
+                  }
+                >
+                  {projectIntakeStageOptions.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <TextField
+                label="Source of truth location"
+                value={form.sourceOfTruthLocation}
+                onChange={(value) =>
+                  updateField("sourceOfTruthLocation", value)
+                }
+                required
+              />
+            </FieldRow>
+            <FieldRow>
+              <TextField
+                label="Preferred Implementer tool"
+                value={form.preferredImplementerTool}
+                onChange={(value) =>
+                  updateField("preferredImplementerTool", value)
+                }
+              />
+              <TextField
+                label="Architect surface"
+                value={form.architectSurface}
+                onChange={(value) => updateField("architectSurface", value)}
+              />
+            </FieldRow>
+          </FieldGroup>
+          <FieldGroup title="Boundaries">
+            <FieldRow>
+              <TextAreaField
+                label="Known constraints"
+                value={form.knownConstraints}
+                rows={3}
+                onChange={(value) => updateField("knownConstraints", value)}
+              />
+              <TextAreaField
+                label="What this project should not try to do yet"
+                value={form.nonGoals}
+                rows={3}
+                onChange={(value) => updateField("nonGoals", value)}
+              />
+            </FieldRow>
+            <FieldRow>
+              <TextAreaField
+                label="Security or data concerns"
+                value={form.securityOrDataConcerns}
+                rows={3}
+                onChange={(value) =>
+                  updateField("securityOrDataConcerns", value)
+                }
+              />
+              <TextAreaField
+                label="Examples or references"
+                value={form.examplesOrReferences}
+                rows={3}
+                onChange={(value) => updateField("examplesOrReferences", value)}
+              />
+            </FieldRow>
+            <TextAreaField
+              label="What are you unsure about?"
+              value={form.operatorUncertainties}
+              rows={3}
+              onChange={(value) => updateField("operatorUncertainties", value)}
+            />
+            <TextAreaField
+              label="Notes for the Architect"
+              value={form.notesForArchitect}
+              rows={3}
+              onChange={(value) => updateField("notesForArchitect", value)}
+            />
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void previewProjectIntake()}
+            onSave={() => void saveProjectIntake()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            saveLabel="Save Project Intake"
+            copyLabel="Copy Preview"
+            saveDisabled={isBusy}
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={validation.errors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Project Intake"
+          title="Intake Markdown Preview"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Preview a Project Intake to see the durable Markdown artifact."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Project Intake artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          <Notice type="info">
+            Next step: use this intake to generate a Project Architect Interview
+            prompt in a future Work Card.
+          </Notice>
+          <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
+            {previewMarkdown || "No Project Intake preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
   );
 }
 
@@ -2861,6 +3185,25 @@ function ErrorList({ errors }: { errors: string[] }) {
           <li key={error}>{error}</li>
         ))}
       </ul>
+    </Notice>
+  );
+}
+
+function WarningList({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Helpful context to consider</strong>
+        <ul className="grid gap-1">
+          {warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      </div>
     </Notice>
   );
 }

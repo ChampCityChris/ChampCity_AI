@@ -5,6 +5,14 @@ import type {
   WorkCardSaveResult,
 } from "../shared/workCards/workCardDraft";
 import type {
+  ProjectIntake,
+  ProjectIntakeInput,
+  ProjectIntakePreviewResult,
+  ProjectIntakeSaveResult,
+  ProjectIntakeStage,
+} from "../shared/workCards/projectIntake";
+import type { ProjectIntakeValidationResult } from "../shared/workCards/validateProjectIntake";
+import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
   ArchitectPromptSaveResult,
@@ -63,6 +71,13 @@ import type {
 
 declare global {
   type ChampCityWorkCardDraftInput = WorkCardDraftInput;
+  type ChampCityProjectIntake = ProjectIntake;
+  type ChampCityProjectIntakeInput = ProjectIntakeInput;
+  type ChampCityProjectIntakeStage = ProjectIntakeStage;
+  type ChampCityProjectIntakeValidationResult =
+    ProjectIntakeValidationResult;
+  type ChampCityProjectIntakePreviewResult = ProjectIntakePreviewResult;
+  type ChampCityProjectIntakeSaveResult = ProjectIntakeSaveResult;
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
   type ChampCityWorkCardSaveResult = WorkCardSaveResult;
   type ChampCityNextWorkCardIdResult = NextWorkCardIdResult;
@@ -127,6 +142,12 @@ declare global {
         stage: string;
         coreLoop: string[];
       };
+      previewProjectIntake: (
+        input: ProjectIntakeInput,
+      ) => Promise<ProjectIntakePreviewResult>;
+      saveProjectIntake: (
+        input: ProjectIntakeInput,
+      ) => Promise<ProjectIntakeSaveResult>;
       getNextWorkCardId: (phase: string) => Promise<NextWorkCardIdResult>;
       previewWorkCardDraft: (
         input: WorkCardDraftInput,

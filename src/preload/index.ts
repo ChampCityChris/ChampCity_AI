@@ -7,6 +7,11 @@ import type {
   WorkCardSaveResult,
 } from "../shared/workCards/workCardDraft";
 import type {
+  ProjectIntakeInput,
+  ProjectIntakePreviewResult,
+  ProjectIntakeSaveResult,
+} from "../shared/workCards/projectIntake";
+import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
   ArchitectPromptSaveResult,
@@ -47,6 +52,7 @@ const api = {
     name: "ChampCity A/I",
     stage: "guided work card pipeline",
     coreLoop: [
+      "Project Intake",
       "Capture",
       "Architect",
       "Risk",
@@ -56,6 +62,14 @@ const api = {
       "Closeout",
     ],
   }),
+  previewProjectIntake: (
+    input: ProjectIntakeInput,
+  ): Promise<ProjectIntakePreviewResult> =>
+    ipcRenderer.invoke("projectIntake:preview", input),
+  saveProjectIntake: (
+    input: ProjectIntakeInput,
+  ): Promise<ProjectIntakeSaveResult> =>
+    ipcRenderer.invoke("projectIntake:save", input),
   getNextWorkCardId: (phase: string): Promise<NextWorkCardIdResult> =>
     ipcRenderer.invoke("workCards:getNextId", phase),
   previewWorkCardDraft: (

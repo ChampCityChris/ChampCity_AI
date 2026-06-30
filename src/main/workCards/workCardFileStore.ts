@@ -91,9 +91,20 @@ import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMar
 import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
 import { validateWorkCard } from "../../shared/workCards/validateWorkCard";
+import {
+  buildProjectIntake,
+  buildProjectIntakeFileNames,
+  validateProjectIntakeArtifactFileName,
+  type ProjectIntakeInput,
+  type ProjectIntakePreviewResult,
+  type ProjectIntakeSaveResult,
+} from "../../shared/workCards/projectIntake";
+import { renderProjectIntakeMarkdown } from "../../shared/workCards/renderProjectIntakeMarkdown";
+import { validateProjectIntake } from "../../shared/workCards/validateProjectIntake";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
+const planningProjectRoot = path.join(repositoryRoot, "planning", "project");
 type SupportingArtifactFolder =
   | "Work_Cards"
   | "Architect_Prompts"
@@ -200,6 +211,114 @@ export async function saveDraftWorkCard(
 
     return {
       ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export function previewProjectIntake(
+  input: ProjectIntakeInput,
+): ProjectIntakePreviewResult {
+  try {
+    const projectIntake = buildProjectIntake(input, new Date().toISOString());
+    const validation = validateProjectIntake(projectIntake);
+    const suggestedFileNames = buildProjectIntakeFileNames(
+      projectIntake.projectName,
+    );
+
+    if (!validation.valid) {
+      return {
+        ok: false,
+        validation,
+        projectIntake,
+        suggestedFileNames,
+        errorMessages: validation.errors,
+      };
+    }
+
+    return {
+      ok: true,
+      validation,
+      projectIntake,
+      markdown: renderProjectIntakeMarkdown(projectIntake),
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      validation: {
+        valid: false,
+        errors: [toPlainSaveError(error)],
+        warnings: [],
+      },
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveProjectIntake(
+  input: ProjectIntakeInput,
+): Promise<ProjectIntakeSaveResult> {
+  try {
+    const preview = previewProjectIntake(input);
+
+    if (
+      !preview.ok ||
+      !preview.projectIntake ||
+      !preview.markdown ||
+      !preview.suggestedFileNames
+    ) {
+      return preview;
+    }
+
+    const directory = resolveProjectIntakeDirectory();
+    const targets = await resolveAvailableFilePair(
+      directory,
+      preview.suggestedFileNames.jsonFileName,
+      preview.suggestedFileNames.markdownFileName,
+      "A safe Project Intake filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validateProjectIntakeArtifactFileName(targets.firstFileName),
+      ...validateProjectIntakeArtifactFileName(targets.secondFileName),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(preview.projectIntake, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, preview.markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Project Intake.", error);
+
+    return {
+      ok: false,
+      validation: {
+        valid: false,
+        errors: [toPlainSaveError(error)],
+        warnings: [],
+      },
       errorMessages: [toPlainSaveError(error)],
     };
   }
@@ -936,6 +1055,10 @@ export function resolveCloseoutReportsDirectory(phase: string): string {
   return resolveInside(planningPhasesRoot, phase.trim(), "Closeout_Reports");
 }
 
+export function resolveProjectIntakeDirectory(): string {
+  return resolveInside(planningProjectRoot, "Project_Intake");
+}
+
 export function resolveInside(root: string, ...segments: string[]): string {
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(resolvedRoot, ...segments);
@@ -1437,6 +1560,7 @@ async function resolveAvailableFilePair(
   directory: string,
   firstFileName: string,
   secondFileName: string,
+  failureMessage = "A safe paired artifact filename could not be generated.",
 ): Promise<{
   firstPath: string;
   secondPath: string;
@@ -1459,7 +1583,7 @@ async function resolveAvailableFilePair(
     }
   }
 
-  throw new Error("A safe validation report filename could not be generated.");
+  throw new Error(failureMessage);
 }
 
 async function resolveAvailableMarkdownPath(
