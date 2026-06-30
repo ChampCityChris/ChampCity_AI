@@ -1,0 +1,8 @@
+#root {
+  height: 100vh;
+}
+
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

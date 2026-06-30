@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir } from "node:fs/promises";
+import { cp, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,34 +9,10 @@ const rendererSource = path.join(projectRoot, "src", "renderer");
 const rendererOutput = path.join(projectRoot, "dist", "renderer");
 const rendererAssetsSource = path.join(rendererSource, "assets");
 const rendererAssetsOutput = path.join(rendererOutput, "assets");
-const rendererVendorOutput = path.join(rendererOutput, "vendor");
 
 await mkdir(rendererOutput, { recursive: true });
-await mkdir(rendererVendorOutput, { recursive: true });
-
-for (const fileName of ["index.html", "styles.css"]) {
-  await copyFile(
-    path.join(rendererSource, fileName),
-    path.join(rendererOutput, fileName),
-  );
-}
 
 await cp(rendererAssetsSource, rendererAssetsOutput, {
   recursive: true,
   force: true,
 });
-
-await copyFile(
-  path.join(projectRoot, "node_modules", "react", "umd", "react.development.js"),
-  path.join(rendererVendorOutput, "react.development.js"),
-);
-await copyFile(
-  path.join(
-    projectRoot,
-    "node_modules",
-    "react-dom",
-    "umd",
-    "react-dom.development.js",
-  ),
-  path.join(rendererVendorOutput, "react-dom.development.js"),
-);

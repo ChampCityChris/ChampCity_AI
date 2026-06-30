@@ -5,7 +5,7 @@
   "main": "dist/main/main.js",
   "private": true,
   "scripts": {
-    "build": "tsc && node scripts/copy-renderer-assets.mjs",
+    "build": "tsc && vite build && node scripts/copy-renderer-assets.mjs",
     "start": "npm run build && electron .",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck",
@@ -13,10 +13,17 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@tailwindcss/vite": "^4.1.12",
+    "@vitejs/plugin-react": "^4.7.0",
     "electron": "^31.3.0",
-    "typescript": "^5.5.4"
+    "tailwindcss": "^4.1.12",
+    "typescript": "^5.5.4",
+    "vite": "^6.3.5"
   },
   "dependencies": {
+    "lucide-react": "^0.487.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }

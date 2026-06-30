@@ -14,8 +14,21 @@ const uiDesignHandoffDirectory = resolve(
   repositoryRoot,
   "planning/phases/phase-01/UI_Design_Handoff",
 );
-const rendererSourcePath = resolve(repositoryRoot, "src/renderer/renderer.ts");
-const rendererStylePath = resolve(repositoryRoot, "src/renderer/styles.css");
+const packageJsonPath = resolve(repositoryRoot, "package.json");
+const rendererAppPath = resolve(repositoryRoot, "src/renderer/app/App.tsx");
+const rendererEntryPath = resolve(repositoryRoot, "src/renderer/main.tsx");
+const rendererTailwindPath = resolve(
+  repositoryRoot,
+  "src/renderer/styles/tailwind.css",
+);
+const rendererThemePath = resolve(
+  repositoryRoot,
+  "src/renderer/styles/theme.css",
+);
+const figmaImplementationMapPath = resolve(
+  uiDesignHandoffDirectory,
+  "FIGMA_IMPLEMENTATION_MAP.md",
+);
 const rendererIconPath = resolve(
   repositoryRoot,
   "src/renderer/assets/champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
@@ -740,7 +753,7 @@ function assertBuilderReportCapture() {
     "- planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
     "",
     "## Files Modified",
-    "- src/renderer/renderer.ts",
+    "- src/renderer/app/App.tsx",
     "",
     "## Files Intentionally Not Created",
     "- No report index was created.",
@@ -1516,11 +1529,14 @@ function assertUiDesignHandoffPackage() {
 
 function assertWc10UiAndTerminology() {
   const requiredFiles = [
-    rendererSourcePath,
-    rendererStylePath,
+    rendererAppPath,
+    rendererEntryPath,
+    rendererTailwindPath,
+    rendererThemePath,
     rendererIconPath,
     rendererBrandingPath,
     figmaSourcePackagePath,
+    figmaImplementationMapPath,
     resolve(
       checkedInWorkCardsDirectory,
       "WC10_implement_figma_ui_and_terminology_alignment.json",
@@ -1538,8 +1554,15 @@ function assertWc10UiAndTerminology() {
     }
   }
 
-  const rendererSource = readFileSync(rendererSourcePath, "utf8");
-  const rendererStyles = readFileSync(rendererStylePath, "utf8");
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+  const rendererSource = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(rendererEntryPath, "utf8"),
+  ].join("\n");
+  const rendererStyles = [
+    readFileSync(rendererTailwindPath, "utf8"),
+    readFileSync(rendererThemePath, "utf8"),
+  ].join("\n");
 
   for (const label of wc10PipelineLabels) {
     if (!rendererSource.includes(`label: "${label}"`)) {
@@ -1555,6 +1578,13 @@ function assertWc10UiAndTerminology() {
     "Save Implementer Prompt",
     "Save Implementer Report",
     "champcity_ai_ui_branding.png",
+    "window.champCity",
+    "listSavedWorkCards",
+    "previewBuilderPrompt",
+    "saveHumanValidationRecord",
+    "PipelineStepper",
+    "ArtifactPanel",
+    "ScreenLayout",
   ];
   const missingRendererText = requiredRendererText.filter(
     (text) => !rendererSource.includes(text),
@@ -1577,6 +1607,7 @@ function assertWc10UiAndTerminology() {
     'h("p", { className: "eyebrow" }, "Architect / Implementer")',
     "DEMO_CARDS",
     "ARTIFACT_SUMMARY",
+    "src=\"./vendor/react.development.js\"",
   ];
   const foundForbiddenText = forbiddenRendererText.filter((text) =>
     rendererSource.includes(text),
@@ -1593,24 +1624,63 @@ function assertWc10UiAndTerminology() {
   const requiredStyleText = [
     "color-scheme: dark",
     "#080a0d",
-    "--cyan: #00cce6",
-    ".workflow-rail",
-    ".brand-art",
-    "flex-wrap: nowrap",
-    "white-space: nowrap",
-    "overflow-x: auto",
-    "overflow-wrap: anywhere",
+    "--primary: #00cce6",
+    "@import \"tailwindcss\" source(none)",
+    "@source \"../**/*.{js,ts,jsx,tsx}\"",
+    "@theme inline",
   ];
   const missingStyleText = requiredStyleText.filter(
     (text) => !rendererStyles.includes(text),
   );
 
   if (missingStyleText.length > 0) {
-    console.error("Renderer stylesheet is missing WC10 dark UI tokens:");
+    console.error("Renderer Tailwind styles are missing WC10 dark UI tokens:");
     for (const text of missingStyleText) {
       console.error(`- ${text}`);
     }
     process.exit(1);
+  }
+
+  const requiredAppStyleText = [
+    "overflow-x-auto",
+    "break-anywhere",
+    "bg-background",
+    "text-primary",
+    "border-border",
+  ];
+  const missingAppStyleText = requiredAppStyleText.filter(
+    (text) => !rendererSource.includes(text),
+  );
+
+  if (missingAppStyleText.length > 0) {
+    console.error("Renderer source is missing expected Figma/Tailwind class usage:");
+    for (const text of missingAppStyleText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const requiredDependencies = {
+    dependencies: ["lucide-react", "react", "react-dom"],
+    devDependencies: [
+      "@tailwindcss/vite",
+      "@vitejs/plugin-react",
+      "@types/react",
+      "@types/react-dom",
+      "tailwindcss",
+      "vite",
+    ],
+  };
+
+  for (const [dependencyGroup, dependencyNames] of Object.entries(requiredDependencies)) {
+    for (const dependencyName of dependencyNames) {
+      if (!packageJson[dependencyGroup]?.[dependencyName]) {
+        console.error(
+          `Renderer package dependency is missing: ${dependencyGroup}.${dependencyName}`,
+        );
+        process.exit(1);
+      }
+    }
   }
 
   const implementerReport = [
