@@ -72,7 +72,7 @@ const api = {
     stage: "Alpha app development",
     coreLoop: [
       "Project Intake",
-      "Project Architect",
+      "Project Architect Interview",
       "Project Plan",
       "Capture",
       "Architect",

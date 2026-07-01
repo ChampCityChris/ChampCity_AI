@@ -490,11 +490,7 @@ export async function listSavedProjectIntakes(): Promise<ListSavedProjectIntakes
       }
     }
 
-    projectIntakes.sort((left, right) =>
-      `${left.projectName} ${left.fileName}`.localeCompare(
-        `${right.projectName} ${right.fileName}`,
-      ),
-    );
+    projectIntakes.sort(compareSavedProjectArtifactSummaries);
 
     return {
       ok: true,
@@ -661,11 +657,7 @@ export async function listSavedProjectArchitectInterviewPrompts(): Promise<ListS
       }
     }
 
-    prompts.sort((left, right) =>
-      `${left.projectName} ${left.fileName}`.localeCompare(
-        `${right.projectName} ${right.fileName}`,
-      ),
-    );
+    prompts.sort(compareSavedProjectArtifactSummaries);
 
     return {
       ok: true,
@@ -2806,6 +2798,28 @@ function toSavedWorkCardSummary(
     phase: workCard.phase,
     riskLevel: workCard.riskLevel,
   };
+}
+
+function compareSavedProjectArtifactSummaries(
+  left: { updatedAt: string; projectName: string; fileName: string },
+  right: { updatedAt: string; projectName: string; fileName: string },
+): number {
+  const leftUpdatedAt = Date.parse(left.updatedAt);
+  const rightUpdatedAt = Date.parse(right.updatedAt);
+  const leftHasDate = Number.isFinite(leftUpdatedAt);
+  const rightHasDate = Number.isFinite(rightUpdatedAt);
+
+  if (leftHasDate && rightHasDate && leftUpdatedAt !== rightUpdatedAt) {
+    return rightUpdatedAt - leftUpdatedAt;
+  }
+
+  if (leftHasDate !== rightHasDate) {
+    return leftHasDate ? -1 : 1;
+  }
+
+  return `${left.projectName} ${left.fileName}`.localeCompare(
+    `${right.projectName} ${right.fileName}`,
+  );
 }
 
 async function failIfExists(

@@ -92,7 +92,7 @@ const workflowSteps: WorkflowStep[] = [
   },
   {
     id: "project-architect-interview",
-    label: "Project Architect",
+    label: "Project Architect Interview",
     mode: "architect",
     shortDesc: "Interview prompt",
     screenTitle: "Project Architect Interview",
@@ -275,10 +275,16 @@ export default function App() {
 
   const screen = {
     "project-intake": (
-      <ProjectIntakeScreen onActiveCardChange={setActiveCard} />
+      <ProjectIntakeScreen
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
     ),
     "project-architect-interview": (
-      <ProjectArchitectInterviewScreen onActiveCardChange={setActiveCard} />
+      <ProjectArchitectInterviewScreen
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
     ),
     "project-planning-documents": (
       <ProjectPlanningDocumentsScreen onActiveCardChange={setActiveCard} />
@@ -570,8 +576,10 @@ function PipelineStepper({
 
 function ProjectIntakeScreen({
   onActiveCardChange,
+  onNavigate,
 }: {
   onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+  onNavigate: (screen: AppScreen) => void;
 }) {
   const [form, setForm] = useState<ChampCityProjectIntakeInput>({
     ...initialProjectIntakeForm,
@@ -833,12 +841,20 @@ function ProjectIntakeScreen({
                 <code className="break-anywhere text-[11px]">
                   {saveResult.jsonPath}
                 </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("project-architect-interview")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Project Architect Interview
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </div>
             </Notice>
           ) : null}
           <Notice type="info">
             Next step: use this intake to generate a Project Architect Interview
-            prompt in a future Work Card.
+            prompt.
           </Notice>
           <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
             {previewMarkdown || "No Project Intake preview yet."}
@@ -851,8 +867,10 @@ function ProjectIntakeScreen({
 
 function ProjectArchitectInterviewScreen({
   onActiveCardChange,
+  onNavigate,
 }: {
   onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+  onNavigate: (screen: AppScreen) => void;
 }) {
   const { projectIntakes, invalidFiles, errors, isLoading } =
     useProjectIntakes();
@@ -1046,6 +1064,14 @@ function ProjectArchitectInterviewScreen({
                 <code className="break-anywhere text-[11px]">
                   {saveResult.jsonPath}
                 </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("project-planning-documents")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Project Plan
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </div>
             </Notice>
           ) : null}
@@ -1113,6 +1139,43 @@ function ProjectPlanningDocumentsScreen({
   useEffect(() => {
     onActiveCardChange(null);
   }, [onActiveCardChange]);
+
+  useEffect(() => {
+    if (projectIntakes.length === 0) {
+      if (selectedProjectIntakeFileName.length > 0) {
+        setSelectedProjectIntakeFileName("");
+      }
+
+      return;
+    }
+
+    if (
+      projectIntakes.some(
+        (projectIntake) =>
+          projectIntake.fileName === selectedProjectIntakeFileName,
+      )
+    ) {
+      return;
+    }
+
+    setSelectedProjectIntakeFileName(projectIntakes[0]?.fileName ?? "");
+  }, [projectIntakes, selectedProjectIntakeFileName]);
+
+  useEffect(() => {
+    if (prompts.length === 0) {
+      if (selectedPromptFileName.length > 0) {
+        setSelectedPromptFileName("");
+      }
+
+      return;
+    }
+
+    if (prompts.some((prompt) => prompt.fileName === selectedPromptFileName)) {
+      return;
+    }
+
+    setSelectedPromptFileName(prompts[0]?.fileName ?? "");
+  }, [prompts, selectedPromptFileName]);
 
   function updateSelectedProjectIntake(fileName: string) {
     setSelectedProjectIntakeFileName(fileName);
@@ -1270,7 +1333,7 @@ function ProjectPlanningDocumentsScreen({
                 <option value="">
                   {isProjectIntakesLoading
                     ? "Loading Project Intakes..."
-                    : "Do not include Project Intake"}
+                    : "Select Project Intake"}
                 </option>
                 {projectIntakes.map((projectIntake) => (
                   <option
@@ -1295,7 +1358,7 @@ function ProjectPlanningDocumentsScreen({
                 <option value="">
                   {isPromptsLoading
                     ? "Loading Architect prompts..."
-                    : "Do not include Architect Prompt"}
+                    : "Select Architect Prompt"}
                 </option>
                 {prompts.map((prompt) => (
                   <option key={prompt.fileName} value={prompt.fileName}>
