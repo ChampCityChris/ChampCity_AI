@@ -86,8 +86,8 @@ The Operator should validate the live app workflow:
 
 ## Git Actions Performed
 
-- Commit is pending at report creation time.
-- Intended commit message: `fix: repair project planning documents workflow`
+- Repair commit created: `14dbc20` with message `fix: repair project planning documents workflow`
+- Report hash-recording update: committed as the follow-up documentation commit containing this report revision.
 - Tag: none.
 
 ## Security/Secret-Safety Notes
