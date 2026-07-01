@@ -1,4 +1,11 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  type ContextMenuParams,
+  type MenuItemConstructorOptions,
+} from "electron";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
@@ -92,7 +99,47 @@ function createMainWindow(): void {
     },
   });
 
+  registerEditContextMenu(mainWindow);
+
   void mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+}
+
+function registerEditContextMenu(mainWindow: BrowserWindow): void {
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    const template = buildEditContextMenuTemplate(params);
+
+    if (template.length === 0) {
+      return;
+    }
+
+    Menu.buildFromTemplate(template).popup({ window: mainWindow });
+  });
+}
+
+function buildEditContextMenuTemplate(
+  params: ContextMenuParams,
+): MenuItemConstructorOptions[] {
+  if (params.isEditable) {
+    return [
+      { role: "undo", enabled: params.editFlags.canUndo },
+      { role: "redo", enabled: params.editFlags.canRedo },
+      { type: "separator" },
+      { role: "cut", enabled: params.editFlags.canCut },
+      { role: "copy", enabled: params.editFlags.canCopy },
+      { role: "paste", enabled: params.editFlags.canPaste },
+      { type: "separator" },
+      { role: "selectAll", enabled: params.editFlags.canSelectAll },
+    ];
+  }
+
+  if (params.selectionText.length > 0) {
+    return [
+      { role: "copy", enabled: params.editFlags.canCopy },
+      { role: "selectAll", enabled: params.editFlags.canSelectAll },
+    ];
+  }
+
+  return [];
 }
 
 app.whenReady().then(() => {
