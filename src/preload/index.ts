@@ -51,6 +51,7 @@ import type {
   ValidationEvidenceFileImportRequest,
   ValidationEvidenceFileImportResult,
 } from "../shared/workCards/validationRecord";
+import type { ListValidationTargetsResult } from "../shared/workCards/validationTarget";
 import type {
   PhaseCloseoutFormInput,
   PhaseCloseoutPreviewResult,
@@ -146,6 +147,10 @@ const api = {
     input: HumanValidationBuilderReportListRequest,
   ): Promise<HumanValidationBuilderReportListResult> =>
     ipcRenderer.invoke("workCards:listHumanValidationBuilderReports", input),
+  listHumanValidationTargets: (
+    phase: string,
+  ): Promise<ListValidationTargetsResult> =>
+    ipcRenderer.invoke("workCards:listHumanValidationTargets", phase),
   previewHumanValidationRecord: (
     input: HumanValidationFormInput,
   ): Promise<HumanValidationPreviewResult> =>

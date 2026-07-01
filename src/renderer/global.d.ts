@@ -70,6 +70,11 @@ import type {
   ValidationEvidenceFileImportResult,
 } from "../shared/workCards/validationRecord";
 import type {
+  InvalidValidationTargetFile,
+  ListValidationTargetsResult,
+  ValidationTargetSummary,
+} from "../shared/workCards/validationTarget";
+import type {
   PhaseArtifactFolderSummary,
   PhaseArtifactSummary,
   PhaseWorkCardArtifactPair,
@@ -152,6 +157,9 @@ declare global {
     HumanValidationBuilderReportListResult;
   type ChampCityHumanValidationPreviewResult = HumanValidationPreviewResult;
   type ChampCityHumanValidationSaveResult = HumanValidationSaveResult;
+  type ChampCityValidationTargetSummary = ValidationTargetSummary;
+  type ChampCityInvalidValidationTargetFile = InvalidValidationTargetFile;
+  type ChampCityListValidationTargetsResult = ListValidationTargetsResult;
   type ChampCityPhaseArtifactFolderSummary = PhaseArtifactFolderSummary;
   type ChampCityPhaseArtifactSummary = PhaseArtifactSummary;
   type ChampCityPhaseWorkCardArtifactPair = PhaseWorkCardArtifactPair;
@@ -234,6 +242,9 @@ declare global {
       listHumanValidationBuilderReports: (
         input: HumanValidationBuilderReportListRequest,
       ) => Promise<HumanValidationBuilderReportListResult>;
+      listHumanValidationTargets: (
+        phase: string,
+      ) => Promise<ListValidationTargetsResult>;
       previewHumanValidationRecord: (
         input: HumanValidationFormInput,
       ) => Promise<HumanValidationPreviewResult>;

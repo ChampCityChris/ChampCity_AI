@@ -204,6 +204,7 @@ const {
 const {
   listAvailablePhaseFolders,
   listHumanValidationBuilderReports,
+  listHumanValidationTargets,
   listSavedWorkCards,
   loadBuilderReportFile,
   previewHumanValidationRecord,
@@ -217,6 +218,7 @@ const {
   resolveRiskReviewsDirectory,
   resolveValidationEvidenceDirectory,
   resolveValidationReportsDirectory,
+  resolveValidationTargetsDirectory,
   validateMarkdownArtifactFileName,
   validateSavedProjectIntakeJsonFileName,
   validateSavedWorkCardJsonFileName,
@@ -393,6 +395,14 @@ try {
 try {
   resolveValidationReportsDirectory("../bad");
   console.error("Validation Reports directory sanitizer failed to reject traversal input.");
+  process.exit(1);
+} catch {
+  // Expected.
+}
+
+try {
+  resolveValidationTargetsDirectory("../bad");
+  console.error("Validation Targets directory sanitizer failed to reject traversal input.");
   process.exit(1);
 } catch {
   // Expected.
@@ -1264,7 +1274,8 @@ async function assertHumanValidationAndRepair() {
   const validationMarkdown = renderValidationRecordMarkdown(record);
   const requiredValidationText = [
     "# Human Validation Report - WC07 Human validation and repair loop",
-    "## Work Card",
+    "## Validation Target",
+    "- Validation Target kind: work_card",
     "## Validation Result",
     "## What Was Tested?",
     "## What Passed?",
@@ -1346,6 +1357,114 @@ async function assertHumanValidationAndRepair() {
       "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md"
   ) {
     console.error("WC02 validation did not default to the matching WC02 Implementer Report.");
+    process.exit(1);
+  }
+
+  const phase02ValidationTargets = await listHumanValidationTargets("phase-02");
+
+  if (!phase02ValidationTargets.ok) {
+    console.error("Phase 02 Validation Target listing failed.");
+    process.exit(1);
+  }
+
+  const expectedValidationTargets = [
+    {
+      id: "WC03_REPAIR_validation_and_evidence_ui",
+      fileName: "VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
+      reportFile: "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+    },
+    {
+      id: "WC03_REPAIR_header_layout_regression",
+      fileName: "VALIDATION_TARGET_WC03_repair_header_layout_regression.json",
+      reportFile: "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+    },
+    {
+      id: "FIX_context_menu_copy_paste",
+      fileName: "VALIDATION_TARGET_FIX_context_menu_copy_paste.json",
+      reportFile: "BUILDER_REPORT_FIX_context_menu_copy_paste.md",
+    },
+  ];
+
+  if (
+    !phase02ValidationTargets.targets?.some(
+      (target) =>
+        target.kind === "work_card" &&
+        target.sourceJsonFile ===
+          "WC03_repair_validation_and_evidence_ui.json",
+    )
+  ) {
+    console.error("Validation Target listing did not preserve normal Work Card JSON support.");
+    process.exit(1);
+  }
+
+  for (const expectedTarget of expectedValidationTargets) {
+    const target = phase02ValidationTargets.targets?.find(
+      (candidate) => candidate.id === expectedTarget.id,
+    );
+
+    if (!target) {
+      console.error(`Validation Target listing is missing ${expectedTarget.id}.`);
+      process.exit(1);
+    }
+
+    if (
+      target.fileName !== expectedTarget.fileName ||
+      target.expectedImplementerReportFile !== expectedTarget.reportFile
+    ) {
+      console.error(`Validation Target metadata is wrong for ${expectedTarget.id}.`);
+      process.exit(1);
+    }
+
+    const targetReports = await listHumanValidationBuilderReports({
+      phase: "phase-02",
+      workCardFileName: target.sourceJsonFile,
+      validationTargetFileName: target.fileName,
+    });
+
+    if (!targetReports.ok || targetReports.defaultFileName !== expectedTarget.reportFile) {
+      console.error(`Validation Target ${expectedTarget.id} did not default to its expected Implementer Report.`);
+      process.exit(1);
+    }
+  }
+
+  const repairValidationTarget = phase02ValidationTargets.targets?.find(
+    (target) => target.id === "WC03_REPAIR_validation_and_evidence_ui",
+  );
+
+  const repairTargetPreview = await previewHumanValidationRecord({
+    ...baseInput,
+    phase: "phase-02",
+    workCardFileName: repairValidationTarget?.sourceJsonFile ?? "",
+    validationTargetFileName: repairValidationTarget?.fileName,
+    builderReportFileName:
+      "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+    validationResult: "Not Tested",
+    operatorDecision: "Deferred - not validated yet",
+  });
+
+  if (
+    !repairTargetPreview.ok ||
+    repairTargetPreview.record?.validationTargetId !==
+      "WC03_REPAIR_validation_and_evidence_ui" ||
+    !repairTargetPreview.validationMarkdown?.includes("## Validation Target")
+  ) {
+    console.error("Repair Validation Target preview did not preserve target metadata.");
+    process.exit(1);
+  }
+
+  const mismatchedRepairTargetPreview = await previewHumanValidationRecord({
+    ...baseInput,
+    phase: "phase-02",
+    workCardFileName: repairValidationTarget?.sourceJsonFile ?? "",
+    validationTargetFileName: repairValidationTarget?.fileName,
+    builderReportFileName:
+      "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+    validationResult: "Not Tested",
+    operatorDecision: "Deferred - not validated yet",
+  });
+
+  if (mismatchedRepairTargetPreview.ok) {
+    console.error("Repair Validation Target accepted a mismatched explicit Implementer Report.");
     process.exit(1);
   }
 
@@ -1568,6 +1687,9 @@ async function assertHumanValidationAndRepair() {
   ].join("\n");
   const requiredValidationRepairSource = [
     "listAvailablePhases",
+    "listHumanValidationTargets",
+    "Validation Target",
+    "Validation_Targets",
     "attachValidationEvidenceFile",
     "Import Screenshot/File",
     "Validation_Evidence",

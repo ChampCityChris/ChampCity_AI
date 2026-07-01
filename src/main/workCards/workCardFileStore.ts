@@ -95,6 +95,16 @@ import {
   type ValidationEvidenceFileImportResult,
   validateHumanValidationRecord,
 } from "../../shared/workCards/validationRecord";
+import {
+  buildWorkCardValidationTarget,
+  formatValidationTargetLabel,
+  toValidationTargetRecord,
+  validateValidationTargetJsonFileName,
+  type InvalidValidationTargetFile,
+  type ListValidationTargetsResult,
+  type ValidationTargetRecord,
+  type ValidationTargetSummary,
+} from "../../shared/workCards/validationTarget";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
 import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
@@ -140,6 +150,10 @@ type SupportingArtifactFolder =
   | "Architect_Prompts"
   | "Risk_Reviews"
   | "Builder_Reports";
+
+interface HumanValidationTargetContext {
+  target: ValidationTargetSummary;
+}
 
 export async function listAvailablePhaseFolders(): Promise<AvailablePhaseFoldersResult> {
   try {
@@ -612,6 +626,95 @@ export async function listSavedWorkCards(
   }
 }
 
+export async function listHumanValidationTargets(
+  phase: string,
+): Promise<ListValidationTargetsResult> {
+  try {
+    const targets: ValidationTargetSummary[] = [];
+    const invalidFiles: InvalidValidationTargetFile[] = [];
+    const workCardDirectory = resolveWorkCardsDirectory(phase);
+
+    let workCardEntries: string[] = [];
+
+    try {
+      workCardEntries = await readdir(workCardDirectory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    for (const fileName of workCardEntries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateSavedWorkCardJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const workCard = await readSavedWorkCardFile(phase, fileName);
+        targets.push(buildWorkCardValidationTarget(workCard, fileName));
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    const validationTargetDirectory = resolveValidationTargetsDirectory(phase);
+    let validationTargetEntries: string[] = [];
+
+    try {
+      validationTargetEntries = await readdir(validationTargetDirectory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    for (const fileName of validationTargetEntries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateValidationTargetJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        targets.push(await readSavedValidationTargetFile(phase, fileName));
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    targets.sort((left, right) =>
+      `${left.id} ${left.kind} ${left.title}`.localeCompare(
+        `${right.id} ${right.kind} ${right.title}`,
+      ),
+    );
+
+    return {
+      ok: true,
+      targets,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export async function previewArchitectPrompt(
   input: ArchitectPromptRequest,
 ): Promise<ArchitectPromptPreviewResult> {
@@ -991,17 +1094,13 @@ export async function listHumanValidationBuilderReports(
   input: HumanValidationBuilderReportListRequest,
 ): Promise<HumanValidationBuilderReportListResult> {
   try {
-    const workCard = await readSavedWorkCardFile(
-      input.phase,
-      input.workCardFileName,
-    );
-    const { options, invalidFiles } = await listBuilderReportOptionsForWorkCard(
-      workCard,
-    );
+    const { target } = await readHumanValidationTargetContext(input);
+    const { options, invalidFiles } =
+      await listBuilderReportOptionsForValidationTarget(target);
 
     return {
       ok: true,
-      workCard,
+      validationTarget: target,
       options,
       defaultFileName: options.find((option) => option.isDefaultMatch)?.fileName,
       invalidFiles,
@@ -1111,10 +1210,7 @@ export async function attachValidationEvidenceFile(
   input: ValidationEvidenceFileImportRequest,
 ): Promise<ValidationEvidenceFileImportResult> {
   try {
-    const workCard = await readSavedWorkCardFile(
-      input.phase,
-      input.workCardFileName,
-    );
+    const { target } = await readHumanValidationTargetContext(input);
     const safeFileName = buildValidationEvidenceFileName(input.fileName);
     const content = Buffer.from(input.content);
 
@@ -1122,20 +1218,24 @@ export async function attachValidationEvidenceFile(
       throw new Error("Evidence file is empty.");
     }
 
-    const directory = resolveValidationEvidenceDirectory(workCard);
-    const target = await resolveAvailableFilePath(
+    const directory = resolveValidationEvidenceDirectory({
+      workCardId: target.id,
+      title: target.title,
+      phase: target.phase,
+    });
+    const evidenceTarget = await resolveAvailableFilePath(
       directory,
       safeFileName,
       "A safe validation evidence filename could not be generated.",
     );
 
     await mkdir(directory, { recursive: true });
-    await writeFile(target.filePath, content, { flag: "wx" });
+    await writeFile(evidenceTarget.filePath, content, { flag: "wx" });
 
     return {
       ok: true,
-      savedFileName: target.fileName,
-      savedRelativePath: toRepositoryRelativePath(target.filePath),
+      savedFileName: evidenceTarget.fileName,
+      savedRelativePath: toRepositoryRelativePath(evidenceTarget.filePath),
     };
   } catch (error) {
     console.error("Failed to attach validation evidence file.", error);
@@ -1295,6 +1395,16 @@ export function resolveValidationReportsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Validation_Reports");
+}
+
+export function resolveValidationTargetsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Validation_Targets");
 }
 
 export function resolveValidationEvidenceDirectory(
@@ -1467,16 +1577,13 @@ async function buildHumanValidationPreview(
   input: HumanValidationFormInput,
   createdAt: string,
 ): Promise<HumanValidationPreviewResult> {
-  const workCard = await readSavedWorkCardFile(
-    input.phase,
-    input.workCardFileName,
-  );
+  const { target } = await readHumanValidationTargetContext(input);
   const builderReport = await readOptionalBuilderReport(
-    workCard.phase,
+    target.phase,
     input.builderReportFileName,
   );
-  const matchingBuilderReports = await listBuilderReportOptionsForWorkCard(
-    workCard,
+  const matchingBuilderReports = await listBuilderReportOptionsForValidationTarget(
+    target,
   );
   const bestMatchingBuilderReport = matchingBuilderReports.options.find(
     (option) => option.isDefaultMatch,
@@ -1484,19 +1591,30 @@ async function buildHumanValidationPreview(
 
   if (
     builderReport &&
-    bestMatchingBuilderReport &&
-    !fileNameMatchesWorkCard(builderReport.fileName, workCard)
+    target.expectedImplementerReportFile &&
+    builderReport.fileName !== target.expectedImplementerReportFile
   ) {
     throw new Error(
-      `Selected Implementer Report does not match ${workCard.workCardId}. Choose ${bestMatchingBuilderReport.fileName} or clear the association before saving.`,
+      `Selected Implementer Report does not match ${target.id}. Choose ${target.expectedImplementerReportFile} or clear the association before saving.`,
+    );
+  }
+
+  if (
+    builderReport &&
+    !target.expectedImplementerReportFile &&
+    bestMatchingBuilderReport &&
+    !fileNameMatchesValidationTarget(builderReport.fileName, target)
+  ) {
+    throw new Error(
+      `Selected Implementer Report does not match ${target.id}. Choose ${bestMatchingBuilderReport.fileName} or clear the association before saving.`,
     );
   }
 
   const record = buildHumanValidationRecord(
-    workCard,
+    target,
     {
       ...input,
-      phase: workCard.phase,
+      phase: target.phase,
       builderReportFileName: builderReport?.fileName,
     },
     createdAt,
@@ -1607,6 +1725,64 @@ async function readSavedWorkCardFile(
   return workCard;
 }
 
+async function readHumanValidationTargetContext(input: {
+  phase: string;
+  workCardFileName: string;
+  validationTargetFileName?: string;
+}): Promise<HumanValidationTargetContext> {
+  const selectedFileName =
+    input.validationTargetFileName?.trim() || input.workCardFileName.trim();
+
+  if (selectedFileName.length === 0) {
+    throw new Error("Choose a Validation Target.");
+  }
+
+  const workCardPath = resolveInside(
+    resolveWorkCardsDirectory(input.phase),
+    selectedFileName,
+  );
+
+  if (await pathExists(workCardPath)) {
+    const workCard = await readSavedWorkCardFile(input.phase, selectedFileName);
+    return {
+      target: buildWorkCardValidationTarget(workCard, selectedFileName),
+    };
+  }
+
+  return {
+    target: await readSavedValidationTargetFile(input.phase, selectedFileName),
+  };
+}
+
+async function readSavedValidationTargetFile(
+  phase: string,
+  fileName: string,
+): Promise<ValidationTargetSummary> {
+  const fileNameErrors = validateValidationTargetJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveValidationTargetsDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const target = toValidationTargetRecord(parsed);
+
+  if (target.phase !== phase.trim()) {
+    throw new Error(
+      "Validation Target phase must match the selected phase folder.",
+    );
+  }
+
+  return {
+    ...target,
+    fileName,
+    label: formatValidationTargetLabel(target),
+  };
+}
+
 async function readOptionalBuilderReport(
   phase: string,
   fileName: string | undefined,
@@ -1638,7 +1814,21 @@ async function listBuilderReportOptionsForWorkCard(
   options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }>;
   invalidFiles: InvalidHumanValidationBuilderReportFile[];
 }> {
-  const directory = resolveBuilderReportsDirectory(workCard.phase);
+  return listBuilderReportOptionsForValidationTarget(
+    buildWorkCardValidationTarget(
+      workCard,
+      `${buildWorkCardFileStem(workCard.workCardId, workCard.title)}.json`,
+    ),
+  );
+}
+
+async function listBuilderReportOptionsForValidationTarget(
+  target: ValidationTargetRecord,
+): Promise<{
+  options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }>;
+  invalidFiles: InvalidHumanValidationBuilderReportFile[];
+}> {
+  const directory = resolveBuilderReportsDirectory(target.phase);
   let entries: string[] = [];
 
   try {
@@ -1665,11 +1855,16 @@ async function listBuilderReportOptionsForWorkCard(
 
     const filePath = resolveInside(directory, fileName);
     const fileStats = await stat(filePath);
+    const isExpectedMatch =
+      target.expectedImplementerReportFile === fileName;
 
     options.push({
       fileName,
       label: fileName,
-      isDefaultMatch: fileNameMatchesWorkCard(fileName, workCard),
+      isDefaultMatch:
+        isExpectedMatch ||
+        (!target.expectedImplementerReportFile &&
+          fileNameMatchesValidationTarget(fileName, target)),
       modifiedAt: fileStats.mtime.toISOString(),
       modifiedMs: fileStats.mtimeMs,
     });
@@ -1975,6 +2170,25 @@ function fileNameMatchesWorkCard(
 
   return (
     fileNameMatchesWorkCardId(fileName, workCard.workCardId) ||
+    (normalizedSlug.length > 0 && normalizedFileName.includes(normalizedSlug))
+  );
+}
+
+function fileNameMatchesValidationTarget(
+  fileName: string,
+  target: Pick<
+    ValidationTargetRecord,
+    "id" | "title" | "parentWorkCardId"
+  >,
+): boolean {
+  const normalizedFileName = fileName.toLowerCase();
+  const normalizedSlug = slugifyWorkCardTitle(target.title).toLowerCase();
+
+  return (
+    fileNameMatchesWorkCardId(fileName, target.id) ||
+    (target.parentWorkCardId
+      ? fileNameMatchesWorkCardId(fileName, target.parentWorkCardId)
+      : false) ||
     (normalizedSlug.length > 0 && normalizedFileName.includes(normalizedSlug))
   );
 }

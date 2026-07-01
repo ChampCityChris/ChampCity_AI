@@ -2379,8 +2379,8 @@ function HumanValidationScreen({
   onPhaseChange,
   onActiveCardChange,
 }: ScreenProps) {
-  const { workCards, invalidFiles, errors: listErrors, isLoading } =
-    useWorkCards(phase);
+  const { targets, invalidFiles, errors: listErrors, isLoading } =
+    useValidationTargets(phase);
   const [selectedFileName, setSelectedFileName] = useState(() =>
     activeCard?.phase === phase ? activeCard.fileName ?? "" : "",
   );
@@ -2396,7 +2396,9 @@ function HumanValidationScreen({
   const [previewResult, setPreviewResult] =
     useState<ChampCityHumanValidationPreviewResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
-  const [statusMessage, setStatusMessage] = useState("Select a Work Card to validate.");
+  const [statusMessage, setStatusMessage] = useState(
+    "Select a Validation Target to validate.",
+  );
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
     useState<ChampCityHumanValidationSaveResult | null>(null);
@@ -2404,29 +2406,29 @@ function HumanValidationScreen({
     [],
   );
 
-  const selectedSavedWorkCard =
-    workCards.find((workCard) => workCard.fileName === selectedFileName) ?? null;
-  const selectedWorkCard = useMemo(
+  const selectedValidationTarget =
+    targets.find((target) => target.fileName === selectedFileName) ?? null;
+  const selectedTargetSummary = useMemo(
     () =>
-      selectedSavedWorkCard
-        ? toUiWorkCardSummary(selectedSavedWorkCard)
+      selectedValidationTarget
+        ? toUiValidationTargetSummary(selectedValidationTarget)
         : null,
-    [selectedSavedWorkCard],
+    [selectedValidationTarget],
   );
 
   useEffect(() => {
-    if (selectedWorkCard) {
-      onActiveCardChange(selectedWorkCard);
+    if (selectedTargetSummary) {
+      onActiveCardChange(selectedTargetSummary);
       return;
     }
 
-    if (selectedFileName.trim().length === 0 || workCards.length > 0) {
+    if (selectedFileName.trim().length === 0 || targets.length > 0) {
       onActiveCardChange(null);
     }
-  }, [onActiveCardChange, selectedFileName, selectedWorkCard, workCards.length]);
+  }, [onActiveCardChange, selectedFileName, selectedTargetSummary, targets.length]);
 
   useEffect(() => {
-    if (workCards.length === 0) {
+    if (targets.length === 0) {
       return;
     }
 
@@ -2436,18 +2438,18 @@ function HumanValidationScreen({
     setSelectedFileName((previous) => {
       if (
         headerSelectedFileName &&
-        workCards.some((workCard) => workCard.fileName === headerSelectedFileName)
+        targets.some((target) => target.fileName === headerSelectedFileName)
       ) {
         return previous === headerSelectedFileName
           ? previous
           : headerSelectedFileName;
       }
 
-      return workCards.some((workCard) => workCard.fileName === previous)
+      return targets.some((target) => target.fileName === previous)
         ? previous
-        : workCards[0]?.fileName ?? "";
+        : targets[0]?.fileName ?? "";
     });
-  }, [activeCard?.fileName, activeCard?.phase, phase, workCards]);
+  }, [activeCard?.fileName, activeCard?.phase, phase, targets]);
 
   useEffect(() => {
     setImportedEvidencePaths([]);
@@ -2469,7 +2471,9 @@ function HumanValidationScreen({
     window.champCity
       .listHumanValidationBuilderReports({
         phase,
-        workCardFileName: selectedFileName,
+        workCardFileName:
+          selectedValidationTarget?.sourceJsonFile ?? selectedFileName,
+        validationTargetFileName: selectedFileName,
       })
       .then((result) => {
         if (!active) {
@@ -2509,28 +2513,39 @@ function HumanValidationScreen({
     return () => {
       active = false;
     };
-  }, [phase, selectedFileName]);
+  }, [phase, selectedFileName, selectedValidationTarget]);
 
   const validationInput = useMemo<ChampCityHumanValidationFormInput | null>(() => {
-    if (selectedFileName.trim().length === 0) {
+    if (!selectedValidationTarget || selectedFileName.trim().length === 0) {
       return null;
     }
 
     return {
       phase,
-      workCardFileName: selectedFileName,
+      workCardFileName: selectedValidationTarget.sourceJsonFile,
+      validationTargetFileName: selectedFileName,
       builderReportFileName:
         selectedBuilderReportFileName.trim().length > 0
           ? selectedBuilderReportFileName
           : undefined,
       ...form,
     };
-  }, [phase, selectedFileName, selectedBuilderReportFileName, form]);
+  }, [
+    phase,
+    selectedFileName,
+    selectedValidationTarget,
+    selectedBuilderReportFileName,
+    form,
+  ]);
 
   useEffect(() => {
     if (!validationInput) {
       setPreviewResult(null);
-      setStatusMessage(isLoading ? "Loading saved Work Cards." : "Select a Work Card to validate.");
+      setStatusMessage(
+        isLoading
+          ? "Loading Validation Targets."
+          : "Select a Validation Target to validate.",
+      );
       return;
     }
 
@@ -2590,7 +2605,7 @@ function HumanValidationScreen({
     }
 
     if (!selectedFileName) {
-      setErrors(["Select a saved Work Card before attaching evidence."]);
+      setErrors(["Select a Validation Target before attaching evidence."]);
       event.target.value = "";
       return;
     }
@@ -2608,7 +2623,9 @@ function HumanValidationScreen({
       const content = await file.arrayBuffer();
       const result = await window.champCity.attachValidationEvidenceFile({
         phase,
-        workCardFileName: selectedFileName,
+        workCardFileName:
+          selectedValidationTarget?.sourceJsonFile ?? selectedFileName,
+        validationTargetFileName: selectedFileName,
         fileName: file.name,
         content,
       });
@@ -2646,7 +2663,7 @@ function HumanValidationScreen({
 
   async function saveValidation() {
     if (!validationInput) {
-      setErrors(["Select a saved Work Card before saving validation."]);
+      setErrors(["Select a Validation Target before saving validation."]);
       return;
     }
 
@@ -2684,14 +2701,16 @@ function HumanValidationScreen({
               phaseOptions={phaseOptions}
               onPhaseChange={onPhaseChange}
             />
-            <WorkCardSelect
-              workCards={workCards}
+            <ValidationTargetSelect
+              targets={targets}
               selectedFileName={selectedFileName}
               onChange={setSelectedFileName}
               isLoading={isLoading}
             />
-            {selectedWorkCard ? <WorkCardSummary card={selectedWorkCard} /> : null}
-            <InvalidWorkCardFiles files={invalidFiles} />
+            {selectedValidationTarget ? (
+              <ValidationTargetSummaryView target={selectedValidationTarget} />
+            ) : null}
+            <InvalidValidationTargetFiles files={invalidFiles} />
             <Field label="Associated Implementer Report">
               <select
                 className={selectCls}
@@ -2760,7 +2779,7 @@ function HumanValidationScreen({
           title="Operator Record"
           status={statusMessage}
           filename={previewResult?.savedValidationMarkdownFileName}
-          emptyMessage="Select a Work Card to preview validation."
+          emptyMessage="Select a Validation Target to preview validation."
         >
           <div className="grid gap-4">
             <FieldRow>
@@ -3687,6 +3706,40 @@ function WorkCardSelect({
   );
 }
 
+function ValidationTargetSelect({
+  targets,
+  selectedFileName,
+  onChange,
+  isLoading,
+}: {
+  targets: ChampCityValidationTargetSummary[];
+  selectedFileName: string;
+  onChange: (fileName: string) => void;
+  isLoading: boolean;
+}) {
+  return (
+    <Field label="Validation Target">
+      <select
+        className={selectCls}
+        value={selectedFileName}
+        disabled={isLoading}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {targets.length === 0 ? (
+          <option value="">
+            {isLoading ? "Loading..." : "Select a Validation Target"}
+          </option>
+        ) : null}
+        {targets.map((target) => (
+          <option key={target.fileName} value={target.fileName}>
+            {target.label} ({target.fileName})
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
 function ProjectIntakeSummary({
   projectIntake,
 }: {
@@ -3720,6 +3773,47 @@ function WorkCardSummary({ card }: { card: UiWorkCardSummary }) {
       <SummaryItem label="Status" value={<StatusBadge status={card.status} />} />
       <SummaryItem label="Risk" value={<RiskBadge level={card.riskLevel} />} />
       {card.fileName ? <SummaryItem label="File" value={card.fileName} mono /> : null}
+    </div>
+  );
+}
+
+function ValidationTargetSummaryView({
+  target,
+}: {
+  target: ChampCityValidationTargetSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="ID" value={target.id} mono />
+      <SummaryItem label="Kind" value={target.kind.replace(/_/g, " ")} mono />
+      <SummaryItem label="Phase" value={target.phase} mono />
+      <SummaryItem label="Title" value={target.title} />
+      <SummaryItem label="Status" value={<StatusBadge status={target.status} />} />
+      {target.risk ? (
+        <SummaryItem label="Risk" value={<RiskBadge level={target.risk} />} />
+      ) : null}
+      {target.parentWorkCardId ? (
+        <SummaryItem
+          label="Parent Work Card"
+          value={target.parentWorkCardId}
+          mono
+        />
+      ) : null}
+      <SummaryItem label="Source JSON" value={target.sourceJsonFile} mono />
+      {target.sourceMarkdownFile ? (
+        <SummaryItem
+          label="Source Markdown"
+          value={target.sourceMarkdownFile}
+          mono
+        />
+      ) : null}
+      {target.expectedImplementerReportFile ? (
+        <SummaryItem
+          label="Expected Report"
+          value={target.expectedImplementerReportFile}
+          mono
+        />
+      ) : null}
     </div>
   );
 }
@@ -3812,6 +3906,31 @@ function InvalidWorkCardFiles({
     <Notice type="warning">
       <div className="grid gap-2">
         <strong>Skipped Work Card files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidValidationTargetFiles({
+  files,
+}: {
+  files: ChampCityInvalidValidationTargetFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Validation Target files</strong>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -4301,6 +4420,60 @@ function useWorkCards(phase: string) {
   return { workCards, invalidFiles, errors, isLoading };
 }
 
+function useValidationTargets(phase: string) {
+  const [targets, setTargets] = useState<ChampCityValidationTargetSummary[]>([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidValidationTargetFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listHumanValidationTargets(phase)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setTargets([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? ["Validation Targets could not be loaded."],
+          );
+          return;
+        }
+
+        setTargets(result.targets ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setTargets([]);
+        setInvalidFiles([]);
+        setErrors(["Validation Targets could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  return { targets, invalidFiles, errors, isLoading };
+}
+
 function useAvailablePhases() {
   const [phases, setPhases] = useState<string[]>(PHASES);
 
@@ -4528,6 +4701,19 @@ function toUiWorkCardSummary(workCard: {
     phase: workCard.phase,
     status: workCard.status,
     riskLevel: workCard.riskLevel,
+  };
+}
+
+function toUiValidationTargetSummary(
+  target: ChampCityValidationTargetSummary,
+): UiWorkCardSummary {
+  return {
+    fileName: target.fileName,
+    workCardId: target.id,
+    title: target.title,
+    phase: target.phase,
+    status: target.status,
+    riskLevel: target.risk ?? "medium",
   };
 }
 

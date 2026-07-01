@@ -1,4 +1,10 @@
 import { buildWorkCardFileStem } from "./workCardFileNames";
+import {
+  isValidationTargetKind,
+  type ValidationTargetKind,
+  type ValidationTargetRecord,
+  type ValidationTargetSummary,
+} from "./validationTarget";
 import type { WorkCard } from "./workCardSchema";
 import { validateWorkCard } from "./validateWorkCard";
 
@@ -28,6 +34,13 @@ export interface HumanValidationRecord {
   validationId: string;
   workCardId: string;
   workCardTitle: string;
+  validationTargetId?: string;
+  validationTargetKind?: ValidationTargetKind;
+  validationTargetTitle?: string;
+  validationTargetSourceJsonFile?: string;
+  validationTargetSourceMarkdownFile?: string;
+  validationTargetExpectedImplementerReportFile?: string;
+  parentWorkCardId?: string;
   phase: string;
   builderReportFile?: string;
   validationResult: HumanValidationResult;
@@ -47,6 +60,7 @@ export interface HumanValidationRecord {
 export interface HumanValidationFormInput {
   phase: string;
   workCardFileName: string;
+  validationTargetFileName?: string;
   builderReportFileName?: string;
   validationResult: HumanValidationResult;
   testedItems: string;
@@ -76,11 +90,13 @@ export interface InvalidHumanValidationBuilderReportFile {
 export interface HumanValidationBuilderReportListRequest {
   phase: string;
   workCardFileName: string;
+  validationTargetFileName?: string;
 }
 
 export interface HumanValidationBuilderReportListResult {
   ok: boolean;
   workCard?: WorkCard;
+  validationTarget?: ValidationTargetSummary;
   options?: HumanValidationBuilderReportOption[];
   defaultFileName?: string;
   invalidFiles?: InvalidHumanValidationBuilderReportFile[];
@@ -135,6 +151,7 @@ export interface BuilderReportFileLoadResult {
 export interface ValidationEvidenceFileImportRequest {
   phase: string;
   workCardFileName: string;
+  validationTargetFileName?: string;
   fileName: string;
   content: ArrayBuffer;
 }
@@ -180,20 +197,16 @@ const manualValidationSectionPatterns = [
 ];
 
 export function buildHumanValidationRecord(
-  workCard: WorkCard,
+  source: WorkCard | ValidationTargetRecord,
   input: HumanValidationFormInput,
   createdAt: string,
 ): HumanValidationRecord {
-  const workCardValidation = validateWorkCard(workCard);
+  const target = toHumanValidationTarget(source);
 
-  if (!workCardValidation.valid) {
+  if (target.phase !== input.phase.trim()) {
     throw new Error(
-      `Cannot create validation record for invalid Work Card: ${workCardValidation.errors.join("; ")}`,
+      "Saved Validation Target phase must match the selected phase folder.",
     );
-  }
-
-  if (workCard.phase !== input.phase.trim()) {
-    throw new Error("Saved Work Card phase must match the selected phase folder.");
   }
 
   if (!isHumanValidationResult(input.validationResult)) {
@@ -207,10 +220,18 @@ export function buildHumanValidationRecord(
   const builderReportFile = input.builderReportFileName?.trim();
 
   return {
-    validationId: buildValidationId(workCard.workCardId, createdAt),
-    workCardId: workCard.workCardId,
-    workCardTitle: workCard.title,
-    phase: workCard.phase,
+    validationId: buildValidationId(target.id, createdAt),
+    workCardId: target.id,
+    workCardTitle: target.title,
+    validationTargetId: target.id,
+    validationTargetKind: target.kind,
+    validationTargetTitle: target.title,
+    validationTargetSourceJsonFile: target.sourceJsonFile,
+    validationTargetSourceMarkdownFile: target.sourceMarkdownFile,
+    validationTargetExpectedImplementerReportFile:
+      target.expectedImplementerReportFile,
+    parentWorkCardId: target.parentWorkCardId,
+    phase: target.phase,
     builderReportFile:
       builderReportFile && builderReportFile.length > 0
         ? builderReportFile
@@ -240,6 +261,13 @@ export function validateHumanValidationRecord(
   requireText(record.workCardTitle, "Work Card title", errors);
   requireText(record.phase, "Phase", errors);
   requireText(record.createdAt, "Created timestamp", errors);
+
+  if (
+    record.validationTargetKind &&
+    !isValidationTargetKind(record.validationTargetKind)
+  ) {
+    errors.push("Validation Target kind is not a supported value.");
+  }
 
   if (!isHumanValidationResult(record.validationResult)) {
     errors.push("Validation result is not a supported value.");
@@ -378,6 +406,45 @@ function buildValidationReportFileStem(
     record.workCardId,
     record.workCardTitle,
   )}`;
+}
+
+function toHumanValidationTarget(
+  source: WorkCard | ValidationTargetRecord,
+): ValidationTargetRecord {
+  if (isValidationTargetRecord(source)) {
+    return source;
+  }
+
+  const workCardValidation = validateWorkCard(source);
+
+  if (!workCardValidation.valid) {
+    throw new Error(
+      `Cannot create validation record for invalid Work Card: ${workCardValidation.errors.join("; ")}`,
+    );
+  }
+
+  return {
+    id: source.workCardId,
+    kind: "work_card",
+    phase: source.phase,
+    title: source.title,
+    status: source.status,
+    risk: source.riskLevel,
+    sourceJsonFile: `${buildWorkCardFileStem(
+      source.workCardId,
+      source.title,
+    )}.json`,
+    sourceMarkdownFile: `${buildWorkCardFileStem(
+      source.workCardId,
+      source.title,
+    )}.md`,
+  };
+}
+
+function isValidationTargetRecord(
+  source: WorkCard | ValidationTargetRecord,
+): source is ValidationTargetRecord {
+  return "kind" in source && "id" in source && "sourceJsonFile" in source;
 }
 
 function buildValidationId(workCardId: string, createdAt: string): string {

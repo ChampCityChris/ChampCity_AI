@@ -15,15 +15,48 @@ export function renderValidationRecordMarkdown(
     );
   }
 
-  return [
-    `# Human Validation Report - ${record.workCardId} ${record.workCardTitle}`,
-    "",
-    "## Work Card",
-    "",
-    `- Work Card ID: ${record.workCardId}`,
-    `- Work Card title: ${record.workCardTitle}`,
+  const targetId = record.validationTargetId ?? record.workCardId;
+  const targetTitle = record.validationTargetTitle ?? record.workCardTitle;
+  const targetKind = record.validationTargetKind ?? "work_card";
+  const targetLines = [
+    `- Validation Target ID: ${targetId}`,
+    `- Validation Target kind: ${targetKind}`,
+    `- Validation Target title: ${targetTitle}`,
     `- Phase: ${record.phase}`,
+  ];
+
+  if (record.parentWorkCardId) {
+    targetLines.push(`- Parent Work Card ID: ${record.parentWorkCardId}`);
+  }
+
+  if (record.validationTargetSourceJsonFile) {
+    targetLines.push(
+      `- Source JSON file: ${record.validationTargetSourceJsonFile}`,
+    );
+  }
+
+  if (record.validationTargetSourceMarkdownFile) {
+    targetLines.push(
+      `- Source Markdown file: ${record.validationTargetSourceMarkdownFile}`,
+    );
+  }
+
+  if (record.validationTargetExpectedImplementerReportFile) {
+    targetLines.push(
+      `- Expected Implementer Report: ${record.validationTargetExpectedImplementerReportFile}`,
+    );
+  }
+
+  targetLines.push(
     `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
+  );
+
+  return [
+    `# Human Validation Report - ${targetId} ${targetTitle}`,
+    "",
+    "## Validation Target",
+    "",
+    ...targetLines,
     "",
     "## Validation Result",
     "",

@@ -1,0 +1,12 @@
+{
+  "id": "WC03_REPAIR_validation_and_evidence_ui",
+  "kind": "repair",
+  "phase": "phase-02",
+  "title": "Repair validation and evidence UI",
+  "status": "builder_report_received",
+  "risk": "medium",
+  "parentWorkCardId": "WC03",
+  "sourceJsonFile": "VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
+  "sourceMarkdownFile": "WC03_repair_validation_and_evidence_ui.md",
+  "expectedImplementerReportFile": "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md"
+}
