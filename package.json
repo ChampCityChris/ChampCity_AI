@@ -1,7 +1,7 @@
 {
-  "name": "champcity-ai-work-card-mvp",
+  "name": "champcity-ai",
   "version": "0.1.0",
-  "description": "Foundation scaffold for the ChampCity A/I Work Card MVP Electron desktop app.",
+  "description": "Alpha Electron desktop app for the ChampCity A/I Architect / Implementer workflow.",
   "main": "dist/main/main.js",
   "private": true,
   "scripts": {

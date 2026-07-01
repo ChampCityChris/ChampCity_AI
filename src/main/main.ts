@@ -18,6 +18,7 @@ import {
   listHumanValidationBuilderReports,
   listHumanValidationStatuses,
   listHumanValidationTargets,
+  listSavedProjectArchitectInterviewPrompts,
   listSavedProjectIntakes,
   listSavedWorkCards,
   previewArchitectPrompt,
@@ -28,6 +29,7 @@ import {
   previewPhaseCloseoutRecord,
   previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
+  previewProjectPlanningDocuments,
   previewRiskReview,
   loadBuilderReportFile,
   saveArchitectPrompt,
@@ -38,11 +40,13 @@ import {
   savePhaseCloseoutRecord,
   saveProjectArchitectInterviewPrompt,
   saveProjectIntake,
+  saveProjectPlanningDocuments,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
 import type { ProjectIntakeInput } from "../shared/workCards/projectIntake";
 import type { ProjectArchitectInterviewPromptRequest } from "../shared/workCards/projectArchitectInterviewPrompt";
+import type { ProjectPlanningDocumentsRequest } from "../shared/workCards/projectPlanningDocuments";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -185,6 +189,22 @@ function registerWorkCardIpc(): void {
     "projectArchitectInterview:savePrompt",
     (_event, input: ProjectArchitectInterviewPromptRequest) =>
       saveProjectArchitectInterviewPrompt(input),
+  );
+  ipcMain.handle("projectPlanningDocuments:listProjectIntakes", () =>
+    listSavedProjectIntakes(),
+  );
+  ipcMain.handle("projectPlanningDocuments:listArchitectPrompts", () =>
+    listSavedProjectArchitectInterviewPrompts(),
+  );
+  ipcMain.handle(
+    "projectPlanningDocuments:preview",
+    (_event, input: ProjectPlanningDocumentsRequest) =>
+      previewProjectPlanningDocuments(input),
+  );
+  ipcMain.handle(
+    "projectPlanningDocuments:save",
+    (_event, input: ProjectPlanningDocumentsRequest) =>
+      saveProjectPlanningDocuments(input),
   );
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),

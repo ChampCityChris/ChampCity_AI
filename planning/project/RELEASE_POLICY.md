@@ -8,16 +8,18 @@
 
 ## Tag Naming Rules
 
-- Use annotated local tags for MVP release milestones.
+- Use annotated local tags for approved release milestones.
 - Do not move or recreate an existing tag without explicit operator approval.
 
 ## GitHub Push Rules
 
 - Push commits and tags only when a remote is configured and credentials are already available.
 - Do not print, request, or store credentials.
-- If no remote is configured, record the remote URL decision in `planning/project/OPEN_QUESTIONS.md`.
+- Remote repository URL is `https://github.com/ChampCityChris/ChampCity_AI`.
 
-## MVP Release Tag Plan
+## Historical MVP Release Tag Plan
+
+The MVP foundation plan is retained here as a historical release record. Current active work is Alpha app development.
 
 - `v0.1.0-foundation`: project memory, planning scaffold, Electron + TypeScript shell, and design document updates.
 - `v0.2.0-work-card-schema`: Work Card schema, Markdown renderer, and file path rules.

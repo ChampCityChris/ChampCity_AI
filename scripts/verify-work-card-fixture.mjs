@@ -130,6 +130,14 @@ const {
   renderProjectArchitectInterviewPromptMarkdown,
 } = require("../dist/shared/workCards/renderProjectArchitectInterviewPromptMarkdown.js");
 const {
+  buildProjectPlanningDocuments,
+  buildProjectPlanningDocumentsFileNames,
+  renderProjectPlanningDocumentsPreview,
+  renderProjectPlanningDocumentsRecordMarkdown,
+  validateProjectPlanningDocumentsArtifactFileName,
+  validateProjectPlanningDocumentsSlug,
+} = require("../dist/shared/workCards/projectPlanningDocuments.js");
+const {
   finalBuilderPromptBoundary,
   renderArchitectFramingPrompt,
 } = require("../dist/shared/workCards/renderArchitectFramingPrompt.js");
@@ -205,6 +213,7 @@ const {
   listAvailablePhaseFolders,
   listHumanValidationBuilderReports,
   listHumanValidationTargets,
+  listSavedProjectArchitectInterviewPrompts,
   listSavedWorkCards,
   loadBuilderReportFile,
   previewHumanValidationRecord,
@@ -213,6 +222,8 @@ const {
   resolveCloseoutReportsDirectory,
   resolveProjectArchitectInterviewPromptsDirectory,
   resolveProjectIntakeDirectory,
+  resolveProjectPlanningDocumentPath,
+  resolveProjectPlanningDocumentsDirectory,
   resolveInside,
   resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
@@ -220,6 +231,7 @@ const {
   resolveValidationReportsDirectory,
   resolveValidationTargetsDirectory,
   validateMarkdownArtifactFileName,
+  validateSavedProjectArchitectInterviewPromptJsonFileName,
   validateSavedProjectIntakeJsonFileName,
   validateSavedWorkCardJsonFileName,
   validateValidationEvidenceFileName,
@@ -432,6 +444,7 @@ await assertBuilderReportCapture();
 await assertHumanValidationAndRepair();
 assertPhaseCloseout();
 await assertSavedWorkCardListing();
+await assertProjectPlanningDocuments();
 
 console.log("Work Card fixture validation passed.");
 
@@ -2345,6 +2358,207 @@ function assertProjectArchitectInterviewPrompt() {
 
   if (missingSourceText.length > 0) {
     console.error("Project Architect Interview source wiring is missing required text:");
+    for (const text of missingSourceText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+}
+
+async function assertProjectPlanningDocuments() {
+  const promptRecord = buildProjectArchitectInterviewPrompt(
+    projectIntakeFixture,
+    "PROJECT_INTAKE_champcity_a_i.json",
+    "PROJECT_INTAKE_champcity_a_i.md",
+    "2026-07-01T12:00:00.000Z",
+  );
+  const architectOutput = [
+    "# Project Architect Interview Completion Summary",
+    "",
+    "## Confirmed facts",
+    "- Project name: ChampCity A/I",
+    "- The product is now in Alpha app development.",
+    "",
+    "## Safe assumptions",
+    "- The repository remains the source of truth.",
+    "",
+    "## Open questions",
+    "- Which Phase Intake fields should be captured first?",
+    "",
+    "## Recommended project-profile values",
+    "- Product thesis: Turn Operator intent into durable planning artifacts.",
+    "",
+    "## Recommended initial phase candidates",
+    "- Phase 02: upstream project planning.",
+    "",
+    "## Risks and drift warnings",
+    "- Risk: do not add provider SDKs before a dedicated Work Card.",
+    "",
+    "## Decisions",
+    "- Decision: preserve Operator / Architect / Implementer terminology.",
+  ].join("\n");
+  const record = buildProjectPlanningDocuments({
+    projectIntake: projectIntakeFixture,
+    sourceProjectIntakeJsonFileName: "PROJECT_INTAKE_champcity_a_i.json",
+    sourceProjectIntakeMarkdownFileName: "PROJECT_INTAKE_champcity_a_i.md",
+    projectArchitectInterviewPrompt: promptRecord,
+    sourceProjectArchitectInterviewPromptJsonFileName:
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+    sourceProjectArchitectInterviewPromptMarkdownFileName:
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+    architectInterviewOutput: architectOutput,
+    timestamp: "2026-07-01T12:30:00.000Z",
+  });
+
+  const documentNames = new Set(
+    record.documents.map((document) => document.fileName),
+  );
+  const requiredDocumentNames = [
+    "PROJECT_PROFILE.md",
+    "PROJECT_STATE.md",
+    "WORK_CARD_BACKLOG.md",
+    "OPEN_QUESTIONS.md",
+    "RISKS.md",
+    "DECISIONS.md",
+  ];
+  const missingDocumentNames = requiredDocumentNames.filter(
+    (fileName) => !documentNames.has(fileName),
+  );
+
+  if (missingDocumentNames.length > 0) {
+    console.error("Project Planning Documents missing generated documents:");
+    for (const fileName of missingDocumentNames) {
+      console.error(`- ${fileName}`);
+    }
+    process.exit(1);
+  }
+
+  const combinedMarkdown = renderProjectPlanningDocumentsPreview(record.documents);
+  const sidecarMarkdown = renderProjectPlanningDocumentsRecordMarkdown(record);
+  const requiredMarkdownText = [
+    "Alpha app development.",
+    "Capture -> Frame -> Plan -> Build -> Prove",
+    "WC03: Repair validation and evidence UI",
+    "WC04: Generate Project Planning Documents",
+    "WC06: Generate Phase Planning Documents and initial Work Card plan",
+    "PROJECT_PROFILE.md",
+    "PROJECT_STATE.md",
+    "DECISIONS.md",
+    "Project Planning Documents Generation",
+  ];
+  const missingMarkdownText = requiredMarkdownText.filter(
+    (text) => !`${combinedMarkdown}\n${sidecarMarkdown}`.includes(text),
+  );
+
+  if (missingMarkdownText.length > 0) {
+    console.error("Project Planning Documents Markdown is missing required text:");
+    for (const text of missingMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  if (combinedMarkdown.includes("ChampCity_AI Work Card MVP")) {
+    console.error("Project Planning Documents contain stale MVP product naming.");
+    process.exit(1);
+  }
+
+  const fileNames = buildProjectPlanningDocumentsFileNames("ChampCity A/I");
+
+  if (
+    fileNames.jsonFileName !== "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json" ||
+    fileNames.markdownFileName !== "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md"
+  ) {
+    console.error("Project Planning Documents filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validateProjectPlanningDocumentsSlug("../bad").length === 0) {
+    console.error("Project Planning Documents slug sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateProjectPlanningDocumentsArtifactFileName("../bad.json").length === 0
+  ) {
+    console.error("Project Planning Documents artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateSavedProjectArchitectInterviewPromptJsonFileName("../bad.json")
+      .length === 0
+  ) {
+    console.error("Saved Project Architect Interview Prompt filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateSavedProjectArchitectInterviewPromptJsonFileName(
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_bad.md",
+    ).length === 0
+  ) {
+    console.error("Saved Project Architect Interview Prompt filename sanitizer failed to require JSON.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolveProjectPlanningDocumentsDirectory(), "../bad");
+    console.error("Project Planning Documents sidecar path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    resolveProjectPlanningDocumentPath("../bad");
+    console.error("Project Planning Documents approved document path sanitizer failed to reject unsafe filenames.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const planningDocumentPath = resolveProjectPlanningDocumentPath("PROJECT_PROFILE.md");
+
+  if (!planningDocumentPath.endsWith("planning\\project\\PROJECT_PROFILE.md")) {
+    console.error("Project Planning Documents approved path resolved unexpectedly.");
+    process.exit(1);
+  }
+
+  const listing = await listSavedProjectArchitectInterviewPrompts();
+
+  if (!listing.ok) {
+    console.error("Saved Project Architect Interview Prompt listing failed:");
+    for (const error of listing.errorMessages ?? []) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const source = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredSourceText = [
+    'label: "Project Plan"',
+    "Project Planning Documents",
+    "Completed Architect interview output",
+    "Save Planning Docs",
+    "Project_Planning_Documents",
+    "listProjectPlanningDocumentProjectIntakes",
+    "listProjectPlanningDocumentArchitectPrompts",
+    "previewProjectPlanningDocuments",
+    "saveProjectPlanningDocuments",
+    "validateSavedProjectArchitectInterviewPromptJsonFileName",
+    "resolveProjectPlanningDocumentPath",
+  ];
+  const missingSourceText = requiredSourceText.filter(
+    (text) => !source.includes(text),
+  );
+
+  if (missingSourceText.length > 0) {
+    console.error("Project Planning Documents source wiring is missing required text:");
     for (const text of missingSourceText) {
       console.error(`- ${text}`);
     }

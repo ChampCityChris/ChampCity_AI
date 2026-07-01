@@ -8,11 +8,12 @@
 
 - Initial audit found no valid Git repository.
 - An empty or non-functional `.git` entry was present.
-- Git was initialized locally for the foundation scaffold.
+- Git has since been initialized locally for active Alpha app development.
 
 ## Git Remote Status
 
-No Git remote was configured during the foundation audit.
+- Remote repository URL: `https://github.com/ChampCityChris/ChampCity_AI`.
+- Repository visibility decision: public.
 
 ## Runtime and Tooling
 
@@ -30,6 +31,6 @@ No Git remote was configured during the foundation audit.
 
 ## Validation Limits
 
-- The foundation `test` command is typecheck-only.
-- Unit tests are not implemented yet.
-- Manual Electron launch validation may still be required after build/typecheck.
+- `npm test` currently runs the TypeScript typecheck.
+- `npm run test:work-cards` builds the app and runs deterministic Work Card fixture verification.
+- Manual Electron launch validation may still be required after build/typecheck for UI acceptance.

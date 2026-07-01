@@ -1,4 +1,6 @@
-# MVP Scope
+# Historical MVP Scope
+
+This file is retained as a historical MVP scope record. The MVP foundation is complete; active work is now Alpha app development. See `planning/project/PROJECT_STATE.md` for current state.
 
 ## Product Thesis
 

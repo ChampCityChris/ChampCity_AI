@@ -131,15 +131,32 @@ import { validateProjectIntake } from "../../shared/workCards/validateProjectInt
 import {
   buildProjectArchitectInterviewPrompt,
   buildProjectArchitectInterviewPromptFileNames,
+  validateProjectArchitectInterviewPrompt,
   validateProjectArchitectInterviewPromptArtifactFileName,
   type InvalidSavedProjectIntakeFile,
   type ListSavedProjectIntakesResult,
   type ProjectArchitectInterviewPromptPreviewResult,
   type ProjectArchitectInterviewPromptRequest,
   type ProjectArchitectInterviewPromptSaveResult,
+  type ProjectArchitectInterviewPrompt,
   type SavedProjectIntakeSummary,
 } from "../../shared/workCards/projectArchitectInterviewPrompt";
 import { renderProjectArchitectInterviewPromptMarkdown } from "../../shared/workCards/renderProjectArchitectInterviewPromptMarkdown";
+import {
+  buildProjectPlanningDocuments,
+  buildProjectPlanningDocumentsFileNames,
+  projectPlanningDocumentFileNames,
+  renderProjectPlanningDocumentsPreview,
+  renderProjectPlanningDocumentsRecordMarkdown,
+  validateProjectPlanningDocumentsArtifactFileName,
+  type InvalidSavedProjectArchitectInterviewPromptFile,
+  type ListSavedProjectArchitectInterviewPromptsResult,
+  type ProjectPlanningDocumentFileName,
+  type ProjectPlanningDocumentsPreviewResult,
+  type ProjectPlanningDocumentsRequest,
+  type ProjectPlanningDocumentsSaveResult,
+  type SavedProjectArchitectInterviewPromptSummary,
+} from "../../shared/workCards/projectPlanningDocuments";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
@@ -589,6 +606,189 @@ export async function saveProjectArchitectInterviewPrompt(
     };
   } catch (error) {
     console.error("Failed to save Project Architect Interview Prompt.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedProjectArchitectInterviewPrompts(): Promise<ListSavedProjectArchitectInterviewPromptsResult> {
+  try {
+    const directory = resolveProjectArchitectInterviewPromptsDirectory();
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const prompts: SavedProjectArchitectInterviewPromptSummary[] = [];
+    const invalidFiles: InvalidSavedProjectArchitectInterviewPromptFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors =
+        validateSavedProjectArchitectInterviewPromptJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const promptRecord =
+          await readSavedProjectArchitectInterviewPromptFile(fileName);
+        prompts.push({
+          fileName,
+          promptId: promptRecord.promptId,
+          projectIntakeId: promptRecord.projectIntakeId,
+          projectName: promptRecord.projectName,
+          architectSurface: promptRecord.architectSurface,
+          updatedAt: promptRecord.updatedAt,
+        });
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    prompts.sort((left, right) =>
+      `${left.projectName} ${left.fileName}`.localeCompare(
+        `${right.projectName} ${right.fileName}`,
+      ),
+    );
+
+    return {
+      ok: true,
+      prompts,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewProjectPlanningDocuments(
+  input: ProjectPlanningDocumentsRequest,
+): Promise<ProjectPlanningDocumentsPreviewResult> {
+  try {
+    const context = await readProjectPlanningDocumentsContext(input);
+    const record = buildProjectPlanningDocuments({
+      ...context,
+      architectInterviewOutput: input.architectInterviewOutput,
+      timestamp: new Date().toISOString(),
+    });
+    const suggestedFileNames = buildProjectPlanningDocumentsFileNames(
+      record.projectName,
+    );
+    const combinedMarkdown = renderProjectPlanningDocumentsPreview(
+      record.documents,
+    );
+
+    return {
+      ok: true,
+      record,
+      documents: record.documents,
+      combinedMarkdown,
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveProjectPlanningDocuments(
+  input: ProjectPlanningDocumentsRequest,
+): Promise<ProjectPlanningDocumentsSaveResult> {
+  try {
+    const preview = await previewProjectPlanningDocuments(input);
+
+    if (
+      !preview.ok ||
+      !preview.record ||
+      !preview.documents ||
+      !preview.combinedMarkdown ||
+      !preview.suggestedFileNames
+    ) {
+      return preview;
+    }
+
+    const sidecarDirectory = resolveProjectPlanningDocumentsDirectory();
+    const targets = await resolveAvailableFilePair(
+      sidecarDirectory,
+      preview.suggestedFileNames.jsonFileName,
+      preview.suggestedFileNames.markdownFileName,
+      "A safe Project Planning Documents sidecar filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validateProjectPlanningDocumentsArtifactFileName(
+        targets.firstFileName,
+      ),
+      ...validateProjectPlanningDocumentsArtifactFileName(
+        targets.secondFileName,
+      ),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    await mkdir(planningProjectRoot, { recursive: true });
+    await mkdir(sidecarDirectory, { recursive: true });
+
+    const projectMarkdownPaths: string[] = [];
+
+    for (const document of preview.documents) {
+      const documentPath = resolveProjectPlanningDocumentPath(document.fileName);
+      await writeFile(documentPath, document.markdown, {
+        encoding: "utf8",
+      });
+      projectMarkdownPaths.push(documentPath);
+    }
+
+    const sidecarMarkdown = renderProjectPlanningDocumentsRecordMarkdown(
+      preview.record,
+    );
+
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(preview.record, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, sidecarMarkdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+      projectMarkdownPaths,
+    };
+  } catch (error) {
+    console.error("Failed to save Project Planning Documents.", error);
 
     return {
       ok: false,
@@ -1584,6 +1784,20 @@ export function resolveProjectArchitectInterviewPromptsDirectory(): string {
   return resolveInside(planningProjectRoot, "Project_Architect_Interview_Prompts");
 }
 
+export function resolveProjectPlanningDocumentsDirectory(): string {
+  return resolveInside(planningProjectRoot, "Project_Planning_Documents");
+}
+
+export function resolveProjectPlanningDocumentPath(
+  fileName: ProjectPlanningDocumentFileName,
+): string {
+  if (!projectPlanningDocumentFileNames.includes(fileName)) {
+    throw new Error("Project Planning Document filename is not approved.");
+  }
+
+  return resolveInside(planningProjectRoot, fileName);
+}
+
 export function resolveInside(root: string, ...segments: string[]): string {
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(resolvedRoot, ...segments);
@@ -1638,6 +1852,28 @@ export function validateSavedProjectIntakeJsonFileName(
   }
 
   return validateProjectIntakeArtifactFileName(value);
+}
+
+export function validateSavedProjectArchitectInterviewPromptJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Project Architect Interview Prompt JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return [
+      "Saved Project Architect Interview Prompt file names must not include folders.",
+    ];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Project Architect Interview Prompt files must be JSON files."];
+  }
+
+  return validateProjectArchitectInterviewPromptArtifactFileName(value);
 }
 
 export function validateMarkdownArtifactFileName(fileName: string): string[] {
@@ -1824,6 +2060,94 @@ async function findMatchingProjectIntakeMarkdownFileName(
   const filePath = resolveInside(resolveProjectIntakeDirectory(), markdownFileName);
 
   return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
+async function readSavedProjectArchitectInterviewPromptFile(
+  fileName: string,
+): Promise<ProjectArchitectInterviewPrompt> {
+  const fileNameErrors =
+    validateSavedProjectArchitectInterviewPromptJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveProjectArchitectInterviewPromptsDirectory();
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validateProjectArchitectInterviewPrompt(parsed);
+
+  if (!validation.valid) {
+    throw new Error(
+      `Saved Project Architect Interview Prompt JSON is not valid: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  return parsed as ProjectArchitectInterviewPrompt;
+}
+
+async function findMatchingProjectArchitectInterviewPromptMarkdownFileName(
+  promptJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = promptJsonFileName.replace(/\.json$/i, ".md");
+  const fileNameErrors =
+    validateProjectArchitectInterviewPromptArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(
+    resolveProjectArchitectInterviewPromptsDirectory(),
+    markdownFileName,
+  );
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
+async function readProjectPlanningDocumentsContext(
+  input: ProjectPlanningDocumentsRequest,
+): Promise<{
+  projectIntake?: ProjectIntake;
+  sourceProjectIntakeJsonFileName?: string;
+  sourceProjectIntakeMarkdownFileName?: string;
+  projectArchitectInterviewPrompt?: ProjectArchitectInterviewPrompt;
+  sourceProjectArchitectInterviewPromptJsonFileName?: string;
+  sourceProjectArchitectInterviewPromptMarkdownFileName?: string;
+}> {
+  const projectIntakeFileName = input.projectIntakeFileName?.trim() ?? "";
+  const promptFileName =
+    input.projectArchitectInterviewPromptFileName?.trim() ?? "";
+  const projectIntake =
+    projectIntakeFileName.length > 0
+      ? await readSavedProjectIntakeFile(projectIntakeFileName)
+      : undefined;
+  const sourceProjectIntakeMarkdownFileName = projectIntake
+    ? await findMatchingProjectIntakeMarkdownFileName(projectIntakeFileName)
+    : undefined;
+  const projectArchitectInterviewPrompt =
+    promptFileName.length > 0
+      ? await readSavedProjectArchitectInterviewPromptFile(promptFileName)
+      : undefined;
+  const sourceProjectArchitectInterviewPromptMarkdownFileName =
+    projectArchitectInterviewPrompt
+      ? await findMatchingProjectArchitectInterviewPromptMarkdownFileName(
+          promptFileName,
+        )
+      : undefined;
+
+  return {
+    projectIntake,
+    sourceProjectIntakeJsonFileName: projectIntake
+      ? projectIntakeFileName
+      : undefined,
+    sourceProjectIntakeMarkdownFileName,
+    projectArchitectInterviewPrompt,
+    sourceProjectArchitectInterviewPromptJsonFileName:
+      projectArchitectInterviewPrompt ? promptFileName : undefined,
+    sourceProjectArchitectInterviewPromptMarkdownFileName,
+  };
 }
 
 async function readSavedWorkCardFile(

@@ -12,8 +12,11 @@
 ## Manual Validation
 
 - Manually validate the end-to-end flow with one bug and one feature once the Work Card workflow exists.
-- Confirm captured Builder reports include files changed, checks run, skipped checks, manual validation, and residual risks.
+- Confirm captured Implementer reports include files changed, checks run, skipped checks, manual validation, and residual risks.
 
-## Foundation Validation Limit
+## Current Automated Checks
 
-The foundation scaffold currently uses typecheck-only testing until product logic and unit tests are added.
+- `npm run typecheck`
+- `npm run build`
+- `npm test`
+- `npm run test:work-cards` when the build environment allows it.

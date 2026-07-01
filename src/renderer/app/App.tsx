@@ -18,6 +18,7 @@ import {
   FileText,
   FolderOpen,
   Info,
+  Map as MapIcon,
   MessageSquareText,
   Save,
   ShieldAlert,
@@ -33,6 +34,7 @@ import logoImage from "../assets/champcity_ai_ui_branding.png";
 type AppScreen =
   | "project-intake"
   | "project-architect-interview"
+  | "project-planning-documents"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -96,6 +98,16 @@ const workflowSteps: WorkflowStep[] = [
     screenTitle: "Project Architect Interview",
     nextAction: "Generate a copy-ready Architect interview prompt from saved intake.",
     Icon: MessageSquareText,
+  },
+  {
+    id: "project-planning-documents",
+    label: "Project Plan",
+    mode: "architect",
+    shortDesc: "Planning docs",
+    screenTitle: "Project Planning Documents",
+    nextAction:
+      "Generate durable project planning documents from completed Architect output.",
+    Icon: MapIcon,
   },
   {
     id: "new-work-card",
@@ -214,7 +226,7 @@ const initialProjectIntakeForm: ChampCityProjectIntakeInput = {
   userProblem: "",
   desiredUserOutcome: "",
   businessOrPersonalGoal: "",
-  currentStage: "mvp",
+  currentStage: "alpha",
   sourceOfTruthLocation: "C:\\Users\\chapm\\Projects\\ChampCity_AI",
   preferredImplementerTool: "Codex",
   architectSurface: "ChatGPT",
@@ -267,6 +279,9 @@ export default function App() {
     ),
     "project-architect-interview": (
       <ProjectArchitectInterviewScreen onActiveCardChange={setActiveCard} />
+    ),
+    "project-planning-documents": (
+      <ProjectPlanningDocumentsScreen onActiveCardChange={setActiveCard} />
     ),
     "new-work-card": (
       <NewWorkCardScreen
@@ -479,9 +494,13 @@ function PipelineStepper({
     );
   };
 
-  const architectSteps = workflowSteps.slice(0, 5);
-  const implementerSteps = workflowSteps.slice(5, 7);
-  const finalSteps = workflowSteps.slice(7);
+  const architectSteps = workflowSteps.filter((step) => step.mode === "architect");
+  const implementerSteps = workflowSteps.filter((step) =>
+    ["builder-prompt-generator", "builder-report-capture"].includes(step.id),
+  );
+  const finalSteps = workflowSteps.filter((step) =>
+    ["human-validation", "phase-closeout"].includes(step.id),
+  );
 
   return (
     <nav
@@ -1037,6 +1056,333 @@ function ProjectArchitectInterviewScreen({
           </Notice>
           <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
             {promptText || "No Architect prompt preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function ProjectPlanningDocumentsScreen({
+  onActiveCardChange,
+}: {
+  onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+}) {
+  const {
+    projectIntakes,
+    invalidFiles: invalidProjectIntakeFiles,
+    errors: projectIntakeErrors,
+    isLoading: isProjectIntakesLoading,
+  } = useProjectPlanningDocumentProjectIntakes();
+  const {
+    prompts,
+    invalidFiles: invalidPromptFiles,
+    errors: promptErrors,
+    isLoading: isPromptsLoading,
+  } = useProjectArchitectInterviewPrompts();
+  const [selectedProjectIntakeFileName, setSelectedProjectIntakeFileName] =
+    useState("");
+  const [selectedPromptFileName, setSelectedPromptFileName] = useState("");
+  const [architectInterviewOutput, setArchitectInterviewOutput] = useState("");
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [previewResult, setPreviewResult] =
+    useState<ChampCityProjectPlanningDocumentsPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    useState<ChampCityProjectPlanningDocumentsSaveResult | null>(null);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Choose source context and paste completed Architect output.",
+  );
+
+  const selectedProjectIntake =
+    projectIntakes.find(
+      (projectIntake) =>
+        projectIntake.fileName === selectedProjectIntakeFileName,
+    ) ?? null;
+  const selectedPrompt =
+    prompts.find((prompt) => prompt.fileName === selectedPromptFileName) ??
+    null;
+  const hasSource =
+    selectedProjectIntakeFileName.trim().length > 0 ||
+    selectedPromptFileName.trim().length > 0;
+  const allErrors = [...projectIntakeErrors, ...promptErrors, ...screenErrors];
+  const previewMarkdown =
+    saveResult?.combinedMarkdown ?? previewResult?.combinedMarkdown ?? "";
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  function updateSelectedProjectIntake(fileName: string) {
+    setSelectedProjectIntakeFileName(fileName);
+    resetGeneratedPlanningDocuments("Project Intake source updated.");
+  }
+
+  function updateSelectedPrompt(fileName: string) {
+    setSelectedPromptFileName(fileName);
+    resetGeneratedPlanningDocuments("Architect prompt source updated.");
+  }
+
+  function updateArchitectInterviewOutput(value: string) {
+    setArchitectInterviewOutput(value);
+    resetGeneratedPlanningDocuments("Architect interview output updated.");
+  }
+
+  function resetGeneratedPlanningDocuments(nextStatusMessage: string) {
+    setPreviewResult(null);
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(nextStatusMessage);
+  }
+
+  function buildRequest(): ChampCityProjectPlanningDocumentsRequest {
+    return {
+      projectIntakeFileName: nonBlankSelection(selectedProjectIntakeFileName),
+      projectArchitectInterviewPromptFileName:
+        nonBlankSelection(selectedPromptFileName),
+      architectInterviewOutput,
+    };
+  }
+
+  function validatePlanningDocumentRequest(): string[] {
+    const errors: string[] = [];
+
+    if (!hasSource) {
+      errors.push(
+        "Select a saved Project Intake or Project Architect Interview Prompt.",
+      );
+    }
+
+    if (architectInterviewOutput.trim().length === 0) {
+      errors.push("Paste the completed Architect interview output first.");
+    }
+
+    return errors;
+  }
+
+  async function previewPlanningDocuments() {
+    const requestErrors = validatePlanningDocumentRequest();
+
+    if (requestErrors.length > 0) {
+      setScreenErrors(requestErrors);
+      setStatusMessage("Project Planning Documents preview needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewProjectPlanningDocuments(
+      buildRequest(),
+    );
+    setIsBusy(false);
+
+    if (!result.ok || !result.combinedMarkdown) {
+      setPreviewResult(null);
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? [
+          "Project Planning Documents could not be generated.",
+        ],
+      );
+      setStatusMessage("Project Planning Documents preview needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(null);
+    setStatusMessage("Project Planning Documents preview refreshed.");
+  }
+
+  async function savePlanningDocuments() {
+    const requestErrors = validatePlanningDocumentRequest();
+
+    if (requestErrors.length > 0) {
+      setScreenErrors(requestErrors);
+      setStatusMessage("Project Planning Documents save needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.saveProjectPlanningDocuments(
+      buildRequest(),
+    );
+    setIsBusy(false);
+
+    if (!result.ok || !result.combinedMarkdown) {
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? [
+          "Project Planning Documents could not be saved.",
+        ],
+      );
+      setStatusMessage("Project Planning Documents save needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(result);
+    setStatusMessage("Project Planning Documents saved.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Project Planning Documents"
+            description="Turn completed Architect interview output into durable project-level planning artifacts."
+            badge="upstream"
+          />
+          <Notice type="info">
+            Project-level Markdown files are updated in place under
+            `planning/project/`. A JSON and Markdown generation sidecar is saved
+            separately for later reuse.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <InvalidProjectIntakeFiles files={invalidProjectIntakeFiles} />
+          <InvalidProjectArchitectInterviewPromptFiles files={invalidPromptFiles} />
+          {!isProjectIntakesLoading &&
+          !isPromptsLoading &&
+          projectIntakes.length === 0 &&
+          prompts.length === 0 ? (
+            <Notice type="warning">
+              No saved Project Intake or Project Architect Interview Prompt JSON
+              artifacts were found.
+            </Notice>
+          ) : null}
+          <FieldGroup title="Project Sources">
+            <Field label="Saved Project Intake">
+              <select
+                className={selectCls}
+                value={selectedProjectIntakeFileName}
+                disabled={isProjectIntakesLoading}
+                onChange={(event) =>
+                  updateSelectedProjectIntake(event.target.value)
+                }
+              >
+                <option value="">
+                  {isProjectIntakesLoading
+                    ? "Loading Project Intakes..."
+                    : "Do not include Project Intake"}
+                </option>
+                {projectIntakes.map((projectIntake) => (
+                  <option
+                    key={projectIntake.fileName}
+                    value={projectIntake.fileName}
+                  >
+                    {projectIntake.projectName} ({projectIntake.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectIntake ? (
+              <ProjectIntakeSummary projectIntake={selectedProjectIntake} />
+            ) : null}
+            <Field label="Saved Project Architect Interview Prompt">
+              <select
+                className={selectCls}
+                value={selectedPromptFileName}
+                disabled={isPromptsLoading}
+                onChange={(event) => updateSelectedPrompt(event.target.value)}
+              >
+                <option value="">
+                  {isPromptsLoading
+                    ? "Loading Architect prompts..."
+                    : "Do not include Architect Prompt"}
+                </option>
+                {prompts.map((prompt) => (
+                  <option key={prompt.fileName} value={prompt.fileName}>
+                    {prompt.projectName} ({prompt.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedPrompt ? (
+              <ProjectArchitectInterviewPromptSummary prompt={selectedPrompt} />
+            ) : null}
+          </FieldGroup>
+          <FieldGroup title="Completed Interview">
+            <TextAreaField
+              label="Completed Architect interview output"
+              value={architectInterviewOutput}
+              rows={12}
+              onChange={updateArchitectInterviewOutput}
+              required
+            />
+          </FieldGroup>
+          <Notice type="warning">
+            Saving updates `PROJECT_PROFILE.md`, `PROJECT_STATE.md`,
+            `WORK_CARD_BACKLOG.md`, `OPEN_QUESTIONS.md`, `RISKS.md`, and
+            `DECISIONS.md` in place.
+          </Notice>
+          <ActionBar
+            onPreview={() => void previewPlanningDocuments()}
+            onSave={() => void savePlanningDocuments()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            previewLabel="Generate Preview"
+            saveLabel="Save Planning Docs"
+            copyLabel="Copy Preview"
+            saveDisabled={
+              isBusy || !hasSource || architectInterviewOutput.trim().length === 0
+            }
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Project Plan"
+          title="Preview Project Planning Documents"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Generate a preview to see the project planning documents."
+        >
+          {saveResult?.projectMarkdownPaths?.length ? (
+            <Notice type="success">
+              <div className="grid gap-2">
+                <span>Updated project-level Markdown files in place.</span>
+                <div className="grid gap-1">
+                  {saveResult.projectMarkdownPaths.map((filePath) => (
+                    <code
+                      key={filePath}
+                      className="break-anywhere text-[11px]"
+                    >
+                      {filePath}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            </Notice>
+          ) : null}
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved Project Planning Documents sidecar artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {previewResult?.documents ? (
+            <ProjectPlanningDocumentFileList
+              documents={previewResult.documents}
+            />
+          ) : null}
+          <MonoBlock className="mt-4 min-h-[calc(100vh-280px)]">
+            {previewMarkdown || "No Project Planning Documents preview yet."}
           </MonoBlock>
         </ArtifactPanel>
       }
@@ -3814,6 +4160,52 @@ function ProjectIntakeSummary({
   );
 }
 
+function ProjectArchitectInterviewPromptSummary({
+  prompt,
+}: {
+  prompt: ChampCitySavedProjectArchitectInterviewPromptSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={prompt.projectName} />
+      <SummaryItem label="Prompt ID" value={prompt.promptId} mono />
+      <SummaryItem label="Project Intake ID" value={prompt.projectIntakeId} mono />
+      <SummaryItem label="Architect Surface" value={prompt.architectSurface} />
+      <SummaryItem label="File" value={prompt.fileName} mono />
+      <SummaryItem label="Updated" value={prompt.updatedAt} mono />
+    </div>
+  );
+}
+
+function ProjectPlanningDocumentFileList({
+  documents,
+}: {
+  documents: ChampCityProjectPlanningDocumentArtifact[];
+}) {
+  return (
+    <div className="grid gap-2 rounded-lg border border-border bg-white/[0.02] p-3">
+      <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground/40">
+        Previewed documents
+      </div>
+      <div className="grid grid-cols-2 gap-2 max-[760px]:grid-cols-1">
+        {documents.map((document) => (
+          <div
+            key={document.fileName}
+            className="rounded-md border border-border bg-black/10 px-2 py-1.5"
+          >
+            <div className="font-mono text-[10px] text-primary/80">
+              {document.fileName}
+            </div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground/65">
+              {document.title}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function WorkCardSummary({ card }: { card: UiWorkCardSummary }) {
   return (
     <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
@@ -4096,6 +4488,31 @@ function InvalidProjectIntakeFiles({
     <Notice type="warning">
       <div className="grid gap-2">
         <strong>Skipped Project Intake files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidProjectArchitectInterviewPromptFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedProjectArchitectInterviewPromptFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Project Architect Interview Prompt files</strong>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -4757,6 +5174,122 @@ function useProjectIntakes() {
   }, []);
 
   return { projectIntakes, invalidFiles, errors, isLoading };
+}
+
+function useProjectPlanningDocumentProjectIntakes() {
+  const [projectIntakes, setProjectIntakes] = useState<
+    ChampCitySavedProjectIntakeSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectIntakeFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listProjectPlanningDocumentProjectIntakes()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setProjectIntakes([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? ["Saved Project Intakes could not be loaded."],
+          );
+          return;
+        }
+
+        setProjectIntakes(result.projectIntakes ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setProjectIntakes([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Project Intakes could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { projectIntakes, invalidFiles, errors, isLoading };
+}
+
+function useProjectArchitectInterviewPrompts() {
+  const [prompts, setPrompts] = useState<
+    ChampCitySavedProjectArchitectInterviewPromptSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectArchitectInterviewPromptFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listProjectPlanningDocumentArchitectPrompts()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setPrompts([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? [
+              "Saved Project Architect Interview Prompts could not be loaded.",
+            ],
+          );
+          return;
+        }
+
+        setPrompts(result.prompts ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setPrompts([]);
+        setInvalidFiles([]);
+        setErrors([
+          "Saved Project Architect Interview Prompts could not be loaded.",
+        ]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { prompts, invalidFiles, errors, isLoading };
 }
 
 function useDefaultSelectedFile(
