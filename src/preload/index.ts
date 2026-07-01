@@ -19,10 +19,22 @@ import type {
 } from "../shared/workCards/projectArchitectInterviewPrompt";
 import type {
   ListSavedProjectArchitectInterviewPromptsResult,
+  ListSavedProjectPlanningDocumentsResult,
   ProjectPlanningDocumentsPreviewResult,
   ProjectPlanningDocumentsRequest,
   ProjectPlanningDocumentsSaveResult,
 } from "../shared/workCards/projectPlanningDocuments";
+import type {
+  PhaseIntakeInput,
+  PhaseIntakePreviewResult,
+  PhaseIntakeSaveResult,
+} from "../shared/workCards/phaseIntake";
+import type {
+  ListSavedPhaseIntakesResult,
+  PhaseArchitectInterviewPromptPreviewResult,
+  PhaseArchitectInterviewPromptRequest,
+  PhaseArchitectInterviewPromptSaveResult,
+} from "../shared/workCards/phaseArchitectInterviewPrompt";
 import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
@@ -74,6 +86,8 @@ const api = {
       "Project Intake",
       "Project Architect Interview",
       "Project Plan",
+      "Phase Intake",
+      "Phase Architect Interview",
       "Capture",
       "Architect",
       "Risk",
@@ -117,6 +131,29 @@ const api = {
     input: ProjectPlanningDocumentsRequest,
   ): Promise<ProjectPlanningDocumentsSaveResult> =>
     ipcRenderer.invoke("projectPlanningDocuments:save", input),
+  listPhaseIntakeProjectPlanningDocuments:
+    (): Promise<ListSavedProjectPlanningDocumentsResult> =>
+      ipcRenderer.invoke("phaseIntake:listProjectPlanningDocuments"),
+  previewPhaseIntake: (
+    input: PhaseIntakeInput,
+  ): Promise<PhaseIntakePreviewResult> =>
+    ipcRenderer.invoke("phaseIntake:preview", input),
+  savePhaseIntake: (
+    input: PhaseIntakeInput,
+  ): Promise<PhaseIntakeSaveResult> =>
+    ipcRenderer.invoke("phaseIntake:save", input),
+  listPhaseArchitectInterviewPhaseIntakes: (
+    phase: string,
+  ): Promise<ListSavedPhaseIntakesResult> =>
+    ipcRenderer.invoke("phaseArchitectInterview:listPhaseIntakes", phase),
+  previewPhaseArchitectInterviewPrompt: (
+    input: PhaseArchitectInterviewPromptRequest,
+  ): Promise<PhaseArchitectInterviewPromptPreviewResult> =>
+    ipcRenderer.invoke("phaseArchitectInterview:previewPrompt", input),
+  savePhaseArchitectInterviewPrompt: (
+    input: PhaseArchitectInterviewPromptRequest,
+  ): Promise<PhaseArchitectInterviewPromptSaveResult> =>
+    ipcRenderer.invoke("phaseArchitectInterview:savePrompt", input),
   getNextWorkCardId: (phase: string): Promise<NextWorkCardIdResult> =>
     ipcRenderer.invoke("workCards:getNextId", phase),
   previewWorkCardDraft: (

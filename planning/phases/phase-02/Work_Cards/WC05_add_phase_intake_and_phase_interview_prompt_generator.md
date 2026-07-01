@@ -1,0 +1,241 @@
+# Work Card: Add Phase Intake and Phase Interview prompt generator
+
+## Work Card ID
+
+WC05
+
+Created: 2026-07-01T00:00:00.000Z
+Updated: 2026-07-01T00:00:00.000Z
+
+## Phase
+
+phase-02
+
+## Status
+
+ready_for_builder
+
+## What Problem Are We Solving?
+
+Project Intake, Project Architect Interview prompts, and Project Planning Documents now exist, but the app does not yet provide a phase-level intake workflow that turns project planning context into a bounded Phase Architect Interview prompt.
+
+## What Should This Accomplish?
+
+Add deterministic Phase Intake capture and Phase Architect Interview prompt generation as the next upstream planning workflow after Project Planning Documents.
+
+## What Should the User Be Able To Do?
+
+The Operator can create a Phase Intake from current project planning context, save paired phase-scoped artifacts, generate a copy-ready Phase Architect Interview prompt from that saved intake, copy it into the Architect surface, and save paired prompt artifacts for later Phase Planning Documents generation.
+
+## What Is Included?
+
+- Create WC05 JSON and Markdown Work Card artifacts under Phase 02.
+- Add a Phase Intake capture workflow.
+- Add a Phase Architect Interview prompt generator workflow.
+- Allow the Operator to select project planning source context from saved Project Planning Documents sidecars or use the current project planning document reference.
+- Allow the Operator to define a phase in plain language.
+- Save paired Phase Intake JSON and Markdown artifacts under `planning/phases/<phase-folder>/Phase_Intake/`.
+- Allow the Operator to select a saved Phase Intake JSON artifact.
+- Generate a copy-ready Phase Architect Interview prompt from the selected Phase Intake.
+- Save paired Phase Architect Interview Prompt JSON and Markdown artifacts under `planning/phases/<phase-folder>/Phase_Architect_Interview_Prompts/`.
+- Add clear route/navigation from Project Plan to Phase Intake and from Phase Intake to Phase Interview.
+- Preserve the Capture -> Frame -> Plan -> Build -> Prove mental model.
+- Preserve Operator / Architect / Implementer terminology.
+- Keep the workflow deterministic and do not call an LLM API.
+- Create the required WC05 Implementer Report under the legacy `Builder_Reports` folder.
+
+## What Is Not Included?
+
+- Do not call an LLM API.
+- Do not add provider SDKs.
+- Do not add ChatGPT or Claude browser automation.
+- Do not add database, auth, cloud, deployment automation, MCP, or connector integrations.
+- Do not implement Phase Planning Documents.
+- Do not generate the initial Work Card plan.
+- Do not implement phase closeout.
+- Do not close Phase 02.
+- Do not implement release, package, or installer work.
+- Do not perform a broad UI redesign.
+- Do not rename `Builder_Reports` or legacy `BUILDER_REPORT_*` files.
+
+## Requirements
+
+- Renderer code must not directly read or write local files.
+- All Phase Intake and Phase Architect Interview Prompt reads and writes must go through constrained Electron main/preload IPC.
+- Source selections must be safe basenames from approved folders.
+- The app must reject unsafe filenames, traversal, arbitrary absolute paths, and unsupported source paths.
+- Project Planning Documents source reads must stay inside `planning/project/Project_Planning_Documents/`.
+- Phase Intake reads and writes must stay inside `planning/phases/<phase-folder>/Phase_Intake/`.
+- Phase Architect Interview Prompt writes must stay inside `planning/phases/<phase-folder>/Phase_Architect_Interview_Prompts/`.
+- Saving must not silently overwrite existing artifacts; use safe suffixing where needed.
+- The Phase Intake model must capture phase folder, phase name, project name, source project planning context when selected, phase problem, phase goal, user outcome, included scope, out of scope, affected screens or workflows, known constraints, known risks, dependencies, validation expectations, operator notes, createdAt, and updatedAt.
+- The Phase Intake screen must show a Markdown preview before save.
+- The Phase Intake save result must show written Markdown and JSON paths.
+- The Phase Architect Interview screen must list saved Phase Intake JSON artifacts for the selected phase.
+- The Phase Architect Interview screen must generate a prompt preview before save.
+- The Phase Architect Interview screen must support copy and save.
+- The Phase Architect Interview prompt must instruct the Architect to review the saved Phase Intake and relevant project planning context if included.
+- The Phase Architect Interview prompt must instruct the Architect to ask only questions needed to complete phase planning, infer safe defaults where reasonable, provide suggested plain-language answers, preserve Operator / Architect / Implementer terminology, avoid implementation code, avoid generating Phase Planning Documents or Work Cards, and return interview questions and recommended defaults only.
+- Existing Project Intake screen must continue to work.
+- Existing Project Architect Interview screen must continue to work.
+- Existing Project Planning Documents screen must continue to work.
+- Existing Validate screen and Validation Target behavior must continue to work.
+
+## How We Know This Is Done
+
+- WC05 Work Card JSON and Markdown artifacts are created.
+- A visible Phase Intake workflow screen appears in the app.
+- A visible Phase Architect Interview workflow screen appears in the app.
+- The Operator can open the Phase Intake screen from the app.
+- The Operator can open the Phase Architect Interview screen from the app.
+- The Phase Intake screen allows project planning source selection or a clear current project context reference.
+- The Phase Intake screen allows the Operator to fill phase fields in plain language.
+- The Phase Intake screen previews Markdown before save.
+- Saving Phase Intake creates paired JSON and Markdown artifacts under the selected phase folder.
+- The Phase Architect Interview screen lists saved Phase Intake JSON artifacts for the selected phase.
+- The Phase Architect Interview screen generates a copy-ready prompt preview.
+- The Phase Architect Interview screen supports copying and saving the generated prompt.
+- Saving Phase Architect Interview Prompt creates paired JSON and Markdown artifacts under the selected phase folder.
+- Saved-path feedback is shown after Phase Intake and Phase Architect Interview saves.
+- Unsafe source filenames, traversal, arbitrary absolute paths, and unsupported source paths are rejected.
+- Existing Project Intake, Project Architect Interview, Project Planning Documents, Validate screen, and Validation Target behavior remain available.
+- No LLM API call, provider SDK, browser automation, database, auth, cloud, deployment, MCP, connector, Phase Planning Documents, initial Work Card plan, phase closeout, release, package, installer, broad redesign, or legacy Builder path rename is added.
+- WC05 Implementer Report is created.
+
+## How This Should Be Validated
+
+- Run `npm run typecheck`.
+- Run `npm run build`.
+- Run `npm test`.
+- Run `npm run test:work-cards` if the build environment allows it.
+- Run `git status --short` and review changed files.
+- List remaining Operator manual validation steps in the WC05 Implementer Report without performing Operator acceptance.
+
+## Risk Level
+
+medium
+
+## Risks and Watch Items
+
+- Phase Intake creates new phase-scoped folders, so path validation must stay narrow.
+- The deterministic prompt generator can guide the Architect interview but cannot complete phase planning by itself.
+- The renderer is still a large single-file React implementation, so the new workflow must be inserted without broad redesign.
+- Future WC06 will consume these artifacts, so filenames and JSON fields should remain stable and app-readable.
+
+## Builder Instructions
+
+- Verify the repository path and Git root before editing.
+- Read `AGENTS.md`, Phase 02 WC01 through WC04 artifacts, project-level planning files, existing Project Intake, Project Architect Interview, and Project Planning Documents models, main/preload IPC, and renderer source before implementation.
+- Keep this pass limited to Phase Intake capture and Phase Architect Interview prompt generation.
+- Prefer phase-scoped folders for Phase Intake and Phase Architect Interview Prompt artifacts.
+- Preserve product-facing Operator, Architect, Implementer, Implementer Prompt, and Implementer Report terminology.
+- Preserve legacy `Builder_*` compatibility artifact folders and file prefixes.
+- Do not perform Operator manual validation or create accepted Human Validation records.
+- Run required validation commands and document results in the WC05 Implementer Report.
+- Stage only files changed or created for WC05 and commit with `feat: add phase intake and interview prompt generator`.
+
+## Operator Notes
+
+- This Work Card follows the reconciled Phase 02 sequence after Project Planning Documents.
+- Phase Intake is the source material for a Phase Architect Interview, not the completed phase plan.
+- The Phase Architect Interview prompt should return questions and recommended defaults only.
+- WC06 will consume completed Phase Architect interview output to generate Phase Planning Documents and the initial Work Card plan.
+- Existing legacy Builder artifact names remain compatibility storage names until a dedicated migration Work Card changes them safely.
+
+## Builder Handoff Prompt
+
+Use this as the starting Implementer prompt. The section heading remains a legacy Builder handoff heading for artifact compatibility.
+
+You are acting as Implementer for ChampCity A/I.
+
+The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured handoff and preserve the approved scope.
+
+Before editing:
+- Verify the repository path before editing. Expected repository: `C:\Users\chapm\Projects\ChampCity_AI`.
+- Read `AGENTS.md` and relevant planning files.
+
+Work Card: WC05 - Add Phase Intake and Phase Interview prompt generator
+
+Goal: Add deterministic Phase Intake capture and Phase Architect Interview prompt generation as the next upstream planning workflow after Project Planning Documents.
+
+Scope:
+- Create WC05 JSON and Markdown Work Card artifacts under Phase 02.
+- Add a Phase Intake capture workflow.
+- Add a Phase Architect Interview prompt generator workflow.
+- Allow the Operator to select project planning source context from saved Project Planning Documents sidecars or use the current project planning document reference.
+- Allow the Operator to define a phase in plain language.
+- Save paired Phase Intake JSON and Markdown artifacts under `planning/phases/<phase-folder>/Phase_Intake/`.
+- Allow the Operator to select a saved Phase Intake JSON artifact.
+- Generate a copy-ready Phase Architect Interview prompt from the selected Phase Intake.
+- Save paired Phase Architect Interview Prompt JSON and Markdown artifacts under `planning/phases/<phase-folder>/Phase_Architect_Interview_Prompts/`.
+- Add clear route/navigation from Project Plan to Phase Intake and from Phase Intake to Phase Interview.
+- Preserve the Capture -> Frame -> Plan -> Build -> Prove mental model.
+- Preserve Operator / Architect / Implementer terminology.
+- Keep the workflow deterministic and do not call an LLM API.
+- Create the required WC05 Implementer Report under the legacy `Builder_Reports` folder.
+
+Out of scope:
+- Do not call an LLM API.
+- Do not add provider SDKs.
+- Do not add ChatGPT or Claude browser automation.
+- Do not add database, auth, cloud, deployment automation, MCP, or connector integrations.
+- Do not implement Phase Planning Documents.
+- Do not generate the initial Work Card plan.
+- Do not implement phase closeout.
+- Do not close Phase 02.
+- Do not implement release, package, or installer work.
+- Do not perform a broad UI redesign.
+- Do not rename `Builder_Reports` or legacy `BUILDER_REPORT_*` files.
+
+Requirements:
+- Renderer code must not directly read or write local files.
+- All Phase Intake and Phase Architect Interview Prompt reads and writes must go through constrained Electron main/preload IPC.
+- Source selections must be safe basenames from approved folders.
+- The app must reject unsafe filenames, traversal, arbitrary absolute paths, and unsupported source paths.
+- Project Planning Documents source reads must stay inside `planning/project/Project_Planning_Documents/`.
+- Phase Intake reads and writes must stay inside `planning/phases/<phase-folder>/Phase_Intake/`.
+- Phase Architect Interview Prompt writes must stay inside `planning/phases/<phase-folder>/Phase_Architect_Interview_Prompts/`.
+- Saving must not silently overwrite existing artifacts; use safe suffixing where needed.
+- The Phase Intake model must capture phase folder, phase name, project name, source project planning context when selected, phase problem, phase goal, user outcome, included scope, out of scope, affected screens or workflows, known constraints, known risks, dependencies, validation expectations, operator notes, createdAt, and updatedAt.
+- The Phase Intake screen must show a Markdown preview before save.
+- The Phase Intake save result must show written Markdown and JSON paths.
+- The Phase Architect Interview screen must list saved Phase Intake JSON artifacts for the selected phase.
+- The Phase Architect Interview screen must generate a prompt preview before save.
+- The Phase Architect Interview screen must support copy and save.
+- The Phase Architect Interview prompt must instruct the Architect to review the saved Phase Intake and relevant project planning context if included.
+- The Phase Architect Interview prompt must instruct the Architect to ask only questions needed to complete phase planning, infer safe defaults where reasonable, provide suggested plain-language answers, preserve Operator / Architect / Implementer terminology, avoid implementation code, avoid generating Phase Planning Documents or Work Cards, and return interview questions and recommended defaults only.
+- Existing Project Intake screen must continue to work.
+- Existing Project Architect Interview screen must continue to work.
+- Existing Project Planning Documents screen must continue to work.
+- Existing Validate screen and Validation Target behavior must continue to work.
+
+Acceptance criteria:
+- WC05 Work Card JSON and Markdown artifacts are created.
+- A visible Phase Intake workflow screen appears in the app.
+- A visible Phase Architect Interview workflow screen appears in the app.
+- The Operator can open the Phase Intake screen from the app.
+- The Operator can open the Phase Architect Interview screen from the app.
+- The Phase Intake screen allows project planning source selection or a clear current project context reference.
+- The Phase Intake screen allows the Operator to fill phase fields in plain language.
+- The Phase Intake screen previews Markdown before save.
+- Saving Phase Intake creates paired JSON and Markdown artifacts under the selected phase folder.
+- The Phase Architect Interview screen lists saved Phase Intake JSON artifacts for the selected phase.
+- The Phase Architect Interview screen generates a copy-ready prompt preview.
+- The Phase Architect Interview screen supports copying and saving the generated prompt.
+- Saving Phase Architect Interview Prompt creates paired JSON and Markdown artifacts under the selected phase folder.
+- Saved-path feedback is shown after Phase Intake and Phase Architect Interview saves.
+- Unsafe source filenames, traversal, arbitrary absolute paths, and unsupported source paths are rejected.
+- Existing Project Intake, Project Architect Interview, Project Planning Documents, Validate screen, and Validation Target behavior remain available.
+- No LLM API call, provider SDK, browser automation, database, auth, cloud, deployment, MCP, connector, Phase Planning Documents, initial Work Card plan, phase closeout, release, package, installer, broad redesign, or legacy Builder path rename is added.
+- WC05 Implementer Report is created.
+
+Validation plan:
+- Run `npm run typecheck`.
+- Run `npm run build`.
+- Run `npm test`.
+- Run `npm run test:work-cards` if the build environment allows it.
+- Run `git status --short` and review changed files.
+- List remaining Operator manual validation steps in the WC05 Implementer Report without performing Operator acceptance.
+
+Implementer Report:
+- Create an Implementer Report under the legacy `planning/phases/phase-02/Builder_Reports/` folder and include commands run, validation results, security notes, git actions, and the recommended next Implementer task.

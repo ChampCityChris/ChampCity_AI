@@ -18,15 +18,19 @@ import {
   listHumanValidationBuilderReports,
   listHumanValidationStatuses,
   listHumanValidationTargets,
+  listSavedPhaseIntakes,
   listSavedProjectArchitectInterviewPrompts,
   listSavedProjectIntakes,
+  listSavedProjectPlanningDocuments,
   listSavedWorkCards,
   previewArchitectPrompt,
   previewBuilderPrompt,
   previewBuilderReportCapture,
   previewDraftWorkCard,
   previewHumanValidationRecord,
+  previewPhaseArchitectInterviewPrompt,
   previewPhaseCloseoutRecord,
+  previewPhaseIntake,
   previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
   previewProjectPlanningDocuments,
@@ -37,7 +41,9 @@ import {
   saveBuilderReportCapture,
   saveDraftWorkCard,
   saveHumanValidationRecord,
+  savePhaseArchitectInterviewPrompt,
   savePhaseCloseoutRecord,
+  savePhaseIntake,
   saveProjectArchitectInterviewPrompt,
   saveProjectIntake,
   saveProjectPlanningDocuments,
@@ -47,6 +53,8 @@ import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
 import type { ProjectIntakeInput } from "../shared/workCards/projectIntake";
 import type { ProjectArchitectInterviewPromptRequest } from "../shared/workCards/projectArchitectInterviewPrompt";
 import type { ProjectPlanningDocumentsRequest } from "../shared/workCards/projectPlanningDocuments";
+import type { PhaseIntakeInput } from "../shared/workCards/phaseIntake";
+import type { PhaseArchitectInterviewPromptRequest } from "../shared/workCards/phaseArchitectInterviewPrompt";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -205,6 +213,30 @@ function registerWorkCardIpc(): void {
     "projectPlanningDocuments:save",
     (_event, input: ProjectPlanningDocumentsRequest) =>
       saveProjectPlanningDocuments(input),
+  );
+  ipcMain.handle("phaseIntake:listProjectPlanningDocuments", () =>
+    listSavedProjectPlanningDocuments(),
+  );
+  ipcMain.handle(
+    "phaseIntake:preview",
+    (_event, input: PhaseIntakeInput) => previewPhaseIntake(input),
+  );
+  ipcMain.handle(
+    "phaseIntake:save",
+    (_event, input: PhaseIntakeInput) => savePhaseIntake(input),
+  );
+  ipcMain.handle("phaseArchitectInterview:listPhaseIntakes", (_event, phase: string) =>
+    listSavedPhaseIntakes(phase),
+  );
+  ipcMain.handle(
+    "phaseArchitectInterview:previewPrompt",
+    (_event, input: PhaseArchitectInterviewPromptRequest) =>
+      previewPhaseArchitectInterviewPrompt(input),
+  );
+  ipcMain.handle(
+    "phaseArchitectInterview:savePrompt",
+    (_event, input: PhaseArchitectInterviewPromptRequest) =>
+      savePhaseArchitectInterviewPrompt(input),
   );
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),

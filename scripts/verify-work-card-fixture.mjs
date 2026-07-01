@@ -138,6 +138,34 @@ const {
   validateProjectPlanningDocumentsSlug,
 } = require("../dist/shared/workCards/projectPlanningDocuments.js");
 const {
+  buildPhaseIntake,
+  buildPhaseIntakeFileNames,
+  validatePhaseIntakeArtifactFileName,
+  validatePhaseIntakeSlug,
+} = require("../dist/shared/workCards/phaseIntake.js");
+const {
+  phaseIntakeMarkdownHeadings,
+  phaseIntakeNextStepText,
+  renderPhaseIntakeMarkdown,
+} = require("../dist/shared/workCards/renderPhaseIntakeMarkdown.js");
+const {
+  validatePhaseIntake,
+} = require("../dist/shared/workCards/validatePhaseIntake.js");
+const {
+  buildPhaseArchitectInterviewPrompt,
+  buildPhaseArchitectInterviewPromptFileNames,
+  phaseArchitectInterviewOperatorInstruction,
+  phaseArchitectInterviewPromptPurpose,
+  validatePhaseArchitectInterviewPrompt,
+  validatePhaseArchitectInterviewPromptArtifactFileName,
+  validatePhaseArchitectInterviewPromptSlug,
+} = require("../dist/shared/workCards/phaseArchitectInterviewPrompt.js");
+const {
+  phaseArchitectInterviewPromptMarkdownHeadings,
+  phaseArchitectInterviewPromptNextStepText,
+  renderPhaseArchitectInterviewPromptMarkdown,
+} = require("../dist/shared/workCards/renderPhaseArchitectInterviewPromptMarkdown.js");
+const {
   finalBuilderPromptBoundary,
   renderArchitectFramingPrompt,
 } = require("../dist/shared/workCards/renderArchitectFramingPrompt.js");
@@ -213,13 +241,16 @@ const {
   listAvailablePhaseFolders,
   listHumanValidationBuilderReports,
   listHumanValidationTargets,
+  listSavedProjectPlanningDocuments,
   listSavedProjectArchitectInterviewPrompts,
   listSavedWorkCards,
   loadBuilderReportFile,
   previewHumanValidationRecord,
+  resolvePhaseArchitectInterviewPromptsDirectory,
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
   resolveCloseoutReportsDirectory,
+  resolvePhaseIntakeDirectory,
   resolveProjectArchitectInterviewPromptsDirectory,
   resolveProjectIntakeDirectory,
   resolveProjectPlanningDocumentPath,
@@ -231,6 +262,9 @@ const {
   resolveValidationReportsDirectory,
   resolveValidationTargetsDirectory,
   validateMarkdownArtifactFileName,
+  validateSavedPhaseIntakeJsonFileName,
+  validateSavedPhaseArchitectInterviewPromptJsonFileName,
+  validateSavedProjectPlanningDocumentsJsonFileName,
   validateSavedProjectArchitectInterviewPromptJsonFileName,
   validateSavedProjectIntakeJsonFileName,
   validateSavedWorkCardJsonFileName,
@@ -445,6 +479,7 @@ await assertHumanValidationAndRepair();
 assertPhaseCloseout();
 await assertSavedWorkCardListing();
 await assertProjectPlanningDocuments();
+await assertPhaseIntakeAndInterviewPrompt();
 
 console.log("Work Card fixture validation passed.");
 
@@ -2568,6 +2603,338 @@ async function assertProjectPlanningDocuments() {
 
   if (missingSourceText.length > 0) {
     console.error("Project Planning Documents source wiring is missing required text:");
+    for (const text of missingSourceText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+}
+
+async function assertPhaseIntakeAndInterviewPrompt() {
+  const phaseIntake = buildPhaseIntake(
+    {
+      phaseFolder: "phase-02",
+      phaseName: "Phase 02 upstream planning",
+      projectName: "ChampCity A/I",
+      sourceProjectPlanningSidecarJsonFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      phaseProblem: "The Operator needs phase-level planning input.",
+      phaseGoal: "Capture phase context before a Phase Architect Interview.",
+      userOutcome: "The Operator can generate a phase interview prompt.",
+      includedScope: "Phase Intake and Phase Architect Interview prompt generation.",
+      outOfScope: "Phase Planning Documents and Work Cards.",
+      affectedScreensOrWorkflows: "Project Plan, Phase Intake, Phase Interview.",
+      knownConstraints: "No LLM API or provider SDK.",
+      knownRisks: "Phase scope could drift into implementation planning.",
+      dependencies: "Project Planning Documents sidecar.",
+      validationExpectations: "Automated typecheck, build, and work-card script.",
+      operatorNotes: "Keep the Architect focused on questions and defaults.",
+    },
+    "2026-07-01T13:00:00.000Z",
+    "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+  );
+  const validation = validatePhaseIntake(phaseIntake);
+
+  if (!validation.valid) {
+    console.error("Phase Intake validation failed:");
+    for (const error of validation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  if (validation.warnings.length > 0) {
+    console.error("Phase Intake fixture should include optional warning context.");
+    for (const warning of validation.warnings) {
+      console.error(`- ${warning}`);
+    }
+    process.exit(1);
+  }
+
+  const markdown = renderPhaseIntakeMarkdown(phaseIntake);
+  const requiredMarkdownText = [
+    `# Phase Intake: ${phaseIntake.phaseName}`,
+    ...phaseIntakeMarkdownHeadings,
+    "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+    phaseIntakeNextStepText,
+  ];
+  const missingMarkdownText = requiredMarkdownText.filter(
+    (text) => !markdown.includes(text),
+  );
+
+  if (missingMarkdownText.length > 0) {
+    console.error("Phase Intake Markdown is missing required text:");
+    for (const text of missingMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const missingRequired = validatePhaseIntake({
+    ...phaseIntake,
+    phaseFolder: "",
+    phaseName: "",
+    projectName: "",
+    phaseProblem: "",
+    phaseGoal: "",
+    userOutcome: "",
+  });
+
+  if (missingRequired.valid || missingRequired.errors.length < 6) {
+    console.error("Phase Intake validation did not reject missing required fields.");
+    process.exit(1);
+  }
+
+  const missingHelpfulContext = validatePhaseIntake({
+    ...phaseIntake,
+    includedScope: "",
+    outOfScope: "",
+    affectedScreensOrWorkflows: "",
+    knownConstraints: "",
+    knownRisks: "",
+    dependencies: "",
+    validationExpectations: "",
+  });
+
+  if (!missingHelpfulContext.valid) {
+    console.error("Phase Intake warnings should not block save.");
+    process.exit(1);
+  }
+
+  if (missingHelpfulContext.warnings.length < 7) {
+    console.error("Phase Intake did not warn for missing optional-but-important fields.");
+    process.exit(1);
+  }
+
+  const intakeFileNames = buildPhaseIntakeFileNames("Phase 02 upstream planning");
+
+  if (
+    intakeFileNames.jsonFileName !== "PHASE_INTAKE_phase_02_upstream_planning.json" ||
+    intakeFileNames.markdownFileName !== "PHASE_INTAKE_phase_02_upstream_planning.md"
+  ) {
+    console.error("Phase Intake filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validatePhaseIntakeSlug("../bad").length === 0) {
+    console.error("Phase Intake slug sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validatePhaseIntakeArtifactFileName("../bad.json").length === 0) {
+    console.error("Phase Intake artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateSavedProjectPlanningDocumentsJsonFileName("../bad.json").length === 0) {
+    console.error("Saved Project Planning Documents filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateSavedProjectPlanningDocumentsJsonFileName(
+      "PROJECT_PLANNING_DOCUMENTS_bad.md",
+    ).length === 0
+  ) {
+    console.error("Saved Project Planning Documents filename sanitizer failed to require JSON.");
+    process.exit(1);
+  }
+
+  if (validateSavedPhaseIntakeJsonFileName("../bad.json").length === 0) {
+    console.error("Saved Phase Intake filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolvePhaseIntakeDirectory("phase-02"), "../bad");
+    console.error("Phase Intake path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    resolvePhaseIntakeDirectory("../bad");
+    console.error("Phase Intake directory sanitizer failed to reject unsafe phases.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const promptRecord = buildPhaseArchitectInterviewPrompt(
+    phaseIntake,
+    "PHASE_INTAKE_phase_02_upstream_planning.json",
+    "PHASE_INTAKE_phase_02_upstream_planning.md",
+    "2026-07-01T13:30:00.000Z",
+  );
+  const promptValidation = validatePhaseArchitectInterviewPrompt(promptRecord);
+
+  if (!promptValidation.valid) {
+    console.error("Phase Architect Interview Prompt validation failed:");
+    for (const error of promptValidation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  if (promptRecord.promptPurpose !== phaseArchitectInterviewPromptPurpose) {
+    console.error("Phase Architect Interview Prompt purpose changed unexpectedly.");
+    process.exit(1);
+  }
+
+  if (
+    promptRecord.operatorInstruction !==
+    phaseArchitectInterviewOperatorInstruction
+  ) {
+    console.error("Phase Architect Interview operator instruction changed unexpectedly.");
+    process.exit(1);
+  }
+
+  const requiredPromptText = [
+    "Act as Architect for the development phase described below.",
+    "Saved Phase Intake:",
+    "Review the saved Phase Intake before asking questions.",
+    "Review relevant project planning context",
+    "Ask only the questions needed to complete phase planning.",
+    "Infer safe defaults where reasonable",
+    "Provide suggested plain-language answers",
+    "Preserve Operator / Architect / Implementer terminology.",
+    "Avoid implementation code.",
+    "Avoid generating Phase Planning Documents or Work Cards in this step.",
+    "Return only:",
+    "Do not generate Phase Planning Documents.",
+    "Do not generate an initial Work Card plan.",
+    "Do not generate Work Cards.",
+  ];
+  const missingPromptText = requiredPromptText.filter(
+    (text) => !promptRecord.promptText.includes(text),
+  );
+
+  if (missingPromptText.length > 0) {
+    console.error("Phase Architect Interview prompt text is missing required text:");
+    for (const text of missingPromptText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const promptMarkdown =
+    renderPhaseArchitectInterviewPromptMarkdown(promptRecord);
+  const requiredPromptMarkdownText = [
+    `# Phase Architect Interview Prompt: ${phaseIntake.phaseName}`,
+    ...phaseArchitectInterviewPromptMarkdownHeadings,
+    promptRecord.promptText,
+    phaseArchitectInterviewPromptNextStepText,
+  ];
+  const missingPromptMarkdownText = requiredPromptMarkdownText.filter(
+    (text) => !promptMarkdown.includes(text),
+  );
+
+  if (missingPromptMarkdownText.length > 0) {
+    console.error("Phase Architect Interview Prompt Markdown is missing required text:");
+    for (const text of missingPromptMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const promptFileNames = buildPhaseArchitectInterviewPromptFileNames(
+    "Phase 02 upstream planning",
+  );
+
+  if (
+    promptFileNames.jsonFileName !==
+      "PHASE_ARCHITECT_INTERVIEW_PROMPT_phase_02_upstream_planning.json" ||
+    promptFileNames.markdownFileName !==
+      "PHASE_ARCHITECT_INTERVIEW_PROMPT_phase_02_upstream_planning.md"
+  ) {
+    console.error("Phase Architect Interview Prompt filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validatePhaseArchitectInterviewPromptSlug("../bad").length === 0) {
+    console.error("Phase Architect Interview Prompt slug sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validatePhaseArchitectInterviewPromptArtifactFileName("../bad.json")
+      .length === 0
+  ) {
+    console.error("Phase Architect Interview Prompt artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateSavedPhaseArchitectInterviewPromptJsonFileName("../bad.json")
+      .length === 0
+  ) {
+    console.error("Saved Phase Architect Interview Prompt filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(
+      resolvePhaseArchitectInterviewPromptsDirectory("phase-02"),
+      "../bad",
+    );
+    console.error("Phase Architect Interview Prompt path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    resolvePhaseArchitectInterviewPromptsDirectory("../bad");
+    console.error("Phase Architect Interview Prompt directory sanitizer failed to reject unsafe phases.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const listing = await listSavedProjectPlanningDocuments();
+
+  if (!listing.ok) {
+    console.error("Saved Project Planning Documents listing failed:");
+    for (const error of listing.errorMessages ?? []) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const source = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredSourceText = [
+    'label: "Phase Intake"',
+    'label: "Phase Interview"',
+    "Phase Intake Markdown Preview",
+    "Saved Project Planning Documents sidecar",
+    "Open Phase Intake",
+    "Open Phase Interview",
+    "Phase Architect Interview",
+    "Generate Phase Prompt",
+    "Copy Phase Prompt",
+    "Save Phase Prompt",
+    "Phase_Intake",
+    "Phase_Architect_Interview_Prompts",
+    "listPhaseIntakeProjectPlanningDocuments",
+    "previewPhaseIntake",
+    "savePhaseIntake",
+    "listPhaseArchitectInterviewPhaseIntakes",
+    "previewPhaseArchitectInterviewPrompt",
+    "savePhaseArchitectInterviewPrompt",
+    "validateSavedProjectPlanningDocumentsJsonFileName",
+    "validateSavedPhaseIntakeJsonFileName",
+  ];
+  const missingSourceText = requiredSourceText.filter(
+    (text) => !source.includes(text),
+  );
+
+  if (missingSourceText.length > 0) {
+    console.error("Phase Intake and Interview source wiring is missing required text:");
     for (const text of missingSourceText) {
       console.error(`- ${text}`);
     }

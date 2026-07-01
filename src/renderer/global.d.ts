@@ -24,13 +24,32 @@ import type {
 import type {
   InvalidSavedProjectArchitectInterviewPromptFile,
   ListSavedProjectArchitectInterviewPromptsResult,
+  InvalidSavedProjectPlanningDocumentsFile,
+  ListSavedProjectPlanningDocumentsResult,
   ProjectPlanningDocumentArtifact,
   ProjectPlanningDocumentsPreviewResult,
   ProjectPlanningDocumentsRecord,
   ProjectPlanningDocumentsRequest,
   ProjectPlanningDocumentsSaveResult,
   SavedProjectArchitectInterviewPromptSummary,
+  SavedProjectPlanningDocumentsSummary,
 } from "../shared/workCards/projectPlanningDocuments";
+import type {
+  PhaseIntake,
+  PhaseIntakeInput,
+  PhaseIntakePreviewResult,
+  PhaseIntakeSaveResult,
+} from "../shared/workCards/phaseIntake";
+import type { PhaseIntakeValidationResult } from "../shared/workCards/validatePhaseIntake";
+import type {
+  InvalidSavedPhaseIntakeFile,
+  ListSavedPhaseIntakesResult,
+  PhaseArchitectInterviewPrompt,
+  PhaseArchitectInterviewPromptPreviewResult,
+  PhaseArchitectInterviewPromptRequest,
+  PhaseArchitectInterviewPromptSaveResult,
+  SavedPhaseIntakeSummary,
+} from "../shared/workCards/phaseArchitectInterviewPrompt";
 import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
@@ -138,6 +157,31 @@ declare global {
     ProjectPlanningDocumentsPreviewResult;
   type ChampCityProjectPlanningDocumentsSaveResult =
     ProjectPlanningDocumentsSaveResult;
+  type ChampCitySavedProjectPlanningDocumentsSummary =
+    SavedProjectPlanningDocumentsSummary;
+  type ChampCityInvalidSavedProjectPlanningDocumentsFile =
+    InvalidSavedProjectPlanningDocumentsFile;
+  type ChampCityListSavedProjectPlanningDocumentsResult =
+    ListSavedProjectPlanningDocumentsResult;
+  type ChampCityPhaseIntake = PhaseIntake;
+  type ChampCityPhaseIntakeInput = PhaseIntakeInput;
+  type ChampCityPhaseIntakeValidationResult =
+    PhaseIntakeValidationResult;
+  type ChampCityPhaseIntakePreviewResult = PhaseIntakePreviewResult;
+  type ChampCityPhaseIntakeSaveResult = PhaseIntakeSaveResult;
+  type ChampCityPhaseArchitectInterviewPrompt =
+    PhaseArchitectInterviewPrompt;
+  type ChampCityPhaseArchitectInterviewPromptRequest =
+    PhaseArchitectInterviewPromptRequest;
+  type ChampCityPhaseArchitectInterviewPromptPreviewResult =
+    PhaseArchitectInterviewPromptPreviewResult;
+  type ChampCityPhaseArchitectInterviewPromptSaveResult =
+    PhaseArchitectInterviewPromptSaveResult;
+  type ChampCitySavedPhaseIntakeSummary = SavedPhaseIntakeSummary;
+  type ChampCityInvalidSavedPhaseIntakeFile =
+    InvalidSavedPhaseIntakeFile;
+  type ChampCityListSavedPhaseIntakesResult =
+    ListSavedPhaseIntakesResult;
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
   type ChampCityWorkCardSaveResult = WorkCardSaveResult;
   type ChampCityNextWorkCardIdResult = NextWorkCardIdResult;
@@ -238,6 +282,22 @@ declare global {
       saveProjectPlanningDocuments: (
         input: ProjectPlanningDocumentsRequest,
       ) => Promise<ProjectPlanningDocumentsSaveResult>;
+      listPhaseIntakeProjectPlanningDocuments: () => Promise<ListSavedProjectPlanningDocumentsResult>;
+      previewPhaseIntake: (
+        input: PhaseIntakeInput,
+      ) => Promise<PhaseIntakePreviewResult>;
+      savePhaseIntake: (
+        input: PhaseIntakeInput,
+      ) => Promise<PhaseIntakeSaveResult>;
+      listPhaseArchitectInterviewPhaseIntakes: (
+        phase: string,
+      ) => Promise<ListSavedPhaseIntakesResult>;
+      previewPhaseArchitectInterviewPrompt: (
+        input: PhaseArchitectInterviewPromptRequest,
+      ) => Promise<PhaseArchitectInterviewPromptPreviewResult>;
+      savePhaseArchitectInterviewPrompt: (
+        input: PhaseArchitectInterviewPromptRequest,
+      ) => Promise<PhaseArchitectInterviewPromptSaveResult>;
       getNextWorkCardId: (phase: string) => Promise<NextWorkCardIdResult>;
       previewWorkCardDraft: (
         input: WorkCardDraftInput,

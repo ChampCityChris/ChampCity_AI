@@ -150,13 +150,41 @@ import {
   renderProjectPlanningDocumentsRecordMarkdown,
   validateProjectPlanningDocumentsArtifactFileName,
   type InvalidSavedProjectArchitectInterviewPromptFile,
+  type InvalidSavedProjectPlanningDocumentsFile,
   type ListSavedProjectArchitectInterviewPromptsResult,
+  type ListSavedProjectPlanningDocumentsResult,
   type ProjectPlanningDocumentFileName,
+  type ProjectPlanningDocumentsRecord,
   type ProjectPlanningDocumentsPreviewResult,
   type ProjectPlanningDocumentsRequest,
   type ProjectPlanningDocumentsSaveResult,
   type SavedProjectArchitectInterviewPromptSummary,
+  type SavedProjectPlanningDocumentsSummary,
 } from "../../shared/workCards/projectPlanningDocuments";
+import {
+  buildPhaseIntake,
+  buildPhaseIntakeFileNames,
+  validatePhaseIntakeArtifactFileName,
+  type PhaseIntake,
+  type PhaseIntakeInput,
+  type PhaseIntakePreviewResult,
+  type PhaseIntakeSaveResult,
+} from "../../shared/workCards/phaseIntake";
+import { renderPhaseIntakeMarkdown } from "../../shared/workCards/renderPhaseIntakeMarkdown";
+import { validatePhaseIntake } from "../../shared/workCards/validatePhaseIntake";
+import {
+  buildPhaseArchitectInterviewPrompt,
+  buildPhaseArchitectInterviewPromptFileNames,
+  validatePhaseArchitectInterviewPrompt,
+  validatePhaseArchitectInterviewPromptArtifactFileName,
+  type InvalidSavedPhaseIntakeFile,
+  type ListSavedPhaseIntakesResult,
+  type PhaseArchitectInterviewPromptPreviewResult,
+  type PhaseArchitectInterviewPromptRequest,
+  type PhaseArchitectInterviewPromptSaveResult,
+  type SavedPhaseIntakeSummary,
+} from "../../shared/workCards/phaseArchitectInterviewPrompt";
+import { renderPhaseArchitectInterviewPromptMarkdown } from "../../shared/workCards/renderPhaseArchitectInterviewPromptMarkdown";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
@@ -781,6 +809,352 @@ export async function saveProjectPlanningDocuments(
     };
   } catch (error) {
     console.error("Failed to save Project Planning Documents.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedProjectPlanningDocuments(): Promise<ListSavedProjectPlanningDocumentsResult> {
+  try {
+    const directory = resolveProjectPlanningDocumentsDirectory();
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const documents: SavedProjectPlanningDocumentsSummary[] = [];
+    const invalidFiles: InvalidSavedProjectPlanningDocumentsFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors =
+        validateSavedProjectPlanningDocumentsJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const record = await readSavedProjectPlanningDocumentsRecord(fileName);
+        documents.push({
+          fileName,
+          recordId: record.recordId,
+          projectName: record.projectName,
+          updatedAt: record.updatedAt,
+        });
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    documents.sort(compareSavedProjectArtifactSummaries);
+
+    return {
+      ok: true,
+      documents,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewPhaseIntake(
+  input: PhaseIntakeInput,
+): Promise<PhaseIntakePreviewResult> {
+  try {
+    const context = await readPhaseIntakeProjectPlanningContext(input);
+    const phaseIntake = buildPhaseIntake(
+      context.input,
+      new Date().toISOString(),
+      context.sourceProjectPlanningSidecarMarkdownFileName,
+    );
+    const validation = validatePhaseIntake(phaseIntake);
+    const suggestedFileNames = buildPhaseIntakeFileNames(
+      phaseIntake.phaseName,
+    );
+
+    if (!validation.valid) {
+      return {
+        ok: false,
+        validation,
+        phaseIntake,
+        suggestedFileNames,
+        errorMessages: validation.errors,
+      };
+    }
+
+    return {
+      ok: true,
+      validation,
+      phaseIntake,
+      markdown: renderPhaseIntakeMarkdown(phaseIntake),
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      validation: {
+        valid: false,
+        errors: [toPlainSaveError(error)],
+        warnings: [],
+      },
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function savePhaseIntake(
+  input: PhaseIntakeInput,
+): Promise<PhaseIntakeSaveResult> {
+  try {
+    const preview = await previewPhaseIntake(input);
+
+    if (
+      !preview.ok ||
+      !preview.phaseIntake ||
+      !preview.markdown ||
+      !preview.suggestedFileNames
+    ) {
+      return preview;
+    }
+
+    const directory = resolvePhaseIntakeDirectory(preview.phaseIntake.phaseFolder);
+    const targets = await resolveAvailableFilePair(
+      directory,
+      preview.suggestedFileNames.jsonFileName,
+      preview.suggestedFileNames.markdownFileName,
+      "A safe Phase Intake filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validatePhaseIntakeArtifactFileName(targets.firstFileName),
+      ...validatePhaseIntakeArtifactFileName(targets.secondFileName),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(preview.phaseIntake, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, preview.markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Phase Intake.", error);
+
+    return {
+      ok: false,
+      validation: {
+        valid: false,
+        errors: [toPlainSaveError(error)],
+        warnings: [],
+      },
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedPhaseIntakes(
+  phase: string,
+): Promise<ListSavedPhaseIntakesResult> {
+  try {
+    const directory = resolvePhaseIntakeDirectory(phase);
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const phaseIntakes: SavedPhaseIntakeSummary[] = [];
+    const invalidFiles: InvalidSavedPhaseIntakeFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateSavedPhaseIntakeJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const phaseIntake = await readSavedPhaseIntakeFile(phase, fileName);
+        phaseIntakes.push({
+          fileName,
+          phaseIntakeId: phaseIntake.phaseIntakeId,
+          phaseFolder: phaseIntake.phaseFolder,
+          phaseName: phaseIntake.phaseName,
+          projectName: phaseIntake.projectName,
+          sourceProjectPlanningSidecarJsonFileName:
+            phaseIntake.sourceProjectPlanningSidecarJsonFileName,
+          updatedAt: phaseIntake.updatedAt,
+        });
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    phaseIntakes.sort(compareSavedPhaseIntakeSummaries);
+
+    return {
+      ok: true,
+      phaseIntakes,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewPhaseArchitectInterviewPrompt(
+  input: PhaseArchitectInterviewPromptRequest,
+): Promise<PhaseArchitectInterviewPromptPreviewResult> {
+  try {
+    const sourcePhaseIntake = await readSavedPhaseIntakeFile(
+      input.phaseFolder,
+      input.phaseIntakeFileName,
+    );
+    const sourcePhaseIntakeMarkdownFileName =
+      await findMatchingPhaseIntakeMarkdownFileName(
+        input.phaseFolder,
+        input.phaseIntakeFileName,
+      );
+    const promptRecord = buildPhaseArchitectInterviewPrompt(
+      sourcePhaseIntake,
+      input.phaseIntakeFileName.trim(),
+      sourcePhaseIntakeMarkdownFileName,
+      new Date().toISOString(),
+    );
+    const suggestedFileNames =
+      buildPhaseArchitectInterviewPromptFileNames(promptRecord.phaseName);
+    const markdown = renderPhaseArchitectInterviewPromptMarkdown(promptRecord);
+
+    return {
+      ok: true,
+      promptRecord,
+      promptText: promptRecord.promptText,
+      markdown,
+      sourcePhaseIntake,
+      sourcePhaseIntakeFileName: input.phaseIntakeFileName.trim(),
+      sourcePhaseIntakeMarkdownFileName,
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function savePhaseArchitectInterviewPrompt(
+  input: PhaseArchitectInterviewPromptRequest,
+): Promise<PhaseArchitectInterviewPromptSaveResult> {
+  try {
+    const preview = await previewPhaseArchitectInterviewPrompt(input);
+
+    if (
+      !preview.ok ||
+      !preview.promptRecord ||
+      !preview.markdown ||
+      !preview.suggestedFileNames
+    ) {
+      return preview;
+    }
+
+    const directory = resolvePhaseArchitectInterviewPromptsDirectory(
+      preview.promptRecord.phaseFolder,
+    );
+    const targets = await resolveAvailableFilePair(
+      directory,
+      preview.suggestedFileNames.jsonFileName,
+      preview.suggestedFileNames.markdownFileName,
+      "A safe Phase Architect Interview Prompt filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validatePhaseArchitectInterviewPromptArtifactFileName(
+        targets.firstFileName,
+      ),
+      ...validatePhaseArchitectInterviewPromptArtifactFileName(
+        targets.secondFileName,
+      ),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(preview.promptRecord, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, preview.markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Phase Architect Interview Prompt.", error);
 
     return {
       ok: false,
@@ -1780,6 +2154,32 @@ export function resolveProjectPlanningDocumentsDirectory(): string {
   return resolveInside(planningProjectRoot, "Project_Planning_Documents");
 }
 
+export function resolvePhaseIntakeDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Phase_Intake");
+}
+
+export function resolvePhaseArchitectInterviewPromptsDirectory(
+  phase: string,
+): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(
+    planningPhasesRoot,
+    phase.trim(),
+    "Phase_Architect_Interview_Prompts",
+  );
+}
+
 export function resolveProjectPlanningDocumentPath(
   fileName: ProjectPlanningDocumentFileName,
 ): string {
@@ -1866,6 +2266,70 @@ export function validateSavedProjectArchitectInterviewPromptJsonFileName(
   }
 
   return validateProjectArchitectInterviewPromptArtifactFileName(value);
+}
+
+export function validateSavedProjectPlanningDocumentsJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Project Planning Documents JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return [
+      "Saved Project Planning Documents file names must not include folders.",
+    ];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Project Planning Documents files must be JSON files."];
+  }
+
+  return validateProjectPlanningDocumentsArtifactFileName(value);
+}
+
+export function validateSavedPhaseIntakeJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Phase Intake JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return ["Saved Phase Intake file names must not include folders."];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Phase Intake files must be JSON files."];
+  }
+
+  return validatePhaseIntakeArtifactFileName(value);
+}
+
+export function validateSavedPhaseArchitectInterviewPromptJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Phase Architect Interview Prompt JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return [
+      "Saved Phase Architect Interview Prompt file names must not include folders.",
+    ];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Phase Architect Interview Prompt files must be JSON files."];
+  }
+
+  return validatePhaseArchitectInterviewPromptArtifactFileName(value);
 }
 
 export function validateMarkdownArtifactFileName(fileName: string): string[] {
@@ -2039,6 +2503,59 @@ async function readSavedProjectIntakeFile(
   return parsed as ProjectIntake;
 }
 
+async function readSavedProjectPlanningDocumentsRecord(
+  fileName: string,
+): Promise<ProjectPlanningDocumentsRecord> {
+  const fileNameErrors =
+    validateSavedProjectPlanningDocumentsJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveProjectPlanningDocumentsDirectory();
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+
+  if (!isPlainRecord(parsed)) {
+    throw new Error("Saved Project Planning Documents JSON must be an object.");
+  }
+
+  requireStatusText(parsed.recordId, "Project Planning Documents record ID");
+  requireStatusText(parsed.projectName, "Project name");
+  requireStatusText(parsed.createdAt, "Created timestamp");
+  requireStatusText(parsed.updatedAt, "Updated timestamp");
+
+  if (!Array.isArray(parsed.documents)) {
+    throw new Error("Project Planning Documents JSON must include documents.");
+  }
+
+  return parsed as unknown as ProjectPlanningDocumentsRecord;
+}
+
+async function findMatchingProjectPlanningDocumentsMarkdownFileName(
+  projectPlanningDocumentsJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = projectPlanningDocumentsJsonFileName.replace(
+    /\.json$/i,
+    ".md",
+  );
+  const fileNameErrors =
+    validateProjectPlanningDocumentsArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(
+    resolveProjectPlanningDocumentsDirectory(),
+    markdownFileName,
+  );
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
 async function findMatchingProjectIntakeMarkdownFileName(
   projectIntakeJsonFileName: string,
 ): Promise<string | undefined> {
@@ -2077,6 +2594,110 @@ async function readSavedProjectArchitectInterviewPromptFile(
   }
 
   return parsed as ProjectArchitectInterviewPrompt;
+}
+
+async function readPhaseIntakeProjectPlanningContext(
+  input: PhaseIntakeInput,
+): Promise<{
+  input: PhaseIntakeInput;
+  sourceProjectPlanningSidecarMarkdownFileName?: string;
+}> {
+  const sourceFileName =
+    input.sourceProjectPlanningSidecarJsonFileName?.trim() ?? "";
+
+  if (sourceFileName.length === 0) {
+    return { input };
+  }
+
+  const sourceRecord =
+    await readSavedProjectPlanningDocumentsRecord(sourceFileName);
+  const sourceProjectPlanningSidecarMarkdownFileName =
+    await findMatchingProjectPlanningDocumentsMarkdownFileName(sourceFileName);
+
+  return {
+    input: {
+      ...input,
+      projectName: input.projectName.trim() || sourceRecord.projectName,
+      sourceProjectPlanningSidecarJsonFileName: sourceFileName,
+    },
+    sourceProjectPlanningSidecarMarkdownFileName,
+  };
+}
+
+async function readSavedPhaseIntakeFile(
+  phase: string,
+  fileName: string,
+): Promise<PhaseIntake> {
+  const fileNameErrors = validateSavedPhaseIntakeJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolvePhaseIntakeDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validatePhaseIntake(parsed);
+
+  if (!validation.valid) {
+    throw new Error(
+      `Saved Phase Intake JSON is not valid: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  const phaseIntake = parsed as PhaseIntake;
+
+  if (phaseIntake.phaseFolder !== phase.trim()) {
+    throw new Error("Saved Phase Intake phase folder does not match selection.");
+  }
+
+  return phaseIntake;
+}
+
+async function findMatchingPhaseIntakeMarkdownFileName(
+  phase: string,
+  phaseIntakeJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = phaseIntakeJsonFileName.replace(/\.json$/i, ".md");
+  const fileNameErrors = validatePhaseIntakeArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(
+    resolvePhaseIntakeDirectory(phase),
+    markdownFileName,
+  );
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
+async function readSavedPhaseArchitectInterviewPromptFile(
+  phase: string,
+  fileName: string,
+) {
+  const fileNameErrors =
+    validateSavedPhaseArchitectInterviewPromptJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolvePhaseArchitectInterviewPromptsDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validatePhaseArchitectInterviewPrompt(parsed);
+
+  if (!validation.valid) {
+    throw new Error(
+      `Saved Phase Architect Interview Prompt JSON is not valid: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  return parsed;
 }
 
 async function findMatchingProjectArchitectInterviewPromptMarkdownFileName(
@@ -2819,6 +3440,28 @@ function compareSavedProjectArtifactSummaries(
 
   return `${left.projectName} ${left.fileName}`.localeCompare(
     `${right.projectName} ${right.fileName}`,
+  );
+}
+
+function compareSavedPhaseIntakeSummaries(
+  left: { updatedAt: string; phaseName: string; fileName: string },
+  right: { updatedAt: string; phaseName: string; fileName: string },
+): number {
+  const leftUpdatedAt = Date.parse(left.updatedAt);
+  const rightUpdatedAt = Date.parse(right.updatedAt);
+  const leftHasDate = Number.isFinite(leftUpdatedAt);
+  const rightHasDate = Number.isFinite(rightUpdatedAt);
+
+  if (leftHasDate && rightHasDate && leftUpdatedAt !== rightUpdatedAt) {
+    return rightUpdatedAt - leftUpdatedAt;
+  }
+
+  if (leftHasDate !== rightHasDate) {
+    return leftHasDate ? -1 : 1;
+  }
+
+  return `${left.phaseName} ${left.fileName}`.localeCompare(
+    `${right.phaseName} ${right.fileName}`,
   );
 }
 

@@ -97,6 +97,25 @@ export interface ListSavedProjectArchitectInterviewPromptsResult {
   errorMessages?: string[];
 }
 
+export interface SavedProjectPlanningDocumentsSummary {
+  fileName: string;
+  recordId: string;
+  projectName: string;
+  updatedAt: string;
+}
+
+export interface InvalidSavedProjectPlanningDocumentsFile {
+  fileName: string;
+  errorMessages: string[];
+}
+
+export interface ListSavedProjectPlanningDocumentsResult {
+  ok: boolean;
+  documents?: SavedProjectPlanningDocumentsSummary[];
+  invalidFiles?: InvalidSavedProjectPlanningDocumentsFile[];
+  errorMessages?: string[];
+}
+
 interface BuildProjectPlanningDocumentsInput {
   projectIntake?: ProjectIntake;
   sourceProjectIntakeJsonFileName?: string;

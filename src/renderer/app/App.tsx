@@ -35,6 +35,8 @@ type AppScreen =
   | "project-intake"
   | "project-architect-interview"
   | "project-planning-documents"
+  | "phase-intake"
+  | "phase-architect-interview"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -108,6 +110,24 @@ const workflowSteps: WorkflowStep[] = [
     nextAction:
       "Generate durable project planning documents from completed Architect output.",
     Icon: MapIcon,
+  },
+  {
+    id: "phase-intake",
+    label: "Phase Intake",
+    mode: "architect",
+    shortDesc: "Define phase",
+    screenTitle: "Phase Intake",
+    nextAction: "Capture phase intent from project planning context.",
+    Icon: ClipboardList,
+  },
+  {
+    id: "phase-architect-interview",
+    label: "Phase Interview",
+    mode: "architect",
+    shortDesc: "Phase prompt",
+    screenTitle: "Phase Architect Interview",
+    nextAction: "Generate a copy-ready phase interview prompt.",
+    Icon: MessageSquareText,
   },
   {
     id: "new-work-card",
@@ -238,6 +258,24 @@ const initialProjectIntakeForm: ChampCityProjectIntakeInput = {
   notesForArchitect: "",
 };
 
+const initialPhaseIntakeForm: ChampCityPhaseIntakeInput = {
+  phaseFolder: defaultPhase,
+  phaseName: "",
+  projectName: "ChampCity A/I",
+  sourceProjectPlanningSidecarJsonFileName: "",
+  phaseProblem: "",
+  phaseGoal: "",
+  userOutcome: "",
+  includedScope: "",
+  outOfScope: "",
+  affectedScreensOrWorkflows: "",
+  knownConstraints: "",
+  knownRisks: "",
+  dependencies: "",
+  validationExpectations: "",
+  operatorNotes: "",
+};
+
 const inputCls =
   "w-full min-w-0 rounded-md border border-border bg-white/[0.04] px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/40";
 const selectCls =
@@ -287,7 +325,27 @@ export default function App() {
       />
     ),
     "project-planning-documents": (
-      <ProjectPlanningDocumentsScreen onActiveCardChange={setActiveCard} />
+      <ProjectPlanningDocumentsScreen
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
+    "phase-intake": (
+      <PhaseIntakeScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
+    "phase-architect-interview": (
+      <PhaseArchitectInterviewScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+      />
     ),
     "new-work-card": (
       <NewWorkCardScreen
@@ -1091,8 +1149,10 @@ function ProjectArchitectInterviewScreen({
 
 function ProjectPlanningDocumentsScreen({
   onActiveCardChange,
+  onNavigate,
 }: {
   onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+  onNavigate: (screen: AppScreen) => void;
 }) {
   const {
     projectIntakes,
@@ -1436,6 +1496,14 @@ function ProjectPlanningDocumentsScreen({
                 <code className="break-anywhere text-[11px]">
                   {saveResult.jsonPath}
                 </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("phase-intake")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Phase Intake
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </div>
             </Notice>
           ) : null}
@@ -1446,6 +1514,598 @@ function ProjectPlanningDocumentsScreen({
           ) : null}
           <MonoBlock className="mt-4 min-h-[calc(100vh-280px)]">
             {previewMarkdown || "No Project Planning Documents preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function PhaseIntakeScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+  onNavigate,
+}: ScreenProps & {
+  onNavigate: (screen: AppScreen) => void;
+}) {
+  const {
+    documents: projectPlanningDocuments,
+    invalidFiles,
+    errors: sourceErrors,
+    isLoading,
+  } = useProjectPlanningDocumentSources();
+  const [form, setForm] = useState<ChampCityPhaseIntakeInput>({
+    ...initialPhaseIntakeForm,
+    phaseFolder: phase,
+  });
+  const [validation, setValidation] =
+    useState<ChampCityPhaseIntakeValidationResult>({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
+  const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Phase Intake is ready for phase-level capture.",
+  );
+  const [saveResult, setSaveResult] =
+    useState<ChampCityPhaseIntakeSaveResult | null>(null);
+
+  const selectedProjectPlanningDocuments =
+    projectPlanningDocuments.find(
+      (document) =>
+        document.fileName === form.sourceProjectPlanningSidecarJsonFileName,
+    ) ?? null;
+  const allErrors = [...sourceErrors, ...screenErrors, ...validation.errors];
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    setForm((previous) =>
+      previous.phaseFolder === phase
+        ? previous
+        : {
+            ...previous,
+            phaseFolder: phase,
+          },
+    );
+    setPreviewMarkdown("");
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage("Phase selection updated.");
+  }, [phase]);
+
+  function updateField<Field extends keyof ChampCityPhaseIntakeInput>(
+    field: Field,
+    value: ChampCityPhaseIntakeInput[Field],
+  ) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    resetGeneratedPhaseIntake("Phase Intake details updated.");
+  }
+
+  function updatePhaseFolder(nextPhase: string) {
+    onPhaseChange(nextPhase);
+    updateField("phaseFolder", nextPhase);
+  }
+
+  function updateProjectPlanningSource(fileName: string) {
+    const selectedSource =
+      projectPlanningDocuments.find((document) => document.fileName === fileName) ??
+      null;
+
+    setForm((previous) => ({
+      ...previous,
+      sourceProjectPlanningSidecarJsonFileName: fileName,
+      projectName:
+        previous.projectName.trim().length > 0
+          ? previous.projectName
+          : selectedSource?.projectName ?? previous.projectName,
+    }));
+    resetGeneratedPhaseIntake(
+      fileName
+        ? "Project planning source selected."
+        : "Project planning source cleared.",
+    );
+  }
+
+  function resetGeneratedPhaseIntake(nextStatusMessage: string) {
+    setPreviewMarkdown("");
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(nextStatusMessage);
+  }
+
+  async function previewPhaseIntake() {
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewPhaseIntake(form);
+    setIsBusy(false);
+    setValidation(result.validation);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewMarkdown("");
+      setSaveResult(null);
+      setScreenErrors(result.errorMessages ?? ["Phase Intake could not be previewed."]);
+      setStatusMessage("Phase Intake preview needs attention.");
+      return;
+    }
+
+    setPreviewMarkdown(result.markdown);
+    setSaveResult(null);
+    setStatusMessage("Phase Intake preview refreshed.");
+  }
+
+  async function savePhaseIntake() {
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.savePhaseIntake(form);
+    setIsBusy(false);
+    setValidation(result.validation);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewMarkdown("");
+      setSaveResult(null);
+      setScreenErrors(result.errorMessages ?? ["Phase Intake could not be saved."]);
+      setStatusMessage("Phase Intake save needs attention.");
+      return;
+    }
+
+    setPreviewMarkdown(result.markdown);
+    setSaveResult(result);
+    setStatusMessage("Phase Intake saved for Phase Architect Interview work.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Phase Intake"
+            description="Define a development phase from saved project planning context."
+            badge="upstream"
+          />
+          <Notice type="info">
+            This saves a phase-scoped intake artifact only. It does not generate
+            Phase Planning Documents, an initial Work Card plan, implementation
+            code, or closeout records.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <WarningList warnings={validation.warnings} />
+          <InvalidProjectPlanningDocumentsFiles files={invalidFiles} />
+          <FieldGroup title="Source">
+            <PhaseField
+              phase={form.phaseFolder}
+              phaseOptions={phaseOptions}
+              onPhaseChange={updatePhaseFolder}
+            />
+            <Field label="Saved Project Planning Documents sidecar">
+              <select
+                className={selectCls}
+                value={form.sourceProjectPlanningSidecarJsonFileName ?? ""}
+                disabled={isLoading}
+                onChange={(event) =>
+                  updateProjectPlanningSource(event.target.value)
+                }
+              >
+                <option value="">
+                  {isLoading
+                    ? "Loading Project Planning Documents..."
+                    : "Use current planning docs reference"}
+                </option>
+                {projectPlanningDocuments.map((document) => (
+                  <option key={document.fileName} value={document.fileName}>
+                    {document.projectName} ({document.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectPlanningDocuments ? (
+              <ProjectPlanningDocumentsSummary
+                document={selectedProjectPlanningDocuments}
+              />
+            ) : (
+              <Notice type="info">
+                Without a sidecar selection, the saved Phase Intake records the
+                current `planning/project/` documents as the project context
+                reference.
+              </Notice>
+            )}
+          </FieldGroup>
+          <FieldGroup title="Phase">
+            <FieldRow>
+              <TextField
+                label="Phase name"
+                value={form.phaseName}
+                onChange={(value) => updateField("phaseName", value)}
+                required
+              />
+              <TextField
+                label="Project name"
+                value={form.projectName}
+                onChange={(value) => updateField("projectName", value)}
+                required
+              />
+            </FieldRow>
+            <TextAreaField
+              label="Phase problem"
+              value={form.phaseProblem}
+              rows={4}
+              onChange={(value) => updateField("phaseProblem", value)}
+              required
+            />
+            <TextAreaField
+              label="Phase goal"
+              value={form.phaseGoal}
+              rows={4}
+              onChange={(value) => updateField("phaseGoal", value)}
+              required
+            />
+            <TextAreaField
+              label="User outcome"
+              value={form.userOutcome}
+              rows={4}
+              onChange={(value) => updateField("userOutcome", value)}
+              required
+            />
+          </FieldGroup>
+          <FieldGroup title="Scope And Boundaries">
+            <FieldRow>
+              <TextAreaField
+                label="Included scope"
+                value={form.includedScope}
+                rows={4}
+                onChange={(value) => updateField("includedScope", value)}
+              />
+              <TextAreaField
+                label="Out of scope"
+                value={form.outOfScope}
+                rows={4}
+                onChange={(value) => updateField("outOfScope", value)}
+              />
+            </FieldRow>
+            <TextAreaField
+              label="Affected screens or workflows"
+              value={form.affectedScreensOrWorkflows}
+              rows={3}
+              onChange={(value) =>
+                updateField("affectedScreensOrWorkflows", value)
+              }
+            />
+          </FieldGroup>
+          <FieldGroup title="Planning Context">
+            <FieldRow>
+              <TextAreaField
+                label="Known constraints"
+                value={form.knownConstraints}
+                rows={3}
+                onChange={(value) => updateField("knownConstraints", value)}
+              />
+              <TextAreaField
+                label="Known risks"
+                value={form.knownRisks}
+                rows={3}
+                onChange={(value) => updateField("knownRisks", value)}
+              />
+            </FieldRow>
+            <FieldRow>
+              <TextAreaField
+                label="Dependencies"
+                value={form.dependencies}
+                rows={3}
+                onChange={(value) => updateField("dependencies", value)}
+              />
+              <TextAreaField
+                label="Validation expectations"
+                value={form.validationExpectations}
+                rows={3}
+                onChange={(value) =>
+                  updateField("validationExpectations", value)
+                }
+              />
+            </FieldRow>
+            <TextAreaField
+              label="Operator notes"
+              value={form.operatorNotes}
+              rows={3}
+              onChange={(value) => updateField("operatorNotes", value)}
+            />
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void previewPhaseIntake()}
+            onSave={() => void savePhaseIntake()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            saveLabel="Save Phase Intake"
+            copyLabel="Copy Preview"
+            saveDisabled={isBusy}
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Phase Intake"
+          title="Phase Intake Markdown Preview"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Preview a Phase Intake to see the durable Markdown artifact."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Phase Intake artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("phase-architect-interview")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Phase Interview
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </Notice>
+          ) : null}
+          <Notice type="info">
+            Next step: use this saved Phase Intake to generate a Phase Architect
+            Interview prompt.
+          </Notice>
+          <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
+            {previewMarkdown || "No Phase Intake preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function PhaseArchitectInterviewScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+}: ScreenProps) {
+  const { phaseIntakes, invalidFiles, errors, isLoading } =
+    usePhaseIntakes(phase);
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [promptText, setPromptText] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Choose a saved Phase Intake to generate a Phase Architect Interview prompt.",
+  );
+  const [saveResult, setSaveResult] =
+    useState<ChampCityPhaseArchitectInterviewPromptSaveResult | null>(null);
+
+  const selectedPhaseIntake =
+    phaseIntakes.find((phaseIntake) => phaseIntake.fileName === selectedFileName) ??
+    null;
+  const allErrors = [...errors, ...screenErrors];
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    if (phaseIntakes.some((phaseIntake) => phaseIntake.fileName === selectedFileName)) {
+      return;
+    }
+
+    setSelectedFileName(phaseIntakes[0]?.fileName ?? "");
+    setPromptText("");
+    setSaveResult(null);
+  }, [phaseIntakes, selectedFileName]);
+
+  function handlePhaseChange(nextPhase: string) {
+    onPhaseChange(nextPhase);
+    setSelectedFileName("");
+    setPromptText("");
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage("Phase selection updated.");
+  }
+
+  function handleSelectedFileChange(fileName: string) {
+    setSelectedFileName(fileName);
+    setPromptText("");
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(
+      fileName
+        ? "Saved Phase Intake selected."
+        : "Choose a saved Phase Intake first.",
+    );
+  }
+
+  async function generatePhaseInterviewPrompt() {
+    if (!selectedFileName) {
+      setScreenErrors(["Choose a saved Phase Intake first."]);
+      setStatusMessage("Phase Intake selection is required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewPhaseArchitectInterviewPrompt({
+      phaseFolder: phase,
+      phaseIntakeFileName: selectedFileName,
+    });
+    setIsBusy(false);
+
+    if (!result.ok || !result.promptText) {
+      setPromptText("");
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Phase Architect Interview prompt could not be generated."],
+      );
+      setStatusMessage("Phase Architect Interview prompt generation needs attention.");
+      return;
+    }
+
+    setPromptText(result.promptText);
+    setSaveResult(null);
+    setStatusMessage("Phase Architect Interview prompt preview refreshed.");
+  }
+
+  async function savePhaseInterviewPrompt() {
+    if (!selectedFileName) {
+      setScreenErrors(["Choose a saved Phase Intake first."]);
+      setStatusMessage("Phase Intake selection is required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.savePhaseArchitectInterviewPrompt({
+      phaseFolder: phase,
+      phaseIntakeFileName: selectedFileName,
+    });
+    setIsBusy(false);
+
+    if (!result.ok || !result.promptText) {
+      setPromptText("");
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Phase Architect Interview prompt could not be saved."],
+      );
+      setStatusMessage("Phase Architect Interview prompt save needs attention.");
+      return;
+    }
+
+    setPromptText(result.promptText);
+    setSaveResult(result);
+    setStatusMessage("Phase Architect Interview prompt saved for the Operator to copy.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Phase Architect Interview"
+            description="Generate a copy-ready Architect prompt from a saved Phase Intake."
+            badge="upstream"
+          />
+          <Notice type="info">
+            This prompt asks the Architect for phase interview questions and
+            recommended defaults only. It does not create Phase Planning
+            Documents, Work Cards, or implementation code.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <InvalidPhaseIntakeFiles files={invalidFiles} />
+          {phaseIntakes.length === 0 && !isLoading ? (
+            <Notice type="warning">
+              No saved Phase Intake JSON artifacts were found for this phase.
+              Save a Phase Intake first.
+            </Notice>
+          ) : null}
+          <FieldGroup title="Source">
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={handlePhaseChange}
+            />
+            <Field label="Saved Phase Intake">
+              <select
+                className={selectCls}
+                value={selectedFileName}
+                disabled={isLoading || phaseIntakes.length === 0}
+                onChange={(event) =>
+                  handleSelectedFileChange(event.target.value)
+                }
+              >
+                <option value="">
+                  {isLoading ? "Loading Phase Intakes..." : "Select Phase Intake"}
+                </option>
+                {phaseIntakes.map((phaseIntake) => (
+                  <option key={phaseIntake.fileName} value={phaseIntake.fileName}>
+                    {phaseIntake.phaseName} ({phaseIntake.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedPhaseIntake ? (
+              <PhaseIntakeSummary phaseIntake={selectedPhaseIntake} />
+            ) : null}
+          </FieldGroup>
+          <FieldGroup title="What happens next?">
+            <Notice type="info">
+              Copy this prompt into the Architect surface. The Architect should
+              return interview questions and recommended defaults only; the
+              dedicated Phase Planning Documents workflow comes later.
+            </Notice>
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void generatePhaseInterviewPrompt()}
+            onSave={() => void savePhaseInterviewPrompt()}
+            onCopy={() => void copyText(promptText, setCopyMessage)}
+            previewLabel="Generate Phase Prompt"
+            saveLabel="Save Phase Prompt"
+            copyLabel="Copy Phase Prompt"
+            saveDisabled={isBusy || !selectedFileName}
+            copyDisabled={promptText.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Phase Architect Interview"
+          title="Preview Phase Prompt"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Generate a Phase Architect Interview prompt to preview the copy-ready text."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Phase Architect Interview Prompt artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          <Notice type="info">
+            Next step: copy the prompt into the Architect surface and save the
+            completed phase interview output for the future Phase Planning
+            Documents workflow.
+          </Notice>
+          <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
+            {promptText || "No Phase Architect Interview prompt preview yet."}
           </MonoBlock>
         </ArtifactPanel>
       }
@@ -4240,6 +4900,45 @@ function ProjectArchitectInterviewPromptSummary({
   );
 }
 
+function ProjectPlanningDocumentsSummary({
+  document,
+}: {
+  document: ChampCitySavedProjectPlanningDocumentsSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={document.projectName} />
+      <SummaryItem label="Record ID" value={document.recordId} mono />
+      <SummaryItem label="File" value={document.fileName} mono />
+      <SummaryItem label="Updated" value={document.updatedAt} mono />
+    </div>
+  );
+}
+
+function PhaseIntakeSummary({
+  phaseIntake,
+}: {
+  phaseIntake: ChampCitySavedPhaseIntakeSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={phaseIntake.projectName} />
+      <SummaryItem label="Phase" value={phaseIntake.phaseName} />
+      <SummaryItem label="Phase Folder" value={phaseIntake.phaseFolder} mono />
+      <SummaryItem label="Phase Intake ID" value={phaseIntake.phaseIntakeId} mono />
+      <SummaryItem label="File" value={phaseIntake.fileName} mono />
+      <SummaryItem label="Updated" value={phaseIntake.updatedAt} mono />
+      {phaseIntake.sourceProjectPlanningSidecarJsonFileName ? (
+        <SummaryItem
+          label="Project Sidecar"
+          value={phaseIntake.sourceProjectPlanningSidecarJsonFileName}
+          mono
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function ProjectPlanningDocumentFileList({
   documents,
 }: {
@@ -4576,6 +5275,56 @@ function InvalidProjectArchitectInterviewPromptFiles({
     <Notice type="warning">
       <div className="grid gap-2">
         <strong>Skipped Project Architect Interview Prompt files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidProjectPlanningDocumentsFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedProjectPlanningDocumentsFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Project Planning Documents files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidPhaseIntakeFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedPhaseIntakeFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Phase Intake files</strong>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -5353,6 +6102,120 @@ function useProjectArchitectInterviewPrompts() {
   }, []);
 
   return { prompts, invalidFiles, errors, isLoading };
+}
+
+function useProjectPlanningDocumentSources() {
+  const [documents, setDocuments] = useState<
+    ChampCitySavedProjectPlanningDocumentsSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectPlanningDocumentsFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listPhaseIntakeProjectPlanningDocuments()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setDocuments([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? [
+              "Saved Project Planning Documents could not be loaded.",
+            ],
+          );
+          return;
+        }
+
+        setDocuments(result.documents ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setDocuments([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Project Planning Documents could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { documents, invalidFiles, errors, isLoading };
+}
+
+function usePhaseIntakes(phase: string) {
+  const [phaseIntakes, setPhaseIntakes] = useState<
+    ChampCitySavedPhaseIntakeSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedPhaseIntakeFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listPhaseArchitectInterviewPhaseIntakes(phase)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setPhaseIntakes([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? ["Saved Phase Intakes could not be loaded."],
+          );
+          return;
+        }
+
+        setPhaseIntakes(result.phaseIntakes ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setPhaseIntakes([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Phase Intakes could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  return { phaseIntakes, invalidFiles, errors, isLoading };
 }
 
 function useDefaultSelectedFile(
