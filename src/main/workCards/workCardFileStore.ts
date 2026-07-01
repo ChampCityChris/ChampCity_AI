@@ -82,22 +82,30 @@ import {
   type BuilderReportFileLoadResult,
   extractManualValidationChecklist,
   getDifferentProblemGuidance,
+  isHumanValidationOperatorDecision,
+  isHumanValidationResult,
   noBuilderReportSelectedWarning,
   type HumanValidationBuilderReportListRequest,
   type HumanValidationBuilderReportListResult,
   type HumanValidationBuilderReportOption,
   type HumanValidationFormInput,
   type HumanValidationPreviewResult,
+  type HumanValidationRecord,
   type HumanValidationSaveResult,
+  type HumanValidationStatusListResult,
+  type HumanValidationStatusSummary,
   type InvalidHumanValidationBuilderReportFile,
+  type InvalidHumanValidationStatusFile,
   shouldGenerateRepairPrompt,
   type ValidationEvidenceFileImportRequest,
   type ValidationEvidenceFileImportResult,
   validateHumanValidationRecord,
+  validateValidationReportFileName,
 } from "../../shared/workCards/validationRecord";
 import {
   buildWorkCardValidationTarget,
   formatValidationTargetLabel,
+  isValidationTargetKind,
   toValidationTargetRecord,
   validateValidationTargetJsonFileName,
   type InvalidValidationTargetFile,
@@ -154,6 +162,28 @@ type SupportingArtifactFolder =
 interface HumanValidationTargetContext {
   target: ValidationTargetSummary;
 }
+
+interface LatestHumanValidationStatus extends HumanValidationStatusSummary {
+  latestSortMs: number;
+  fileModifiedMs: number;
+}
+
+type HumanValidationStatusRecord = Pick<
+  HumanValidationRecord,
+  "phase" | "validationResult" | "operatorDecision"
+> &
+  Partial<
+    Pick<
+      HumanValidationRecord,
+      | "workCardId"
+      | "workCardTitle"
+      | "validationTargetId"
+      | "validationTargetKind"
+      | "validationTargetTitle"
+      | "validationTargetSourceJsonFile"
+      | "createdAt"
+    >
+  >;
 
 export async function listAvailablePhaseFolders(): Promise<AvailablePhaseFoldersResult> {
   try {
@@ -1103,6 +1133,108 @@ export async function listHumanValidationBuilderReports(
       validationTarget: target,
       options,
       defaultFileName: options.find((option) => option.isDefaultMatch)?.fileName,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listHumanValidationStatuses(
+  phase: string,
+): Promise<HumanValidationStatusListResult> {
+  try {
+    const targetResult = await listHumanValidationTargets(phase);
+
+    if (!targetResult.ok) {
+      return {
+        ok: false,
+        errorMessages:
+          targetResult.errorMessages ?? ["Validation Targets could not be loaded."],
+      };
+    }
+
+    const targets = targetResult.targets ?? [];
+    const invalidFiles: InvalidHumanValidationStatusFile[] = [];
+    const latestByTargetFileName = new Map<string, LatestHumanValidationStatus>();
+    const directory = resolveValidationReportsDirectory(phase);
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      try {
+        validateValidationReportFileName(fileName);
+
+        const filePath = resolveInside(directory, fileName);
+        const fileStats = await stat(filePath);
+        const rawJson = await readFile(filePath, "utf8");
+        const parsed = JSON.parse(rawJson) as unknown;
+        const record = toHumanValidationStatusRecord(parsed, phase);
+        const target = targets.find((candidate) =>
+          validationRecordMatchesTarget(record, candidate),
+        );
+
+        if (!target) {
+          continue;
+        }
+
+        const createdAt = normalizeOptionalText(record.createdAt);
+        const createdAtMs = createdAt ? Date.parse(createdAt) : Number.NaN;
+        const latestSortMs = Number.isNaN(createdAtMs)
+          ? fileStats.mtimeMs
+          : createdAtMs;
+        const nextStatus: LatestHumanValidationStatus = {
+          validationTargetFileName: target.fileName,
+          validationTargetId: target.id,
+          validationTargetKind: target.kind,
+          validationResult: record.validationResult,
+          operatorDecision: record.operatorDecision,
+          validationReportJsonFile: fileName,
+          validationReportMarkdownFile: await findValidationReportMarkdownFileName(
+            directory,
+            fileName,
+          ),
+          createdAt,
+          latestSortMs,
+          fileModifiedMs: fileStats.mtimeMs,
+        };
+        const previousStatus = latestByTargetFileName.get(target.fileName);
+
+        if (
+          !previousStatus ||
+          compareHumanValidationStatuses(nextStatus, previousStatus) > 0
+        ) {
+          latestByTargetFileName.set(target.fileName, nextStatus);
+        }
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    const statuses = Array.from(latestByTargetFileName.values())
+      .sort((left, right) =>
+        left.validationTargetFileName.localeCompare(right.validationTargetFileName),
+      )
+      .map(({ latestSortMs: _latestSortMs, fileModifiedMs: _fileModifiedMs, ...status }) => status);
+
+    return {
+      ok: true,
+      statuses,
       invalidFiles,
     };
   } catch (error) {
@@ -2147,6 +2279,130 @@ function buildMissingArtifactNotes(
   return notes;
 }
 
+function toHumanValidationStatusRecord(
+  candidate: unknown,
+  phase: string,
+): HumanValidationStatusRecord {
+  if (!isPlainRecord(candidate)) {
+    throw new Error("Validation Report JSON must be an object.");
+  }
+
+  const recordPhase = requireStatusText(candidate.phase, "Phase");
+
+  if (recordPhase !== phase.trim()) {
+    throw new Error("Validation Report phase must match the selected phase folder.");
+  }
+
+  const validationResult = requireStatusText(
+    candidate.validationResult,
+    "Validation result",
+  );
+  const operatorDecision = requireStatusText(
+    candidate.operatorDecision,
+    "Operator decision",
+  );
+
+  if (!isHumanValidationResult(validationResult)) {
+    throw new Error("Validation result is not a supported value.");
+  }
+
+  if (!isHumanValidationOperatorDecision(operatorDecision)) {
+    throw new Error("Operator decision is not a supported value.");
+  }
+
+  const statusRecord: HumanValidationStatusRecord = {
+    phase: recordPhase,
+    validationResult,
+    operatorDecision,
+    workCardId: normalizeOptionalText(candidate.workCardId),
+    workCardTitle: normalizeOptionalText(candidate.workCardTitle),
+    validationTargetId: normalizeOptionalText(candidate.validationTargetId),
+    validationTargetKind:
+      typeof candidate.validationTargetKind === "string" &&
+      isValidationTargetKind(candidate.validationTargetKind)
+        ? candidate.validationTargetKind
+        : undefined,
+    validationTargetTitle: normalizeOptionalText(candidate.validationTargetTitle),
+    validationTargetSourceJsonFile: normalizeOptionalText(
+      candidate.validationTargetSourceJsonFile,
+    ),
+    createdAt: normalizeOptionalText(candidate.createdAt),
+  };
+
+  if (
+    !statusRecord.validationTargetSourceJsonFile &&
+    !statusRecord.validationTargetId &&
+    !statusRecord.workCardId
+  ) {
+    throw new Error("Validation Report does not identify a Validation Target.");
+  }
+
+  return statusRecord;
+}
+
+function validationRecordMatchesTarget(
+  record: HumanValidationStatusRecord,
+  target: ValidationTargetSummary,
+): boolean {
+  const sourceJsonFile = normalizeComparableText(
+    record.validationTargetSourceJsonFile,
+  );
+
+  if (
+    sourceJsonFile &&
+    (sourceJsonFile === normalizeComparableText(target.sourceJsonFile) ||
+      sourceJsonFile === normalizeComparableText(target.fileName))
+  ) {
+    return true;
+  }
+
+  const recordTargetId = normalizeComparableText(record.validationTargetId);
+  const recordWorkCardId = normalizeComparableText(record.workCardId);
+  const targetId = normalizeComparableText(target.id);
+
+  if (recordTargetId && recordTargetId === targetId) {
+    return !record.validationTargetKind || record.validationTargetKind === target.kind;
+  }
+
+  if (recordWorkCardId && recordWorkCardId === targetId) {
+    return !record.validationTargetKind || record.validationTargetKind === target.kind;
+  }
+
+  return (
+    recordWorkCardId === targetId &&
+    normalizeComparableText(record.workCardTitle) ===
+      normalizeComparableText(target.title)
+  );
+}
+
+async function findValidationReportMarkdownFileName(
+  directory: string,
+  jsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = jsonFileName.replace(/\.json$/i, ".md");
+
+  try {
+    validateValidationReportFileName(markdownFileName);
+  } catch {
+    return undefined;
+  }
+
+  const markdownPath = resolveInside(directory, markdownFileName);
+
+  return (await pathExists(markdownPath)) ? markdownFileName : undefined;
+}
+
+function compareHumanValidationStatuses(
+  left: LatestHumanValidationStatus,
+  right: LatestHumanValidationStatus,
+): number {
+  if (left.latestSortMs !== right.latestSortMs) {
+    return left.latestSortMs - right.latestSortMs;
+  }
+
+  return left.fileModifiedMs - right.fileModifiedMs;
+}
+
 function fileNameMatchesWorkCardId(
   fileName: string,
   workCardId: string,
@@ -2332,6 +2588,34 @@ function toRepositoryRelativePath(filePath: string): string {
   }
 
   return relative.split(path.sep).join("/");
+}
+
+function requireStatusText(value: unknown, label: string): string {
+  const text = normalizeOptionalText(value);
+
+  if (!text) {
+    throw new Error(`${label} is required.`);
+  }
+
+  return text;
+}
+
+function normalizeOptionalText(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeComparableText(value: string | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toPlainSaveError(error: unknown): string {

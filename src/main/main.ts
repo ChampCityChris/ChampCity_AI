@@ -16,6 +16,7 @@ import {
   listBuilderPromptSupportingArtifacts,
   listAvailablePhaseFolders,
   listHumanValidationBuilderReports,
+  listHumanValidationStatuses,
   listHumanValidationTargets,
   listSavedProjectIntakes,
   listSavedWorkCards,
@@ -248,6 +249,9 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:listHumanValidationTargets", (_event, phase: string) =>
     listHumanValidationTargets(phase),
+  );
+  ipcMain.handle("workCards:listHumanValidationStatuses", (_event, phase: string) =>
+    listHumanValidationStatuses(phase),
   );
   ipcMain.handle(
     "workCards:previewHumanValidationRecord",

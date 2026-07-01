@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -2381,6 +2382,12 @@ function HumanValidationScreen({
 }: ScreenProps) {
   const { targets, invalidFiles, errors: listErrors, isLoading } =
     useValidationTargets(phase);
+  const {
+    statuses: validationStatuses,
+    errors: validationStatusErrors,
+    isLoading: isValidationStatusLoading,
+    reload: reloadValidationStatuses,
+  } = useValidationStatuses(phase);
   const [selectedFileName, setSelectedFileName] = useState(() =>
     activeCard?.phase === phase ? activeCard.fileName ?? "" : "",
   );
@@ -2415,6 +2422,20 @@ function HumanValidationScreen({
         : null,
     [selectedValidationTarget],
   );
+  const validationStatusByTargetFileName = useMemo(
+    () =>
+      new Map(
+        validationStatuses.map((status) => [
+          status.validationTargetFileName,
+          status,
+        ]),
+      ),
+    [validationStatuses],
+  );
+  const selectedValidationStatus = selectedValidationTarget
+    ? validationStatusByTargetFileName.get(selectedValidationTarget.fileName) ??
+      null
+    : null;
 
   useEffect(() => {
     if (selectedTargetSummary) {
@@ -2672,16 +2693,18 @@ function HumanValidationScreen({
 
     const result = await window.champCity.saveHumanValidationRecord(validationInput);
 
-    setIsBusy(false);
     setPreviewResult(result);
 
     if (!result.ok) {
+      setIsBusy(false);
       setErrors(result.errorMessages ?? ["The validation record could not be saved."]);
       setStatusMessage("Save needs attention.");
       return;
     }
 
     setSaveResult(result);
+    await reloadValidationStatuses();
+    setIsBusy(false);
     setStatusMessage("Human validation saved.");
   }
 
@@ -2694,7 +2717,9 @@ function HumanValidationScreen({
             description="Record what the Operator tested and generate a narrow repair prompt only when needed."
             badge={phase}
           />
-          <ErrorList errors={[...listErrors, ...errors]} />
+          <ErrorList
+            errors={[...listErrors, ...validationStatusErrors, ...errors]}
+          />
           <FieldGroup title="Source">
             <PhaseField
               phase={phase}
@@ -2708,7 +2733,13 @@ function HumanValidationScreen({
               isLoading={isLoading}
             />
             {selectedValidationTarget ? (
-              <ValidationTargetSummaryView target={selectedValidationTarget} />
+              <>
+                <ValidationTargetSummaryView target={selectedValidationTarget} />
+                <ValidationStatusCard
+                  status={selectedValidationStatus}
+                  isLoading={isValidationStatusLoading}
+                />
+              </>
             ) : null}
             <InvalidValidationTargetFiles files={invalidFiles} />
             <Field label="Associated Implementer Report">
@@ -3458,6 +3489,25 @@ function Badge({
   );
 }
 
+function ValidationStatusPill({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-wide",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 function Notice({
   type,
   children,
@@ -3814,6 +3864,96 @@ function ValidationTargetSummaryView({
           mono
         />
       ) : null}
+    </div>
+  );
+}
+
+function ValidationStatusCard({
+  status,
+  isLoading,
+}: {
+  status: ChampCityHumanValidationStatusSummary | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="grid min-w-0 gap-3 rounded-lg border border-border bg-white/[0.02] p-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <h3 className="text-xs font-semibold text-foreground">
+            Validation Status
+          </h3>
+          <ValidationStatusPill className="border-blue-400/20 bg-blue-400/10 text-blue-400">
+            Checking
+          </ValidationStatusPill>
+        </div>
+        <p className="break-anywhere text-xs leading-relaxed text-muted-foreground/70">
+          Checking saved validation reports.
+        </p>
+      </div>
+    );
+  }
+
+  if (!status) {
+    return (
+      <div className="grid min-w-0 gap-3 rounded-lg border border-border bg-white/[0.02] p-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <h3 className="text-xs font-semibold text-foreground">
+            Validation Status
+          </h3>
+          <ValidationStatusPill className="border-border bg-muted text-muted-foreground">
+            Not validated yet
+          </ValidationStatusPill>
+        </div>
+        <p className="break-anywhere text-xs leading-relaxed text-muted-foreground/70">
+          No saved validation report was found for this Validation Target.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid min-w-0 gap-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] p-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h3 className="text-xs font-semibold text-foreground">
+          Validation Status
+        </h3>
+        <ValidationStatusPill
+          className={validationResultColor(status.validationResult)}
+        >
+          {status.validationResult}
+        </ValidationStatusPill>
+      </div>
+      <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5">
+        <SummaryItem
+          label="Latest result"
+          value={
+            <ValidationStatusPill
+              className={validationResultColor(status.validationResult)}
+            >
+              {status.validationResult}
+            </ValidationStatusPill>
+          }
+        />
+        <SummaryItem
+          label="Latest Operator decision"
+          value={status.operatorDecision}
+        />
+        <SummaryItem
+          label="Report JSON"
+          value={status.validationReportJsonFile}
+          mono
+        />
+        {status.validationReportMarkdownFile ? (
+          <SummaryItem
+            label="Report Markdown"
+            value={status.validationReportMarkdownFile}
+            mono
+          />
+        ) : null}
+        {status.createdAt ? (
+          <SummaryItem label="Timestamp" value={status.createdAt} mono />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -4474,6 +4614,62 @@ function useValidationTargets(phase: string) {
   return { targets, invalidFiles, errors, isLoading };
 }
 
+function useValidationStatuses(phase: string) {
+  const [statuses, setStatuses] = useState<
+    ChampCityHumanValidationStatusSummary[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadStatuses = useCallback(
+    async (isActive: () => boolean = () => true) => {
+      setIsLoading(true);
+      setErrors([]);
+
+      try {
+        const result = await window.champCity.listHumanValidationStatuses(phase);
+
+        if (!isActive()) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setStatuses([]);
+          setErrors(
+            result.errorMessages ?? ["Validation Status could not be loaded."],
+          );
+          return;
+        }
+
+        setStatuses(result.statuses ?? []);
+      } catch {
+        if (!isActive()) {
+          return;
+        }
+
+        setIsLoading(false);
+        setStatuses([]);
+        setErrors(["Validation Status could not be loaded."]);
+      }
+    },
+    [phase],
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    void loadStatuses(() => active);
+
+    return () => {
+      active = false;
+    };
+  }, [loadStatuses]);
+
+  return { statuses, errors, isLoading, reload: () => loadStatuses() };
+}
+
 function useAvailablePhases() {
   const [phases, setPhases] = useState<string[]>(PHASES);
 
@@ -4740,6 +4936,26 @@ function statusColor(status: string): string {
 
   if (status === "validated") {
     return "border-emerald-400/20 bg-emerald-400/10 text-emerald-400";
+  }
+
+  return "border-border bg-muted text-muted-foreground";
+}
+
+function validationResultColor(result: string): string {
+  if (result === "Pass") {
+    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
+  }
+
+  if (result === "Fail") {
+    return "border-red-400/20 bg-red-400/10 text-red-300";
+  }
+
+  if (result === "Partial") {
+    return "border-amber-400/20 bg-amber-400/10 text-amber-300";
+  }
+
+  if (result === "Blocked") {
+    return "border-orange-400/20 bg-orange-400/10 text-orange-300";
   }
 
   return "border-border bg-muted text-muted-foreground";

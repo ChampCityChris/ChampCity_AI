@@ -103,6 +103,29 @@ export interface HumanValidationBuilderReportListResult {
   errorMessages?: string[];
 }
 
+export interface HumanValidationStatusSummary {
+  validationTargetFileName: string;
+  validationTargetId: string;
+  validationTargetKind?: ValidationTargetKind;
+  validationResult: HumanValidationResult;
+  operatorDecision: HumanValidationOperatorDecision;
+  validationReportJsonFile: string;
+  validationReportMarkdownFile?: string;
+  createdAt?: string;
+}
+
+export interface InvalidHumanValidationStatusFile {
+  fileName: string;
+  errorMessages: string[];
+}
+
+export interface HumanValidationStatusListResult {
+  ok: boolean;
+  statuses?: HumanValidationStatusSummary[];
+  invalidFiles?: InvalidHumanValidationStatusFile[];
+  errorMessages?: string[];
+}
+
 export interface ManualValidationChecklistExtraction {
   detected: boolean;
   text: string;

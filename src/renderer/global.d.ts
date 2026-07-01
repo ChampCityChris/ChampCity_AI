@@ -64,6 +64,8 @@ import type {
   HumanValidationPreviewResult,
   HumanValidationResult,
   HumanValidationSaveResult,
+  HumanValidationStatusListResult,
+  HumanValidationStatusSummary,
   InvalidHumanValidationBuilderReportFile,
   ManualValidationChecklistExtraction,
   ValidationEvidenceFileImportRequest,
@@ -157,6 +159,9 @@ declare global {
     HumanValidationBuilderReportListResult;
   type ChampCityHumanValidationPreviewResult = HumanValidationPreviewResult;
   type ChampCityHumanValidationSaveResult = HumanValidationSaveResult;
+  type ChampCityHumanValidationStatusSummary = HumanValidationStatusSummary;
+  type ChampCityHumanValidationStatusListResult =
+    HumanValidationStatusListResult;
   type ChampCityValidationTargetSummary = ValidationTargetSummary;
   type ChampCityInvalidValidationTargetFile = InvalidValidationTargetFile;
   type ChampCityListValidationTargetsResult = ListValidationTargetsResult;
@@ -245,6 +250,9 @@ declare global {
       listHumanValidationTargets: (
         phase: string,
       ) => Promise<ListValidationTargetsResult>;
+      listHumanValidationStatuses: (
+        phase: string,
+      ) => Promise<HumanValidationStatusListResult>;
       previewHumanValidationRecord: (
         input: HumanValidationFormInput,
       ) => Promise<HumanValidationPreviewResult>;
