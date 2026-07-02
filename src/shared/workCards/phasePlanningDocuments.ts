@@ -1,5 +1,9 @@
 import type { PhaseArchitectInterviewPrompt } from "./phaseArchitectInterviewPrompt";
 import {
+  buildCompatibilityPhaseIntakeFromRoadmap,
+  type ProjectRoadmapRecord,
+} from "./projectRoadmap";
+import {
   slugifyPhaseIntakeName,
   validatePhaseIntakeSlug,
   type PhaseIntake,
@@ -18,6 +22,7 @@ export interface PhasePlanningDocumentsRequest {
   phaseFolder: string;
   projectPlanningDocumentFileName?: string;
   repositoryReconciliationFileName?: string;
+  projectRoadmapFileName?: string;
   phaseIntakeFileName?: string;
   phaseArchitectInterviewPromptFileName?: string;
   phaseArchitectInterviewOutput: string;
@@ -30,6 +35,8 @@ export interface PhasePlanningDocumentsBuildInput
   sourceProjectPlanningDocumentsMarkdownFileName?: string;
   sourceRepositoryReconciliation?: RepositoryReconciliationRecord;
   sourceRepositoryReconciliationMarkdownFileName?: string;
+  sourceProjectRoadmap?: ProjectRoadmapRecord;
+  sourceProjectRoadmapMarkdownFileName?: string;
   sourcePhaseIntake?: PhaseIntake;
   sourcePhaseIntakeMarkdownFileName?: string;
   sourcePhaseArchitectInterviewPrompt?: PhaseArchitectInterviewPrompt;
@@ -46,6 +53,8 @@ export interface PhasePlanningDocumentsRecord {
   sourceProjectPlanningSidecarMarkdownFileName?: string;
   sourceRepositoryReconciliationJsonFileName?: string;
   sourceRepositoryReconciliationMarkdownFileName?: string;
+  sourceProjectRoadmapJsonFileName?: string;
+  sourceProjectRoadmapMarkdownFileName?: string;
   sourcePhaseIntakeJsonFileName?: string;
   sourcePhaseIntakeMarkdownFileName?: string;
   sourcePhaseArchitectInterviewPromptJsonFileName?: string;
@@ -124,8 +133,10 @@ export function buildPhasePlanningDocuments(
     throw new Error("Select a saved Repository Reconciliation source.");
   }
 
-  if (!input.sourcePhaseIntake) {
-    throw new Error("Select a saved Phase Intake source.");
+  if (!input.sourcePhaseIntake && !input.sourceProjectRoadmap) {
+    throw new Error(
+      "Select a saved Project Roadmap source or a compatibility Phase Intake source.",
+    );
   }
 
   const phaseArchitectInterviewOutput = cleanText(
@@ -136,35 +147,42 @@ export function buildPhasePlanningDocuments(
     throw new Error("Paste the completed Phase Architect Interview output first.");
   }
 
-  const phaseName = cleanText(input.sourcePhaseIntake.phaseName) || phaseFolder;
+  const sourcePhaseIntake =
+    input.sourcePhaseIntake ??
+    buildCompatibilityPhaseIntakeFromRoadmap(
+      input.sourceProjectRoadmap as ProjectRoadmapRecord,
+      timestamp,
+    );
+  const phaseName = cleanText(sourcePhaseIntake.phaseName) || phaseFolder;
   const fileNames = buildPhasePlanningDocumentsFileNames(phaseName);
   const extraction = extractPhasePlanningSections(phaseArchitectInterviewOutput);
   const projectName =
-    cleanText(input.sourcePhaseIntake.projectName) ||
+    cleanText(sourcePhaseIntake.projectName) ||
     cleanText(input.sourceProjectPlanningDocuments.projectName) ||
     cleanText(input.sourceRepositoryReconciliation.projectName) ||
     "ChampCity A/I";
   const phaseGoal =
     firstUseful([
-      input.sourcePhaseIntake.phaseGoal,
+      sourcePhaseIntake.phaseGoal,
       firstUseful(extraction.phaseGoals),
     ]) || "Not provided.";
   const phaseScope =
     firstUseful([
-      input.sourcePhaseIntake.includedScope,
+      sourcePhaseIntake.includedScope,
       firstUseful(extraction.scopeItems),
     ]) || "Not provided.";
   const phaseRisks = uniqueNonEmpty([
-    ...extractListField(input.sourcePhaseIntake.knownRisks),
+    ...(sourcePhaseIntake.risksAndDriftWarnings ?? []),
+    ...extractListField(sourcePhaseIntake.knownRisks),
     ...input.sourceRepositoryReconciliation.currentRisks,
     ...extraction.risks,
   ]);
   const phaseDependencies = uniqueNonEmpty([
-    ...extractListField(input.sourcePhaseIntake.dependencies),
+    ...extractListField(sourcePhaseIntake.dependencies),
     ...extraction.dependencies,
   ]);
   const validationExpectations = uniqueNonEmpty([
-    ...extractListField(input.sourcePhaseIntake.validationExpectations),
+    ...extractListField(sourcePhaseIntake.validationExpectations),
     ...extraction.validationExpectations,
   ]);
   const recommendedImplementationSequence = uniqueNonEmpty([
@@ -204,6 +222,9 @@ export function buildPhasePlanningDocuments(
       input.repositoryReconciliationFileName,
     sourceRepositoryReconciliationMarkdownFileName:
       input.sourceRepositoryReconciliationMarkdownFileName,
+    sourceProjectRoadmapJsonFileName: input.projectRoadmapFileName,
+    sourceProjectRoadmapMarkdownFileName:
+      input.sourceProjectRoadmapMarkdownFileName,
     sourcePhaseIntakeJsonFileName: input.phaseIntakeFileName,
     sourcePhaseIntakeMarkdownFileName: input.sourcePhaseIntakeMarkdownFileName,
     sourcePhaseArchitectInterviewPromptJsonFileName:
@@ -213,23 +234,24 @@ export function buildPhasePlanningDocuments(
     phaseBrief:
       firstUseful([
         firstUseful(extraction.phaseBriefs),
-        input.sourcePhaseIntake.phaseProblem,
+        sourcePhaseIntake.phasePurpose,
+        sourcePhaseIntake.phaseProblem,
         input.sourceRepositoryReconciliation.recommendedNextPhase,
       ]) || "Not provided.",
     phaseGoal,
     phaseUserOperatorOutcome:
       firstUseful([
-        input.sourcePhaseIntake.userOutcome,
+        sourcePhaseIntake.userOutcome,
         firstUseful(extraction.userOutcomes),
       ]) || "Not provided.",
     phaseScope,
     explicitOutOfScopeItems: uniqueNonEmpty([
-      ...extractListField(input.sourcePhaseIntake.outOfScope),
+      ...extractListField(sourcePhaseIntake.outOfScope),
       ...extraction.outOfScopeItems,
     ]),
     affectedAppScreensWorkflows:
       firstUseful([
-        input.sourcePhaseIntake.affectedScreensOrWorkflows,
+        sourcePhaseIntake.affectedScreensOrWorkflows,
         firstUseful(extraction.affectedWorkflows),
       ]) || "Not provided.",
     sourceProjectPlanningContext: summarizeProjectPlanningContext(
@@ -242,8 +264,11 @@ export function buildPhasePlanningDocuments(
       firstUseful(extraction.architectInterviewSummaries) ||
       summarizeText(phaseArchitectInterviewOutput),
     phaseAssumptions: uniqueNonEmpty([
+      ...(sourcePhaseIntake.assumptions ?? []),
       ...extraction.assumptions,
-      "Phase Intake notes are constraints/context, not the sole source of roadmap truth.",
+      input.sourceProjectRoadmap
+        ? "Project Roadmap / Phase Map is the planning authority; compatibility Phase Intake is generated only if needed internally."
+        : "Phase Intake notes are constraints/context, not the sole source of roadmap truth.",
     ]),
     phaseRisks,
     phaseDependencies,
@@ -253,6 +278,7 @@ export function buildPhasePlanningDocuments(
     openQuestions: extraction.openQuestions,
     nextRecommendedAction:
       firstUseful(extraction.nextActions) ||
+      sourcePhaseIntake.recommendedNextStep ||
       "Review the Phase Planning Documents and initial Work Card plan, then convert selected plan items into formal Work Cards in a later workflow.",
     phaseArchitectInterviewOutput,
     operatorPlanAdjustments: cleanText(input.operatorPlanAdjustments),
@@ -277,6 +303,8 @@ export function renderPhasePlanningDocumentsMarkdown(
         `Project Planning Documents Markdown: ${record.sourceProjectPlanningSidecarMarkdownFileName ?? "Not found."}`,
         `Repository Reconciliation JSON: ${record.sourceRepositoryReconciliationJsonFileName ?? "Not selected."}`,
         `Repository Reconciliation Markdown: ${record.sourceRepositoryReconciliationMarkdownFileName ?? "Not found."}`,
+        `Project Roadmap JSON: ${record.sourceProjectRoadmapJsonFileName ?? "Not selected."}`,
+        `Project Roadmap Markdown: ${record.sourceProjectRoadmapMarkdownFileName ?? "Not found."}`,
         `Phase Intake JSON: ${record.sourcePhaseIntakeJsonFileName ?? "Not selected."}`,
         `Phase Intake Markdown: ${record.sourcePhaseIntakeMarkdownFileName ?? "Not found."}`,
         `Phase Architect Interview Prompt JSON: ${record.sourcePhaseArchitectInterviewPromptJsonFileName ?? "Not selected."}`,

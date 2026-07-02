@@ -71,6 +71,16 @@ import type {
   PhasePlanningDocumentsSaveResult,
 } from "../shared/workCards/phasePlanningDocuments";
 import type {
+  InvalidSavedProjectRoadmapFile,
+  ListSavedProjectRoadmapsResult,
+  ProjectRoadmapNextPhaseArtifactPreview,
+  ProjectRoadmapPreviewResult,
+  ProjectRoadmapRecord,
+  ProjectRoadmapRequest,
+  ProjectRoadmapSaveResult,
+  SavedProjectRoadmapSummary,
+} from "../shared/workCards/projectRoadmap";
+import type {
   WorkCardPlanItem,
   WorkCardPlanRecord,
 } from "../shared/workCards/workCardPlan";
@@ -238,6 +248,16 @@ declare global {
     PhasePlanningDocumentsPreviewResult;
   type ChampCityPhasePlanningDocumentsSaveResult =
     PhasePlanningDocumentsSaveResult;
+  type ChampCityProjectRoadmapRequest = ProjectRoadmapRequest;
+  type ChampCityProjectRoadmapRecord = ProjectRoadmapRecord;
+  type ChampCityProjectRoadmapPreviewResult = ProjectRoadmapPreviewResult;
+  type ChampCityProjectRoadmapSaveResult = ProjectRoadmapSaveResult;
+  type ChampCityProjectRoadmapNextPhaseArtifactPreview =
+    ProjectRoadmapNextPhaseArtifactPreview;
+  type ChampCitySavedProjectRoadmapSummary = SavedProjectRoadmapSummary;
+  type ChampCityInvalidSavedProjectRoadmapFile =
+    InvalidSavedProjectRoadmapFile;
+  type ChampCityListSavedProjectRoadmapsResult = ListSavedProjectRoadmapsResult;
   type ChampCityWorkCardPlanItem = WorkCardPlanItem;
   type ChampCityWorkCardPlanRecord = WorkCardPlanRecord;
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
@@ -366,6 +386,13 @@ declare global {
       saveRepositoryReconciliation: (
         input: RepositoryReconciliationRequest,
       ) => Promise<RepositoryReconciliationSaveResult>;
+      previewProjectRoadmap: (
+        input: ProjectRoadmapRequest,
+      ) => Promise<ProjectRoadmapPreviewResult>;
+      saveProjectRoadmap: (
+        input: ProjectRoadmapRequest,
+      ) => Promise<ProjectRoadmapSaveResult>;
+      listSavedProjectRoadmaps: () => Promise<ListSavedProjectRoadmapsResult>;
       listPhasePlanningProjectPlanningDocuments: () => Promise<ListSavedProjectPlanningDocumentsResult>;
       listPhasePlanningRepositoryReconciliations: () => Promise<ListSavedRepositoryReconciliationsResult>;
       listPhasePlanningPhaseIntakes: (

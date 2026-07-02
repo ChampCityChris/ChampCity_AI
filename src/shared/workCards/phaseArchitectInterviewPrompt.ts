@@ -1,4 +1,5 @@
 import {
+  type PhaseIntakeGenerationMode,
   slugifyPhaseIntakeName,
   type PhaseIntake,
 } from "./phaseIntake";
@@ -60,6 +61,7 @@ export interface SavedPhaseIntakeSummary {
   phaseFolder: string;
   phaseName: string;
   projectName: string;
+  generationMode?: PhaseIntakeGenerationMode;
   sourceProjectPlanningSidecarJsonFileName?: string;
   updatedAt: string;
 }
@@ -341,12 +343,18 @@ export function renderPhaseArchitectInterviewPromptText(
 function renderPhaseIntakeSummary(phaseIntake: PhaseIntake): string {
   return [
     `- Phase Intake ID: ${formatValue(phaseIntake.phaseIntakeId)}`,
+    `- Generation mode: ${formatValue(phaseIntake.generationMode ?? "manual")}`,
     `- Project name: ${formatValue(phaseIntake.projectName)}`,
     `- Phase folder: ${formatValue(phaseIntake.phaseFolder)}`,
     `- Phase name: ${formatValue(phaseIntake.phaseName)}`,
+    `- Operator next-work intent: ${formatValue(phaseIntake.operatorNextWorkIntent ?? "")}`,
+    `- Operator work type: ${formatValue(phaseIntake.operatorProjectWorkType?.replace(/_/g, " ") ?? "")}`,
+    `- Operator must-keep constraints or concerns: ${formatValue(phaseIntake.operatorMustKeepConstraints ?? "")}`,
+    `- Phase purpose: ${formatValue(phaseIntake.phasePurpose ?? "")}`,
     `- Phase problem: ${formatValue(phaseIntake.phaseProblem)}`,
     `- Phase goal: ${formatValue(phaseIntake.phaseGoal)}`,
     `- User outcome: ${formatValue(phaseIntake.userOutcome)}`,
+    `- Architect-derived scope: ${formatValue(phaseIntake.architectDerivedScope ?? "")}`,
     `- Included scope: ${formatValue(phaseIntake.includedScope)}`,
     `- Out of scope: ${formatValue(phaseIntake.outOfScope)}`,
     `- Affected screens or workflows: ${formatValue(phaseIntake.affectedScreensOrWorkflows)}`,
@@ -354,6 +362,10 @@ function renderPhaseIntakeSummary(phaseIntake: PhaseIntake): string {
     `- Known risks: ${formatValue(phaseIntake.knownRisks)}`,
     `- Dependencies: ${formatValue(phaseIntake.dependencies)}`,
     `- Validation expectations: ${formatValue(phaseIntake.validationExpectations)}`,
+    `- Assumptions: ${formatListValue(phaseIntake.assumptions)}`,
+    `- Risks and drift warnings: ${formatListValue(phaseIntake.risksAndDriftWarnings)}`,
+    `- Acceptance definition: ${formatValue(phaseIntake.acceptanceDefinition ?? "")}`,
+    `- Recommended next step: ${formatValue(phaseIntake.recommendedNextStep ?? "")}`,
     `- Operator notes: ${formatValue(phaseIntake.operatorNotes)}`,
   ].join("\n");
 }
@@ -361,14 +373,28 @@ function renderPhaseIntakeSummary(phaseIntake: PhaseIntake): string {
 function renderProjectPlanningContext(phaseIntake: PhaseIntake): string {
   return [
     `- Source context: ${formatValue(phaseIntake.sourceProjectPlanningDocument)}`,
+    `- Source artifacts used: ${formatListValue(phaseIntake.sourceArtifactsUsed)}`,
+    `- Project Intake JSON: ${formatValue(phaseIntake.sourceProjectIntakeJsonFileName ?? "")}`,
+    `- Project Intake Markdown: ${formatValue(phaseIntake.sourceProjectIntakeMarkdownFileName ?? "")}`,
+    `- Project Architect Interview Prompt JSON: ${formatValue(phaseIntake.sourceProjectArchitectInterviewPromptJsonFileName ?? "")}`,
+    `- Project Architect Interview Prompt Markdown: ${formatValue(phaseIntake.sourceProjectArchitectInterviewPromptMarkdownFileName ?? "")}`,
     `- Project Planning Documents sidecar JSON: ${formatValue(phaseIntake.sourceProjectPlanningSidecarJsonFileName ?? "")}`,
     `- Project Planning Documents sidecar Markdown: ${formatValue(phaseIntake.sourceProjectPlanningSidecarMarkdownFileName ?? "")}`,
+    `- Repository Reconciliation JSON: ${formatValue(phaseIntake.sourceRepositoryReconciliationJsonFileName ?? "")}`,
+    `- Repository Reconciliation Markdown: ${formatValue(phaseIntake.sourceRepositoryReconciliationMarkdownFileName ?? "")}`,
   ].join("\n");
 }
 
 function formatValue(value: string): string {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : "Not provided.";
+}
+
+function formatListValue(items: string[] | undefined): string {
+  const safeItems =
+    items?.map((item) => item.trim()).filter((item) => item.length > 0) ?? [];
+
+  return safeItems.length > 0 ? safeItems.join("; ") : "Not provided.";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

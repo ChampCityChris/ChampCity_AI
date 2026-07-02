@@ -23,6 +23,7 @@ import {
   listSavedProjectArchitectInterviewPrompts,
   listSavedProjectIntakes,
   listSavedProjectPlanningDocuments,
+  listSavedProjectRoadmaps,
   listSavedRepositoryReconciliations,
   listSavedWorkCards,
   previewArchitectPrompt,
@@ -34,6 +35,7 @@ import {
   previewPhaseCloseoutRecord,
   previewPhaseIntake,
   previewPhasePlanningDocuments,
+  previewProjectRoadmap,
   previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
   previewProjectPlanningDocuments,
@@ -50,6 +52,7 @@ import {
   savePhaseCloseoutRecord,
   savePhaseIntake,
   savePhasePlanningDocuments,
+  saveProjectRoadmap,
   saveProjectArchitectInterviewPrompt,
   saveProjectIntake,
   saveProjectPlanningDocuments,
@@ -67,6 +70,7 @@ import type {
   RepositoryReconciliationRequest,
 } from "../shared/workCards/repositoryReconciliation";
 import type { PhasePlanningDocumentsRequest } from "../shared/workCards/phasePlanningDocuments";
+import type { ProjectRoadmapRequest } from "../shared/workCards/projectRoadmap";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -269,6 +273,15 @@ function registerWorkCardIpc(): void {
     (_event, input: RepositoryReconciliationRequest) =>
       saveRepositoryReconciliation(input),
   );
+  ipcMain.handle(
+    "projectRoadmap:preview",
+    (_event, input: ProjectRoadmapRequest) => previewProjectRoadmap(input),
+  );
+  ipcMain.handle(
+    "projectRoadmap:save",
+    (_event, input: ProjectRoadmapRequest) => saveProjectRoadmap(input),
+  );
+  ipcMain.handle("projectRoadmap:listSaved", () => listSavedProjectRoadmaps());
   ipcMain.handle("phasePlanning:listProjectPlanningDocuments", () =>
     listSavedProjectPlanningDocuments(),
   );

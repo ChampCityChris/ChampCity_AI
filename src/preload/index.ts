@@ -50,6 +50,12 @@ import type {
   PhasePlanningDocumentsSaveResult,
 } from "../shared/workCards/phasePlanningDocuments";
 import type {
+  ListSavedProjectRoadmapsResult,
+  ProjectRoadmapPreviewResult,
+  ProjectRoadmapRequest,
+  ProjectRoadmapSaveResult,
+} from "../shared/workCards/projectRoadmap";
+import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
   ArchitectPromptSaveResult,
@@ -100,9 +106,9 @@ const api = {
       "Project Intake",
       "Project Architect Interview",
       "Project Plan",
-      "Phase Intake",
+      "Reconcile / Project State Review",
+      "Roadmap",
       "Phase Architect Interview",
-      "Reconcile",
       "Phase Plan",
       "Capture",
       "Architect",
@@ -185,6 +191,16 @@ const api = {
     input: RepositoryReconciliationRequest,
   ): Promise<RepositoryReconciliationSaveResult> =>
     ipcRenderer.invoke("repositoryReconciliation:save", input),
+  previewProjectRoadmap: (
+    input: ProjectRoadmapRequest,
+  ): Promise<ProjectRoadmapPreviewResult> =>
+    ipcRenderer.invoke("projectRoadmap:preview", input),
+  saveProjectRoadmap: (
+    input: ProjectRoadmapRequest,
+  ): Promise<ProjectRoadmapSaveResult> =>
+    ipcRenderer.invoke("projectRoadmap:save", input),
+  listSavedProjectRoadmaps: (): Promise<ListSavedProjectRoadmapsResult> =>
+    ipcRenderer.invoke("projectRoadmap:listSaved"),
   listPhasePlanningProjectPlanningDocuments:
     (): Promise<ListSavedProjectPlanningDocumentsResult> =>
       ipcRenderer.invoke("phasePlanning:listProjectPlanningDocuments"),

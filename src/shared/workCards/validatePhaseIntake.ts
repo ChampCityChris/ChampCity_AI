@@ -1,4 +1,6 @@
 import {
+  isPhaseIntakeGenerationMode,
+  isPhaseIntakeWorkType,
   validatePhaseIntakePhaseFolder,
   type PhaseIntake,
 } from "./phaseIntake";
@@ -123,6 +125,71 @@ export function validatePhaseIntake(
     typeof candidate.sourceProjectPlanningSidecarMarkdownFileName !== "string"
   ) {
     errors.push("sourceProjectPlanningSidecarMarkdownFileName must be saved as text.");
+  }
+
+  for (const field of [
+    "sourceProjectIntakeJsonFileName",
+    "sourceProjectIntakeMarkdownFileName",
+    "sourceProjectArchitectInterviewPromptJsonFileName",
+    "sourceProjectArchitectInterviewPromptMarkdownFileName",
+    "sourceRepositoryReconciliationJsonFileName",
+    "sourceRepositoryReconciliationMarkdownFileName",
+    "sourceExistingPhaseIntakeJsonFileName",
+    "sourceExistingPhaseIntakeMarkdownFileName",
+    "operatorNextWorkIntent",
+    "operatorMustKeepConstraints",
+    "phasePurpose",
+    "architectDerivedScope",
+    "acceptanceDefinition",
+    "recommendedNextStep",
+  ] as const) {
+    if (
+      field in candidate &&
+      candidate[field] !== undefined &&
+      typeof candidate[field] !== "string"
+    ) {
+      errors.push(`${field} must be saved as text.`);
+    }
+  }
+
+  if (
+    "generationMode" in candidate &&
+    candidate.generationMode !== undefined
+  ) {
+    if (
+      typeof candidate.generationMode !== "string" ||
+      !isPhaseIntakeGenerationMode(candidate.generationMode)
+    ) {
+      errors.push("generationMode must be a supported Phase Intake generation mode.");
+    }
+  }
+
+  if (
+    "operatorProjectWorkType" in candidate &&
+    candidate.operatorProjectWorkType !== undefined
+  ) {
+    if (
+      typeof candidate.operatorProjectWorkType !== "string" ||
+      !isPhaseIntakeWorkType(candidate.operatorProjectWorkType)
+    ) {
+      errors.push("operatorProjectWorkType must be a supported Phase Intake work type.");
+    }
+  }
+
+  for (const field of [
+    "sourceArtifactsUsed",
+    "assumptions",
+    "risksAndDriftWarnings",
+  ] as const) {
+    if (field in candidate && candidate[field] !== undefined) {
+      if (!Array.isArray(candidate[field])) {
+        errors.push(`${field} must be saved as a list.`);
+      } else if (
+        !candidate[field].every((item: unknown) => typeof item === "string")
+      ) {
+        errors.push(`${field} must contain only text items.`);
+      }
+    }
   }
 
   const phaseFolder = candidate.phaseFolder;
