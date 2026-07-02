@@ -30,11 +30,25 @@ import type {
   PhaseIntakeSaveResult,
 } from "../shared/workCards/phaseIntake";
 import type {
+  ListSavedPhaseArchitectInterviewPromptsResult,
   ListSavedPhaseIntakesResult,
   PhaseArchitectInterviewPromptPreviewResult,
   PhaseArchitectInterviewPromptRequest,
   PhaseArchitectInterviewPromptSaveResult,
 } from "../shared/workCards/phaseArchitectInterviewPrompt";
+import type {
+  ListSavedRepositoryReconciliationsResult,
+  RepositoryReconciliationPreviewResult,
+  RepositoryReconciliationPromptPreviewResult,
+  RepositoryReconciliationPromptRequest,
+  RepositoryReconciliationRequest,
+  RepositoryReconciliationSaveResult,
+} from "../shared/workCards/repositoryReconciliation";
+import type {
+  PhasePlanningDocumentsPreviewResult,
+  PhasePlanningDocumentsRequest,
+  PhasePlanningDocumentsSaveResult,
+} from "../shared/workCards/phasePlanningDocuments";
 import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
@@ -88,6 +102,8 @@ const api = {
       "Project Plan",
       "Phase Intake",
       "Phase Architect Interview",
+      "Reconcile",
+      "Phase Plan",
       "Capture",
       "Architect",
       "Risk",
@@ -154,6 +170,43 @@ const api = {
     input: PhaseArchitectInterviewPromptRequest,
   ): Promise<PhaseArchitectInterviewPromptSaveResult> =>
     ipcRenderer.invoke("phaseArchitectInterview:savePrompt", input),
+  listRepositoryReconciliationProjectPlanningDocuments:
+    (): Promise<ListSavedProjectPlanningDocumentsResult> =>
+      ipcRenderer.invoke("repositoryReconciliation:listProjectPlanningDocuments"),
+  previewRepositoryReconciliationPrompt: (
+    input: RepositoryReconciliationPromptRequest,
+  ): Promise<RepositoryReconciliationPromptPreviewResult> =>
+    ipcRenderer.invoke("repositoryReconciliation:previewPrompt", input),
+  previewRepositoryReconciliation: (
+    input: RepositoryReconciliationRequest,
+  ): Promise<RepositoryReconciliationPreviewResult> =>
+    ipcRenderer.invoke("repositoryReconciliation:preview", input),
+  saveRepositoryReconciliation: (
+    input: RepositoryReconciliationRequest,
+  ): Promise<RepositoryReconciliationSaveResult> =>
+    ipcRenderer.invoke("repositoryReconciliation:save", input),
+  listPhasePlanningProjectPlanningDocuments:
+    (): Promise<ListSavedProjectPlanningDocumentsResult> =>
+      ipcRenderer.invoke("phasePlanning:listProjectPlanningDocuments"),
+  listPhasePlanningRepositoryReconciliations:
+    (): Promise<ListSavedRepositoryReconciliationsResult> =>
+      ipcRenderer.invoke("phasePlanning:listRepositoryReconciliations"),
+  listPhasePlanningPhaseIntakes: (
+    phase: string,
+  ): Promise<ListSavedPhaseIntakesResult> =>
+    ipcRenderer.invoke("phasePlanning:listPhaseIntakes", phase),
+  listPhasePlanningPhaseArchitectInterviewPrompts: (
+    phase: string,
+  ): Promise<ListSavedPhaseArchitectInterviewPromptsResult> =>
+    ipcRenderer.invoke("phasePlanning:listPhaseArchitectInterviewPrompts", phase),
+  previewPhasePlanningDocuments: (
+    input: PhasePlanningDocumentsRequest,
+  ): Promise<PhasePlanningDocumentsPreviewResult> =>
+    ipcRenderer.invoke("phasePlanning:preview", input),
+  savePhasePlanningDocuments: (
+    input: PhasePlanningDocumentsRequest,
+  ): Promise<PhasePlanningDocumentsSaveResult> =>
+    ipcRenderer.invoke("phasePlanning:save", input),
   getNextWorkCardId: (phase: string): Promise<NextWorkCardIdResult> =>
     ipcRenderer.invoke("workCards:getNextId", phase),
   previewWorkCardDraft: (

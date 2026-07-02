@@ -19,9 +19,11 @@ import {
   listHumanValidationStatuses,
   listHumanValidationTargets,
   listSavedPhaseIntakes,
+  listSavedPhaseArchitectInterviewPrompts,
   listSavedProjectArchitectInterviewPrompts,
   listSavedProjectIntakes,
   listSavedProjectPlanningDocuments,
+  listSavedRepositoryReconciliations,
   listSavedWorkCards,
   previewArchitectPrompt,
   previewBuilderPrompt,
@@ -31,9 +33,12 @@ import {
   previewPhaseArchitectInterviewPrompt,
   previewPhaseCloseoutRecord,
   previewPhaseIntake,
+  previewPhasePlanningDocuments,
   previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
   previewProjectPlanningDocuments,
+  previewRepositoryReconciliation,
+  previewRepositoryReconciliationPrompt,
   previewRiskReview,
   loadBuilderReportFile,
   saveArchitectPrompt,
@@ -44,9 +49,11 @@ import {
   savePhaseArchitectInterviewPrompt,
   savePhaseCloseoutRecord,
   savePhaseIntake,
+  savePhasePlanningDocuments,
   saveProjectArchitectInterviewPrompt,
   saveProjectIntake,
   saveProjectPlanningDocuments,
+  saveRepositoryReconciliation,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
@@ -55,6 +62,11 @@ import type { ProjectArchitectInterviewPromptRequest } from "../shared/workCards
 import type { ProjectPlanningDocumentsRequest } from "../shared/workCards/projectPlanningDocuments";
 import type { PhaseIntakeInput } from "../shared/workCards/phaseIntake";
 import type { PhaseArchitectInterviewPromptRequest } from "../shared/workCards/phaseArchitectInterviewPrompt";
+import type {
+  RepositoryReconciliationPromptRequest,
+  RepositoryReconciliationRequest,
+} from "../shared/workCards/repositoryReconciliation";
+import type { PhasePlanningDocumentsRequest } from "../shared/workCards/phasePlanningDocuments";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -237,6 +249,48 @@ function registerWorkCardIpc(): void {
     "phaseArchitectInterview:savePrompt",
     (_event, input: PhaseArchitectInterviewPromptRequest) =>
       savePhaseArchitectInterviewPrompt(input),
+  );
+  ipcMain.handle(
+    "repositoryReconciliation:listProjectPlanningDocuments",
+    () => listSavedProjectPlanningDocuments(),
+  );
+  ipcMain.handle(
+    "repositoryReconciliation:previewPrompt",
+    (_event, input: RepositoryReconciliationPromptRequest) =>
+      previewRepositoryReconciliationPrompt(input),
+  );
+  ipcMain.handle(
+    "repositoryReconciliation:preview",
+    (_event, input: RepositoryReconciliationRequest) =>
+      previewRepositoryReconciliation(input),
+  );
+  ipcMain.handle(
+    "repositoryReconciliation:save",
+    (_event, input: RepositoryReconciliationRequest) =>
+      saveRepositoryReconciliation(input),
+  );
+  ipcMain.handle("phasePlanning:listProjectPlanningDocuments", () =>
+    listSavedProjectPlanningDocuments(),
+  );
+  ipcMain.handle("phasePlanning:listRepositoryReconciliations", () =>
+    listSavedRepositoryReconciliations(),
+  );
+  ipcMain.handle("phasePlanning:listPhaseIntakes", (_event, phase: string) =>
+    listSavedPhaseIntakes(phase),
+  );
+  ipcMain.handle(
+    "phasePlanning:listPhaseArchitectInterviewPrompts",
+    (_event, phase: string) => listSavedPhaseArchitectInterviewPrompts(phase),
+  );
+  ipcMain.handle(
+    "phasePlanning:preview",
+    (_event, input: PhasePlanningDocumentsRequest) =>
+      previewPhasePlanningDocuments(input),
+  );
+  ipcMain.handle(
+    "phasePlanning:save",
+    (_event, input: PhasePlanningDocumentsRequest) =>
+      savePhasePlanningDocuments(input),
   );
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),

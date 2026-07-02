@@ -76,6 +76,28 @@ export interface ListSavedPhaseIntakesResult {
   errorMessages?: string[];
 }
 
+export interface SavedPhaseArchitectInterviewPromptSummary {
+  fileName: string;
+  promptId: string;
+  phaseIntakeId: string;
+  phaseFolder: string;
+  phaseName: string;
+  projectName: string;
+  updatedAt: string;
+}
+
+export interface InvalidSavedPhaseArchitectInterviewPromptFile {
+  fileName: string;
+  errorMessages: string[];
+}
+
+export interface ListSavedPhaseArchitectInterviewPromptsResult {
+  ok: boolean;
+  prompts?: SavedPhaseArchitectInterviewPromptSummary[];
+  invalidFiles?: InvalidSavedPhaseArchitectInterviewPromptFile[];
+  errorMessages?: string[];
+}
+
 export interface PhaseArchitectInterviewPromptValidationResult {
   valid: boolean;
   errors: string[];

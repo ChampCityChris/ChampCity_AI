@@ -178,13 +178,53 @@ import {
   validatePhaseArchitectInterviewPrompt,
   validatePhaseArchitectInterviewPromptArtifactFileName,
   type InvalidSavedPhaseIntakeFile,
+  type InvalidSavedPhaseArchitectInterviewPromptFile,
+  type ListSavedPhaseArchitectInterviewPromptsResult,
   type ListSavedPhaseIntakesResult,
+  type PhaseArchitectInterviewPrompt,
   type PhaseArchitectInterviewPromptPreviewResult,
   type PhaseArchitectInterviewPromptRequest,
   type PhaseArchitectInterviewPromptSaveResult,
+  type SavedPhaseArchitectInterviewPromptSummary,
   type SavedPhaseIntakeSummary,
 } from "../../shared/workCards/phaseArchitectInterviewPrompt";
 import { renderPhaseArchitectInterviewPromptMarkdown } from "../../shared/workCards/renderPhaseArchitectInterviewPromptMarkdown";
+import {
+  buildRepositoryReconciliationFileNames,
+  buildRepositoryReconciliationPromptText,
+  buildRepositoryReconciliationRecord,
+  renderRepositoryReconciliationMarkdown,
+  validateRepositoryReconciliationArtifactFileName,
+  validateRepositoryReconciliationRecord,
+  type InvalidSavedRepositoryReconciliationFile,
+  type ListSavedRepositoryReconciliationsResult,
+  type RepositoryReconciliationPreviewResult,
+  type RepositoryReconciliationPromptContext,
+  type RepositoryReconciliationPromptPreviewResult,
+  type RepositoryReconciliationPromptRequest,
+  type RepositoryReconciliationRecord,
+  type RepositoryReconciliationRequest,
+  type RepositoryReconciliationSaveResult,
+  type SavedRepositoryReconciliationSummary,
+} from "../../shared/workCards/repositoryReconciliation";
+import {
+  buildCombinedPhasePlanningMarkdown,
+  buildPhasePlanningDocuments,
+  buildPhasePlanningDocumentsFileNames,
+  renderPhasePlanningDocumentsMarkdown,
+  validatePhasePlanningDocumentsArtifactFileName,
+  type PhasePlanningDocumentsPreviewResult,
+  type PhasePlanningDocumentsRecord,
+  type PhasePlanningDocumentsRequest,
+  type PhasePlanningDocumentsSaveResult,
+} from "../../shared/workCards/phasePlanningDocuments";
+import {
+  buildWorkCardPlanFileNames,
+  buildWorkCardPlanRecord,
+  renderPhaseScopedBacklogMarkdown,
+  renderWorkCardPlanMarkdown,
+  validateWorkCardPlanArtifactFileName,
+} from "../../shared/workCards/workCardPlan";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
@@ -1155,6 +1195,439 @@ export async function savePhaseArchitectInterviewPrompt(
     };
   } catch (error) {
     console.error("Failed to save Phase Architect Interview Prompt.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedPhaseArchitectInterviewPrompts(
+  phase: string,
+): Promise<ListSavedPhaseArchitectInterviewPromptsResult> {
+  try {
+    const directory = resolvePhaseArchitectInterviewPromptsDirectory(phase);
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const prompts: SavedPhaseArchitectInterviewPromptSummary[] = [];
+    const invalidFiles: InvalidSavedPhaseArchitectInterviewPromptFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors =
+        validateSavedPhaseArchitectInterviewPromptJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const promptRecord = await readSavedPhaseArchitectInterviewPromptFile(
+          phase,
+          fileName,
+        );
+        prompts.push({
+          fileName,
+          promptId: promptRecord.promptId,
+          phaseIntakeId: promptRecord.phaseIntakeId,
+          phaseFolder: promptRecord.phaseFolder,
+          phaseName: promptRecord.phaseName,
+          projectName: promptRecord.projectName,
+          updatedAt: promptRecord.updatedAt,
+        });
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    prompts.sort(compareSavedPhaseIntakeSummaries);
+
+    return {
+      ok: true,
+      prompts,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewRepositoryReconciliationPrompt(
+  input: RepositoryReconciliationPromptRequest,
+): Promise<RepositoryReconciliationPromptPreviewResult> {
+  try {
+    const context = await readRepositoryReconciliationPromptContext(input);
+    const promptText = buildRepositoryReconciliationPromptText(input, context);
+
+    return {
+      ok: true,
+      promptText,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewRepositoryReconciliation(
+  input: RepositoryReconciliationRequest,
+): Promise<RepositoryReconciliationPreviewResult> {
+  try {
+    const context = await readRepositoryReconciliationPromptContext(input);
+    const reconciliation = buildRepositoryReconciliationRecord(
+      input,
+      context,
+      new Date().toISOString(),
+    );
+    const markdown = renderRepositoryReconciliationMarkdown(reconciliation);
+    const suggestedFileNames = buildRepositoryReconciliationFileNames(
+      reconciliation.projectName,
+    );
+
+    return {
+      ok: true,
+      reconciliation,
+      markdown,
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveRepositoryReconciliation(
+  input: RepositoryReconciliationRequest,
+): Promise<RepositoryReconciliationSaveResult> {
+  try {
+    const preview = await previewRepositoryReconciliation(input);
+
+    if (
+      !preview.ok ||
+      !preview.reconciliation ||
+      !preview.markdown ||
+      !preview.suggestedFileNames
+    ) {
+      return preview;
+    }
+
+    const directory = resolveRepositoryReconciliationDirectory();
+    const targets = await resolveAvailableFilePair(
+      directory,
+      preview.suggestedFileNames.jsonFileName,
+      preview.suggestedFileNames.markdownFileName,
+      "A safe Repository Reconciliation filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validateRepositoryReconciliationArtifactFileName(targets.firstFileName),
+      ...validateRepositoryReconciliationArtifactFileName(targets.secondFileName),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(preview.reconciliation, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, preview.markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Repository Reconciliation.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedRepositoryReconciliations(): Promise<ListSavedRepositoryReconciliationsResult> {
+  try {
+    const directory = resolveRepositoryReconciliationDirectory();
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const reconciliations: SavedRepositoryReconciliationSummary[] = [];
+    const invalidFiles: InvalidSavedRepositoryReconciliationFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors =
+        validateSavedRepositoryReconciliationJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const reconciliation =
+          await readSavedRepositoryReconciliationRecord(fileName);
+        reconciliations.push({
+          fileName,
+          reconciliationId: reconciliation.reconciliationId,
+          projectName: reconciliation.projectName,
+          sourcePhaseFolder: reconciliation.sourcePhaseFolder,
+          recommendedNextPhase: reconciliation.recommendedNextPhase,
+          updatedAt: reconciliation.updatedAt,
+        });
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    reconciliations.sort(compareSavedProjectArtifactSummaries);
+
+    return {
+      ok: true,
+      reconciliations,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewPhasePlanningDocuments(
+  input: PhasePlanningDocumentsRequest,
+): Promise<PhasePlanningDocumentsPreviewResult> {
+  try {
+    const context = await readPhasePlanningDocumentsContext(input);
+    const timestamp = new Date().toISOString();
+    const phasePlanningDocuments = buildPhasePlanningDocuments(
+      context,
+      timestamp,
+    );
+    const workCardPlan = buildWorkCardPlanRecord(
+      {
+        projectName: phasePlanningDocuments.projectName,
+        phaseFolder: phasePlanningDocuments.phaseFolder,
+        phaseName: phasePlanningDocuments.phaseName,
+        sourcePhasePlanningDocumentsId:
+          phasePlanningDocuments.phasePlanningDocumentsId,
+        phaseGoal: phasePlanningDocuments.phaseGoal,
+        phaseScope: phasePlanningDocuments.phaseScope,
+        phaseRisks: phasePlanningDocuments.phaseRisks,
+        dependencies: phasePlanningDocuments.phaseDependencies,
+        validationExpectations: phasePlanningDocuments.validationExpectations,
+        recommendedImplementationSequence:
+          phasePlanningDocuments.recommendedImplementationSequence,
+        phaseArchitectInterviewOutput:
+          phasePlanningDocuments.phaseArchitectInterviewOutput,
+        operatorPlanAdjustments: phasePlanningDocuments.operatorPlanAdjustments,
+      },
+      timestamp,
+    );
+    const phasePlanningMarkdown = renderPhasePlanningDocumentsMarkdown(
+      phasePlanningDocuments,
+    );
+    const workCardPlanMarkdown = renderWorkCardPlanMarkdown(workCardPlan);
+    const backlogMarkdown = renderPhaseScopedBacklogMarkdown(workCardPlan);
+    const suggestedPhasePlanningFileNames =
+      buildPhasePlanningDocumentsFileNames(phasePlanningDocuments.phaseName);
+    const suggestedWorkCardPlanFileNames = buildWorkCardPlanFileNames(
+      phasePlanningDocuments.phaseName,
+    );
+
+    return {
+      ok: true,
+      phasePlanningDocuments,
+      workCardPlan,
+      phasePlanningMarkdown,
+      workCardPlanMarkdown,
+      backlogMarkdown,
+      combinedMarkdown: buildCombinedPhasePlanningMarkdown(
+        phasePlanningMarkdown,
+        workCardPlanMarkdown,
+        backlogMarkdown,
+      ),
+      suggestedPhasePlanningFileNames,
+      suggestedWorkCardPlanFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function savePhasePlanningDocuments(
+  input: PhasePlanningDocumentsRequest,
+): Promise<PhasePlanningDocumentsSaveResult> {
+  try {
+    const preview = await previewPhasePlanningDocuments(input);
+
+    if (
+      !preview.ok ||
+      !preview.phasePlanningDocuments ||
+      !preview.workCardPlan ||
+      !preview.phasePlanningMarkdown ||
+      !preview.suggestedPhasePlanningFileNames ||
+      !preview.suggestedWorkCardPlanFileNames
+    ) {
+      return preview;
+    }
+
+    const phasePlanningDirectory = resolvePhasePlanningDocumentsDirectory(
+      preview.phasePlanningDocuments.phaseFolder,
+    );
+    const workCardPlanDirectory = resolveWorkCardPlansDirectory(
+      preview.phasePlanningDocuments.phaseFolder,
+    );
+    const phasePlanningTargets = await resolveAvailableFilePair(
+      phasePlanningDirectory,
+      preview.suggestedPhasePlanningFileNames.jsonFileName,
+      preview.suggestedPhasePlanningFileNames.markdownFileName,
+      "A safe Phase Planning Documents filename could not be generated.",
+    );
+    const workCardPlanTargets = await resolveAvailableFilePair(
+      workCardPlanDirectory,
+      preview.suggestedWorkCardPlanFileNames.jsonFileName,
+      preview.suggestedWorkCardPlanFileNames.markdownFileName,
+      "A safe Work Card Plan filename could not be generated.",
+    );
+    const targetNameErrors = [
+      ...validatePhasePlanningDocumentsArtifactFileName(
+        phasePlanningTargets.firstFileName,
+      ),
+      ...validatePhasePlanningDocumentsArtifactFileName(
+        phasePlanningTargets.secondFileName,
+      ),
+      ...validateWorkCardPlanArtifactFileName(workCardPlanTargets.firstFileName),
+      ...validateWorkCardPlanArtifactFileName(workCardPlanTargets.secondFileName),
+    ];
+
+    if (targetNameErrors.length > 0) {
+      throw new Error(targetNameErrors.join(" "));
+    }
+
+    const workCardPlan = {
+      ...preview.workCardPlan,
+      sourcePhasePlanningDocumentsJsonFileName:
+        phasePlanningTargets.firstFileName,
+      sourcePhasePlanningDocumentsMarkdownFileName:
+        phasePlanningTargets.secondFileName,
+    };
+    const workCardPlanMarkdown = renderWorkCardPlanMarkdown(workCardPlan);
+    const backlogMarkdown = renderPhaseScopedBacklogMarkdown(workCardPlan);
+    const combinedMarkdown = buildCombinedPhasePlanningMarkdown(
+      preview.phasePlanningMarkdown,
+      workCardPlanMarkdown,
+      backlogMarkdown,
+    );
+    const phaseBacklogPath = resolvePhaseScopedBacklogPath(
+      preview.phasePlanningDocuments.phaseFolder,
+    );
+
+    await mkdir(phasePlanningDirectory, { recursive: true });
+    await mkdir(workCardPlanDirectory, { recursive: true });
+    await writeFile(
+      phasePlanningTargets.firstPath,
+      `${JSON.stringify(preview.phasePlanningDocuments, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(
+      phasePlanningTargets.secondPath,
+      preview.phasePlanningMarkdown,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(
+      workCardPlanTargets.firstPath,
+      `${JSON.stringify(workCardPlan, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(workCardPlanTargets.secondPath, workCardPlanMarkdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    await writeFile(phaseBacklogPath, backlogMarkdown, {
+      encoding: "utf8",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      workCardPlan,
+      workCardPlanMarkdown,
+      backlogMarkdown,
+      combinedMarkdown,
+      savedPhasePlanningJsonFileName: phasePlanningTargets.firstFileName,
+      savedPhasePlanningMarkdownFileName: phasePlanningTargets.secondFileName,
+      phasePlanningJsonPath: phasePlanningTargets.firstPath,
+      phasePlanningMarkdownPath: phasePlanningTargets.secondPath,
+      savedWorkCardPlanJsonFileName: workCardPlanTargets.firstFileName,
+      savedWorkCardPlanMarkdownFileName: workCardPlanTargets.secondFileName,
+      workCardPlanJsonPath: workCardPlanTargets.firstPath,
+      workCardPlanMarkdownPath: workCardPlanTargets.secondPath,
+      phaseBacklogPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Phase Planning Documents.", error);
 
     return {
       ok: false,
@@ -2154,6 +2627,10 @@ export function resolveProjectPlanningDocumentsDirectory(): string {
   return resolveInside(planningProjectRoot, "Project_Planning_Documents");
 }
 
+export function resolveRepositoryReconciliationDirectory(): string {
+  return resolveInside(planningProjectRoot, "Repository_Reconciliation");
+}
+
 export function resolvePhaseIntakeDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -2178,6 +2655,40 @@ export function resolvePhaseArchitectInterviewPromptsDirectory(
     phase.trim(),
     "Phase_Architect_Interview_Prompts",
   );
+}
+
+export function resolvePhasePlanningDocumentsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(
+    planningPhasesRoot,
+    phase.trim(),
+    "Phase_Planning_Documents",
+  );
+}
+
+export function resolveWorkCardPlansDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Work_Card_Plans");
+}
+
+export function resolvePhaseScopedBacklogPath(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "WORK_CARD_BACKLOG.md");
 }
 
 export function resolveProjectPlanningDocumentPath(
@@ -2288,6 +2799,28 @@ export function validateSavedProjectPlanningDocumentsJsonFileName(
   }
 
   return validateProjectPlanningDocumentsArtifactFileName(value);
+}
+
+export function validateSavedRepositoryReconciliationJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Repository Reconciliation JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return [
+      "Saved Repository Reconciliation file names must not include folders.",
+    ];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Repository Reconciliation files must be JSON files."];
+  }
+
+  return validateRepositoryReconciliationArtifactFileName(value);
 }
 
 export function validateSavedPhaseIntakeJsonFileName(
@@ -2534,6 +3067,31 @@ async function readSavedProjectPlanningDocumentsRecord(
   return parsed as unknown as ProjectPlanningDocumentsRecord;
 }
 
+async function readSavedRepositoryReconciliationRecord(
+  fileName: string,
+): Promise<RepositoryReconciliationRecord> {
+  const fileNameErrors =
+    validateSavedRepositoryReconciliationJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveRepositoryReconciliationDirectory();
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validationErrors = validateRepositoryReconciliationRecord(parsed);
+
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `Saved Repository Reconciliation JSON is not valid: ${validationErrors.join(" ")}`,
+    );
+  }
+
+  return parsed as RepositoryReconciliationRecord;
+}
+
 async function findMatchingProjectPlanningDocumentsMarkdownFileName(
   projectPlanningDocumentsJsonFileName: string,
 ): Promise<string | undefined> {
@@ -2550,6 +3108,28 @@ async function findMatchingProjectPlanningDocumentsMarkdownFileName(
 
   const filePath = resolveInside(
     resolveProjectPlanningDocumentsDirectory(),
+    markdownFileName,
+  );
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
+async function findMatchingRepositoryReconciliationMarkdownFileName(
+  repositoryReconciliationJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = repositoryReconciliationJsonFileName.replace(
+    /\.json$/i,
+    ".md",
+  );
+  const fileNameErrors =
+    validateRepositoryReconciliationArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(
+    resolveRepositoryReconciliationDirectory(),
     markdownFileName,
   );
 
@@ -2677,7 +3257,7 @@ async function findMatchingPhaseIntakeMarkdownFileName(
 async function readSavedPhaseArchitectInterviewPromptFile(
   phase: string,
   fileName: string,
-) {
+): Promise<PhaseArchitectInterviewPrompt> {
   const fileNameErrors =
     validateSavedPhaseArchitectInterviewPromptJsonFileName(fileName);
 
@@ -2697,7 +3277,35 @@ async function readSavedPhaseArchitectInterviewPromptFile(
     );
   }
 
-  return parsed;
+  const promptRecord = parsed as PhaseArchitectInterviewPrompt;
+
+  if (promptRecord.phaseFolder !== phase.trim()) {
+    throw new Error(
+      "Saved Phase Architect Interview Prompt phase folder does not match selection.",
+    );
+  }
+
+  return promptRecord;
+}
+
+async function findMatchingPhaseArchitectInterviewPromptMarkdownFileName(
+  phase: string,
+  promptJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = promptJsonFileName.replace(/\.json$/i, ".md");
+  const fileNameErrors =
+    validatePhaseArchitectInterviewPromptArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(
+    resolvePhaseArchitectInterviewPromptsDirectory(phase),
+    markdownFileName,
+  );
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
 }
 
 async function findMatchingProjectArchitectInterviewPromptMarkdownFileName(
@@ -2717,6 +3325,275 @@ async function findMatchingProjectArchitectInterviewPromptMarkdownFileName(
   );
 
   return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
+async function readRepositoryReconciliationPromptContext(
+  input: RepositoryReconciliationPromptRequest,
+): Promise<RepositoryReconciliationPromptContext> {
+  const sourceFileName = input.projectPlanningDocumentFileName?.trim() ?? "";
+  const sourcePhaseFolder = input.sourcePhaseFolder?.trim() ?? "";
+  let selectedProjectPlanningDocumentsSummary =
+    "No Project Planning Documents sidecar was selected. Review the current approved project Markdown files instead.";
+
+  if (sourceFileName.length > 0) {
+    const sourceRecord = await readSavedProjectPlanningDocumentsRecord(
+      sourceFileName,
+    );
+    const sourceMarkdownFileName =
+      await findMatchingProjectPlanningDocumentsMarkdownFileName(sourceFileName);
+    selectedProjectPlanningDocumentsSummary = [
+      `Selected sidecar JSON: ${sourceFileName}`,
+      `Selected sidecar Markdown: ${sourceMarkdownFileName ?? "Not found."}`,
+      `Record ID: ${sourceRecord.recordId}`,
+      `Project: ${sourceRecord.projectName}`,
+      `Documents included: ${sourceRecord.documents
+        .map((document) => document.fileName)
+        .join(", ")}`,
+    ].join("\n");
+  }
+
+  if (sourcePhaseFolder.length > 0) {
+    const phaseErrors = validateSafePhaseFolder(sourcePhaseFolder);
+
+    if (phaseErrors.length > 0) {
+      throw new Error(phaseErrors.join(" "));
+    }
+  }
+
+  return {
+    projectPlanningDocumentsSummary:
+      await readProjectPlanningMarkdownSummaries(),
+    selectedProjectPlanningDocumentsSummary,
+    phaseArtifactSummary: await readReconciliationPhaseArtifactSummary(
+      sourcePhaseFolder,
+    ),
+    repositoryStructureSummary: await readRepositoryStructureSummary(),
+    appWorkflowSummary: buildAppWorkflowSurfaceSummary(),
+  };
+}
+
+async function readPhasePlanningDocumentsContext(
+  input: PhasePlanningDocumentsRequest,
+) {
+  const phaseFolder = input.phaseFolder.trim();
+  const phaseErrors = validateSafePhaseFolder(phaseFolder);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  const projectPlanningDocumentFileName =
+    input.projectPlanningDocumentFileName?.trim() ?? "";
+  const repositoryReconciliationFileName =
+    input.repositoryReconciliationFileName?.trim() ?? "";
+  const phaseIntakeFileName = input.phaseIntakeFileName?.trim() ?? "";
+  const phaseArchitectInterviewPromptFileName =
+    input.phaseArchitectInterviewPromptFileName?.trim() ?? "";
+
+  if (projectPlanningDocumentFileName.length === 0) {
+    throw new Error("Select a saved Project Planning Documents source.");
+  }
+
+  if (repositoryReconciliationFileName.length === 0) {
+    throw new Error("Select a saved Repository Reconciliation source.");
+  }
+
+  if (phaseIntakeFileName.length === 0) {
+    throw new Error("Select a saved Phase Intake source.");
+  }
+
+  const sourceProjectPlanningDocuments =
+    await readSavedProjectPlanningDocumentsRecord(projectPlanningDocumentFileName);
+  const sourceProjectPlanningDocumentsMarkdownFileName =
+    await findMatchingProjectPlanningDocumentsMarkdownFileName(
+      projectPlanningDocumentFileName,
+    );
+  const sourceRepositoryReconciliation =
+    await readSavedRepositoryReconciliationRecord(
+      repositoryReconciliationFileName,
+    );
+  const sourceRepositoryReconciliationMarkdownFileName =
+    await findMatchingRepositoryReconciliationMarkdownFileName(
+      repositoryReconciliationFileName,
+    );
+  const sourcePhaseIntake = await readSavedPhaseIntakeFile(
+    phaseFolder,
+    phaseIntakeFileName,
+  );
+  const sourcePhaseIntakeMarkdownFileName =
+    await findMatchingPhaseIntakeMarkdownFileName(
+      phaseFolder,
+      phaseIntakeFileName,
+    );
+  const sourcePhaseArchitectInterviewPrompt =
+    phaseArchitectInterviewPromptFileName.length > 0
+      ? await readSavedPhaseArchitectInterviewPromptFile(
+          phaseFolder,
+          phaseArchitectInterviewPromptFileName,
+        )
+      : undefined;
+  const sourcePhaseArchitectInterviewPromptMarkdownFileName =
+    sourcePhaseArchitectInterviewPrompt
+      ? await findMatchingPhaseArchitectInterviewPromptMarkdownFileName(
+          phaseFolder,
+          phaseArchitectInterviewPromptFileName,
+        )
+      : undefined;
+
+  return {
+    ...input,
+    phaseFolder,
+    projectPlanningDocumentFileName,
+    repositoryReconciliationFileName,
+    phaseIntakeFileName,
+    phaseArchitectInterviewPromptFileName:
+      phaseArchitectInterviewPromptFileName || undefined,
+    sourceProjectPlanningDocuments,
+    sourceProjectPlanningDocumentsMarkdownFileName,
+    sourceRepositoryReconciliation,
+    sourceRepositoryReconciliationMarkdownFileName,
+    sourcePhaseIntake,
+    sourcePhaseIntakeMarkdownFileName,
+    sourcePhaseArchitectInterviewPrompt,
+    sourcePhaseArchitectInterviewPromptMarkdownFileName,
+  };
+}
+
+async function readProjectPlanningMarkdownSummaries(): Promise<string> {
+  const summaries: string[] = [];
+
+  for (const fileName of projectPlanningDocumentFileNames) {
+    const filePath = resolveProjectPlanningDocumentPath(fileName);
+
+    try {
+      const content = await readFile(filePath, "utf8");
+      summaries.push(
+        [
+          `### ${fileName}`,
+          summarizeMarkdownForPrompt(content),
+        ].join("\n"),
+      );
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+
+      summaries.push(`### ${fileName}\nNot found.`);
+    }
+  }
+
+  return summaries.join("\n\n");
+}
+
+async function readReconciliationPhaseArtifactSummary(
+  sourcePhaseFolder: string,
+): Promise<string> {
+  const selectedPhase = sourcePhaseFolder.trim();
+
+  if (selectedPhase.length > 0) {
+    const summary = await readPhaseArtifactSummary(selectedPhase);
+
+    return formatPhaseArtifactSummaryForPrompt(summary);
+  }
+
+  let entries: Dirent[] = [];
+
+  try {
+    entries = await readdir(planningPhasesRoot, { withFileTypes: true });
+  } catch (error) {
+    if (!isNodeErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+  }
+
+  const phases = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((entry) => validateSafePhaseFolder(entry).length === 0)
+    .sort((left, right) => left.localeCompare(right));
+  const summaries: string[] = [];
+
+  for (const phase of phases) {
+    summaries.push(
+      formatPhaseArtifactSummaryForPrompt(await readPhaseArtifactSummary(phase)),
+    );
+  }
+
+  return summaries.length > 0
+    ? summaries.join("\n\n")
+    : "No phase artifact folders were found.";
+}
+
+async function readRepositoryStructureSummary(): Promise<string> {
+  let entries: Dirent[] = [];
+
+  try {
+    entries = await readdir(repositoryRoot, { withFileTypes: true });
+  } catch (error) {
+    if (!isNodeErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+  }
+
+  const excluded = new Set([".git", "node_modules", "dist", "tmp"]);
+  const topLevel = entries
+    .filter((entry) => !excluded.has(entry.name))
+    .map((entry) => `${entry.isDirectory() ? "dir" : "file"}:${entry.name}`)
+    .sort((left, right) => left.localeCompare(right));
+
+  return [
+    `Repository root: ${repositoryRoot}`,
+    `Top-level entries: ${topLevel.join(", ") || "None found."}`,
+    "Known implementation folders: src/main, src/preload, src/renderer, src/shared.",
+    "Known planning folders: planning/project and planning/phases.",
+  ].join("\n");
+}
+
+function buildAppWorkflowSurfaceSummary(): string {
+  return [
+    "- Project Intake",
+    "- Project Architect Interview",
+    "- Project Planning Documents",
+    "- Phase Intake",
+    "- Phase Architect Interview",
+    "- Repository Reconciliation",
+    "- Phase Planning Documents",
+    "- Work Card Capture",
+    "- Architect Prompt Composer",
+    "- Risk Router",
+    "- Implementer Prompt Generator",
+    "- Implementer Report Capture",
+    "- Human Validation",
+    "- Phase Closeout",
+  ].join("\n");
+}
+
+function formatPhaseArtifactSummaryForPrompt(
+  summary: Awaited<ReturnType<typeof readPhaseArtifactSummary>>,
+): string {
+  return [
+    `### ${summary.phase}`,
+    `Work Cards: ${summary.workCardCount}`,
+    `Work Cards with JSON and Markdown: ${summary.workCardsWithBothJsonAndMarkdown.length}`,
+    `Builder_Reports compatibility reports: ${summary.builderReportCount}`,
+    `Validation reports: ${summary.validationReportCount}`,
+    `Repair prompts: ${summary.repairPromptCount}`,
+    `Closeout reports: ${summary.closeoutReportCount}`,
+    `Recommendation: ${summary.deterministicRecommendation}`,
+    summary.missingExpectedArtifactObservations.length > 0
+      ? `Missing artifact observations: ${summary.missingExpectedArtifactObservations.join("; ")}`
+      : "Missing artifact observations: None detected by deterministic summary.",
+  ].join("\n");
+}
+
+function summarizeMarkdownForPrompt(markdown: string): string {
+  const lines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(0, 18);
+
+  return lines.length > 0 ? lines.join("\n") : "Empty document.";
 }
 
 async function readProjectPlanningDocumentsContext(

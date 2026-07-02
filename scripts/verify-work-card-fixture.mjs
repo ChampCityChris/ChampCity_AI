@@ -166,6 +166,27 @@ const {
   renderPhaseArchitectInterviewPromptMarkdown,
 } = require("../dist/shared/workCards/renderPhaseArchitectInterviewPromptMarkdown.js");
 const {
+  buildRepositoryReconciliationFileNames,
+  buildRepositoryReconciliationPromptText,
+  buildRepositoryReconciliationRecord,
+  renderRepositoryReconciliationMarkdown,
+  validateRepositoryReconciliationArtifactFileName,
+} = require("../dist/shared/workCards/repositoryReconciliation.js");
+const {
+  buildCombinedPhasePlanningMarkdown,
+  buildPhasePlanningDocuments,
+  buildPhasePlanningDocumentsFileNames,
+  renderPhasePlanningDocumentsMarkdown,
+  validatePhasePlanningDocumentsArtifactFileName,
+} = require("../dist/shared/workCards/phasePlanningDocuments.js");
+const {
+  buildWorkCardPlanFileNames,
+  buildWorkCardPlanRecord,
+  renderPhaseScopedBacklogMarkdown,
+  renderWorkCardPlanMarkdown,
+  validateWorkCardPlanArtifactFileName,
+} = require("../dist/shared/workCards/workCardPlan.js");
+const {
   finalBuilderPromptBoundary,
   renderArchitectFramingPrompt,
 } = require("../dist/shared/workCards/renderArchitectFramingPrompt.js");
@@ -247,14 +268,18 @@ const {
   loadBuilderReportFile,
   previewHumanValidationRecord,
   resolvePhaseArchitectInterviewPromptsDirectory,
+  resolvePhasePlanningDocumentsDirectory,
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
   resolveCloseoutReportsDirectory,
   resolvePhaseIntakeDirectory,
+  resolvePhaseScopedBacklogPath,
   resolveProjectArchitectInterviewPromptsDirectory,
   resolveProjectIntakeDirectory,
   resolveProjectPlanningDocumentPath,
   resolveProjectPlanningDocumentsDirectory,
+  resolveRepositoryReconciliationDirectory,
+  resolveWorkCardPlansDirectory,
   resolveInside,
   resolveRepairPromptsDirectory,
   resolveRiskReviewsDirectory,
@@ -262,6 +287,7 @@ const {
   resolveValidationReportsDirectory,
   resolveValidationTargetsDirectory,
   validateMarkdownArtifactFileName,
+  validateSavedRepositoryReconciliationJsonFileName,
   validateSavedPhaseIntakeJsonFileName,
   validateSavedPhaseArchitectInterviewPromptJsonFileName,
   validateSavedProjectPlanningDocumentsJsonFileName,
@@ -480,6 +506,7 @@ assertPhaseCloseout();
 await assertSavedWorkCardListing();
 await assertProjectPlanningDocuments();
 await assertPhaseIntakeAndInterviewPrompt();
+assertRepositoryReconciliationAndPhasePlanning();
 
 console.log("Work Card fixture validation passed.");
 
@@ -2935,6 +2962,391 @@ async function assertPhaseIntakeAndInterviewPrompt() {
 
   if (missingSourceText.length > 0) {
     console.error("Phase Intake and Interview source wiring is missing required text:");
+    for (const text of missingSourceText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+}
+
+function assertRepositoryReconciliationAndPhasePlanning() {
+  const projectPlanningRecord = buildProjectPlanningDocuments({
+    projectIntake: projectIntakeFixture,
+    sourceProjectIntakeJsonFileName: "PROJECT_INTAKE_champcity_a_i.json",
+    sourceProjectIntakeMarkdownFileName: "PROJECT_INTAKE_champcity_a_i.md",
+    architectInterviewOutput: [
+      "## Confirmed facts",
+      "- Project name: ChampCity A/I",
+      "- Alpha app development is active.",
+      "",
+      "## Recommended initial phase candidates",
+      "- Phase 02: upstream project planning.",
+      "",
+      "## Risks",
+      "- Risk: do not add provider SDKs yet.",
+    ].join("\n"),
+    timestamp: "2026-07-02T12:00:00.000Z",
+  });
+  const reconciliationContext = {
+    projectPlanningDocumentsSummary:
+      "PROJECT_STATE.md says Phase 02 upstream planning is active.",
+    selectedProjectPlanningDocumentsSummary:
+      "Selected sidecar JSON: PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+    phaseArtifactSummary:
+      "phase-02 has Work Cards, Builder_Reports, and Validation_Reports.",
+    repositoryStructureSummary:
+      "Repository root contains src, planning, scripts, and package.json.",
+    appWorkflowSummary:
+      "Project Intake, Project Plan, Phase Intake, Phase Interview, Reconcile, Phase Plan.",
+  };
+  const promptText = buildRepositoryReconciliationPromptText(
+    {
+      projectName: "ChampCity A/I",
+      projectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      sourcePhaseFolder: "phase-02",
+    },
+    reconciliationContext,
+  );
+  const requiredPromptText = [
+    "Act as Architect for repository and project-state reconciliation.",
+    "Review current project planning documents.",
+    "Current phase/work-card artifact summary:",
+    "Safe repository structure summary:",
+    "## Reviewed Artifact Summary",
+    "## Recommended Roadmap",
+    "Do not create formal Work Card JSON artifacts.",
+  ];
+  const missingPromptText = requiredPromptText.filter(
+    (text) => !promptText.includes(text),
+  );
+
+  if (missingPromptText.length > 0) {
+    console.error("Repository Reconciliation prompt is missing required text:");
+    for (const text of missingPromptText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const reconciliationOutput = [
+    "## Reviewed Artifact Summary",
+    "- Reviewed project planning docs and phase artifacts.",
+    "",
+    "## Implemented State Summary",
+    "- Project Intake, Project Planning Documents, Phase Intake, and Phase Interview are implemented.",
+    "",
+    "## Partially Implemented Items",
+    "- Phase planning exists as a planned workflow but not a saved artifact yet.",
+    "",
+    "## Missing Items",
+    "- Repository Reconciliation artifacts.",
+    "- Phase Planning Documents artifacts.",
+    "",
+    "## Stale Planning Items",
+    "- PROJECT_STATE still points at WC05.",
+    "",
+    "## Design Drift Notes",
+    "- Keep reconciliation reusable for future projects.",
+    "",
+    "## Current Risks",
+    "- Risk: generated plan could be mistaken for formal Work Cards.",
+    "",
+    "## Recommended Roadmap",
+    "- Finish WC06, then convert selected plan items into formal Work Cards.",
+    "",
+    "## Recommended Milestones",
+    "- Complete upstream phase planning.",
+    "",
+    "## Recommended Phases",
+    "- Phase 03: formal Work Card conversion.",
+    "",
+    "## Recommended Next Phase",
+    "- Phase 03: formal Work Card conversion.",
+    "",
+    "## Architect Notes",
+    "- Preserve Operator / Architect / Implementer terminology.",
+  ].join("\n");
+  const reconciliation = buildRepositoryReconciliationRecord(
+    {
+      projectName: "ChampCity A/I",
+      projectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      sourcePhaseFolder: "phase-02",
+      architectReconciliationOutput: reconciliationOutput,
+    },
+    reconciliationContext,
+    "2026-07-02T12:30:00.000Z",
+  );
+  const reconciliationMarkdown =
+    renderRepositoryReconciliationMarkdown(reconciliation);
+  const requiredReconciliationText = [
+    "# Repository Reconciliation: ChampCity A/I",
+    "## Implemented State Summary",
+    "Repository Reconciliation artifacts.",
+    "Phase 03: formal Work Card conversion.",
+  ];
+  const missingReconciliationText = requiredReconciliationText.filter(
+    (text) => !reconciliationMarkdown.includes(text),
+  );
+
+  if (missingReconciliationText.length > 0) {
+    console.error("Repository Reconciliation Markdown is missing required text:");
+    for (const text of missingReconciliationText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const reconciliationFileNames =
+    buildRepositoryReconciliationFileNames("ChampCity A/I");
+
+  if (
+    reconciliationFileNames.jsonFileName !==
+      "REPOSITORY_RECONCILIATION_champcity_a_i.json" ||
+    reconciliationFileNames.markdownFileName !==
+      "REPOSITORY_RECONCILIATION_champcity_a_i.md"
+  ) {
+    console.error("Repository Reconciliation filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (
+    validateRepositoryReconciliationArtifactFileName("../bad.json").length === 0
+  ) {
+    console.error("Repository Reconciliation artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validateSavedRepositoryReconciliationJsonFileName("../bad.json").length ===
+    0
+  ) {
+    console.error("Saved Repository Reconciliation filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolveRepositoryReconciliationDirectory(), "../bad");
+    console.error("Repository Reconciliation path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const phaseIntake = buildPhaseIntake(
+    {
+      phaseFolder: "phase-02",
+      phaseName: "Phase 02 Upstream Planning",
+      projectName: "ChampCity A/I",
+      sourceProjectPlanningSidecarJsonFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      phaseProblem: "Phase planning needs reconciled source context.",
+      phaseGoal: "Generate Phase Planning Documents and a plan.",
+      userOutcome: "The Operator can review phase planning proposals.",
+      includedScope: "Repository reconciliation and Phase Planning Documents.",
+      outOfScope: "Formal Work Card creation.",
+      affectedScreensOrWorkflows: "Reconcile and Phase Plan.",
+      knownConstraints: "No LLM API calls.",
+      knownRisks: "Planning artifacts could be mistaken for implementation scope.",
+      dependencies: "Project Planning Documents and reconciliation output.",
+      validationExpectations: "Run typecheck, build, tests, and work-card tests.",
+      operatorNotes: "Keep output editable and planning-only.",
+    },
+    "2026-07-02T12:45:00.000Z",
+    "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+  );
+  const phasePrompt = buildPhaseArchitectInterviewPrompt(
+    phaseIntake,
+    "PHASE_INTAKE_phase_02_upstream_planning.json",
+    "PHASE_INTAKE_phase_02_upstream_planning.md",
+    "2026-07-02T12:50:00.000Z",
+  );
+  const phaseArchitectOutput = [
+    "## Phase Brief",
+    "- Build the repository reconciliation and phase planning workflow.",
+    "",
+    "## Phase Goal",
+    "- Generate durable phase planning documents.",
+    "",
+    "## Recommended Implementation Sequence",
+    "- Add Repository Reconciliation artifacts.",
+    "- Add Phase Planning Documents artifacts.",
+    "- Validate existing upstream screens still work.",
+    "",
+    "## Validation Expectations",
+    "- npm run typecheck",
+    "- npm run build",
+    "- npm test",
+    "",
+    "## Open Questions",
+    "- Which plan items should become formal Work Cards next?",
+  ].join("\n");
+  const phasePlanningDocuments = buildPhasePlanningDocuments(
+    {
+      phaseFolder: "phase-02",
+      projectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      repositoryReconciliationFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      phaseIntakeFileName: "PHASE_INTAKE_phase_02_upstream_planning.json",
+      phaseArchitectInterviewPromptFileName:
+        "PHASE_ARCHITECT_INTERVIEW_PROMPT_phase_02_upstream_planning.json",
+      phaseArchitectInterviewOutput: phaseArchitectOutput,
+      operatorPlanAdjustments: "Prioritize source safety.",
+      sourceProjectPlanningDocuments: projectPlanningRecord,
+      sourceProjectPlanningDocumentsMarkdownFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+      sourceRepositoryReconciliation: reconciliation,
+      sourceRepositoryReconciliationMarkdownFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.md",
+      sourcePhaseIntake: phaseIntake,
+      sourcePhaseIntakeMarkdownFileName:
+        "PHASE_INTAKE_phase_02_upstream_planning.md",
+      sourcePhaseArchitectInterviewPrompt: phasePrompt,
+      sourcePhaseArchitectInterviewPromptMarkdownFileName:
+        "PHASE_ARCHITECT_INTERVIEW_PROMPT_phase_02_upstream_planning.md",
+    },
+    "2026-07-02T13:00:00.000Z",
+  );
+  const phasePlanningMarkdown =
+    renderPhasePlanningDocumentsMarkdown(phasePlanningDocuments);
+  const workCardPlan = buildWorkCardPlanRecord(
+    {
+      projectName: phasePlanningDocuments.projectName,
+      phaseFolder: phasePlanningDocuments.phaseFolder,
+      phaseName: phasePlanningDocuments.phaseName,
+      sourcePhasePlanningDocumentsId:
+        phasePlanningDocuments.phasePlanningDocumentsId,
+      phaseGoal: phasePlanningDocuments.phaseGoal,
+      phaseScope: phasePlanningDocuments.phaseScope,
+      phaseRisks: phasePlanningDocuments.phaseRisks,
+      dependencies: phasePlanningDocuments.phaseDependencies,
+      validationExpectations: phasePlanningDocuments.validationExpectations,
+      recommendedImplementationSequence:
+        phasePlanningDocuments.recommendedImplementationSequence,
+      phaseArchitectInterviewOutput: phaseArchitectOutput,
+      operatorPlanAdjustments: phasePlanningDocuments.operatorPlanAdjustments,
+    },
+    "2026-07-02T13:00:00.000Z",
+  );
+  const workCardPlanMarkdown = renderWorkCardPlanMarkdown(workCardPlan);
+  const backlogMarkdown = renderPhaseScopedBacklogMarkdown(workCardPlan);
+  const combinedMarkdown = buildCombinedPhasePlanningMarkdown(
+    phasePlanningMarkdown,
+    workCardPlanMarkdown,
+    backlogMarkdown,
+  );
+  const requiredPhasePlanningText = [
+    "# Phase Planning Documents: Phase 02 Upstream Planning",
+    "## Repository Reconciliation Summary",
+    "## Initial Work Card Plan",
+    "# Initial Work Card Plan: Phase 02 Upstream Planning",
+    "# Work Card Backlog: Phase 02 Upstream Planning",
+    "planning proposals",
+  ];
+  const missingPhasePlanningText = requiredPhasePlanningText.filter(
+    (text) => !combinedMarkdown.includes(text),
+  );
+
+  if (missingPhasePlanningText.length > 0) {
+    console.error("Phase Planning Documents output is missing required text:");
+    for (const text of missingPhasePlanningText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const phasePlanningFileNames = buildPhasePlanningDocumentsFileNames(
+    "Phase 02 Upstream Planning",
+  );
+  const workCardPlanFileNames = buildWorkCardPlanFileNames(
+    "Phase 02 Upstream Planning",
+  );
+
+  if (
+    phasePlanningFileNames.jsonFileName !==
+      "PHASE_PLANNING_DOCUMENTS_phase_02_upstream_planning.json" ||
+    phasePlanningFileNames.markdownFileName !==
+      "PHASE_PLANNING_DOCUMENTS_phase_02_upstream_planning.md" ||
+    workCardPlanFileNames.jsonFileName !==
+      "WORK_CARD_PLAN_phase_02_upstream_planning.json" ||
+    workCardPlanFileNames.markdownFileName !==
+      "WORK_CARD_PLAN_phase_02_upstream_planning.md"
+  ) {
+    console.error("Phase Planning or Work Card Plan filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (
+    validatePhasePlanningDocumentsArtifactFileName("../bad.json").length === 0
+  ) {
+    console.error("Phase Planning Documents filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateWorkCardPlanArtifactFileName("../bad.json").length === 0) {
+    console.error("Work Card Plan filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolvePhasePlanningDocumentsDirectory("../bad");
+    console.error("Phase Planning Documents directory sanitizer failed to reject unsafe phases.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    resolveWorkCardPlansDirectory("../bad");
+    console.error("Work Card Plans directory sanitizer failed to reject unsafe phases.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    resolvePhaseScopedBacklogPath("../bad");
+    console.error("Phase scoped backlog path sanitizer failed to reject unsafe phases.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const source = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredSourceText = [
+    'label: "Reconcile"',
+    'label: "Phase Plan"',
+    "Repository Reconciliation",
+    "Phase Planning Documents",
+    "Generate Prompt",
+    "Save Reconciliation",
+    "Save Phase Plan",
+    "Open Reconcile",
+    "Open Phase Plan",
+    "Repository_Reconciliation",
+    "Phase_Planning_Documents",
+    "Work_Card_Plans",
+    "WORK_CARD_BACKLOG.md",
+    "previewRepositoryReconciliationPrompt",
+    "saveRepositoryReconciliation",
+    "listPhasePlanningRepositoryReconciliations",
+    "listPhasePlanningPhaseArchitectInterviewPrompts",
+    "previewPhasePlanningDocuments",
+    "savePhasePlanningDocuments",
+    "validateSavedRepositoryReconciliationJsonFileName",
+  ];
+  const missingSourceText = requiredSourceText.filter(
+    (text) => !source.includes(text),
+  );
+
+  if (missingSourceText.length > 0) {
+    console.error("Repository Reconciliation and Phase Planning source wiring is missing required text:");
     for (const text of missingSourceText) {
       console.error(`- ${text}`);
     }

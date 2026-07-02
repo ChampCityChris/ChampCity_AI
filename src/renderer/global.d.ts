@@ -42,14 +42,38 @@ import type {
 } from "../shared/workCards/phaseIntake";
 import type { PhaseIntakeValidationResult } from "../shared/workCards/validatePhaseIntake";
 import type {
+  InvalidSavedPhaseArchitectInterviewPromptFile,
   InvalidSavedPhaseIntakeFile,
+  ListSavedPhaseArchitectInterviewPromptsResult,
   ListSavedPhaseIntakesResult,
   PhaseArchitectInterviewPrompt,
   PhaseArchitectInterviewPromptPreviewResult,
   PhaseArchitectInterviewPromptRequest,
   PhaseArchitectInterviewPromptSaveResult,
+  SavedPhaseArchitectInterviewPromptSummary,
   SavedPhaseIntakeSummary,
 } from "../shared/workCards/phaseArchitectInterviewPrompt";
+import type {
+  InvalidSavedRepositoryReconciliationFile,
+  ListSavedRepositoryReconciliationsResult,
+  RepositoryReconciliationPreviewResult,
+  RepositoryReconciliationPromptPreviewResult,
+  RepositoryReconciliationPromptRequest,
+  RepositoryReconciliationRecord,
+  RepositoryReconciliationRequest,
+  RepositoryReconciliationSaveResult,
+  SavedRepositoryReconciliationSummary,
+} from "../shared/workCards/repositoryReconciliation";
+import type {
+  PhasePlanningDocumentsPreviewResult,
+  PhasePlanningDocumentsRecord,
+  PhasePlanningDocumentsRequest,
+  PhasePlanningDocumentsSaveResult,
+} from "../shared/workCards/phasePlanningDocuments";
+import type {
+  WorkCardPlanItem,
+  WorkCardPlanRecord,
+} from "../shared/workCards/workCardPlan";
 import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
@@ -177,11 +201,45 @@ declare global {
     PhaseArchitectInterviewPromptPreviewResult;
   type ChampCityPhaseArchitectInterviewPromptSaveResult =
     PhaseArchitectInterviewPromptSaveResult;
+  type ChampCitySavedPhaseArchitectInterviewPromptSummary =
+    SavedPhaseArchitectInterviewPromptSummary;
+  type ChampCityInvalidSavedPhaseArchitectInterviewPromptFile =
+    InvalidSavedPhaseArchitectInterviewPromptFile;
+  type ChampCityListSavedPhaseArchitectInterviewPromptsResult =
+    ListSavedPhaseArchitectInterviewPromptsResult;
   type ChampCitySavedPhaseIntakeSummary = SavedPhaseIntakeSummary;
   type ChampCityInvalidSavedPhaseIntakeFile =
     InvalidSavedPhaseIntakeFile;
   type ChampCityListSavedPhaseIntakesResult =
     ListSavedPhaseIntakesResult;
+  type ChampCityRepositoryReconciliationPromptRequest =
+    RepositoryReconciliationPromptRequest;
+  type ChampCityRepositoryReconciliationRequest =
+    RepositoryReconciliationRequest;
+  type ChampCityRepositoryReconciliationRecord =
+    RepositoryReconciliationRecord;
+  type ChampCityRepositoryReconciliationPromptPreviewResult =
+    RepositoryReconciliationPromptPreviewResult;
+  type ChampCityRepositoryReconciliationPreviewResult =
+    RepositoryReconciliationPreviewResult;
+  type ChampCityRepositoryReconciliationSaveResult =
+    RepositoryReconciliationSaveResult;
+  type ChampCitySavedRepositoryReconciliationSummary =
+    SavedRepositoryReconciliationSummary;
+  type ChampCityInvalidSavedRepositoryReconciliationFile =
+    InvalidSavedRepositoryReconciliationFile;
+  type ChampCityListSavedRepositoryReconciliationsResult =
+    ListSavedRepositoryReconciliationsResult;
+  type ChampCityPhasePlanningDocumentsRequest =
+    PhasePlanningDocumentsRequest;
+  type ChampCityPhasePlanningDocumentsRecord =
+    PhasePlanningDocumentsRecord;
+  type ChampCityPhasePlanningDocumentsPreviewResult =
+    PhasePlanningDocumentsPreviewResult;
+  type ChampCityPhasePlanningDocumentsSaveResult =
+    PhasePlanningDocumentsSaveResult;
+  type ChampCityWorkCardPlanItem = WorkCardPlanItem;
+  type ChampCityWorkCardPlanRecord = WorkCardPlanRecord;
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
   type ChampCityWorkCardSaveResult = WorkCardSaveResult;
   type ChampCityNextWorkCardIdResult = NextWorkCardIdResult;
@@ -298,6 +356,30 @@ declare global {
       savePhaseArchitectInterviewPrompt: (
         input: PhaseArchitectInterviewPromptRequest,
       ) => Promise<PhaseArchitectInterviewPromptSaveResult>;
+      listRepositoryReconciliationProjectPlanningDocuments: () => Promise<ListSavedProjectPlanningDocumentsResult>;
+      previewRepositoryReconciliationPrompt: (
+        input: RepositoryReconciliationPromptRequest,
+      ) => Promise<RepositoryReconciliationPromptPreviewResult>;
+      previewRepositoryReconciliation: (
+        input: RepositoryReconciliationRequest,
+      ) => Promise<RepositoryReconciliationPreviewResult>;
+      saveRepositoryReconciliation: (
+        input: RepositoryReconciliationRequest,
+      ) => Promise<RepositoryReconciliationSaveResult>;
+      listPhasePlanningProjectPlanningDocuments: () => Promise<ListSavedProjectPlanningDocumentsResult>;
+      listPhasePlanningRepositoryReconciliations: () => Promise<ListSavedRepositoryReconciliationsResult>;
+      listPhasePlanningPhaseIntakes: (
+        phase: string,
+      ) => Promise<ListSavedPhaseIntakesResult>;
+      listPhasePlanningPhaseArchitectInterviewPrompts: (
+        phase: string,
+      ) => Promise<ListSavedPhaseArchitectInterviewPromptsResult>;
+      previewPhasePlanningDocuments: (
+        input: PhasePlanningDocumentsRequest,
+      ) => Promise<PhasePlanningDocumentsPreviewResult>;
+      savePhasePlanningDocuments: (
+        input: PhasePlanningDocumentsRequest,
+      ) => Promise<PhasePlanningDocumentsSaveResult>;
       getNextWorkCardId: (phase: string) => Promise<NextWorkCardIdResult>;
       previewWorkCardDraft: (
         input: WorkCardDraftInput,

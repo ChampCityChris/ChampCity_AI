@@ -17,7 +17,9 @@ import {
   Eye,
   FileText,
   FolderOpen,
+  GitBranch,
   Info,
+  ListChecks,
   Map as MapIcon,
   MessageSquareText,
   Save,
@@ -37,6 +39,8 @@ type AppScreen =
   | "project-planning-documents"
   | "phase-intake"
   | "phase-architect-interview"
+  | "repository-reconciliation"
+  | "phase-planning-documents"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -128,6 +132,24 @@ const workflowSteps: WorkflowStep[] = [
     screenTitle: "Phase Architect Interview",
     nextAction: "Generate a copy-ready phase interview prompt.",
     Icon: MessageSquareText,
+  },
+  {
+    id: "repository-reconciliation",
+    label: "Reconcile",
+    mode: "architect",
+    shortDesc: "Repo state",
+    screenTitle: "Repository Reconciliation",
+    nextAction: "Review current repo/project state before phase planning.",
+    Icon: GitBranch,
+  },
+  {
+    id: "phase-planning-documents",
+    label: "Phase Plan",
+    mode: "architect",
+    shortDesc: "Plan phase",
+    screenTitle: "Phase Planning Documents",
+    nextAction: "Generate phase planning documents and an initial Work Card plan.",
+    Icon: ListChecks,
   },
   {
     id: "new-work-card",
@@ -276,6 +298,23 @@ const initialPhaseIntakeForm: ChampCityPhaseIntakeInput = {
   operatorNotes: "",
 };
 
+const initialRepositoryReconciliationForm: ChampCityRepositoryReconciliationRequest = {
+  projectName: "ChampCity A/I",
+  projectPlanningDocumentFileName: "",
+  sourcePhaseFolder: "phase-02",
+  architectReconciliationOutput: "",
+};
+
+const initialPhasePlanningForm: ChampCityPhasePlanningDocumentsRequest = {
+  phaseFolder: "phase-02",
+  projectPlanningDocumentFileName: "",
+  repositoryReconciliationFileName: "",
+  phaseIntakeFileName: "",
+  phaseArchitectInterviewPromptFileName: "",
+  phaseArchitectInterviewOutput: "",
+  operatorPlanAdjustments: "",
+};
+
 const inputCls =
   "w-full min-w-0 rounded-md border border-border bg-white/[0.04] px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/40";
 const selectCls =
@@ -341,6 +380,24 @@ export default function App() {
     ),
     "phase-architect-interview": (
       <PhaseArchitectInterviewScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
+    "repository-reconciliation": (
+      <RepositoryReconciliationScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
+    "phase-planning-documents": (
+      <PhasePlanningDocumentsScreen
         phase={phase}
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
@@ -1886,7 +1943,10 @@ function PhaseArchitectInterviewScreen({
   phaseOptions,
   onPhaseChange,
   onActiveCardChange,
-}: ScreenProps) {
+  onNavigate,
+}: ScreenProps & {
+  onNavigate: (screen: AppScreen) => void;
+}) {
   const { phaseIntakes, invalidFiles, errors, isLoading } =
     usePhaseIntakes(phase);
   const [selectedFileName, setSelectedFileName] = useState("");
@@ -2096,6 +2156,14 @@ function PhaseArchitectInterviewScreen({
                 <code className="break-anywhere text-[11px]">
                   {saveResult.jsonPath}
                 </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("repository-reconciliation")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Reconcile
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </div>
             </Notice>
           ) : null}
@@ -2106,6 +2174,836 @@ function PhaseArchitectInterviewScreen({
           </Notice>
           <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
             {promptText || "No Phase Architect Interview prompt preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function RepositoryReconciliationScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+  onNavigate,
+}: ScreenProps & {
+  onNavigate: (screen: AppScreen) => void;
+}) {
+  const {
+    documents: projectPlanningDocuments,
+    invalidFiles,
+    errors: sourceErrors,
+    isLoading,
+  } = useRepositoryReconciliationProjectPlanningDocuments();
+  const [form, setForm] = useState<ChampCityRepositoryReconciliationRequest>({
+    ...initialRepositoryReconciliationForm,
+    sourcePhaseFolder: phase,
+  });
+  const [promptText, setPromptText] = useState("");
+  const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [saveResult, setSaveResult] =
+    useState<ChampCityRepositoryReconciliationSaveResult | null>(null);
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Generate a Repository Reconciliation prompt from current project context.",
+  );
+  const [activePreviewLabel, setActivePreviewLabel] =
+    useState("Repository Reconciliation Prompt");
+
+  const selectedProjectPlanningDocuments =
+    projectPlanningDocuments.find(
+      (document) =>
+        document.fileName === form.projectPlanningDocumentFileName,
+    ) ?? null;
+  const allErrors = [...sourceErrors, ...screenErrors];
+  const displayedPreview = previewMarkdown || promptText;
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    setForm((previous) =>
+      previous.sourcePhaseFolder === phase
+        ? previous
+        : {
+            ...previous,
+            sourcePhaseFolder: phase,
+          },
+    );
+    resetReconciliationPreview("Phase selection updated.");
+  }, [phase]);
+
+  useEffect(() => {
+    if (projectPlanningDocuments.length === 0) {
+      return;
+    }
+
+    if (
+      projectPlanningDocuments.some(
+        (document) => document.fileName === form.projectPlanningDocumentFileName,
+      )
+    ) {
+      return;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      projectPlanningDocumentFileName:
+        projectPlanningDocuments[0]?.fileName ?? "",
+      projectName:
+        previous.projectName?.trim() || projectPlanningDocuments[0]?.projectName,
+    }));
+  }, [projectPlanningDocuments, form.projectPlanningDocumentFileName]);
+
+  function updateField<Field extends keyof ChampCityRepositoryReconciliationRequest>(
+    field: Field,
+    value: ChampCityRepositoryReconciliationRequest[Field],
+  ) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    resetReconciliationPreview("Repository reconciliation details updated.");
+  }
+
+  function updatePhaseFolder(nextPhase: string) {
+    onPhaseChange(nextPhase);
+    updateField("sourcePhaseFolder", nextPhase);
+  }
+
+  function updateProjectPlanningSource(fileName: string) {
+    const selectedSource =
+      projectPlanningDocuments.find((document) => document.fileName === fileName) ??
+      null;
+
+    setForm((previous) => ({
+      ...previous,
+      projectPlanningDocumentFileName: fileName,
+      projectName:
+        previous.projectName?.trim() || selectedSource?.projectName || "",
+    }));
+    resetReconciliationPreview(
+      fileName
+        ? "Project planning source selected."
+        : "Project planning source cleared.",
+    );
+  }
+
+  function resetReconciliationPreview(nextStatusMessage: string) {
+    setPromptText("");
+    setPreviewMarkdown("");
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(nextStatusMessage);
+  }
+
+  function buildPromptRequest(): ChampCityRepositoryReconciliationPromptRequest {
+    return {
+      projectName: form.projectName,
+      projectPlanningDocumentFileName: nonBlankSelection(
+        form.projectPlanningDocumentFileName,
+      ),
+      sourcePhaseFolder: nonBlankSelection(form.sourcePhaseFolder),
+    };
+  }
+
+  async function generateReconciliationPrompt() {
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewRepositoryReconciliationPrompt(
+      buildPromptRequest(),
+    );
+    setIsBusy(false);
+
+    if (!result.ok || !result.promptText) {
+      setPromptText("");
+      setPreviewMarkdown("");
+      setScreenErrors(
+        result.errorMessages ?? [
+          "Repository Reconciliation prompt could not be generated.",
+        ],
+      );
+      setStatusMessage("Repository Reconciliation prompt needs attention.");
+      return;
+    }
+
+    setPromptText(result.promptText);
+    setPreviewMarkdown("");
+    setSaveResult(null);
+    setActivePreviewLabel("Repository Reconciliation Prompt");
+    setStatusMessage("Repository Reconciliation prompt preview refreshed.");
+  }
+
+  async function previewReconciliationOutput() {
+    if (form.architectReconciliationOutput.trim().length === 0) {
+      setScreenErrors(["Paste the completed Architect reconciliation output first."]);
+      setStatusMessage("Repository Reconciliation preview needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewRepositoryReconciliation(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewMarkdown("");
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Repository Reconciliation could not be previewed."],
+      );
+      setStatusMessage("Repository Reconciliation preview needs attention.");
+      return;
+    }
+
+    setPreviewMarkdown(result.markdown);
+    setSaveResult(null);
+    setActivePreviewLabel("Repository Reconciliation Markdown");
+    setStatusMessage("Repository Reconciliation preview refreshed.");
+  }
+
+  async function saveReconciliationOutput() {
+    if (form.architectReconciliationOutput.trim().length === 0) {
+      setScreenErrors(["Paste the completed Architect reconciliation output first."]);
+      setStatusMessage("Repository Reconciliation save needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.saveRepositoryReconciliation(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewMarkdown("");
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Repository Reconciliation could not be saved."],
+      );
+      setStatusMessage("Repository Reconciliation save needs attention.");
+      return;
+    }
+
+    setPreviewMarkdown(result.markdown);
+    setSaveResult(result);
+    setActivePreviewLabel("Repository Reconciliation Markdown");
+    setStatusMessage("Repository Reconciliation saved for Phase Planning Documents.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Repository Reconciliation"
+            description="Package current repo/project state for Architect review before phase planning."
+            badge="upstream"
+          />
+          <Notice type="info">
+            Reconciliation is reusable for partially completed projects. The
+            generated prompt uses safe summaries of project documents, phase
+            artifacts, app workflow surface, and repository structure.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <InvalidProjectPlanningDocumentsFiles files={invalidFiles} />
+          <FieldGroup title="Sources">
+            <PhaseField
+              phase={form.sourcePhaseFolder ?? phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={updatePhaseFolder}
+            />
+            <Field label="Saved Project Planning Documents source">
+              <select
+                className={selectCls}
+                value={form.projectPlanningDocumentFileName ?? ""}
+                disabled={isLoading}
+                onChange={(event) =>
+                  updateProjectPlanningSource(event.target.value)
+                }
+              >
+                <option value="">
+                  {isLoading
+                    ? "Loading Project Planning Documents..."
+                    : "Use current project planning docs"}
+                </option>
+                {projectPlanningDocuments.map((document) => (
+                  <option key={document.fileName} value={document.fileName}>
+                    {document.projectName} ({document.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectPlanningDocuments ? (
+              <ProjectPlanningDocumentsSummary
+                document={selectedProjectPlanningDocuments}
+              />
+            ) : null}
+            <TextField
+              label="Project name"
+              value={form.projectName ?? ""}
+              onChange={(value) => updateField("projectName", value)}
+            />
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void generateReconciliationPrompt()}
+            onCopy={() => void copyText(promptText, setCopyMessage)}
+            previewLabel="Generate Prompt"
+            copyLabel="Copy Prompt"
+            copyDisabled={promptText.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+          <FieldGroup title="Completed Architect Reconciliation">
+            <TextAreaField
+              label="Completed Architect repository reconciliation output"
+              value={form.architectReconciliationOutput}
+              rows={12}
+              onChange={(value) =>
+                updateField("architectReconciliationOutput", value)
+              }
+              required
+            />
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void previewReconciliationOutput()}
+            onSave={() => void saveReconciliationOutput()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            previewLabel="Preview Output"
+            saveLabel="Save Reconciliation"
+            copyLabel="Copy Output Preview"
+            saveDisabled={
+              isBusy || form.architectReconciliationOutput.trim().length === 0
+            }
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Repository Reconciliation"
+          title={activePreviewLabel}
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Generate a reconciliation prompt or preview the completed output."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Repository Reconciliation artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("phase-planning-documents")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Phase Plan
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </Notice>
+          ) : null}
+          <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
+            {displayedPreview || "No Repository Reconciliation preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function PhasePlanningDocumentsScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+}: ScreenProps) {
+  const {
+    documents: projectPlanningDocuments,
+    invalidFiles: invalidProjectPlanningFiles,
+    errors: projectPlanningErrors,
+    isLoading: isProjectPlanningLoading,
+  } = usePhasePlanningProjectPlanningDocuments();
+  const {
+    reconciliations,
+    invalidFiles: invalidReconciliationFiles,
+    errors: reconciliationErrors,
+    isLoading: isReconciliationsLoading,
+  } = useRepositoryReconciliations();
+  const {
+    phaseIntakes,
+    invalidFiles: invalidPhaseIntakeFiles,
+    errors: phaseIntakeErrors,
+    isLoading: isPhaseIntakesLoading,
+  } = usePhaseIntakes(phase);
+  const {
+    prompts,
+    invalidFiles: invalidPhasePromptFiles,
+    errors: phasePromptErrors,
+    isLoading: isPhasePromptsLoading,
+  } = usePhaseArchitectInterviewPrompts(phase);
+  const [form, setForm] = useState<ChampCityPhasePlanningDocumentsRequest>({
+    ...initialPhasePlanningForm,
+    phaseFolder: phase,
+  });
+  const [previewResult, setPreviewResult] =
+    useState<ChampCityPhasePlanningDocumentsPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    useState<ChampCityPhasePlanningDocumentsSaveResult | null>(null);
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Select sources and paste completed Phase Architect Interview output.",
+  );
+
+  const selectedProjectPlanningDocuments =
+    projectPlanningDocuments.find(
+      (document) => document.fileName === form.projectPlanningDocumentFileName,
+    ) ?? null;
+  const selectedReconciliation =
+    reconciliations.find(
+      (reconciliation) =>
+        reconciliation.fileName === form.repositoryReconciliationFileName,
+    ) ?? null;
+  const selectedPhaseIntake =
+    phaseIntakes.find(
+      (phaseIntake) => phaseIntake.fileName === form.phaseIntakeFileName,
+    ) ?? null;
+  const selectedPhasePrompt =
+    prompts.find(
+      (prompt) =>
+        prompt.fileName === form.phaseArchitectInterviewPromptFileName,
+    ) ?? null;
+  const allErrors = [
+    ...projectPlanningErrors,
+    ...reconciliationErrors,
+    ...phaseIntakeErrors,
+    ...phasePromptErrors,
+    ...screenErrors,
+  ];
+  const previewMarkdown =
+    saveResult?.combinedMarkdown ?? previewResult?.combinedMarkdown ?? "";
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    setForm((previous) =>
+      previous.phaseFolder === phase
+        ? previous
+        : {
+            ...previous,
+            phaseFolder: phase,
+            phaseIntakeFileName: "",
+            phaseArchitectInterviewPromptFileName: "",
+          },
+    );
+    setPreviewResult(null);
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage("Phase selection updated.");
+  }, [phase]);
+
+  useEffect(() => {
+    setFirstAvailableSource(
+      "projectPlanningDocumentFileName",
+      projectPlanningDocuments[0]?.fileName,
+      form.projectPlanningDocumentFileName,
+      projectPlanningDocuments.map((document) => document.fileName),
+    );
+  }, [projectPlanningDocuments, form.projectPlanningDocumentFileName]);
+
+  useEffect(() => {
+    setFirstAvailableSource(
+      "repositoryReconciliationFileName",
+      reconciliations[0]?.fileName,
+      form.repositoryReconciliationFileName,
+      reconciliations.map((reconciliation) => reconciliation.fileName),
+    );
+  }, [reconciliations, form.repositoryReconciliationFileName]);
+
+  useEffect(() => {
+    setFirstAvailableSource(
+      "phaseIntakeFileName",
+      phaseIntakes[0]?.fileName,
+      form.phaseIntakeFileName,
+      phaseIntakes.map((phaseIntake) => phaseIntake.fileName),
+    );
+  }, [phaseIntakes, form.phaseIntakeFileName]);
+
+  useEffect(() => {
+    setFirstAvailableSource(
+      "phaseArchitectInterviewPromptFileName",
+      prompts[0]?.fileName,
+      form.phaseArchitectInterviewPromptFileName,
+      prompts.map((prompt) => prompt.fileName),
+    );
+  }, [prompts, form.phaseArchitectInterviewPromptFileName]);
+
+  function setFirstAvailableSource(
+    field: keyof ChampCityPhasePlanningDocumentsRequest,
+    firstFileName: string | undefined,
+    currentFileName: string | undefined,
+    availableFileNames: string[],
+  ) {
+    if (!firstFileName) {
+      return;
+    }
+
+    if (currentFileName && availableFileNames.includes(currentFileName)) {
+      return;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      [field]: firstFileName,
+    }));
+  }
+
+  function updateField<Field extends keyof ChampCityPhasePlanningDocumentsRequest>(
+    field: Field,
+    value: ChampCityPhasePlanningDocumentsRequest[Field],
+  ) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    resetPhasePlanningPreview("Phase planning details updated.");
+  }
+
+  function handlePhaseChange(nextPhase: string) {
+    onPhaseChange(nextPhase);
+    updateField("phaseFolder", nextPhase);
+  }
+
+  function resetPhasePlanningPreview(nextStatusMessage: string) {
+    setPreviewResult(null);
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(nextStatusMessage);
+  }
+
+  function validatePhasePlanningRequest(): string[] {
+    const errors: string[] = [];
+
+    if (!form.projectPlanningDocumentFileName) {
+      errors.push("Select a saved Project Planning Documents source.");
+    }
+
+    if (!form.repositoryReconciliationFileName) {
+      errors.push("Select a saved Repository Reconciliation source.");
+    }
+
+    if (!form.phaseIntakeFileName) {
+      errors.push("Select a saved Phase Intake source.");
+    }
+
+    if (form.phaseArchitectInterviewOutput.trim().length === 0) {
+      errors.push("Paste the completed Phase Architect Interview output first.");
+    }
+
+    return errors;
+  }
+
+  async function previewPhasePlanning() {
+    const requestErrors = validatePhasePlanningRequest();
+
+    if (requestErrors.length > 0) {
+      setScreenErrors(requestErrors);
+      setStatusMessage("Phase Planning Documents preview needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewPhasePlanningDocuments(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.combinedMarkdown) {
+      setPreviewResult(null);
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Phase Planning Documents could not be generated."],
+      );
+      setStatusMessage("Phase Planning Documents preview needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(null);
+    setStatusMessage("Phase Planning Documents preview refreshed.");
+  }
+
+  async function savePhasePlanning() {
+    const requestErrors = validatePhasePlanningRequest();
+
+    if (requestErrors.length > 0) {
+      setScreenErrors(requestErrors);
+      setStatusMessage("Phase Planning Documents save needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.savePhasePlanningDocuments(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.combinedMarkdown) {
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Phase Planning Documents could not be saved."],
+      );
+      setStatusMessage("Phase Planning Documents save needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(result);
+    setStatusMessage("Phase Planning Documents and initial Work Card plan saved.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Phase Planning Documents"
+            description="Generate phase planning documents and an initial Work Card plan from reconciled source context."
+            badge="upstream"
+          />
+          <Notice type="info">
+            This creates planning artifacts only. It does not create formal
+            app-selectable Work Card JSON files, perform closeout, or call an
+            LLM API.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <InvalidProjectPlanningDocumentsFiles files={invalidProjectPlanningFiles} />
+          <InvalidRepositoryReconciliationFiles files={invalidReconciliationFiles} />
+          <InvalidPhaseIntakeFiles files={invalidPhaseIntakeFiles} />
+          <InvalidPhaseArchitectInterviewPromptFiles files={invalidPhasePromptFiles} />
+          <FieldGroup title="Sources">
+            <PhaseField
+              phase={form.phaseFolder}
+              phaseOptions={phaseOptions}
+              onPhaseChange={handlePhaseChange}
+            />
+            <Field label="Project Planning Documents source">
+              <select
+                className={selectCls}
+                value={form.projectPlanningDocumentFileName ?? ""}
+                disabled={isProjectPlanningLoading}
+                onChange={(event) =>
+                  updateField("projectPlanningDocumentFileName", event.target.value)
+                }
+              >
+                <option value="">
+                  {isProjectPlanningLoading
+                    ? "Loading Project Planning Documents..."
+                    : "Select Project Planning Documents"}
+                </option>
+                {projectPlanningDocuments.map((document) => (
+                  <option key={document.fileName} value={document.fileName}>
+                    {document.projectName} ({document.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectPlanningDocuments ? (
+              <ProjectPlanningDocumentsSummary
+                document={selectedProjectPlanningDocuments}
+              />
+            ) : null}
+            <Field label="Repository Reconciliation source">
+              <select
+                className={selectCls}
+                value={form.repositoryReconciliationFileName ?? ""}
+                disabled={isReconciliationsLoading}
+                onChange={(event) =>
+                  updateField("repositoryReconciliationFileName", event.target.value)
+                }
+              >
+                <option value="">
+                  {isReconciliationsLoading
+                    ? "Loading Repository Reconciliations..."
+                    : "Select Repository Reconciliation"}
+                </option>
+                {reconciliations.map((reconciliation) => (
+                  <option
+                    key={reconciliation.fileName}
+                    value={reconciliation.fileName}
+                  >
+                    {reconciliation.projectName} ({reconciliation.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedReconciliation ? (
+              <RepositoryReconciliationSummary
+                reconciliation={selectedReconciliation}
+              />
+            ) : null}
+            <Field label="Phase Intake source">
+              <select
+                className={selectCls}
+                value={form.phaseIntakeFileName ?? ""}
+                disabled={isPhaseIntakesLoading}
+                onChange={(event) =>
+                  updateField("phaseIntakeFileName", event.target.value)
+                }
+              >
+                <option value="">
+                  {isPhaseIntakesLoading
+                    ? "Loading Phase Intakes..."
+                    : "Select Phase Intake"}
+                </option>
+                {phaseIntakes.map((phaseIntake) => (
+                  <option key={phaseIntake.fileName} value={phaseIntake.fileName}>
+                    {phaseIntake.phaseName} ({phaseIntake.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedPhaseIntake ? (
+              <PhaseIntakeSummary phaseIntake={selectedPhaseIntake} />
+            ) : null}
+            <Field label="Phase Architect Interview Prompt source">
+              <select
+                className={selectCls}
+                value={form.phaseArchitectInterviewPromptFileName ?? ""}
+                disabled={isPhasePromptsLoading}
+                onChange={(event) =>
+                  updateField(
+                    "phaseArchitectInterviewPromptFileName",
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="">
+                  {isPhasePromptsLoading
+                    ? "Loading Phase Architect prompts..."
+                    : "Optional Phase Architect Prompt"}
+                </option>
+                {prompts.map((prompt) => (
+                  <option key={prompt.fileName} value={prompt.fileName}>
+                    {prompt.phaseName} ({prompt.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedPhasePrompt ? (
+              <PhaseArchitectInterviewPromptSummary prompt={selectedPhasePrompt} />
+            ) : null}
+          </FieldGroup>
+          <FieldGroup title="Completed Interview Output">
+            <TextAreaField
+              label="Completed Phase Architect Interview output"
+              value={form.phaseArchitectInterviewOutput}
+              rows={12}
+              onChange={(value) =>
+                updateField("phaseArchitectInterviewOutput", value)
+              }
+              required
+            />
+            <TextAreaField
+              label="Operator plan adjustments"
+              value={form.operatorPlanAdjustments}
+              rows={4}
+              onChange={(value) => updateField("operatorPlanAdjustments", value)}
+            />
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void previewPhasePlanning()}
+            onSave={() => void savePhasePlanning()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            previewLabel="Generate Preview"
+            saveLabel="Save Phase Plan"
+            copyLabel="Copy Preview"
+            saveDisabled={
+              isBusy ||
+              form.phaseArchitectInterviewOutput.trim().length === 0 ||
+              !form.projectPlanningDocumentFileName ||
+              !form.repositoryReconciliationFileName ||
+              !form.phaseIntakeFileName
+            }
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Phase Plan"
+          title="Preview Phase Planning Documents"
+          status={statusMessage}
+          filename={saveResult?.savedPhasePlanningMarkdownFileName}
+          emptyMessage="Generate a preview to see the Phase Planning Documents and initial Work Card plan."
+        >
+          {saveResult?.phasePlanningMarkdownPath &&
+          saveResult.phasePlanningJsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved Phase Planning Documents.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.phasePlanningMarkdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.phasePlanningJsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {saveResult?.workCardPlanMarkdownPath &&
+          saveResult.workCardPlanJsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved initial Work Card Plan artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.workCardPlanMarkdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.workCardPlanJsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {saveResult?.phaseBacklogPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Updated phase-scoped backlog artifact.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.phaseBacklogPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          <MonoBlock className="mt-4 min-h-[calc(100vh-280px)]">
+            {previewMarkdown || "No Phase Planning Documents preview yet."}
           </MonoBlock>
         </ArtifactPanel>
       }
@@ -4939,6 +5837,52 @@ function PhaseIntakeSummary({
   );
 }
 
+function PhaseArchitectInterviewPromptSummary({
+  prompt,
+}: {
+  prompt: ChampCitySavedPhaseArchitectInterviewPromptSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={prompt.projectName} />
+      <SummaryItem label="Phase" value={prompt.phaseName} />
+      <SummaryItem label="Phase Folder" value={prompt.phaseFolder} mono />
+      <SummaryItem label="Prompt ID" value={prompt.promptId} mono />
+      <SummaryItem label="Phase Intake ID" value={prompt.phaseIntakeId} mono />
+      <SummaryItem label="File" value={prompt.fileName} mono />
+      <SummaryItem label="Updated" value={prompt.updatedAt} mono />
+    </div>
+  );
+}
+
+function RepositoryReconciliationSummary({
+  reconciliation,
+}: {
+  reconciliation: ChampCitySavedRepositoryReconciliationSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={reconciliation.projectName} />
+      <SummaryItem
+        label="Reconciliation ID"
+        value={reconciliation.reconciliationId}
+        mono
+      />
+      <SummaryItem
+        label="Recommended Next Phase"
+        value={reconciliation.recommendedNextPhase}
+      />
+      <SummaryItem
+        label="Source Phase"
+        value={reconciliation.sourcePhaseFolder ?? "Not selected."}
+        mono
+      />
+      <SummaryItem label="File" value={reconciliation.fileName} mono />
+      <SummaryItem label="Updated" value={reconciliation.updatedAt} mono />
+    </div>
+  );
+}
+
 function ProjectPlanningDocumentFileList({
   documents,
 }: {
@@ -5325,6 +6269,56 @@ function InvalidPhaseIntakeFiles({
     <Notice type="warning">
       <div className="grid gap-2">
         <strong>Skipped Phase Intake files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidPhaseArchitectInterviewPromptFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedPhaseArchitectInterviewPromptFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Phase Architect Interview Prompt files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidRepositoryReconciliationFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedRepositoryReconciliationFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Repository Reconciliation files</strong>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -6162,6 +7156,180 @@ function useProjectPlanningDocumentSources() {
   return { documents, invalidFiles, errors, isLoading };
 }
 
+function useRepositoryReconciliationProjectPlanningDocuments() {
+  const [documents, setDocuments] = useState<
+    ChampCitySavedProjectPlanningDocumentsSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectPlanningDocumentsFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listRepositoryReconciliationProjectPlanningDocuments()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setDocuments([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? [
+              "Saved Project Planning Documents could not be loaded.",
+            ],
+          );
+          return;
+        }
+
+        setDocuments(result.documents ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setDocuments([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Project Planning Documents could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { documents, invalidFiles, errors, isLoading };
+}
+
+function usePhasePlanningProjectPlanningDocuments() {
+  const [documents, setDocuments] = useState<
+    ChampCitySavedProjectPlanningDocumentsSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectPlanningDocumentsFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listPhasePlanningProjectPlanningDocuments()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setDocuments([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? [
+              "Saved Project Planning Documents could not be loaded.",
+            ],
+          );
+          return;
+        }
+
+        setDocuments(result.documents ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setDocuments([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Project Planning Documents could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { documents, invalidFiles, errors, isLoading };
+}
+
+function useRepositoryReconciliations() {
+  const [reconciliations, setReconciliations] = useState<
+    ChampCitySavedRepositoryReconciliationSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedRepositoryReconciliationFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listPhasePlanningRepositoryReconciliations()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setReconciliations([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? [
+              "Saved Repository Reconciliations could not be loaded.",
+            ],
+          );
+          return;
+        }
+
+        setReconciliations(result.reconciliations ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setReconciliations([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Repository Reconciliations could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { reconciliations, invalidFiles, errors, isLoading };
+}
+
 function usePhaseIntakes(phase: string) {
   const [phaseIntakes, setPhaseIntakes] = useState<
     ChampCitySavedPhaseIntakeSummary[]
@@ -6216,6 +7384,66 @@ function usePhaseIntakes(phase: string) {
   }, [phase]);
 
   return { phaseIntakes, invalidFiles, errors, isLoading };
+}
+
+function usePhaseArchitectInterviewPrompts(phase: string) {
+  const [prompts, setPrompts] = useState<
+    ChampCitySavedPhaseArchitectInterviewPromptSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedPhaseArchitectInterviewPromptFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listPhasePlanningPhaseArchitectInterviewPrompts(phase)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setPrompts([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? [
+              "Saved Phase Architect Interview Prompts could not be loaded.",
+            ],
+          );
+          return;
+        }
+
+        setPrompts(result.prompts ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setPrompts([]);
+        setInvalidFiles([]);
+        setErrors([
+          "Saved Phase Architect Interview Prompts could not be loaded.",
+        ]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  return { prompts, invalidFiles, errors, isLoading };
 }
 
 function useDefaultSelectedFile(
