@@ -1,0 +1,19 @@
+{
+  "validationId": "VALIDATION_WC10_20260630135826",
+  "workCardId": "WC10",
+  "workCardTitle": "Implement Figma UI and terminology alignment",
+  "phase": "phase-01",
+  "builderReportFile": "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+  "validationResult": "Pass",
+  "testedItems": "",
+  "passedItems": "",
+  "failedItems": "",
+  "evidenceReferences": "",
+  "screenshotOrFileReferences": "",
+  "commandsRun": "",
+  "observedErrors": "",
+  "additionalOperatorObservations": "",
+  "operatorDecision": "Passed - proceed",
+  "recommendedNextAction": "",
+  "createdAt": "2026-06-30T13:58:26.878Z"
+}

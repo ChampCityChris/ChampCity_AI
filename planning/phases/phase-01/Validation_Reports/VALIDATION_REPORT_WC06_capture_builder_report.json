@@ -1,0 +1,19 @@
+{
+  "validationId": "VALIDATION_WC06_20260630135805",
+  "workCardId": "WC06",
+  "workCardTitle": "Capture Builder Report",
+  "phase": "phase-01",
+  "builderReportFile": "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+  "validationResult": "Pass",
+  "testedItems": "",
+  "passedItems": "",
+  "failedItems": "",
+  "evidenceReferences": "",
+  "screenshotOrFileReferences": "",
+  "commandsRun": "",
+  "observedErrors": "",
+  "additionalOperatorObservations": "",
+  "operatorDecision": "Passed - proceed",
+  "recommendedNextAction": "",
+  "createdAt": "2026-06-30T13:58:05.183Z"
+}

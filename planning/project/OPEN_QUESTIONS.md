@@ -2,16 +2,17 @@
 
 ## Questions
 
-- Which Phase 02 WC05 fields should the Phase Intake capture before the Phase Architect Interview prompt is generated?
-- Which parts of completed Project Planning Documents should become reusable source context for Phase Planning Documents?
-- What Operator manual validation evidence should be considered sufficient before closing Phase 02?
+- These are not blockers for the next planning-documents step, but they should remain open profile fields until resolved.
+- First, how should ChampCity A/I expose and explain ChampCity MCP setup to non-developer users without overwhelming them?
+- Recommended default: the app should present MCP as a required local connector for the guided Alpha workflow, with simple status checks and plain-language explanations.
+- Second, should subscription-surface automation beyond MCP be built as browser automation, clipboard automation, desktop overlay/helper, staged copy/paste queue, or some combination of these?
+- Recommended default: treat this as a later design/research phase. MCP-mediated repo access is the primary Alpha integration path.
+- Third, should Beta require Mac/Linux support, or is Windows public release enough for Beta?
+- Recommended default: Windows public release is enough for Beta. Mac/Linux can follow after the workflow is proven.
+- Fourth, should screenshots be stored directly in the repo, stored in an app-controlled evidence folder, or referenced by path?
+- Recommended default: use an app-controlled evidence folder under the project planning structure, with repo-safe filenames and no hidden external dependency.
+- Operator uncertainty: I am unsure how to code a solution for integrating this application with the subscription versions of ChatGPT or Claude
 
-## Recently Answered
+## Owner
 
-- Remote repository URL: `https://github.com/ChampCityChris/ChampCity_AI`.
-- GitHub repository visibility: public.
-- Human-readable app name: `ChampCity A/I`.
-- Frontend framework direction: React for post-foundation UI work.
-- Required release-tag validation commands: `npm run typecheck`, `npm run build`, `npm test`, and `git status --short`.
-- Evidence attachment policy: copy small relevant durable evidence into the repo and record original source paths when files come from outside the repo.
-- Likely future LLM providers: OpenAI API, Anthropic, local Ollama, and a generic OpenAI-compatible endpoint for providers such as Featherless or LM Studio.
+The Operator owns final answers. The Architect may help frame options before implementation.

@@ -1,0 +1,19 @@
+{
+  "validationId": "VALIDATION_WC03_20260630135752",
+  "workCardId": "WC03",
+  "workCardTitle": "Add Architect framing prompt composer",
+  "phase": "phase-01",
+  "builderReportFile": "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+  "validationResult": "Pass",
+  "testedItems": "",
+  "passedItems": "",
+  "failedItems": "",
+  "evidenceReferences": "",
+  "screenshotOrFileReferences": "",
+  "commandsRun": "",
+  "observedErrors": "",
+  "additionalOperatorObservations": "",
+  "operatorDecision": "Passed - proceed",
+  "recommendedNextAction": "",
+  "createdAt": "2026-06-30T13:57:52.738Z"
+}

@@ -1,0 +1,19 @@
+{
+  "validationId": "VALIDATION_WC08_20260630135819",
+  "workCardId": "WC08",
+  "workCardTitle": "Phase 1 closeout and status management",
+  "phase": "phase-01",
+  "builderReportFile": "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+  "validationResult": "Pass",
+  "testedItems": "",
+  "passedItems": "",
+  "failedItems": "",
+  "evidenceReferences": "",
+  "screenshotOrFileReferences": "",
+  "commandsRun": "",
+  "observedErrors": "",
+  "additionalOperatorObservations": "",
+  "operatorDecision": "Passed - proceed",
+  "recommendedNextAction": "",
+  "createdAt": "2026-06-30T13:58:19.200Z"
+}
