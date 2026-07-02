@@ -9,7 +9,10 @@
     "start": "npm run build && electron .",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck",
-    "test:work-cards": "npm run build && node scripts/verify-work-card-fixture.mjs"
+    "test:work-cards": "npm run build && node scripts/verify-work-card-fixture.mjs",
+    "validate:codex": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite full",
+    "validate:codex:unit": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite unit",
+    "validate:codex:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite build"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",

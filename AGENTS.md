@@ -89,3 +89,15 @@ Final Builder reports must include:
 - Checks skipped and why.
 - Manual validation required.
 - Residual risks.
+
+## Validation lane rule
+
+Before running tests, builds, Electron startup, Vite, Vitest, Playwright, esbuild, or any command that may spawn child processes, read:
+
+`docs/dev/VALIDATION_COMMAND_LANES.md`
+
+This project has a known false-failure mode where sandboxed Codex execution can produce `spawn EPERM`, especially when esbuild or other child-process-heavy tooling is involved.
+
+Do not repeatedly retry these commands inside the sandbox. Use the approved validation wrapper/lane documented in `docs/dev/VALIDATION_COMMAND_LANES.md`.
+
+When reporting validation, state which execution lane was used. Do not mark validation as complete based only on a sandboxed command that failed with `spawn EPERM`.
