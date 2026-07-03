@@ -1,0 +1,54 @@
+{
+  "work_card_id": "WC01",
+  "phase_id": "phase-03",
+  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+  "title": "Superseded Phase 03 Artifact and Roadmap State Reconciliation",
+  "status": "ready_for_implementer",
+  "created": "2026-07-03",
+  "updated": "2026-07-03",
+  "risk_level": "medium",
+  "operator_approval_sources": [
+    "planning/phases/phase-03/Operator_Phase_Approval.md",
+    "planning/phases/phase-03/Operator_Phase_Approval.json"
+  ],
+  "problem": "The repository contains stale and superseded Phase 03 records created before the workflow-router rebaseline. Some durable artifacts still describe Phase 03 as Repository Reconciliation and Phase Planning Documents or still present Phase 02 corrective work as active.",
+  "goal": "Reconcile durable project and phase state so Phase 03 is clearly recognized as the active approved phase: Workflow Router Screen Correction and Guided Current Action UI.",
+  "included_scope": [
+    "Review approved Phase 03 mapping bundle",
+    "Review Phase 02 closeout record",
+    "Update durable project-state artifacts so Phase 02 is not described as the current active milestone",
+    "Update living Roadmap and related project/phase state records so Phase 03 is active/approved for execution",
+    "Update Phase Map or phase-status artifacts that still identify Phase 03 as Repository Reconciliation and Phase Planning Documents",
+    "Mark older Phase 03 planning artifacts as superseded historical artifacts without deleting them",
+    "Update matching JSON pairs where the app reads paired JSON records",
+    "Create WC01 Implementer Report under planning/phases/phase-03/Builder_Reports/"
+  ],
+  "out_of_scope": [
+    "Do not implement WC02 durable current required action model",
+    "Do not implement WC03 Figma workflow-router UI shell",
+    "Do not perform route-specific UI correction",
+    "Do not create additional Phase 03 executable Work Cards",
+    "Do not create Implementer prompts separate from Work Cards",
+    "Do not delete historical artifacts",
+    "Do not perform broad UI polish",
+    "Do not package, tag, release, deploy, push, or create a PR"
+  ],
+  "acceptance_criteria": [
+    "PROJECT_STATE.md no longer describes Phase 02 WC08 corrective work as the current active milestone",
+    "The living Roadmap identifies Phase 03 as active or approved for execution, not merely proposed/pending review",
+    "Phase Map/project-state records no longer identify the active Phase 03 as Repository Reconciliation and Phase Planning Documents",
+    "Obsolete Phase 03 planning artifacts are clearly marked superseded without being deleted",
+    "The approved Phase 03 bundle remains intact",
+    "WC01 Markdown and JSON artifacts exist under planning/phases/phase-03/Work_Cards/",
+    "A WC01 Implementer Report exists under planning/phases/phase-03/Builder_Reports/ after implementation"
+  ],
+  "validation_expectations": [
+    "Read docs/dev/VALIDATION_COMMAND_LANES.md before running validation",
+    "Run a JSON validity check for any JSON artifacts changed",
+    "Run node --check scripts/verify-work-card-fixture.mjs if that file or related fixture assumptions are affected",
+    "If source code is changed, run the documented validation lane, normally npm run validate:codex unless directed otherwise",
+    "Run git status --short and report changed files",
+    "Do not perform Operator acceptance or create validation records"
+  ],
+  "report_required": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md"
+}

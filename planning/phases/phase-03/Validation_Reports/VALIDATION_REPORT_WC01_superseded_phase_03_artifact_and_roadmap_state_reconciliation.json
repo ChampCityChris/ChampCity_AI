@@ -1,0 +1,45 @@
+{
+  "artifact_type": "operator_validation_report",
+  "status": "pass",
+  "project": "ChampCity A/I",
+  "phase_id": "phase-03",
+  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+  "work_card_id": "WC01",
+  "work_card_title": "Superseded Phase 03 Artifact and Roadmap State Reconciliation",
+  "validation_type": "operator_manual_validation",
+  "validation_date": "2026-07-03",
+  "validated_by": "Operator",
+  "decision": "Passed - proceed",
+  "source_artifacts": {
+    "work_card": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+    "implementer_report": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+    "architect_review": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md"
+  },
+  "validated_items": [
+    "Phase 02 closeout confirmed by manual review of closeout artifact because app lacks clear visual closeout indicator",
+    "Phase 03 active state confirmed by approval docs and Work Card because app lacks clear visual phase-status indicator",
+    "Active Phase 03 title confirmed",
+    "Approved Phase 03 bundle confirmed as current authority",
+    "WC01 confirmed as only current executable Phase 03 Work Card",
+    "Older Repository Reconciliation and Phase Planning Documents artifacts confirmed superseded",
+    "No WC02 or later executable Work Cards were created during WC01 implementation",
+    "No separate Implementer Prompt artifact was created",
+    "No Operator validation or closeout artifact was created by the Implementer"
+  ],
+  "observations": [
+    {
+      "id": "OBS01",
+      "title": "Missing visual phase closeout/status indicators",
+      "disposition": "non_blocking_for_wc01",
+      "notes": "Application does not currently provide a clear visual indicator of phase closeout status or active phase status. Consider in WC02/WC03 and later workflow-router UI Work Cards."
+    },
+    {
+      "id": "OBS02",
+      "title": "Validation screen error when loading Phase 03",
+      "disposition": "non_blocking_for_wc01",
+      "notes": "Validation screen references missing stale Validation_Targets/WC01_define_work_card_schema_and_markdown_renderer.json and reports schema mismatch for the new WC01 JSON. Capture as follow-up input for WC02 and/or a later validation-screen repair."
+    }
+  ],
+  "repair_required": false,
+  "next_action": "Create WC02 — Durable Current Required Action Model"
+}

@@ -1,0 +1,104 @@
+{
+  "id": "PROJECT_ROADMAP_champcity_a_i",
+  "project": "ChampCity A/I",
+  "status": "living_master_roadmap",
+  "updatedFor": "Workflow Router Rebaseline",
+  "productCorrection": "ChampCity A/I is a workflow router, not a screen picker.",
+  "lockedWorkflow": [
+    "Project Intake",
+    "Project Interview",
+    "Reconciliation Review",
+    "Project Mapping",
+    "Operator Project Approval",
+    "Phase Mapping",
+    "Operator Phase Approval",
+    "Work Card Loop",
+    "Phase Closeout",
+    "Operator Phase Closeout Approval",
+    "Roadmap Update",
+    "Next Phase Activation",
+    "Repeat Phase Mapping / Work Card Loop"
+  ],
+  "currentFirstIncompletePhase": "phase-03",
+  "currentActivePhase": "phase-03",
+  "currentExecutableWorkCard": "WC01: Superseded Phase 03 Artifact and Roadmap State Reconciliation",
+  "phases": [
+    {
+      "id": "phase-01",
+      "title": "MVP Foundation and Core Work Card Loop",
+      "status": "closed",
+      "confidence": "high"
+    },
+    {
+      "id": "phase-02",
+      "title": "Upstream Project Planning and Corrective Workflow Authority",
+      "status": "closed",
+      "confidence": "high",
+      "closeoutEvidence": "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.md",
+      "nextPhaseActivationDecision": "Activate next phase"
+    },
+    {
+      "id": "phase-03",
+      "title": "Workflow Router Screen Correction and Guided Current Action UI",
+      "status": "active_approved_for_jit_work_card_execution",
+      "confidence": "high",
+      "purpose": "Correct the application screens and UI behavior to adhere to the newly mapped workflow process. The UI must compute and display the current actionable step, show required inputs and outputs, and make generic navigation secondary.",
+      "approvedAuthority": [
+        "planning/phases/phase-03/Phase_Interview.md",
+        "planning/phases/phase-03/Phase_Planning.md",
+        "planning/phases/phase-03/Work_Card_Plan.md",
+        "planning/phases/phase-03/Operator_Phase_Approval.md"
+      ],
+      "currentExecutableWorkCard": "WC01: Superseded Phase 03 Artifact and Roadmap State Reconciliation",
+      "expectedOutcomes": [
+        "current required action panel",
+        "workflow state router",
+        "phase mapping as primary phase-level planning concept",
+        "phase planning as artifact inside phase mapping",
+        "Work Card as Implementer handoff",
+        "Architect review of Implementer Reports",
+        "Operator validation records",
+        "repair sub-card handling",
+        "phase closeout and next phase activation routing"
+      ],
+      "doNotCreateFullWorkCardsFromRoadmap": true
+    },
+    {
+      "id": "phase-04",
+      "title": "Workflow Execution Hardening",
+      "status": "proposed",
+      "confidence": "medium"
+    },
+    {
+      "id": "phase-05",
+      "title": "MCP Integration, Repo Bridge, and Security Boundary",
+      "status": "proposed",
+      "confidence": "medium"
+    },
+    {
+      "id": "phase-06",
+      "title": "Guided Operator UX Polish and Figma Implementation",
+      "status": "proposed",
+      "confidence": "medium"
+    },
+    {
+      "id": "phase-07",
+      "title": "Evidence, Validation, and Release Packaging",
+      "status": "proposed",
+      "confidence": "low"
+    }
+  ],
+  "supersededAssumptions": [
+    "app_as_screen_picker",
+    "phase_planning_as_separate_top_level_workflow",
+    "implementer_prompt_as_separate_primary_artifact",
+    "operator_manually_selects_many_screens_as_main_path",
+    "phase_03_repository_reconciliation_and_phase_planning_documents"
+  ],
+  "artifactPolicy": {
+    "roadmapCreatesExecutableWorkCards": false,
+    "phaseMappingCreatesWorkCardPlan": true,
+    "fullWorkCardsCreatedJustInTimeByArchitect": true,
+    "workCardIsImplementerPrompt": true
+  }
+}

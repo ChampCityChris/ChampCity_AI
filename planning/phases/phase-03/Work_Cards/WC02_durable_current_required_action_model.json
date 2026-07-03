@@ -1,0 +1,69 @@
+{
+  "work_card_id": "WC02",
+  "phase_id": "phase-03",
+  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+  "title": "Durable Current Required Action Model",
+  "status": "ready_for_implementer",
+  "created": "2026-07-03",
+  "updated": "2026-07-03",
+  "risk_level": "high",
+  "operator_approval_sources": [
+    "planning/phases/phase-03/Operator_Phase_Approval.md",
+    "planning/phases/phase-03/Operator_Phase_Approval.json"
+  ],
+  "prior_validation_sources": [
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json"
+  ],
+  "problem": "ChampCity A/I still behaves like a collection of screens rather than a workflow router. The app needs a durable current required action model that reads project artifacts and determines what the Operator should do next.",
+  "goal": "Implement a deterministic current required action model that computes the current workflow step from durable project state.",
+  "included_scope": [
+    "Create a durable current required action model/type for the locked workflow",
+    "Add deterministic workflow-step evaluation from durable project artifacts",
+    "Represent current workflow step, responsible role, source evidence, expected output, success route, failure/repair route, manual fallback route, and warnings",
+    "Add support for Phase 03 state after WC01 validation",
+    "Distinguish mapped candidates, ready-for-implementer Work Cards, Implementer Reports, Architect reviews, Operator validations, repairs, completed-via-repair, carried-forward, deferred, and cancelled states",
+    "Treat superseded artifacts as warnings/context rather than active authority",
+    "Handle missing or stale validation target files without crashing or routing incorrectly",
+    "Add compatibility handling for current Phase 03 Work Card JSON shape where legacy validation target schema expects older fields",
+    "Add fixture/static test coverage for current-action calculation across major workflow states",
+    "Create WC02 Implementer Report under planning/phases/phase-03/Builder_Reports/"
+  ],
+  "out_of_scope": [
+    "Do not implement the Figma workflow-router UI shell",
+    "Do not perform broad visual redesign",
+    "Do not replace the renderer with the Figma prototype",
+    "Do not implement every route-specific screen correction",
+    "Do not create WC03 or later executable Work Cards",
+    "Do not create a separate Implementer Prompt artifact",
+    "Do not perform Operator validation or create validation records",
+    "Do not close Phase 03",
+    "Do not package, tag, release, deploy, push, or create a PR"
+  ],
+  "acceptance_criteria": [
+    "A typed/shared current required action model exists",
+    "A deterministic evaluator computes the current required action from durable project state",
+    "The evaluator identifies Phase 03 / WC02 as the current actionable state after WC01 validation",
+    "The evaluator can distinguish completed WC01 from active/current WC02",
+    "The evaluator can identify when the next mapped candidate needs a full Work Card",
+    "The evaluator can identify when an Implementer Report requires Architect review",
+    "The evaluator can identify when Operator validation is required",
+    "The evaluator can identify when repair sub-card creation is required",
+    "The evaluator can identify when Phase Closeout is required",
+    "Superseded Phase 03 artifacts are surfaced as warnings/context, not active authority",
+    "Missing stale validation target files do not crash current-action evaluation",
+    "The Human Validation stale target/schema issue is resolved at the model/reader layer or explicitly documented as residual route-level work",
+    "Fixture/static validation covers the major workflow states listed in the Work Card",
+    "A WC02 Implementer Report exists under planning/phases/phase-03/Builder_Reports/ after implementation"
+  ],
+  "validation_expectations": [
+    "Read docs/dev/VALIDATION_COMMAND_LANES.md before running validation",
+    "Run TypeScript/type validation if source code changes",
+    "Run npm run validate:codex unless the validation lane document instructs otherwise",
+    "Run fixture/static validation for current-action model scenarios",
+    "Run node --check scripts/verify-work-card-fixture.mjs if that script or related fixture assumptions are affected",
+    "Run git status --short and report changed files",
+    "Do not perform Operator acceptance or create validation records"
+  ],
+  "report_required": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02_durable_current_required_action_model.md"
+}
