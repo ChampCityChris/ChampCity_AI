@@ -82,6 +82,25 @@ Normal Implementer flow:
 
 Architect/Operator approval is required before merging `dev` into `master`.
 
+## Commit Hash Reporting Rule
+
+A report committed in the same commit as the work cannot know that commit's hash before the commit exists.
+
+Implementer Reports must include:
+
+- branch name
+- intended commit message
+- files staged or committed
+- validation results
+- whether a commit was created
+- Commit hash: pending until commit is created, when the report is part of the same commit
+
+After committing, the Implementer final response must include the actual commit hash from `git rev-parse HEAD`.
+
+Do not amend a committed report solely to insert its own commit hash, because that changes the commit hash.
+
+If the project requires a durable artifact containing the final commit hash, the Architect or Implementer must create a separate follow-up review/checkpoint artifact in a later commit.
+
 ## Validation
 
 - Run available automated validation commands before reporting completion.
@@ -120,7 +139,7 @@ Architect/Operator approval is required before merging `dev` into `master`.
   - Commands run and results.
   - Validation performed.
   - Validation skipped and reason.
-  - Git actions performed, including commit hash and tag if applicable.
+  - Git actions performed, including commit hash and tag if applicable, subject to the Commit Hash Reporting Rule.
   - Security/secret-safety notes.
   - Blocking questions, if any.
   - Recommended next Implementer task.
