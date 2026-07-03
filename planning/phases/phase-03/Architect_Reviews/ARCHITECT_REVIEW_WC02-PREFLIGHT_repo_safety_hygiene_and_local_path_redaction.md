@@ -1,12 +1,11 @@
 # Architect Review: WC02-PREFLIGHT Repo Safety Hygiene and Local Path Redaction
 
-Status: Repair Required Before Operator Validation
+Status: Ready for Operator Validation
 Project: ChampCity A/I
 Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 Work Card: WC02-PREFLIGHT — Repo Safety Hygiene and Local Path Redaction
 Review date: 2026-07-03
 Reviewed by: Architect
-Revision note: Updated to clarify that Codex/Implementer does not have ChampCity MCP access.
 
 ## Reviewed Implementer Report
 
@@ -19,103 +18,90 @@ Revision note: Updated to clarify that Codex/Implementer does not have ChampCity
 
 ## Review Outcome
 
-Repair is required before Operator validation and before WC02 handoff.
+WC02-PREFLIGHT is ready for Operator validation.
 
-The Local Path Redaction rule was added and appears substantively correct, but the preflight acceptance criteria are not fully satisfied in durable repo state.
+No additional repair is required before WC02 handoff from a local-path hygiene perspective.
 
-The prior repair framing incorrectly assumed the Implementer could use ChampCity MCP. Codex does not currently have ChampCity MCP access. Codex should perform repo-local scan/redaction/report work only. Architect/Operator should perform final MCP safety staging and commit after reviewing the repair.
+## Final MCP Safety / Commit Checkpoint
+
+Architect performed the final ChampCity MCP safety-stage and commit checkpoint after reviewing the Codex narrow repair report.
+
+Preflight repair commit:
+
+```text
+e920edb793de9b7723a5606685799637d3b6cf05
+```
+
+Commit message:
+
+```text
+WC02 preflight repair
+```
+
+Committed files:
+
+- `AGENTS.md`
+- `Generic Docs/example_project_profile_champcity_v11.md`
+- `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
+- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
+
+MCP staged safety scan result:
+
+- mode: staged
+- scanned files: 4
+- skipped files: none
+- blocking findings: none
+- warnings: none
+- safe: true
+
+No push was performed.
 
 ## Findings
 
-### Pass: Implementer Report exists
+### Pass: Implementer Report exists and is corrected
 
-The required preflight Implementer Report exists at:
-
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
+The required preflight Implementer Report exists and now correctly states that Codex did not perform MCP actions. It says Codex performed local scan/readiness work and that final MCP safety-stage/commit was Architect/Operator-owned.
 
 ### Pass: AGENTS.md includes the intended Local Path Redaction rule
 
-`AGENTS.md` now includes a Local Path Redaction section that applies to both Architect and Implementer outputs and requires `<PROJECT_REPO>` or repo-relative paths in committed artifacts.
+`AGENTS.md` includes a Local Path Redaction section that applies to both Architect and Implementer outputs and requires `<PROJECT_REPO>` or repo-relative paths in durable committed artifacts.
 
-### Pass: AGENTS.md staged cleanly when safety-checked by Architect
+### Pass: Current handoff convention is safe
 
-During Architect review, `AGENTS.md` was staged through the ChampCity MCP git workflow to test the safety gate. The MCP staging/readiness result showed no blocking findings for that file.
+Current Phase 03 handoff language uses `<PROJECT_REPO>` or repo-relative paths rather than concrete local machine paths.
 
-### Blocker: Preflight checkpoint is not yet durable enough
+### Pass: MCP safety gate accepted the staged repair set
 
-The Work Card required a focused preflight commit after the safety scan passed. Current repo state still requires final Architect/Operator MCP safety staging and commit for the preflight bundle.
-
-### Blocker: Durable report should not rely on non-durable final chat output
-
-The Implementer Report states that a final response records the commit hash because the report cannot embed the hash of its own commit. That is mechanically understandable, but the durable repo should still contain a follow-up note, amended report, or Architect-side record after final MCP commit.
-
-Relying only on a chat response for final commit status defeats repo-grounded review.
+The MCP commit operation ran the staged safety scan and reported no blocking findings or warnings.
 
 ### Non-blocking: Broad dirty state remains
 
-The repo still has broad dirty state from earlier Phase 01 / Phase 02 / project / UI work. That does not automatically fail this preflight, because the Work Card allowed reporting unrelated remaining dirty files. The blocker is completion of the preflight checkpoint flow, not the existence of unrelated dirty files.
+The repo still has broad dirty state from earlier Phase 01 / Phase 02 / project / UI work. This was already known and was outside the narrow preflight scope. The preflight Work Card allowed reporting unrelated remaining dirty files rather than cleaning the entire repo.
 
-## Required Repair For Codex / Implementer
+## Operator Validation Guidance
 
-Codex does not have ChampCity MCP access. The repair pass must not claim or attempt MCP actions.
+Operator validation for WC02-PREFLIGHT should confirm:
 
-Codex should repair only the local repo artifacts and report:
-
-1. Confirm `AGENTS.md` contains the Local Path Redaction rule applying to both Architect and Implementer outputs.
-2. Confirm current Phase 03 handoff artifacts use `<PROJECT_REPO>` or repo-relative paths instead of concrete local machine paths.
-3. Run a local text scan over changed text files for concrete local path patterns, including Windows user paths, macOS/Linux home paths, and escaped Windows paths.
-4. Redact any remaining concrete local paths to `<PROJECT_REPO>` or repo-relative paths.
-5. Update the WC02-PREFLIGHT Implementer Report so it does not claim MCP access or MCP commit actions.
-6. State in the report that Codex performed local scan/readiness work and that final ChampCity MCP safety staging/commit is Architect/Operator-owned.
-7. Do not implement WC02.
-8. Do not push, tag, release, package, or open a PR.
-
-## Architect / Operator Follow-Up After Codex Repair
-
-After Codex finishes the repair:
-
-1. Architect reviews the updated report and changed files.
-2. Architect uses ChampCity MCP to stage the intended preflight files.
-3. Architect uses ChampCity MCP readiness/safety checks.
-4. Architect commits the preflight checkpoint if safe.
-5. Architect records the final commit hash and post-commit status in a durable Architect Review or validation record.
-6. Operator validates the preflight if desired.
-7. WC02 may then be handed off.
-
-## Corrected Repair Handoff
-
-```text
-WC02-PREFLIGHT needs a narrow repair before Operator validation.
-
-Use this Architect Review as repair context:
-planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md
-
-Important: Codex does not have ChampCity MCP access. Do not use or reference MCP actions as commands you can run.
-
-Repair only the preflight checkpoint issue:
-
-1. Confirm AGENTS.md contains the Local Path Redaction rule applying to both Architect and Implementer outputs.
-2. Confirm current Phase 03 handoff artifacts use <PROJECT_REPO> or repo-relative paths instead of concrete local machine paths.
-3. Run a local text scan over changed text files for concrete local path patterns, including Windows user paths, macOS/Linux home paths, and escaped Windows paths.
-4. Redact any remaining concrete local paths to <PROJECT_REPO> or repo-relative paths.
-5. Update the WC02-PREFLIGHT Implementer Report so it does not claim MCP access or MCP commit actions.
-6. In the report, state that Codex performed local scan/readiness work and that Architect/Operator must perform final MCP safety-stage/commit after review.
-7. Do not implement WC02.
-8. Do not push, tag, release, package, or open a PR.
-
-Create or update:
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md
-
-Report required:
-- files changed
-- local redaction scan commands
-- local scan results
-- whether AGENTS.md contains the Architect/Implementer local-path rule
-- any remaining dirty files
-- explicit statement that final MCP staging/commit is Architect/Operator-owned
-- recommended next action
-```
+1. `AGENTS.md` contains the Local Path Redaction rule.
+2. The rule applies to both Architect and Implementer outputs.
+3. The rule requires `<PROJECT_REPO>` or repo-relative paths in durable artifacts.
+4. The WC02-PREFLIGHT Implementer Report does not claim Codex performed MCP actions.
+5. The preflight commit hash is recorded in this Architect Review.
+6. No push was performed.
+7. WC02 was not implemented as part of this preflight.
 
 ## Recommended Next Action
 
-Run the corrected WC02-PREFLIGHT repair pass through Codex. Do not hand off WC02 until the repair is complete and the Architect has performed the MCP-side final safety/commit checkpoint.
+After Operator validation, WC02 may be handed off to the Implementer:
+
+```text
+WC02 is ready for implementation.
+
+Repository root placeholder: <PROJECT_REPO>
+Expected remote: ChampCityChris/ChampCity_AI
+
+Use this Work Card as the source of truth:
+planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md
+
+Do not rely on chat context beyond this instruction. Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before editing. Do not write concrete local machine paths into committed artifacts. Use <PROJECT_REPO> and repo-relative paths in all reports. Create the required Implementer Report when complete.
+```
