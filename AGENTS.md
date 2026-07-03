@@ -53,9 +53,10 @@
 - Use repo-relative paths for files inside the project, for example `planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md`.
 - Architects and Implementers may verify the actual local path during execution, but committed reports must record that as "verified approved repo root" rather than printing the concrete local path.
 - Do not use concrete Windows, macOS, Linux, or home-directory paths in durable committed artifacts. Use `<PROJECT_REPO>` or repo-relative paths instead.
+
 ## Validation
 
-- Run available validation commands before reporting completion.
+- Run available automated validation commands before reporting completion.
 - If a check cannot be run, report the reason clearly.
 - Required validation commands before release tags:
   - `npm run typecheck`
@@ -63,6 +64,15 @@
   - `npm test`
   - `git status --short`
 - Future validation additions: add unit tests and renderer smoke tests once those exist.
+
+## Implementer vs. Operator Validation
+
+- Implementer validation is limited to automated checks, code-level verification, and non-acceptance smoke checks explicitly needed to confirm the app launches or the changed code path is reachable.
+- The Implementer must not perform Operator manual validation, Human Validation acceptance, Work Card acceptance, phase closeout, or product-owner approval unless the prompt explicitly grants that authority.
+- The Implementer must not create, save, or mark final Human Validation records as accepted on behalf of the Operator.
+- Manual validation tasks that require visual judgment, usability judgment, live workflow acceptance, evidence-path confirmation, or closeout approval belong to the Operator.
+- Builder Reports must list remaining Operator manual validation steps under manual validation required; they must not claim those steps were completed by the Operator unless the Operator actually provided that result.
+- If a prompt says to manually validate, interpret that as: describe the Operator manual validation required, unless the prompt explicitly says the Implementer is authorized to perform a non-acceptance smoke check.
 
 ## Builder Report Artifacts
 

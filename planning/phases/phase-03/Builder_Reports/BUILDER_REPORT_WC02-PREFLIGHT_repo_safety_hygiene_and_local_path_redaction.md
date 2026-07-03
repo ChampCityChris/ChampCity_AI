@@ -2,7 +2,7 @@
 
 ## Pass Type
 
-Preflight Work Card (`WC02-PREFLIGHT`), not the WC02 implementation Work Card.
+Preflight repair for `WC02-PREFLIGHT`, not the WC02 implementation Work Card.
 
 ## Repository Path Inspected
 
@@ -12,167 +12,106 @@ Verified approved repo root. Durable artifacts use `<PROJECT_REPO>` and repo-rel
 
 - Branch inspected: `master`.
 - Remote inspected: `origin https://github.com/ChampCityChris/ChampCity_AI.git`.
-- Existing worktree state before this pass was already broad and dirty; unrelated dirty files were not intentionally cleaned up.
+- Existing worktree state before this repair was already broad and dirty; unrelated dirty files were not intentionally cleaned up.
 
-## Summary Of Changes
+## Implementation Summary
 
-- Added an `AGENTS.md` Local Path Redaction rule binding Architect and Implementer outputs.
-- Replaced concrete local repository-root paths in required scan targets with `<PROJECT_REPO>`.
-- Replaced repo-internal file references with repo-relative paths where appropriate.
-- Redacted historical non-repo temp/cache/attachment paths as prose such as `redacted local attachment path`.
-- Updated prompt/rendering defaults so future generated Work Cards, Implementer prompts, Project Intake fixtures, and the app default source-of-truth field do not emit a concrete local path.
-- Confirmed the WC02 handoff uses `<PROJECT_REPO>` and repo-relative paths.
+- Confirmed `AGENTS.md` contains the Local Path Redaction rule applying to both Architect and Implementer outputs.
+- Confirmed current Phase 03 handoff artifacts use `<PROJECT_REPO>` or repo-relative paths instead of concrete local machine paths.
+- Ran a local changed-text-file scan for Windows user paths, escaped Windows user paths, macOS home paths, Linux home paths, and shorthand home paths.
+- Redacted the remaining concrete Windows user-path examples found in `Generic Docs/example_project_profile_champcity_v11.md`.
+- Updated this report so it does not claim Codex MCP access, MCP staging, MCP readiness checks, MCP commit actions, or a local commit.
+- Did not implement WC02.
 
 ## Files Created
 
+None.
+
+## Files Modified
+
+- `Generic Docs/example_project_profile_champcity_v11.md`
 - `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
-
-## Files Modified For Local Path Redaction
-
-- `AGENTS.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX01_agents_report_rule.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX02_configure_git_remote.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX03_codex_validation_lane_rule.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC02_electron_launch_failure.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_backfill_work_card_json_artifacts.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_blank_renderer_after_vite_tailwind_migration.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_header_layout_and_workflow_rail.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_source_driven_figma_ui_parity.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_strict_figma_source_parity_diff_pass.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_ui_branding_and_responsive_overflow_fixes.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC01_work_card_schema_renderer.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC02_work_card_capture_form.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC03_architect_framing_prompt_composer.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC04_risk_router.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC05_generate_builder_prompt.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC06_capture_builder_report.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC07_human_validation_and_repair_loop.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC08_phase_1_closeout_and_status_management.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC09_figma_ui_design_handoff_package.md`
-- `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC10_figma_ui_and_terminology_alignment.md`
-- `planning/phases/phase-01/UI_Design_Handoff/FIGMA_IMPLEMENTATION_MAP.md`
-- `planning/phases/phase-01/UI_Design_Handoff/FIGMA_SOURCE_DIFF_WC10.md`
-- `planning/phases/phase-01/UI_Design_Handoff/SCREENSHOT_CAPTURE_INSTRUCTIONS.md`
-- `planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md`
-- `planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md`
-- `planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md`
-- `planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md`
-- `planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md`
-- `planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md`
-- `planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md`
-- `planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md`
-- `planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.md`
-- `planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_FIX_context_menu_copy_paste.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_project_planning_documents_ui.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_add_project_intake_capture.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_repair_project_intake_action_status_layout.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_header_layout_regression.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_validation_status_indicator.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_generate_project_planning_documents.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_validation_target_selector.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md`
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md`
-- `planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md`
-- `planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md`
-- `planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.md`
-- `planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.md`
-- `planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.md`
-- `planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
-- `planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json`
-- `planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md`
-- `planning/project/ENVIRONMENT.md`
-- `planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json`
-- `planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md`
-- `planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i_2.json`
-- `planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i_2.md`
-- `planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.json`
-- `planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.md`
-- `planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.json`
-- `planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.md`
-- `planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.json`
-- `planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.md`
-- `planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json`
-- `planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md`
-- `planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json`
-- `planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md`
-- `scripts/verify-work-card-fixture.mjs`
-- `src/renderer/app/App.tsx`
-- `src/shared/workCards/fixtures/projectIntakeFixture.ts`
-- `src/shared/workCards/renderBuilderPrompt.ts`
-- `src/shared/workCards/renderWorkCardMarkdown.ts`
 
 ## Files Intentionally Not Created
 
 - No WC02 durable current required action model files were created.
-- No WC02 Implementer Report was created.
-- No validation records, closeout records, release tags, or PR artifacts were created.
-- No provider, MCP, connector, auth, database, deployment, or dependency artifacts were created.
-
-## Redaction Policy Used
-
-- Concrete local repo root paths were replaced with `<PROJECT_REPO>`.
-- Project files were referenced with repo-relative paths.
-- External local temp, cache, and attachment paths were replaced with redacted prose rather than another machine-specific path.
-- Runtime verification of the actual local path was recorded as `verified approved repo root`.
+- No WC02 implementation report was created.
+- No validation records, closeout records, release tags, package artifacts, PR artifacts, provider SDK artifacts, connector artifacts, auth artifacts, database artifacts, or deployment artifacts were created.
 
 ## Commands Run And Results
 
 - `pwd` - passed; verified approved repo root.
-- `git status --short --branch` - passed; branch `master` with broad pre-existing dirty state.
+- `git status --short` - passed; confirmed broad dirty state existed and that this repair did not stage files.
+- `git status --short --branch` - passed; branch is `master`.
 - `git remote -v` - passed; remote is `origin https://github.com/ChampCityChris/ChampCity_AI.git`.
-- `Get-Content -Raw planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md` - passed.
-- `Get-Content -Raw AGENTS.md` - passed.
-- `Get-Content -Raw docs/dev/VALIDATION_COMMAND_LANES.md` - passed.
-- Local path pattern scan over required targets - initially found local path patterns; post-redaction scan passed with no matches.
-- Escaped Windows path pattern scan over required targets - post-redaction scan passed with no matches.
-- `node --check scripts/verify-work-card-fixture.mjs` - passed.
-- `npm run validate:codex:unit` - passed in the approved normal Windows validation lane; this ran `npm run test` and `npm run typecheck`.
+- `rg --files planning/phases/phase-03` - passed; identified current Phase 03 artifacts.
+- `Get-Content AGENTS.md` - passed; confirmed the Local Path Redaction rule.
+- `Get-Content planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md` - passed; used as repair context.
+- `Get-Content planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md` - passed; inspected stale claims before updating.
+- `Get-Content "Generic Docs/example_project_profile_champcity_v11.md"` - passed; inspected the changed text file that contained concrete local path matches.
+- `git diff -- "Generic Docs/example_project_profile_champcity_v11.md" planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md` - passed; reviewed scoped report diff. The untracked example profile was separately inspected by file read and scan.
+- Local redaction scans listed below - passed after redaction with no remaining concrete local path matches in the checked text set.
+
+## Local Redaction Scan Commands
+
+- `rg -n "Local Path Redaction|Architect and Implementer|<PROJECT_REPO>" AGENTS.md`
+- `rg -n --pcre2 "(?:[A-Za-z]:(?:[\\\\]+|/)+Users(?:[\\\\]+|/)+|/(?:Users|home)/|~(?:/|[\\\\]+))" AGENTS.md planning/phases/phase-03 "Generic Docs/example_project_profile_champcity_v11.md"`
+- `git status --porcelain --untracked-files=all` with a local text-file filter, followed by the same `rg --pcre2` local-path regex over the changed text-like file list.
+
+## Local Scan Results
+
+- `AGENTS.md` rule check: passed. The Local Path Redaction section applies to both Architect and Implementer outputs and requires `<PROJECT_REPO>` or repo-relative paths in durable artifacts.
+- Phase 03 handoff/local-path scan: passed. No concrete local machine path matches were found in `AGENTS.md` or `planning/phases/phase-03`.
+- Changed text-like file scan before this repair: found 3 concrete Windows user-path matches in `Generic Docs/example_project_profile_champcity_v11.md`.
+- Changed text-like file scan after redaction: passed with no concrete local path matches.
+- Files scanned by the changed-file local path check after redaction: 95 text-like changed files.
 
 ## Validation Performed
 
-- Local path safety scan over `AGENTS.md`, `docs/`, `planning/`, `scripts/`, and `src/`: passed after redaction.
-- Escaped Windows path safety scan over the same targets: passed after redaction.
-- Script syntax validation: passed.
-- TypeScript validation through `npm run validate:codex:unit`: passed in the approved normal Windows validation lane.
+- Local scan/readiness work only. Codex performed file reads and local text scans; no app runtime, build, package, test, Electron startup, Vite, Vitest, Playwright, or esbuild validation was run.
+- Validation lane: local shell/readiness scan lane only; the validation-command lane rule was not triggered because no child-process-heavy validation command was run.
 
 ## Validation Skipped And Reason
 
-- `npm run validate:codex` full suite was not run because this preflight only changed path strings, text artifacts, and local path policy; the Work Card asked for a lightweight lane when source code changes are limited to redaction strings/comments.
+- Automated build/typecheck/test validation was skipped because this repair only redacted text paths and corrected the preflight report.
 - Operator manual validation was not performed because Implementer validation must not perform Operator acceptance.
-
-## Safety Scan Results
-
-- Working tree required-target scan: passed with no local machine path pattern matches.
-- Staged pre-commit safety scan: passed with no local machine path pattern matches.
 
 ## Git Actions Performed
 
-- Commit planned after staging and staged safety scan.
-- Commit hash cannot be embedded in the same committed report because Git computes the hash from the report content. The final Implementer response records the resulting local commit hash.
-- No push, tag, PR, or release action was performed.
+- No files were staged by Codex.
+- No commit was created by Codex.
+- No push, tag, release, package, or PR action was performed.
+- Codex does not have ChampCity MCP access. Final MCP safety-stage and commit after review are Architect/Operator-owned.
 
-## Remaining Dirty Files After Commit
+## Remaining Dirty Files
 
-The final Implementer response records the exact post-commit `git status --short` output. Broad dirty state existed before this pass and unrelated changes were intentionally left unstaged where partial staging was required.
+The worktree still has broad dirty state from earlier Phase 01, Phase 02, project-planning, source, and Phase 03 work. This repair intentionally changed only:
+
+- `Generic Docs/example_project_profile_champcity_v11.md`
+- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
 
 ## Security And Secret-Safety Notes
 
-- No secrets, credentials, tokens, or API keys were requested, printed, stored, or modified.
-- Concrete local paths were removed from required scan targets.
-- External local paths were redacted without preserving user-specific directories.
+- No secrets, credentials, tokens, API keys, or private tokens were requested, printed, stored, or modified.
+- Remaining concrete local machine path matches found by the changed-text scan were redacted to `<PROJECT_REPO>`.
+- The report records the repository path as "verified approved repo root" rather than printing a concrete local path.
+
+## Manual Validation Required
+
+- Architect/Operator review of this repair report and the two changed files.
+- Architect/Operator final MCP safety-stage/commit checkpoint after review.
+- Operator validation before WC02 handoff, if desired.
+
+## Residual Risks
+
+- Broad pre-existing dirty state remains outside this narrow repair.
+- The local scan covered text-like changed files and skipped binary/archive files such as zip assets.
+- Final MCP safety-stage/commit has not been performed by Codex and remains Architect/Operator-owned.
 
 ## Blocking Questions
 
 None.
 
-## WC02 Handoff Safety
-
-WC02 is safe to hand off from a local path hygiene perspective after the focused preflight commit and staged scan pass. The WC02 Work Card already uses `<PROJECT_REPO>` and repo-relative paths in its handoff prompt.
-
 ## Recommended Next Implementer Task
 
-Proceed to `planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md` after Operator review of the preflight commit and any remaining dirty state.
+After Architect/Operator review and final safety-stage/commit checkpoint, proceed to `planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md`.
