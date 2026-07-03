@@ -16,10 +16,28 @@ export const phaseCloseoutDecisions = [
 export type PhaseCloseoutDecision =
   (typeof phaseCloseoutDecisions)[number];
 
+export const nextPhaseActivationDecisions = [
+  "Activate next phase",
+  "Defer next phase",
+  "Revise roadmap first",
+  "Carry unresolved current-phase items forward",
+  "Close current phase without activation",
+  "Keep next phase inactive",
+  "Approve next phase activation",
+  "Keep next phase pending review",
+  "Request revised next phase plan",
+  "No next phase planned",
+] as const;
+
+export type NextPhaseActivationDecision =
+  (typeof nextPhaseActivationDecisions)[number];
+
 export interface PhaseCloseoutRecord {
   closeoutId: string;
   phase: string;
   decision: PhaseCloseoutDecision;
+  nextPhaseActivationDecision: NextPhaseActivationDecision;
+  nextPhaseActivationNotes: string;
   artifactSummary: PhaseArtifactSummary;
   closeoutSummary: string;
   completedItems: string;
@@ -34,6 +52,8 @@ export interface PhaseCloseoutRecord {
 export interface PhaseCloseoutFormInput {
   phase: string;
   decision: PhaseCloseoutDecision;
+  nextPhaseActivationDecision: NextPhaseActivationDecision;
+  nextPhaseActivationNotes: string;
   closeoutSummary: string;
   completedItems: string;
   remainingItems: string;
@@ -85,10 +105,16 @@ export function buildPhaseCloseoutRecord(
     throw new Error("Choose a valid phase closeout decision.");
   }
 
+  if (!isNextPhaseActivationDecision(input.nextPhaseActivationDecision)) {
+    throw new Error("Choose a valid next phase activation decision.");
+  }
+
   return {
     closeoutId: buildPhaseCloseoutId(phase, createdAt),
     phase,
     decision: input.decision,
+    nextPhaseActivationDecision: input.nextPhaseActivationDecision,
+    nextPhaseActivationNotes: input.nextPhaseActivationNotes,
     artifactSummary,
     closeoutSummary: input.closeoutSummary,
     completedItems: input.completedItems,
@@ -124,6 +150,10 @@ export function validatePhaseCloseoutRecord(
 
   if (!isPhaseCloseoutDecision(record.decision)) {
     errors.push("Closeout decision is not a supported value.");
+  }
+
+  if (!isNextPhaseActivationDecision(record.nextPhaseActivationDecision)) {
+    errors.push("Next phase activation decision is not a supported value.");
   }
 
   return {
@@ -176,6 +206,12 @@ export function isPhaseCloseoutDecision(
   value: string,
 ): value is PhaseCloseoutDecision {
   return (phaseCloseoutDecisions as readonly string[]).includes(value);
+}
+
+export function isNextPhaseActivationDecision(
+  value: string,
+): value is NextPhaseActivationDecision {
+  return (nextPhaseActivationDecisions as readonly string[]).includes(value);
 }
 
 function buildPhaseCloseoutId(phase: string, createdAt: string): string {

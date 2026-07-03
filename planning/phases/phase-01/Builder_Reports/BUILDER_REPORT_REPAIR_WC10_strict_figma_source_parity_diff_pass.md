@@ -26,8 +26,8 @@ Repair task (`REPAIR_WC10_strict_figma_source_parity_diff_pass`): strict source-
 
 - Repo path inspected: `planning/phases/phase-01/UI_Design_Handoff/figma_source/Design Dark UI for ChampCity.zip`
 - Zip SHA-256: `C439FF150A80F2095631FD17461356B5830F52702C12D9ED98169A876D02716A`
-- Temporary extraction path: `redacted local temporary extraction path`
-- No newer ZIP was found under `[redacted local attachment path]`, so the repo ZIP was treated as the latest supplied source package.
+- Temporary extraction path: redacted local temporary extraction path.
+- No newer ZIP was found under the redacted local Codex attachments cache, so the repo ZIP was treated as the latest supplied source package.
 
 ## Whether Latest Zip Differed From Previous Repo Copy
 
@@ -150,7 +150,7 @@ Repair task (`REPAIR_WC10_strict_figma_source_parity_diff_pass`): strict source-
 - `git remote -v` - confirmed GitHub origin URL.
 - `Get-Content -LiteralPath AGENTS.md` - read repository rules.
 - `Get-Content` for the five latest WC10 reports - inspected prior WC10 implementation and repair history.
-- `Get-ChildItem -LiteralPath [redacted local attachment path] -Recurse -Filter *.zip` - found no newer ZIP in the current attachment cache.
+- `Get-ChildItem -LiteralPath [redacted local attachments cache] -Recurse -Filter *.zip` - found no newer ZIP in the current attachment cache.
 - `Get-FileHash` - recorded ZIP, Figma `App.tsx`, renderer `App.tsx`, and banner image hashes.
 - `tar -tf` - inspected Figma source package file list.
 - `Expand-Archive` - extracted the Figma source package to a temporary inspection directory.

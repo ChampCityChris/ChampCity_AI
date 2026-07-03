@@ -334,7 +334,7 @@ export function renderPhaseArchitectInterviewPromptText(
     "4. Blockers or decisions that require Operator judgment.",
     "",
     "Do not generate Phase Planning Documents.",
-    "Do not generate an initial Work Card plan.",
+    "Do not generate a Work Card Plan proposal.",
     "Do not generate Work Cards.",
     "Do not write implementation code.",
   ].join("\n");

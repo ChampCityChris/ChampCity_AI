@@ -26,7 +26,7 @@ Repair task (`REPAIR_WC10_source_driven_figma_ui_parity`): source-driven WC10 UI
 
 - `planning/phases/phase-01/UI_Design_Handoff/figma_source/Design Dark UI for ChampCity.zip`
 - The package was already present at the expected repository path, so no attachment copy was needed.
-- Temporary extraction used for inspection only: `redacted local temporary extraction path`
+- Temporary extraction used for inspection only: redacted local temporary extraction path.
 
 ## Figma Files Reused Or Adapted
 

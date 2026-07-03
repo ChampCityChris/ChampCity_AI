@@ -1,0 +1,22 @@
+{
+  "projectIntakeId": "PROJECT_INTAKE_layout_repair_manual_validation",
+  "projectName": "Layout Repair Manual Validation",
+  "workingTitle": "",
+  "createdAt": "2026-06-30T16:07:13.404Z",
+  "updatedAt": "2026-06-30T16:07:13.404Z",
+  "productSummary": "A manual validation record for the Project Intake action/status layout repair.",
+  "targetUsers": "The Operator validating Phase 02 WC01 repair behavior.",
+  "userProblem": "The action/status feedback was rendered vertically at narrow desktop widths.",
+  "desiredUserOutcome": "Read Project Intake status messages horizontally while previewing, copying, and saving.",
+  "businessOrPersonalGoal": "",
+  "currentStage": "mvp",
+  "sourceOfTruthLocation": "<PROJECT_REPO>",
+  "preferredImplementerTool": "Codex",
+  "architectSurface": "ChatGPT",
+  "knownConstraints": "",
+  "nonGoals": "",
+  "securityOrDataConcerns": "",
+  "examplesOrReferences": "",
+  "operatorUncertainties": "",
+  "notesForArchitect": ""
+}

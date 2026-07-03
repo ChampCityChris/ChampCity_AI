@@ -1,0 +1,22 @@
+{
+  "projectIntakeId": "PROJECT_INTAKE_champcity_a_i",
+  "projectName": "ChampCity A/I",
+  "workingTitle": "",
+  "createdAt": "2026-06-30T15:56:46.541Z",
+  "updatedAt": "2026-06-30T15:56:46.541Z",
+  "productSummary": "We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt builder but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.",
+  "targetUsers": "Non-developer end users. They may be tech savvy but  have limited knowledge in coding languages, tech stacks, or development planning.",
+  "userProblem": "This allows an end user to achieve consistent results from utilizing a standardized workflow for agentic ai application creation",
+  "desiredUserOutcome": "Plan, Design, Implement, and Track a complex application's creation from start to finish.",
+  "businessOrPersonalGoal": "The goal is to create an application that is free to use.  This will be published on a Website with requests for donations as the monetization method for the application.",
+  "currentStage": "mvp",
+  "sourceOfTruthLocation": "<PROJECT_REPO>",
+  "preferredImplementerTool": "Codex",
+  "architectSurface": "ChatGPT",
+  "knownConstraints": "ChatGPT subscriptions prevent the use of API for wiring the model directly into the application.",
+  "nonGoals": "This project should not try to be an autonomous software creation application.  The operator remains a centaur.",
+  "securityOrDataConcerns": "model API integration will require strict security to not be exposed in source code or final build packaging",
+  "examplesOrReferences": "www.120x.ai",
+  "operatorUncertainties": "I am unsure how to code a solution for integrating this application with the subscription versions of ChatGPT or Claude",
+  "notesForArchitect": "MVP is currently closed. We have proved the work card loop model and are expanding on that to create the full  project"
+}

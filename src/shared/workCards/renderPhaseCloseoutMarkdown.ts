@@ -3,7 +3,7 @@ import type { PhaseCloseoutRecord } from "./phaseCloseoutRecord";
 import { validatePhaseCloseoutRecord } from "./phaseCloseoutRecord";
 
 export const phaseCloseoutNonMutatingNote =
-  "This Phase Closeout record does not mutate Work Cards, change Work Card status or risk level, create release tags, push to GitHub, package the app, deploy anything, or start the next phase by itself.";
+  "This Phase Closeout record may document a next-phase activation decision, but it does not mutate Work Cards, change Work Card status or risk level, create release tags, push to GitHub, package the app, deploy anything, create Formal Work Cards, generate Implementer Prompts, or start the next phase by itself.";
 
 export function renderPhaseCloseoutMarkdown(
   record: PhaseCloseoutRecord,
@@ -26,6 +26,14 @@ export function renderPhaseCloseoutMarkdown(
     "## Closeout Decision",
     "",
     record.decision,
+    "",
+    "## Next Phase Activation Decision",
+    "",
+    record.nextPhaseActivationDecision,
+    "",
+    "## Next Phase Activation Notes",
+    "",
+    formatText(record.nextPhaseActivationNotes),
     "",
     "## Deterministic Recommendation",
     "",

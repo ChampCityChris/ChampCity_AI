@@ -1,0 +1,220 @@
+# Work Card: Phase Transition, Work Card Plan Review, and Artifact Authority Model
+
+## Work Card ID
+
+WC08
+
+Created: 2026-07-02T00:00:00.000Z
+Updated: 2026-07-02T00:00:00.000Z
+
+## Phase
+
+phase-02
+
+## Status
+
+ready_for_builder
+
+## What Problem Are We Solving?
+
+WC07 split Phase Map Builder from Phase Planning Documents Generator, but the app still did not clearly distinguish draft next-phase planning artifacts from approved executable work. The Operator could generate Phase 03 planning artifacts before closeout, but the app needed an explicit authority boundary so those artifacts could not be mistaken for active phase work, Formal Work Cards, or Implementer Prompts.
+
+## What Should This Accomplish?
+
+Define, implement, and document the missing authority boundary between Project Plan / Roadmap, Phase Map, Phase Planning Documents, Work Card Plan, Formal Work Cards, Implementer Prompts, Builder Reports, Human Validation Reports, Closeout Reports, and Next Phase Activation.
+
+## What Should the User Be Able To Do?
+
+The Operator can plan a future phase before or during closeout while seeing that the artifacts are Draft / Pending Review / Not Active until an explicit Operator activation and Formal Work Card approval decision occurs.
+
+## What Is Included?
+
+- Create WC08 JSON and Markdown Work Card artifacts under Phase 02.
+- Document the artifact authority model in durable project planning records.
+- Update Project Roadmap output so future phases are Proposed and roadmap artifacts do not imply activation.
+- Update Phase Map output so mapped phases and pending-review planning artifacts remain not active.
+- Update Phase Planning Documents and Work Card Plan records to include review status, phase activation status, and artifact authority language.
+- Ensure Work Card Plans propose count, order, names, and rough intent only and do not create Formal Work Cards.
+- Add a distinct Work Card Plan Review screen or scaffold that presents planned entries as proposed/non-executable and keeps materialization actions disabled until a separate Operator approval workflow exists.
+- Add planned-entry reconciliation status language for planned, already satisfied, implemented but not validated, validated but not closed, deferred, and superseded work.
+- Add a Closeout Report field for the Next Phase Activation decision.
+- Relabel the existing Capture screen as Ad Hoc Work Card Capture so it is not confused with planned phase execution.
+- Add Ad Hoc Work Card Capture guardrails so local manual/ad hoc fields are clearly authoritative and cannot silently conflict with a selected Work Card context.
+- Mark existing Phase 03 draft artifacts under planning/phases/phase-03/ as Draft / Pending Review / Not Active.
+- Update fixture/static validation coverage for the authority model and pending-review labels.
+- Create the required WC08 Builder Report under the legacy Builder_Reports folder.
+
+## What Is Not Included?
+
+- Do not close Phase 02.
+- Do not activate Phase 03.
+- Do not create executable Phase 03 Work Cards automatically.
+- Do not create Formal Work Cards from Work Card Plans without a separate Operator approval step.
+- Do not generate Architect-created Implementer Prompts unless a Formal Work Card already exists.
+- Do not call an LLM API.
+- Do not require Zapier.
+- Do not add provider SDKs.
+- Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or provider-specific LLM SDKs.
+- Do not rewrite historical Builder compatibility storage names.
+- Do not perform Operator manual validation, Human Validation acceptance, Phase 02 closeout, or product-owner approval.
+
+## Requirements
+
+- Project Roadmap must create a proposed end-to-end project progression.
+- Roadmap phases remain Proposed until the Phase Map Builder maps them.
+- Mapped phase records are structured phase-selection authority, not activation authority.
+- Phase Planning Documents created before prior-phase closeout must be marked Pending Review or equivalent.
+- Work Card Plans must be marked as planning proposals only.
+- Work Card Plan Review must be the normal planned-work review path after Phase Planning Documents, not Ad Hoc Work Card Capture.
+- Formal Work Cards require a separate Operator approval step and must be saved under Work_Cards/.
+- Implementer Prompts must be generated only after a Formal Work Card exists.
+- Phase Closeout must record a Next Phase Activation decision, including activation, deferral, roadmap revision, carry-forward, and close-without-activation options.
+- Phase 03 draft artifacts may live under planning/phases/phase-03/ but must be labeled Draft / Pending Review / Not Active.
+- Renderer code must not directly use unrestricted filesystem access.
+- Filesystem writes must remain mediated by Electron main/preload IPC and constrained to approved planning paths.
+- Existing artifacts must be preserved unless explicitly superseded by WC08.
+
+## How We Know This Is Done
+
+- Project Roadmap Markdown includes the Artifact Authority Model and uses Proposed Roadmap Phases / Next Phase Recommendation language.
+- Project Roadmap generated future phases use Proposed status while retaining legacy compatibility for older future/planned records.
+- Phase Map records can represent pending_review mapped phases when draft planning artifacts exist.
+- Phase Planning Documents JSON/Markdown include Pending Review and Not Active status.
+- Work Card Plan JSON/Markdown include Pending Review, Not Active, and Formal Work Card boundary language.
+- Work Card Plan Review exists as a read-only/scaffolded screen and labels planned entries as proposed/non-executable.
+- Planned entries expose reconciliation statuses for planned, already satisfied, implemented but not validated, validated but not closed, deferred, and superseded work.
+- The Ad Hoc Work Card Capture label appears in app metadata and renderer UI for the old Capture screen.
+- Ad Hoc Work Card Capture explains manual/ad hoc field authority and directs planned phase work to Work Card Plan Review.
+- Phase Closeout records and Markdown include Next Phase Activation Decision and Notes.
+- Existing Phase 03 draft planning artifacts are labeled Draft / Pending Review / Not Active and are not Formal Work Cards.
+- Fixture validation checks the new authority model labels and does not require the old Project Roadmap & Phase Map or Initial Work Card Plan headings.
+- Automated validation passes using the documented validation lane or records any lane-specific failure clearly.
+
+## How This Should Be Validated
+
+- Verify repository path and Git top-level directory.
+- Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before validation.
+- Run node --check scripts/verify-work-card-fixture.mjs.
+- Run the documented normal Windows validation lane, normally npm run validate:codex.
+- Run git status --short and review changed files.
+- List remaining Operator manual validation steps in the WC08 Builder Report without performing Operator acceptance.
+
+## Risk Level
+
+medium
+
+## Risks and Watch Items
+
+- Draft Phase 03 artifacts could be mistaken for active phase scope unless labels are visible in both JSON and Markdown.
+- The renderer is still a large single-file React implementation, so label and form edits must stay tightly scoped.
+- Historical WC06/WC07 artifacts use older labels and should not be renamed casually.
+- Closeout can record an activation decision, but saving the closeout artifact must not itself activate a phase or create Work Cards.
+- A Work Card Plan Review surface can look like executable work unless planned entries are clearly marked proposed and not executable.
+- Ad Hoc Work Card Capture can conflict with header-selected Work Card context unless manual/ad hoc authority is explicit.
+
+## Builder Instructions
+
+- Verify the workspace path and git top-level directory before editing.
+- Read AGENTS.md, WC08 requirements, current planning files, shared work-card generators, main/preload IPC, renderer source, and validation lane documentation before implementation.
+- Keep this pass limited to the authority model, pending-review labels, closeout transition decision, Work Card Plan Review, and the Ad Hoc Work Card Capture relabel and guardrails.
+- Preserve Operator / Architect / Implementer terminology.
+- Preserve legacy Builder artifact storage names until a dedicated migration Work Card changes them safely.
+- Do not perform Operator manual validation or create accepted Human Validation records.
+- Run required validation commands and document results in the WC08 Builder Report.
+
+## Operator Notes
+
+- WC08 is a Phase 02 corrective Work Card, not Phase 03 implementation.
+- The app may plan the next phase before closeout, but next-phase artifacts must remain Draft / Pending Review / Not Active.
+- Work Card Plans propose Work Cards but do not create Formal Work Cards.
+- Work Card Plan Review is the planned path after Phase Planning; Ad Hoc Work Card Capture is separate.
+- Formal Work Cards require a separate Operator approval step.
+- Architect-created Implementer Prompts come after a Formal Work Card exists.
+- Ad Hoc Work Card Capture is for out-of-cycle, one-off, repair, emergency, or operator-discovered work.
+- The Operator owns final WC08 acceptance, Phase 02 closeout, and any Phase 03 activation decision.
+
+## Builder Handoff Prompt
+
+Use this as the starting Implementer prompt. The section heading remains a legacy Builder handoff heading for artifact compatibility.
+
+You are acting as Implementer for ChampCity A/I.
+
+The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured handoff and preserve the approved scope.
+
+Before editing:
+- Verify the repository path before editing. Expected repository: `<PROJECT_REPO>`.
+- Read `AGENTS.md` and relevant planning files.
+
+Work Card: WC08 - Phase Transition, Work Card Plan Review, and Artifact Authority Model
+
+Goal: Define, implement, and document the missing authority boundary between Project Plan / Roadmap, Phase Map, Phase Planning Documents, Work Card Plan, Formal Work Cards, Implementer Prompts, Builder Reports, Human Validation Reports, Closeout Reports, and Next Phase Activation.
+
+Scope:
+- Create WC08 JSON and Markdown Work Card artifacts under Phase 02.
+- Document the artifact authority model in durable project planning records.
+- Update Project Roadmap output so future phases are Proposed and roadmap artifacts do not imply activation.
+- Update Phase Map output so mapped phases and pending-review planning artifacts remain not active.
+- Update Phase Planning Documents and Work Card Plan records to include review status, phase activation status, and artifact authority language.
+- Ensure Work Card Plans propose count, order, names, and rough intent only and do not create Formal Work Cards.
+- Add a distinct Work Card Plan Review screen or scaffold that presents planned entries as proposed/non-executable and keeps materialization actions disabled until a separate Operator approval workflow exists.
+- Add planned-entry reconciliation status language for planned, already satisfied, implemented but not validated, validated but not closed, deferred, and superseded work.
+- Add a Closeout Report field for the Next Phase Activation decision.
+- Relabel the existing Capture screen as Ad Hoc Work Card Capture so it is not confused with planned phase execution.
+- Add Ad Hoc Work Card Capture guardrails so local manual/ad hoc fields are clearly authoritative and cannot silently conflict with a selected Work Card context.
+- Mark existing Phase 03 draft artifacts under planning/phases/phase-03/ as Draft / Pending Review / Not Active.
+- Update fixture/static validation coverage for the authority model and pending-review labels.
+- Create the required WC08 Builder Report under the legacy Builder_Reports folder.
+
+Out of scope:
+- Do not close Phase 02.
+- Do not activate Phase 03.
+- Do not create executable Phase 03 Work Cards automatically.
+- Do not create Formal Work Cards from Work Card Plans without a separate Operator approval step.
+- Do not generate Architect-created Implementer Prompts unless a Formal Work Card already exists.
+- Do not call an LLM API.
+- Do not require Zapier.
+- Do not add provider SDKs.
+- Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or provider-specific LLM SDKs.
+- Do not rewrite historical Builder compatibility storage names.
+- Do not perform Operator manual validation, Human Validation acceptance, Phase 02 closeout, or product-owner approval.
+
+Requirements:
+- Project Roadmap must create a proposed end-to-end project progression.
+- Roadmap phases remain Proposed until the Phase Map Builder maps them.
+- Mapped phase records are structured phase-selection authority, not activation authority.
+- Phase Planning Documents created before prior-phase closeout must be marked Pending Review or equivalent.
+- Work Card Plans must be marked as planning proposals only.
+- Work Card Plan Review must be the normal planned-work review path after Phase Planning Documents, not Ad Hoc Work Card Capture.
+- Formal Work Cards require a separate Operator approval step and must be saved under Work_Cards/.
+- Implementer Prompts must be generated only after a Formal Work Card exists.
+- Phase Closeout must record a Next Phase Activation decision, including activation, deferral, roadmap revision, carry-forward, and close-without-activation options.
+- Phase 03 draft artifacts may live under planning/phases/phase-03/ but must be labeled Draft / Pending Review / Not Active.
+- Renderer code must not directly use unrestricted filesystem access.
+- Filesystem writes must remain mediated by Electron main/preload IPC and constrained to approved planning paths.
+- Existing artifacts must be preserved unless explicitly superseded by WC08.
+
+Acceptance criteria:
+- Project Roadmap Markdown includes the Artifact Authority Model and uses Proposed Roadmap Phases / Next Phase Recommendation language.
+- Project Roadmap generated future phases use Proposed status while retaining legacy compatibility for older future/planned records.
+- Phase Map records can represent pending_review mapped phases when draft planning artifacts exist.
+- Phase Planning Documents JSON/Markdown include Pending Review and Not Active status.
+- Work Card Plan JSON/Markdown include Pending Review, Not Active, and Formal Work Card boundary language.
+- Work Card Plan Review exists as a read-only/scaffolded screen and labels planned entries as proposed/non-executable.
+- Planned entries expose reconciliation statuses for planned, already satisfied, implemented but not validated, validated but not closed, deferred, and superseded work.
+- The Ad Hoc Work Card Capture label appears in app metadata and renderer UI for the old Capture screen.
+- Ad Hoc Work Card Capture explains manual/ad hoc field authority and directs planned phase work to Work Card Plan Review.
+- Phase Closeout records and Markdown include Next Phase Activation Decision and Notes.
+- Existing Phase 03 draft planning artifacts are labeled Draft / Pending Review / Not Active and are not Formal Work Cards.
+- Fixture validation checks the new authority model labels and does not require the old Project Roadmap & Phase Map or Initial Work Card Plan headings.
+- Automated validation passes using the documented validation lane or records any lane-specific failure clearly.
+
+Validation plan:
+- Verify repository path and Git top-level directory.
+- Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before validation.
+- Run node --check scripts/verify-work-card-fixture.mjs.
+- Run the documented normal Windows validation lane, normally npm run validate:codex.
+- Run git status --short and review changed files.
+- List remaining Operator manual validation steps in the WC08 Builder Report without performing Operator acceptance.
+
+Implementer Report:
+- Create an Implementer Report under the legacy `planning/phases/phase-02/Builder_Reports/` folder and include commands run, validation results, security notes, git actions, and the recommended next Implementer task.

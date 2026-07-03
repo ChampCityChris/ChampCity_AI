@@ -1,0 +1,14 @@
+{
+  "id": "PROJECT_MAPPING_REBASELINE_workflow_router_model",
+  "status": "phase_03_source_context",
+  "project": "ChampCity A/I",
+  "productCorrection": "The app is a workflow router, not a screen picker.",
+  "recommendedNextPhase": {
+    "phaseId": "phase-03",
+    "title": "Workflow Router Screen Correction and Guided Current Action UI",
+    "status": "active_approved_for_jit_work_card_execution",
+    "purpose": "Correct application screens and UI behavior to adhere to the newly mapped workflow process. The UI must compute and display the current actionable step and make generic screen navigation secondary."
+  },
+  "operatorApprovalRequired": true,
+  "phase03ApprovalSource": "planning/phases/phase-03/Operator_Phase_Approval.md"
+}

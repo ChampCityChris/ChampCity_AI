@@ -133,7 +133,7 @@ const reconciledPhase02Sequence = [
   "WC03: Repair validation and evidence UI",
   "WC04: Generate Project Planning Documents",
   "WC05: Add Phase Intake and Phase Interview prompt generator",
-  "WC06: Generate Phase Planning Documents and initial Work Card plan",
+  "WC06: Generate Phase Planning Documents and pending-review Work Card Plan proposal",
 ] as const;
 
 export function buildProjectPlanningDocuments(

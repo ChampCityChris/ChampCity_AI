@@ -226,7 +226,12 @@ import {
   buildWorkCardPlanRecord,
   renderPhaseScopedBacklogMarkdown,
   renderWorkCardPlanMarkdown,
+  validateWorkCardPlanRecord,
   validateWorkCardPlanArtifactFileName,
+  type InvalidSavedWorkCardPlanFile,
+  type ListSavedWorkCardPlansResult,
+  type SavedWorkCardPlanSummary,
+  type WorkCardPlanRecord,
 } from "../../shared/workCards/workCardPlan";
 import {
   buildCompatibilityPhaseIntakeFromRoadmap,
@@ -252,6 +257,21 @@ import {
   type ProjectRoadmapSourceArtifact,
   type SavedProjectRoadmapSummary,
 } from "../../shared/workCards/projectRoadmap";
+import {
+  buildPhaseMapFileNames,
+  buildPhaseMapRecord,
+  renderPhaseMapMarkdown,
+  validatePhaseMapArtifactFileName,
+  validatePhaseMapRecord,
+  type InvalidSavedPhaseMapFile,
+  type ListSavedPhaseMapsResult,
+  type PhaseMapBuildInput,
+  type PhaseMapBuilderRequest,
+  type PhaseMapPreviewResult,
+  type PhaseMapRecord,
+  type PhaseMapSaveResult,
+  type SavedPhaseMapSummary,
+} from "../../shared/workCards/phaseMap";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
@@ -1646,6 +1666,148 @@ export async function listSavedProjectRoadmaps(): Promise<ListSavedProjectRoadma
   }
 }
 
+export async function previewPhaseMap(
+  input: PhaseMapBuilderRequest,
+): Promise<PhaseMapPreviewResult> {
+  try {
+    const timestamp = new Date().toISOString();
+    const context = await readPhaseMapContext(input);
+    const phaseMap = buildPhaseMapRecord(context, timestamp);
+    const markdown = renderPhaseMapMarkdown(phaseMap);
+    const suggestedFileNames = buildPhaseMapFileNames(phaseMap.projectName);
+
+    return {
+      ok: true,
+      phaseMap,
+      markdown,
+      suggestedFileNames,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function savePhaseMap(
+  input: PhaseMapBuilderRequest,
+): Promise<PhaseMapSaveResult> {
+  try {
+    const timestamp = new Date().toISOString();
+    const context = await readPhaseMapContext(input);
+    const phaseMap = buildPhaseMapRecord(context, timestamp);
+    const markdown = renderPhaseMapMarkdown(phaseMap);
+    const suggestedFileNames = buildPhaseMapFileNames(phaseMap.projectName);
+    const directory = resolvePhaseMapDirectory();
+    const targets = await resolveAvailableFilePair(
+      directory,
+      suggestedFileNames.jsonFileName,
+      suggestedFileNames.markdownFileName,
+      "A safe Phase Map filename could not be generated.",
+    );
+    const fileNameErrors = [
+      ...validatePhaseMapArtifactFileName(targets.firstFileName),
+      ...validatePhaseMapArtifactFileName(targets.secondFileName),
+    ];
+
+    if (fileNameErrors.length > 0) {
+      throw new Error(fileNameErrors.join(" "));
+    }
+
+    const validationErrors = validatePhaseMapRecord(phaseMap);
+
+    if (validationErrors.length > 0) {
+      throw new Error(validationErrors.join(" "));
+    }
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      targets.firstPath,
+      `${JSON.stringify(phaseMap, null, 2)}\n`,
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
+    );
+    await writeFile(targets.secondPath, markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ok: true,
+      phaseMap,
+      markdown,
+      suggestedFileNames,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      jsonPath: targets.firstPath,
+      markdownPath: targets.secondPath,
+    };
+  } catch (error) {
+    console.error("Failed to save Phase Map.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedPhaseMaps(): Promise<ListSavedPhaseMapsResult> {
+  try {
+    const directory = resolvePhaseMapDirectory();
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const phaseMaps: SavedPhaseMapSummary[] = [];
+    const invalidFiles: InvalidSavedPhaseMapFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateSavedPhaseMapJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const phaseMap = await readSavedPhaseMapRecord(fileName);
+        phaseMaps.push(toSavedPhaseMapSummary(fileName, phaseMap));
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    phaseMaps.sort(compareSavedProjectArtifactSummaries);
+
+    return {
+      ok: true,
+      phaseMaps,
+      invalidFiles,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export async function previewPhasePlanningDocuments(
   input: PhasePlanningDocumentsRequest,
 ): Promise<PhasePlanningDocumentsPreviewResult> {
@@ -1832,6 +1994,63 @@ export async function savePhasePlanningDocuments(
   } catch (error) {
     console.error("Failed to save Phase Planning Documents.", error);
 
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function listSavedWorkCardPlans(
+  phase: string,
+): Promise<ListSavedWorkCardPlansResult> {
+  try {
+    const directory = resolveWorkCardPlansDirectory(phase);
+
+    let entries: string[] = [];
+
+    try {
+      entries = await readdir(directory);
+    } catch (error) {
+      if (!isNodeErrorWithCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const workCardPlans: SavedWorkCardPlanSummary[] = [];
+    const invalidFiles: InvalidSavedWorkCardPlanFile[] = [];
+
+    for (const fileName of entries.filter((entry) =>
+      entry.toLowerCase().endsWith(".json"),
+    )) {
+      const fileNameErrors = validateSavedWorkCardPlanJsonFileName(fileName);
+
+      if (fileNameErrors.length > 0) {
+        invalidFiles.push({ fileName, errorMessages: fileNameErrors });
+        continue;
+      }
+
+      try {
+        const workCardPlan = await readSavedWorkCardPlanRecord(phase, fileName);
+        workCardPlans.push(
+          await toSavedWorkCardPlanSummary(directory, fileName, workCardPlan),
+        );
+      } catch (error) {
+        invalidFiles.push({
+          fileName,
+          errorMessages: [toPlainSaveError(error)],
+        });
+      }
+    }
+
+    workCardPlans.sort(compareSavedProjectArtifactSummaries);
+
+    return {
+      ok: true,
+      workCardPlans,
+      invalidFiles,
+    };
+  } catch (error) {
     return {
       ok: false,
       errorMessages: [toPlainSaveError(error)],
@@ -2838,6 +3057,10 @@ export function resolveProjectRoadmapDirectory(): string {
   return resolveInside(planningProjectRoot, "Project_Roadmap");
 }
 
+export function resolvePhaseMapDirectory(): string {
+  return resolveInside(planningProjectRoot, "Phase_Map");
+}
+
 export function resolvePhaseIntakeDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
@@ -2958,6 +3181,26 @@ export function validateSavedWorkCardJsonFileName(fileName: string): string[] {
   return [];
 }
 
+export function validateSavedWorkCardPlanJsonFileName(
+  fileName: string,
+): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Work Card Plan JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return ["Saved Work Card Plan file names must not include folders."];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Work Card Plan files must be JSON files."];
+  }
+
+  return validateWorkCardPlanArtifactFileName(value);
+}
+
 export function validateSavedProjectIntakeJsonFileName(
   fileName: string,
 ): string[] {
@@ -3062,6 +3305,24 @@ export function validateSavedProjectRoadmapJsonFileName(
   }
 
   return validateProjectRoadmapArtifactFileName(value);
+}
+
+export function validateSavedPhaseMapJsonFileName(fileName: string): string[] {
+  const value = fileName.trim();
+
+  if (value.length === 0) {
+    return ["Choose a saved Phase Map JSON file."];
+  }
+
+  if (value !== path.basename(value)) {
+    return ["Saved Phase Map file names must not include folders."];
+  }
+
+  if (!value.toLowerCase().endsWith(".json")) {
+    return ["Saved Phase Map files must be JSON files."];
+  }
+
+  return validatePhaseMapArtifactFileName(value);
 }
 
 export function validateSavedPhaseIntakeJsonFileName(
@@ -3357,6 +3618,59 @@ async function readSavedProjectRoadmapRecord(
   return parsed as ProjectRoadmapRecord;
 }
 
+async function readSavedPhaseMapRecord(fileName: string): Promise<PhaseMapRecord> {
+  const fileNameErrors = validateSavedPhaseMapJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolvePhaseMapDirectory();
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validationErrors = validatePhaseMapRecord(parsed);
+
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `Saved Phase Map JSON is not valid: ${validationErrors.join(" ")}`,
+    );
+  }
+
+  return parsed as PhaseMapRecord;
+}
+
+async function readSavedWorkCardPlanRecord(
+  phase: string,
+  fileName: string,
+): Promise<WorkCardPlanRecord> {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  const fileNameErrors = validateSavedWorkCardPlanJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveWorkCardPlansDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validationErrors = validateWorkCardPlanRecord(parsed);
+
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `Saved Work Card Plan JSON is not valid: ${validationErrors.join(" ")}`,
+    );
+  }
+
+  return parsed as WorkCardPlanRecord;
+}
+
 async function findMatchingProjectPlanningDocumentsMarkdownFileName(
   projectPlanningDocumentsJsonFileName: string,
 ): Promise<string | undefined> {
@@ -3394,6 +3708,21 @@ async function findMatchingProjectRoadmapMarkdownFileName(
     resolveProjectRoadmapDirectory(),
     markdownFileName,
   );
+
+  return (await pathExists(filePath)) ? markdownFileName : undefined;
+}
+
+async function findMatchingPhaseMapMarkdownFileName(
+  phaseMapJsonFileName: string,
+): Promise<string | undefined> {
+  const markdownFileName = phaseMapJsonFileName.replace(/\.json$/i, ".md");
+  const fileNameErrors = validatePhaseMapArtifactFileName(markdownFileName);
+
+  if (fileNameErrors.length > 0) {
+    return undefined;
+  }
+
+  const filePath = resolveInside(resolvePhaseMapDirectory(), markdownFileName);
 
   return (await pathExists(filePath)) ? markdownFileName : undefined;
 }
@@ -3775,10 +4104,95 @@ async function readRepositoryReconciliationPromptContext(
   };
 }
 
+async function readPhaseMapContext(
+  input: PhaseMapBuilderRequest,
+): Promise<PhaseMapBuildInput> {
+  const projectPlanningDocumentFileName =
+    input.projectPlanningDocumentFileName?.trim() ?? "";
+  const repositoryReconciliationFileName =
+    input.repositoryReconciliationFileName?.trim() ?? "";
+  const projectRoadmapFileName = input.projectRoadmapFileName?.trim() ?? "";
+
+  if (projectPlanningDocumentFileName.length === 0) {
+    throw new Error("Select a saved Project Planning Documents source.");
+  }
+
+  if (repositoryReconciliationFileName.length === 0) {
+    throw new Error("Select a saved Repository Reconciliation source.");
+  }
+
+  if (projectRoadmapFileName.length === 0) {
+    throw new Error("Select a saved Project Roadmap source.");
+  }
+
+  const sourceProjectPlanningDocuments =
+    await readSavedProjectPlanningDocumentsRecord(projectPlanningDocumentFileName);
+  const sourceProjectPlanningDocumentsMarkdownFileName =
+    await findMatchingProjectPlanningDocumentsMarkdownFileName(
+      projectPlanningDocumentFileName,
+    );
+  const sourceRepositoryReconciliation =
+    await readSavedRepositoryReconciliationRecord(
+      repositoryReconciliationFileName,
+    );
+  const sourceRepositoryReconciliationMarkdownFileName =
+    await findMatchingRepositoryReconciliationMarkdownFileName(
+      repositoryReconciliationFileName,
+    );
+  const sourceProjectRoadmap =
+    await readSavedProjectRoadmapRecord(projectRoadmapFileName);
+  const sourceProjectRoadmapMarkdownFileName =
+    await findMatchingProjectRoadmapMarkdownFileName(projectRoadmapFileName);
+  const phaseContexts = await readProjectRoadmapPhaseContexts();
+
+  return {
+    ...input,
+    projectPlanningDocumentFileName,
+    repositoryReconciliationFileName,
+    projectRoadmapFileName,
+    sourceProjectPlanningDocuments,
+    sourceProjectPlanningDocumentsMarkdownFileName,
+    sourceRepositoryReconciliation,
+    sourceRepositoryReconciliationMarkdownFileName,
+    sourceProjectRoadmap,
+    sourceProjectRoadmapMarkdownFileName,
+    existingPhaseArtifacts: phaseContexts.map((context) => ({
+      phaseFolder: context.phase,
+      summary: context.summary,
+      workCardPlanFileNames: context.workCardPlanFileNames,
+      phasePlanningDocumentFileNames: context.phasePlanningDocumentFileNames,
+      phaseReadinessReviewFileNames: context.phaseReadinessReviewFileNames,
+    })),
+  };
+}
+
 async function readPhasePlanningDocumentsContext(
   input: PhasePlanningDocumentsRequest,
 ) {
-  const phaseFolder = input.phaseFolder.trim();
+  const phaseMapFileName = input.phaseMapFileName?.trim() ?? "";
+  const sourcePhaseMap =
+    phaseMapFileName.length > 0
+      ? await readSavedPhaseMapRecord(phaseMapFileName)
+      : undefined;
+  const sourcePhaseMapMarkdownFileName = sourcePhaseMap
+    ? await findMatchingPhaseMapMarkdownFileName(phaseMapFileName)
+    : undefined;
+  const mappedPhaseId = input.mappedPhaseId?.trim() ?? "";
+  const sourceMappedPhase = sourcePhaseMap
+    ? sourcePhaseMap.mappedPhases.find(
+        (mappedPhase) => mappedPhase.phaseId === mappedPhaseId,
+      )
+    : undefined;
+
+  if (sourcePhaseMap && mappedPhaseId.length === 0) {
+    throw new Error("Select a mapped phase from the saved Phase Map.");
+  }
+
+  if (sourcePhaseMap && !sourceMappedPhase) {
+    throw new Error("Selected mapped phase was not found in the Phase Map.");
+  }
+
+  const phaseFolder = sourceMappedPhase?.phaseId ?? input.phaseFolder.trim();
   const phaseErrors = validateSafePhaseFolder(phaseFolder);
 
   if (phaseErrors.length > 0) {
@@ -3786,10 +4200,17 @@ async function readPhasePlanningDocumentsContext(
   }
 
   const projectPlanningDocumentFileName =
-    input.projectPlanningDocumentFileName?.trim() ?? "";
+    input.projectPlanningDocumentFileName?.trim() ||
+    sourcePhaseMap?.sourceFiles.projectPlanningDocumentJsonFileName ||
+    "";
   const repositoryReconciliationFileName =
-    input.repositoryReconciliationFileName?.trim() ?? "";
-  const projectRoadmapFileName = input.projectRoadmapFileName?.trim() ?? "";
+    input.repositoryReconciliationFileName?.trim() ||
+    sourcePhaseMap?.sourceFiles.repositoryReconciliationJsonFileName ||
+    "";
+  const projectRoadmapFileName =
+    input.projectRoadmapFileName?.trim() ||
+    sourcePhaseMap?.sourceFiles.projectRoadmapJsonFileName ||
+    "";
   const phaseIntakeFileName = input.phaseIntakeFileName?.trim() ?? "";
   const phaseArchitectInterviewPromptFileName =
     input.phaseArchitectInterviewPromptFileName?.trim() ?? "";
@@ -3802,9 +4223,13 @@ async function readPhasePlanningDocumentsContext(
     throw new Error("Select a saved Repository Reconciliation source.");
   }
 
-  if (projectRoadmapFileName.length === 0 && phaseIntakeFileName.length === 0) {
+  if (
+    !sourcePhaseMap &&
+    projectRoadmapFileName.length === 0 &&
+    phaseIntakeFileName.length === 0
+  ) {
     throw new Error(
-      "Select a saved Project Roadmap source or a compatibility Phase Intake source.",
+      "Run Phase Map Builder first, then select a mapped phase for planning.",
     );
   }
 
@@ -3827,11 +4252,12 @@ async function readPhasePlanningDocumentsContext(
       ? await readSavedProjectRoadmapRecord(projectRoadmapFileName)
       : undefined;
   if (
+    !sourcePhaseMap &&
     sourceProjectRoadmap &&
     sourceProjectRoadmap.nextExecutablePhase.phaseFolder !== phaseFolder
   ) {
     throw new Error(
-      "Selected Project Roadmap next executable phase must match the selected phase.",
+      "Selected Project Roadmap next recommended phase must match the selected phase.",
     );
   }
 
@@ -3866,6 +4292,8 @@ async function readPhasePlanningDocumentsContext(
   return {
     ...input,
     phaseFolder,
+    phaseMapFileName: phaseMapFileName || undefined,
+    mappedPhaseId: mappedPhaseId || undefined,
     projectPlanningDocumentFileName,
     repositoryReconciliationFileName,
     projectRoadmapFileName: projectRoadmapFileName || undefined,
@@ -3876,6 +4304,9 @@ async function readPhasePlanningDocumentsContext(
     sourceProjectPlanningDocumentsMarkdownFileName,
     sourceRepositoryReconciliation,
     sourceRepositoryReconciliationMarkdownFileName,
+    sourcePhaseMap,
+    sourcePhaseMapMarkdownFileName,
+    sourceMappedPhase,
     sourceProjectRoadmap,
     sourceProjectRoadmapMarkdownFileName,
     sourcePhaseIntake,
@@ -5280,6 +5711,65 @@ function toSavedWorkCardSummary(
     status: workCard.status,
     phase: workCard.phase,
     riskLevel: workCard.riskLevel,
+  };
+}
+
+function toSavedPhaseMapSummary(
+  fileName: string,
+  phaseMap: PhaseMapRecord,
+): SavedPhaseMapSummary {
+  return {
+    fileName,
+    phaseMapId: phaseMap.phaseMapId,
+    projectName: phaseMap.projectName,
+    sourceRoadmapId: phaseMap.sourceRoadmapId,
+    sourceProjectRoadmapJsonFileName:
+      phaseMap.sourceFiles.projectRoadmapJsonFileName,
+    sourceRepositoryReconciliationJsonFileName:
+      phaseMap.sourceFiles.repositoryReconciliationJsonFileName,
+    sourceProjectPlanningDocumentJsonFileName:
+      phaseMap.sourceFiles.projectPlanningDocumentJsonFileName,
+    currentOrNextPhase: phaseMap.currentOrNextPhase,
+    nextPhaseTitle: phaseMap.nextPhaseTitle,
+    updatedAt: phaseMap.updatedAt,
+    mappedPhases: phaseMap.mappedPhases.map((phase) => ({
+      phaseId: phase.phaseId,
+      phaseTitle: phase.phaseTitle,
+      status: phase.status,
+      isRecommendedNext: phase.phaseId === phaseMap.currentOrNextPhase,
+      unresolvedQuestions: phase.unresolvedQuestions,
+    })),
+  };
+}
+
+async function toSavedWorkCardPlanSummary(
+  directory: string,
+  fileName: string,
+  workCardPlan: WorkCardPlanRecord,
+): Promise<SavedWorkCardPlanSummary> {
+  const markdownFileName = fileName.replace(/\.json$/i, ".md");
+  const markdownPath = resolveInside(directory, markdownFileName);
+  const safeMarkdownFileName =
+    validateWorkCardPlanArtifactFileName(markdownFileName).length === 0 &&
+    (await pathExists(markdownPath))
+      ? markdownFileName
+      : undefined;
+
+  return {
+    fileName,
+    markdownFileName: safeMarkdownFileName,
+    workCardPlanId: workCardPlan.workCardPlanId,
+    projectName: workCardPlan.projectName,
+    phaseFolder: workCardPlan.phaseFolder,
+    phaseName: workCardPlan.phaseName,
+    sourcePhasePlanningDocumentsId:
+      workCardPlan.sourcePhasePlanningDocumentsId,
+    reviewStatus: workCardPlan.reviewStatus,
+    phaseActivationStatus: workCardPlan.phaseActivationStatus,
+    artifactAuthority: workCardPlan.artifactAuthority,
+    proposedWorkCards: workCardPlan.proposedWorkCards,
+    proposedWorkCardCount: workCardPlan.proposedWorkCards.length,
+    updatedAt: workCardPlan.updatedAt,
   };
 }
 

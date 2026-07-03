@@ -51,7 +51,7 @@ The repair environment also had `NPM_CONFIG_OFFLINE=true` plus `HTTP_PROXY` and 
   - `npm rebuild electron --foreground-scripts --offline=false` with offline/proxy environment overrides
   - `node node_modules/electron/install.js` with debug logging and offline/proxy environment overrides
 - Downloaded official Electron zip through the installer to:
-  - `redacted local Electron cache path`
+  - redacted local Electron cache path for `electron-v31.7.7-win32-x64.zip`
 - Replaced local dependency folder:
   - `node_modules/electron/dist`
 - Wrote local dependency marker:

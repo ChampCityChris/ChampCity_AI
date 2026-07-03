@@ -20,6 +20,8 @@ import {
   listHumanValidationTargets,
   listSavedPhaseIntakes,
   listSavedPhaseArchitectInterviewPrompts,
+  listSavedPhaseMaps,
+  listSavedWorkCardPlans,
   listSavedProjectArchitectInterviewPrompts,
   listSavedProjectIntakes,
   listSavedProjectPlanningDocuments,
@@ -34,6 +36,7 @@ import {
   previewPhaseArchitectInterviewPrompt,
   previewPhaseCloseoutRecord,
   previewPhaseIntake,
+  previewPhaseMap,
   previewPhasePlanningDocuments,
   previewProjectRoadmap,
   previewProjectArchitectInterviewPrompt,
@@ -51,6 +54,7 @@ import {
   savePhaseArchitectInterviewPrompt,
   savePhaseCloseoutRecord,
   savePhaseIntake,
+  savePhaseMap,
   savePhasePlanningDocuments,
   saveProjectRoadmap,
   saveProjectArchitectInterviewPrompt,
@@ -71,6 +75,7 @@ import type {
 } from "../shared/workCards/repositoryReconciliation";
 import type { PhasePlanningDocumentsRequest } from "../shared/workCards/phasePlanningDocuments";
 import type { ProjectRoadmapRequest } from "../shared/workCards/projectRoadmap";
+import type { PhaseMapBuilderRequest } from "../shared/workCards/phaseMap";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
 import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
 import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
@@ -282,6 +287,15 @@ function registerWorkCardIpc(): void {
     (_event, input: ProjectRoadmapRequest) => saveProjectRoadmap(input),
   );
   ipcMain.handle("projectRoadmap:listSaved", () => listSavedProjectRoadmaps());
+  ipcMain.handle(
+    "phaseMap:preview",
+    (_event, input: PhaseMapBuilderRequest) => previewPhaseMap(input),
+  );
+  ipcMain.handle(
+    "phaseMap:save",
+    (_event, input: PhaseMapBuilderRequest) => savePhaseMap(input),
+  );
+  ipcMain.handle("phaseMap:listSaved", () => listSavedPhaseMaps());
   ipcMain.handle("phasePlanning:listProjectPlanningDocuments", () =>
     listSavedProjectPlanningDocuments(),
   );
@@ -304,6 +318,9 @@ function registerWorkCardIpc(): void {
     "phasePlanning:save",
     (_event, input: PhasePlanningDocumentsRequest) =>
       savePhasePlanningDocuments(input),
+  );
+  ipcMain.handle("workCardPlans:listSaved", (_event, phase: string) =>
+    listSavedWorkCardPlans(phase),
   );
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),

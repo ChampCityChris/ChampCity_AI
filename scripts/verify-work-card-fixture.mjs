@@ -51,7 +51,8 @@ const figmaSourcePackagePath = resolve(
   "figma_source/Design Dark UI for ChampCity.zip",
 );
 const currentUiScreens = [
-  "New Work Card",
+  "Work Card Plan Review",
+  "Ad Hoc Work Card Capture",
   "Architect Prompt Composer",
   "Risk Router",
   "Builder Prompt Generator",
@@ -60,7 +61,8 @@ const currentUiScreens = [
   "Phase Closeout",
 ];
 const wc10PipelineLabels = [
-  "Capture",
+  "Work Card Plan Review",
+  "Ad Hoc Work Card Capture",
   "Architect",
   "Risk",
   "Implement",
@@ -138,10 +140,14 @@ const {
   validateProjectPlanningDocumentsSlug,
 } = require("../dist/shared/workCards/projectPlanningDocuments.js");
 const {
+  buildArchitectLedPhaseIntake,
   buildPhaseIntake,
   buildPhaseIntakeFileNames,
+  phaseIntakeWorkTypes,
   validatePhaseIntakeArtifactFileName,
+  validatePhaseIntakeGenerationMode,
   validatePhaseIntakeSlug,
+  validatePhaseIntakeWorkType,
 } = require("../dist/shared/workCards/phaseIntake.js");
 const {
   phaseIntakeMarkdownHeadings,
@@ -179,6 +185,27 @@ const {
   renderPhasePlanningDocumentsMarkdown,
   validatePhasePlanningDocumentsArtifactFileName,
 } = require("../dist/shared/workCards/phasePlanningDocuments.js");
+const {
+  buildCompatibilityPhaseIntakeFromRoadmap,
+  buildPhaseReadinessReviewFileNames,
+  buildPhaseReadinessReviewRecord,
+  buildProjectRoadmap,
+  buildProjectRoadmapFileNames,
+  buildRoadmapWorkCardPlanRecord,
+  renderPhaseReadinessReviewMarkdown,
+  renderProjectRoadmapMarkdown,
+  validatePhaseReadinessReviewArtifactFileName,
+  validateProjectRoadmapArtifactFileName,
+  validateProjectRoadmapRecord,
+  validateProjectRoadmapSlug,
+} = require("../dist/shared/workCards/projectRoadmap.js");
+const {
+  buildPhaseMapFileNames,
+  buildPhaseMapRecord,
+  renderPhaseMapMarkdown,
+  validatePhaseMapArtifactFileName,
+  validatePhaseMapRecord,
+} = require("../dist/shared/workCards/phaseMap.js");
 const {
   buildWorkCardPlanFileNames,
   buildWorkCardPlanRecord,
@@ -268,6 +295,7 @@ const {
   loadBuilderReportFile,
   previewHumanValidationRecord,
   resolvePhaseArchitectInterviewPromptsDirectory,
+  resolvePhaseMapDirectory,
   resolvePhasePlanningDocumentsDirectory,
   resolveBuilderPromptsDirectory,
   resolveBuilderReportsDirectory,
@@ -278,7 +306,9 @@ const {
   resolveProjectIntakeDirectory,
   resolveProjectPlanningDocumentPath,
   resolveProjectPlanningDocumentsDirectory,
+  resolveProjectRoadmapDirectory,
   resolveRepositoryReconciliationDirectory,
+  resolvePhaseReadinessReviewsDirectory,
   resolveWorkCardPlansDirectory,
   resolveInside,
   resolveRepairPromptsDirectory,
@@ -287,6 +317,8 @@ const {
   resolveValidationReportsDirectory,
   resolveValidationTargetsDirectory,
   validateMarkdownArtifactFileName,
+  validateSavedPhaseMapJsonFileName,
+  validateSavedProjectRoadmapJsonFileName,
   validateSavedRepositoryReconciliationJsonFileName,
   validateSavedPhaseIntakeJsonFileName,
   validateSavedPhaseArchitectInterviewPromptJsonFileName,
@@ -506,6 +538,7 @@ assertPhaseCloseout();
 await assertSavedWorkCardListing();
 await assertProjectPlanningDocuments();
 await assertPhaseIntakeAndInterviewPrompt();
+assertProjectRoadmapAndPhaseMap();
 assertRepositoryReconciliationAndPhasePlanning();
 
 console.log("Work Card fixture validation passed.");
@@ -900,7 +933,7 @@ async function assertBuilderReportCapture() {
     "# Builder Report - WC06 Capture Builder Report",
     "",
     "## Repository Path Inspected",
-    "Current working directory inspected: <PROJECT_REPO>",
+    "Current working directory inspected: verified approved repo root",
     "",
     "## Git Branch And Remote Status",
     "Current branch: master. git remote -v confirmed origin.",
@@ -957,7 +990,7 @@ async function assertBuilderReportCapture() {
     "# Builder Report - quick note",
     "",
     "## Repository Path Inspected",
-    "Checked <PROJECT_REPO>.",
+    "Checked verified approved repo root.",
   ].join("\n");
   const imperfectValidation = validateBuilderReport(imperfectReport);
 
@@ -1231,6 +1264,9 @@ function assertPhaseCloseout() {
     {
       phase: "phase-01",
       decision: "Ready for release/package pass",
+      nextPhaseActivationDecision: "Keep next phase inactive",
+      nextPhaseActivationNotes:
+        "Phase 02 / Phase 03 activation remains Operator-owned.",
       closeoutSummary: "Phase 1 artifacts have been reviewed for closeout.",
       completedItems: "WC01 through WC08 foundation workflows.",
       remainingItems: "Manual UI validation and release/package readiness planning.",
@@ -1256,6 +1292,10 @@ function assertPhaseCloseout() {
     "# Phase Closeout Report - phase-01",
     "## Closeout Decision",
     "Ready for release/package pass",
+    "## Next Phase Activation Decision",
+    "Keep next phase inactive",
+    "## Next Phase Activation Notes",
+    "Phase 02 / Phase 03 activation remains Operator-owned.",
     "## Deterministic Recommendation",
     "Phase may be ready for release/package readiness pass.",
     "## Artifact Summary",
@@ -1323,8 +1363,10 @@ async function assertHumanValidationAndRepair() {
     testedItems: "Opened the Human Validation screen and attempted a failed save flow.",
     passedItems: "Navigation loaded and Work Card details displayed.",
     failedItems: "Repair prompt preview did not appear.",
-    evidenceReferences: "Manual note: screenshot path planning/phases/phase-02/Validation_Evidence/WC07/wc07-failure.png",
-    screenshotOrFileReferences: "planning/phases/phase-02/Validation_Evidence/WC07/wc07-failure.png",
+    evidenceReferences:
+      "Manual note: screenshot path planning/phases/phase-02/Validation_Evidence/WC07/wc07-failure.png",
+    screenshotOrFileReferences:
+      "planning/phases/phase-02/Validation_Evidence/WC07/wc07-failure.png",
     commandsRun: "npm start",
     observedErrors: "No repair prompt preview was visible.",
     additionalOperatorObservations: "The validation record should remain non-mutating.",
@@ -2507,7 +2549,7 @@ async function assertProjectPlanningDocuments() {
     "Capture -> Frame -> Plan -> Build -> Prove",
     "WC03: Repair validation and evidence UI",
     "WC04: Generate Project Planning Documents",
-    "WC06: Generate Phase Planning Documents and initial Work Card plan",
+    "WC06: Generate Phase Planning Documents and pending-review Work Card Plan proposal",
     "PROJECT_PROFILE.md",
     "PROJECT_STATE.md",
     "DECISIONS.md",
@@ -2697,6 +2739,174 @@ async function assertPhaseIntakeAndInterviewPrompt() {
     process.exit(1);
   }
 
+  const generatedProjectArchitectPrompt = buildProjectArchitectInterviewPrompt(
+    projectIntakeFixture,
+    "PROJECT_INTAKE_champcity_a_i.json",
+    "PROJECT_INTAKE_champcity_a_i.md",
+    "2026-07-01T12:30:00.000Z",
+  );
+  const generatedProjectPlanningRecord = buildProjectPlanningDocuments({
+    projectIntake: projectIntakeFixture,
+    sourceProjectIntakeJsonFileName: "PROJECT_INTAKE_champcity_a_i.json",
+    sourceProjectIntakeMarkdownFileName: "PROJECT_INTAKE_champcity_a_i.md",
+    projectArchitectInterviewPrompt: generatedProjectArchitectPrompt,
+    sourceProjectArchitectInterviewPromptJsonFileName:
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+    sourceProjectArchitectInterviewPromptMarkdownFileName:
+      "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+    architectInterviewOutput: [
+      "## Confirmed facts",
+      "- ChampCity A/I is an Electron app.",
+      "",
+      "## Recommended initial phase candidates",
+      "- Phase 03: formal Work Card conversion.",
+      "",
+      "## Risks",
+      "- Risk: do not add provider SDKs yet.",
+    ].join("\n"),
+    timestamp: "2026-07-01T12:40:00.000Z",
+  });
+  const generatedRepositoryReconciliation = buildRepositoryReconciliationRecord(
+    {
+      projectName: "ChampCity A/I",
+      projectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      sourcePhaseFolder: "phase-02",
+      architectReconciliationOutput: [
+        "## Reviewed Artifact Summary",
+        "- Project and phase artifacts reviewed.",
+        "",
+        "## Implemented State Summary",
+        "- Phase Intake exists but should become Architect-led.",
+        "",
+        "## Current Risks",
+        "- Risk: manual Phase Intake can drift into operator-invented scope.",
+        "",
+        "## Recommended Milestones",
+        "- Generate Architect-led Phase Intake from prior artifacts.",
+        "",
+        "## Recommended Next Phase",
+        "- Phase 03: formal Work Card conversion.",
+        "",
+        "## Architect Notes",
+        "- Keep Reconcile before Phase Intake.",
+      ].join("\n"),
+    },
+    {
+      projectPlanningDocumentsSummary: "Current planning documents.",
+      selectedProjectPlanningDocumentsSummary:
+        "Selected sidecar JSON: PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      phaseArtifactSummary: "phase-02 artifacts exist.",
+      repositoryStructureSummary: "src, planning, and scripts exist.",
+      appWorkflowSummary:
+        "Project Intake, Project Plan, Reconcile, Phase Intake, Phase Interview, Phase Plan.",
+    },
+    "2026-07-01T12:50:00.000Z",
+  );
+  const architectLedPhaseIntake = buildArchitectLedPhaseIntake(
+    {
+      generationMode: "architect-led",
+      phaseFolder: "phase-02",
+      phaseName: "",
+      projectName: "",
+      projectIntakeFileName: "PROJECT_INTAKE_champcity_a_i.json",
+      projectArchitectInterviewPromptFileName:
+        "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+      sourceProjectPlanningSidecarJsonFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      repositoryReconciliationFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      existingPhaseIntakeFileName: "",
+      operatorNextWorkIntent:
+        "Turn the next phase recommendation into formal Work Cards.",
+      operatorProjectWorkType: "ongoing_project",
+      operatorMustKeepConstraints:
+        "Do not add provider SDKs or acceptance records.",
+      phaseProblem: "",
+      phaseGoal: "",
+      userOutcome: "",
+      includedScope: "",
+      outOfScope: "",
+      affectedScreensOrWorkflows: "",
+      knownConstraints: "",
+      knownRisks: "",
+      dependencies: "",
+      validationExpectations: "",
+      operatorNotes: "",
+      sourceProjectIntake: projectIntakeFixture,
+      sourceProjectIntakeJsonFileName: "PROJECT_INTAKE_champcity_a_i.json",
+      sourceProjectIntakeMarkdownFileName: "PROJECT_INTAKE_champcity_a_i.md",
+      sourceProjectArchitectInterviewPrompt: generatedProjectArchitectPrompt,
+      sourceProjectArchitectInterviewPromptJsonFileName:
+        "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+      sourceProjectArchitectInterviewPromptMarkdownFileName:
+        "PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+      sourceProjectPlanningDocuments: generatedProjectPlanningRecord,
+      sourceProjectPlanningSidecarMarkdownFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+      sourceRepositoryReconciliation: generatedRepositoryReconciliation,
+      sourceRepositoryReconciliationMarkdownFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.md",
+    },
+    "2026-07-01T13:10:00.000Z",
+  );
+  const architectLedValidation = validatePhaseIntake(architectLedPhaseIntake);
+
+  if (!architectLedValidation.valid) {
+    console.error("Architect-led Phase Intake validation failed:");
+    for (const error of architectLedValidation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  if (architectLedPhaseIntake.generationMode !== "architect-led") {
+    console.error("Architect-led Phase Intake did not record generated mode.");
+    process.exit(1);
+  }
+
+  if ((architectLedPhaseIntake.sourceArtifactsUsed ?? []).length < 4) {
+    console.error("Architect-led Phase Intake did not record source artifacts.");
+    process.exit(1);
+  }
+
+  const architectLedMarkdown = renderPhaseIntakeMarkdown(architectLedPhaseIntake);
+  const requiredArchitectLedMarkdownText = [
+    "Architect-led generated Phase Intake.",
+    "## Source Artifacts Used",
+    "## Plain-Language Operator Intent",
+    "What to work on next: Turn the next phase recommendation into formal Work Cards.",
+    "## Architect-Derived Scope",
+    "## Acceptance Definition",
+    "Use this generated Phase Intake to run the Phase Interview",
+  ];
+  const missingArchitectLedMarkdownText = requiredArchitectLedMarkdownText.filter(
+    (text) => !architectLedMarkdown.includes(text),
+  );
+
+  if (missingArchitectLedMarkdownText.length > 0) {
+    console.error("Architect-led Phase Intake Markdown is missing required text:");
+    for (const text of missingArchitectLedMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  if (phaseIntakeWorkTypes.length !== 6) {
+    console.error("Phase Intake work type options changed unexpectedly.");
+    process.exit(1);
+  }
+
+  if (validatePhaseIntakeWorkType("bad_type").length === 0) {
+    console.error("Phase Intake work type validation failed to reject bad input.");
+    process.exit(1);
+  }
+
+  if (validatePhaseIntakeGenerationMode("unsafe").length === 0) {
+    console.error("Phase Intake generation mode validation failed to reject bad input.");
+    process.exit(1);
+  }
+
   const missingRequired = validatePhaseIntake({
     ...phaseIntake,
     phaseFolder: "",
@@ -2830,7 +3040,7 @@ async function assertPhaseIntakeAndInterviewPrompt() {
     "Avoid generating Phase Planning Documents or Work Cards in this step.",
     "Return only:",
     "Do not generate Phase Planning Documents.",
-    "Do not generate an initial Work Card plan.",
+    "Do not generate a Work Card Plan proposal.",
     "Do not generate Work Cards.",
   ];
   const missingPromptText = requiredPromptText.filter(
@@ -2935,12 +3145,26 @@ async function assertPhaseIntakeAndInterviewPrompt() {
     readFileSync(mainWorkCardFileStorePath, "utf8"),
   ].join("\n");
   const requiredSourceText = [
-    'label: "Phase Intake"',
-    'label: "Phase Interview"',
-    "Phase Intake Markdown Preview",
-    "Saved Project Planning Documents sidecar",
-    "Open Phase Intake",
+    'label: "Phase Map"',
+    'label: "Phase Plan"',
+    'label: "Reconcile"',
+    "Reconcile / Project State Review",
+    "Phase Map Builder",
+    "Phase Planning Documents Generator",
+    "Project Roadmap",
+    "Advanced / Legacy Phase Intake",
+    "Generate Compatibility Intake",
+    "Manual Legacy Edit",
+    "What do you want to work on next?",
+    "Any must-keep constraints or concerns?",
+    "Existing Phase Intake editable source",
+    "Repository Reconciliation is recommended for ongoing",
+    "Advanced / Legacy Phase Intake Preview",
+    "Project Planning Documents",
+    "Open Roadmap",
     "Open Phase Interview",
+    "Select generated compatibility intake",
+    "Project Roadmap source",
     "Phase Architect Interview",
     "Generate Phase Prompt",
     "Copy Phase Prompt",
@@ -2951,6 +3175,7 @@ async function assertPhaseIntakeAndInterviewPrompt() {
     "previewPhaseIntake",
     "savePhaseIntake",
     "listPhaseArchitectInterviewPhaseIntakes",
+    "listPhasePlanningRepositoryReconciliations",
     "previewPhaseArchitectInterviewPrompt",
     "savePhaseArchitectInterviewPrompt",
     "validateSavedProjectPlanningDocumentsJsonFileName",
@@ -2962,6 +3187,473 @@ async function assertPhaseIntakeAndInterviewPrompt() {
 
   if (missingSourceText.length > 0) {
     console.error("Phase Intake and Interview source wiring is missing required text:");
+    for (const text of missingSourceText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+}
+
+function assertProjectRoadmapAndPhaseMap() {
+  const phase01Files = createEmptyPhaseArtifactFiles();
+
+  for (let index = 1; index <= 10; index += 1) {
+    const workCardId = `WC${String(index).padStart(2, "0")}`;
+
+    phase01Files.Work_Cards.push(`${workCardId}_sample.json`);
+    phase01Files.Work_Cards.push(`${workCardId}_sample.md`);
+    phase01Files.Builder_Reports.push(`BUILDER_REPORT_${workCardId}_sample.md`);
+  }
+
+  phase01Files.Validation_Reports = [
+    "VALIDATION_REPORT_WC10_foundation_validation.json",
+    "VALIDATION_REPORT_WC10_foundation_validation.md",
+  ];
+  phase01Files.Closeout_Reports = ["PHASE_CLOSEOUT_REPORT_phase_01.md"];
+
+  const phase02Files = createEmptyPhaseArtifactFiles();
+
+  for (let index = 1; index <= 6; index += 1) {
+    const workCardId = `WC${String(index).padStart(2, "0")}`;
+
+    phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.json`);
+    phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.md`);
+
+    if (index < 6) {
+      phase02Files.Builder_Reports.push(
+        `BUILDER_REPORT_${workCardId}_phase_02_upstream_planning.md`,
+      );
+    }
+  }
+
+  phase02Files.Validation_Reports = [
+    "VALIDATION_REPORT_WC05_phase_02_reconciliation.json",
+    "VALIDATION_REPORT_WC05_phase_02_reconciliation.md",
+  ];
+  phase02Files.Repair_Prompts = [
+    "REPAIR_PROMPT_WC06_project_roadmap_phase_map.md",
+  ];
+
+  const phase01Summary = summarizePhaseArtifacts({
+    phase: "phase-01",
+    filesByFolder: phase01Files,
+  });
+  const phase02Summary = summarizePhaseArtifacts({
+    phase: "phase-02",
+    filesByFolder: phase02Files,
+  });
+  const roadmap = buildProjectRoadmap(
+    {
+      projectName: "ChampCity A/I",
+      mode: "project-roadmap",
+      completedPhaseFolder: "phase-01",
+      sourceProjectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      sourceRepositoryReconciliationFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      operatorDirection:
+        "Replace primary Phase Intake with Project Roadmap, full Phase Map, and Next Phase Readiness Review.",
+      sourceArtifacts: [
+        {
+          label: "Project State",
+          path: "planning/project/PROJECT_STATE.md",
+          status: "found",
+          notes: "Current durable project status.",
+        },
+        {
+          label: "Repository Reconciliation",
+          path: "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
+          status: "selected",
+          notes: "Architect alignment amendment controls this repair.",
+        },
+      ],
+      phaseContexts: [
+        {
+          phase: "phase-01",
+          summary: phase01Summary,
+          workCardFileNames: phase01Files.Work_Cards,
+          builderReportFileNames: phase01Files.Builder_Reports,
+          validationReportFileNames: phase01Files.Validation_Reports,
+          repairPromptFileNames: phase01Files.Repair_Prompts,
+          closeoutReportFileNames: phase01Files.Closeout_Reports,
+          workCardPlanFileNames: ["WORK_CARD_PLAN_phase_01.md"],
+          phasePlanningDocumentFileNames: [
+            "PHASE_PLANNING_DOCUMENTS_phase_01.md",
+          ],
+          phaseReadinessReviewFileNames: [
+            "PHASE_READINESS_REVIEW_phase_01.md",
+          ],
+        },
+        {
+          phase: "phase-02",
+          summary: phase02Summary,
+          workCardFileNames: phase02Files.Work_Cards,
+          builderReportFileNames: phase02Files.Builder_Reports,
+          validationReportFileNames: phase02Files.Validation_Reports,
+          repairPromptFileNames: phase02Files.Repair_Prompts,
+          closeoutReportFileNames: phase02Files.Closeout_Reports,
+          workCardPlanFileNames: [],
+          phasePlanningDocumentFileNames: [],
+          phaseReadinessReviewFileNames: [],
+        },
+      ],
+      projectStateMarkdown:
+        "Current work: PH02 WC06. Latest selected intake stage: MVP.",
+      workCardBacklogMarkdown: "Next up: PH02 WC05 remains listed.",
+      openQuestionsMarkdown:
+        "- Which repair prompts remain unresolved before closeout?",
+      decisionsMarkdown:
+        "- Decide whether phase-02 must repair before phase-03 creation.",
+      risksMarkdown:
+        "- Risk: stale project state could start the wrong phase.",
+      repositoryReconciliationRecommendedPhases: [
+        "Phase 03: Workflow Router Screen Correction and Guided Current Action UI.",
+        "Phase 04: Workflow Execution Hardening.",
+      ],
+      repositoryReconciliationRisks: [
+        "Risk: generated plans could be mistaken for formal Work Cards.",
+      ],
+      existingRoadmapFileNames: [],
+    },
+    "2026-07-02T12:55:00.000Z",
+  );
+  const validationErrors = validateProjectRoadmapRecord(roadmap);
+
+  if (validationErrors.length > 0) {
+    console.error("Project Roadmap validation failed:");
+    for (const error of validationErrors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const phase01 = roadmap.phaseMap.find((phase) => phase.phaseFolder === "phase-01");
+  const phase02 = roadmap.phaseMap.find((phase) => phase.phaseFolder === "phase-02");
+  const phase03 = roadmap.phaseMap.find((phase) => phase.phaseFolder === "phase-03");
+  const phase07 = roadmap.phaseMap.find((phase) => phase.phaseFolder === "phase-07");
+
+  if (
+    phase01?.status !== "closed" ||
+    phase02?.status !== "repair required" ||
+    phase03?.status !== "proposed" ||
+    phase07?.status !== "proposed"
+  ) {
+    console.error("Project Roadmap did not map expected phase statuses.");
+    process.exit(1);
+  }
+
+  if (
+    roadmap.nextExecutablePhase.kind !== "repair-current" ||
+    roadmap.nextExecutablePhase.phaseFolder !== "phase-02" ||
+    roadmap.nextExecutablePhase.shouldCreatePhaseFolder
+  ) {
+    console.error("Project Roadmap did not keep the next recommended action on current-phase repair.");
+    process.exit(1);
+  }
+
+  const requiredWarnings = [
+    "PROJECT_STATE and WORK_CARD_BACKLOG disagree",
+    "MVP intake-stage label",
+    "No prior Project Roadmap artifacts",
+    "phase-02 has Validation Reports but no Closeout Report.",
+    "phase-02 has Repair Prompts",
+    "Future phases are mapped",
+  ];
+  const missingWarnings = requiredWarnings.filter(
+    (text) =>
+      !roadmap.staleStateWarnings.some((warning) => warning.includes(text)),
+  );
+
+  if (missingWarnings.length > 0) {
+    console.error("Project Roadmap stale-state warnings are missing required text:");
+    for (const text of missingWarnings) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const roadmapMarkdown = renderProjectRoadmapMarkdown(roadmap);
+  const requiredRoadmapMarkdownText = [
+    "# Project Roadmap: ChampCity A/I",
+    "## Source Context",
+    "## Artifact Authority Model",
+    "## Proposed Roadmap Phases",
+    "## Next Phase Recommendation",
+    "## Proposed Work Card Plan",
+    "## Stale-State Warnings",
+    "## Next Phase Readiness Review Questions",
+    "planning/project/Project_Roadmap/",
+    "Work Card plans are planning artifacts",
+    "Formal Work Cards = approved executable units saved under Work_Cards/.",
+    "Activation decision required before execution: yes",
+  ];
+  const missingRoadmapMarkdownText = requiredRoadmapMarkdownText.filter(
+    (text) => !roadmapMarkdown.includes(text),
+  );
+
+  if (missingRoadmapMarkdownText.length > 0) {
+    console.error("Project Roadmap Markdown is missing required text:");
+    for (const text of missingRoadmapMarkdownText) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const roadmapFileNames = buildProjectRoadmapFileNames("ChampCity A/I");
+
+  if (
+    roadmapFileNames.jsonFileName !== "PROJECT_ROADMAP_champcity_a_i.json" ||
+    roadmapFileNames.markdownFileName !== "PROJECT_ROADMAP_champcity_a_i.md"
+  ) {
+    console.error("Project Roadmap filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  const readinessFileNames = buildPhaseReadinessReviewFileNames("phase-02");
+
+  if (
+    readinessFileNames.jsonFileName !==
+      "PHASE_READINESS_REVIEW_phase_02.json" ||
+    readinessFileNames.markdownFileName !==
+      "PHASE_READINESS_REVIEW_phase_02.md"
+  ) {
+    console.error("Phase Readiness Review filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validateProjectRoadmapSlug("../bad").length === 0) {
+    console.error("Project Roadmap slug sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateProjectRoadmapArtifactFileName("../bad.json").length === 0) {
+    console.error("Project Roadmap artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (
+    validatePhaseReadinessReviewArtifactFileName("../bad.json").length === 0
+  ) {
+    console.error("Phase Readiness Review artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateSavedProjectRoadmapJsonFileName("../bad.json").length === 0) {
+    console.error("Saved Project Roadmap filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolveProjectRoadmapDirectory(), "../bad");
+    console.error("Project Roadmap path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  try {
+    resolvePhaseReadinessReviewsDirectory("../bad");
+    console.error("Phase Readiness Review directory sanitizer failed to reject unsafe phases.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const readinessReview = buildPhaseReadinessReviewRecord(
+    roadmap,
+    "2026-07-02T13:00:00.000Z",
+  );
+  const readinessMarkdown = renderPhaseReadinessReviewMarkdown(readinessReview);
+
+  if (
+    !readinessMarkdown.includes("# Next Phase Readiness Review:") ||
+    !readinessMarkdown.includes("Project Roadmap ID: PROJECT_ROADMAP_champcity_a_i")
+  ) {
+    console.error("Phase Readiness Review Markdown is missing Roadmap source context.");
+    process.exit(1);
+  }
+
+  const roadmapWorkCardPlan = buildRoadmapWorkCardPlanRecord(
+    roadmap,
+    "2026-07-02T13:05:00.000Z",
+  );
+
+  if (
+    !roadmapWorkCardPlan.planPurpose.includes(
+      "does not create formal app-selectable Work Card JSON files",
+    )
+  ) {
+    console.error("Roadmap Work Card Plan did not preserve planning-only boundary.");
+    process.exit(1);
+  }
+
+  const compatibilityPhaseIntake = buildCompatibilityPhaseIntakeFromRoadmap(
+    roadmap,
+    "2026-07-02T13:10:00.000Z",
+  );
+  const compatibilityValidation = validatePhaseIntake(compatibilityPhaseIntake);
+
+  if (!compatibilityValidation.valid) {
+    console.error("Roadmap compatibility Phase Intake did not validate:");
+    for (const error of compatibilityValidation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  if (
+    compatibilityPhaseIntake.generationMode !== "architect-led" ||
+    compatibilityPhaseIntake.operatorProjectWorkType !== "repair_pass" ||
+    !compatibilityPhaseIntake.assumptions?.some((assumption) =>
+      assumption.includes("Project Roadmap / Phase Map"),
+    )
+  ) {
+    console.error("Roadmap compatibility Phase Intake did not record Roadmap authority.");
+    process.exit(1);
+  }
+
+  const phaseMap = buildPhaseMapRecord(
+    {
+      projectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      repositoryReconciliationFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      projectRoadmapFileName: "PROJECT_ROADMAP_champcity_a_i.json",
+      sourceProjectPlanningDocuments: {
+        recordId: "PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+        projectName: "ChampCity A/I",
+      },
+      sourceProjectPlanningDocumentsMarkdownFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+      sourceRepositoryReconciliation: {
+        reconciliationId: "REPOSITORY_RECONCILIATION_champcity_a_i",
+        projectName: "ChampCity A/I",
+      },
+      sourceRepositoryReconciliationMarkdownFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.md",
+      sourceProjectRoadmap: roadmap,
+      sourceProjectRoadmapMarkdownFileName: "PROJECT_ROADMAP_champcity_a_i.md",
+      existingPhaseArtifacts: [
+        {
+          phaseFolder: "phase-01",
+          summary: phase01Summary,
+          workCardPlanFileNames: ["WORK_CARD_PLAN_phase_01.md"],
+          phasePlanningDocumentFileNames: [
+            "PHASE_PLANNING_DOCUMENTS_phase_01.md",
+          ],
+          phaseReadinessReviewFileNames: [
+            "PHASE_READINESS_REVIEW_phase_01.md",
+          ],
+        },
+        {
+          phaseFolder: "phase-02",
+          summary: phase02Summary,
+          workCardPlanFileNames: [],
+          phasePlanningDocumentFileNames: [],
+          phaseReadinessReviewFileNames: [],
+        },
+      ],
+    },
+    "2026-07-02T13:20:00.000Z",
+  );
+  const phaseMapValidationErrors = validatePhaseMapRecord(phaseMap);
+
+  if (phaseMapValidationErrors.length > 0) {
+    console.error("Phase Map validation failed:");
+    for (const error of phaseMapValidationErrors) {
+      console.error(`- ${error}`);
+    }
+    process.exit(1);
+  }
+
+  const phaseMapMarkdown = renderPhaseMapMarkdown(phaseMap);
+  const requiredPhaseMapMarkdown = [
+    "# Phase Map: ChampCity A/I",
+    "Current/next phase:",
+    "Activation boundary:",
+    "Mapped Phase Records",
+    "phase-03",
+  ];
+  const missingPhaseMapMarkdown = requiredPhaseMapMarkdown.filter(
+    (text) => !phaseMapMarkdown.includes(text),
+  );
+
+  if (missingPhaseMapMarkdown.length > 0) {
+    console.error("Phase Map Markdown is missing required text:");
+    for (const text of missingPhaseMapMarkdown) {
+      console.error(`- ${text}`);
+    }
+    process.exit(1);
+  }
+
+  const phaseMapFileNames = buildPhaseMapFileNames("ChampCity A/I");
+
+  if (
+    phaseMapFileNames.jsonFileName !== "PHASE_MAP_champcity_a_i.json" ||
+    phaseMapFileNames.markdownFileName !== "PHASE_MAP_champcity_a_i.md"
+  ) {
+    console.error("Phase Map filename generation returned unexpected filenames.");
+    process.exit(1);
+  }
+
+  if (validatePhaseMapArtifactFileName("../bad.json").length === 0) {
+    console.error("Phase Map artifact filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  if (validateSavedPhaseMapJsonFileName("../bad.json").length === 0) {
+    console.error("Saved Phase Map filename sanitizer failed to reject traversal input.");
+    process.exit(1);
+  }
+
+  try {
+    resolveInside(resolvePhaseMapDirectory(), "../bad");
+    console.error("Phase Map path sanitizer failed to reject traversal input.");
+    process.exit(1);
+  } catch {
+    // Expected.
+  }
+
+  const source = [
+    readFileSync(rendererAppPath, "utf8"),
+    readFileSync(preloadPath, "utf8"),
+    readFileSync(mainWorkCardFileStorePath, "utf8"),
+  ].join("\n");
+  const requiredSourceText = [
+    'label: "Phase Map"',
+    "Phase Map Builder",
+    "Project Roadmap",
+    "Generate Roadmap",
+    "Save Roadmap",
+    "Save Roadmap & Draft Artifacts",
+    "draft / pending-review next-phase",
+    "activate a phase or create Formal Work Cards",
+    "Advanced / Legacy Phase Intake",
+    "Project_Roadmap",
+    "Phase_Map",
+    "Phase_Readiness_Reviews",
+    "Project Roadmap source",
+    "Compatibility Phase Intake source",
+    "Open Project Roadmap Source",
+    "Mapped Phase Source",
+    "previewProjectRoadmap",
+    "saveProjectRoadmap",
+    "listSavedProjectRoadmaps",
+    "previewPhaseMap",
+    "savePhaseMap",
+    "listSavedPhaseMaps",
+    "validateSavedProjectRoadmapJsonFileName",
+    "validateSavedPhaseMapJsonFileName",
+    "resolveProjectRoadmapDirectory",
+    "resolvePhaseMapDirectory",
+    "resolvePhaseReadinessReviewsDirectory",
+  ];
+  const missingSourceText = requiredSourceText.filter(
+    (text) => !source.includes(text),
+  );
+
+  if (missingSourceText.length > 0) {
+    console.error("Project Roadmap source wiring is missing required text:");
     for (const text of missingSourceText) {
       console.error(`- ${text}`);
     }
@@ -2997,7 +3689,7 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     repositoryStructureSummary:
       "Repository root contains src, planning, scripts, and package.json.",
     appWorkflowSummary:
-      "Project Intake, Project Plan, Phase Intake, Phase Interview, Reconcile, Phase Plan.",
+      "Project Intake, Project Plan, Reconcile, Phase Intake, Phase Interview, Phase Plan.",
   };
   const promptText = buildRepositoryReconciliationPromptText(
     {
@@ -3034,7 +3726,7 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     "- Reviewed project planning docs and phase artifacts.",
     "",
     "## Implemented State Summary",
-    "- Project Intake, Project Planning Documents, Phase Intake, and Phase Interview are implemented.",
+    "- Project Intake, Project Planning Documents, Reconcile, Phase Intake, and Phase Interview are implemented.",
     "",
     "## Partially Implemented Items",
     "- Phase planning exists as a planned workflow but not a saved artifact yet.",
@@ -3134,65 +3826,109 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     // Expected.
   }
 
-  const phaseIntake = buildPhaseIntake(
+  const phase02Files = createEmptyPhaseArtifactFiles();
+
+  for (let index = 1; index <= 3; index += 1) {
+    const workCardId = `WC${String(index).padStart(2, "0")}`;
+
+    phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.json`);
+    phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.md`);
+    phase02Files.Builder_Reports.push(
+      `BUILDER_REPORT_${workCardId}_phase_02_upstream_planning.md`,
+    );
+  }
+
+  const phase02Summary = summarizePhaseArtifacts({
+    phase: "phase-02",
+    filesByFolder: phase02Files,
+  });
+  const projectRoadmap = buildProjectRoadmap(
     {
-      phaseFolder: "phase-02",
-      phaseName: "Phase 02 Upstream Planning",
       projectName: "ChampCity A/I",
-      sourceProjectPlanningSidecarJsonFileName:
+      mode: "project-roadmap",
+      sourceProjectPlanningDocumentFileName:
         "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
-      phaseProblem: "Phase planning needs reconciled source context.",
-      phaseGoal: "Generate Phase Planning Documents and a plan.",
-      userOutcome: "The Operator can review phase planning proposals.",
-      includedScope: "Repository reconciliation and Phase Planning Documents.",
-      outOfScope: "Formal Work Card creation.",
-      affectedScreensOrWorkflows: "Reconcile and Phase Plan.",
-      knownConstraints: "No LLM API calls.",
-      knownRisks: "Planning artifacts could be mistaken for implementation scope.",
-      dependencies: "Project Planning Documents and reconciliation output.",
-      validationExpectations: "Run typecheck, build, tests, and work-card tests.",
-      operatorNotes: "Keep output editable and planning-only.",
+      sourceRepositoryReconciliationFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      operatorDirection:
+        "Use the reviewed Roadmap to continue Phase 02 planning without manually inventing phase scope.",
+      sourceArtifacts: [
+        {
+          label: "Repository Reconciliation",
+          path: "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
+          status: "selected",
+        },
+      ],
+      phaseContexts: [
+        {
+          phase: "phase-02",
+          summary: phase02Summary,
+          workCardFileNames: phase02Files.Work_Cards,
+          builderReportFileNames: phase02Files.Builder_Reports,
+          validationReportFileNames: phase02Files.Validation_Reports,
+          repairPromptFileNames: phase02Files.Repair_Prompts,
+          closeoutReportFileNames: phase02Files.Closeout_Reports,
+          workCardPlanFileNames: [],
+          phasePlanningDocumentFileNames: [],
+          phaseReadinessReviewFileNames: [],
+        },
+      ],
+      projectStateMarkdown: "Current work: PH02 WC06.",
+      workCardBacklogMarkdown: "Current backlog aligns with PH02 WC06.",
+      repositoryReconciliationRecommendedPhases: reconciliation.recommendedPhases,
+      repositoryReconciliationRisks: reconciliation.currentRisks,
+      existingRoadmapFileNames: ["PROJECT_ROADMAP_previous_review.md"],
     },
     "2026-07-02T12:45:00.000Z",
-    "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
   );
-  const phasePrompt = buildPhaseArchitectInterviewPrompt(
-    phaseIntake,
-    "PHASE_INTAKE_phase_02_upstream_planning.json",
-    "PHASE_INTAKE_phase_02_upstream_planning.md",
-    "2026-07-02T12:50:00.000Z",
-  );
-  const phaseArchitectOutput = [
-    "## Phase Brief",
-    "- Build the repository reconciliation and phase planning workflow.",
-    "",
-    "## Phase Goal",
-    "- Generate durable phase planning documents.",
-    "",
-    "## Recommended Implementation Sequence",
-    "- Add Repository Reconciliation artifacts.",
-    "- Add Phase Planning Documents artifacts.",
-    "- Validate existing upstream screens still work.",
-    "",
-    "## Validation Expectations",
-    "- npm run typecheck",
-    "- npm run build",
-    "- npm test",
-    "",
-    "## Open Questions",
-    "- Which plan items should become formal Work Cards next?",
-  ].join("\n");
-  const phasePlanningDocuments = buildPhasePlanningDocuments(
+  const phaseMap = buildPhaseMapRecord(
     {
-      phaseFolder: "phase-02",
       projectPlanningDocumentFileName:
         "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
       repositoryReconciliationFileName:
         "REPOSITORY_RECONCILIATION_champcity_a_i.json",
-      phaseIntakeFileName: "PHASE_INTAKE_phase_02_upstream_planning.json",
-      phaseArchitectInterviewPromptFileName:
-        "PHASE_ARCHITECT_INTERVIEW_PROMPT_phase_02_upstream_planning.json",
-      phaseArchitectInterviewOutput: phaseArchitectOutput,
+      projectRoadmapFileName: "PROJECT_ROADMAP_champcity_a_i.json",
+      sourceProjectPlanningDocuments: projectPlanningRecord,
+      sourceProjectPlanningDocumentsMarkdownFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+      sourceRepositoryReconciliation: reconciliation,
+      sourceRepositoryReconciliationMarkdownFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.md",
+      sourceProjectRoadmap: projectRoadmap,
+      sourceProjectRoadmapMarkdownFileName: "PROJECT_ROADMAP_champcity_a_i.md",
+      existingPhaseArtifacts: [
+        {
+          phaseFolder: "phase-02",
+          summary: phase02Summary,
+          workCardPlanFileNames: [],
+          phasePlanningDocumentFileNames: [],
+          phaseReadinessReviewFileNames: [],
+        },
+      ],
+    },
+    "2026-07-02T12:47:00.000Z",
+  );
+  const selectedMappedPhase =
+    phaseMap.mappedPhases.find(
+      (phase) => phase.phaseId === phaseMap.currentOrNextPhase,
+    ) ?? phaseMap.mappedPhases[0];
+  const phaseClarificationAnswers = [
+    "## Phase-Specific Clarification",
+    "- Prioritize source safety.",
+    "- Convert selected plan items into formal Work Cards only after Operator review.",
+    "- Keep generated phase planning documents separate from acceptance records.",
+  ].join("\n");
+  const phasePlanningDocuments = buildPhasePlanningDocuments(
+    {
+      phaseFolder: selectedMappedPhase.phaseId,
+      projectPlanningDocumentFileName:
+        "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      repositoryReconciliationFileName:
+        "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      phaseMapFileName: "PHASE_MAP_champcity_a_i.json",
+      mappedPhaseId: selectedMappedPhase.phaseId,
+      projectRoadmapFileName: "PROJECT_ROADMAP_champcity_a_i.json",
+      phaseClarificationAnswers,
       operatorPlanAdjustments: "Prioritize source safety.",
       sourceProjectPlanningDocuments: projectPlanningRecord,
       sourceProjectPlanningDocumentsMarkdownFileName:
@@ -3200,12 +3936,11 @@ function assertRepositoryReconciliationAndPhasePlanning() {
       sourceRepositoryReconciliation: reconciliation,
       sourceRepositoryReconciliationMarkdownFileName:
         "REPOSITORY_RECONCILIATION_champcity_a_i.md",
-      sourcePhaseIntake: phaseIntake,
-      sourcePhaseIntakeMarkdownFileName:
-        "PHASE_INTAKE_phase_02_upstream_planning.md",
-      sourcePhaseArchitectInterviewPrompt: phasePrompt,
-      sourcePhaseArchitectInterviewPromptMarkdownFileName:
-        "PHASE_ARCHITECT_INTERVIEW_PROMPT_phase_02_upstream_planning.md",
+      sourcePhaseMap: phaseMap,
+      sourcePhaseMapMarkdownFileName: "PHASE_MAP_champcity_a_i.md",
+      sourceMappedPhase: selectedMappedPhase,
+      sourceProjectRoadmap: projectRoadmap,
+      sourceProjectRoadmapMarkdownFileName: "PROJECT_ROADMAP_champcity_a_i.md",
     },
     "2026-07-02T13:00:00.000Z",
   );
@@ -3225,7 +3960,8 @@ function assertRepositoryReconciliationAndPhasePlanning() {
       validationExpectations: phasePlanningDocuments.validationExpectations,
       recommendedImplementationSequence:
         phasePlanningDocuments.recommendedImplementationSequence,
-      phaseArchitectInterviewOutput: phaseArchitectOutput,
+      phaseArchitectInterviewOutput:
+        phasePlanningDocuments.phaseArchitectInterviewOutput,
       operatorPlanAdjustments: phasePlanningDocuments.operatorPlanAdjustments,
     },
     "2026-07-02T13:00:00.000Z",
@@ -3238,12 +3974,23 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     backlogMarkdown,
   );
   const requiredPhasePlanningText = [
-    "# Phase Planning Documents: Phase 02 Upstream Planning",
+    `# Phase Planning Documents: ${selectedMappedPhase.phaseTitle}`,
+    "Phase Map JSON: PHASE_MAP_champcity_a_i.json",
+    `Mapped phase ID: ${selectedMappedPhase.phaseId}`,
+    "Project Roadmap JSON: PROJECT_ROADMAP_champcity_a_i.json",
+    "Phase Intake JSON: Not selected.",
+    "Review status: Pending Review",
+    "Phase activation status: Not Active",
+    "## Artifact Authority",
+    "## Formal Work Card Boundary",
+    "Phase-Specific Clarification Answers",
     "## Repository Reconciliation Summary",
-    "## Initial Work Card Plan",
-    "# Initial Work Card Plan: Phase 02 Upstream Planning",
-    "# Work Card Backlog: Phase 02 Upstream Planning",
-    "planning proposals",
+    "## Proposed Work Card Plan",
+    `# Pending Review Work Card Plan: ${selectedMappedPhase.phaseTitle}`,
+    `# Work Card Backlog: ${selectedMappedPhase.phaseTitle}`,
+    "Draft / Pending Review / Not Active",
+    "Formal Work Cards require a separate Operator approval step",
+    "The formal Phase Map is the selectable phase authority",
   ];
   const missingPhasePlanningText = requiredPhasePlanningText.filter(
     (text) => !combinedMarkdown.includes(text),
@@ -3258,21 +4005,21 @@ function assertRepositoryReconciliationAndPhasePlanning() {
   }
 
   const phasePlanningFileNames = buildPhasePlanningDocumentsFileNames(
-    "Phase 02 Upstream Planning",
+    selectedMappedPhase.phaseTitle,
   );
   const workCardPlanFileNames = buildWorkCardPlanFileNames(
-    "Phase 02 Upstream Planning",
+    selectedMappedPhase.phaseTitle,
   );
 
   if (
     phasePlanningFileNames.jsonFileName !==
-      "PHASE_PLANNING_DOCUMENTS_phase_02_upstream_planning.json" ||
+      `${phasePlanningDocuments.phasePlanningDocumentsId}.json` ||
     phasePlanningFileNames.markdownFileName !==
-      "PHASE_PLANNING_DOCUMENTS_phase_02_upstream_planning.md" ||
+      `${phasePlanningDocuments.phasePlanningDocumentsId}.md` ||
     workCardPlanFileNames.jsonFileName !==
-      "WORK_CARD_PLAN_phase_02_upstream_planning.json" ||
+      `${workCardPlan.workCardPlanId}.json` ||
     workCardPlanFileNames.markdownFileName !==
-      "WORK_CARD_PLAN_phase_02_upstream_planning.md"
+      `${workCardPlan.workCardPlanId}.md`
   ) {
     console.error("Phase Planning or Work Card Plan filename generation returned unexpected filenames.");
     process.exit(1);
@@ -3321,24 +4068,53 @@ function assertRepositoryReconciliationAndPhasePlanning() {
   ].join("\n");
   const requiredSourceText = [
     'label: "Reconcile"',
-    'label: "Phase Plan"',
+    'label: "Phase Map"',
     "Repository Reconciliation",
-    "Phase Planning Documents",
-    "Generate Prompt",
+    "Phase Map Builder",
+    "Phase Planning Documents Generator",
+    "Work Card Plan Review",
+    "Draft / Pending Review / Not Active",
+    "Generate Roadmap",
+    "Generate / Update Phase Map",
     "Save Reconciliation",
+    "Save Roadmap",
     "Save Phase Plan",
+    "pending-review Work Card Plan proposal",
+    "Formal Work Cards",
+    "Draft this Work Card",
+    "Manual/ad hoc mode is active",
     "Open Reconcile",
-    "Open Phase Plan",
+    "Open Phase Map",
+    "Open Phase Planning Generator",
+    "Open Phase Map Builder",
+    "No saved Phase Map was found",
+    "Run Phase Map Builder first",
+    "Project Roadmap source",
+    "Mapped Phase Source",
+    "Phase-Specific Clarification",
+    "Advanced / Legacy",
     "Repository_Reconciliation",
+    "Project_Roadmap",
+    "Phase_Map",
+    "Phase_Readiness_Reviews",
     "Phase_Planning_Documents",
     "Work_Card_Plans",
     "WORK_CARD_BACKLOG.md",
     "previewRepositoryReconciliationPrompt",
     "saveRepositoryReconciliation",
+    "previewProjectRoadmap",
+    "saveProjectRoadmap",
+    "listSavedProjectRoadmaps",
+    "previewPhaseMap",
+    "savePhaseMap",
+    "listSavedPhaseMaps",
     "listPhasePlanningRepositoryReconciliations",
     "listPhasePlanningPhaseArchitectInterviewPrompts",
     "previewPhasePlanningDocuments",
     "savePhasePlanningDocuments",
+    "listSavedWorkCardPlans",
+    "validateSavedProjectRoadmapJsonFileName",
+    "validateSavedPhaseMapJsonFileName",
     "validateSavedRepositoryReconciliationJsonFileName",
   ];
   const missingSourceText = requiredSourceText.filter(

@@ -2,7 +2,7 @@ import type { WorkCard } from "./workCardSchema";
 import { validateWorkCard } from "./validateWorkCard";
 
 const repositoryPathInstruction =
-  "Verify the repository path before editing. Expected repository: `<PROJECT_REPO>`.";
+  "Verify the repository path before editing. Expected repository placeholder: `<PROJECT_REPO>`.";
 
 export const workCardMarkdownHeadings = [
   "## Work Card ID",

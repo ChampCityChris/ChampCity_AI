@@ -20,17 +20,19 @@ planning/phases/phase-01/UI_Design_Handoff/screenshots/
 
 5. Suggested filenames:
 
-- `01_new_work_card.png`
-- `02_architect_prompt_composer.png`
-- `03_risk_router.png`
-- `04_builder_prompt_generator.png`
-- `05_builder_report_capture.png`
-- `06_human_validation.png`
-- `07_phase_closeout.png`
+- `01_ad_hoc_work_card_capture.png`
+- `02_work_card_plan_review.png`
+- `03_architect_prompt_composer.png`
+- `04_risk_router.png`
+- `05_builder_prompt_generator.png`
+- `06_builder_report_capture.png`
+- `07_human_validation.png`
+- `08_phase_closeout.png`
 
 ## Required Screens To Capture
 
-- New Work Card
+- Ad Hoc Work Card Capture
+- Work Card Plan Review
 - Architect Prompt Composer
 - Risk Router
 - Builder Prompt Generator

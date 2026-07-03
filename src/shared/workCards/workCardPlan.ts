@@ -5,9 +5,67 @@ import {
 import type { WorkCardRiskLevel } from "./workCardSchema";
 import { validateSafePhaseFolder } from "./workCardFileNames";
 
+export type WorkCardPlanReviewStatus = "pending_review" | "approved";
+export type WorkCardPlanPhaseActivationStatus = "not_active" | "active";
+export type ArtifactLifecycleStatus =
+  | "proposed"
+  | "mapped"
+  | "planning_draft"
+  | "pending_review"
+  | "approved_for_work_card_creation"
+  | "active"
+  | "closed"
+  | "deferred"
+  | "superseded"
+  | "already_satisfied"
+  | "implemented_but_not_validated"
+  | "validated_but_not_closed";
+export type WorkCardPlanItemStatus =
+  | "planned"
+  | "approved_for_work_card_creation"
+  | "deferred"
+  | "superseded"
+  | "already_satisfied"
+  | "implemented_but_not_validated"
+  | "validated_but_not_closed";
+
+export const artifactLifecycleStatusLabels: Record<
+  ArtifactLifecycleStatus,
+  string
+> = {
+  proposed: "Proposed",
+  mapped: "Mapped",
+  planning_draft: "Planning Draft",
+  pending_review: "Pending Review",
+  approved_for_work_card_creation: "Approved for Work Card Creation",
+  active: "Active",
+  closed: "Closed",
+  deferred: "Deferred",
+  superseded: "Superseded",
+  already_satisfied: "Already Satisfied",
+  implemented_but_not_validated: "Implemented But Not Validated",
+  validated_but_not_closed: "Validated But Not Closed",
+};
+
+export const workCardPlanItemStatusLabels: Record<
+  WorkCardPlanItemStatus,
+  string
+> = {
+  planned: "Planned",
+  approved_for_work_card_creation: "Approved for Work Card Creation",
+  deferred: "Deferred",
+  superseded: "Superseded",
+  already_satisfied: "Already Satisfied",
+  implemented_but_not_validated: "Implemented But Not Validated",
+  validated_but_not_closed: "Validated But Not Closed",
+};
+
 export interface WorkCardPlanItem {
   workCardIdProposal: string;
   title: string;
+  planStatus: ArtifactLifecycleStatus;
+  reconciliationStatus: WorkCardPlanItemStatus;
+  executableStatus: "not_executable";
   problem: string;
   userOutcome: string;
   includedScope: string;
@@ -28,10 +86,41 @@ export interface WorkCardPlanRecord {
   sourcePhasePlanningDocumentsJsonFileName?: string;
   sourcePhasePlanningDocumentsMarkdownFileName?: string;
   planPurpose: string;
+  reviewStatus: WorkCardPlanReviewStatus;
+  phaseActivationStatus: WorkCardPlanPhaseActivationStatus;
+  artifactAuthority: string;
   proposedWorkCards: WorkCardPlanItem[];
   operatorPlanAdjustments: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SavedWorkCardPlanSummary {
+  fileName: string;
+  markdownFileName?: string;
+  workCardPlanId: string;
+  projectName: string;
+  phaseFolder: string;
+  phaseName: string;
+  sourcePhasePlanningDocumentsId: string;
+  reviewStatus: WorkCardPlanReviewStatus;
+  phaseActivationStatus: WorkCardPlanPhaseActivationStatus;
+  artifactAuthority: string;
+  proposedWorkCards: WorkCardPlanItem[];
+  proposedWorkCardCount: number;
+  updatedAt: string;
+}
+
+export interface InvalidSavedWorkCardPlanFile {
+  fileName: string;
+  errorMessages: string[];
+}
+
+export interface ListSavedWorkCardPlansResult {
+  ok: boolean;
+  workCardPlans?: SavedWorkCardPlanSummary[];
+  invalidFiles?: InvalidSavedWorkCardPlanFile[];
+  errorMessages?: string[];
 }
 
 export interface WorkCardPlanArtifactFileNames {
@@ -82,7 +171,11 @@ export function buildWorkCardPlanRecord(
     sourcePhasePlanningDocumentsMarkdownFileName:
       input.sourcePhasePlanningDocumentsMarkdownFileName,
     planPurpose:
-      "Initial planning proposal only. This artifact does not create formal app-selectable Work Card JSON files.",
+      "Pending-review planning proposal only. This artifact does not create formal app-selectable Work Card JSON files.",
+    reviewStatus: "pending_review",
+    phaseActivationStatus: "not_active",
+    artifactAuthority:
+      "Work Card Plan = proposed Work Card count, order, names, and rough intent; Formal Work Cards require a separate Operator approval step.",
     proposedWorkCards: buildWorkCardPlanItems(input),
     operatorPlanAdjustments: cleanText(input.operatorPlanAdjustments),
     createdAt: timestamp,
@@ -92,7 +185,7 @@ export function buildWorkCardPlanRecord(
 
 export function renderWorkCardPlanMarkdown(record: WorkCardPlanRecord): string {
   return [
-    `# Initial Work Card Plan: ${record.phaseName}`,
+    `# Pending Review Work Card Plan: ${record.phaseName}`,
     section(
       "Source Context",
       [
@@ -100,6 +193,8 @@ export function renderWorkCardPlanMarkdown(record: WorkCardPlanRecord): string {
         `Project: ${record.projectName}`,
         `Phase folder: ${record.phaseFolder}`,
         `Phase name: ${record.phaseName}`,
+        `Review status: ${formatReviewStatus(record.reviewStatus)}`,
+        `Phase activation status: ${formatPhaseActivationStatus(record.phaseActivationStatus)}`,
         `Source Phase Planning Documents ID: ${record.sourcePhasePlanningDocumentsId}`,
         `Source Phase Planning Documents JSON: ${record.sourcePhasePlanningDocumentsJsonFileName ?? "Generated in same save operation."}`,
         `Source Phase Planning Documents Markdown: ${record.sourcePhasePlanningDocumentsMarkdownFileName ?? "Generated in same save operation."}`,
@@ -108,17 +203,18 @@ export function renderWorkCardPlanMarkdown(record: WorkCardPlanRecord): string {
       ].join("\n"),
     ),
     section("Plan Purpose", record.planPurpose),
+    section("Artifact Authority", record.artifactAuthority),
     section(
       "Operator Plan Adjustments",
       record.operatorPlanAdjustments || "None provided.",
     ),
     section(
-      "Initial Work Card Plan",
+      "Proposed Work Card Plan",
       record.proposedWorkCards.map(renderWorkCardPlanItem).join("\n\n"),
     ),
     section(
-      "Important Boundary",
-      "These are planning proposals for Operator and Architect review. A later workflow must convert selected items into formal app-selectable Work Card JSON/Markdown artifacts.",
+      "Formal Work Card Boundary",
+      "These are planning proposals for Operator and Architect review. A separate Operator approval step must convert selected items into formal app-selectable Work Card JSON/Markdown artifacts before any Implementer Prompt is generated.",
     ),
   ].join("\n\n") + "\n";
 }
@@ -135,11 +231,13 @@ export function renderPhaseScopedBacklogMarkdown(
         `Phase folder: ${record.phaseFolder}`,
         `Phase name: ${record.phaseName}`,
         `Source plan: ${record.workCardPlanId}`,
+        `Review status: ${formatReviewStatus(record.reviewStatus)}`,
+        `Phase activation status: ${formatPhaseActivationStatus(record.phaseActivationStatus)}`,
         `Updated: ${record.updatedAt}`,
       ].join("\n"),
     ),
     section(
-      "Initial Planning Proposals",
+      "Pending Review Planning Proposals",
       record.proposedWorkCards
         .map(
           (item) =>
@@ -151,8 +249,9 @@ export function renderPhaseScopedBacklogMarkdown(
       "Backlog Notes",
       [
         "- This backlog is phase-scoped planning output.",
+        "- It is Draft / Pending Review / Not Active until an Operator activation decision is recorded.",
         "- It is not a set of formal app-selectable Work Card JSON files.",
-        "- Operator review is required before selected proposals are converted into formal Work Cards.",
+        "- Separate Operator approval is required before selected proposals are converted into Formal Work Cards.",
       ].join("\n"),
     ),
   ].join("\n\n") + "\n";
@@ -232,6 +331,22 @@ export function validateWorkCardPlanRecord(candidate: unknown): string[] {
     errors.push("proposedWorkCards must be saved as a list.");
   }
 
+  if (
+    "reviewStatus" in candidate &&
+    typeof candidate.reviewStatus === "string" &&
+    !isWorkCardPlanReviewStatus(candidate.reviewStatus)
+  ) {
+    errors.push("reviewStatus is not supported.");
+  }
+
+  if (
+    "phaseActivationStatus" in candidate &&
+    typeof candidate.phaseActivationStatus === "string" &&
+    !isWorkCardPlanPhaseActivationStatus(candidate.phaseActivationStatus)
+  ) {
+    errors.push("phaseActivationStatus is not supported.");
+  }
+
   return errors;
 }
 
@@ -267,6 +382,9 @@ function buildWorkCardPlanItems(
   return titles.map((title, index) => ({
     workCardIdProposal: `WC${String(index + 1).padStart(2, "0")}`,
     title,
+    planStatus: "proposed",
+    reconciliationStatus: inferPlanItemStatus(title),
+    executableStatus: "not_executable",
     problem: buildProblem(title, input.phaseName, input.phaseGoal),
     userOutcome: buildUserOutcome(title, input.phaseName),
     includedScope: buildIncludedScope(title, input.phaseScope),
@@ -283,6 +401,9 @@ function renderWorkCardPlanItem(item: WorkCardPlanItem): string {
   return [
     `### ${item.workCardIdProposal}: ${item.title}`,
     "",
+    `- Plan status: ${formatArtifactLifecycleStatus(item.planStatus ?? "proposed")}`,
+    `- Reconciliation status: ${formatWorkCardPlanItemStatus(item.reconciliationStatus ?? "planned")}`,
+    `- Executable status: Not Executable`,
     `- Problem: ${item.problem}`,
     `- User outcome: ${item.userOutcome}`,
     `- Included scope: ${item.includedScope}`,
@@ -353,6 +474,30 @@ function buildNotes(operatorPlanAdjustments: string | undefined): string {
   return "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.";
 }
 
+function inferPlanItemStatus(title: string): WorkCardPlanItemStatus {
+  if (/\balready\s+satisfied\b/i.test(title)) {
+    return "already_satisfied";
+  }
+
+  if (/\bsuperseded\b/i.test(title)) {
+    return "superseded";
+  }
+
+  if (/\bdefer(red)?\b/i.test(title)) {
+    return "deferred";
+  }
+
+  if (/\bvalidated\b/i.test(title) && /\bnot\s+closed\b/i.test(title)) {
+    return "validated_but_not_closed";
+  }
+
+  if (/\bimplemented\b/i.test(title) && /\bnot\s+validated\b/i.test(title)) {
+    return "implemented_but_not_validated";
+  }
+
+  return "planned";
+}
+
 function extractLinesByPattern(output: string, pattern: RegExp): string[] {
   return uniqueNonEmpty(
     output
@@ -405,6 +550,40 @@ function uniqueNonEmpty(items: string[]): string[] {
 
 function section(title: string, body: string): string {
   return `## ${title}\n\n${body.trim().length > 0 ? body : "Not provided."}`;
+}
+
+function formatReviewStatus(status: WorkCardPlanReviewStatus): string {
+  return status === "pending_review" ? "Pending Review" : "Approved";
+}
+
+function formatPhaseActivationStatus(
+  status: WorkCardPlanPhaseActivationStatus,
+): string {
+  return status === "not_active" ? "Not Active" : "Active";
+}
+
+export function formatArtifactLifecycleStatus(
+  status: ArtifactLifecycleStatus,
+): string {
+  return artifactLifecycleStatusLabels[status];
+}
+
+export function formatWorkCardPlanItemStatus(
+  status: WorkCardPlanItemStatus,
+): string {
+  return workCardPlanItemStatusLabels[status];
+}
+
+function isWorkCardPlanReviewStatus(
+  value: string,
+): value is WorkCardPlanReviewStatus {
+  return value === "pending_review" || value === "approved";
+}
+
+function isWorkCardPlanPhaseActivationStatus(
+  value: string,
+): value is WorkCardPlanPhaseActivationStatus {
+  return value === "not_active" || value === "active";
 }
 
 function cleanText(value: string | undefined): string {

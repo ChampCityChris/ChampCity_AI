@@ -10,21 +10,30 @@ import {
 } from "./phaseIntake";
 import type { ProjectPlanningDocumentsRecord } from "./projectPlanningDocuments";
 import type { RepositoryReconciliationRecord } from "./repositoryReconciliation";
+import type { MappedPhaseRecord, PhaseMapRecord } from "./phaseMap";
 import {
   buildWorkCardPlanRecord,
+  formatArtifactLifecycleStatus,
+  formatWorkCardPlanItemStatus,
   type WorkCardPlanArtifactFileNames,
   type WorkCardPlanItem,
   type WorkCardPlanRecord,
 } from "./workCardPlan";
 import { validateSafePhaseFolder } from "./workCardFileNames";
 
+export type PhasePlanningReviewStatus = "pending_review" | "approved";
+export type PhasePlanningActivationStatus = "not_active" | "active";
+
 export interface PhasePlanningDocumentsRequest {
   phaseFolder: string;
+  phaseMapFileName?: string;
+  mappedPhaseId?: string;
   projectPlanningDocumentFileName?: string;
   repositoryReconciliationFileName?: string;
   projectRoadmapFileName?: string;
   phaseIntakeFileName?: string;
   phaseArchitectInterviewPromptFileName?: string;
+  phaseClarificationAnswers?: string;
   phaseArchitectInterviewOutput: string;
   operatorPlanAdjustments: string;
 }
@@ -35,6 +44,9 @@ export interface PhasePlanningDocumentsBuildInput
   sourceProjectPlanningDocumentsMarkdownFileName?: string;
   sourceRepositoryReconciliation?: RepositoryReconciliationRecord;
   sourceRepositoryReconciliationMarkdownFileName?: string;
+  sourcePhaseMap?: PhaseMapRecord;
+  sourcePhaseMapMarkdownFileName?: string;
+  sourceMappedPhase?: MappedPhaseRecord;
   sourceProjectRoadmap?: ProjectRoadmapRecord;
   sourceProjectRoadmapMarkdownFileName?: string;
   sourcePhaseIntake?: PhaseIntake;
@@ -53,12 +65,19 @@ export interface PhasePlanningDocumentsRecord {
   sourceProjectPlanningSidecarMarkdownFileName?: string;
   sourceRepositoryReconciliationJsonFileName?: string;
   sourceRepositoryReconciliationMarkdownFileName?: string;
+  sourcePhaseMapJsonFileName?: string;
+  sourcePhaseMapMarkdownFileName?: string;
+  sourceMappedPhaseId?: string;
   sourceProjectRoadmapJsonFileName?: string;
   sourceProjectRoadmapMarkdownFileName?: string;
   sourcePhaseIntakeJsonFileName?: string;
   sourcePhaseIntakeMarkdownFileName?: string;
   sourcePhaseArchitectInterviewPromptJsonFileName?: string;
   sourcePhaseArchitectInterviewPromptMarkdownFileName?: string;
+  reviewStatus: PhasePlanningReviewStatus;
+  phaseActivationStatus: PhasePlanningActivationStatus;
+  artifactAuthority: string;
+  formalWorkCardCreationPolicy: string;
   phaseBrief: string;
   phaseGoal: string;
   phaseUserOperatorOutcome: string;
@@ -76,6 +95,7 @@ export interface PhasePlanningDocumentsRecord {
   initialWorkCardPlan: WorkCardPlanItem[];
   openQuestions: string[];
   nextRecommendedAction: string;
+  phaseClarificationAnswers: string;
   phaseArchitectInterviewOutput: string;
   operatorPlanAdjustments: string;
   createdAt: string;
@@ -133,59 +153,87 @@ export function buildPhasePlanningDocuments(
     throw new Error("Select a saved Repository Reconciliation source.");
   }
 
-  if (!input.sourcePhaseIntake && !input.sourceProjectRoadmap) {
+  if (
+    !input.sourceMappedPhase &&
+    !input.sourcePhaseIntake &&
+    !input.sourceProjectRoadmap
+  ) {
     throw new Error(
-      "Select a saved Project Roadmap source or a compatibility Phase Intake source.",
+      "Run Phase Map Builder first, then select a mapped phase for planning.",
     );
-  }
-
-  const phaseArchitectInterviewOutput = cleanText(
-    input.phaseArchitectInterviewOutput,
-  );
-
-  if (phaseArchitectInterviewOutput.length === 0) {
-    throw new Error("Paste the completed Phase Architect Interview output first.");
   }
 
   const sourcePhaseIntake =
     input.sourcePhaseIntake ??
-    buildCompatibilityPhaseIntakeFromRoadmap(
-      input.sourceProjectRoadmap as ProjectRoadmapRecord,
-      timestamp,
-    );
-  const phaseName = cleanText(sourcePhaseIntake.phaseName) || phaseFolder;
+    (!input.sourceMappedPhase && input.sourceProjectRoadmap
+      ? buildCompatibilityPhaseIntakeFromRoadmap(
+          input.sourceProjectRoadmap as ProjectRoadmapRecord,
+          timestamp,
+        )
+      : undefined);
+  const phaseClarificationAnswers = cleanText(input.phaseClarificationAnswers);
+  const legacyInterviewOutput = cleanText(input.phaseArchitectInterviewOutput);
+  const phaseArchitectInterviewOutput =
+    firstUseful([
+      phaseClarificationAnswers,
+      legacyInterviewOutput,
+      input.sourceMappedPhase
+        ? buildMappedPhaseContext(input.sourceMappedPhase)
+        : undefined,
+      input.sourceProjectRoadmap
+        ? buildRoadmapContext(input.sourceProjectRoadmap)
+        : undefined,
+    ]) ||
+    "No phase-specific clarification was required after roadmap and reconciliation context were evaluated.";
+  const phaseName =
+    firstUseful([
+      input.sourceMappedPhase?.phaseTitle,
+      sourcePhaseIntake?.phaseName,
+      phaseFolder,
+    ]) || phaseFolder;
   const fileNames = buildPhasePlanningDocumentsFileNames(phaseName);
   const extraction = extractPhasePlanningSections(phaseArchitectInterviewOutput);
   const projectName =
-    cleanText(sourcePhaseIntake.projectName) ||
+    cleanText(input.sourceMappedPhase?.projectName) ||
+    cleanText(sourcePhaseIntake?.projectName) ||
     cleanText(input.sourceProjectPlanningDocuments.projectName) ||
     cleanText(input.sourceRepositoryReconciliation.projectName) ||
     "ChampCity A/I";
   const phaseGoal =
     firstUseful([
-      sourcePhaseIntake.phaseGoal,
+      input.sourceMappedPhase?.phasePurpose,
+      sourcePhaseIntake?.phaseGoal,
       firstUseful(extraction.phaseGoals),
     ]) || "Not provided.";
   const phaseScope =
     firstUseful([
-      sourcePhaseIntake.includedScope,
+      input.sourceMappedPhase?.phasePurpose,
+      sourcePhaseIntake?.includedScope,
       firstUseful(extraction.scopeItems),
     ]) || "Not provided.";
   const phaseRisks = uniqueNonEmpty([
-    ...(sourcePhaseIntake.risksAndDriftWarnings ?? []),
-    ...extractListField(sourcePhaseIntake.knownRisks),
+    ...(input.sourceMappedPhase?.risks ?? []),
+    ...(sourcePhaseIntake?.risksAndDriftWarnings ?? []),
+    ...extractListField(sourcePhaseIntake?.knownRisks),
     ...input.sourceRepositoryReconciliation.currentRisks,
     ...extraction.risks,
   ]);
   const phaseDependencies = uniqueNonEmpty([
-    ...extractListField(sourcePhaseIntake.dependencies),
+    ...(input.sourceMappedPhase?.notes ?? []),
+    ...extractListField(sourcePhaseIntake?.dependencies),
     ...extraction.dependencies,
   ]);
   const validationExpectations = uniqueNonEmpty([
-    ...extractListField(sourcePhaseIntake.validationExpectations),
+    ...extractListField(sourcePhaseIntake?.validationExpectations),
+    input.sourceMappedPhase
+      ? `Validate mapped phase ${input.sourceMappedPhase.phaseId} planning artifacts before Operator acceptance.`
+      : "",
     ...extraction.validationExpectations,
   ]);
   const recommendedImplementationSequence = uniqueNonEmpty([
+    ...(input.sourceMappedPhase?.plannedWorkCards.map(
+      (workCard) => `${workCard.workCardIdProposal}: ${workCard.title}`,
+    ) ?? []),
     ...extraction.recommendedImplementationSequence,
     ...input.sourceRepositoryReconciliation.recommendedMilestones,
   ]);
@@ -222,6 +270,9 @@ export function buildPhasePlanningDocuments(
       input.repositoryReconciliationFileName,
     sourceRepositoryReconciliationMarkdownFileName:
       input.sourceRepositoryReconciliationMarkdownFileName,
+    sourcePhaseMapJsonFileName: input.phaseMapFileName,
+    sourcePhaseMapMarkdownFileName: input.sourcePhaseMapMarkdownFileName,
+    sourceMappedPhaseId: input.sourceMappedPhase?.phaseId ?? input.mappedPhaseId,
     sourceProjectRoadmapJsonFileName: input.projectRoadmapFileName,
     sourceProjectRoadmapMarkdownFileName:
       input.sourceProjectRoadmapMarkdownFileName,
@@ -231,27 +282,37 @@ export function buildPhasePlanningDocuments(
       input.phaseArchitectInterviewPromptFileName,
     sourcePhaseArchitectInterviewPromptMarkdownFileName:
       input.sourcePhaseArchitectInterviewPromptMarkdownFileName,
+    reviewStatus: "pending_review",
+    phaseActivationStatus: "not_active",
+    artifactAuthority:
+      "Phase Planning Documents = draft or approved plan for a selected phase; the phase remains Not Active until an explicit Operator activation decision.",
+    formalWorkCardCreationPolicy:
+      "Work Card Plans propose count, order, names, and rough intent only. Formal Work Cards require a separate Operator approval step before Implementer Prompts can be generated.",
     phaseBrief:
       firstUseful([
         firstUseful(extraction.phaseBriefs),
-        sourcePhaseIntake.phasePurpose,
-        sourcePhaseIntake.phaseProblem,
+        input.sourceMappedPhase?.phasePurpose,
+        sourcePhaseIntake?.phasePurpose,
+        sourcePhaseIntake?.phaseProblem,
         input.sourceRepositoryReconciliation.recommendedNextPhase,
       ]) || "Not provided.",
     phaseGoal,
     phaseUserOperatorOutcome:
       firstUseful([
-        sourcePhaseIntake.userOutcome,
+        sourcePhaseIntake?.userOutcome,
+        input.sourceMappedPhase
+          ? `The Operator can generate phase planning documents for ${input.sourceMappedPhase.phaseTitle} from mapped roadmap context.`
+          : undefined,
         firstUseful(extraction.userOutcomes),
       ]) || "Not provided.",
     phaseScope,
     explicitOutOfScopeItems: uniqueNonEmpty([
-      ...extractListField(sourcePhaseIntake.outOfScope),
+      ...extractListField(sourcePhaseIntake?.outOfScope),
       ...extraction.outOfScopeItems,
     ]),
     affectedAppScreensWorkflows:
       firstUseful([
-        sourcePhaseIntake.affectedScreensOrWorkflows,
+        sourcePhaseIntake?.affectedScreensOrWorkflows,
         firstUseful(extraction.affectedWorkflows),
       ]) || "Not provided.",
     sourceProjectPlanningContext: summarizeProjectPlanningContext(
@@ -264,10 +325,14 @@ export function buildPhasePlanningDocuments(
       firstUseful(extraction.architectInterviewSummaries) ||
       summarizeText(phaseArchitectInterviewOutput),
     phaseAssumptions: uniqueNonEmpty([
-      ...(sourcePhaseIntake.assumptions ?? []),
+      ...(input.sourceMappedPhase?.assumptions ?? []),
+      ...(sourcePhaseIntake?.assumptions ?? []),
       ...extraction.assumptions,
+      input.sourceMappedPhase
+        ? "The formal Phase Map is the selectable phase authority for this planning pass."
+        : "",
       input.sourceProjectRoadmap
-        ? "Project Roadmap / Phase Map is the planning authority; compatibility Phase Intake is generated only if needed internally."
+        ? "Project Roadmap and Phase Map are planning authorities; compatibility Phase Intake is generated only if needed internally."
         : "Phase Intake notes are constraints/context, not the sole source of roadmap truth.",
     ]),
     phaseRisks,
@@ -275,11 +340,15 @@ export function buildPhasePlanningDocuments(
     validationExpectations,
     recommendedImplementationSequence,
     initialWorkCardPlan: workCardPlan.proposedWorkCards,
-    openQuestions: extraction.openQuestions,
+    openQuestions: uniqueNonEmpty([
+      ...(input.sourceMappedPhase?.unresolvedQuestions ?? []),
+      ...extraction.openQuestions,
+    ]),
     nextRecommendedAction:
       firstUseful(extraction.nextActions) ||
-      sourcePhaseIntake.recommendedNextStep ||
-      "Review the Phase Planning Documents and initial Work Card plan, then convert selected plan items into formal Work Cards in a later workflow.",
+      sourcePhaseIntake?.recommendedNextStep ||
+      "Review the Phase Planning Documents and pending-review Work Card Plan, keep them Draft / Pending Review / Not Active until a Closeout activation decision, then convert selected plan items into Formal Work Cards in a later approval workflow.",
+    phaseClarificationAnswers,
     phaseArchitectInterviewOutput,
     operatorPlanAdjustments: cleanText(input.operatorPlanAdjustments),
     createdAt: timestamp,
@@ -303,16 +372,23 @@ export function renderPhasePlanningDocumentsMarkdown(
         `Project Planning Documents Markdown: ${record.sourceProjectPlanningSidecarMarkdownFileName ?? "Not found."}`,
         `Repository Reconciliation JSON: ${record.sourceRepositoryReconciliationJsonFileName ?? "Not selected."}`,
         `Repository Reconciliation Markdown: ${record.sourceRepositoryReconciliationMarkdownFileName ?? "Not found."}`,
+        `Phase Map JSON: ${record.sourcePhaseMapJsonFileName ?? "Not selected."}`,
+        `Phase Map Markdown: ${record.sourcePhaseMapMarkdownFileName ?? "Not found."}`,
+        `Mapped phase ID: ${record.sourceMappedPhaseId ?? "Not selected."}`,
         `Project Roadmap JSON: ${record.sourceProjectRoadmapJsonFileName ?? "Not selected."}`,
         `Project Roadmap Markdown: ${record.sourceProjectRoadmapMarkdownFileName ?? "Not found."}`,
         `Phase Intake JSON: ${record.sourcePhaseIntakeJsonFileName ?? "Not selected."}`,
         `Phase Intake Markdown: ${record.sourcePhaseIntakeMarkdownFileName ?? "Not found."}`,
         `Phase Architect Interview Prompt JSON: ${record.sourcePhaseArchitectInterviewPromptJsonFileName ?? "Not selected."}`,
         `Phase Architect Interview Prompt Markdown: ${record.sourcePhaseArchitectInterviewPromptMarkdownFileName ?? "Not found."}`,
+        `Review status: ${formatReviewStatus(record.reviewStatus)}`,
+        `Phase activation status: ${formatPhaseActivationStatus(record.phaseActivationStatus)}`,
         `Created: ${record.createdAt}`,
         `Updated: ${record.updatedAt}`,
       ].join("\n"),
     ),
+    section("Artifact Authority", record.artifactAuthority),
+    section("Formal Work Card Boundary", record.formalWorkCardCreationPolicy),
     section("Phase Brief", record.phaseBrief),
     section("Phase Goal", record.phaseGoal),
     section("Phase User/Operator Outcome", record.phaseUserOperatorOutcome),
@@ -324,7 +400,10 @@ export function renderPhasePlanningDocumentsMarkdown(
     section("Affected App Screens/Workflows", record.affectedAppScreensWorkflows),
     section("Source Project Planning Context", record.sourceProjectPlanningContext),
     section("Repository Reconciliation Summary", record.repositoryReconciliationSummary),
-    section("Architect Interview Summary", record.architectInterviewSummary),
+    section(
+      "Clarification / Legacy Interview Summary",
+      record.architectInterviewSummary,
+    ),
     section(
       "Phase Assumptions",
       formatListOrFallback(record.phaseAssumptions, "Not provided."),
@@ -349,7 +428,7 @@ export function renderPhasePlanningDocumentsMarkdown(
       ),
     ),
     section(
-      "Initial Work Card Plan",
+      "Proposed Work Card Plan",
       record.initialWorkCardPlan.map(renderInitialPlanItem).join("\n\n"),
     ),
     section(
@@ -358,7 +437,11 @@ export function renderPhasePlanningDocumentsMarkdown(
     ),
     section("Next Recommended Action", record.nextRecommendedAction),
     section(
-      "Completed Phase Architect Interview Output",
+      "Phase-Specific Clarification Answers",
+      record.phaseClarificationAnswers,
+    ),
+    section(
+      "Clarification / Legacy Interview Context",
       record.phaseArchitectInterviewOutput,
     ),
   ].join("\n\n") + "\n";
@@ -427,6 +510,7 @@ export function validatePhasePlanningDocumentsRecord(candidate: unknown): string
     "repositoryReconciliationSummary",
     "architectInterviewSummary",
     "nextRecommendedAction",
+    "phaseClarificationAnswers",
     "phaseArchitectInterviewOutput",
     "operatorPlanAdjustments",
     "createdAt",
@@ -456,6 +540,22 @@ export function validatePhasePlanningDocumentsRecord(candidate: unknown): string
     if (!Array.isArray(candidate[field])) {
       errors.push(`${field} must be saved as a list.`);
     }
+  }
+
+  if (
+    "reviewStatus" in candidate &&
+    typeof candidate.reviewStatus === "string" &&
+    !isPhasePlanningReviewStatus(candidate.reviewStatus)
+  ) {
+    errors.push("reviewStatus is not supported.");
+  }
+
+  if (
+    "phaseActivationStatus" in candidate &&
+    typeof candidate.phaseActivationStatus === "string" &&
+    !isPhasePlanningActivationStatus(candidate.phaseActivationStatus)
+  ) {
+    errors.push("phaseActivationStatus is not supported.");
   }
 
   return errors;
@@ -538,6 +638,37 @@ function extractPhasePlanningSections(output: string): {
     ]),
     nextActions: extractNamedSection(output, ["next recommended action", "next action"]),
   };
+}
+
+function buildMappedPhaseContext(phase: MappedPhaseRecord): string {
+  return [
+    `Mapped phase: ${phase.phaseId} - ${phase.phaseTitle}`,
+    `Purpose: ${phase.phasePurpose}`,
+    `Status: ${phase.status}`,
+    `Notes: ${formatInlineList(phase.notes)}`,
+    `Assumptions: ${formatInlineList(phase.assumptions)}`,
+    `Risks: ${formatInlineList(phase.risks)}`,
+    `Unresolved questions: ${formatInlineList(phase.unresolvedQuestions)}`,
+    `Planned Work Cards: ${formatInlineList(
+      phase.plannedWorkCards.map(
+        (workCard) => `${workCard.workCardIdProposal}: ${workCard.title}`,
+      ),
+    )}`,
+  ].join("\n");
+}
+
+function buildRoadmapContext(roadmap: ProjectRoadmapRecord): string {
+  return [
+    `Project Roadmap: ${roadmap.roadmapId}`,
+    `Next recommended phase: ${roadmap.nextExecutablePhase.phaseFolder} - ${roadmap.nextExecutablePhase.phaseTitle}`,
+    `Action: ${roadmap.nextExecutablePhase.actionSummary}`,
+    `Rationale: ${roadmap.nextExecutablePhase.rationale}`,
+    `Clarification questions: ${formatInlineList(
+      roadmap.operatorClarificationQuestions.map(
+        (question) => question.question,
+      ),
+    )}`,
+  ].join("\n");
 }
 
 function summarizeProjectPlanningContext(
@@ -630,6 +761,9 @@ function renderInitialPlanItem(item: WorkCardPlanItem): string {
   return [
     `### ${item.workCardIdProposal}: ${item.title}`,
     "",
+    `- Plan status: ${formatArtifactLifecycleStatus(item.planStatus ?? "proposed")}`,
+    `- Reconciliation status: ${formatWorkCardPlanItemStatus(item.reconciliationStatus ?? "planned")}`,
+    `- Executable status: Not Executable`,
     `- Problem: ${item.problem}`,
     `- User outcome: ${item.userOutcome}`,
     `- Included scope: ${item.includedScope}`,
@@ -729,6 +863,28 @@ function formatNumberedListOrFallback(items: string[], fallback: string): string
 
 function section(title: string, body: string): string {
   return `## ${title}\n\n${body.trim().length > 0 ? body : "Not provided."}`;
+}
+
+function formatReviewStatus(status: PhasePlanningReviewStatus): string {
+  return status === "pending_review" ? "Pending Review" : "Approved";
+}
+
+function formatPhaseActivationStatus(
+  status: PhasePlanningActivationStatus,
+): string {
+  return status === "not_active" ? "Not Active" : "Active";
+}
+
+function isPhasePlanningReviewStatus(
+  value: string,
+): value is PhasePlanningReviewStatus {
+  return value === "pending_review" || value === "approved";
+}
+
+function isPhasePlanningActivationStatus(
+  value: string,
+): value is PhasePlanningActivationStatus {
+  return value === "not_active" || value === "active";
 }
 
 function cleanText(value: string | undefined): string {

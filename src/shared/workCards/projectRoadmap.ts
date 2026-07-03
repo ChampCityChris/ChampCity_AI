@@ -8,6 +8,8 @@ import {
 import { slugifyProjectIntakeName } from "./projectIntake";
 import {
   buildWorkCardPlanFileNames,
+  formatArtifactLifecycleStatus,
+  formatWorkCardPlanItemStatus,
   type WorkCardPlanItem,
   type WorkCardPlanRecord,
 } from "./workCardPlan";
@@ -22,6 +24,8 @@ export type ProjectRoadmapMode = (typeof projectRoadmapModes)[number];
 
 export type ProjectRoadmapPhaseStatus =
   | "not started"
+  | "proposed"
+  | "pending review"
   | "active"
   | "blocked"
   | "repair required"
@@ -117,6 +121,7 @@ export interface ProjectRoadmapRecord {
   roadmapId: string;
   projectName: string;
   mode: ProjectRoadmapMode;
+  artifactAuthority?: string[];
   operatorDirection: string;
   completedPhaseFolder?: string;
   sourceProjectPlanningDocumentFileName?: string;
@@ -222,15 +227,15 @@ const defaultFuturePhases: Array<{
 }> = [
   {
     phaseFolder: "phase-03",
-    phaseTitle: "Repository Reconciliation and Phase Planning Documents",
+    phaseTitle: "Workflow Router Screen Correction and Guided Current Action UI",
     phasePurpose:
-      "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "Correct the application screens so durable project state routes the Operator to the current required action.",
   },
   {
     phaseFolder: "phase-04",
-    phaseTitle: "Work Card Lifecycle Completion",
+    phaseTitle: "Workflow Execution Hardening",
     phasePurpose:
-      "Harden the core Build and Prove loop from Work Card creation through Implementer report, validation, repair, and closeout.",
+      "Harden the Work Card Loop, Implementer Report review, validation records, repair routing, and closeout status transitions.",
   },
   {
     phaseFolder: "phase-05",
@@ -240,9 +245,9 @@ const defaultFuturePhases: Array<{
   },
   {
     phaseFolder: "phase-06",
-    phaseTitle: "Guided Operator UX and Terminology Simplification",
+    phaseTitle: "Guided Operator UX Polish and Figma Implementation",
     phasePurpose:
-      "Turn the workflow into a guided Capture, Frame, Plan, Build, and Prove experience.",
+      "Apply broader visual polish and Figma design refinement after the workflow-router correction is implemented.",
   },
   {
     phaseFolder: "phase-07",
@@ -307,10 +312,13 @@ export function buildProjectRoadmap(
       risks,
     ),
     artifactPolicy: [
+      "Project Roadmap artifacts propose the end-to-end project progression; they do not activate phases.",
+      "Roadmap phases remain Proposed until the Phase Map Builder creates mapped phase records.",
+      "Mapped phases, draft Phase Planning Documents, and Work Card Plans remain Not Active until an explicit Operator activation decision.",
       "Roadmap artifacts are paired JSON and Markdown under planning/project/Project_Roadmap/.",
       "Next-phase artifacts require Operator approval before phase folders are created or updated.",
       "Work Card plans are planning artifacts and do not create formal app-selectable Work Card JSON files.",
-      "Compatibility Phase Intake is generated only from an approved Roadmap or Next Phase Readiness Review.",
+      "Compatibility Phase Intake is generated only from a reviewed Roadmap or Next Phase Readiness Review.",
       "Renderer filesystem access remains mediated through constrained Electron main/preload IPC.",
     ],
     approvedNextPhaseArtifactGeneration: Boolean(
@@ -319,6 +327,17 @@ export function buildProjectRoadmap(
     compatibilityPhaseIntakeGenerated: Boolean(
       input.approveNextPhaseArtifacts && input.generateCompatibilityPhaseIntake,
     ),
+    artifactAuthority: [
+      "Project Plan / Roadmap = proposed end-to-end project progression.",
+      "Phase Map = structured phase status and phase-selection authority.",
+      "Phase Planning Documents = draft or approved plan for a selected phase.",
+      "Work Card Plan = proposed Work Card count, order, names, and rough intent.",
+      "Formal Work Cards = approved executable units saved under Work_Cards/.",
+      "Implementer Prompt = build instruction generated from an approved Formal Work Card.",
+      "Builder Report = Implementer result.",
+      "Human Validation Report = Operator evidence and decision.",
+      "Closeout Report = phase-level acceptance and transition authority.",
+    ],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -328,7 +347,7 @@ export function renderProjectRoadmapMarkdown(
   record: ProjectRoadmapRecord,
 ): string {
   return [
-    `# Project Roadmap & Phase Map: ${record.projectName}`,
+    `# Project Roadmap: ${record.projectName}`,
     section(
       "Source Context",
       [
@@ -344,15 +363,19 @@ export function renderProjectRoadmapMarkdown(
     ),
     section("Operator Direction", record.operatorDirection),
     section(
+      "Artifact Authority Model",
+      formatListOrFallback(record.artifactAuthority ?? [], "Not provided."),
+    ),
+    section(
       "Source Artifacts",
       record.sourceArtifacts.map(renderSourceArtifact).join("\n"),
     ),
     section(
-      "Generated Project Phase Map",
+      "Proposed Roadmap Phases",
       record.phaseMap.map(renderPhaseMapEntry).join("\n\n"),
     ),
     section(
-      "Next Executable Phase",
+      "Next Phase Recommendation",
       renderNextExecutablePhase(record.nextExecutablePhase),
     ),
     section(
@@ -602,13 +625,13 @@ export function renderPhaseReadinessReviewMarkdown(
         `Project Roadmap ID: ${record.projectRoadmapId}`,
         `Project: ${record.projectName}`,
         `Completed phase: ${record.completedPhaseFolder ?? "Not selected."}`,
-        `Next executable phase: ${record.nextExecutablePhase.phaseFolder}`,
+        `Next recommended phase: ${record.nextExecutablePhase.phaseFolder}`,
         `Created: ${record.createdAt}`,
         `Updated: ${record.updatedAt}`,
       ].join("\n"),
     ),
     section(
-      "Next Executable Phase",
+      "Next Phase Recommendation",
       renderNextExecutablePhase(record.nextExecutablePhase),
     ),
     section(
@@ -653,7 +676,11 @@ export function buildRoadmapWorkCardPlanRecord(
     phaseName: next.phaseTitle,
     sourcePhasePlanningDocumentsId: roadmap.roadmapId,
     planPurpose:
-      "Project Roadmap proposal only. This artifact does not create formal app-selectable Work Card JSON files.",
+      "Pending-review Project Roadmap proposal only. This artifact does not create formal app-selectable Work Card JSON files.",
+    reviewStatus: "pending_review",
+    artifactAuthority:
+      "Work Card Plan = proposed Work Card count, order, names, and rough intent; Formal Work Cards require a separate Operator approval step.",
+    phaseActivationStatus: "not_active",
     proposedWorkCards: next.proposedWorkCards,
     operatorPlanAdjustments: roadmap.operatorDirection,
     createdAt: timestamp,
@@ -704,12 +731,12 @@ export function buildCompatibilityPhaseIntakeFromRoadmap(
     operatorProjectWorkType:
       next.kind === "repair-current" ? "repair_pass" : "planning_pass",
     operatorMustKeepConstraints:
-      "Use the approved Project Roadmap / Phase Map as the source of phase scope.",
+      "Use the reviewed Project Roadmap / Phase Map as the source of phase scope.",
     phasePurpose: selectedPhase?.phasePurpose ?? next.actionSummary,
     phaseProblem: next.rationale,
     phaseGoal: next.actionSummary,
     userOutcome:
-      "The Operator can proceed from the approved Roadmap into the next bounded phase without inventing phase scope manually.",
+      "The Operator can review the Roadmap recommendation for the next bounded phase without inventing phase scope manually.",
     architectDerivedScope: selectedPhase
       ? selectedPhase.majorDeliverables.join("\n")
       : next.actionSummary,
@@ -721,23 +748,23 @@ export function buildCompatibilityPhaseIntakeFromRoadmap(
     affectedScreensOrWorkflows:
       "Roadmap, Phase Plan, Work Card Plan, Phase Closeout, and Next Phase Readiness Review.",
     knownConstraints:
-      "Renderer filesystem access must stay mediated through constrained Electron main/preload IPC. Roadmap artifacts remain planning records until Operator approval.",
+      "Renderer filesystem access must stay mediated through constrained Electron main/preload IPC. Roadmap artifacts remain planning records until Operator approval and activation.",
     knownRisks: roadmap.risks.map((risk) => `- ${risk}`).join("\n"),
     dependencies: selectedPhase
       ? selectedPhase.dependencies.map((item) => `- ${item}`).join("\n")
-      : "Approved Project Roadmap / Phase Map.",
+      : "Reviewed Project Roadmap / Phase Map.",
     validationExpectations: selectedPhase
       ? selectedPhase.validationExpectations.map((item) => `- ${item}`).join("\n")
       : "Run available automated checks and record remaining Operator manual validation.",
     assumptions: [
-      "This compatibility Phase Intake was generated from an approved Project Roadmap / Phase Map.",
+      "This compatibility Phase Intake was generated from a reviewed Project Roadmap / Phase Map.",
       "Manual Phase Intake is an advanced or legacy edit path, not the primary planning source.",
     ],
     risksAndDriftWarnings: roadmap.staleStateWarnings,
     acceptanceDefinition:
       "Phase Plan can consume this generated compatibility artifact while the Roadmap remains the planning authority.",
     recommendedNextStep:
-      "Use Phase Plan with the approved Roadmap source and this generated compatibility Phase Intake only if the current implementation still requires a Phase Intake object.",
+      "Use Phase Plan with the reviewed Roadmap source and this generated compatibility Phase Intake only if the current implementation still requires a Phase Intake object.",
     operatorNotes: roadmap.operatorDirection,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -814,7 +841,7 @@ function buildFuturePhaseEntry(phase: {
     phaseFolder: phase.phaseFolder,
     phaseTitle: phase.phaseTitle,
     phasePurpose: phase.phasePurpose,
-    status: "future/planned",
+    status: "proposed",
     confidenceLevel: phase.phaseFolder === "phase-03" ? "medium" : "low",
     sourceArtifactsUsed: [
       "Project Planning Documents",
@@ -825,7 +852,7 @@ function buildFuturePhaseEntry(phase: {
     proposedWorkCards: buildProposedWorkCardsForPhase({
       phaseFolder: phase.phaseFolder,
       phaseTitle: phase.phaseTitle,
-      status: "future/planned",
+      status: "proposed",
       detailed: phase.phaseFolder === "phase-03",
       risks: [],
     }),
@@ -847,9 +874,9 @@ function buildFuturePhaseEntry(phase: {
       "List remaining Operator manual validation steps in Builder Reports.",
     ],
     closeoutCriteria: [
-      "All approved Work Cards have Builder Reports.",
+      "All approved Formal Work Cards have Builder Reports.",
       "Validation Reports and repair decisions are reconciled.",
-      "Phase Closeout and Next Phase Readiness Review artifacts are saved.",
+      "Phase Closeout includes a Next Phase Activation decision.",
     ],
   };
 }
@@ -858,7 +885,7 @@ function selectNextExecutablePhase(
   phaseMap: ProjectRoadmapPhaseEntry[],
 ): ProjectRoadmapNextExecutablePhase {
   const existingPhases = phaseMap.filter(
-    (phase) => phase.status !== "future/planned",
+    (phase) => !isProposedPhaseStatus(phase.status),
   );
   const repairPhase = existingPhases.find(
     (phase) => phase.status === "repair required" || phase.status === "blocked",
@@ -908,8 +935,25 @@ function selectNextExecutablePhase(
     };
   }
 
+  const pendingReviewPhase = existingPhases.find(
+    (phase) => phase.status === "pending review",
+  );
+
+  if (pendingReviewPhase) {
+    return {
+      kind: "new-phase",
+      phaseFolder: pendingReviewPhase.phaseFolder,
+      phaseTitle: pendingReviewPhase.phaseTitle,
+      actionSummary:
+        "Review the pending phase plan and record a Next Phase Activation decision before formal Work Cards or Implementer Prompts are created.",
+      rationale: `${pendingReviewPhase.phaseFolder} has draft or pending-review planning artifacts, but it is not active.`,
+      shouldCreatePhaseFolder: false,
+      proposedWorkCards: pendingReviewPhase.proposedWorkCards,
+    };
+  }
+
   const nextFuture =
-    phaseMap.find((phase) => phase.status === "future/planned") ??
+    phaseMap.find((phase) => isProposedPhaseStatus(phase.status)) ??
     phaseMap[phaseMap.length - 1];
 
   if (nextFuture) {
@@ -918,7 +962,7 @@ function selectNextExecutablePhase(
       phaseFolder: nextFuture.phaseFolder,
       phaseTitle: nextFuture.phaseTitle,
       actionSummary:
-        "Create or activate the next phase only after Operator approval.",
+        "Review the next phase recommendation and record a Next Phase Activation decision before execution.",
       rationale:
         "Earlier phases are closed or have no deterministic blocker in the current artifact summary.",
       shouldCreatePhaseFolder: true,
@@ -938,7 +982,7 @@ function selectNextExecutablePhase(
     proposedWorkCards: buildProposedWorkCardsForPhase({
       phaseFolder: "phase-07",
       phaseTitle: "Release Readiness",
-      status: "future/planned",
+      status: "proposed",
       detailed: true,
       risks: [],
     }),
@@ -1007,7 +1051,7 @@ function buildStaleStateWarnings(
   }
 
   if (
-    phaseMap.some((phase) => phase.status === "future/planned") &&
+    phaseMap.some((phase) => isProposedPhaseStatus(phase.status)) &&
     phaseMap.some(
       (phase) =>
         phase.status === "repair required" || phase.status === "ready for closeout",
@@ -1050,9 +1094,9 @@ function buildClarificationQuestions(
     },
     {
       question:
-        "Are there any scope boundaries the Architect should preserve for the next immediate phase?",
+        "Are there any scope boundaries the Architect should preserve for the next recommended phase?",
       suggestedDefault:
-        "Keep implementation scoped to the next executable phase and do not create formal Work Card JSON automatically.",
+        "Keep implementation scoped to the next recommended phase and do not create formal Work Card JSON automatically.",
       reason:
         "Operator approval is required before planning proposals become formal Work Cards.",
     },
@@ -1127,6 +1171,14 @@ function inferExistingPhaseStatus(
     return "active";
   }
 
+  if (
+    context.workCardPlanFileNames.length > 0 ||
+    context.phasePlanningDocumentFileNames.length > 0 ||
+    context.phaseReadinessReviewFileNames.length > 0
+  ) {
+    return "pending review";
+  }
+
   return "not started";
 }
 
@@ -1158,6 +1210,10 @@ function buildExistingPhasePurpose(
     return "Consolidate validation evidence and complete phase closeout before the next phase starts.";
   }
 
+  if (status === "pending review") {
+    return "Review draft phase planning artifacts and decide whether to activate the phase.";
+  }
+
   return context.summary.deterministicRecommendation;
 }
 
@@ -1175,6 +1231,9 @@ function buildExistingPhaseSourceArtifacts(
       : "",
     context.phaseReadinessReviewFileNames.length > 0
       ? `${context.phase}/Phase_Readiness_Reviews (${context.phaseReadinessReviewFileNames.length})`
+      : "",
+    context.phasePlanningDocumentFileNames.length > 0
+      ? `${context.phase}/Phase_Planning_Documents (${context.phasePlanningDocumentFileNames.length})`
       : "",
   ]);
 }
@@ -1228,6 +1287,9 @@ function buildExistingPhaseOpenQuestions(
     status === "ready for closeout"
       ? "Is the Operator ready to run phase closeout and approve the next-phase review?"
       : "",
+    status === "pending review"
+      ? "Should this pending-review phase plan stay draft, be revised, or be activated?"
+      : "",
     context.workCardPlanFileNames.length === 0 && status !== "closed"
       ? "Should a phase-scoped Work Card Plan be generated from the Roadmap?"
       : "",
@@ -1244,6 +1306,9 @@ function buildExistingPhaseDecisions(
       : "",
     status === "ready for closeout"
       ? "Decide whether the phase can close or needs another repair pass."
+      : "",
+    status === "pending review"
+      ? "Operator must make a Next Phase Activation decision before formal Work Cards or Implementer Prompts are created."
       : "",
     context.summary.closeoutReportCount === 0
       ? "Operator closeout decision is still required."
@@ -1262,31 +1327,48 @@ function buildExistingPhaseCloseoutCriteria(
     ];
   }
 
+  if (status === "pending review") {
+    return [
+      "Phase Planning Documents are reviewed by the Operator.",
+      "Work Card Plan remains a proposal until selected items are approved as Formal Work Cards.",
+      "Next Phase Activation decision is recorded in a Closeout Report.",
+    ];
+  }
+
   return [
     "Required Work Cards have paired JSON and Markdown where applicable.",
     "Relevant Implementer Reports are saved in Builder_Reports compatibility storage.",
     "Validation Reports are present or intentionally deferred by the Operator.",
     "Repair Prompts are resolved, superseded, or explicitly carried forward.",
-    "Phase Closeout and Next Phase Readiness Review artifacts are saved.",
+    "Phase Closeout includes a Next Phase Activation decision.",
   ];
 }
 
 function buildFutureDeliverables(phaseTitle: string): string[] {
+  if (/workflow router|current required action|guided current action/i.test(phaseTitle)) {
+    return [
+      "Durable current-action state model",
+      "Workflow-router UI shell",
+      "Artifact review workspace",
+      "Stale and superseded artifact warnings",
+    ];
+  }
+
+  if (/workflow execution|work card/i.test(phaseTitle)) {
+    return [
+      "Coherent Work Card execution loop",
+      "Implementer report review path",
+      "Validation and repair handoff behavior",
+      "Closeout-ready status transitions",
+    ];
+  }
+
   if (/mcp|repo bridge|security/i.test(phaseTitle)) {
     return [
       "Repo connection status model",
       "Safe read/write boundaries",
       "Operator-visible approval and fallback behavior",
       "No-secret handling guidance",
-    ];
-  }
-
-  if (/work card/i.test(phaseTitle)) {
-    return [
-      "Coherent Work Card execution loop",
-      "Implementer report review path",
-      "Validation and repair handoff behavior",
-      "Closeout-ready status transitions",
     ];
   }
 
@@ -1335,14 +1417,17 @@ function buildProposedWorkCardsForPhase(input: {
   return titles.map((title, index) => ({
     workCardIdProposal: `WC${String(index + 1).padStart(2, "0")}`,
     title,
+    planStatus: "proposed",
+    reconciliationStatus: "planned",
+    executableStatus: "not_executable",
     problem: buildWorkCardProblem(title, input),
     userOutcome: buildWorkCardOutcome(title, input),
     includedScope: buildWorkCardIncludedScope(title, input),
     outOfScope:
       "Do not automatically create formal Work Card JSON. Do not perform Operator acceptance, phase closeout, release, provider SDK, auth, database, cloud, connector, MCP passthrough, or deployment work unless separately approved.",
     dependencies:
-      input.status === "future/planned"
-        ? "Prior phase closeout and Next Phase Readiness Review."
+      isProposedPhaseStatus(input.status)
+        ? "Prior phase closeout, Next Phase Readiness Review, and explicit activation decision."
         : "Current phase artifacts, Builder Reports, Validation Reports, Repair Prompts, and Operator direction.",
     riskLevel,
     validationItems: [
@@ -1373,7 +1458,7 @@ function buildWorkCardTitles(input: {
     return [
       "Consolidate phase validation evidence",
       "Run phase closeout decision review",
-      "Confirm next executable phase and Work Card order",
+      "Confirm next recommended phase and Work Card order",
     ];
   }
 
@@ -1382,6 +1467,14 @@ function buildWorkCardTitles(input: {
       `Complete remaining ${input.phaseTitle} implementation work`,
       `Validate ${input.phaseTitle} artifacts and workflow reachability`,
       `Prepare ${input.phaseTitle} closeout evidence`,
+    ];
+  }
+
+  if (input.status === "pending review") {
+    return [
+      `Review pending ${input.phaseTitle} planning documents`,
+      `Approve, revise, or defer ${input.phaseTitle} Work Card Plan proposals`,
+      `Record ${input.phaseTitle} activation decision at phase closeout`,
     ];
   }
 
@@ -1402,6 +1495,15 @@ function buildWorkCardTitles(input: {
     ];
   }
 
+  if (/Workflow Router|Current Required Action|Guided Current Action/i.test(input.phaseTitle)) {
+    return [
+      "Reconcile superseded Phase 03 artifacts and state labels",
+      "Define durable current required action model",
+      "Integrate workflow-router UI shell",
+      "Validate routed workflow scenarios",
+    ];
+  }
+
   return [
     `Define ${input.phaseTitle} source context`,
     `Implement ${input.phaseTitle} workflow`,
@@ -1414,8 +1516,12 @@ function buildWorkCardProblem(
   title: string,
   input: { phaseTitle: string; status: ProjectRoadmapPhaseStatus },
 ): string {
-  if (input.status === "future/planned") {
-    return `${title} is needed to move ${input.phaseTitle} from roadmap proposal into an approved phase plan.`;
+  if (isProposedPhaseStatus(input.status)) {
+    return `${title} is needed to move ${input.phaseTitle} from roadmap proposal into a reviewed phase plan.`;
+  }
+
+  if (input.status === "pending review") {
+    return `${title} is needed because ${input.phaseTitle} has draft planning artifacts that are not active executable work.`;
   }
 
   return `${title} is needed because ${input.phaseTitle} is not yet cleanly ready for the next phase.`;
@@ -1432,8 +1538,12 @@ function buildWorkCardIncludedScope(
   title: string,
   input: { phaseTitle: string; status: ProjectRoadmapPhaseStatus },
 ): string {
-  if (input.status === "future/planned") {
-    return `${title}. Keep the work bounded to approved roadmap and readiness-review artifacts for ${input.phaseTitle}.`;
+  if (isProposedPhaseStatus(input.status)) {
+    return `${title}. Keep the work bounded to reviewed roadmap and readiness-review artifacts for ${input.phaseTitle}.`;
+  }
+
+  if (input.status === "pending review") {
+    return `${title}. Preserve the Draft / Pending Review / Not Active boundary until the Operator records a next-phase activation decision.`;
   }
 
   return `${title}. Inspect current phase artifacts, update planning records, and preserve Operator approval boundaries.`;
@@ -1583,7 +1693,8 @@ function renderNextExecutablePhase(
     `- Phase title: ${next.phaseTitle}`,
     `- Action: ${next.actionSummary}`,
     `- Rationale: ${next.rationale}`,
-    `- Create phase folder after approval: ${next.shouldCreatePhaseFolder ? "yes" : "no"}`,
+    `- Create phase folder for draft planning artifacts after Operator permission: ${next.shouldCreatePhaseFolder ? "yes" : "no"}`,
+    "- Activation decision required before execution: yes",
     `- Proposed phase folder: ${next.proposedPhaseFolder ?? "Not needed."}`,
   ].join("\n");
 }
@@ -1598,6 +1709,9 @@ function renderProposedWorkCards(items: WorkCardPlanItem[]): string {
       (item) =>
         [
           `${item.suggestedOrdering}. ${item.workCardIdProposal}: ${item.title}`,
+          `   - Plan status: ${formatArtifactLifecycleStatus(item.planStatus ?? "proposed")}`,
+          `   - Reconciliation status: ${formatWorkCardPlanItemStatus(item.reconciliationStatus ?? "planned")}`,
+          `   - Executable status: Not Executable`,
           `   - Problem: ${item.problem}`,
           `   - User outcome: ${item.userOutcome}`,
           `   - Risk: ${item.riskLevel}`,
@@ -1620,7 +1734,7 @@ function renderClarificationQuestion(
 function formatMode(mode: ProjectRoadmapMode): string {
   return mode === "next-phase-readiness-review"
     ? "Next Phase Readiness Review"
-    : "Project Roadmap / Phase Map";
+    : "Project Roadmap";
 }
 
 function buildDefaultDirection(mode: ProjectRoadmapMode): string {
@@ -1645,6 +1759,10 @@ function section(title: string, body: string): string {
 
 function isProjectRoadmapMode(value: string): value is ProjectRoadmapMode {
   return projectRoadmapModes.includes(value as ProjectRoadmapMode);
+}
+
+function isProposedPhaseStatus(status: ProjectRoadmapPhaseStatus): boolean {
+  return status === "proposed" || status === "future/planned";
 }
 
 function uniqueNonEmpty(items: string[]): string[] {

@@ -81,6 +81,19 @@ import type {
   SavedProjectRoadmapSummary,
 } from "../shared/workCards/projectRoadmap";
 import type {
+  InvalidSavedPhaseMapFile,
+  ListSavedPhaseMapsResult,
+  PhaseMapBuilderRequest,
+  PhaseMapPreviewResult,
+  PhaseMapRecord,
+  PhaseMapSaveResult,
+  SavedMappedPhaseSummary,
+  SavedPhaseMapSummary,
+} from "../shared/workCards/phaseMap";
+import type {
+  InvalidSavedWorkCardPlanFile,
+  ListSavedWorkCardPlansResult,
+  SavedWorkCardPlanSummary,
   WorkCardPlanItem,
   WorkCardPlanRecord,
 } from "../shared/workCards/workCardPlan";
@@ -145,6 +158,7 @@ import type {
   PhaseWorkCardArtifactPair,
 } from "../shared/workCards/phaseCloseout";
 import type {
+  NextPhaseActivationDecision,
   PhaseCloseoutDecision,
   PhaseCloseoutFormInput,
   PhaseCloseoutPreviewResult,
@@ -258,8 +272,19 @@ declare global {
   type ChampCityInvalidSavedProjectRoadmapFile =
     InvalidSavedProjectRoadmapFile;
   type ChampCityListSavedProjectRoadmapsResult = ListSavedProjectRoadmapsResult;
+  type ChampCityPhaseMapBuilderRequest = PhaseMapBuilderRequest;
+  type ChampCityPhaseMapRecord = PhaseMapRecord;
+  type ChampCityPhaseMapPreviewResult = PhaseMapPreviewResult;
+  type ChampCityPhaseMapSaveResult = PhaseMapSaveResult;
+  type ChampCitySavedMappedPhaseSummary = SavedMappedPhaseSummary;
+  type ChampCitySavedPhaseMapSummary = SavedPhaseMapSummary;
+  type ChampCityInvalidSavedPhaseMapFile = InvalidSavedPhaseMapFile;
+  type ChampCityListSavedPhaseMapsResult = ListSavedPhaseMapsResult;
   type ChampCityWorkCardPlanItem = WorkCardPlanItem;
   type ChampCityWorkCardPlanRecord = WorkCardPlanRecord;
+  type ChampCitySavedWorkCardPlanSummary = SavedWorkCardPlanSummary;
+  type ChampCityInvalidSavedWorkCardPlanFile = InvalidSavedWorkCardPlanFile;
+  type ChampCityListSavedWorkCardPlansResult = ListSavedWorkCardPlansResult;
   type ChampCityWorkCardPreviewResult = WorkCardPreviewResult;
   type ChampCityWorkCardSaveResult = WorkCardSaveResult;
   type ChampCityNextWorkCardIdResult = NextWorkCardIdResult;
@@ -317,6 +342,7 @@ declare global {
   type ChampCityPhaseArtifactSummary = PhaseArtifactSummary;
   type ChampCityPhaseWorkCardArtifactPair = PhaseWorkCardArtifactPair;
   type ChampCityPhaseCloseoutDecision = PhaseCloseoutDecision;
+  type ChampCityNextPhaseActivationDecision = NextPhaseActivationDecision;
   type ChampCityPhaseCloseoutFormInput = PhaseCloseoutFormInput;
   type ChampCityPhaseCloseoutRecord = PhaseCloseoutRecord;
   type ChampCityPhaseCloseoutSummaryResult = PhaseCloseoutSummaryResult;
@@ -393,6 +419,11 @@ declare global {
         input: ProjectRoadmapRequest,
       ) => Promise<ProjectRoadmapSaveResult>;
       listSavedProjectRoadmaps: () => Promise<ListSavedProjectRoadmapsResult>;
+      previewPhaseMap: (
+        input: PhaseMapBuilderRequest,
+      ) => Promise<PhaseMapPreviewResult>;
+      savePhaseMap: (input: PhaseMapBuilderRequest) => Promise<PhaseMapSaveResult>;
+      listSavedPhaseMaps: () => Promise<ListSavedPhaseMapsResult>;
       listPhasePlanningProjectPlanningDocuments: () => Promise<ListSavedProjectPlanningDocumentsResult>;
       listPhasePlanningRepositoryReconciliations: () => Promise<ListSavedRepositoryReconciliationsResult>;
       listPhasePlanningPhaseIntakes: (
@@ -407,6 +438,9 @@ declare global {
       savePhasePlanningDocuments: (
         input: PhasePlanningDocumentsRequest,
       ) => Promise<PhasePlanningDocumentsSaveResult>;
+      listSavedWorkCardPlans: (
+        phase: string,
+      ) => Promise<ListSavedWorkCardPlansResult>;
       getNextWorkCardId: (phase: string) => Promise<NextWorkCardIdResult>;
       previewWorkCardDraft: (
         input: WorkCardDraftInput,

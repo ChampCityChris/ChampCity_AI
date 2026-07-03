@@ -49,12 +49,19 @@ import type {
   PhasePlanningDocumentsRequest,
   PhasePlanningDocumentsSaveResult,
 } from "../shared/workCards/phasePlanningDocuments";
+import type { ListSavedWorkCardPlansResult } from "../shared/workCards/workCardPlan";
 import type {
   ListSavedProjectRoadmapsResult,
   ProjectRoadmapPreviewResult,
   ProjectRoadmapRequest,
   ProjectRoadmapSaveResult,
 } from "../shared/workCards/projectRoadmap";
+import type {
+  ListSavedPhaseMapsResult,
+  PhaseMapBuilderRequest,
+  PhaseMapPreviewResult,
+  PhaseMapSaveResult,
+} from "../shared/workCards/phaseMap";
 import type {
   ArchitectPromptPreviewResult,
   ArchitectPromptRequest,
@@ -107,10 +114,10 @@ const api = {
       "Project Architect Interview",
       "Project Plan",
       "Reconcile / Project State Review",
-      "Roadmap",
-      "Phase Architect Interview",
-      "Phase Plan",
-      "Capture",
+      "Phase Map Builder",
+      "Phase Planning Documents Generator",
+      "Work Card Plan Review",
+      "Ad Hoc Work Card Capture",
       "Architect",
       "Risk",
       "Implement",
@@ -201,6 +208,14 @@ const api = {
     ipcRenderer.invoke("projectRoadmap:save", input),
   listSavedProjectRoadmaps: (): Promise<ListSavedProjectRoadmapsResult> =>
     ipcRenderer.invoke("projectRoadmap:listSaved"),
+  previewPhaseMap: (
+    input: PhaseMapBuilderRequest,
+  ): Promise<PhaseMapPreviewResult> =>
+    ipcRenderer.invoke("phaseMap:preview", input),
+  savePhaseMap: (input: PhaseMapBuilderRequest): Promise<PhaseMapSaveResult> =>
+    ipcRenderer.invoke("phaseMap:save", input),
+  listSavedPhaseMaps: (): Promise<ListSavedPhaseMapsResult> =>
+    ipcRenderer.invoke("phaseMap:listSaved"),
   listPhasePlanningProjectPlanningDocuments:
     (): Promise<ListSavedProjectPlanningDocumentsResult> =>
       ipcRenderer.invoke("phasePlanning:listProjectPlanningDocuments"),
@@ -223,6 +238,10 @@ const api = {
     input: PhasePlanningDocumentsRequest,
   ): Promise<PhasePlanningDocumentsSaveResult> =>
     ipcRenderer.invoke("phasePlanning:save", input),
+  listSavedWorkCardPlans: (
+    phase: string,
+  ): Promise<ListSavedWorkCardPlansResult> =>
+    ipcRenderer.invoke("workCardPlans:listSaved", phase),
   getNextWorkCardId: (phase: string): Promise<NextWorkCardIdResult> =>
     ipcRenderer.invoke("workCards:getNextId", phase),
   previewWorkCardDraft: (

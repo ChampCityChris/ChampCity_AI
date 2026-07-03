@@ -1,0 +1,10 @@
+{
+  "id": "OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+  "status": "pending_operator_approval",
+  "project": "ChampCity A/I",
+  "rebaselineArtifact": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+  "rebaselineJson": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
+  "approvalScope": "Approve Project Mapping Rebaseline to supersede screen-picker assumptions and adopt workflow-router model.",
+  "approved": false,
+  "approvalStatement": "Pending. Do not treat as approved until Operator explicitly approves."
+}

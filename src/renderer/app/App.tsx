@@ -37,10 +37,12 @@ type AppScreen =
   | "project-intake"
   | "project-architect-interview"
   | "project-planning-documents"
+  | "phase-map-builder"
   | "phase-intake"
   | "phase-architect-interview"
   | "repository-reconciliation"
   | "phase-planning-documents"
+  | "work-card-plan-review"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -83,6 +85,17 @@ const projectIntakeStageOptions: ChampCityProjectIntakeStage[] = [
   "maintenance",
   "unknown",
 ];
+const phaseIntakeWorkTypeOptions: Array<{
+  value: NonNullable<ChampCityPhaseIntakeInput["operatorProjectWorkType"]>;
+  label: string;
+}> = [
+  { value: "new_project", label: "New project" },
+  { value: "ongoing_project", label: "Ongoing project" },
+  { value: "repair_pass", label: "Repair pass" },
+  { value: "ui_pass", label: "UI pass" },
+  { value: "validation_pass", label: "Validation pass" },
+  { value: "planning_pass", label: "Planning pass" },
+];
 const workCardJsonSelectorHelp =
   "Only Work Cards with JSON artifacts can be selected. Markdown-only notes are compatibility records, not app-readable Work Cards.";
 
@@ -116,48 +129,53 @@ const workflowSteps: WorkflowStep[] = [
     Icon: MapIcon,
   },
   {
-    id: "phase-intake",
-    label: "Phase Intake",
-    mode: "architect",
-    shortDesc: "Define phase",
-    screenTitle: "Phase Intake",
-    nextAction: "Capture phase intent from project planning context.",
-    Icon: ClipboardList,
-  },
-  {
-    id: "phase-architect-interview",
-    label: "Phase Interview",
-    mode: "architect",
-    shortDesc: "Phase prompt",
-    screenTitle: "Phase Architect Interview",
-    nextAction: "Generate a copy-ready phase interview prompt.",
-    Icon: MessageSquareText,
-  },
-  {
     id: "repository-reconciliation",
     label: "Reconcile",
     mode: "architect",
-    shortDesc: "Repo state",
+    shortDesc: "Project state review",
     screenTitle: "Repository Reconciliation",
-    nextAction: "Review current repo/project state before phase planning.",
+    nextAction:
+      "Review current repo/project state before Roadmap generation.",
     Icon: GitBranch,
+  },
+  {
+    id: "phase-map-builder",
+    label: "Phase Map",
+    mode: "architect",
+    shortDesc: "Mapped phases",
+    screenTitle: "Phase Map Builder",
+    nextAction:
+      "Generate or update mapped phase records from the reviewed Roadmap.",
+    Icon: MapIcon,
   },
   {
     id: "phase-planning-documents",
     label: "Phase Plan",
     mode: "architect",
     shortDesc: "Plan phase",
-    screenTitle: "Phase Planning Documents",
-    nextAction: "Generate phase planning documents and an initial Work Card plan.",
+    screenTitle: "Phase Planning Documents Generator",
+    nextAction:
+      "Select a mapped phase and generate phase planning documents.",
     Icon: ListChecks,
   },
   {
-    id: "new-work-card",
-    label: "Capture",
+    id: "work-card-plan-review",
+    label: "Work Card Plan Review",
     mode: "architect",
-    shortDesc: "Define intent",
-    screenTitle: "New Work Card",
-    nextAction: "Capture Operator intent and save paired JSON/Markdown.",
+    shortDesc: "Review planned cards",
+    screenTitle: "Work Card Plan Review",
+    nextAction:
+      "Review proposed Work Card slots before any Formal Work Cards are created.",
+    Icon: CheckSquare,
+  },
+  {
+    id: "new-work-card",
+    label: "Ad Hoc Work Card Capture",
+    mode: "architect",
+    shortDesc: "Out-of-cycle work",
+    screenTitle: "Ad Hoc Work Card Capture",
+    nextAction:
+      "Capture one-off, repair, emergency, or operator-discovered work outside the planned phase path.",
     Icon: FileText,
   },
   {
@@ -249,9 +267,24 @@ const initialHumanValidationForm: Omit<
   recommendedNextAction: "",
 };
 
+const nextPhaseActivationDecisionOptions: ChampCityNextPhaseActivationDecision[] = [
+  "Activate next phase",
+  "Defer next phase",
+  "Revise roadmap first",
+  "Carry unresolved current-phase items forward",
+  "Close current phase without activation",
+  "Keep next phase inactive",
+  "Approve next phase activation",
+  "Keep next phase pending review",
+  "Request revised next phase plan",
+  "No next phase planned",
+];
+
 const initialPhaseCloseoutForm: ChampCityPhaseCloseoutFormInput = {
   phase: defaultPhase,
   decision: "Continue phase",
+  nextPhaseActivationDecision: "Close current phase without activation",
+  nextPhaseActivationNotes: "",
   closeoutSummary: "",
   completedItems: "",
   remainingItems: "",
@@ -284,7 +317,15 @@ const initialPhaseIntakeForm: ChampCityPhaseIntakeInput = {
   phaseFolder: defaultPhase,
   phaseName: "",
   projectName: "ChampCity A/I",
+  generationMode: "architect-led",
+  projectIntakeFileName: "",
+  projectArchitectInterviewPromptFileName: "",
   sourceProjectPlanningSidecarJsonFileName: "",
+  repositoryReconciliationFileName: "",
+  existingPhaseIntakeFileName: "",
+  operatorNextWorkIntent: "",
+  operatorProjectWorkType: "ongoing_project",
+  operatorMustKeepConstraints: "",
   phaseProblem: "",
   phaseGoal: "",
   userOutcome: "",
@@ -305,12 +346,34 @@ const initialRepositoryReconciliationForm: ChampCityRepositoryReconciliationRequ
   architectReconciliationOutput: "",
 };
 
-const initialPhasePlanningForm: ChampCityPhasePlanningDocumentsRequest = {
-  phaseFolder: "phase-02",
+const initialProjectRoadmapForm: ChampCityProjectRoadmapRequest = {
+  projectName: "ChampCity A/I",
+  operatorDirection:
+    "Map the full project from current state through releasable finish. Recommend repair or closeout before new phase creation when current evidence is incomplete.",
+  mode: "project-roadmap",
+  completedPhaseFolder: "phase-02",
+  sourceProjectPlanningDocumentFileName: "",
+  sourceRepositoryReconciliationFileName: "",
+  approveNextPhaseArtifacts: false,
+  generateCompatibilityPhaseIntake: true,
+};
+
+const initialPhaseMapForm: ChampCityPhaseMapBuilderRequest = {
   projectPlanningDocumentFileName: "",
   repositoryReconciliationFileName: "",
+  projectRoadmapFileName: "",
+};
+
+const initialPhasePlanningForm: ChampCityPhasePlanningDocumentsRequest = {
+  phaseFolder: "phase-02",
+  phaseMapFileName: "",
+  mappedPhaseId: "",
+  projectPlanningDocumentFileName: "",
+  repositoryReconciliationFileName: "",
+  projectRoadmapFileName: "",
   phaseIntakeFileName: "",
   phaseArchitectInterviewPromptFileName: "",
+  phaseClarificationAnswers: "",
   phaseArchitectInterviewOutput: "",
   operatorPlanAdjustments: "",
 };
@@ -369,8 +432,14 @@ export default function App() {
         onNavigate={setActiveScreen}
       />
     ),
+    "phase-map-builder": (
+      <PhaseMapBuilderScreen
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
     "phase-intake": (
-      <PhaseIntakeScreen
+      <ProjectRoadmapScreen
         phase={phase}
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
@@ -402,6 +471,16 @@ export default function App() {
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
+    "work-card-plan-review": (
+      <WorkCardPlanReviewScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
       />
     ),
     "new-work-card": (
@@ -501,6 +580,19 @@ function AppHeader({
   workCards: ChampCitySavedWorkCardSummary[];
   onCardChange: (fileName: string) => void;
 }) {
+  const showHeaderPhaseSelector = ![
+    "phase-map-builder",
+    "phase-planning-documents",
+    "work-card-plan-review",
+    "new-work-card",
+  ].includes(activeScreen);
+  const showHeaderWorkCardSelector = ![
+    "phase-map-builder",
+    "phase-planning-documents",
+    "work-card-plan-review",
+    "new-work-card",
+  ].includes(activeScreen);
+
   return (
     <header className="shrink-0 border-b border-border bg-card/70 px-4 py-2 backdrop-blur-sm">
       <div className="flex min-w-0 flex-col gap-2">
@@ -520,39 +612,47 @@ function AppHeader({
 
         <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-border/70 pt-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <select
-              value={phase}
-              onChange={(event) => onPhaseChange(event.target.value)}
-              className={cn(
-                selectCls,
-                "w-[112px] max-w-full shrink-0 py-1.5 font-mono text-xs",
-              )}
-            >
-              {phaseOptions.map((phaseOption) => (
-                <option key={phaseOption} value={phaseOption}>
-                  {phaseOption}
-                </option>
-              ))}
-            </select>
+            {showHeaderPhaseSelector ? (
+              <select
+                value={phase}
+                onChange={(event) => onPhaseChange(event.target.value)}
+                className={cn(
+                  selectCls,
+                  "w-[112px] max-w-full shrink-0 py-1.5 font-mono text-xs",
+                )}
+              >
+                {phaseOptions.map((phaseOption) => (
+                  <option key={phaseOption} value={phaseOption}>
+                    {phaseOption}
+                  </option>
+                ))}
+              </select>
+            ) : null}
 
-            <select
-              value={activeCard?.fileName ?? ""}
-              onChange={(event) => onCardChange(event.target.value)}
-              className={cn(
-                selectCls,
-                "min-w-[14rem] max-w-[42rem] flex-1 basis-[24rem] truncate py-1.5 text-xs",
-              )}
-            >
-              <option value="">- Select Work Card -</option>
-              {workCards.map((workCard) => (
-                <option key={workCard.fileName} value={workCard.fileName}>
-                  {workCard.workCardId} - {workCard.title}
-                </option>
-              ))}
-            </select>
+            {showHeaderWorkCardSelector ? (
+              <select
+                value={activeCard?.fileName ?? ""}
+                onChange={(event) => onCardChange(event.target.value)}
+                className={cn(
+                  selectCls,
+                  "min-w-[14rem] max-w-[42rem] flex-1 basis-[24rem] truncate py-1.5 text-xs",
+                )}
+              >
+                <option value="">- Select Work Card -</option>
+                {workCards.map((workCard) => (
+                  <option key={workCard.fileName} value={workCard.fileName}>
+                    {workCard.workCardId} - {workCard.title}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="min-w-[14rem] flex-1 basis-[24rem] rounded border border-border bg-white/[0.03] px-3 py-1.5 text-xs text-muted-foreground/65">
+                Planned review and ad hoc capture use screen-local authority.
+              </span>
+            )}
           </div>
 
-          {activeCard ? (
+          {showHeaderWorkCardSelector && activeCard ? (
             <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 max-[720px]:w-full">
               <RiskBadge level={activeCard.riskLevel} />
               <StatusBadge status={activeCard.status} />
@@ -1555,10 +1655,10 @@ function ProjectPlanningDocumentsScreen({
                 </code>
                 <button
                   type="button"
-                  onClick={() => onNavigate("phase-intake")}
+                  onClick={() => onNavigate("repository-reconciliation")}
                   className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
                 >
-                  Open Phase Intake
+                  Open Reconcile
                   <ChevronRight size={14} aria-hidden="true" />
                 </button>
               </div>
@@ -1578,7 +1678,392 @@ function ProjectPlanningDocumentsScreen({
   );
 }
 
-function PhaseIntakeScreen({
+function PhaseMapBuilderScreen({
+  onActiveCardChange,
+  onNavigate,
+}: {
+  onActiveCardChange: (card: UiWorkCardSummary | null) => void;
+  onNavigate: (screen: AppScreen) => void;
+}) {
+  const {
+    documents: projectPlanningDocuments,
+    invalidFiles: invalidProjectPlanningFiles,
+    errors: projectPlanningErrors,
+    isLoading: isProjectPlanningLoading,
+  } = usePhasePlanningProjectPlanningDocuments();
+  const {
+    reconciliations,
+    invalidFiles: invalidReconciliationFiles,
+    errors: reconciliationErrors,
+    isLoading: isReconciliationsLoading,
+  } = useRepositoryReconciliations();
+  const {
+    roadmaps,
+    invalidFiles: invalidRoadmapFiles,
+    errors: roadmapErrors,
+    isLoading: isRoadmapsLoading,
+  } = useProjectRoadmaps();
+  const [form, setForm] = useState<ChampCityPhaseMapBuilderRequest>(
+    initialPhaseMapForm,
+  );
+  const [previewResult, setPreviewResult] =
+    useState<ChampCityPhaseMapPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    useState<ChampCityPhaseMapSaveResult | null>(null);
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Select source artifacts to generate mapped phase records.",
+  );
+
+  const selectedProjectPlanningDocuments =
+    projectPlanningDocuments.find(
+      (document) =>
+        document.fileName === form.projectPlanningDocumentFileName,
+    ) ?? null;
+  const selectedReconciliation =
+    reconciliations.find(
+      (reconciliation) =>
+        reconciliation.fileName === form.repositoryReconciliationFileName,
+    ) ?? null;
+  const selectedRoadmap =
+    roadmaps.find((roadmap) => roadmap.fileName === form.projectRoadmapFileName) ??
+    null;
+  const phaseMap = saveResult?.phaseMap ?? previewResult?.phaseMap;
+  const previewMarkdown = saveResult?.markdown ?? previewResult?.markdown ?? "";
+  const allErrors = [
+    ...projectPlanningErrors,
+    ...reconciliationErrors,
+    ...roadmapErrors,
+    ...screenErrors,
+  ];
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    setFirstAvailablePhaseMapSource(
+      "projectPlanningDocumentFileName",
+      projectPlanningDocuments[0]?.fileName,
+      form.projectPlanningDocumentFileName,
+      projectPlanningDocuments.map((document) => document.fileName),
+    );
+  }, [projectPlanningDocuments, form.projectPlanningDocumentFileName]);
+
+  useEffect(() => {
+    setFirstAvailablePhaseMapSource(
+      "repositoryReconciliationFileName",
+      reconciliations[0]?.fileName,
+      form.repositoryReconciliationFileName,
+      reconciliations.map((reconciliation) => reconciliation.fileName),
+    );
+  }, [reconciliations, form.repositoryReconciliationFileName]);
+
+  useEffect(() => {
+    setFirstAvailablePhaseMapSource(
+      "projectRoadmapFileName",
+      roadmaps[0]?.fileName,
+      form.projectRoadmapFileName,
+      roadmaps.map((roadmap) => roadmap.fileName),
+    );
+  }, [roadmaps, form.projectRoadmapFileName]);
+
+  function setFirstAvailablePhaseMapSource(
+    field: keyof ChampCityPhaseMapBuilderRequest,
+    firstFileName: string | undefined,
+    currentFileName: string | undefined,
+    availableFileNames: string[],
+  ) {
+    if (!firstFileName) {
+      return;
+    }
+
+    if (currentFileName && availableFileNames.includes(currentFileName)) {
+      return;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      [field]: firstFileName,
+    }));
+  }
+
+  function updateField<Field extends keyof ChampCityPhaseMapBuilderRequest>(
+    field: Field,
+    value: ChampCityPhaseMapBuilderRequest[Field],
+  ) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    resetPhaseMapPreview("Phase Map source selection updated.");
+  }
+
+  function validatePhaseMapRequest(): string[] {
+    const errors: string[] = [];
+
+    if (!form.projectPlanningDocumentFileName) {
+      errors.push("Select a saved Project Planning Documents source.");
+    }
+
+    if (!form.repositoryReconciliationFileName) {
+      errors.push("Select a saved Repository Reconciliation source.");
+    }
+
+    if (!form.projectRoadmapFileName) {
+      errors.push("Select a saved Project Roadmap source.");
+    }
+
+    return errors;
+  }
+
+  function resetPhaseMapPreview(nextStatusMessage: string) {
+    setPreviewResult(null);
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(nextStatusMessage);
+  }
+
+  async function previewPhaseMap() {
+    const requestErrors = validatePhaseMapRequest();
+
+    if (requestErrors.length > 0) {
+      setScreenErrors(requestErrors);
+      setStatusMessage("Phase Map preview needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewPhaseMap(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewResult(null);
+      setSaveResult(null);
+      setScreenErrors(result.errorMessages ?? ["Phase Map could not be generated."]);
+      setStatusMessage("Phase Map preview needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(null);
+    setStatusMessage("Phase Map preview refreshed.");
+  }
+
+  async function savePhaseMap() {
+    const requestErrors = validatePhaseMapRequest();
+
+    if (requestErrors.length > 0) {
+      setScreenErrors(requestErrors);
+      setStatusMessage("Phase Map save needs attention.");
+      return;
+    }
+
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.savePhaseMap(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.markdown) {
+      setSaveResult(null);
+      setScreenErrors(result.errorMessages ?? ["Phase Map could not be saved."]);
+      setStatusMessage("Phase Map save needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(result);
+    setStatusMessage("Phase Map saved. Mapped phases are ready for draft planning.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Phase Map Builder"
+            description="Generate mapped phase records from durable project planning, reconciliation, and roadmap sources."
+            badge="phase map"
+          />
+          <Notice type="info">
+            This creates the selectable phase authority for planning. Existing
+            phase folders are shown only as context and are not treated as the
+            roadmap phase list. Mapped phases remain Not Active until an
+            explicit Operator activation decision is recorded.
+          </Notice>
+          {roadmaps.length === 0 && !isRoadmapsLoading ? (
+            <Notice type="warning">
+              No Project Roadmap source was found. Save a Project Roadmap source
+              first, then return here to generate the formal Phase Map.
+              <button
+                type="button"
+                onClick={() => onNavigate("phase-intake")}
+                className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+              >
+                Open Project Roadmap Source
+                <ChevronRight size={14} aria-hidden="true" />
+              </button>
+            </Notice>
+          ) : null}
+          <ErrorList errors={allErrors} />
+          <InvalidProjectPlanningDocumentsFiles files={invalidProjectPlanningFiles} />
+          <InvalidRepositoryReconciliationFiles files={invalidReconciliationFiles} />
+          <InvalidProjectRoadmapFiles files={invalidRoadmapFiles} />
+          <FieldGroup title="Source Artifacts">
+            <Field label="Project Planning Documents source">
+              <select
+                className={selectCls}
+                value={form.projectPlanningDocumentFileName ?? ""}
+                disabled={isProjectPlanningLoading}
+                onChange={(event) =>
+                  updateField(
+                    "projectPlanningDocumentFileName",
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="">
+                  {isProjectPlanningLoading
+                    ? "Loading Project Planning Documents..."
+                    : "Select Project Planning Documents"}
+                </option>
+                {projectPlanningDocuments.map((document) => (
+                  <option key={document.fileName} value={document.fileName}>
+                    {document.projectName} ({document.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectPlanningDocuments ? (
+              <ProjectPlanningDocumentsSummary
+                document={selectedProjectPlanningDocuments}
+              />
+            ) : null}
+            <Field label="Repository Reconciliation source">
+              <select
+                className={selectCls}
+                value={form.repositoryReconciliationFileName ?? ""}
+                disabled={isReconciliationsLoading}
+                onChange={(event) =>
+                  updateField(
+                    "repositoryReconciliationFileName",
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="">
+                  {isReconciliationsLoading
+                    ? "Loading Repository Reconciliations..."
+                    : "Select Repository Reconciliation"}
+                </option>
+                {reconciliations.map((reconciliation) => (
+                  <option
+                    key={reconciliation.fileName}
+                    value={reconciliation.fileName}
+                  >
+                    {reconciliation.projectName} ({reconciliation.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedReconciliation ? (
+              <RepositoryReconciliationSummary
+                reconciliation={selectedReconciliation}
+              />
+            ) : null}
+            <Field label="Project Roadmap source">
+              <select
+                className={selectCls}
+                value={form.projectRoadmapFileName ?? ""}
+                disabled={isRoadmapsLoading}
+                onChange={(event) =>
+                  updateField("projectRoadmapFileName", event.target.value)
+                }
+              >
+                <option value="">
+                  {isRoadmapsLoading
+                    ? "Loading Project Roadmaps..."
+                    : "Select Project Roadmap"}
+                </option>
+                {roadmaps.map((roadmap) => (
+                  <option key={roadmap.fileName} value={roadmap.fileName}>
+                    {roadmap.nextExecutablePhaseFolder} -{" "}
+                    {roadmap.nextExecutablePhaseTitle} ({roadmap.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedRoadmap ? (
+              <ProjectRoadmapSummary roadmap={selectedRoadmap} />
+            ) : null}
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => void previewPhaseMap()}
+            onSave={() => void savePhaseMap()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            previewLabel="Preview Phase Map"
+            saveLabel="Generate / Update Phase Map"
+            copyLabel="Copy Preview"
+            saveDisabled={
+              isBusy ||
+              !form.projectPlanningDocumentFileName ||
+              !form.repositoryReconciliationFileName ||
+              !form.projectRoadmapFileName
+            }
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Phase Map"
+          title="Formal Phase Map Preview"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Generate a preview to see mapped phase records."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Phase Map artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("phase-planning-documents")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Phase Planning Generator
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </Notice>
+          ) : null}
+          {phaseMap ? <PhaseMapPreviewSummary phaseMap={phaseMap} /> : null}
+          <MonoBlock className="mt-4 min-h-[calc(100vh-300px)]">
+            {previewMarkdown || "No Phase Map preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function ProjectRoadmapScreen({
   phase,
   phaseOptions,
   onPhaseChange,
@@ -1589,10 +2074,516 @@ function PhaseIntakeScreen({
 }) {
   const {
     documents: projectPlanningDocuments,
-    invalidFiles,
-    errors: sourceErrors,
-    isLoading,
+    invalidFiles: invalidProjectPlanningFiles,
+    errors: projectPlanningErrors,
+    isLoading: isProjectPlanningLoading,
+  } = usePhasePlanningProjectPlanningDocuments();
+  const {
+    reconciliations,
+    invalidFiles: invalidReconciliationFiles,
+    errors: reconciliationErrors,
+    isLoading: isReconciliationsLoading,
+  } = useRepositoryReconciliations();
+  const [showLegacyPhaseIntake, setShowLegacyPhaseIntake] = useState(false);
+  const [form, setForm] = useState<ChampCityProjectRoadmapRequest>({
+    ...initialProjectRoadmapForm,
+    completedPhaseFolder: phase,
+  });
+  const [previewResult, setPreviewResult] =
+    useState<ChampCityProjectRoadmapPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    useState<ChampCityProjectRoadmapSaveResult | null>(null);
+  const [screenErrors, setScreenErrors] = useState<string[]>([]);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Roadmap is ready to map the full project.",
+  );
+
+  const selectedProjectPlanningDocuments =
+    projectPlanningDocuments.find(
+      (document) =>
+        document.fileName === form.sourceProjectPlanningDocumentFileName,
+    ) ?? null;
+  const selectedReconciliation =
+    reconciliations.find(
+      (reconciliation) =>
+        reconciliation.fileName === form.sourceRepositoryReconciliationFileName,
+    ) ?? null;
+  const allErrors = [
+    ...projectPlanningErrors,
+    ...reconciliationErrors,
+    ...screenErrors,
+  ];
+  const previewMarkdown =
+    saveResult?.markdown ?? previewResult?.markdown ?? "";
+  const roadmap = saveResult?.roadmap ?? previewResult?.roadmap;
+  const nextPhasePreview =
+    saveResult?.nextPhaseArtifactPreview ??
+    previewResult?.nextPhaseArtifactPreview;
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    setForm((previous) =>
+      previous.completedPhaseFolder === phase
+        ? previous
+        : {
+            ...previous,
+            completedPhaseFolder: phase,
+          },
+    );
+  }, [phase]);
+
+  useEffect(() => {
+    setFirstAvailableRoadmapSource(
+      "sourceProjectPlanningDocumentFileName",
+      projectPlanningDocuments[0]?.fileName,
+      form.sourceProjectPlanningDocumentFileName,
+      projectPlanningDocuments.map((document) => document.fileName),
+    );
+  }, [
+    projectPlanningDocuments,
+    form.sourceProjectPlanningDocumentFileName,
+  ]);
+
+  useEffect(() => {
+    setFirstAvailableRoadmapSource(
+      "sourceRepositoryReconciliationFileName",
+      reconciliations[0]?.fileName,
+      form.sourceRepositoryReconciliationFileName,
+      reconciliations.map((reconciliation) => reconciliation.fileName),
+    );
+  }, [reconciliations, form.sourceRepositoryReconciliationFileName]);
+
+  function setFirstAvailableRoadmapSource(
+    field: keyof ChampCityProjectRoadmapRequest,
+    firstFileName: string | undefined,
+    currentFileName: string | undefined,
+    availableFileNames: string[],
+  ) {
+    if (!firstFileName) {
+      return;
+    }
+
+    if (currentFileName && availableFileNames.includes(currentFileName)) {
+      return;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      [field]: firstFileName,
+    }));
+  }
+
+  function updateField<Field extends keyof ChampCityProjectRoadmapRequest>(
+    field: Field,
+    value: ChampCityProjectRoadmapRequest[Field],
+  ) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+    resetRoadmapPreview("Roadmap details updated.");
+  }
+
+  function updateCompletedPhase(nextPhase: string) {
+    onPhaseChange(nextPhase);
+    updateField("completedPhaseFolder", nextPhase);
+  }
+
+  function resetRoadmapPreview(nextStatusMessage: string) {
+    setPreviewResult(null);
+    setSaveResult(null);
+    setCopyMessage("");
+    setScreenErrors([]);
+    setStatusMessage(nextStatusMessage);
+  }
+
+  async function previewRoadmap() {
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.previewProjectRoadmap(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.markdown) {
+      setPreviewResult(null);
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Project Roadmap could not be generated."],
+      );
+      setStatusMessage("Project Roadmap preview needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(null);
+    setStatusMessage("Project Roadmap preview refreshed.");
+  }
+
+  async function saveRoadmap() {
+    setIsBusy(true);
+    setCopyMessage("");
+    setScreenErrors([]);
+
+    const result = await window.champCity.saveProjectRoadmap(form);
+    setIsBusy(false);
+
+    if (!result.ok || !result.markdown) {
+      setSaveResult(null);
+      setScreenErrors(
+        result.errorMessages ?? ["Project Roadmap could not be saved."],
+      );
+      setStatusMessage("Project Roadmap save needs attention.");
+      return;
+    }
+
+    setPreviewResult(result);
+    setSaveResult(result);
+    setStatusMessage(
+      form.approveNextPhaseArtifacts
+        ? "Project Roadmap and pending-review next-phase artifacts saved."
+        : "Project Roadmap saved.",
+    );
+  }
+
+  if (showLegacyPhaseIntake) {
+    return (
+      <PhaseIntakeScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={onPhaseChange}
+        onActiveCardChange={onActiveCardChange}
+        onNavigate={onNavigate}
+        onExitLegacy={() => setShowLegacyPhaseIntake(false)}
+      />
+    );
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Project Roadmap"
+            description="Architect-led proposed project progression from durable artifacts through releasable finish."
+            badge="roadmap"
+          />
+          <Notice type="info">
+            The Roadmap proposes phases. Phase Map Builder creates selectable
+            mapped phase records. Saving draft next-phase artifacts does not
+            activate a phase or create Formal Work Cards.
+          </Notice>
+          <ErrorList errors={allErrors} />
+          <InvalidProjectPlanningDocumentsFiles files={invalidProjectPlanningFiles} />
+          <InvalidRepositoryReconciliationFiles files={invalidReconciliationFiles} />
+          <FieldGroup title="Source Artifacts">
+            <Field label="Project Planning Documents">
+              <select
+                className={selectCls}
+                value={form.sourceProjectPlanningDocumentFileName ?? ""}
+                disabled={isProjectPlanningLoading}
+                onChange={(event) =>
+                  updateField(
+                    "sourceProjectPlanningDocumentFileName",
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="">
+                  {isProjectPlanningLoading
+                    ? "Loading Project Planning Documents..."
+                    : "Use latest durable project documents"}
+                </option>
+                {projectPlanningDocuments.map((document) => (
+                  <option key={document.fileName} value={document.fileName}>
+                    {document.projectName} ({document.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedProjectPlanningDocuments ? (
+              <ProjectPlanningDocumentsSummary
+                document={selectedProjectPlanningDocuments}
+              />
+            ) : null}
+            <Field label="Repository Reconciliation">
+              <select
+                className={selectCls}
+                value={form.sourceRepositoryReconciliationFileName ?? ""}
+                disabled={isReconciliationsLoading}
+                onChange={(event) =>
+                  updateField(
+                    "sourceRepositoryReconciliationFileName",
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="">
+                  {isReconciliationsLoading
+                    ? "Loading Repository Reconciliations..."
+                    : "Use latest reconciliation context"}
+                </option>
+                {reconciliations.map((reconciliation) => (
+                  <option
+                    key={reconciliation.fileName}
+                    value={reconciliation.fileName}
+                  >
+                    {reconciliation.projectName} ({reconciliation.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedReconciliation ? (
+              <RepositoryReconciliationSummary
+                reconciliation={selectedReconciliation}
+              />
+            ) : null}
+          </FieldGroup>
+          <FieldGroup title="Operator Direction">
+            <FieldRow>
+              <Field label="Roadmap mode">
+                <select
+                  className={selectCls}
+                  value={form.mode ?? "project-roadmap"}
+                  onChange={(event) =>
+                    updateField(
+                      "mode",
+                      event.target
+                        .value as ChampCityProjectRoadmapRequest["mode"],
+                    )
+                  }
+                >
+                  <option value="project-roadmap">Project Roadmap</option>
+                  <option value="next-phase-readiness-review">
+                    Next Phase Readiness Review
+                  </option>
+                </select>
+              </Field>
+              <PhaseField
+                phase={form.completedPhaseFolder ?? phase}
+                phaseOptions={phaseOptions}
+                onPhaseChange={updateCompletedPhase}
+              />
+            </FieldRow>
+            <TextAreaField
+              label="Direction for the Architect"
+              value={form.operatorDirection ?? ""}
+              rows={5}
+              onChange={(value) => updateField("operatorDirection", value)}
+            />
+          </FieldGroup>
+          <FieldGroup title="Save Roadmap / Generate Next Phase Artifacts">
+            <label className="flex items-start gap-2 rounded-md border border-border bg-white/[0.02] p-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={Boolean(form.approveNextPhaseArtifacts)}
+                onChange={(event) =>
+                  updateField(
+                    "approveNextPhaseArtifacts",
+                    event.target.checked,
+                  )
+                }
+                className="mt-1 h-4 w-4 rounded border-border bg-[#0e1218]"
+              />
+              <span>
+                Operator allows saving draft / pending-review next-phase
+                planning artifacts.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 rounded-md border border-border bg-white/[0.02] p-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={Boolean(form.generateCompatibilityPhaseIntake)}
+                disabled={!form.approveNextPhaseArtifacts}
+                onChange={(event) =>
+                  updateField(
+                    "generateCompatibilityPhaseIntake",
+                    event.target.checked,
+                  )
+                }
+                className="mt-1 h-4 w-4 rounded border-border bg-[#0e1218]"
+              />
+              <span>
+                Generate compatibility Phase Intake from the reviewed Roadmap.
+              </span>
+            </label>
+            {nextPhasePreview ? (
+              <Notice type="info">
+                <div className="grid gap-1">
+                  <span>
+                    Next recommended phase:{" "}
+                    <code>{nextPhasePreview.phaseFolder}</code>
+                  </span>
+                  <span>
+                    Phase folder exists:{" "}
+                    {nextPhasePreview.phaseFolderExists ? "yes" : "no"}
+                  </span>
+                  <span>
+                    Create folder for draft planning artifacts:{" "}
+                    {nextPhasePreview.shouldCreatePhaseFolder ? "yes" : "no"}
+                  </span>
+                </div>
+              </Notice>
+            ) : null}
+          </FieldGroup>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowLegacyPhaseIntake(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-400/15"
+            >
+              Advanced / Legacy Phase Intake
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
+          </div>
+          <ActionBar
+            onPreview={() => void previewRoadmap()}
+            onSave={() => void saveRoadmap()}
+            onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
+            previewLabel="Generate Roadmap"
+            saveLabel={
+              form.approveNextPhaseArtifacts
+                ? "Save Roadmap & Draft Artifacts"
+                : "Save Roadmap"
+            }
+            copyLabel="Copy Roadmap"
+            saveDisabled={isBusy}
+            copyDisabled={previewMarkdown.trim().length === 0}
+            statusMessage={copyMessage || statusMessage}
+            statusType={allErrors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Roadmap"
+          title="Project Roadmap"
+          status={statusMessage}
+          filename={saveResult?.savedMarkdownFileName}
+          emptyMessage="Generate a Roadmap to see the proposed phase progression."
+        >
+          {saveResult?.markdownPath && saveResult.jsonPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved paired Project Roadmap artifacts.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.markdownPath}
+                </code>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.jsonPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {saveResult?.phaseReadinessReviewMarkdownPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved pending-review Next Phase Readiness Review.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.phaseReadinessReviewMarkdownPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {saveResult?.workCardPlanMarkdownPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved pending-review Work Card Plan proposal.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.workCardPlanMarkdownPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {saveResult?.compatibilityPhaseIntakeMarkdownPath ? (
+            <Notice type="success">
+              <div className="grid gap-1">
+                <span>Saved generated compatibility Phase Intake.</span>
+                <code className="break-anywhere text-[11px]">
+                  {saveResult.compatibilityPhaseIntakeMarkdownPath}
+                </code>
+              </div>
+            </Notice>
+          ) : null}
+          {roadmap?.nextExecutablePhase ? (
+            <Notice type="info">
+              <div className="grid gap-1">
+                <span>
+                  Next recommended phase:{" "}
+                  <code>{roadmap.nextExecutablePhase.phaseFolder}</code>
+                </span>
+                <span>{roadmap.nextExecutablePhase.actionSummary}</span>
+                <span>{roadmap.nextExecutablePhase.rationale}</span>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("phase-map-builder")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+                >
+                  Open Phase Map
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </Notice>
+          ) : null}
+          <MonoBlock className="mt-4 min-h-[calc(100vh-280px)]">
+            {previewMarkdown || "No Project Roadmap preview yet."}
+          </MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function PhaseIntakeScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+  onNavigate,
+  onExitLegacy,
+}: ScreenProps & {
+  onNavigate: (screen: AppScreen) => void;
+  onExitLegacy?: () => void;
+}) {
+  const {
+    projectIntakes,
+    invalidFiles: invalidProjectIntakeFiles,
+    errors: projectIntakeErrors,
+    isLoading: isProjectIntakesLoading,
+  } = useProjectIntakes();
+  const {
+    prompts: projectArchitectPrompts,
+    invalidFiles: invalidProjectArchitectPromptFiles,
+    errors: projectArchitectPromptErrors,
+    isLoading: isProjectArchitectPromptsLoading,
+  } = useProjectArchitectInterviewPrompts();
+  const {
+    documents: projectPlanningDocuments,
+    invalidFiles: invalidProjectPlanningFiles,
+    errors: projectPlanningErrors,
+    isLoading: isProjectPlanningLoading,
   } = useProjectPlanningDocumentSources();
+  const {
+    reconciliations,
+    invalidFiles: invalidReconciliationFiles,
+    errors: reconciliationErrors,
+    isLoading: isReconciliationsLoading,
+  } = useRepositoryReconciliations();
+  const {
+    phaseIntakes: existingPhaseIntakes,
+    invalidFiles: invalidPhaseIntakeFiles,
+    errors: existingPhaseIntakeErrors,
+    isLoading: isExistingPhaseIntakesLoading,
+  } = usePhaseIntakes(phase);
+  const [mode, setMode] =
+    useState<NonNullable<ChampCityPhaseIntakeInput["generationMode"]>>(
+      "architect-led",
+    );
   const [form, setForm] = useState<ChampCityPhaseIntakeInput>({
     ...initialPhaseIntakeForm,
     phaseFolder: phase,
@@ -1613,12 +2604,43 @@ function PhaseIntakeScreen({
   const [saveResult, setSaveResult] =
     useState<ChampCityPhaseIntakeSaveResult | null>(null);
 
+  const selectedProjectIntake =
+    projectIntakes.find(
+      (projectIntake) => projectIntake.fileName === form.projectIntakeFileName,
+    ) ?? null;
+  const selectedProjectArchitectPrompt =
+    projectArchitectPrompts.find(
+      (prompt) =>
+        prompt.fileName === form.projectArchitectInterviewPromptFileName,
+    ) ?? null;
   const selectedProjectPlanningDocuments =
     projectPlanningDocuments.find(
       (document) =>
         document.fileName === form.sourceProjectPlanningSidecarJsonFileName,
     ) ?? null;
-  const allErrors = [...sourceErrors, ...screenErrors, ...validation.errors];
+  const selectedReconciliation =
+    reconciliations.find(
+      (reconciliation) =>
+        reconciliation.fileName === form.repositoryReconciliationFileName,
+    ) ?? null;
+  const selectedExistingPhaseIntake =
+    existingPhaseIntakes.find(
+      (phaseIntake) => phaseIntake.fileName === form.existingPhaseIntakeFileName,
+    ) ?? null;
+  const allErrors = [
+    ...projectIntakeErrors,
+    ...projectArchitectPromptErrors,
+    ...projectPlanningErrors,
+    ...reconciliationErrors,
+    ...existingPhaseIntakeErrors,
+    ...screenErrors,
+    ...validation.errors,
+  ];
+  const shouldRecommendReconciliation =
+    mode === "architect-led" &&
+    form.operatorProjectWorkType !== "new_project" &&
+    reconciliations.length === 0 &&
+    !isReconciliationsLoading;
 
   useEffect(() => {
     onActiveCardChange(null);
@@ -1631,6 +2653,7 @@ function PhaseIntakeScreen({
         : {
             ...previous,
             phaseFolder: phase,
+            existingPhaseIntakeFileName: "",
           },
     );
     setPreviewMarkdown("");
@@ -1639,6 +2662,62 @@ function PhaseIntakeScreen({
     setScreenErrors([]);
     setStatusMessage("Phase selection updated.");
   }, [phase]);
+
+  useEffect(() => {
+    setFirstAvailableGeneratedSource(
+      "projectIntakeFileName",
+      projectIntakes[0]?.fileName,
+      form.projectIntakeFileName,
+      projectIntakes.map((projectIntake) => projectIntake.fileName),
+    );
+  }, [projectIntakes, form.projectIntakeFileName]);
+
+  useEffect(() => {
+    setFirstAvailableGeneratedSource(
+      "projectArchitectInterviewPromptFileName",
+      projectArchitectPrompts[0]?.fileName,
+      form.projectArchitectInterviewPromptFileName,
+      projectArchitectPrompts.map((prompt) => prompt.fileName),
+    );
+  }, [projectArchitectPrompts, form.projectArchitectInterviewPromptFileName]);
+
+  useEffect(() => {
+    setFirstAvailableGeneratedSource(
+      "sourceProjectPlanningSidecarJsonFileName",
+      projectPlanningDocuments[0]?.fileName,
+      form.sourceProjectPlanningSidecarJsonFileName,
+      projectPlanningDocuments.map((document) => document.fileName),
+    );
+  }, [projectPlanningDocuments, form.sourceProjectPlanningSidecarJsonFileName]);
+
+  useEffect(() => {
+    setFirstAvailableGeneratedSource(
+      "repositoryReconciliationFileName",
+      reconciliations[0]?.fileName,
+      form.repositoryReconciliationFileName,
+      reconciliations.map((reconciliation) => reconciliation.fileName),
+    );
+  }, [reconciliations, form.repositoryReconciliationFileName]);
+
+  function setFirstAvailableGeneratedSource(
+    field: keyof ChampCityPhaseIntakeInput,
+    firstFileName: string | undefined,
+    currentFileName: string | undefined,
+    availableFileNames: string[],
+  ) {
+    if (mode !== "architect-led" || !firstFileName) {
+      return;
+    }
+
+    if (currentFileName && availableFileNames.includes(currentFileName)) {
+      return;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      [field]: firstFileName,
+    }));
+  }
 
   function updateField<Field extends keyof ChampCityPhaseIntakeInput>(
     field: Field,
@@ -1651,9 +2730,62 @@ function PhaseIntakeScreen({
     resetGeneratedPhaseIntake("Phase Intake details updated.");
   }
 
+  function updateMode(
+    nextMode: NonNullable<ChampCityPhaseIntakeInput["generationMode"]>,
+  ) {
+    setMode(nextMode);
+    setForm((previous) => ({
+      ...previous,
+      generationMode: nextMode,
+    }));
+    resetGeneratedPhaseIntake(
+      nextMode === "architect-led"
+        ? "Generate compatibility Phase Intake from the reviewed Roadmap."
+        : "Advanced manual Phase Intake mode selected.",
+    );
+  }
+
   function updatePhaseFolder(nextPhase: string) {
     onPhaseChange(nextPhase);
     updateField("phaseFolder", nextPhase);
+  }
+
+  function updateProjectIntakeSource(fileName: string) {
+    const selectedSource =
+      projectIntakes.find((projectIntake) => projectIntake.fileName === fileName) ??
+      null;
+
+    setForm((previous) => ({
+      ...previous,
+      projectIntakeFileName: fileName,
+      projectName:
+        previous.projectName.trim().length > 0
+          ? previous.projectName
+          : selectedSource?.projectName ?? previous.projectName,
+    }));
+    resetGeneratedPhaseIntake(
+      fileName ? "Project Intake source selected." : "Project Intake source cleared.",
+    );
+  }
+
+  function updateProjectArchitectPromptSource(fileName: string) {
+    const selectedSource =
+      projectArchitectPrompts.find((prompt) => prompt.fileName === fileName) ??
+      null;
+
+    setForm((previous) => ({
+      ...previous,
+      projectArchitectInterviewPromptFileName: fileName,
+      projectName:
+        previous.projectName.trim().length > 0
+          ? previous.projectName
+          : selectedSource?.projectName ?? previous.projectName,
+    }));
+    resetGeneratedPhaseIntake(
+      fileName
+        ? "Project Architect Interview Prompt source selected."
+        : "Project Architect Interview Prompt source cleared.",
+    );
   }
 
   function updateProjectPlanningSource(fileName: string) {
@@ -1676,20 +2808,70 @@ function PhaseIntakeScreen({
     );
   }
 
+  function updateRepositoryReconciliationSource(fileName: string) {
+    const selectedSource =
+      reconciliations.find(
+        (reconciliation) => reconciliation.fileName === fileName,
+      ) ?? null;
+
+    setForm((previous) => ({
+      ...previous,
+      repositoryReconciliationFileName: fileName,
+      projectName:
+        previous.projectName.trim().length > 0
+          ? previous.projectName
+          : selectedSource?.projectName ?? previous.projectName,
+    }));
+    resetGeneratedPhaseIntake(
+      fileName
+        ? "Repository Reconciliation source selected."
+        : "Repository Reconciliation source cleared.",
+    );
+  }
+
+  function updateExistingPhaseIntakeSource(fileName: string) {
+    setForm((previous) => ({
+      ...previous,
+      existingPhaseIntakeFileName: fileName,
+    }));
+    resetGeneratedPhaseIntake(
+      fileName
+        ? "Existing Phase Intake selected as an editable source."
+        : "Existing Phase Intake source cleared.",
+    );
+  }
+
   function resetGeneratedPhaseIntake(nextStatusMessage: string) {
     setPreviewMarkdown("");
     setSaveResult(null);
     setCopyMessage("");
     setScreenErrors([]);
+    setValidation({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
     setStatusMessage(nextStatusMessage);
   }
 
   async function previewPhaseIntake() {
+    if (
+      mode === "architect-led" &&
+      (form.operatorNextWorkIntent ?? "").trim().length === 0
+    ) {
+      setScreenErrors(["Describe what you want to work on next."]);
+      setStatusMessage("Phase Intake generation needs plain-language intent.");
+      return;
+    }
+
     setIsBusy(true);
     setCopyMessage("");
     setScreenErrors([]);
 
-    const result = await window.champCity.previewPhaseIntake(form);
+    const result = await window.champCity.previewPhaseIntake({
+      ...form,
+      generationMode: mode,
+    });
     setIsBusy(false);
     setValidation(result.validation);
 
@@ -1707,11 +2889,23 @@ function PhaseIntakeScreen({
   }
 
   async function savePhaseIntake() {
+    if (
+      mode === "architect-led" &&
+      (form.operatorNextWorkIntent ?? "").trim().length === 0
+    ) {
+      setScreenErrors(["Describe what you want to work on next."]);
+      setStatusMessage("Phase Intake generation needs plain-language intent.");
+      return;
+    }
+
     setIsBusy(true);
     setCopyMessage("");
     setScreenErrors([]);
 
-    const result = await window.champCity.savePhaseIntake(form);
+    const result = await window.champCity.savePhaseIntake({
+      ...form,
+      generationMode: mode,
+    });
     setIsBusy(false);
     setValidation(result.validation);
 
@@ -1733,163 +2927,409 @@ function PhaseIntakeScreen({
       left={
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
-            title="Phase Intake"
-            description="Define a development phase from saved project planning context."
-            badge="upstream"
+            title="Advanced / Legacy Phase Intake"
+            description="Compatibility path for existing Phase Intake records after Roadmap review."
+            badge="legacy"
           />
+          {onExitLegacy ? (
+            <button
+              type="button"
+              onClick={onExitLegacy}
+              className="inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+            >
+              Back to Roadmap
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
+          ) : null}
           <Notice type="info">
-            This saves a phase-scoped intake artifact only. It does not generate
-            Phase Planning Documents, an initial Work Card plan, implementation
-            code, or closeout records.
+            Manual Phase Intake is preserved for compatibility. The normal path
+            is Roadmap first, with compatibility Phase Intake generated from an
+            reviewed Roadmap or Next Phase Readiness Review when needed.
           </Notice>
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-white/[0.02] p-1">
+            <button
+              type="button"
+              onClick={() => updateMode("architect-led")}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm font-semibold transition-colors",
+                mode === "architect-led"
+                  ? "bg-blue-500/15 text-blue-200"
+                  : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+              )}
+            >
+              Generate Compatibility Intake
+            </button>
+            <button
+              type="button"
+              onClick={() => updateMode("manual")}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm font-semibold transition-colors",
+                mode === "manual"
+                  ? "bg-amber-500/15 text-amber-200"
+                  : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+              )}
+            >
+              Manual Legacy Edit
+            </button>
+          </div>
           <ErrorList errors={allErrors} />
           <WarningList warnings={validation.warnings} />
-          <InvalidProjectPlanningDocumentsFiles files={invalidFiles} />
-          <FieldGroup title="Source">
-            <PhaseField
-              phase={form.phaseFolder}
-              phaseOptions={phaseOptions}
-              onPhaseChange={updatePhaseFolder}
-            />
-            <Field label="Saved Project Planning Documents sidecar">
-              <select
-                className={selectCls}
-                value={form.sourceProjectPlanningSidecarJsonFileName ?? ""}
-                disabled={isLoading}
-                onChange={(event) =>
-                  updateProjectPlanningSource(event.target.value)
-                }
-              >
-                <option value="">
-                  {isLoading
-                    ? "Loading Project Planning Documents..."
-                    : "Use current planning docs reference"}
-                </option>
-                {projectPlanningDocuments.map((document) => (
-                  <option key={document.fileName} value={document.fileName}>
-                    {document.projectName} ({document.fileName})
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {selectedProjectPlanningDocuments ? (
-              <ProjectPlanningDocumentsSummary
-                document={selectedProjectPlanningDocuments}
-              />
-            ) : (
-              <Notice type="info">
-                Without a sidecar selection, the saved Phase Intake records the
-                current `planning/project/` documents as the project context
-                reference.
+          <InvalidProjectIntakeFiles files={invalidProjectIntakeFiles} />
+          <InvalidProjectArchitectInterviewPromptFiles
+            files={invalidProjectArchitectPromptFiles}
+          />
+          <InvalidProjectPlanningDocumentsFiles files={invalidProjectPlanningFiles} />
+          <InvalidRepositoryReconciliationFiles files={invalidReconciliationFiles} />
+          <InvalidPhaseIntakeFiles files={invalidPhaseIntakeFiles} />
+          {mode === "architect-led" ? (
+            <>
+              {shouldRecommendReconciliation ? (
+                <Notice type="warning">
+                  Repository Reconciliation is recommended for ongoing,
+                  partially implemented, repair, UI, validation, or planning
+                  passes before generating Phase Intake. New projects can
+                  continue without it.
+                </Notice>
+              ) : null}
+              <FieldGroup title="Operator Intent">
+                <PhaseField
+                  phase={form.phaseFolder}
+                  phaseOptions={phaseOptions}
+                  onPhaseChange={updatePhaseFolder}
+                />
+                <TextAreaField
+                  label="What do you want to work on next?"
+                  value={form.operatorNextWorkIntent ?? ""}
+                  rows={4}
+                  onChange={(value) =>
+                    updateField("operatorNextWorkIntent", value)
+                  }
+                  required
+                />
+                <Field label="What kind of work is this?">
+                  <select
+                    className={selectCls}
+                    value={form.operatorProjectWorkType ?? "ongoing_project"}
+                    onChange={(event) =>
+                      updateField(
+                        "operatorProjectWorkType",
+                        event.target
+                          .value as ChampCityPhaseIntakeInput["operatorProjectWorkType"],
+                      )
+                    }
+                  >
+                    {phaseIntakeWorkTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <TextAreaField
+                  label="Any must-keep constraints or concerns?"
+                  value={form.operatorMustKeepConstraints ?? ""}
+                  rows={3}
+                  onChange={(value) =>
+                    updateField("operatorMustKeepConstraints", value)
+                  }
+                />
+                <TextField
+                  label="Optional phase title"
+                  value={form.phaseName}
+                  onChange={(value) => updateField("phaseName", value)}
+                />
+              </FieldGroup>
+              <FieldGroup title="Source Artifacts">
+                <Field label="Project Intake">
+                  <select
+                    className={selectCls}
+                    value={form.projectIntakeFileName ?? ""}
+                    disabled={isProjectIntakesLoading}
+                    onChange={(event) =>
+                      updateProjectIntakeSource(event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isProjectIntakesLoading
+                        ? "Loading Project Intakes..."
+                        : "Use current project context"}
+                    </option>
+                    {projectIntakes.map((projectIntake) => (
+                      <option
+                        key={projectIntake.fileName}
+                        value={projectIntake.fileName}
+                      >
+                        {projectIntake.projectName} ({projectIntake.fileName})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedProjectIntake ? (
+                  <ProjectIntakeSummary projectIntake={selectedProjectIntake} />
+                ) : null}
+                <Field label="Project Architect Interview Prompt">
+                  <select
+                    className={selectCls}
+                    value={form.projectArchitectInterviewPromptFileName ?? ""}
+                    disabled={isProjectArchitectPromptsLoading}
+                    onChange={(event) =>
+                      updateProjectArchitectPromptSource(event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isProjectArchitectPromptsLoading
+                        ? "Loading Project Architect prompts..."
+                        : "Optional Project Architect prompt"}
+                    </option>
+                    {projectArchitectPrompts.map((prompt) => (
+                      <option key={prompt.fileName} value={prompt.fileName}>
+                        {prompt.projectName} ({prompt.fileName})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedProjectArchitectPrompt ? (
+                  <ProjectArchitectInterviewPromptSummary
+                    prompt={selectedProjectArchitectPrompt}
+                  />
+                ) : null}
+                <Field label="Project Planning Documents">
+                  <select
+                    className={selectCls}
+                    value={form.sourceProjectPlanningSidecarJsonFileName ?? ""}
+                    disabled={isProjectPlanningLoading}
+                    onChange={(event) =>
+                      updateProjectPlanningSource(event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isProjectPlanningLoading
+                        ? "Loading Project Planning Documents..."
+                        : "Use current planning docs reference"}
+                    </option>
+                    {projectPlanningDocuments.map((document) => (
+                      <option key={document.fileName} value={document.fileName}>
+                        {document.projectName} ({document.fileName})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedProjectPlanningDocuments ? (
+                  <ProjectPlanningDocumentsSummary
+                    document={selectedProjectPlanningDocuments}
+                  />
+                ) : null}
+                <Field label="Repository Reconciliation">
+                  <select
+                    className={selectCls}
+                    value={form.repositoryReconciliationFileName ?? ""}
+                    disabled={isReconciliationsLoading}
+                    onChange={(event) =>
+                      updateRepositoryReconciliationSource(event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isReconciliationsLoading
+                        ? "Loading Repository Reconciliations..."
+                        : "Optional for new projects"}
+                    </option>
+                    {reconciliations.map((reconciliation) => (
+                      <option
+                        key={reconciliation.fileName}
+                        value={reconciliation.fileName}
+                      >
+                        {reconciliation.projectName} ({reconciliation.fileName})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedReconciliation ? (
+                  <RepositoryReconciliationSummary
+                    reconciliation={selectedReconciliation}
+                  />
+                ) : null}
+                <Field label="Existing Phase Intake editable source">
+                  <select
+                    className={selectCls}
+                    value={form.existingPhaseIntakeFileName ?? ""}
+                    disabled={isExistingPhaseIntakesLoading}
+                    onChange={(event) =>
+                      updateExistingPhaseIntakeSource(event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isExistingPhaseIntakesLoading
+                        ? "Loading Phase Intakes..."
+                        : "Do not use existing Phase Intake"}
+                    </option>
+                    {existingPhaseIntakes.map((phaseIntake) => (
+                      <option key={phaseIntake.fileName} value={phaseIntake.fileName}>
+                        {formatPhaseIntakeOptionLabel(phaseIntake)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedExistingPhaseIntake ? (
+                  <PhaseIntakeSummary phaseIntake={selectedExistingPhaseIntake} />
+                ) : null}
+              </FieldGroup>
+            </>
+          ) : (
+            <>
+              <Notice type="warning">
+                Advanced manual mode is for editing or repairing Phase Intake
+                details directly. The normal path is Roadmap first.
               </Notice>
-            )}
-          </FieldGroup>
-          <FieldGroup title="Phase">
-            <FieldRow>
-              <TextField
-                label="Phase name"
-                value={form.phaseName}
-                onChange={(value) => updateField("phaseName", value)}
-                required
-              />
-              <TextField
-                label="Project name"
-                value={form.projectName}
-                onChange={(value) => updateField("projectName", value)}
-                required
-              />
-            </FieldRow>
-            <TextAreaField
-              label="Phase problem"
-              value={form.phaseProblem}
-              rows={4}
-              onChange={(value) => updateField("phaseProblem", value)}
-              required
-            />
-            <TextAreaField
-              label="Phase goal"
-              value={form.phaseGoal}
-              rows={4}
-              onChange={(value) => updateField("phaseGoal", value)}
-              required
-            />
-            <TextAreaField
-              label="User outcome"
-              value={form.userOutcome}
-              rows={4}
-              onChange={(value) => updateField("userOutcome", value)}
-              required
-            />
-          </FieldGroup>
-          <FieldGroup title="Scope And Boundaries">
-            <FieldRow>
-              <TextAreaField
-                label="Included scope"
-                value={form.includedScope}
-                rows={4}
-                onChange={(value) => updateField("includedScope", value)}
-              />
-              <TextAreaField
-                label="Out of scope"
-                value={form.outOfScope}
-                rows={4}
-                onChange={(value) => updateField("outOfScope", value)}
-              />
-            </FieldRow>
-            <TextAreaField
-              label="Affected screens or workflows"
-              value={form.affectedScreensOrWorkflows}
-              rows={3}
-              onChange={(value) =>
-                updateField("affectedScreensOrWorkflows", value)
-              }
-            />
-          </FieldGroup>
-          <FieldGroup title="Planning Context">
-            <FieldRow>
-              <TextAreaField
-                label="Known constraints"
-                value={form.knownConstraints}
-                rows={3}
-                onChange={(value) => updateField("knownConstraints", value)}
-              />
-              <TextAreaField
-                label="Known risks"
-                value={form.knownRisks}
-                rows={3}
-                onChange={(value) => updateField("knownRisks", value)}
-              />
-            </FieldRow>
-            <FieldRow>
-              <TextAreaField
-                label="Dependencies"
-                value={form.dependencies}
-                rows={3}
-                onChange={(value) => updateField("dependencies", value)}
-              />
-              <TextAreaField
-                label="Validation expectations"
-                value={form.validationExpectations}
-                rows={3}
-                onChange={(value) =>
-                  updateField("validationExpectations", value)
-                }
-              />
-            </FieldRow>
-            <TextAreaField
-              label="Operator notes"
-              value={form.operatorNotes}
-              rows={3}
-              onChange={(value) => updateField("operatorNotes", value)}
-            />
-          </FieldGroup>
+              <FieldGroup title="Advanced Source">
+                <PhaseField
+                  phase={form.phaseFolder}
+                  phaseOptions={phaseOptions}
+                  onPhaseChange={updatePhaseFolder}
+                />
+                <Field label="Saved Project Planning Documents sidecar">
+                  <select
+                    className={selectCls}
+                    value={form.sourceProjectPlanningSidecarJsonFileName ?? ""}
+                    disabled={isProjectPlanningLoading}
+                    onChange={(event) =>
+                      updateProjectPlanningSource(event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isProjectPlanningLoading
+                        ? "Loading Project Planning Documents..."
+                        : "Use current planning docs reference"}
+                    </option>
+                    {projectPlanningDocuments.map((document) => (
+                      <option key={document.fileName} value={document.fileName}>
+                        {document.projectName} ({document.fileName})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedProjectPlanningDocuments ? (
+                  <ProjectPlanningDocumentsSummary
+                    document={selectedProjectPlanningDocuments}
+                  />
+                ) : null}
+              </FieldGroup>
+              <FieldGroup title="Advanced Phase Details">
+                <FieldRow>
+                  <TextField
+                    label="Phase name"
+                    value={form.phaseName}
+                    onChange={(value) => updateField("phaseName", value)}
+                    required
+                  />
+                  <TextField
+                    label="Project name"
+                    value={form.projectName}
+                    onChange={(value) => updateField("projectName", value)}
+                    required
+                  />
+                </FieldRow>
+                <TextAreaField
+                  label="Phase problem"
+                  value={form.phaseProblem}
+                  rows={4}
+                  onChange={(value) => updateField("phaseProblem", value)}
+                  required
+                />
+                <TextAreaField
+                  label="Phase goal"
+                  value={form.phaseGoal}
+                  rows={4}
+                  onChange={(value) => updateField("phaseGoal", value)}
+                  required
+                />
+                <TextAreaField
+                  label="User outcome"
+                  value={form.userOutcome}
+                  rows={4}
+                  onChange={(value) => updateField("userOutcome", value)}
+                  required
+                />
+              </FieldGroup>
+              <FieldGroup title="Advanced Scope And Boundaries">
+                <FieldRow>
+                  <TextAreaField
+                    label="Included scope"
+                    value={form.includedScope}
+                    rows={4}
+                    onChange={(value) => updateField("includedScope", value)}
+                  />
+                  <TextAreaField
+                    label="Out of scope"
+                    value={form.outOfScope}
+                    rows={4}
+                    onChange={(value) => updateField("outOfScope", value)}
+                  />
+                </FieldRow>
+                <TextAreaField
+                  label="Affected screens or workflows"
+                  value={form.affectedScreensOrWorkflows}
+                  rows={3}
+                  onChange={(value) =>
+                    updateField("affectedScreensOrWorkflows", value)
+                  }
+                />
+              </FieldGroup>
+              <FieldGroup title="Advanced Planning Context">
+                <FieldRow>
+                  <TextAreaField
+                    label="Known constraints"
+                    value={form.knownConstraints}
+                    rows={3}
+                    onChange={(value) => updateField("knownConstraints", value)}
+                  />
+                  <TextAreaField
+                    label="Known risks"
+                    value={form.knownRisks}
+                    rows={3}
+                    onChange={(value) => updateField("knownRisks", value)}
+                  />
+                </FieldRow>
+                <FieldRow>
+                  <TextAreaField
+                    label="Dependencies"
+                    value={form.dependencies}
+                    rows={3}
+                    onChange={(value) => updateField("dependencies", value)}
+                  />
+                  <TextAreaField
+                    label="Validation expectations"
+                    value={form.validationExpectations}
+                    rows={3}
+                    onChange={(value) =>
+                      updateField("validationExpectations", value)
+                    }
+                  />
+                </FieldRow>
+                <TextAreaField
+                  label="Operator notes"
+                  value={form.operatorNotes}
+                  rows={3}
+                  onChange={(value) => updateField("operatorNotes", value)}
+                />
+              </FieldGroup>
+            </>
+          )}
           <ActionBar
             onPreview={() => void previewPhaseIntake()}
             onSave={() => void savePhaseIntake()}
             onCopy={() => void copyText(previewMarkdown, setCopyMessage)}
-            saveLabel="Save Phase Intake"
+            previewLabel={
+              mode === "architect-led"
+                ? "Preview Compatibility Intake"
+                : "Preview Manual Intake"
+            }
+            saveLabel="Save Legacy Intake"
             copyLabel="Copy Preview"
-            saveDisabled={isBusy}
+            saveDisabled={
+              isBusy ||
+              (mode === "architect-led" &&
+                (form.operatorNextWorkIntent ?? "").trim().length === 0)
+            }
             copyDisabled={previewMarkdown.trim().length === 0}
             statusMessage={copyMessage || statusMessage}
             statusType={allErrors.length > 0 ? "error" : "success"}
@@ -1899,10 +3339,10 @@ function PhaseIntakeScreen({
       right={
         <ArtifactPanel
           eyebrow="Phase Intake"
-          title="Phase Intake Markdown Preview"
+          title="Advanced / Legacy Phase Intake Preview"
           status={statusMessage}
           filename={saveResult?.savedMarkdownFileName}
-          emptyMessage="Preview a Phase Intake to see the durable Markdown artifact."
+          emptyMessage="Generate a compatibility or manual legacy Phase Intake to see the durable Markdown artifact."
         >
           {saveResult?.markdownPath && saveResult.jsonPath ? (
             <Notice type="success">
@@ -1926,8 +3366,9 @@ function PhaseIntakeScreen({
             </Notice>
           ) : null}
           <Notice type="info">
-            Next step: use this saved Phase Intake to generate a Phase Architect
-            Interview prompt.
+            Next step: use the saved Phase Intake to generate a Phase Architect
+            Interview prompt, then generate the Phase Plan from that saved
+            source.
           </Notice>
           <MonoBlock className="mt-4 min-h-[calc(100vh-260px)]">
             {previewMarkdown || "No Phase Intake preview yet."}
@@ -2085,7 +3526,7 @@ function PhaseArchitectInterviewScreen({
           {phaseIntakes.length === 0 && !isLoading ? (
             <Notice type="warning">
               No saved Phase Intake JSON artifacts were found for this phase.
-              Save a Phase Intake first.
+              Generate a Roadmap and compatibility Phase Intake first.
             </Notice>
           ) : null}
           <FieldGroup title="Source">
@@ -2104,11 +3545,13 @@ function PhaseArchitectInterviewScreen({
                 }
               >
                 <option value="">
-                  {isLoading ? "Loading Phase Intakes..." : "Select Phase Intake"}
+                  {isLoading
+                    ? "Loading Phase Intakes..."
+                    : "Select generated compatibility intake"}
                 </option>
                 {phaseIntakes.map((phaseIntake) => (
                   <option key={phaseIntake.fileName} value={phaseIntake.fileName}>
-                    {phaseIntake.phaseName} ({phaseIntake.fileName})
+                    {formatPhaseIntakeOptionLabel(phaseIntake)}
                   </option>
                 ))}
               </select>
@@ -2158,10 +3601,10 @@ function PhaseArchitectInterviewScreen({
                 </code>
                 <button
                   type="button"
-                  onClick={() => onNavigate("repository-reconciliation")}
+                  onClick={() => onNavigate("phase-intake")}
                   className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
                 >
-                  Open Reconcile
+                  Open Roadmap
                   <ChevronRight size={14} aria-hidden="true" />
                 </button>
               </div>
@@ -2398,7 +3841,7 @@ function RepositoryReconciliationScreen({
     setPreviewMarkdown(result.markdown);
     setSaveResult(result);
     setActivePreviewLabel("Repository Reconciliation Markdown");
-    setStatusMessage("Repository Reconciliation saved for Phase Planning Documents.");
+    setStatusMessage("Repository Reconciliation saved for Phase Map Builder.");
   }
 
   return (
@@ -2511,10 +3954,10 @@ function RepositoryReconciliationScreen({
                 </code>
                 <button
                   type="button"
-                  onClick={() => onNavigate("phase-planning-documents")}
+                  onClick={() => onNavigate("phase-map-builder")}
                   className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
                 >
-                  Open Phase Plan
+                  Open Phase Map
                   <ChevronRight size={14} aria-hidden="true" />
                 </button>
               </div>
@@ -2534,7 +3977,10 @@ function PhasePlanningDocumentsScreen({
   phaseOptions,
   onPhaseChange,
   onActiveCardChange,
-}: ScreenProps) {
+  onNavigate,
+}: ScreenProps & {
+  onNavigate: (screen: AppScreen) => void;
+}) {
   const {
     documents: projectPlanningDocuments,
     invalidFiles: invalidProjectPlanningFiles,
@@ -2547,6 +3993,18 @@ function PhasePlanningDocumentsScreen({
     errors: reconciliationErrors,
     isLoading: isReconciliationsLoading,
   } = useRepositoryReconciliations();
+  const {
+    roadmaps,
+    invalidFiles: invalidRoadmapFiles,
+    errors: roadmapErrors,
+    isLoading: isRoadmapsLoading,
+  } = useProjectRoadmaps();
+  const {
+    phaseMaps,
+    invalidFiles: invalidPhaseMapFiles,
+    errors: phaseMapErrors,
+    isLoading: isPhaseMapsLoading,
+  } = usePhaseMaps();
   const {
     phaseIntakes,
     invalidFiles: invalidPhaseIntakeFiles,
@@ -2570,10 +4028,18 @@ function PhasePlanningDocumentsScreen({
   const [screenErrors, setScreenErrors] = useState<string[]>([]);
   const [copyMessage, setCopyMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [showLegacySources, setShowLegacySources] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    "Select sources and paste completed Phase Architect Interview output.",
+    "Select a mapped phase from a saved Phase Map.",
   );
 
+  const selectedPhaseMap =
+    phaseMaps.find((phaseMap) => phaseMap.fileName === form.phaseMapFileName) ??
+    null;
+  const selectedMappedPhase =
+    selectedPhaseMap?.mappedPhases.find(
+      (mappedPhase) => mappedPhase.phaseId === form.mappedPhaseId,
+    ) ?? null;
   const selectedProjectPlanningDocuments =
     projectPlanningDocuments.find(
       (document) => document.fileName === form.projectPlanningDocumentFileName,
@@ -2583,20 +4049,28 @@ function PhasePlanningDocumentsScreen({
       (reconciliation) =>
         reconciliation.fileName === form.repositoryReconciliationFileName,
     ) ?? null;
+  const selectedRoadmap =
+    roadmaps.find((roadmap) => roadmap.fileName === form.projectRoadmapFileName) ??
+    null;
   const selectedPhaseIntake =
     phaseIntakes.find(
       (phaseIntake) => phaseIntake.fileName === form.phaseIntakeFileName,
     ) ?? null;
+  const generatedPhaseIntakes = phaseIntakes.filter(
+    (phaseIntake) => phaseIntake.generationMode === "architect-led",
+  );
   const selectedPhasePrompt =
     prompts.find(
       (prompt) =>
         prompt.fileName === form.phaseArchitectInterviewPromptFileName,
     ) ?? null;
   const allErrors = [
-    ...projectPlanningErrors,
-    ...reconciliationErrors,
-    ...phaseIntakeErrors,
-    ...phasePromptErrors,
+    ...phaseMapErrors,
+    ...(showLegacySources ? projectPlanningErrors : []),
+    ...(showLegacySources ? reconciliationErrors : []),
+    ...(showLegacySources ? roadmapErrors : []),
+    ...(showLegacySources ? phaseIntakeErrors : []),
+    ...(showLegacySources ? phasePromptErrors : []),
     ...screenErrors,
   ];
   const previewMarkdown =
@@ -2607,22 +4081,37 @@ function PhasePlanningDocumentsScreen({
   }, [onActiveCardChange]);
 
   useEffect(() => {
-    setForm((previous) =>
-      previous.phaseFolder === phase
-        ? previous
-        : {
-            ...previous,
-            phaseFolder: phase,
-            phaseIntakeFileName: "",
-            phaseArchitectInterviewPromptFileName: "",
-          },
-    );
-    setPreviewResult(null);
-    setSaveResult(null);
-    setCopyMessage("");
-    setScreenErrors([]);
-    setStatusMessage("Phase selection updated.");
-  }, [phase]);
+    if (phaseMaps.length === 0) {
+      return;
+    }
+
+    if (phaseMaps.some((phaseMap) => phaseMap.fileName === form.phaseMapFileName)) {
+      return;
+    }
+
+    applyPhaseMapSelection(phaseMaps[0]?.fileName ?? "");
+  }, [phaseMaps, form.phaseMapFileName]);
+
+  useEffect(() => {
+    if (!selectedPhaseMap) {
+      return;
+    }
+
+    if (
+      selectedPhaseMap.mappedPhases.some(
+        (mappedPhase) => mappedPhase.phaseId === form.mappedPhaseId,
+      )
+    ) {
+      return;
+    }
+
+    const recommended =
+      selectedPhaseMap.mappedPhases.find(
+        (mappedPhase) => mappedPhase.isRecommendedNext,
+      ) ?? selectedPhaseMap.mappedPhases[0];
+
+    applyMappedPhaseSelection(recommended?.phaseId ?? "");
+  }, [selectedPhaseMap, form.mappedPhaseId]);
 
   useEffect(() => {
     setFirstAvailableSource(
@@ -2644,12 +4133,26 @@ function PhasePlanningDocumentsScreen({
 
   useEffect(() => {
     setFirstAvailableSource(
+      "projectRoadmapFileName",
+      roadmaps.find((roadmap) => roadmap.nextExecutablePhaseFolder === phase)
+        ?.fileName,
+      form.projectRoadmapFileName,
+      roadmaps.map((roadmap) => roadmap.fileName),
+    );
+  }, [roadmaps, form.projectRoadmapFileName, phase]);
+
+  useEffect(() => {
+    if (form.projectRoadmapFileName) {
+      return;
+    }
+
+    setFirstAvailableSource(
       "phaseIntakeFileName",
       phaseIntakes[0]?.fileName,
       form.phaseIntakeFileName,
       phaseIntakes.map((phaseIntake) => phaseIntake.fileName),
     );
-  }, [phaseIntakes, form.phaseIntakeFileName]);
+  }, [phaseIntakes, form.phaseIntakeFileName, form.projectRoadmapFileName]);
 
   useEffect(() => {
     setFirstAvailableSource(
@@ -2659,6 +4162,49 @@ function PhasePlanningDocumentsScreen({
       prompts.map((prompt) => prompt.fileName),
     );
   }, [prompts, form.phaseArchitectInterviewPromptFileName]);
+
+  function applyPhaseMapSelection(fileName: string) {
+    const nextPhaseMap =
+      phaseMaps.find((phaseMap) => phaseMap.fileName === fileName) ?? null;
+    const defaultMappedPhase =
+      nextPhaseMap?.mappedPhases.find(
+        (mappedPhase) => mappedPhase.isRecommendedNext,
+      ) ?? nextPhaseMap?.mappedPhases[0];
+
+    setForm((previous) => ({
+      ...previous,
+      phaseMapFileName: fileName,
+      mappedPhaseId: defaultMappedPhase?.phaseId ?? "",
+      phaseFolder: defaultMappedPhase?.phaseId ?? previous.phaseFolder,
+      projectPlanningDocumentFileName:
+        nextPhaseMap?.sourceProjectPlanningDocumentJsonFileName ?? "",
+      repositoryReconciliationFileName:
+        nextPhaseMap?.sourceRepositoryReconciliationJsonFileName ?? "",
+      projectRoadmapFileName:
+        nextPhaseMap?.sourceProjectRoadmapJsonFileName ?? "",
+      phaseIntakeFileName: "",
+      phaseArchitectInterviewPromptFileName: "",
+      phaseClarificationAnswers: "",
+      phaseArchitectInterviewOutput: "",
+    }));
+    resetPhasePlanningPreview(
+      fileName
+        ? "Phase Map selected."
+        : "Select a saved Phase Map before generating planning documents.",
+    );
+  }
+
+  function applyMappedPhaseSelection(phaseId: string) {
+    setForm((previous) => ({
+      ...previous,
+      mappedPhaseId: phaseId,
+      phaseFolder: phaseId || previous.phaseFolder,
+      phaseClarificationAnswers: "",
+    }));
+    resetPhasePlanningPreview(
+      phaseId ? "Mapped phase selected." : "Select a mapped phase.",
+    );
+  }
 
   function setFirstAvailableSource(
     field: keyof ChampCityPhasePlanningDocumentsRequest,
@@ -2707,20 +4253,29 @@ function PhasePlanningDocumentsScreen({
   function validatePhasePlanningRequest(): string[] {
     const errors: string[] = [];
 
+    if (phaseMaps.length === 0) {
+      errors.push("Run Phase Map Builder first, then return to select a mapped phase.");
+      return errors;
+    }
+
+    if (!form.phaseMapFileName) {
+      errors.push("Select a saved Phase Map source.");
+    }
+
+    if (!form.mappedPhaseId) {
+      errors.push("Select a mapped phase from the Phase Map.");
+    }
+
     if (!form.projectPlanningDocumentFileName) {
-      errors.push("Select a saved Project Planning Documents source.");
+      errors.push("Phase Map is missing its Project Planning Documents source.");
     }
 
     if (!form.repositoryReconciliationFileName) {
-      errors.push("Select a saved Repository Reconciliation source.");
+      errors.push("Phase Map is missing its Repository Reconciliation source.");
     }
 
-    if (!form.phaseIntakeFileName) {
-      errors.push("Select a saved Phase Intake source.");
-    }
-
-    if (form.phaseArchitectInterviewOutput.trim().length === 0) {
-      errors.push("Paste the completed Phase Architect Interview output first.");
+    if (!form.projectRoadmapFileName) {
+      errors.push("Phase Map is missing its Project Roadmap source.");
     }
 
     return errors;
@@ -2784,7 +4339,7 @@ function PhasePlanningDocumentsScreen({
 
     setPreviewResult(result);
     setSaveResult(result);
-    setStatusMessage("Phase Planning Documents and initial Work Card plan saved.");
+    setStatusMessage("Pending-review Phase Planning Documents and Work Card Plan proposal saved.");
   }
 
   return (
@@ -2792,142 +4347,102 @@ function PhasePlanningDocumentsScreen({
       left={
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
-            title="Phase Planning Documents"
-            description="Generate phase planning documents and an initial Work Card plan from reconciled source context."
+            title="Phase Planning Documents Generator"
+            description="Select a mapped phase and generate phase planning documents from the formal Phase Map."
             badge="upstream"
           />
           <Notice type="info">
-            This creates planning artifacts only. It does not create formal
-            app-selectable Work Card JSON files, perform closeout, or call an
-            LLM API.
+            This creates Draft / Pending Review / Not Active planning artifacts
+            only. It does not create Formal Work Cards, activate the phase,
+            perform closeout, or call an LLM API.
           </Notice>
+          {phaseMaps.length === 0 && !isPhaseMapsLoading ? (
+            <Notice type="warning">
+              No saved Phase Map was found. Run Phase Map Builder first so the
+              generator can use mapped phase records instead of generated phase
+              artifact folders.
+              <button
+                type="button"
+                onClick={() => onNavigate("phase-map-builder")}
+                className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
+              >
+                Open Phase Map Builder
+                <ChevronRight size={14} aria-hidden="true" />
+              </button>
+            </Notice>
+          ) : null}
           <ErrorList errors={allErrors} />
-          <InvalidProjectPlanningDocumentsFiles files={invalidProjectPlanningFiles} />
-          <InvalidRepositoryReconciliationFiles files={invalidReconciliationFiles} />
-          <InvalidPhaseIntakeFiles files={invalidPhaseIntakeFiles} />
-          <InvalidPhaseArchitectInterviewPromptFiles files={invalidPhasePromptFiles} />
-          <FieldGroup title="Sources">
-            <PhaseField
-              phase={form.phaseFolder}
-              phaseOptions={phaseOptions}
-              onPhaseChange={handlePhaseChange}
-            />
-            <Field label="Project Planning Documents source">
+          <InvalidPhaseMapFiles files={invalidPhaseMapFiles} />
+          <FieldGroup title="Mapped Phase Source">
+            <Field label="Phase Map source">
               <select
                 className={selectCls}
-                value={form.projectPlanningDocumentFileName ?? ""}
-                disabled={isProjectPlanningLoading}
-                onChange={(event) =>
-                  updateField("projectPlanningDocumentFileName", event.target.value)
-                }
+                value={form.phaseMapFileName ?? ""}
+                disabled={isPhaseMapsLoading}
+                onChange={(event) => applyPhaseMapSelection(event.target.value)}
               >
                 <option value="">
-                  {isProjectPlanningLoading
-                    ? "Loading Project Planning Documents..."
-                    : "Select Project Planning Documents"}
+                  {isPhaseMapsLoading ? "Loading Phase Maps..." : "Select Phase Map"}
                 </option>
-                {projectPlanningDocuments.map((document) => (
-                  <option key={document.fileName} value={document.fileName}>
-                    {document.projectName} ({document.fileName})
+                {phaseMaps.map((phaseMap) => (
+                  <option key={phaseMap.fileName} value={phaseMap.fileName}>
+                    {phaseMap.currentOrNextPhase} - {phaseMap.nextPhaseTitle} (
+                    {phaseMap.fileName})
                   </option>
                 ))}
               </select>
             </Field>
-            {selectedProjectPlanningDocuments ? (
-              <ProjectPlanningDocumentsSummary
-                document={selectedProjectPlanningDocuments}
-              />
+            {selectedPhaseMap ? (
+              <SavedPhaseMapSummaryPanel phaseMap={selectedPhaseMap} />
             ) : null}
-            <Field label="Repository Reconciliation source">
+            <Field label="Mapped phase">
               <select
                 className={selectCls}
-                value={form.repositoryReconciliationFileName ?? ""}
-                disabled={isReconciliationsLoading}
+                value={form.mappedPhaseId ?? ""}
+                disabled={!selectedPhaseMap}
                 onChange={(event) =>
-                  updateField("repositoryReconciliationFileName", event.target.value)
+                  applyMappedPhaseSelection(event.target.value)
                 }
               >
-                <option value="">
-                  {isReconciliationsLoading
-                    ? "Loading Repository Reconciliations..."
-                    : "Select Repository Reconciliation"}
-                </option>
-                {reconciliations.map((reconciliation) => (
-                  <option
-                    key={reconciliation.fileName}
-                    value={reconciliation.fileName}
-                  >
-                    {reconciliation.projectName} ({reconciliation.fileName})
+                <option value="">Select mapped phase</option>
+                {selectedPhaseMap?.mappedPhases.map((mappedPhase) => (
+                  <option key={mappedPhase.phaseId} value={mappedPhase.phaseId}>
+                    {mappedPhase.phaseId} - {mappedPhase.phaseTitle}
+                    {mappedPhase.isRecommendedNext ? " (recommended)" : ""}
                   </option>
                 ))}
               </select>
             </Field>
-            {selectedReconciliation ? (
-              <RepositoryReconciliationSummary
-                reconciliation={selectedReconciliation}
-              />
-            ) : null}
-            <Field label="Phase Intake source">
-              <select
-                className={selectCls}
-                value={form.phaseIntakeFileName ?? ""}
-                disabled={isPhaseIntakesLoading}
-                onChange={(event) =>
-                  updateField("phaseIntakeFileName", event.target.value)
-                }
-              >
-                <option value="">
-                  {isPhaseIntakesLoading
-                    ? "Loading Phase Intakes..."
-                    : "Select Phase Intake"}
-                </option>
-                {phaseIntakes.map((phaseIntake) => (
-                  <option key={phaseIntake.fileName} value={phaseIntake.fileName}>
-                    {phaseIntake.phaseName} ({phaseIntake.fileName})
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {selectedPhaseIntake ? (
-              <PhaseIntakeSummary phaseIntake={selectedPhaseIntake} />
-            ) : null}
-            <Field label="Phase Architect Interview Prompt source">
-              <select
-                className={selectCls}
-                value={form.phaseArchitectInterviewPromptFileName ?? ""}
-                disabled={isPhasePromptsLoading}
-                onChange={(event) =>
-                  updateField(
-                    "phaseArchitectInterviewPromptFileName",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="">
-                  {isPhasePromptsLoading
-                    ? "Loading Phase Architect prompts..."
-                    : "Optional Phase Architect Prompt"}
-                </option>
-                {prompts.map((prompt) => (
-                  <option key={prompt.fileName} value={prompt.fileName}>
-                    {prompt.phaseName} ({prompt.fileName})
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {selectedPhasePrompt ? (
-              <PhaseArchitectInterviewPromptSummary prompt={selectedPhasePrompt} />
+            {selectedMappedPhase ? (
+              <MappedPhaseSummary mappedPhase={selectedMappedPhase} />
             ) : null}
           </FieldGroup>
-          <FieldGroup title="Completed Interview Output">
+          <FieldGroup title="Phase-Specific Clarification">
+            {selectedMappedPhase?.unresolvedQuestions.length ? (
+              <Notice type="warning">
+                The mapped phase has unresolved questions. Add short answers
+                here only for blockers that must be resolved before planning.
+              </Notice>
+            ) : (
+              <Notice type="info">
+                No blocking clarification questions were detected for the
+                selected mapped phase. This field is optional.
+              </Notice>
+            )}
+            {selectedMappedPhase?.unresolvedQuestions.length ? (
+              <ul className="grid gap-1 text-xs text-muted-foreground">
+                {selectedMappedPhase.unresolvedQuestions.map((question) => (
+                  <li key={question}>{question}</li>
+                ))}
+              </ul>
+            ) : null}
             <TextAreaField
-              label="Completed Phase Architect Interview output"
-              value={form.phaseArchitectInterviewOutput}
-              rows={12}
+              label="Clarification answers"
+              value={form.phaseClarificationAnswers ?? ""}
+              rows={5}
               onChange={(value) =>
-                updateField("phaseArchitectInterviewOutput", value)
+                updateField("phaseClarificationAnswers", value)
               }
-              required
             />
             <TextAreaField
               label="Operator plan adjustments"
@@ -2935,6 +4450,95 @@ function PhasePlanningDocumentsScreen({
               rows={4}
               onChange={(value) => updateField("operatorPlanAdjustments", value)}
             />
+          </FieldGroup>
+          <FieldGroup title="Advanced / Legacy">
+            <button
+              type="button"
+              onClick={() => setShowLegacySources((value) => !value)}
+              className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showLegacySources ? "Hide Legacy Sources" : "Show Legacy Sources"}
+            </button>
+            {showLegacySources ? (
+              <>
+                <Notice type="warning">
+                  Compatibility Phase Intake, Phase Architect Prompt, and
+                  completed Phase Architect Interview output are optional legacy
+                  context. They are not required in the normal mapped-phase
+                  planning path.
+                </Notice>
+                <InvalidProjectPlanningDocumentsFiles
+                  files={invalidProjectPlanningFiles}
+                />
+                <InvalidRepositoryReconciliationFiles
+                  files={invalidReconciliationFiles}
+                />
+                <InvalidProjectRoadmapFiles files={invalidRoadmapFiles} />
+                <InvalidPhaseIntakeFiles files={invalidPhaseIntakeFiles} />
+                <InvalidPhaseArchitectInterviewPromptFiles
+                  files={invalidPhasePromptFiles}
+                />
+                <Field label="Compatibility Phase Intake source">
+                  <select
+                    className={selectCls}
+                    value={form.phaseIntakeFileName ?? ""}
+                    disabled={isPhaseIntakesLoading}
+                    onChange={(event) =>
+                      updateField("phaseIntakeFileName", event.target.value)
+                    }
+                  >
+                    <option value="">
+                      {isPhaseIntakesLoading
+                        ? "Loading Phase Intakes..."
+                        : "Optional compatibility intake"}
+                    </option>
+                    {phaseIntakes.map((phaseIntake) => (
+                      <option key={phaseIntake.fileName} value={phaseIntake.fileName}>
+                        {formatPhaseIntakeOptionLabel(phaseIntake)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedPhaseIntake ? (
+                  <PhaseIntakeSummary phaseIntake={selectedPhaseIntake} />
+                ) : null}
+                <Field label="Phase Architect Interview Prompt source">
+                  <select
+                    className={selectCls}
+                    value={form.phaseArchitectInterviewPromptFileName ?? ""}
+                    disabled={isPhasePromptsLoading}
+                    onChange={(event) =>
+                      updateField(
+                        "phaseArchitectInterviewPromptFileName",
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="">
+                      {isPhasePromptsLoading
+                        ? "Loading Phase Architect prompts..."
+                        : "Optional Phase Architect Prompt"}
+                    </option>
+                    {prompts.map((prompt) => (
+                      <option key={prompt.fileName} value={prompt.fileName}>
+                        {prompt.phaseName} ({prompt.fileName})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {selectedPhasePrompt ? (
+                  <PhaseArchitectInterviewPromptSummary prompt={selectedPhasePrompt} />
+                ) : null}
+                <TextAreaField
+                  label="Completed Phase Architect Interview output"
+                  value={form.phaseArchitectInterviewOutput}
+                  rows={8}
+                  onChange={(value) =>
+                    updateField("phaseArchitectInterviewOutput", value)
+                  }
+                />
+              </>
+            ) : null}
           </FieldGroup>
           <ActionBar
             onPreview={() => void previewPhasePlanning()}
@@ -2945,10 +4549,11 @@ function PhasePlanningDocumentsScreen({
             copyLabel="Copy Preview"
             saveDisabled={
               isBusy ||
-              form.phaseArchitectInterviewOutput.trim().length === 0 ||
+              !form.phaseMapFileName ||
+              !form.mappedPhaseId ||
               !form.projectPlanningDocumentFileName ||
               !form.repositoryReconciliationFileName ||
-              !form.phaseIntakeFileName
+              !form.projectRoadmapFileName
             }
             copyDisabled={previewMarkdown.trim().length === 0}
             statusMessage={copyMessage || statusMessage}
@@ -2962,13 +4567,13 @@ function PhasePlanningDocumentsScreen({
           title="Preview Phase Planning Documents"
           status={statusMessage}
           filename={saveResult?.savedPhasePlanningMarkdownFileName}
-          emptyMessage="Generate a preview to see the Phase Planning Documents and initial Work Card plan."
+          emptyMessage="Generate a preview to see the Draft / Pending Review Phase Planning Documents and Work Card Plan proposal."
         >
           {saveResult?.phasePlanningMarkdownPath &&
           saveResult.phasePlanningJsonPath ? (
             <Notice type="success">
               <div className="grid gap-1">
-                <span>Saved Phase Planning Documents.</span>
+                <span>Saved pending-review Phase Planning Documents.</span>
                 <code className="break-anywhere text-[11px]">
                   {saveResult.phasePlanningMarkdownPath}
                 </code>
@@ -2982,13 +4587,21 @@ function PhasePlanningDocumentsScreen({
           saveResult.workCardPlanJsonPath ? (
             <Notice type="success">
               <div className="grid gap-1">
-                <span>Saved initial Work Card Plan artifacts.</span>
+                <span>Saved pending-review Work Card Plan proposal.</span>
                 <code className="break-anywhere text-[11px]">
                   {saveResult.workCardPlanMarkdownPath}
                 </code>
                 <code className="break-anywhere text-[11px]">
                   {saveResult.workCardPlanJsonPath}
                 </code>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("work-card-plan-review")}
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition-colors hover:bg-emerald-400/15"
+                >
+                  Open Work Card Plan Review
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </div>
             </Notice>
           ) : null}
@@ -3011,6 +4624,181 @@ function PhasePlanningDocumentsScreen({
   );
 }
 
+function WorkCardPlanReviewScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+  onNavigate,
+}: ScreenProps & {
+  onNavigate: (screen: AppScreen) => void;
+}) {
+  const {
+    workCardPlans,
+    invalidFiles,
+    errors,
+    isLoading,
+  } = useWorkCardPlans(phase);
+  const { phaseMaps } = usePhaseMaps();
+  const [selectedFileName, setSelectedFileName] = useState("");
+
+  useEffect(() => {
+    onActiveCardChange(null);
+  }, [onActiveCardChange]);
+
+  useEffect(() => {
+    if (
+      selectedFileName &&
+      workCardPlans.some((plan) => plan.fileName === selectedFileName)
+    ) {
+      return;
+    }
+
+    setSelectedFileName(workCardPlans[0]?.fileName ?? "");
+  }, [selectedFileName, workCardPlans]);
+
+  function handlePhaseChange(nextPhase: string) {
+    setSelectedFileName("");
+    onPhaseChange(nextPhase);
+  }
+
+  const selectedPlan =
+    workCardPlans.find((plan) => plan.fileName === selectedFileName) ?? null;
+  const mappedPhaseContext = selectedPlan
+    ? phaseMaps
+        .flatMap((phaseMap) => phaseMap.mappedPhases)
+        .find((mappedPhase) => mappedPhase.phaseId === selectedPlan.phaseFolder)
+    : undefined;
+  const statusMessage = selectedPlan
+    ? `${formatWorkCardPlanReviewStatus(selectedPlan.reviewStatus)} / ${formatWorkCardPlanActivationStatus(selectedPlan.phaseActivationStatus)} / Not Executable`
+    : isLoading
+      ? "Loading saved Work Card Plans."
+      : "No saved Work Card Plan selected.";
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Work Card Plan Review"
+            description="Review proposed Work Card slots from Phase Planning before any Formal Work Cards are approved or materialized."
+            badge="planned path"
+          />
+          <Notice type="info">
+            Use this screen for planned phase work after Phase Planning. Planned
+            entries are proposals only: they are not executable Formal Work
+            Cards, and they cannot generate Implementer Prompts until the
+            Operator separately approves materialization.
+          </Notice>
+          <ErrorList errors={errors} />
+          <InvalidWorkCardPlanFiles files={invalidFiles} />
+          <FieldGroup title="Review Source">
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={handlePhaseChange}
+            />
+            <Field label="Saved Work Card Plan JSON">
+              <select
+                className={selectCls}
+                value={selectedFileName}
+                disabled={isLoading}
+                onChange={(event) => setSelectedFileName(event.target.value)}
+              >
+                <option value="">
+                  {isLoading ? "Loading Work Card Plans..." : "Select Work Card Plan"}
+                </option>
+                {workCardPlans.map((plan) => (
+                  <option key={plan.fileName} value={plan.fileName}>
+                    {plan.phaseFolder} - {plan.phaseName} ({plan.fileName})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedPlan ? (
+              <WorkCardPlanSummary plan={selectedPlan} />
+            ) : (
+              <Notice type="warning">
+                No Work Card Plan is available for this phase. Generate Phase
+                Planning Documents first; that creates a Draft / Pending Review
+                Work Card Plan under `Work_Card_Plans/`.
+              </Notice>
+            )}
+            {mappedPhaseContext ? (
+              <MappedPhaseSummary mappedPhase={mappedPhaseContext} />
+            ) : selectedPlan ? (
+              <Notice type="info">
+                No current Phase Map summary matched this plan in the saved
+                Phase Map list. The Work Card Plan source ID remains the review
+                authority for this screen.
+              </Notice>
+            ) : null}
+          </FieldGroup>
+          <FieldGroup title="Planned Decision Boundary">
+            <Notice type="warning">
+              The controls below are scaffolded as future Operator decisions.
+              They are disabled in this repair pass so review cannot silently
+              create Formal Work Cards.
+            </Notice>
+            <DisabledPlanActionGrid />
+          </FieldGroup>
+          <ActionBar
+            onPreview={() => onNavigate("phase-planning-documents")}
+            previewLabel="Open Phase Plan"
+            statusMessage={statusMessage}
+            statusType={errors.length > 0 ? "error" : "success"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Plan Review"
+          title="Proposed Work Card Entries"
+          status={statusMessage}
+          filename={selectedPlan?.markdownFileName ?? selectedPlan?.fileName}
+          emptyMessage="Select a Work Card Plan to review proposed entries."
+        >
+          {selectedPlan ? (
+            <div className="grid gap-5">
+              <Notice type="info">
+                Phase Backlog source:{" "}
+                <code className="break-anywhere">
+                  planning/phases/{selectedPlan.phaseFolder}/WORK_CARD_BACKLOG.md
+                </code>
+                . The backlog and Work Card Plan are planning artifacts, not
+                executable Work Cards.
+              </Notice>
+              <FieldGroup title="Artifact Authority">
+                <MonoBlock>
+                  {[
+                    selectedPlan.artifactAuthority,
+                    "Work Card Plan Review may draft, defer, rename, reorder, merge, split, supersede, or mark proposals already satisfied only after future Operator-approved edit/materialization support exists.",
+                    "Formal Work Cards require a separate Operator approval step and must be saved under Work_Cards/ before Implementer Prompts can be generated.",
+                  ].join("\n\n")}
+                </MonoBlock>
+              </FieldGroup>
+              <FieldGroup title="Planned Cards">
+                {selectedPlan.proposedWorkCards.length > 0 ? (
+                  <div className="grid gap-3">
+                    {selectedPlan.proposedWorkCards.map((item) => (
+                      <PlannedWorkCardReviewItem
+                        key={`${item.workCardIdProposal}-${item.suggestedOrdering}`}
+                        item={item}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="This Work Card Plan has no proposed Work Card entries." />
+                )}
+              </FieldGroup>
+            </div>
+          ) : null}
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
 function NewWorkCardScreen({
   phase,
   phaseOptions,
@@ -3026,7 +4814,7 @@ function NewWorkCardScreen({
   const [previewMarkdown, setPreviewMarkdown] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    "Draft status: ready_for_architect",
+    "Ad hoc draft status: ready_for_architect",
   );
   const [saveResult, setSaveResult] =
     useState<ChampCityWorkCardSaveResult | null>(null);
@@ -3097,7 +4885,9 @@ function NewWorkCardScreen({
     }
 
     setPreviewMarkdown(result.markdown);
-    setStatusMessage("Markdown preview refreshed. Draft requires Architect review.");
+    setStatusMessage(
+      "Markdown preview refreshed. Ad hoc draft requires Architect review.",
+    );
   }
 
   async function saveWorkCard() {
@@ -3123,21 +4913,34 @@ function NewWorkCardScreen({
 
     setPreviewMarkdown(result.markdown);
     setSaveResult(result);
-    setStatusMessage("Work Card draft saved for Architect review.");
+    setStatusMessage("Ad hoc Work Card draft saved for Architect review.");
     if (result.workCard) {
       onActiveCardChange(toUiWorkCardSummary(result.workCard));
     }
   }
+
+  const adHocSaveTarget = `This will create a new ad hoc draft Work Card ${form.workCardId || "(missing ID)"} under planning/phases/${form.phase || "(missing phase)"}/Work_Cards/. It will not link to a mapped phase, Work Card Plan, or planned Work Card proposal.`;
 
   return (
     <ScreenLayout
       left={
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
-            title="Operator Intent"
-            description="Shape the idea into a durable Work Card before it becomes implementation work."
+            title="Ad Hoc Work Card Capture"
+            description="Capture one-off, repair, emergency, or operator-discovered work outside the planned phase execution path."
             badge="ready_for_architect"
           />
+          <Notice type="info">
+            This is not the normal next step after Phase Planning. Planned
+            phase execution waits for Work Card Plan review and Formal Work
+            Card approval.
+          </Notice>
+          <Notice type="warning">
+            Manual/ad hoc mode is active. The Work Card ID, title, and phase
+            fields below are authoritative for preview and save; the header
+            Work Card selector is hidden on this screen to avoid mixing a
+            selected Formal Work Card with a new ad hoc draft.
+          </Notice>
           <ErrorList errors={errors} />
           <FieldGroup title="Identity">
             <FieldRow>
@@ -3156,7 +4959,7 @@ function NewWorkCardScreen({
             </FieldRow>
             <FieldRow>
               <TextField
-                label="Phase"
+                label="Manual/ad hoc phase"
                 value={form.phase}
                 onChange={(value) => updateField("phase", value)}
                 required
@@ -3175,6 +4978,7 @@ function NewWorkCardScreen({
                 </select>
               </Field>
             </FieldRow>
+            <Notice type="info">{adHocSaveTarget}</Notice>
           </FieldGroup>
           <FieldGroup title="Intent">
             <TextAreaField
@@ -3243,9 +5047,9 @@ function NewWorkCardScreen({
           <ActionBar
             onPreview={() => void previewWorkCard()}
             onSave={() => void saveWorkCard()}
-            saveLabel="Save Work Card"
+            saveLabel="Save Ad Hoc Work Card"
             saveDisabled={isBusy}
-            statusMessage={statusMessage}
+            statusMessage={`${statusMessage} ${adHocSaveTarget}`}
             statusType={errors.length > 0 ? "error" : "success"}
           />
         </div>
@@ -3253,14 +5057,14 @@ function NewWorkCardScreen({
       right={
         <ArtifactPanel
           eyebrow="Markdown"
-          title="Work Card Preview"
+          title="Ad Hoc Work Card Preview"
           status={statusMessage}
-          emptyMessage="Preview a Work Card to see the durable Markdown artifact."
+          emptyMessage="Preview an ad hoc Work Card to see the durable Markdown artifact."
         >
           {saveResult?.markdownPath && saveResult.jsonPath ? (
             <Notice type="success">
               <div className="grid gap-1">
-                <span>Saved paired Work Card artifacts.</span>
+                <span>Saved paired ad hoc Work Card draft artifacts.</span>
                 <code className="break-anywhere text-[11px]">
                   {saveResult.markdownPath}
                 </code>
@@ -5080,7 +6884,7 @@ function PhaseCloseoutScreen({
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
             title="Phase Closeout"
-            description="Review phase artifacts and record a non-mutating closeout decision."
+            description="Review phase artifacts and record non-mutating closeout and next-phase activation decisions."
             badge={phase}
           />
           <ErrorList errors={errors} />
@@ -5154,6 +6958,33 @@ function PhaseCloseoutScreen({
                   ))}
                 </select>
               </Field>
+              <Field label="Next phase activation decision">
+                <select
+                  className={selectCls}
+                  value={form.nextPhaseActivationDecision}
+                  onChange={(event) =>
+                    updateField(
+                      "nextPhaseActivationDecision",
+                      event.target
+                        .value as ChampCityNextPhaseActivationDecision,
+                    )
+                  }
+                >
+                  {nextPhaseActivationDecisionOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <TextAreaField
+                label="Next phase activation notes"
+                value={form.nextPhaseActivationNotes}
+                rows={2}
+                onChange={(value) =>
+                  updateField("nextPhaseActivationNotes", value)
+                }
+              />
               <TextAreaField
                 label="Closeout summary"
                 value={form.closeoutSummary}
@@ -5813,6 +7644,227 @@ function ProjectPlanningDocumentsSummary({
   );
 }
 
+function ProjectRoadmapSummary({
+  roadmap,
+}: {
+  roadmap: ChampCitySavedProjectRoadmapSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={roadmap.projectName} />
+      <SummaryItem label="Roadmap ID" value={roadmap.roadmapId} mono />
+      <SummaryItem
+        label="Next Phase"
+        value={roadmap.nextExecutablePhaseFolder}
+        mono
+      />
+      <SummaryItem
+        label="Next Phase Title"
+        value={roadmap.nextExecutablePhaseTitle}
+      />
+      <SummaryItem label="File" value={roadmap.fileName} mono />
+      <SummaryItem label="Updated" value={roadmap.updatedAt} mono />
+    </div>
+  );
+}
+
+function PhaseMapPreviewSummary({
+  phaseMap,
+}: {
+  phaseMap: ChampCityPhaseMapRecord;
+}) {
+  return (
+    <div className="mt-4 grid gap-3 rounded-lg border border-border bg-white/[0.02] p-3">
+      <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5">
+        <SummaryItem label="Project" value={phaseMap.projectName} />
+        <SummaryItem label="Phase Map ID" value={phaseMap.phaseMapId} mono />
+        <SummaryItem label="Roadmap ID" value={phaseMap.sourceRoadmapId} mono />
+        <SummaryItem label="Current/Next Phase" value={phaseMap.currentOrNextPhase} mono />
+        <SummaryItem label="Next Phase Title" value={phaseMap.nextPhaseTitle} />
+        <SummaryItem label="Source File" value={phaseMap.sourceFile} mono />
+        <SummaryItem label="Updated" value={phaseMap.updatedAt} mono />
+      </div>
+      <div className="grid gap-1 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">Mapped phases</span>
+        {phaseMap.mappedPhases.map((mappedPhase) => (
+          <span key={mappedPhase.phaseId}>
+            {mappedPhase.phaseId} - {mappedPhase.phaseTitle} ({mappedPhase.status})
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SavedPhaseMapSummaryPanel({
+  phaseMap,
+}: {
+  phaseMap: ChampCitySavedPhaseMapSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={phaseMap.projectName} />
+      <SummaryItem label="Phase Map ID" value={phaseMap.phaseMapId} mono />
+      <SummaryItem label="Current/Next Phase" value={phaseMap.currentOrNextPhase} mono />
+      <SummaryItem label="Next Phase Title" value={phaseMap.nextPhaseTitle} />
+      <SummaryItem
+        label="Planning Source"
+        value={phaseMap.sourceProjectPlanningDocumentJsonFileName}
+        mono
+      />
+      <SummaryItem
+        label="Reconciliation Source"
+        value={phaseMap.sourceRepositoryReconciliationJsonFileName}
+        mono
+      />
+      <SummaryItem
+        label="Roadmap Source"
+        value={phaseMap.sourceProjectRoadmapJsonFileName}
+        mono
+      />
+      <SummaryItem label="Updated" value={phaseMap.updatedAt} mono />
+    </div>
+  );
+}
+
+function MappedPhaseSummary({
+  mappedPhase,
+}: {
+  mappedPhase: ChampCitySavedMappedPhaseSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Phase ID" value={mappedPhase.phaseId} mono />
+      <SummaryItem label="Title" value={mappedPhase.phaseTitle} />
+      <SummaryItem label="Status" value={mappedPhase.status} />
+      <SummaryItem
+        label="Recommended"
+        value={mappedPhase.isRecommendedNext ? "yes" : "no"}
+      />
+      <SummaryItem
+        label="Unresolved Questions"
+        value={String(mappedPhase.unresolvedQuestions.length)}
+      />
+    </div>
+  );
+}
+
+function WorkCardPlanSummary({
+  plan,
+}: {
+  plan: ChampCitySavedWorkCardPlanSummary;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5 rounded-lg border border-border bg-white/[0.02] p-3">
+      <SummaryItem label="Project" value={plan.projectName} />
+      <SummaryItem label="Plan ID" value={plan.workCardPlanId} mono />
+      <SummaryItem label="Phase" value={plan.phaseFolder} mono />
+      <SummaryItem label="Phase Name" value={plan.phaseName} />
+      <SummaryItem
+        label="Review Status"
+        value={formatWorkCardPlanReviewStatus(plan.reviewStatus)}
+      />
+      <SummaryItem
+        label="Activation"
+        value={formatWorkCardPlanActivationStatus(plan.phaseActivationStatus)}
+      />
+      <SummaryItem
+        label="Proposed Cards"
+        value={String(plan.proposedWorkCardCount)}
+      />
+      <SummaryItem label="Updated" value={plan.updatedAt} mono />
+      <SummaryItem
+        label="Phase Planning Source"
+        value={plan.sourcePhasePlanningDocumentsId}
+        mono
+      />
+      <SummaryItem label="JSON" value={plan.fileName} mono />
+    </div>
+  );
+}
+
+function PlannedWorkCardReviewItem({
+  item,
+}: {
+  item: ChampCityWorkCardPlanItem;
+}) {
+  return (
+    <div className="grid gap-3 rounded-lg border border-border bg-white/[0.02] p-4">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
+            {item.workCardIdProposal} / order {item.suggestedOrdering}
+          </div>
+          <h3 className="mt-1 break-anywhere text-sm font-semibold text-foreground">
+            {item.title}
+          </h3>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-1.5">
+          <Badge className="border-blue-400/20 bg-blue-400/10 text-blue-200">
+            {formatArtifactStatusLabel(item.planStatus ?? "proposed")}
+          </Badge>
+          <Badge className="border-amber-400/20 bg-amber-400/10 text-amber-100">
+            {formatPlanItemStatusLabel(item.reconciliationStatus ?? "planned")}
+          </Badge>
+          <Badge className="border-border bg-muted text-muted-foreground">
+            Not Executable
+          </Badge>
+        </div>
+      </div>
+      <div className="grid gap-2 text-xs leading-relaxed text-muted-foreground/75">
+        <p className="break-anywhere">
+          <span className="font-semibold text-foreground/80">Problem: </span>
+          {item.problem}
+        </p>
+        <p className="break-anywhere">
+          <span className="font-semibold text-foreground/80">Outcome: </span>
+          {item.userOutcome}
+        </p>
+        <p className="break-anywhere">
+          <span className="font-semibold text-foreground/80">Scope: </span>
+          {item.includedScope}
+        </p>
+      </div>
+      <DisabledPlanActionGrid compact />
+    </div>
+  );
+}
+
+function DisabledPlanActionGrid({ compact = false }: { compact?: boolean }) {
+  const actions = [
+    "Draft this Work Card",
+    "Skip / defer",
+    "Rename",
+    "Reorder",
+    "Merge",
+    "Split",
+    "Mark superseded",
+    "Mark already satisfied",
+  ];
+
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 gap-2",
+        compact ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2",
+      )}
+    >
+      {actions.map((action) => (
+        <button
+          key={action}
+          type="button"
+          disabled
+          title="Future Operator decision; disabled until formal materialization support is approved."
+          className="inline-flex min-h-8 items-center justify-center gap-1.5 whitespace-normal rounded-md border border-border bg-muted px-2 py-1.5 text-center text-[11px] font-semibold leading-tight text-muted-foreground/60 disabled:opacity-60"
+        >
+          <CheckSquare size={11} className="shrink-0" />
+          <span>{action}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function PhaseIntakeSummary({
   phaseIntake,
 }: {
@@ -5823,6 +7875,14 @@ function PhaseIntakeSummary({
       <SummaryItem label="Project" value={phaseIntake.projectName} />
       <SummaryItem label="Phase" value={phaseIntake.phaseName} />
       <SummaryItem label="Phase Folder" value={phaseIntake.phaseFolder} mono />
+      <SummaryItem
+        label="Mode"
+        value={
+          phaseIntake.generationMode === "architect-led"
+            ? "Generated"
+            : "Advanced manual"
+        }
+      />
       <SummaryItem label="Phase Intake ID" value={phaseIntake.phaseIntakeId} mono />
       <SummaryItem label="File" value={phaseIntake.fileName} mono />
       <SummaryItem label="Updated" value={phaseIntake.updatedAt} mono />
@@ -5835,6 +7895,58 @@ function PhaseIntakeSummary({
       ) : null}
     </div>
   );
+}
+
+function formatPhaseIntakeOptionLabel(
+  phaseIntake: ChampCitySavedPhaseIntakeSummary,
+): string {
+  const mode =
+    phaseIntake.generationMode === "architect-led"
+      ? "Generated"
+      : "Advanced manual";
+
+  return `${mode}: ${phaseIntake.phaseName} (${phaseIntake.fileName})`;
+}
+
+function formatWorkCardPlanReviewStatus(status: string): string {
+  return status === "pending_review" ? "Pending Review" : "Approved";
+}
+
+function formatWorkCardPlanActivationStatus(status: string): string {
+  return status === "not_active" ? "Not Active" : "Active";
+}
+
+function formatArtifactStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    proposed: "Proposed",
+    mapped: "Mapped",
+    planning_draft: "Planning Draft",
+    pending_review: "Pending Review",
+    approved_for_work_card_creation: "Approved for Work Card Creation",
+    active: "Active",
+    closed: "Closed",
+    deferred: "Deferred",
+    superseded: "Superseded",
+    already_satisfied: "Already Satisfied",
+    implemented_but_not_validated: "Implemented But Not Validated",
+    validated_but_not_closed: "Validated But Not Closed",
+  };
+
+  return labels[status] ?? status;
+}
+
+function formatPlanItemStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    planned: "Planned",
+    approved_for_work_card_creation: "Approved for Work Card Creation",
+    deferred: "Deferred",
+    superseded: "Superseded",
+    already_satisfied: "Already Satisfied",
+    implemented_but_not_validated: "Implemented But Not Validated",
+    validated_but_not_closed: "Validated But Not Closed",
+  };
+
+  return labels[status] ?? status;
 }
 
 function PhaseArchitectInterviewPromptSummary({
@@ -6244,6 +8356,81 @@ function InvalidProjectPlanningDocumentsFiles({
     <Notice type="warning">
       <div className="grid gap-2">
         <strong>Skipped Project Planning Documents files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidProjectRoadmapFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedProjectRoadmapFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Project Roadmap files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidPhaseMapFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedPhaseMapFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Phase Map files</strong>
+        <ul className="grid gap-1">
+          {files.map((file) => (
+            <li key={file.fileName}>
+              {file.fileName}: {file.errorMessages.join(" ")}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Notice>
+  );
+}
+
+function InvalidWorkCardPlanFiles({
+  files,
+}: {
+  files: ChampCityInvalidSavedWorkCardPlanFile[];
+}) {
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Notice type="warning">
+      <div className="grid gap-2">
+        <strong>Skipped Work Card Plan files</strong>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -6781,6 +8968,62 @@ function useWorkCards(phase: string) {
   }, [phase]);
 
   return { workCards, invalidFiles, errors, isLoading };
+}
+
+function useWorkCardPlans(phase: string) {
+  const [workCardPlans, setWorkCardPlans] = useState<
+    ChampCitySavedWorkCardPlanSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedWorkCardPlanFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedWorkCardPlans(phase)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setWorkCardPlans([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? ["Saved Work Card Plans could not be loaded."],
+          );
+          return;
+        }
+
+        setWorkCardPlans(result.workCardPlans ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setWorkCardPlans([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Work Card Plans could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase]);
+
+  return { workCardPlans, invalidFiles, errors, isLoading };
 }
 
 function useValidationTargets(phase: string) {
@@ -7328,6 +9571,116 @@ function useRepositoryReconciliations() {
   }, []);
 
   return { reconciliations, invalidFiles, errors, isLoading };
+}
+
+function useProjectRoadmaps() {
+  const [roadmaps, setRoadmaps] = useState<
+    ChampCitySavedProjectRoadmapSummary[]
+  >([]);
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedProjectRoadmapFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedProjectRoadmaps()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setRoadmaps([]);
+          setInvalidFiles([]);
+          setErrors(
+            result.errorMessages ?? ["Saved Project Roadmaps could not be loaded."],
+          );
+          return;
+        }
+
+        setRoadmaps(result.roadmaps ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setRoadmaps([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Project Roadmaps could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { roadmaps, invalidFiles, errors, isLoading };
+}
+
+function usePhaseMaps() {
+  const [phaseMaps, setPhaseMaps] = useState<ChampCitySavedPhaseMapSummary[]>(
+    [],
+  );
+  const [invalidFiles, setInvalidFiles] = useState<
+    ChampCityInvalidSavedPhaseMapFile[]
+  >([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setIsLoading(true);
+    setErrors([]);
+
+    window.champCity
+      .listSavedPhaseMaps()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+
+        if (!result.ok) {
+          setPhaseMaps([]);
+          setInvalidFiles([]);
+          setErrors(result.errorMessages ?? ["Saved Phase Maps could not be loaded."]);
+          return;
+        }
+
+        setPhaseMaps(result.phaseMaps ?? []);
+        setInvalidFiles(result.invalidFiles ?? []);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsLoading(false);
+        setPhaseMaps([]);
+        setInvalidFiles([]);
+        setErrors(["Saved Phase Maps could not be loaded."]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { phaseMaps, invalidFiles, errors, isLoading };
 }
 
 function usePhaseIntakes(phase: string) {

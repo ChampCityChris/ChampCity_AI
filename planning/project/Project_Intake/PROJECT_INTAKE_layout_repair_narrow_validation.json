@@ -1,0 +1,22 @@
+{
+  "projectIntakeId": "PROJECT_INTAKE_layout_repair_narrow_validation",
+  "projectName": "Layout Repair Narrow Validation",
+  "workingTitle": "",
+  "createdAt": "2026-06-30T16:08:48.648Z",
+  "updatedAt": "2026-06-30T16:08:48.648Z",
+  "productSummary": "A narrow desktop validation record for the Project Intake action/status layout repair.",
+  "targetUsers": "The Operator validating that action feedback is readable.",
+  "userProblem": "The status message was squeezed into a one-character vertical column beside the buttons.",
+  "desiredUserOutcome": "Preview, copy, and save while reading status messages horizontally.",
+  "businessOrPersonalGoal": "",
+  "currentStage": "mvp",
+  "sourceOfTruthLocation": "<PROJECT_REPO>",
+  "preferredImplementerTool": "Codex",
+  "architectSurface": "ChatGPT",
+  "knownConstraints": "",
+  "nonGoals": "",
+  "securityOrDataConcerns": "",
+  "examplesOrReferences": "",
+  "operatorUncertainties": "",
+  "notesForArchitect": ""
+}

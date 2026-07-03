@@ -1,0 +1,135 @@
+{
+  "workCardPlanId": "WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+  "projectName": "ChampCity A/I",
+  "phaseFolder": "phase-03",
+  "phaseName": "Repository Reconciliation and Phase Planning Documents",
+  "sourcePhasePlanningDocumentsId": "PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+  "sourcePhasePlanningDocumentsJsonFileName": "PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json",
+  "sourcePhasePlanningDocumentsMarkdownFileName": "PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md",
+  "planPurpose": "Superseded planning proposal only. This artifact does not create formal app-selectable Work Card JSON files and must not be converted into active Phase 03 work.",
+  "reviewStatus": "superseded",
+  "phaseActivationStatus": "superseded_not_active",
+  "artifactAuthority": "Superseded historical Work Card Plan output. The active Phase 03 candidate list is planning/phases/phase-03/Work_Card_Plan.md.",
+  "proposedWorkCards": [
+    {
+      "workCardIdProposal": "WC01",
+      "title": "Generate durable Project Roadmap and Phase Map",
+      "planStatus": "proposed",
+      "reconciliationStatus": "planned",
+      "executableStatus": "not_executable",
+      "problem": "Generate durable Project Roadmap and Phase Map is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "userOutcome": "The Operator can review generate durable project roadmap and phase map as part of Repository Reconciliation and Phase Planning Documents progress.",
+      "includedScope": "Generate durable Project Roadmap and Phase Map. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+      "riskLevel": "high",
+      "validationItems": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ],
+      "suggestedOrdering": 1,
+      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
+    },
+    {
+      "workCardIdProposal": "WC02",
+      "title": "Consolidate validation evidence and stale-state warnings",
+      "planStatus": "proposed",
+      "reconciliationStatus": "planned",
+      "executableStatus": "not_executable",
+      "problem": "Consolidate validation evidence and stale-state warnings is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "userOutcome": "The Operator can review consolidate validation evidence and stale-state warnings as part of Repository Reconciliation and Phase Planning Documents progress.",
+      "includedScope": "Consolidate validation evidence and stale-state warnings. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+      "riskLevel": "high",
+      "validationItems": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ],
+      "suggestedOrdering": 2,
+      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
+    },
+    {
+      "workCardIdProposal": "WC03",
+      "title": "Create Next Phase Readiness Review workflow",
+      "planStatus": "proposed",
+      "reconciliationStatus": "planned",
+      "executableStatus": "not_executable",
+      "problem": "Create Next Phase Readiness Review workflow is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "userOutcome": "The Operator can review create next phase readiness review workflow as part of Repository Reconciliation and Phase Planning Documents progress.",
+      "includedScope": "Create Next Phase Readiness Review workflow. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+      "riskLevel": "high",
+      "validationItems": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ],
+      "suggestedOrdering": 3,
+      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
+    },
+    {
+      "workCardIdProposal": "WC04",
+      "title": "Produce roadmap-driven Work Card plans",
+      "planStatus": "proposed",
+      "reconciliationStatus": "planned",
+      "executableStatus": "not_executable",
+      "problem": "Produce roadmap-driven Work Card plans is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "userOutcome": "The Operator can review produce roadmap-driven work card plans as part of Repository Reconciliation and Phase Planning Documents progress.",
+      "includedScope": "Produce roadmap-driven Work Card plans. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+      "riskLevel": "high",
+      "validationItems": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ],
+      "suggestedOrdering": 4,
+      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
+    },
+    {
+      "workCardIdProposal": "WC05",
+      "title": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme",
+      "planStatus": "proposed",
+      "reconciliationStatus": "planned",
+      "executableStatus": "not_executable",
+      "problem": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "userOutcome": "The Operator can review assumptions: project planning documents; repository reconciliation; 2026-07-01 architect alignme as part of Repository Reconciliation and Phase Planning Documents progress.",
+      "includedScope": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+      "riskLevel": "high",
+      "validationItems": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ],
+      "suggestedOrdering": 5,
+      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
+    },
+    {
+      "workCardIdProposal": "WC06",
+      "title": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali",
+      "planStatus": "proposed",
+      "reconciliationStatus": "planned",
+      "executableStatus": "not_executable",
+      "problem": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "userOutcome": "The Operator can review planned work cards: wc01: generate durable project roadmap and phase map; wc02: consolidate vali as part of Repository Reconciliation and Phase Planning Documents progress.",
+      "includedScope": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+      "riskLevel": "high",
+      "validationItems": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ],
+      "suggestedOrdering": 6,
+      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
+    }
+  ],
+  "operatorPlanAdjustments": "",
+  "createdAt": "2026-07-02T18:05:46.022Z",
+  "updatedAt": "2026-07-02T18:05:46.022Z",
+  "supersededBy": {
+    "phaseId": "phase-03",
+    "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+    "authorityArtifacts": [
+      "planning/phases/phase-03/Work_Card_Plan.md",
+      "planning/phases/phase-03/Operator_Phase_Approval.md"
+    ],
+    "reason": "Operator approved the workflow-router Phase 03 bundle on 2026-07-03."
+  }
+}

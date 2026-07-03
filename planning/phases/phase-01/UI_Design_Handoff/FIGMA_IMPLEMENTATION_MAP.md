@@ -3,7 +3,7 @@
 ## Source Package
 
 - Package inspected: `planning/phases/phase-01/UI_Design_Handoff/figma_source/Design Dark UI for ChampCity.zip`
-- Temporary extraction used for inspection only: `redacted local temporary extraction path`
+- Temporary extraction used for inspection only: redacted local temporary extraction path.
 - The package was already present in the repository path, so no attachment copy was needed.
 
 ## Figma Source Files Inspected
