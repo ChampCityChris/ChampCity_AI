@@ -6,9 +6,9 @@ Simple fix/governance repair: add a native Electron edit context menu to unblock
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -48,7 +48,7 @@ Simple fix/governance repair: add a native Electron edit context menu to unblock
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
 - `git status --short --branch` - inspected dirty worktree; only this pass modified `src/main/main.ts` before report creation.
 - `rg --files` - inspected repository file layout.
 - `Get-Content -Path src\main\main.ts` - inspected Electron main process entry point.
@@ -63,7 +63,7 @@ Simple fix/governance repair: add a native Electron edit context menu to unblock
 - First `npm run test:work-cards` - failed in sandbox during its internal build step with Vite/esbuild `spawn EPERM`.
 - Escalated `npm run test:work-cards` - passed and reported `Work Card fixture validation passed.`
 - `npm start -- --remote-debugging-port=9233` - launched the app through the requested start path for inspection; the launched process later exited and was confirmed not running.
-- Local DevTools probe of `http://127.0.0.1:9233/json/list` - confirmed a live Electron page titled `ChampCity A/I` at `file:///C:/Users/chapm/Projects/ChampCity_AI/dist/renderer/index.html` before manual UI validation was stopped.
+- Local DevTools probe of `http://127.0.0.1:9233/json/list` - confirmed a live Electron page titled `ChampCity A/I` at `file:///<PROJECT_REPO>/dist/renderer/index.html` before manual UI validation was stopped.
 - `git diff -- src\main\main.ts` - inspected final source diff.
 - `git rev-parse --show-toplevel` - confirmed Git root.
 - `git remote -v` - confirmed GitHub origin.

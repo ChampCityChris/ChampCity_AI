@@ -141,7 +141,7 @@ You are acting as Implementer for ChampCity A/I.
 The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured handoff and preserve the approved scope.
 
 Before editing:
-- Verify the repository path before editing. Expected repository: `C:\Users\chapm\Projects\ChampCity_AI`.
+- Verify the repository path before editing. Expected repository: `<PROJECT_REPO>`.
 - Read `AGENTS.md` and relevant planning files.
 
 Work Card: WC02 - Add Project Architect Interview prompt generator

@@ -4,7 +4,7 @@ Screenshots were not captured during this Builder pass because the repo does not
 
 ## How To Capture Current Screens Manually
 
-1. From `C:\Users\chapm\Projects\ChampCity_AI`, run:
+1. From `<PROJECT_REPO>`, run:
 
 ```bash
 npm start

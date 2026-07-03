@@ -6,9 +6,9 @@ Repair task (`REPAIR_WC02_Electron_launch_failure`): repair the Electron launch 
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -44,14 +44,14 @@ The repair environment also had `NPM_CONFIG_OFFLINE=true` plus `HTTP_PROXY` and 
 
 ## Files/Folders Deleted Or Reinstalled
 
-- Deleted only `node_modules/electron` after resolving the target path and confirming it stayed inside `C:\Users\chapm\Projects\ChampCity_AI`.
+- Deleted only `node_modules/electron` after resolving the target path and confirming it stayed inside `<PROJECT_REPO>`.
 - Ran `npm install`; it re-added one package but did not repair the missing Electron binary.
 - Ran targeted Electron rebuild/install diagnostics:
   - `npm rebuild electron --foreground-scripts`
   - `npm rebuild electron --foreground-scripts --offline=false` with offline/proxy environment overrides
   - `node node_modules/electron/install.js` with debug logging and offline/proxy environment overrides
 - Downloaded official Electron zip through the installer to:
-  - `C:\Users\chapm\AppData\Local\electron\Cache\c94f2fc32e1fb05767f75322ea533eeb9828155f017ec184140930a3ec825e81\electron-v31.7.7-win32-x64.zip`
+  - `redacted local Electron cache path`
 - Replaced local dependency folder:
   - `node_modules/electron/dist`
 - Wrote local dependency marker:
@@ -78,8 +78,8 @@ The repair environment also had `NPM_CONFIG_OFFLINE=true` plus `HTTP_PROXY` and 
 
 ## Commands Run And Results
 
-- `pwd` - confirmed the current working directory is `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed the Git repository root is `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed the current working directory is `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed the Git repository root is `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and the pre-existing untracked files listed above.
 - `git remote -v` - confirmed `origin` points to `https://github.com/ChampCityChris/ChampCity_AI.git`.
 - `Get-Content AGENTS.md` - inspected Builder rules before repair work.
@@ -101,7 +101,7 @@ The repair environment also had `NPM_CONFIG_OFFLINE=true` plus `HTTP_PROXY` and 
 - `node node_modules/electron/install.js` with debug logging and offline/proxy overrides - downloaded `electron-v31.7.7-win32-x64.zip` to the Electron cache.
 - Node extraction attempt using `extract-zip` - did not complete extraction in this Node 24 runtime.
 - PowerShell `Expand-Archive` repair - extracted the downloaded official Electron zip to `node_modules/electron/dist` and wrote `path.txt`.
-- Post-repair `node -e "console.log(require('electron'))"` - passed and returned `C:\Users\chapm\Projects\ChampCity_AI\node_modules\electron\dist\electron.exe`.
+- Post-repair `node -e "console.log(require('electron'))"` - passed and returned `<PROJECT_REPO>\node_modules\electron\dist\electron.exe`.
 - `Get-Content node_modules/electron/path.txt` - returned `electron.exe`.
 - `Test-Path node_modules/electron/dist/electron.exe` - returned `True`.
 - `.\node_modules\.bin\electron.cmd --version` - returned `v31.7.7`.
@@ -128,7 +128,7 @@ The repair environment also had `NPM_CONFIG_OFFLINE=true` plus `HTTP_PROXY` and 
   - `node_modules/electron/dist/electron.exe` exists.
   - Electron reports `v31.7.7`.
 - Renderer launch validation through direct Electron DevTools - passed:
-  - Renderer target loaded `file:///C:/Users/chapm/Projects/ChampCity_AI/dist/renderer/index.html`.
+  - Renderer target loaded `file:///<PROJECT_REPO>/dist/renderer/index.html`.
   - DOM text included `New Work Card`.
   - DOM text included `ready_for_architect`.
   - DOM text included `Preview Markdown`.

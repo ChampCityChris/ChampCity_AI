@@ -73,7 +73,7 @@ export interface BuilderPromptSaveResult extends BuilderPromptPreviewResult {
 }
 
 export const champCityRepositoryPath =
-  "C:\\Users\\chapm\\Projects\\ChampCity_AI";
+  "<PROJECT_REPO>";
 
 export const builderPromptHighRiskWarning =
   "This Work Card has high-risk review context. The Implementer must not broaden scope. If implementation requires secrets, authentication changes, destructive Git/GitHub actions, deployment changes, provider integrations, broad refactors, or other high-risk work not explicitly approved in this prompt, stop and report a blocking question.";

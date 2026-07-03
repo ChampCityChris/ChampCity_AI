@@ -6,8 +6,8 @@ Numbered Work Card (`WC04`): Phase 02 Alpha app development pass for determinist
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
 - Approved workspace path confirmed with `pwd`.
 
 ## Git Branch And Remote Status
@@ -71,7 +71,7 @@ Numbered Work Card (`WC04`): Phase 02 Alpha app development pass for determinist
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
 - `Get-Content -Raw` for attached request - read WC04 task details.
 - `rg --files`, `rg -n`, and targeted `Get-Content` reads - inspected repo structure, planning files, shared models, main/preload IPC, renderer source, and existing reports.
 - `git status --short` / `git status -sb` - inspected dirty worktree before and after implementation.

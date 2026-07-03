@@ -6,9 +6,9 @@ Numbered Work Card (`WC04`): add deterministic Work Card Risk Router.
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -69,8 +69,8 @@ Numbered Work Card (`WC04`): add deterministic Work Card Risk Router.
 
 ## Commands Run And Results
 
-- `pwd` - confirmed current working directory is `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed Git repository root is `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed current working directory is `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed Git repository root is `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and identified the pre-existing untracked files listed above.
 - `git remote -v` - confirmed `origin` points to `https://github.com/ChampCityChris/ChampCity_AI.git`.
 - `Get-Content AGENTS.md` - inspected Builder rules before editing.

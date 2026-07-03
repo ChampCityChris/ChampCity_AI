@@ -6,8 +6,8 @@ Simple Alpha app development fix using the requested `WC03_validation_status_ind
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -53,7 +53,7 @@ Simple Alpha app development fix using the requested `WC03_validation_status_ind
 
 ## Commands Run And Results
 
-- `pwd` - confirmed `C:\Users\chapm\Projects\ChampCity_AI`.
+- `pwd` - confirmed `<PROJECT_REPO>`.
 - `git status --short` - inspected dirty worktree and confirmed unrelated pre-existing changes were present.
 - `git branch --show-current` - reported `master`.
 - `git remote -v` - confirmed GitHub origin.

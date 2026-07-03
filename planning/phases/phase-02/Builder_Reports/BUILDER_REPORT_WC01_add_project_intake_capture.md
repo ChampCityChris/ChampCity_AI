@@ -6,9 +6,9 @@ Numbered Work Card (`WC01`): add Project Intake capture as the first upstream pl
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -79,8 +79,8 @@ Numbered Work Card (`WC01`): add Project Intake capture as the first upstream pl
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and observed pre-existing untracked files.
 - `git remote -v` - confirmed GitHub origin URL.
 - `Get-Content -LiteralPath AGENTS.md` - read repository rules.

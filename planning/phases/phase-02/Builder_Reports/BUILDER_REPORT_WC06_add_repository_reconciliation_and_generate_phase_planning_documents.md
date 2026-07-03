@@ -6,8 +6,8 @@ Numbered Work Card (`WC06`): Phase 02 Alpha app development pass for Repository 
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
 - Approved workspace path confirmed with `pwd`.
 
 ## Git Branch And Remote Status
@@ -70,7 +70,7 @@ Numbered Work Card (`WC06`): Phase 02 Alpha app development pass for Repository 
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
 - `Get-Content` for the attached request - read WC06 task details.
 - `rg --files`, `rg -n`, and targeted `Get-Content` reads - inspected repo structure, Phase 02 Work Cards, reports, shared models, main/preload IPC, renderer source, validation script, and project state.
 - `git status --short` / `git status -sb` - inspected dirty worktree before and after implementation.

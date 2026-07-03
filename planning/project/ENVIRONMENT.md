@@ -2,7 +2,7 @@
 
 ## Workspace
 
-`C:\Users\chapm\Projects\ChampCity_AI`
+`<PROJECT_REPO>`
 
 ## Git Status Discovered During Audit
 

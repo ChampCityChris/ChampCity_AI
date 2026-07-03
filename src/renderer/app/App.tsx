@@ -269,7 +269,7 @@ const initialProjectIntakeForm: ChampCityProjectIntakeInput = {
   desiredUserOutcome: "",
   businessOrPersonalGoal: "",
   currentStage: "alpha",
-  sourceOfTruthLocation: "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+  sourceOfTruthLocation: "<PROJECT_REPO>",
   preferredImplementerTool: "Codex",
   architectSurface: "ChatGPT",
   knownConstraints: "",

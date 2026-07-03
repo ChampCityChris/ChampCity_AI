@@ -6,8 +6,8 @@ Simple fix/governance update using the requested `WC04_validation_target_selecto
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -57,7 +57,7 @@ Simple fix/governance update using the requested `WC04_validation_target_selecto
 
 ## Commands Run And Results
 
-- `pwd` - confirmed `C:\Users\chapm\Projects\ChampCity_AI`.
+- `pwd` - confirmed `<PROJECT_REPO>`.
 - `rg --files` and `rg -n ...` - inspected repository layout and Validate/report/evidence source wiring.
 - `Get-Content ...` - inspected renderer, preload, main file-store, shared validation models, existing Phase 02 Work Cards, and existing repair/fix Implementer Reports.
 - `git status --short` - inspected dirty worktree and confirmed unrelated pre-existing changes were present.

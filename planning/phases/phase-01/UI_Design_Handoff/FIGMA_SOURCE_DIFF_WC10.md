@@ -3,12 +3,12 @@
 ## Repair Pass
 
 - Repair task: `REPAIR_WC10_strict_figma_source_parity_diff_pass`
-- Repository inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Repository inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 - Latest Figma source zip inspected: `planning/phases/phase-01/UI_Design_Handoff/figma_source/Design Dark UI for ChampCity.zip`
 - Zip SHA-256: `C439FF150A80F2095631FD17461356B5830F52702C12D9ED98169A876D02716A`
-- Temporary extraction path: `C:\Users\chapm\AppData\Local\Temp\champcity_figma_source_strict_wc10`
-- No newer ZIP was found in `C:\Users\chapm\.codex\attachments` during this pass, so the repo ZIP was treated as the latest supplied Figma package.
+- Temporary extraction path: `redacted local temporary extraction path`
+- No newer ZIP was found in `[redacted local attachment path]` during this pass, so the repo ZIP was treated as the latest supplied Figma package.
 
 ## Figma Source Inspected
 

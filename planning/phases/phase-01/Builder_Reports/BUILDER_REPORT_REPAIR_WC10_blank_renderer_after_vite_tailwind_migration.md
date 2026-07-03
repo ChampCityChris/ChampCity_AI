@@ -6,9 +6,9 @@ Repair task (`REPAIR_WC10_blank_renderer_after_vite_tailwind_migration`): focuse
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -40,7 +40,7 @@ Vite was using its default production base path. The generated renderer HTML con
 Electron loads the app from:
 
 ```text
-file:///C:/Users/chapm/Projects/ChampCity_AI/dist/renderer/index.html
+file:///<PROJECT_REPO>/dist/renderer/index.html
 ```
 
 With `file://`, `/assets/...` points at a filesystem-root asset path instead of the adjacent `dist/renderer/assets/` folder, so the renderer JavaScript does not mount the React app.
@@ -90,7 +90,7 @@ This makes production renderer HTML reference bundles relative to `dist/renderer
 
 - A temporary Electron smoke diagnostic launched Electron with Chromium remote debugging enabled and inspected the live renderer through the DevTools protocol.
 - DevTools target loaded:
-  - `file:///C:/Users/chapm/Projects/ChampCity_AI/dist/renderer/index.html`
+  - `file:///<PROJECT_REPO>/dist/renderer/index.html`
 - Runtime findings after repair:
   - `document.title` was `ChampCity A/I`.
   - `window.champCity` preload API was available.
@@ -101,9 +101,9 @@ This makes production renderer HTML reference bundles relative to `dist/renderer
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `Get-Content -LiteralPath C:\Users\chapm\.codex\attachments\91913d52-895b-4d74-bd1e-e5cf0e41b68f\pasted-text.txt` - read the repair request.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `Get-Content -LiteralPath [redacted local attachment path]` - read the repair request.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and observed pre-existing untracked files.
 - `git remote -v` - confirmed GitHub origin URL.
 - `Get-Content -LiteralPath AGENTS.md` - read repository builder rules.

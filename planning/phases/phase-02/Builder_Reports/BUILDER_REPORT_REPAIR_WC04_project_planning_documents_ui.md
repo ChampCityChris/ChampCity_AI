@@ -8,7 +8,7 @@ This is an Alpha app development repair pass. Operator validation failed because
 
 ## Repository Path Inspected
 
-`C:\Users\chapm\Projects\ChampCity_AI`
+`<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 

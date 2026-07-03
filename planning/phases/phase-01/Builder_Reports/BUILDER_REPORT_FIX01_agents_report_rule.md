@@ -6,9 +6,9 @@ Simple fix/governance update (`FIX01`), not a numbered Work Card.
 
 ## Repository Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -70,8 +70,8 @@ Simple fix/governance update (`FIX01`), not a numbered Work Card.
 
 ## Commands Run And Results
 
-- `pwd` - confirmed the current working directory is `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed the Git repository root is `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed the current working directory is `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed the Git repository root is `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and identified pre-existing untracked files listed above.
 - `git remote -v` - returned no configured remotes.
 - `Get-Content AGENTS.md` - inspected existing Builder rules before editing.

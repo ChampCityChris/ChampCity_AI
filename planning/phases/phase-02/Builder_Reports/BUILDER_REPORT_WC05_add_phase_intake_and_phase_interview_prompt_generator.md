@@ -6,8 +6,8 @@ Numbered Work Card (`WC05`): Phase 02 Alpha app development pass for Phase Intak
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
 - Approved workspace path confirmed with `pwd`.
 
 ## Git Branch And Remote Status
@@ -65,7 +65,7 @@ Numbered Work Card (`WC05`): Phase 02 Alpha app development pass for Phase Intak
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
 - `Get-Content` for the attached request - read WC05 task details.
 - `rg --files`, `rg -n`, and targeted `Get-Content` reads - inspected repo structure, AGENTS rules, Phase 02 work cards, reports, shared models, main/preload IPC, renderer source, and validation script.
 - `git status --short` / `git status -sb` - inspected dirty worktree before and after implementation.

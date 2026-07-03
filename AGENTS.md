@@ -2,7 +2,7 @@
 
 ## Source of Truth
 
-- Verify the workspace path before editing. The approved workspace is `C:\Users\chapm\Projects\ChampCity_AI`.
+- Verify the workspace path before editing. The approved workspace is `<PROJECT_REPO>`.
 - Treat repository files, planning files, and approved Work Cards as the source of truth.
 - Do not rely on vague chat context when a durable project file exists.
 - Planning artifacts live under `planning/`.
@@ -45,6 +45,14 @@
 - Renderer code must not use unrestricted filesystem access.
 - Filesystem writes must be mediated by Electron main/preload IPC and constrained to approved project planning paths.
 
+## Local Path Redaction
+
+- Do not write concrete local machine paths into committed artifacts, Work Cards, Builder/Implementer Reports, validation records, closeout records, planning documents, or handoff prompts.
+- This rule applies to both Architect and Implementer outputs.
+- Use `<PROJECT_REPO>` to refer to the local repository root.
+- Use repo-relative paths for files inside the project, for example `planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md`.
+- Architects and Implementers may verify the actual local path during execution, but committed reports must record that as "verified approved repo root" rather than printing the concrete local path.
+- Do not use concrete Windows, macOS, Linux, or home-directory paths in durable committed artifacts. Use `<PROJECT_REPO>` or repo-relative paths instead.
 ## Validation
 
 - Run available validation commands before reporting completion.

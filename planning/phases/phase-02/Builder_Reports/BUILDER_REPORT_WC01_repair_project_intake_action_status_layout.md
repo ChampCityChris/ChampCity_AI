@@ -6,9 +6,9 @@ Repair pass for numbered Work Card (`WC01`): fix the Project Intake action/statu
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -53,8 +53,8 @@ Operator validation confirmed that Project Intake artifacts saved correctly, but
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git status --short` / `git status --short --branch` - inspected dirty worktree and confirmed pre-existing untracked files.
 - `Get-Content -Raw AGENTS.md` - read repository rules.
 - `Get-Content -Raw planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_add_project_intake_capture.md` - inspected prior WC01 Implementer Report.

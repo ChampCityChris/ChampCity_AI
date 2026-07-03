@@ -6,9 +6,9 @@ Simple fix/governance update (`FIX03`): make the known Codex sandbox `spawn EPER
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 - Repository name confirmed: `ChampCity_AI`
 
 ## Git Branch And Remote Status
@@ -45,10 +45,10 @@ Simple fix/governance update (`FIX03`): make the known Codex sandbox `spawn EPER
 
 ## Commands Run And Results
 
-- `pwd` - confirmed the current working directory is `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed the Git repository root is `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed the current working directory is `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed the Git repository root is `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and captured pre-existing user changes before edits.
-- `Get-Content C:\Users\chapm\.codex\attachments\c11f5789-d7bb-49dd-96fc-c5c12cc5bf13\pasted-text.txt` - read the attached task instructions.
+- `Get-Content [redacted local attachment path]` - read the attached task instructions.
 - `Get-Content AGENTS.md` - inspected existing Builder rules before appending the validation-lane rule.
 - `Get-Content package.json` - inspected existing npm scripts before adding validation aliases.
 - `rg --files planning docs scripts` - inspected project planning/docs/script layout; `docs` did not exist yet.
@@ -56,7 +56,7 @@ Simple fix/governance update (`FIX03`): make the known Codex sandbox `spawn EPER
 - `git remote -v` - confirmed `origin` points to `https://github.com/ChampCityChris/ChampCity_AI.git`.
 - `Get-Content planning/work/_template/BUILDER_REPORT_TEMPLATE.md` - inspected Builder Report template expectations.
 - `Get-Content planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX02_configure_git_remote.md` - inspected prior fix/governance report style.
-- `New-Item -ItemType Directory -Force -Path C:\Users\chapm\Projects\ChampCity_AI\docs\dev` - created the development docs directory.
+- `New-Item -ItemType Directory -Force -Path <PROJECT_REPO>\docs\dev` - created the development docs directory.
 - Applied repository edits with `apply_patch` - added the validation lane docs, sample rules file, PowerShell wrapper, package scripts, and AGENTS rule.
 - `git diff -- AGENTS.md package.json docs/dev/VALIDATION_COMMAND_LANES.md docs/dev/CODEX_RULES_SAMPLE.rules scripts/codex-validate.ps1` - reviewed tracked-file diff scope after edits.
 - `npm run validate:codex` - passed in the normal Windows execution lane; ran `npm run test` and `npm run build`.

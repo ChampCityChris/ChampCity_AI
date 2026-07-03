@@ -6,9 +6,9 @@ Repair task (`REPAIR_WC10_strict_figma_source_parity_diff_pass`): strict source-
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -26,8 +26,8 @@ Repair task (`REPAIR_WC10_strict_figma_source_parity_diff_pass`): strict source-
 
 - Repo path inspected: `planning/phases/phase-01/UI_Design_Handoff/figma_source/Design Dark UI for ChampCity.zip`
 - Zip SHA-256: `C439FF150A80F2095631FD17461356B5830F52702C12D9ED98169A876D02716A`
-- Temporary extraction path: `C:\Users\chapm\AppData\Local\Temp\champcity_figma_source_strict_wc10`
-- No newer ZIP was found under `C:\Users\chapm\.codex\attachments`, so the repo ZIP was treated as the latest supplied source package.
+- Temporary extraction path: `redacted local temporary extraction path`
+- No newer ZIP was found under `[redacted local attachment path]`, so the repo ZIP was treated as the latest supplied source package.
 
 ## Whether Latest Zip Differed From Previous Repo Copy
 
@@ -143,14 +143,14 @@ Repair task (`REPAIR_WC10_strict_figma_source_parity_diff_pass`): strict source-
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `Get-Content -LiteralPath C:\Users\chapm\.codex\attachments\3057b1a9-ad0a-4031-829a-5d2631b0af19\pasted-text.txt` - read the repair request.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `Get-Content -LiteralPath [redacted local attachment path]` - read the repair request.
 - `git status --short --branch` - confirmed branch `master` and observed pre-existing untracked files.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git remote -v` - confirmed GitHub origin URL.
 - `Get-Content -LiteralPath AGENTS.md` - read repository rules.
 - `Get-Content` for the five latest WC10 reports - inspected prior WC10 implementation and repair history.
-- `Get-ChildItem -LiteralPath C:\Users\chapm\.codex\attachments -Recurse -Filter *.zip` - found no newer ZIP in the current attachment cache.
+- `Get-ChildItem -LiteralPath [redacted local attachment path] -Recurse -Filter *.zip` - found no newer ZIP in the current attachment cache.
 - `Get-FileHash` - recorded ZIP, Figma `App.tsx`, renderer `App.tsx`, and banner image hashes.
 - `tar -tf` - inspected Figma source package file list.
 - `Expand-Archive` - extracted the Figma source package to a temporary inspection directory.

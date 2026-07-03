@@ -6,9 +6,9 @@ Repair task (`REPAIR_WC10_header_layout_and_workflow_rail`): focused WC10 header
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -52,9 +52,9 @@ Repair task (`REPAIR_WC10_header_layout_and_workflow_rail`): focused WC10 header
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `Get-Content -LiteralPath C:\Users\chapm\.codex\attachments\18e3f023-6635-4a05-a813-13e87d043d8e\pasted-text.txt` - read the repair request.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `Get-Content -LiteralPath [redacted local attachment path]` - read the repair request.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and observed pre-existing untracked files.
 - `git remote -v` - confirmed GitHub origin URL.
 - `Get-Content -LiteralPath AGENTS.md` - read repository builder rules.

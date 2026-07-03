@@ -141,7 +141,7 @@ Use this as the starting Builder prompt:
 You are acting as Builder for ChampCity A/I.
 
 Before editing:
-- Verify the repository path before editing. Expected repository: `C:\Users\chapm\Projects\ChampCity_AI`.
+- Verify the repository path before editing. Expected repository: `<PROJECT_REPO>`.
 - Read `AGENTS.md` and relevant planning files.
 
 Work Card: WC07 - Human validation and repair loop

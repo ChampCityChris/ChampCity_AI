@@ -6,9 +6,9 @@ Numbered Work Card (`WC10`): implement the Figma-designed compact dark UI direct
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -96,8 +96,8 @@ Physical `Builder_Prompts`, `Builder_Reports`, `BUILDER_PROMPT_*`, and `BUILDER_
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git status --short --branch` - confirmed branch `master` and identified pre-existing untracked handoff/input files.
 - `git remote -v` - confirmed GitHub origin URL.
 - `Get-Content`/`rg --files`/`rg -n` - inspected AGENTS rules, WC09 handoff docs, reports, renderer, main/preload IPC, shared workflow files, Figma ZIP entries, and terminology occurrences.

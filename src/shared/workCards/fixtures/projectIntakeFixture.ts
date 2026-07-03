@@ -17,7 +17,7 @@ export const projectIntakeFixture: ProjectIntake = {
   businessOrPersonalGoal:
     "Make the upstream planning workflow easier to begin and harder to confuse with Work Card execution.",
   currentStage: "mvp",
-  sourceOfTruthLocation: "C:\\Users\\chapm\\Projects\\ChampCity_AI",
+  sourceOfTruthLocation: "<PROJECT_REPO>",
   preferredImplementerTool: "Codex",
   architectSurface: "ChatGPT",
   knownConstraints:

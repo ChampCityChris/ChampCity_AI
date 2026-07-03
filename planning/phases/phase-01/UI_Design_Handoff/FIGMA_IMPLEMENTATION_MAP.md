@@ -3,7 +3,7 @@
 ## Source Package
 
 - Package inspected: `planning/phases/phase-01/UI_Design_Handoff/figma_source/Design Dark UI for ChampCity.zip`
-- Temporary extraction used for inspection only: `C:\Users\chapm\AppData\Local\Temp\champcity_figma_source_27f6c760432744aaaf08f1a6ca5b94fc`
+- Temporary extraction used for inspection only: `redacted local temporary extraction path`
 - The package was already present in the repository path, so no attachment copy was needed.
 
 ## Figma Source Files Inspected

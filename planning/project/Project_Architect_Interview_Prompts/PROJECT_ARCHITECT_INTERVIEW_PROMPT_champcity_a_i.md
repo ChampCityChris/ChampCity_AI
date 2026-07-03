@@ -33,7 +33,7 @@ Project Intake:
 - Desired user/operator outcome: Plan, Design, Implement, and Track a complex application's creation from start to finish.
 - Business/product goal: The goal is to create an application that is free to use.  This will be published on a Website with requests for donations as the monetization method for the application.
 - Current stage: mvp
-- Source-of-truth location: C:\Users\chapm\Projects\ChampCity_AI
+- Source-of-truth location: <PROJECT_REPO>
 - Source-of-truth type: Existing local repository and durable planning files unless the Operator says otherwise.
 - Preferred Implementer tool: Codex
 - Architect surface: ChatGPT

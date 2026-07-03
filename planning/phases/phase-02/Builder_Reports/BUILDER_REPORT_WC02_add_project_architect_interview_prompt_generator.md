@@ -6,9 +6,9 @@ Numbered Work Card (`WC02`): add Project Architect Interview prompt generation f
 
 ## Repository Path Inspected
 
-- Requested repository path: `C:\Users\chapm\Projects\ChampCity_AI`
-- Current working directory inspected: `C:\Users\chapm\Projects\ChampCity_AI`
-- Git repository root inspected: `C:/Users/chapm/Projects/ChampCity_AI`
+- Requested repository path: `<PROJECT_REPO>`
+- Current working directory inspected: `<PROJECT_REPO>`
+- Git repository root inspected: `<PROJECT_REPO>`
 
 ## Git Branch And Remote Status
 
@@ -72,8 +72,8 @@ Numbered Work Card (`WC02`): add Project Architect Interview prompt generation f
 
 ## Commands Run And Results
 
-- `pwd` - confirmed workspace path `C:\Users\chapm\Projects\ChampCity_AI`.
-- `git rev-parse --show-toplevel` - confirmed Git root `C:/Users/chapm/Projects/ChampCity_AI`.
+- `pwd` - confirmed workspace path `<PROJECT_REPO>`.
+- `git rev-parse --show-toplevel` - confirmed Git root `<PROJECT_REPO>`.
 - `git status --short --branch` - inspected dirty worktree and pre-existing untracked files.
 - `Get-Content -LiteralPath AGENTS.md` - read repository rules.
 - Required WC01 context files were read, including Project Intake JSON/Markdown, WC01 reports, shared Project Intake model/render/validate files, main/preload IPC, and renderer source.
@@ -84,7 +84,7 @@ Numbered Work Card (`WC02`): add Project Architect Interview prompt generation f
 - Escalated `npm run build` - passed.
 - `npm test` - passed.
 - Escalated `npm run test:work-cards` rerun - passed and reported `Work Card fixture validation passed.`
-- Launched Electron with `--remote-debugging-port=9229` - app stayed alive and exposed `file:///C:/Users/chapm/Projects/ChampCity_AI/dist/renderer/index.html` without the breakpoint crash.
+- Launched Electron with `--remote-debugging-port=9229` - app stayed alive and exposed `file:///<PROJECT_REPO>/dist/renderer/index.html` without the breakpoint crash.
 - Main-process workflow validation via compiled file-store API - listed saved Project Intake files, generated a prompt from `PROJECT_INTAKE_champcity_a_i.json`, confirmed required prompt boundaries, and saved paired Project Architect Interview Prompt JSON/Markdown artifacts.
 - `git status --short` - reviewed scoped WC02 changes and pre-existing untracked files.
 - `Stop-Process` - stopped Electron validation processes; one child first returned access denied, then no Electron processes remained.
