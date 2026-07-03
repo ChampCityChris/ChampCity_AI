@@ -166,6 +166,11 @@ import type {
   PhaseCloseoutSaveResult,
   PhaseCloseoutSummaryResult,
 } from "../shared/workCards/phaseCloseoutRecord";
+import type {
+  CurrentRequiredAction,
+  CurrentRequiredActionResult,
+  CurrentRequiredActionWarning,
+} from "../shared/workCards/currentRequiredAction";
 
 declare global {
   type ChampCityWorkCardDraftInput = WorkCardDraftInput;
@@ -356,6 +361,11 @@ declare global {
     ValidationEvidenceFileImportRequest;
   type ChampCityValidationEvidenceFileImportResult =
     ValidationEvidenceFileImportResult;
+  type ChampCityCurrentRequiredAction = CurrentRequiredAction;
+  type ChampCityCurrentRequiredActionWarning =
+    CurrentRequiredActionWarning;
+  type ChampCityCurrentRequiredActionResult =
+    CurrentRequiredActionResult;
 
   interface Window {
     champCity: {
@@ -502,6 +512,7 @@ declare global {
       getPhaseCloseoutSummary: (
         phase: string,
       ) => Promise<PhaseCloseoutSummaryResult>;
+      getCurrentRequiredAction: () => Promise<CurrentRequiredActionResult>;
       previewPhaseCloseoutRecord: (
         input: PhaseCloseoutFormInput,
       ) => Promise<PhaseCloseoutPreviewResult>;

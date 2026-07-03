@@ -281,12 +281,17 @@ const {
 const {
   routeWorkCardRisk,
 } = require("../dist/shared/workCards/riskRouter.js");
+const {
+  evaluateCurrentRequiredAction,
+  lockedWorkflowSteps,
+} = require("../dist/shared/workCards/currentRequiredAction.js");
 const { validateWorkCard } = require("../dist/shared/workCards/validateWorkCard.js");
 const {
   validateSafePhaseFolder,
 } = require("../dist/shared/workCards/workCardFileNames.js");
 const {
   listAvailablePhaseFolders,
+  getCurrentRequiredAction,
   listHumanValidationBuilderReports,
   listHumanValidationTargets,
   listSavedProjectPlanningDocuments,
@@ -328,6 +333,12 @@ const {
   validateSavedWorkCardJsonFileName,
   validateValidationEvidenceFileName,
 } = require("../dist/main/workCards/workCardFileStore.js");
+
+if (process.argv.includes("--current-action-only")) {
+  await assertCurrentRequiredActionModel();
+  console.log("Current required action fixture validation passed.");
+  process.exit(0);
+}
 
 const renderedArtifacts = [
   {
@@ -540,8 +551,319 @@ await assertProjectPlanningDocuments();
 await assertPhaseIntakeAndInterviewPrompt();
 assertProjectRoadmapAndPhaseMap();
 assertRepositoryReconciliationAndPhasePlanning();
+await assertCurrentRequiredActionModel();
 
 console.log("Work Card fixture validation passed.");
+
+async function assertCurrentRequiredActionModel() {
+  if (
+    !lockedWorkflowSteps.includes("Project Intake") ||
+    !lockedWorkflowSteps.includes("Work Card Loop") ||
+    !lockedWorkflowSteps.includes("Next Phase Activation")
+  ) {
+    console.error("Locked workflow steps are missing required coverage.");
+    process.exit(1);
+  }
+
+  const scenarios = [
+    ["project_intake_required", makeCurrentActionState({
+      project: { projectIntake: missingArtifact("planning/project/Project_Intake/PROJECT_INTAKE_test.md") },
+    })],
+    ["project_interview_required", makeCurrentActionState({
+      project: { projectInterview: missingArtifact("planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_test.md") },
+    })],
+    ["reconciliation_review_required", makeCurrentActionState({
+      project: { reconciliationReview: missingArtifact("planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_test.md") },
+    })],
+    ["project_mapping_required", makeCurrentActionState({
+      project: {
+        projectRoadmap: missingArtifact("planning/project/Project_Roadmap/PROJECT_ROADMAP_test.md"),
+        phaseMap: missingArtifact("planning/project/Phase_Map/PHASE_MAP_test.md"),
+      },
+    })],
+    ["operator_project_approval_required", makeCurrentActionState({
+      project: {
+        operatorProjectApproval: missingArtifact("planning/project/OPERATOR_PROJECT_APPROVAL.md"),
+        projectApprovalSatisfiedByPhaseActivation: false,
+      },
+    })],
+    ["phase_mapping_required", makeCurrentActionState({ activePhase: undefined })],
+    ["phase_mapping_required", makeCurrentActionState({
+      activePhase: {
+        sourceArtifacts: [
+          artifact("planning/phases/phase-99/Phase_Interview.md", "Phase Interview"),
+          missingArtifact("planning/phases/phase-99/Phase_Planning.md", "Phase Planning"),
+          artifact("planning/phases/phase-99/Work_Card_Plan.md", "Work Card Plan"),
+        ],
+      },
+    })],
+    ["operator_phase_approval_required", makeCurrentActionState({
+      activePhase: {
+        operatorPhaseApproval: missingArtifact("planning/phases/phase-99/Operator_Phase_Approval.md"),
+      },
+    })],
+    ["full_work_card_creation_required", makeCurrentActionState()],
+    ["operator_work_card_review_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ status: "ready_for_operator_review" })],
+      },
+    })],
+    ["implementer_handoff_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ status: "implementer_handoff_required" })],
+      },
+    })],
+    ["implementer_report_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ status: "ready_for_implementer" })],
+      },
+    })],
+    ["architect_review_of_implementer_report_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            status: "ready_for_implementer",
+            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+          }),
+        ],
+      },
+    })],
+    ["operator_validation_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            status: "ready_for_implementer",
+            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            architectReview: {
+              status: "Ready for Operator Validation",
+              sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
+            },
+          }),
+        ],
+      },
+    })],
+    ["repair_sub_card_creation_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            validation: validation("Fail", "Failed - repair needed", true),
+          }),
+        ],
+      },
+    })],
+    ["repair_implementer_handoff_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            validation: validation("Fail", "Failed - repair needed", true),
+            repair: {
+              repairId: "WC01-REPAIR01",
+              repairPrompt: artifact("planning/phases/phase-99/Repair_Prompts/REPAIR_PROMPT_WC01_test.md", "Repair Prompt"),
+            },
+          }),
+        ],
+      },
+    })],
+    ["repair_validation_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            validation: validation("Fail", "Failed - repair needed", true),
+            repair: {
+              repairId: "WC01-REPAIR01",
+              repairPrompt: artifact("planning/phases/phase-99/Repair_Prompts/REPAIR_PROMPT_WC01_test.md", "Repair Prompt"),
+              implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01-REPAIR01_test.md", "Repair Implementer Report"),
+            },
+          }),
+        ],
+      },
+    })],
+    ["phase_closeout_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ validation: validation("Pass", "Passed - proceed", false) })],
+      },
+    })],
+    ["operator_phase_closeout_approval_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ validation: validation("Pass", "Passed - proceed", false) })],
+        closeout: {
+          sourceArtifact: artifact("planning/phases/phase-99/Closeout_Reports/CLOSEOUT_REPORT_phase-99_phase_closeout.md", "Phase Closeout"),
+          operatorApproved: false,
+        },
+      },
+    })],
+    ["roadmap_update_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ validation: validation("Pass", "Passed - proceed", false) })],
+        closeout: {
+          sourceArtifact: artifact("planning/phases/phase-99/Closeout_Reports/CLOSEOUT_REPORT_phase-99_phase_closeout.md", "Phase Closeout"),
+          operatorApproved: true,
+        },
+      },
+    })],
+    ["next_phase_activation_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [workCard({ validation: validation("Pass", "Passed - proceed", false) })],
+        closeout: {
+          sourceArtifact: artifact("planning/phases/phase-99/Closeout_Reports/CLOSEOUT_REPORT_phase-99_phase_closeout.md", "Phase Closeout"),
+          operatorApproved: true,
+        },
+        roadmapUpdatedAfterCloseout: true,
+      },
+    })],
+    ["project_complete", makeCurrentActionState({
+      project: { isComplete: true },
+    })],
+  ];
+
+  for (const [expectedId, state] of scenarios) {
+    const action = evaluateCurrentRequiredAction(state);
+
+    if (action.id !== expectedId) {
+      console.error(`Current-action scenario expected ${expectedId}, got ${action.id}.`);
+      process.exit(1);
+    }
+  }
+
+  const warningAction = evaluateCurrentRequiredAction(
+    makeCurrentActionState({
+      warnings: [
+        {
+          code: "missing_stale_validation_target",
+          message: "A stale Validation_Targets reference is missing.",
+          severity: "warning",
+          sourceArtifactPath: "planning/phases/phase-03/Validation_Reports/example.md",
+        },
+      ],
+    }),
+  );
+
+  if (
+    !warningAction.warnings.some(
+      (warning) => warning.code === "missing_stale_validation_target",
+    )
+  ) {
+    console.error("Current-action warnings did not preserve stale target references.");
+    process.exit(1);
+  }
+
+  const liveCurrentAction = await getCurrentRequiredAction();
+
+  if (!liveCurrentAction.ok || !liveCurrentAction.currentAction) {
+    console.error("Live current required action evaluation failed.");
+    process.exit(1);
+  }
+
+  if (liveCurrentAction.currentAction.phaseId !== "phase-03") {
+    console.error("Live current required action did not route to Phase 03.");
+    process.exit(1);
+  }
+
+  if (liveCurrentAction.currentAction.workCardId !== "WC02") {
+    console.error(
+      `Live current required action should route to WC02, got ${liveCurrentAction.currentAction.workCardId}.`,
+    );
+    process.exit(1);
+  }
+
+  const allowedWc02Actions = [
+    "implementer_report_required",
+    "architect_review_of_implementer_report_required",
+    "operator_validation_required",
+  ];
+
+  if (!allowedWc02Actions.includes(liveCurrentAction.currentAction.id)) {
+    console.error(
+      `Live WC02 current action has unexpected state ${liveCurrentAction.currentAction.id}.`,
+    );
+    process.exit(1);
+  }
+}
+
+function makeCurrentActionState(overrides = {}) {
+  const project = {
+    projectIntake: artifact("planning/project/Project_Intake/PROJECT_INTAKE_test.md", "Project Intake"),
+    projectInterview: artifact("planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_test.md", "Project Interview"),
+    reconciliationReview: artifact("planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_test.md", "Reconciliation Review"),
+    projectRoadmap: artifact("planning/project/Project_Roadmap/PROJECT_ROADMAP_test.md", "Living Roadmap"),
+    phaseMap: artifact("planning/project/Phase_Map/PHASE_MAP_test.md", "Phase Map"),
+    operatorProjectApproval: artifact("planning/project/OPERATOR_PROJECT_APPROVAL.md", "Operator Project Approval"),
+    projectApprovalSatisfiedByPhaseActivation: true,
+    ...(overrides.project ?? {}),
+  };
+  const activePhaseOverride = overrides.activePhase;
+  const activePhase =
+    activePhaseOverride === undefined && "activePhase" in overrides
+      ? undefined
+      : {
+          phaseId: "phase-99",
+          phaseTitle: "Fixture Phase",
+          sourceArtifacts: [
+            artifact("planning/phases/phase-99/Phase_Interview.md", "Phase Interview"),
+            artifact("planning/phases/phase-99/Phase_Planning.md", "Phase Planning"),
+            artifact("planning/phases/phase-99/Work_Card_Plan.md", "Work Card Plan"),
+          ],
+          operatorPhaseApproval: artifact("planning/phases/phase-99/Operator_Phase_Approval.md", "Operator Phase Approval"),
+          workCardCandidates: [
+            {
+              workCardId: "WC01",
+              title: "Fixture Work Card",
+              order: 1,
+              status: "planned",
+              sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+            },
+          ],
+          workCards: [],
+          ...(activePhaseOverride ?? {}),
+        };
+
+  return {
+    project,
+    activePhase,
+    warnings: overrides.warnings ?? [],
+  };
+}
+
+function artifact(path, role = "Fixture artifact", status = "available") {
+  return {
+    path,
+    role,
+    status,
+    exists: true,
+  };
+}
+
+function missingArtifact(path, role = "Missing fixture artifact") {
+  return {
+    path,
+    role,
+    exists: false,
+  };
+}
+
+function workCard(overrides = {}) {
+  return {
+    workCardId: "WC01",
+    title: "Fixture Work Card",
+    phaseId: "phase-99",
+    status: "ready_for_implementer",
+    sourceArtifacts: [
+      artifact("planning/phases/phase-99/Work_Cards/WC01_fixture_work_card.md", "Work Card Markdown"),
+    ],
+    ...overrides,
+  };
+}
+
+function validation(result, decision, repairRequired) {
+  return {
+    result,
+    decision,
+    repairRequired,
+    sourceArtifacts: [
+      artifact("planning/phases/phase-99/Validation_Reports/VALIDATION_REPORT_WC01_fixture_work_card.md", "Validation Report"),
+    ],
+  };
+}
 
 function assertFixtureArtifact(fixture, renderedFixturePath) {
   const validation = validateWorkCard(fixture);

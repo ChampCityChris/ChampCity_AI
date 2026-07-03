@@ -104,6 +104,7 @@ import type {
   PhaseCloseoutSaveResult,
   PhaseCloseoutSummaryResult,
 } from "../shared/workCards/phaseCloseoutRecord";
+import type { CurrentRequiredActionResult } from "../shared/workCards/currentRequiredAction";
 
 const api = {
   getAppInfo: () => ({
@@ -318,6 +319,8 @@ const api = {
     phase: string,
   ): Promise<PhaseCloseoutSummaryResult> =>
     ipcRenderer.invoke("workCards:getPhaseCloseoutSummary", phase),
+  getCurrentRequiredAction: (): Promise<CurrentRequiredActionResult> =>
+    ipcRenderer.invoke("workCards:getCurrentRequiredAction"),
   previewPhaseCloseoutRecord: (
     input: PhaseCloseoutFormInput,
   ): Promise<PhaseCloseoutPreviewResult> =>

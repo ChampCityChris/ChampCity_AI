@@ -11,6 +11,7 @@ import path from "node:path";
 
 import {
   attachValidationEvidenceFile,
+  getCurrentRequiredAction,
   getNextWorkCardId,
   getPhaseCloseoutSummary,
   listBuilderPromptSupportingArtifacts,
@@ -406,6 +407,9 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:getPhaseCloseoutSummary", (_event, phase: string) =>
     getPhaseCloseoutSummary(phase),
+  );
+  ipcMain.handle("workCards:getCurrentRequiredAction", () =>
+    getCurrentRequiredAction(),
   );
   ipcMain.handle(
     "workCards:previewPhaseCloseoutRecord",

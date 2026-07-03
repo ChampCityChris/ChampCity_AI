@@ -26,6 +26,14 @@ export interface ValidationTargetSummary extends ValidationTargetRecord {
   label: string;
 }
 
+export interface WorkCardValidationTargetFields {
+  workCardId: string;
+  title: string;
+  phase: string;
+  status: string;
+  riskLevel?: string;
+}
+
 export interface InvalidValidationTargetFile {
   fileName: string;
   errorMessages: string[];
@@ -40,6 +48,24 @@ export interface ListValidationTargetsResult {
 
 export function buildWorkCardValidationTarget(
   workCard: WorkCard,
+  fileName: string,
+  expectedImplementerReportFile?: string,
+): ValidationTargetSummary {
+  return buildValidationTargetFromWorkCardFields(
+    {
+      workCardId: workCard.workCardId,
+      title: workCard.title,
+      phase: workCard.phase,
+      status: workCard.status,
+      riskLevel: workCard.riskLevel,
+    },
+    fileName,
+    expectedImplementerReportFile,
+  );
+}
+
+export function buildValidationTargetFromWorkCardFields(
+  workCard: WorkCardValidationTargetFields,
   fileName: string,
   expectedImplementerReportFile?: string,
 ): ValidationTargetSummary {

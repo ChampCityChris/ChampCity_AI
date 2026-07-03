@@ -1,5 +1,5 @@
 import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import type { Dirent } from "node:fs";
+import { readFileSync, readdirSync, statSync, type Dirent } from "node:fs";
 import path from "node:path";
 
 import {
@@ -104,6 +104,7 @@ import {
 } from "../../shared/workCards/validationRecord";
 import {
   buildWorkCardValidationTarget,
+  buildValidationTargetFromWorkCardFields,
   formatValidationTargetLabel,
   isValidationTargetKind,
   toValidationTargetRecord,
@@ -112,7 +113,22 @@ import {
   type ListValidationTargetsResult,
   type ValidationTargetRecord,
   type ValidationTargetSummary,
+  type WorkCardValidationTargetFields,
 } from "../../shared/workCards/validationTarget";
+import {
+  buildCurrentRequiredActionResult,
+  type CurrentActionArtifactReference,
+  type CurrentActionArchitectReviewState,
+  type CurrentActionPhaseState,
+  type CurrentActionPhaseCloseoutState,
+  type CurrentActionRepairState,
+  type CurrentActionValidationState,
+  type CurrentActionWorkCardCandidate,
+  type CurrentActionWorkCardState,
+  type CurrentRequiredActionResult,
+  type CurrentRequiredActionState,
+  type CurrentRequiredActionWarning,
+} from "../../shared/workCards/currentRequiredAction";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
 import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
@@ -342,6 +358,20 @@ export async function listAvailablePhaseFolders(): Promise<AvailablePhaseFolders
   } catch (error) {
     return {
       ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function getCurrentRequiredAction(): Promise<CurrentRequiredActionResult> {
+  try {
+    const state = await buildCurrentRequiredActionStateFromRepo();
+
+    return buildCurrentRequiredActionResult(state);
+  } catch (error) {
+    return {
+      ok: false,
+      workflowSteps: [],
       errorMessages: [toPlainSaveError(error)],
     };
   }
@@ -2146,8 +2176,7 @@ export async function listHumanValidationTargets(
       }
 
       try {
-        const workCard = await readSavedWorkCardFile(phase, fileName);
-        targets.push(buildWorkCardValidationTarget(workCard, fileName));
+        targets.push(await readWorkCardValidationTargetFile(phase, fileName));
       } catch (error) {
         invalidFiles.push({
           fileName,
@@ -3512,6 +3541,923 @@ async function buildHumanValidationPreview(
       ? buildRepairPromptFileName(record)
       : undefined,
   };
+}
+
+async function buildCurrentRequiredActionStateFromRepo(): Promise<CurrentRequiredActionState> {
+  const warnings: CurrentRequiredActionWarning[] = [];
+  const projectRoadmapJsonPath = resolveInside(
+    resolveProjectRoadmapDirectory(),
+    "PROJECT_ROADMAP_champcity_a_i.json",
+  );
+  const phaseMapJsonPath = resolveInside(
+    resolvePhaseMapDirectory(),
+    "PHASE_MAP_champcity_a_i.json",
+  );
+  const phaseMapRecord = await readJsonRecordIfExists<PhaseMapRecord>(
+    phaseMapJsonPath,
+    warnings,
+    "phase_map_json_invalid",
+  );
+  const roadmapRecord = await readJsonRecordIfExists<ProjectRoadmapRecord>(
+    projectRoadmapJsonPath,
+    warnings,
+    "project_roadmap_json_invalid",
+  );
+  const activePhaseId = getActivePhaseId(roadmapRecord, phaseMapRecord);
+  const activePhaseTitle = getActivePhaseTitle(
+    activePhaseId,
+    roadmapRecord,
+    phaseMapRecord,
+  );
+  const activePhase =
+    activePhaseId.length > 0
+      ? await buildCurrentActionPhaseStateFromRepo(
+          activePhaseId,
+          activePhaseTitle,
+          phaseMapRecord,
+          roadmapRecord,
+          warnings,
+        )
+      : undefined;
+
+  const projectApprovalSatisfiedByPhaseActivation =
+    artifactReferenceExists(activePhase?.operatorPhaseApproval) ||
+    /active|approved|closed/i.test(
+      getRecordString(roadmapRecord, "status") +
+        " " +
+        getRecordString(roadmapRecord, "currentActivePhase"),
+    );
+
+  addProjectStateWarnings(roadmapRecord, activePhase, warnings);
+
+  return {
+    project: {
+      projectName:
+        getRecordString(roadmapRecord, "project") ||
+        getRecordString(roadmapRecord, "projectName") ||
+        "ChampCity A/I",
+      projectIntake: await latestArtifactInDirectory(
+        resolveProjectIntakeDirectory(),
+        "Project Intake",
+        "json",
+      ),
+      projectInterview: await latestArtifactInDirectory(
+        resolveProjectArchitectInterviewPromptsDirectory(),
+        "Project Interview",
+        "json",
+      ),
+      reconciliationReview: await latestArtifactInDirectory(
+        resolveRepositoryReconciliationDirectory(),
+        "Reconciliation Review",
+        "json",
+      ),
+      projectRoadmap: await artifactReferenceForPath(
+        projectRoadmapJsonPath,
+        "Living Roadmap",
+        getRecordString(roadmapRecord, "status"),
+      ),
+      phaseMap: await artifactReferenceForPath(
+        phaseMapJsonPath,
+        "Phase Map",
+        getRecordString(phaseMapRecord, "status"),
+      ),
+      operatorProjectApproval: await artifactReferenceForPath(
+        resolveInside(planningProjectRoot, "OPERATOR_PROJECT_APPROVAL.json"),
+        "Operator Project Approval",
+      ),
+      projectApprovalSatisfiedByPhaseActivation,
+      roadmapCurrentExecutableWorkCardId: extractWorkCardId(
+        getRecordString(roadmapRecord, "currentExecutableWorkCard"),
+      ),
+    },
+    activePhase,
+    warnings,
+  };
+}
+
+async function buildCurrentActionPhaseStateFromRepo(
+  phaseId: string,
+  phaseTitle: string,
+  phaseMapRecord: PhaseMapRecord | undefined,
+  roadmapRecord: ProjectRoadmapRecord | undefined,
+  warnings: CurrentRequiredActionWarning[],
+): Promise<CurrentActionPhaseState> {
+  const phaseDirectory = resolveInside(planningPhasesRoot, phaseId);
+  const phaseMapJsonPath = resolveInside(
+    resolvePhaseMapDirectory(),
+    "PHASE_MAP_champcity_a_i.json",
+  );
+  const phaseSources = [
+    await artifactReferenceForPath(
+      resolveInside(phaseDirectory, "Phase_Interview.md"),
+      "Phase Interview",
+    ),
+    await artifactReferenceForPath(
+      resolveInside(phaseDirectory, "Phase_Planning.md"),
+      "Phase Planning",
+    ),
+    await artifactReferenceForPath(
+      resolveInside(phaseDirectory, "Work_Card_Plan.md"),
+      "Work Card Plan",
+    ),
+    await artifactReferenceForPath(
+      phaseMapJsonPath,
+      "Phase Map",
+      getRecordString(phaseMapRecord, "status"),
+    ),
+  ];
+  const operatorPhaseApproval = await artifactReferenceForPath(
+    resolveInside(phaseDirectory, "Operator_Phase_Approval.json"),
+    "Operator Phase Approval",
+  );
+  const candidates = getMappedWorkCardCandidates(
+    phaseId,
+    phaseMapRecord,
+    phaseMapJsonPath,
+  );
+  const workCards = await readCurrentActionWorkCards(
+    phaseId,
+    candidates,
+    warnings,
+  );
+  const closeout = await readPhaseCloseoutState(phaseId, warnings);
+
+  addSupersededPhaseWarnings(phaseId, warnings);
+  addValidationTargetWarnings(phaseId, warnings);
+
+  return {
+    phaseId,
+    phaseTitle,
+    status: getMappedPhaseStatus(phaseId, phaseMapRecord) ||
+      getRecordString(roadmapRecord, "status"),
+    sourceArtifacts: phaseSources,
+    operatorPhaseApproval,
+    workCardCandidates: candidates,
+    workCards,
+    closeout,
+    roadmapUpdatedAfterCloseout: false,
+    nextPhaseActivated: false,
+  };
+}
+
+async function readCurrentActionWorkCards(
+  phase: string,
+  candidates: CurrentActionWorkCardCandidate[],
+  warnings: CurrentRequiredActionWarning[],
+): Promise<CurrentActionWorkCardState[]> {
+  const directory = resolveWorkCardsDirectory(phase);
+  const entries = await readDirectoryFileNames(directory, ".json");
+  const candidateIds = new Set(
+    candidates.map((candidate) => normalizeCurrentActionId(candidate.workCardId)),
+  );
+  const result: CurrentActionWorkCardState[] = [];
+
+  for (const fileName of entries) {
+    const filePath = resolveInside(directory, fileName);
+
+    try {
+      const rawJson = await readFile(filePath, "utf8");
+      const parsed = JSON.parse(rawJson) as unknown;
+      const fields = coerceWorkCardValidationTargetFields(parsed, phase);
+
+      if (!fields || !candidateIds.has(normalizeCurrentActionId(fields.workCardId))) {
+        continue;
+      }
+
+      const markdownFileName = fileName.replace(/\.json$/i, ".md");
+      const markdownPath = resolveInside(directory, markdownFileName);
+      const sourceArtifacts = [
+        await artifactReferenceForPath(filePath, "Work Card JSON", fields.status),
+        await artifactReferenceForPath(
+          markdownPath,
+          "Work Card Markdown",
+          fields.status,
+        ),
+      ];
+      const implementerReport = await findMatchingMarkdownArtifact(
+        resolveBuilderReportsDirectory(phase),
+        `BUILDER_REPORT_${fields.workCardId}`,
+        "Implementer Report",
+      );
+      const architectReviewArtifact = await findMatchingMarkdownArtifact(
+        resolveInside(planningPhasesRoot, phase, "Architect_Reviews"),
+        `ARCHITECT_REVIEW_${fields.workCardId}`,
+        "Architect Review",
+      );
+      const validation = await findValidationForWorkCard(phase, fields.workCardId);
+      const repair = await findRepairState(phase, fields.workCardId);
+
+      result.push({
+        workCardId: fields.workCardId,
+        title: fields.title,
+        phaseId: fields.phase,
+        status: fields.status,
+        sourceJsonFile: toRepoRelativePath(filePath),
+        sourceMarkdownFile: toRepoRelativePath(markdownPath),
+        sourceArtifacts,
+        implementerReport,
+        architectReview: architectReviewArtifact
+          ? {
+              status: await readFirstStatusLine(absoluteFromRepoPath(
+                architectReviewArtifact.path,
+              )),
+              sourceArtifact: architectReviewArtifact,
+            }
+          : undefined,
+        validation,
+        repair,
+      });
+    } catch (error) {
+      warnings.push({
+        code: "work_card_read_warning",
+        message: `Current-action evaluation skipped ${toRepoRelativePath(filePath)}: ${toPlainSaveError(error)}`,
+        severity: "warning",
+        sourceArtifactPath: toRepoRelativePath(filePath),
+      });
+    }
+  }
+
+  return result;
+}
+
+async function findValidationForWorkCard(
+  phase: string,
+  workCardId: string,
+): Promise<CurrentActionValidationState | undefined> {
+  const directory = resolveValidationReportsDirectory(phase);
+  const entries = await readDirectoryFileNames(directory, ".json");
+  const matching: Array<{
+    validation: CurrentActionValidationState;
+    modifiedMs: number;
+  }> = [];
+
+  for (const fileName of entries) {
+    const filePath = resolveInside(directory, fileName);
+
+    try {
+      const rawJson = await readFile(filePath, "utf8");
+      const parsed = JSON.parse(rawJson) as unknown;
+      const targetId =
+        getRecordString(parsed, "workCardId") ||
+        getRecordString(parsed, "work_card_id") ||
+        getRecordString(parsed, "validationTargetId") ||
+        getRecordString(parsed, "validation_target_id");
+
+      if (normalizeCurrentActionId(targetId) !== normalizeCurrentActionId(workCardId)) {
+        continue;
+      }
+
+      const stats = await stat(filePath);
+      const markdownPath = filePath.replace(/\.json$/i, ".md");
+      const sourceArtifacts = [
+        await artifactReferenceForPath(filePath, "Validation Report JSON"),
+        await artifactReferenceForPath(markdownPath, "Validation Report Markdown"),
+      ];
+
+      matching.push({
+        modifiedMs: stats.mtimeMs,
+        validation: {
+          result:
+            getRecordString(parsed, "validationResult") ||
+            getRecordString(parsed, "validation_result") ||
+            getRecordString(parsed, "status"),
+          decision:
+            getRecordString(parsed, "operatorDecision") ||
+            getRecordString(parsed, "decision"),
+          repairRequired: getRecordBoolean(parsed, "repair_required"),
+          sourceArtifacts,
+        },
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  matching.sort((left, right) => right.modifiedMs - left.modifiedMs);
+
+  return matching[0]?.validation;
+}
+
+async function findRepairState(
+  phase: string,
+  workCardId: string,
+): Promise<CurrentActionRepairState | undefined> {
+  const repairPrompt = await findMatchingMarkdownArtifact(
+    resolveRepairPromptsDirectory(phase),
+    `REPAIR_PROMPT_${workCardId}`,
+    "Repair Prompt",
+  );
+  const repairWorkCard = await findRepairWorkCardArtifact(phase, workCardId);
+
+  if (!repairPrompt && !repairWorkCard) {
+    return undefined;
+  }
+
+  const repairId = `${workCardId}-REPAIR01`;
+  const implementerReport = await findMatchingMarkdownArtifact(
+    resolveBuilderReportsDirectory(phase),
+    `BUILDER_REPORT_${repairId}`,
+    "Repair Implementer Report",
+  );
+  const validation = await findValidationForWorkCard(phase, repairId);
+
+  return {
+    repairId,
+    repairPrompt,
+    repairWorkCard,
+    implementerReport,
+    validation,
+  };
+}
+
+async function findRepairWorkCardArtifact(
+  phase: string,
+  workCardId: string,
+): Promise<CurrentActionArtifactReference | undefined> {
+  const directory = resolveWorkCardsDirectory(phase);
+  const entries = await readDirectoryFileNames(directory, ".md");
+  const repairPrefix = normalizeFileStem(`${workCardId}-REPAIR`);
+  const match = entries.find((entry) =>
+    normalizeFileStem(entry).startsWith(repairPrefix),
+  );
+
+  return match
+    ? artifactReferenceForPath(
+        resolveInside(directory, match),
+        "Repair Work Card",
+      )
+    : undefined;
+}
+
+async function readPhaseCloseoutState(
+  phase: string,
+  warnings: CurrentRequiredActionWarning[],
+): Promise<CurrentActionPhaseCloseoutState | undefined> {
+  const directory = resolveCloseoutReportsDirectory(phase);
+  const entries = await readDirectoryFileNames(directory, ".json");
+  const closeouts: Array<{
+    closeout: CurrentActionPhaseCloseoutState;
+    modifiedMs: number;
+  }> = [];
+
+  for (const fileName of entries) {
+    const filePath = resolveInside(directory, fileName);
+
+    try {
+      const rawJson = await readFile(filePath, "utf8");
+      const parsed = JSON.parse(rawJson) as unknown;
+      const stats = await stat(filePath);
+      const decision = getRecordString(parsed, "decision");
+      const nextPhaseActivationDecision = getRecordString(
+        parsed,
+        "nextPhaseActivationDecision",
+      );
+
+      closeouts.push({
+        modifiedMs: stats.mtimeMs,
+        closeout: {
+          sourceArtifact: await artifactReferenceForPath(
+            filePath,
+            "Phase Closeout",
+            decision,
+          ),
+          decision,
+          nextPhaseActivationDecision,
+          operatorApproved: /close phase|ready|activate|approve/i.test(
+            `${decision} ${nextPhaseActivationDecision}`,
+          ),
+        },
+      });
+    } catch (error) {
+      warnings.push({
+        code: "phase_closeout_read_warning",
+        message: `Current-action evaluation skipped ${toRepoRelativePath(filePath)}: ${toPlainSaveError(error)}`,
+        severity: "warning",
+        sourceArtifactPath: toRepoRelativePath(filePath),
+      });
+    }
+  }
+
+  closeouts.sort((left, right) => right.modifiedMs - left.modifiedMs);
+
+  return closeouts[0]?.closeout;
+}
+
+async function findMatchingMarkdownArtifact(
+  directory: string,
+  prefix: string,
+  role: string,
+): Promise<CurrentActionArtifactReference | undefined> {
+  const entries = await readDirectoryFileNames(directory, ".md");
+  const normalizedPrefix = prefix.toLowerCase();
+  const matches: Array<{ fileName: string; modifiedMs: number }> = [];
+
+  for (const fileName of entries) {
+    const stem = path.basename(fileName, path.extname(fileName)).toLowerCase();
+
+    if (stem === normalizedPrefix || stem.startsWith(`${normalizedPrefix}_`)) {
+      const filePath = resolveInside(directory, fileName);
+      const stats = await stat(filePath);
+      matches.push({ fileName, modifiedMs: stats.mtimeMs });
+    }
+  }
+
+  matches.sort((left, right) => right.modifiedMs - left.modifiedMs);
+
+  return matches[0]
+    ? artifactReferenceForPath(
+        resolveInside(directory, matches[0].fileName),
+        role,
+      )
+    : undefined;
+}
+
+async function latestArtifactInDirectory(
+  directory: string,
+  role: string,
+  extension: "json" | "md",
+): Promise<CurrentActionArtifactReference | undefined> {
+  const entries = await readDirectoryFileNames(directory, `.${extension}`);
+  const artifacts: Array<{ fileName: string; modifiedMs: number }> = [];
+
+  for (const fileName of entries) {
+    const filePath = resolveInside(directory, fileName);
+    const stats = await stat(filePath);
+    artifacts.push({ fileName, modifiedMs: stats.mtimeMs });
+  }
+
+  artifacts.sort((left, right) => right.modifiedMs - left.modifiedMs);
+
+  return artifacts[0]
+    ? artifactReferenceForPath(resolveInside(directory, artifacts[0].fileName), role)
+    : undefined;
+}
+
+async function readDirectoryFileNames(
+  directory: string,
+  extension: string,
+): Promise<string[]> {
+  try {
+    const entries = await readdir(directory);
+
+    return entries
+      .filter((entry) => entry.toLowerCase().endsWith(extension))
+      .sort((left, right) => left.localeCompare(right));
+  } catch (error) {
+    if (!isNodeErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+
+    return [];
+  }
+}
+
+async function artifactReferenceForPath(
+  filePath: string,
+  role: string,
+  status?: string,
+): Promise<CurrentActionArtifactReference> {
+  return {
+    path: toRepoRelativePath(filePath),
+    role,
+    status: status || (await readFirstStatusLine(filePath)),
+    exists: await pathExists(filePath),
+  };
+}
+
+function artifactReferenceExists(
+  artifactRef: CurrentActionArtifactReference | undefined,
+): boolean {
+  return artifactRef?.exists !== false && !!artifactRef?.path;
+}
+
+async function readFirstStatusLine(filePath: string): Promise<string | undefined> {
+  try {
+    const content = await readFile(filePath, "utf8");
+    const line = content
+      .split(/\r?\n/)
+      .find((candidate) => /^Status\s*:/i.test(candidate.trim()));
+
+    return line?.replace(/^Status\s*:\s*/i, "").trim();
+  } catch {
+    return undefined;
+  }
+}
+
+async function readJsonRecordIfExists<T>(
+  filePath: string,
+  warnings: CurrentRequiredActionWarning[],
+  warningCode: string,
+): Promise<T | undefined> {
+  if (!(await pathExists(filePath))) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(await readFile(filePath, "utf8")) as T;
+  } catch (error) {
+    warnings.push({
+      code: warningCode,
+      message: `${toRepoRelativePath(filePath)} could not be parsed: ${toPlainSaveError(error)}`,
+      severity: "warning",
+      sourceArtifactPath: toRepoRelativePath(filePath),
+    });
+
+    return undefined;
+  }
+}
+
+function getMappedWorkCardCandidates(
+  phaseId: string,
+  phaseMapRecord: PhaseMapRecord | undefined,
+  phaseMapJsonPath: string,
+): CurrentActionWorkCardCandidate[] {
+  const phase = phaseMapRecord?.mappedPhases?.find(
+    (candidate) => candidate.phaseId === phaseId,
+  );
+
+  return (phase?.plannedWorkCards ?? [])
+    .map((item, index) => ({
+      workCardId: item.workCardIdProposal,
+      title: item.title,
+      order: item.suggestedOrdering || index + 1,
+      status: item.reconciliationStatus || item.planStatus,
+      sourceArtifact: {
+        path: toRepoRelativePath(phaseMapJsonPath),
+        role: "Mapped Work Card candidate",
+        status: item.reconciliationStatus || item.planStatus,
+        exists: true,
+      },
+    }))
+    .filter((item) => item.workCardId.trim().length > 0);
+}
+
+function getActivePhaseId(
+  roadmapRecord: ProjectRoadmapRecord | undefined,
+  phaseMapRecord: PhaseMapRecord | undefined,
+): string {
+  return (
+    getRecordString(roadmapRecord, "currentActivePhase") ||
+    getRecordString(roadmapRecord, "currentFirstIncompletePhase") ||
+    getRecordString(phaseMapRecord, "currentOrNextPhase")
+  );
+}
+
+function getActivePhaseTitle(
+  phaseId: string,
+  roadmapRecord: ProjectRoadmapRecord | undefined,
+  phaseMapRecord: PhaseMapRecord | undefined,
+): string {
+  const mappedPhase = phaseMapRecord?.mappedPhases?.find(
+    (phase) => phase.phaseId === phaseId,
+  );
+  const roadmapPhase = getRecordArray(roadmapRecord, "phases").find(
+    (phase) => getRecordString(phase, "id") === phaseId,
+  );
+
+  return (
+    mappedPhase?.phaseTitle ||
+    getRecordString(roadmapPhase, "title") ||
+    getRecordString(phaseMapRecord, "nextPhaseTitle") ||
+    phaseId
+  );
+}
+
+function getMappedPhaseStatus(
+  phaseId: string,
+  phaseMapRecord: PhaseMapRecord | undefined,
+): string | undefined {
+  return phaseMapRecord?.mappedPhases?.find((phase) => phase.phaseId === phaseId)
+    ?.status;
+}
+
+function addProjectStateWarnings(
+  roadmapRecord: ProjectRoadmapRecord | undefined,
+  activePhase: CurrentActionPhaseState | undefined,
+  warnings: CurrentRequiredActionWarning[],
+): void {
+  const roadmapCurrentWorkCardId = extractWorkCardId(
+    getRecordString(roadmapRecord, "currentExecutableWorkCard"),
+  );
+
+  if (!roadmapCurrentWorkCardId || !activePhase) {
+    return;
+  }
+
+  const nextUnresolved = findNextUnresolvedWorkCardId(activePhase);
+
+  if (
+    nextUnresolved &&
+    normalizeCurrentActionId(nextUnresolved) !==
+      normalizeCurrentActionId(roadmapCurrentWorkCardId)
+  ) {
+    warnings.push({
+      code: "stale_current_executable_work_card",
+      message: `Roadmap still names ${roadmapCurrentWorkCardId} as current, but durable Work Card evidence routes to ${nextUnresolved}.`,
+      severity: "warning",
+      sourceArtifactPath:
+        "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
+    });
+  }
+}
+
+function findNextUnresolvedWorkCardId(
+  phase: CurrentActionPhaseState,
+): string | undefined {
+  const workCardsById = new Map(
+    phase.workCards.map((workCard) => [
+      normalizeCurrentActionId(workCard.workCardId),
+      workCard,
+    ]),
+  );
+
+  for (const candidate of phase.workCardCandidates) {
+    const workCard = workCardsById.get(normalizeCurrentActionId(candidate.workCardId));
+
+    if (!workCard) {
+      return candidate.workCardId;
+    }
+
+    if (!isRepoWorkCardResolved(candidate.status, workCard)) {
+      return workCard.workCardId;
+    }
+  }
+
+  return undefined;
+}
+
+function isRepoWorkCardResolved(
+  candidateStatus: string | undefined,
+  workCard: CurrentActionWorkCardState,
+): boolean {
+  const status = normalizeCurrentActionStatus(candidateStatus || workCard.status);
+
+  if (
+    [
+      "already_satisfied",
+      "cancelled",
+      "carried_forward",
+      "closed",
+      "complete",
+      "completed",
+      "completed_via_repair",
+      "deferred",
+      "superseded",
+      "validated",
+    ].includes(status)
+  ) {
+    return true;
+  }
+
+  return isRepoPassingValidation(workCard.validation) ||
+    isRepoPassingValidation(workCard.repair?.validation);
+}
+
+function isRepoPassingValidation(
+  validation: CurrentActionValidationState | undefined,
+): boolean {
+  if (!validation?.result && !validation?.decision) {
+    return false;
+  }
+
+  const result = normalizeCurrentActionStatus(validation.result);
+  const decision = normalizeCurrentActionStatus(validation.decision);
+
+  if (validation.repairRequired) {
+    return false;
+  }
+
+  return (
+    result === "pass" ||
+    result === "passed" ||
+    decision === "passed_proceed" ||
+    decision === "passed"
+  );
+}
+
+function addSupersededPhaseWarnings(
+  phase: string,
+  warnings: CurrentRequiredActionWarning[],
+): void {
+  const knownSupersededPaths = [
+    `planning/phases/${phase}/Operator_Phase_Approval_PENDING.md`,
+    `planning/phases/${phase}/WORK_CARD_BACKLOG.md`,
+    `planning/phases/${phase}/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md`,
+    `planning/phases/${phase}/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json`,
+    `planning/phases/${phase}/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.md`,
+    `planning/phases/${phase}/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json`,
+  ];
+
+  for (const repoPath of knownSupersededPaths) {
+    const absolutePath = absoluteFromRepoPath(repoPath);
+
+    if (!pathExistsSync(absolutePath)) {
+      continue;
+    }
+
+    warnings.push({
+      code: "superseded_phase_artifact",
+      message: `${repoPath} is superseded historical context and must not be treated as active Phase 03 authority.`,
+      severity: "info",
+      sourceArtifactPath: repoPath,
+    });
+  }
+}
+
+function addValidationTargetWarnings(
+  phase: string,
+  warnings: CurrentRequiredActionWarning[],
+): void {
+  const validationReportDirectory = resolveValidationReportsDirectory(phase);
+  const validationReports = readDirectoryFileNamesSync(
+    validationReportDirectory,
+    [".json", ".md"],
+  );
+
+  for (const fileName of validationReports) {
+    const filePath = resolveInside(validationReportDirectory, fileName);
+    let content = "";
+
+    try {
+      content = readFileSyncUtf8(filePath);
+    } catch {
+      continue;
+    }
+
+    for (const reference of extractValidationTargetReferences(content, phase)) {
+      const absoluteReferencePath = absoluteFromRepoPath(reference);
+
+      if (pathExistsSync(absoluteReferencePath)) {
+        continue;
+      }
+
+      warnings.push({
+        code: "missing_stale_validation_target",
+        message: `${reference} is referenced by validation evidence but is missing; current-action routing treats it as stale context, not current authority.`,
+        severity: "warning",
+        sourceArtifactPath: toRepoRelativePath(filePath),
+      });
+    }
+  }
+}
+
+function extractValidationTargetReferences(
+  content: string,
+  phase: string,
+): string[] {
+  const references = new Set<string>();
+  const fullPathPattern =
+    /planning\/phases\/[A-Za-z0-9_-]+\/Validation_Targets\/[A-Za-z0-9_-]+\.json/g;
+  const shortPathPattern =
+    /Validation_Targets\/[A-Za-z0-9_-]+\.json/g;
+
+  for (const match of content.matchAll(fullPathPattern)) {
+    references.add(match[0]);
+  }
+
+  for (const match of content.matchAll(shortPathPattern)) {
+    references.add(`planning/phases/${phase}/${match[0]}`);
+  }
+
+  return [...references];
+}
+
+function coerceWorkCardValidationTargetFields(
+  candidate: unknown,
+  selectedPhase: string,
+): WorkCardValidationTargetFields | undefined {
+  if (!isCurrentActionRecord(candidate)) {
+    return undefined;
+  }
+
+  const workCardId =
+    getRecordString(candidate, "workCardId") ||
+    getRecordString(candidate, "work_card_id");
+  const title = getRecordString(candidate, "title");
+  const phase =
+    getRecordString(candidate, "phase") ||
+    getRecordString(candidate, "phase_id");
+  const status = getRecordString(candidate, "status") || "ready_for_implementer";
+  const riskLevel =
+    getRecordString(candidate, "riskLevel") ||
+    getRecordString(candidate, "risk_level") ||
+    undefined;
+
+  if (!workCardId || !title || !phase) {
+    return undefined;
+  }
+
+  if (phase !== selectedPhase.trim()) {
+    return undefined;
+  }
+
+  return {
+    workCardId,
+    title,
+    phase,
+    status,
+    riskLevel,
+  };
+}
+
+function getRecordString(candidate: unknown, key: string): string {
+  if (!isCurrentActionRecord(candidate)) {
+    return "";
+  }
+
+  const value = candidate[key];
+
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getRecordBoolean(candidate: unknown, key: string): boolean | undefined {
+  if (!isCurrentActionRecord(candidate)) {
+    return undefined;
+  }
+
+  const value = candidate[key];
+
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function getRecordArray(candidate: unknown, key: string): unknown[] {
+  if (!isCurrentActionRecord(candidate)) {
+    return [];
+  }
+
+  const value = candidate[key];
+
+  return Array.isArray(value) ? value : [];
+}
+
+function extractWorkCardId(value: string): string | undefined {
+  return /\b(WC\d+(?:-[A-Za-z0-9]+)?)/.exec(value)?.[1];
+}
+
+function normalizeCurrentActionId(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeCurrentActionStatus(value: string | undefined): string {
+  return normalizeCurrentActionId(value);
+}
+
+function normalizeFileStem(value: string): string {
+  return path
+    .basename(value, path.extname(value))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function toRepoRelativePath(filePath: string): string {
+  const relativePath = path.relative(repositoryRoot, filePath).replace(/\\/g, "/");
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return "<PROJECT_REPO>";
+  }
+
+  return relativePath;
+}
+
+function absoluteFromRepoPath(repoPath: string): string {
+  return resolveInside(repositoryRoot, ...repoPath.split("/"));
+}
+
+function pathExistsSync(filePath: string): boolean {
+  try {
+    statSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readDirectoryFileNamesSync(
+  directory: string,
+  extensions: string[],
+): string[] {
+  try {
+    return readdirSync(directory)
+      .filter((entry) =>
+        extensions.some((extension) => entry.toLowerCase().endsWith(extension)),
+      )
+      .sort((left, right) => left.localeCompare(right));
+  } catch {
+    return [];
+  }
+}
+
+function readFileSyncUtf8(filePath: string): string {
+  return readFileSync(filePath, "utf8");
+}
+
+function isCurrentActionRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function readSavedProjectIntakeFile(
@@ -5087,6 +6033,43 @@ async function readSavedWorkCardFile(
   return workCard;
 }
 
+async function readWorkCardValidationTargetFile(
+  phase: string,
+  fileName: string,
+): Promise<ValidationTargetSummary> {
+  const fileNameErrors = validateSavedWorkCardJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveWorkCardsDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validateWorkCard(parsed);
+
+  if (validation.valid) {
+    return buildWorkCardValidationTarget(parsed as WorkCard, fileName);
+  }
+
+  const compatibleWorkCard = coerceWorkCardValidationTargetFields(
+    parsed,
+    phase,
+  );
+
+  if (!compatibleWorkCard) {
+    throw new Error(
+      `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  return buildValidationTargetFromWorkCardFields(
+    compatibleWorkCard,
+    fileName,
+  );
+}
+
 async function readHumanValidationTargetContext(input: {
   phase: string;
   workCardFileName: string;
@@ -5105,9 +6088,11 @@ async function readHumanValidationTargetContext(input: {
   );
 
   if (await pathExists(workCardPath)) {
-    const workCard = await readSavedWorkCardFile(input.phase, selectedFileName);
     return {
-      target: buildWorkCardValidationTarget(workCard, selectedFileName),
+      target: await readWorkCardValidationTargetFile(
+        input.phase,
+        selectedFileName,
+      ),
     };
   }
 
