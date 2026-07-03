@@ -101,6 +101,11 @@ The broad `*.zip` rule was added because the requested task called out repeated 
 - `git status --short --untracked-files=all` - passed after staging; showed the three intended staged files and the pre-existing unstaged `Generic Docs` deletions.
 - `git diff --cached --stat` - passed; staged diff contained 3 files.
 - `git diff --cached -- .gitignore AGENTS.md planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_GIT_dev_branch_and_repo_hygiene_policy.md` - passed; reviewed staged policy, ignore, and report changes.
+- `git commit -m "Add dev branch git hygiene policy"` - passed; created commit `1bc63b0f18ac918dbae4141b77be9f3f9cef9a11`.
+- `git push -u origin dev` - passed; created `origin/dev` and set local `dev` to track `origin/dev`.
+- `git status -sb --untracked-files=all` - passed after push; local `dev` tracks `origin/dev`, and only the pre-existing unstaged `Generic Docs` deletions remain dirty.
+- `git rev-parse HEAD` - passed; governance commit hash is `1bc63b0f18ac918dbae4141b77be9f3f9cef9a11`.
+- `git branch -vv` - passed after push; `dev` tracks `origin/dev`, and `master` remains at `20af593` tracking `origin/master`.
 
 ## Local Path Scan Command And Result
 
@@ -160,14 +165,14 @@ Result: passed. No likely `.env`, token, secret, API key, or credential status m
 
 - Created local `dev` branch from `master`.
 - Staged only `.gitignore`, `AGENTS.md`, and `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_GIT_dev_branch_and_repo_hygiene_policy.md`.
-- Commit: pending until this report is included in the commit.
-- Push result for `origin/dev`: pending until commit and push are complete.
-- Final commit hash note: this report is committed in the same final commit as the governance edits, so the commit cannot self-record its final hash without changing the artifact. The final Implementer response records the final commit hash after commit creation.
+- Governance commit: `1bc63b0f18ac918dbae4141b77be9f3f9cef9a11` (`Add dev branch git hygiene policy`).
+- Push result for `origin/dev`: passed; `origin/dev` was created and local `dev` was set to track `origin/dev`.
+- Report closeout note: this report-only closeout update records the actual governance commit and first push result. The final Implementer response records the final branch tip after this closeout update is committed and pushed.
 - No tag, release, package, deployment, PR, or merge to `master` was performed.
 
 ## Remaining Dirty Or Untracked Files After Push
 
-Pending final status check after push. Pre-existing deleted tracked files intentionally left unstaged:
+After the first push to `origin/dev`, local `dev` tracked `origin/dev`, and the only remaining dirty files were the pre-existing deleted tracked files intentionally left unstaged:
 
 - `Generic Docs/example_project_profile_champcity_v11.md`
 - `Generic Docs/generic_project_scaffold_templates_v11.md`
