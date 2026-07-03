@@ -1,14 +1,35 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
 build/
 out/
+release/
 coverage/
+
+# Logs
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment and secrets
 .env
 .env.*
 !.env.example
-tmp/
-temp/
+
+# Local handoff archives and bulky design packages
+Generic Docs/*.zip
+*.zip
+
+# OS/editor files
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/

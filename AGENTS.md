@@ -54,6 +54,34 @@
 - Architects and Implementers may verify the actual local path during execution, but committed reports must record that as "verified approved repo root" rather than printing the concrete local path.
 - Do not use concrete Windows, macOS, Linux, or home-directory paths in durable committed artifacts. Use `<PROJECT_REPO>` or repo-relative paths instead.
 
+## Git Branch And Push Policy
+
+The stable baseline branch is `master` unless the Operator later renames the repository default branch.
+
+The active implementation branch is `dev`.
+
+Implementers must not commit or push directly to `master` unless a Work Card explicitly authorizes it.
+
+Normal Implementer flow:
+
+1. Start from the approved repo root.
+2. Confirm current branch and remote.
+3. Switch to `dev`; create it from `master` if it does not exist.
+4. Pull/rebase the latest upstream branch state when safe.
+5. Make only approved Work Card changes.
+6. Run the required validation lane.
+7. Run a local safety scan before staging:
+   - no secrets, tokens, API keys, credentials, or `.env` files
+   - no concrete local machine paths
+   - no large local handoff archives, zip files, screenshots, build outputs, or generated junk unless explicitly approved
+8. Stage only intended files.
+9. Review staged diff.
+10. Commit with a plain Work Card message.
+11. Push to `origin/dev`.
+12. Report branch, commit hash, pushed status, validation results, skipped checks, and remaining dirty files.
+
+Architect/Operator approval is required before merging `dev` into `master`.
+
 ## Validation
 
 - Run available automated validation commands before reporting completion.
