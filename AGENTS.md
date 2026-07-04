@@ -82,6 +82,12 @@ Normal Implementer flow:
 
 Architect/Operator approval is required before merging `dev` into `master`.
 
+Feature-branch Work Card review rule:
+
+- If a Work Card explicitly names a feature branch, create that branch from the approved base branch and commit/push only to the named feature branch.
+- Do not push that Work Card directly to `dev` or `master` unless the Work Card explicitly authorizes it.
+- Do not merge a feature branch back into `dev`; Architect/Operator review and approval happen after the pushed feature branch and Implementer Report are available.
+
 ## Commit Hash Reporting Rule
 
 A report committed in the same commit as the work cannot know that commit's hash before the commit exists.

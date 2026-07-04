@@ -759,22 +759,34 @@ async function assertCurrentRequiredActionModel() {
     process.exit(1);
   }
 
-  if (liveCurrentAction.currentAction.workCardId !== "WC02") {
+  const allowedLiveActionsByWorkCard = {
+    WC02: [
+      "implementer_report_required",
+      "architect_review_of_implementer_report_required",
+      "operator_validation_required",
+    ],
+    WC03: [
+      "implementer_report_required",
+      "architect_review_of_implementer_report_required",
+      "operator_validation_required",
+    ],
+  };
+  const liveWorkCardId = liveCurrentAction.currentAction.workCardId;
+
+  if (!liveWorkCardId || !allowedLiveActionsByWorkCard[liveWorkCardId]) {
     console.error(
-      `Live current required action should route to WC02, got ${liveCurrentAction.currentAction.workCardId}.`,
+      `Live current required action should route to an active Phase 03 Work Card, got ${liveWorkCardId ?? "none"}.`,
     );
     process.exit(1);
   }
 
-  const allowedWc02Actions = [
-    "implementer_report_required",
-    "architect_review_of_implementer_report_required",
-    "operator_validation_required",
-  ];
-
-  if (!allowedWc02Actions.includes(liveCurrentAction.currentAction.id)) {
+  if (
+    !allowedLiveActionsByWorkCard[liveWorkCardId].includes(
+      liveCurrentAction.currentAction.id,
+    )
+  ) {
     console.error(
-      `Live WC02 current action has unexpected state ${liveCurrentAction.currentAction.id}.`,
+      `Live ${liveWorkCardId} current action has unexpected state ${liveCurrentAction.currentAction.id}.`,
     );
     process.exit(1);
   }
