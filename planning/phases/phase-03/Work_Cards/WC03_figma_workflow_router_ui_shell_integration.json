@@ -15,7 +15,7 @@
     "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md"
   ],
   "included_scope": [
-    "Integrate the Figma-inspired workflow-router shell into the existing Electron/React renderer",
+    "Import or adapt the provided source-code UI shell into the existing Electron/React renderer",
     "Use the WC02 current required action model as live state input",
     "Add top status strip, horizontal process rail, current required action area, artifact workspace, context inspector, subordinate navigation, and bottom activity/evidence log area",
     "Replace Figma demo/static state with live durable-state routing",
