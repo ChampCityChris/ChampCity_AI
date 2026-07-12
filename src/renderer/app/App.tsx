@@ -32,10 +32,7 @@ import {
 } from "lucide-react";
 
 import logoImage from "../assets/champcity_ai_ui_branding.png";
-import {
-  WorkflowRouterShell,
-  getManualScreenForCurrentAction,
-} from "./WorkflowRouterShell";
+import { WorkflowRouterShell } from "./WorkflowRouterShell";
 
 type AppScreen =
   | "project-intake"
@@ -401,8 +398,6 @@ export default function App() {
     "loading" | "ready" | "error"
   >("loading");
   const [currentActionError, setCurrentActionError] = useState<string>();
-  const [currentActionAutoApplied, setCurrentActionAutoApplied] =
-    useState(false);
   const { phases: availablePhases } = useAvailablePhases();
   const phaseOptions = useMemo(
     () => buildPhaseOptions(phase, availablePhases),
@@ -446,25 +441,12 @@ export default function App() {
   }, [loadCurrentRequiredAction]);
 
   useEffect(() => {
-    if (currentActionAutoApplied) {
-      return;
-    }
-
     const currentAction = currentActionResult?.currentAction;
 
-    if (!currentAction) {
-      return;
-    }
-
-    if (currentAction.phaseId) {
+    if (currentAction?.phaseId) {
       setPhase(currentAction.phaseId);
     }
-
-    setActiveScreen(
-      getManualScreenForCurrentAction(currentAction) as AppScreen,
-    );
-    setCurrentActionAutoApplied(true);
-  }, [currentActionAutoApplied, currentActionResult]);
+  }, [currentActionResult]);
 
   function handlePhaseChange(nextPhase: string) {
     setPhase(nextPhase);

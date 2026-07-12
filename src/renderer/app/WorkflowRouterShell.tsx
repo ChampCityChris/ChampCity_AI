@@ -325,6 +325,9 @@ export function WorkflowRouterShell({
     (item) => item.id === activeScreen,
   );
   const suggestedManualScreen = getManualScreenForCurrentAction(action);
+  const suggestedManualItem = manualNavigationItems.find(
+    (item) => item.id === suggestedManualScreen,
+  );
 
   function openSuggestedFallback() {
     onManualScreenChange(suggestedManualScreen);
@@ -366,6 +369,7 @@ export function WorkflowRouterShell({
           error={currentActionError}
           onRefreshCurrentAction={onRefreshCurrentAction}
           onOpenFallback={openSuggestedFallback}
+          fallbackLabel={suggestedManualItem?.label ?? "manual navigation"}
         />
         <ArtifactWorkspace
           action={action}
@@ -781,12 +785,14 @@ function CurrentRequiredActionPanel({
   error,
   onRefreshCurrentAction,
   onOpenFallback,
+  fallbackLabel,
 }: {
   action: ChampCityCurrentRequiredAction | undefined;
   loadState: LoadState;
   error?: string;
   onRefreshCurrentAction: () => void | Promise<void>;
   onOpenFallback: () => void;
+  fallbackLabel: string;
 }) {
   const actorColors: Record<string, string> = {
     operator: "text-primary",
@@ -796,90 +802,132 @@ function CurrentRequiredActionPanel({
   };
   const role = action?.responsibleRole ?? "app_system";
   const expectedOutput = action?.expectedOutput;
+  const warnings = action?.warnings ?? [];
   const urgent =
     action?.status === "blocked" ||
     action?.status === "needs_repair" ||
     action?.warnings.some((warning) => warning.severity === "blocking");
 
+  if (loadState === "loading") {
+    return (
+      <CurrentActionStatePanel
+        title="Loading current action"
+        description="Reading the durable WC02 current-action model. Manual navigation remains available while the route is loading."
+        tone="info"
+        onRefreshCurrentAction={onRefreshCurrentAction}
+      />
+    );
+  }
+
+  if (loadState === "error") {
+    return (
+      <CurrentActionStatePanel
+        title="Current action unavailable"
+        description={error ?? "Current-action state could not be loaded."}
+        tone="error"
+        onRefreshCurrentAction={onRefreshCurrentAction}
+        onOpenFallback={onOpenFallback}
+      />
+    );
+  }
+
+  if (!action) {
+    return (
+      <CurrentActionStatePanel
+        title="No current action returned"
+        description="The durable model loaded successfully but did not provide a current action. Refresh the route or use manual navigation for supporting work."
+        tone="warning"
+        onRefreshCurrentAction={onRefreshCurrentAction}
+        onOpenFallback={onOpenFallback}
+      />
+    );
+  }
+
+  const complete = action.status === "complete";
+
   return (
-    <div className="flex w-[300px] shrink-0 flex-col gap-0 overflow-y-auto border-r border-border bg-card/30">
+    <div className="flex w-[400px] shrink-0 flex-col gap-0 overflow-y-auto border-r border-border bg-card/35">
       <div
         className={cn(
-          "border-b border-border px-4 pb-3 pt-4",
+          "border-b border-border px-5 pb-4 pt-5",
           urgent && "border-l-2 border-l-red-400",
+          complete && "border-l-2 border-l-emerald-400",
         )}
       >
-        <div
-          className={cn(
-            "mb-1.5 text-[9px] font-bold uppercase tracking-[0.15em]",
-            actorColors[role] ?? "text-muted-foreground",
-          )}
-        >
-          {roleLabel(role)}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary/80">
+            {complete ? "Workflow state" : "Next required action"}
+          </span>
+          <StatusBadge status={action.status} />
         </div>
-        <h2 className="text-sm font-semibold leading-snug text-foreground">
-          {action?.title ?? "Current required action"}
+        <h2 className="text-lg font-semibold leading-tight text-foreground">
+          {action.title}
         </h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground/85">
+          {action.summary}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <ActionMetadata
+            label="Responsible role"
+            value={roleLabel(role)}
+            valueClassName={actorColors[role] ?? "text-muted-foreground"}
+          />
+          <ActionMetadata label="Workflow step" value={action.workflowStep} />
+          <ActionMetadata
+            label="Phase"
+            value={
+              action.phaseId
+                ? `${action.phaseId}${action.phaseTitle ? ` - ${action.phaseTitle}` : ""}`
+                : "Not provided"
+            }
+          />
+          <ActionMetadata
+            label="Work Card"
+            value={
+              action.workCardId
+                ? `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""}`
+                : "Not provided"
+            }
+          />
+        </div>
       </div>
-      <div className="flex flex-1 flex-col gap-4 px-4 py-3">
-        {loadState === "loading" ? (
-          <Notice type="info">Loading durable current-action state.</Notice>
-        ) : null}
-        {loadState === "error" ? (
-          <Notice type="error">
-            {error ?? "Current-action state could not be loaded."}
-          </Notice>
-        ) : null}
+      <div className="flex flex-1 flex-col gap-5 px-5 py-4">
         <InfoBlock
-          label="Why this step"
-          body={
-            action?.reason ??
-            "The durable current-action model has not returned a route yet."
-          }
+          label="Why this is next"
+          body={action.reason}
         />
-        {action?.summary ? (
-          <InfoBlock label="Summary" body={action.summary} />
-        ) : null}
+
+        <ExpectedOutputCard expectedOutput={expectedOutput} />
+
+        <EvidenceList artifacts={action.sourceArtifacts} />
+
+        <MissingEvidenceList missing={action.missingArtifacts} />
+
+        <RouteOutcomes action={action} />
+
+        <WarningGroups warnings={warnings} />
+
         <div>
-          <PanelLabel>Inputs being used</PanelLabel>
-          <div className="flex flex-col gap-1">
-            {(action?.sourceArtifacts ?? []).slice(0, 5).map((artifact) => (
-              <ArtifactLine key={`${artifact.path}|${artifact.role}`} artifact={artifact} />
-            ))}
-            {action && action.sourceArtifacts.length === 0 ? (
-              <p className="text-xs text-muted-foreground/60">
-                No source artifacts reported for this route.
-              </p>
+          <PanelLabel>Manual fallback / support</PanelLabel>
+          <div className="rounded-md border border-border bg-white/[0.025] p-3">
+            <div className="mb-1 text-xs font-semibold text-foreground/80">
+              {action.manualFallback?.available
+                ? `Manual fallback available in ${fallbackLabel}`
+                : `Supporting screen: ${fallbackLabel}`}
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground/70">
+              {action.manualFallback?.instructions ??
+                "No route-specific fallback instructions were provided. Existing screens remain available as manual support and do not replace the durable current-action route."}
+            </p>
+            {action.manualFallback?.artifactPath ? (
+              <div className="mt-2 break-all font-mono text-[10px] leading-relaxed text-primary/70">
+                {action.manualFallback.artifactPath}
+              </div>
             ) : null}
           </div>
         </div>
-        <div>
-          <PanelLabel>Artifact created / updated</PanelLabel>
-          <div className="flex items-center gap-1.5 rounded-md border border-border bg-white/[0.03] px-2.5 py-2">
-            <FolderOpen size={10} className="shrink-0 text-primary/50" />
-            <span className="truncate font-mono text-[11px] text-foreground/70">
-              {expectedOutput?.path ??
-                expectedOutput?.artifactType ??
-                "Awaiting route output"}
-            </span>
-          </div>
-          {expectedOutput?.description ? (
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground/65">
-              {expectedOutput.description}
-            </p>
-          ) : null}
-        </div>
-        {action?.successRoute ? (
-          <InfoBlock label="After success" body={action.successRoute} tone="success" />
-        ) : null}
-        {action?.failureRoute ? (
-          <InfoBlock label="If revision required" body={action.failureRoute} tone="warning" />
-        ) : null}
-        {action?.repairRoute ? (
-          <InfoBlock label="Repair route" body={action.repairRoute} tone="warning" />
-        ) : null}
       </div>
-      <div className="flex flex-col gap-2 border-t border-border px-4 pb-4 pt-3">
+      <div className="flex flex-col gap-2 border-t border-border px-5 pb-5 pt-4">
         <button
           type="button"
           onClick={onOpenFallback}
@@ -890,7 +938,7 @@ function CurrentRequiredActionPanel({
               : "bg-primary text-primary-foreground hover:bg-primary/85",
           )}
         >
-          Open fallback screen
+          {complete ? "Open manual navigation" : `Open manual support: ${fallbackLabel}`}
           <ArrowRight size={12} />
         </button>
         <button
@@ -903,6 +951,345 @@ function CurrentRequiredActionPanel({
           <RefreshCw size={12} />
           Refresh current action
         </button>
+      </div>
+    </div>
+  );
+}
+
+function CurrentActionStatePanel({
+  title,
+  description,
+  tone,
+  onRefreshCurrentAction,
+  onOpenFallback,
+}: {
+  title: string;
+  description: string;
+  tone: "info" | "warning" | "error";
+  onRefreshCurrentAction: () => void | Promise<void>;
+  onOpenFallback?: () => void;
+}) {
+  return (
+    <div className="flex w-[400px] shrink-0 flex-col border-r border-border bg-card/35 p-5">
+      <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.16em] text-primary/80">
+        Primary guided action
+      </div>
+      <h2 className="mb-4 text-lg font-semibold text-foreground">{title}</h2>
+      <Notice type={tone}>{description}</Notice>
+      <div className="mt-4 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            void onRefreshCurrentAction();
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
+        >
+          <RefreshCw size={12} />
+          Refresh current action
+        </button>
+        {onOpenFallback ? (
+          <button
+            type="button"
+            onClick={onOpenFallback}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-xs font-medium text-muted-foreground/80 transition-colors hover:bg-white/[0.04] hover:text-foreground"
+          >
+            Open manual navigation
+            <ArrowRight size={12} />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ActionMetadata({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-white/[0.025] px-2.5 py-2">
+      <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-muted-foreground/45">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "break-words text-[11px] font-medium leading-snug text-foreground/75",
+          valueClassName,
+        )}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ExpectedOutputCard({
+  expectedOutput,
+}: {
+  expectedOutput: ChampCityCurrentRequiredAction["expectedOutput"];
+}) {
+  return (
+    <div>
+      <PanelLabel>Expected output</PanelLabel>
+      <div className="rounded-md border border-primary/20 bg-primary/[0.04] p-3">
+        {expectedOutput ? (
+          <>
+            <div className="text-xs font-semibold text-primary/85">
+              {expectedOutput.artifactType}
+            </div>
+            {expectedOutput.path ? (
+              <div className="mt-1.5 break-all font-mono text-[10px] leading-relaxed text-foreground/70">
+                {expectedOutput.path}
+              </div>
+            ) : null}
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
+              {expectedOutput.description}
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground/65">
+            No expected output was provided by the current-action model.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EvidenceList({
+  artifacts,
+}: {
+  artifacts: ChampCityCurrentRequiredAction["sourceArtifacts"];
+}) {
+  const visible = artifacts.slice(0, 4);
+  const overflow = artifacts.slice(4);
+
+  return (
+    <div>
+      <PanelLabel>Source evidence ({artifacts.length})</PanelLabel>
+      <div className="flex flex-col gap-1.5">
+        {visible.map((artifact) => (
+          <ArtifactLine
+            key={`${artifact.path}|${artifact.role}`}
+            artifact={artifact}
+          />
+        ))}
+        {overflow.length > 0 ? (
+          <details className="rounded-md border border-border bg-white/[0.02] px-2.5 py-2">
+            <summary className="cursor-pointer text-[11px] text-primary/75">
+              Show {overflow.length} more source artifact
+              {overflow.length === 1 ? "" : "s"}
+            </summary>
+            <div className="mt-2 flex flex-col gap-1.5">
+              {overflow.map((artifact) => (
+                <ArtifactLine
+                  key={`${artifact.path}|${artifact.role}`}
+                  artifact={artifact}
+                />
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {artifacts.length === 0 ? (
+          <p className="text-xs text-muted-foreground/60">
+            No source artifacts reported for this route.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MissingEvidenceList({
+  missing,
+}: {
+  missing: ChampCityCurrentRequiredAction["missingArtifacts"];
+}) {
+  const visible = missing.slice(0, 4);
+  const overflow = missing.slice(4);
+
+  return (
+    <div>
+      <PanelLabel>Missing evidence ({missing.length})</PanelLabel>
+      <div className="flex flex-col gap-2">
+        {visible.map((artifact) => (
+          <MissingEvidenceLine
+            key={`${artifact.path}|${artifact.reason}`}
+            artifact={artifact}
+          />
+        ))}
+        {overflow.length > 0 ? (
+          <details className="rounded-md border border-amber-400/20 bg-amber-400/[0.03] px-2.5 py-2">
+            <summary className="cursor-pointer text-[11px] text-amber-300/80">
+              Show {overflow.length} more missing artifact
+              {overflow.length === 1 ? "" : "s"}
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+              {overflow.map((artifact) => (
+                <MissingEvidenceLine
+                  key={`${artifact.path}|${artifact.reason}`}
+                  artifact={artifact}
+                />
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {missing.length === 0 ? (
+          <p className="text-xs text-muted-foreground/60">
+            No missing artifacts reported.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MissingEvidenceLine({
+  artifact,
+}: {
+  artifact: ChampCityCurrentRequiredAction["missingArtifacts"][number];
+}) {
+  return (
+    <div className="rounded-md border border-amber-400/20 bg-amber-400/[0.04] p-2.5">
+      <div className="break-all font-mono text-[10px] leading-relaxed text-amber-300/85">
+        {artifact.path}
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/70">
+        {artifact.reason}
+      </p>
+    </div>
+  );
+}
+
+function RouteOutcomes({
+  action,
+}: {
+  action: ChampCityCurrentRequiredAction;
+}) {
+  const routes = [
+    action.successRoute
+      ? { label: "After success", value: action.successRoute, tone: "success" as const }
+      : null,
+    action.failureRoute
+      ? { label: "After failure / revision", value: action.failureRoute, tone: "warning" as const }
+      : null,
+    action.repairRoute
+      ? { label: "Repair route", value: action.repairRoute, tone: "warning" as const }
+      : null,
+  ].filter((route): route is NonNullable<typeof route> => route !== null);
+
+  if (routes.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <PanelLabel>Route outcomes</PanelLabel>
+      <div className="flex flex-col gap-3">
+        {routes.map((route) => (
+          <InfoBlock
+            key={route.label}
+            label={route.label}
+            body={route.value}
+            tone={route.tone}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WarningGroups({
+  warnings,
+}: {
+  warnings: ChampCityCurrentRequiredActionWarning[];
+}) {
+  const severityOrder = ["blocking", "warning", "info"] as const;
+
+  return (
+    <div>
+      <PanelLabel>Warnings and notices ({warnings.length})</PanelLabel>
+      {warnings.length === 0 ? (
+        <Notice type="success">No warnings reported for this route.</Notice>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {severityOrder.map((severity) => {
+            const entries = warnings.filter(
+              (warning) => warning.severity === severity,
+            );
+
+            return entries.length > 0 ? (
+              <WarningSeverityGroup
+                key={severity}
+                severity={severity}
+                warnings={entries}
+              />
+            ) : null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WarningSeverityGroup({
+  severity,
+  warnings,
+}: {
+  severity: ChampCityCurrentRequiredActionWarning["severity"];
+  warnings: ChampCityCurrentRequiredActionWarning[];
+}) {
+  const styles = {
+    blocking: {
+      label: "Blocking",
+      border: "border-red-400/30",
+      background: "bg-red-400/[0.07]",
+      text: "text-red-200/90",
+      icon: <AlertTriangle size={12} />,
+    },
+    warning: {
+      label: "Warning",
+      border: "border-amber-400/25",
+      background: "bg-amber-400/[0.05]",
+      text: "text-amber-200/90",
+      icon: <AlertTriangle size={12} />,
+    },
+    info: {
+      label: "Information",
+      border: "border-blue-400/20",
+      background: "bg-blue-400/[0.04]",
+      text: "text-blue-200/85",
+      icon: <Info size={12} />,
+    },
+  }[severity];
+
+  return (
+    <div className={cn("rounded-md border p-2.5", styles.border, styles.background)}>
+      <div className={cn("mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em]", styles.text)}>
+        {styles.icon}
+        {styles.label} ({warnings.length})
+      </div>
+      <div className="flex flex-col gap-2">
+        {warnings.map((warning) => (
+          <div key={`${warning.code}|${warning.sourceArtifactPath ?? warning.message}`}>
+            <div className="text-[10px] font-semibold text-foreground/65">
+              {warning.code}
+            </div>
+            <p className={cn("mt-0.5 text-[11px] leading-relaxed", styles.text)}>
+              {warning.message}
+            </p>
+            {warning.sourceArtifactPath ? (
+              <div className="mt-1 break-all font-mono text-[9px] leading-relaxed text-muted-foreground/55">
+                {warning.sourceArtifactPath}
+              </div>
+            ) : null}
+          </div>
+        ))}
       </div>
     </div>
   );
