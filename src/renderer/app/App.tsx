@@ -32,6 +32,10 @@ import {
 } from "lucide-react";
 
 import logoImage from "../assets/champcity_ai_ui_branding.png";
+import {
+  WorkflowRouterShell,
+  getManualScreenForCurrentAction,
+} from "./WorkflowRouterShell";
 
 type AppScreen =
   | "project-intake"
@@ -391,12 +395,76 @@ export default function App() {
     useState<AppScreen>("project-intake");
   const [phase, setPhase] = useState(defaultPhase);
   const [activeCard, setActiveCard] = useState<UiWorkCardSummary | null>(null);
+  const [currentActionResult, setCurrentActionResult] =
+    useState<ChampCityCurrentRequiredActionResult | null>(null);
+  const [currentActionLoadState, setCurrentActionLoadState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [currentActionError, setCurrentActionError] = useState<string>();
+  const [currentActionAutoApplied, setCurrentActionAutoApplied] =
+    useState(false);
   const { phases: availablePhases } = useAvailablePhases();
   const phaseOptions = useMemo(
     () => buildPhaseOptions(phase, availablePhases),
     [phase, availablePhases],
   );
   const { workCards: headerWorkCards } = useWorkCards(phase);
+  const manualNavigationItems = useMemo(
+    () =>
+      workflowSteps.map((step) => ({
+        id: step.id,
+        label: step.label,
+        mode: step.mode,
+        screenTitle: step.screenTitle,
+        shortDesc: step.shortDesc,
+      })),
+    [],
+  );
+
+  const loadCurrentRequiredAction = useCallback(async () => {
+    setCurrentActionLoadState("loading");
+    setCurrentActionError(undefined);
+
+    try {
+      const result = await window.champCity.getCurrentRequiredAction();
+      setCurrentActionResult(result);
+      setCurrentActionLoadState(result.ok ? "ready" : "error");
+      setCurrentActionError(result.errorMessages?.join(" ") || undefined);
+    } catch (error) {
+      setCurrentActionResult(null);
+      setCurrentActionLoadState("error");
+      setCurrentActionError(
+        error instanceof Error
+          ? error.message
+          : "Current-action state could not be loaded.",
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCurrentRequiredAction();
+  }, [loadCurrentRequiredAction]);
+
+  useEffect(() => {
+    if (currentActionAutoApplied) {
+      return;
+    }
+
+    const currentAction = currentActionResult?.currentAction;
+
+    if (!currentAction) {
+      return;
+    }
+
+    if (currentAction.phaseId) {
+      setPhase(currentAction.phaseId);
+    }
+
+    setActiveScreen(
+      getManualScreenForCurrentAction(currentAction) as AppScreen,
+    );
+    setCurrentActionAutoApplied(true);
+  }, [currentActionAutoApplied, currentActionResult]);
 
   function handlePhaseChange(nextPhase: string) {
     setPhase(nextPhase);
@@ -542,20 +610,24 @@ export default function App() {
   }[activeScreen];
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <AppHeader
-        appName={appInfo.name}
-        phase={phase}
-        phaseOptions={phaseOptions}
-        activeCard={activeCard}
-        activeScreen={activeScreen}
-        onNav={setActiveScreen}
-        onPhaseChange={handlePhaseChange}
-        workCards={headerWorkCards}
-        onCardChange={handleHeaderCardChange}
-      />
-      <div className="min-h-0 flex-1 overflow-hidden">{screen}</div>
-    </div>
+    <WorkflowRouterShell
+      appName={appInfo.name}
+      activeScreen={activeScreen}
+      phase={phase}
+      phaseOptions={phaseOptions}
+      activeCard={activeCard}
+      workCards={headerWorkCards}
+      manualNavigationItems={manualNavigationItems}
+      currentActionResult={currentActionResult}
+      currentActionLoadState={currentActionLoadState}
+      currentActionError={currentActionError}
+      onRefreshCurrentAction={loadCurrentRequiredAction}
+      onManualScreenChange={(screenId) => setActiveScreen(screenId as AppScreen)}
+      onPhaseChange={handlePhaseChange}
+      onCardChange={handleHeaderCardChange}
+    >
+      {screen}
+    </WorkflowRouterShell>
   );
 }
 
