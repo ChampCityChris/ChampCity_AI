@@ -129,6 +129,8 @@ export interface HumanValidationStatusListResult {
 export interface ManualValidationChecklistExtraction {
   detected: boolean;
   text: string;
+  sourceLabel?: "Architect Review" | "Work Card" | "Implementer Report";
+  sourceFileName?: string;
 }
 
 export interface HumanValidationPreviewResult {
@@ -195,7 +197,7 @@ export const noBuilderReportSelectedWarning =
   "No Implementer Report is selected. You can still save validation, but the evidence chain is incomplete.";
 
 export const noManualValidationChecklistDetectedMessage =
-  "No manual validation checklist was detected in the selected Implementer Report.";
+  "No Operator validation guidance was detected in the Architect Review, Work Card, or selected Implementer Report.";
 
 export const differentProblemFoundGuidance =
   "Different problem found. Create a new Work Card instead of repairing the selected Work Card.";
@@ -213,10 +215,16 @@ const repairTriggerDecisions: HumanValidationOperatorDecision[] = [
 ];
 
 const manualValidationSectionPatterns = [
+  /operator validation guidance/i,
   /manual validation should confirm/i,
   /manual validation required/i,
   /manual electron validation/i,
   /\bmanual validation\b/i,
+];
+
+const workCardValidationSectionPatterns = [
+  /acceptance criteria/i,
+  /validation expectations/i,
 ];
 
 export function buildHumanValidationRecord(
@@ -334,9 +342,22 @@ export function getDifferentProblemGuidance(
 export function extractManualValidationChecklist(
   reportText: string,
 ): ManualValidationChecklistExtraction {
+  return extractChecklistSection(reportText, manualValidationSectionPatterns);
+}
+
+export function extractWorkCardValidationChecklist(
+  workCardText: string,
+): ManualValidationChecklistExtraction {
+  return extractChecklistSection(workCardText, workCardValidationSectionPatterns);
+}
+
+function extractChecklistSection(
+  reportText: string,
+  sectionPatterns: RegExp[],
+): ManualValidationChecklistExtraction {
   const lines = reportText.replace(/\r\n/g, "\n").split("\n");
   const startIndex = lines.findIndex((line) =>
-    manualValidationSectionPatterns.some((pattern) => pattern.test(line)),
+    sectionPatterns.some((pattern) => pattern.test(line)),
   );
 
   if (startIndex === -1) {

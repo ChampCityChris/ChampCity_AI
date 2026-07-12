@@ -81,6 +81,7 @@ import {
   type BuilderReportFileLoadRequest,
   type BuilderReportFileLoadResult,
   extractManualValidationChecklist,
+  extractWorkCardValidationChecklist,
   getDifferentProblemGuidance,
   isHumanValidationOperatorDecision,
   isHumanValidationResult,
@@ -89,6 +90,7 @@ import {
   type HumanValidationBuilderReportListResult,
   type HumanValidationBuilderReportOption,
   type HumanValidationFormInput,
+  type ManualValidationChecklistExtraction,
   type HumanValidationPreviewResult,
   type HumanValidationRecord,
   type HumanValidationSaveResult,
@@ -3520,6 +3522,10 @@ async function buildHumanValidationPreview(
   const shouldRepair = shouldGenerateRepairPrompt(record);
   const validationMarkdown = renderValidationRecordMarkdown(record);
   const repairPrompt = shouldRepair ? renderRepairPrompt(record) : undefined;
+  const manualValidationChecklist = await resolveManualValidationChecklist(
+    target,
+    builderReport,
+  );
 
   return {
     ok: true,
@@ -3527,9 +3533,7 @@ async function buildHumanValidationPreview(
     validationMarkdown,
     repairPrompt,
     shouldGenerateRepairPrompt: shouldRepair,
-    manualValidationChecklist: builderReport
-      ? extractManualValidationChecklist(builderReport.content)
-      : undefined,
+    manualValidationChecklist,
     builderReportWarning: builderReport
       ? undefined
       : noBuilderReportSelectedWarning,
@@ -6152,6 +6156,68 @@ async function readOptionalBuilderReport(
   return {
     fileName: value,
     content: await readFile(filePath, "utf8"),
+  };
+}
+
+async function resolveManualValidationChecklist(
+  target: ValidationTargetSummary,
+  builderReport: { fileName: string; content: string } | undefined,
+): Promise<ManualValidationChecklistExtraction | undefined> {
+  const architectReview = await findMatchingMarkdownArtifact(
+    resolveInside(planningPhasesRoot, target.phase, "Architect_Reviews"),
+    `ARCHITECT_REVIEW_${target.id}`,
+    "Architect Review",
+  );
+
+  if (architectReview?.path) {
+    const architectChecklist = extractManualValidationChecklist(
+      await readFile(absoluteFromRepoPath(architectReview.path), "utf8"),
+    );
+
+    if (architectChecklist.detected) {
+      return {
+        ...architectChecklist,
+        sourceLabel: "Architect Review",
+        sourceFileName: path.basename(architectReview.path),
+      };
+    }
+  }
+
+  if (target.sourceMarkdownFile) {
+    const candidateDirectories = [
+      resolveWorkCardsDirectory(target.phase),
+      resolveValidationTargetsDirectory(target.phase),
+    ];
+
+    for (const directory of candidateDirectories) {
+      const filePath = resolveInside(directory, target.sourceMarkdownFile);
+
+      if (!(await pathExists(filePath))) {
+        continue;
+      }
+
+      const workCardChecklist = extractWorkCardValidationChecklist(
+        await readFile(filePath, "utf8"),
+      );
+
+      if (workCardChecklist.detected) {
+        return {
+          ...workCardChecklist,
+          sourceLabel: "Work Card",
+          sourceFileName: target.sourceMarkdownFile,
+        };
+      }
+    }
+  }
+
+  if (!builderReport) {
+    return undefined;
+  }
+
+  return {
+    ...extractManualValidationChecklist(builderReport.content),
+    sourceLabel: "Implementer Report",
+    sourceFileName: builderReport.fileName,
   };
 }
 

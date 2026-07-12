@@ -369,7 +369,7 @@ export function WorkflowRouterShell({
           error={currentActionError}
           onRefreshCurrentAction={onRefreshCurrentAction}
           onOpenFallback={openSuggestedFallback}
-          fallbackLabel={suggestedManualItem?.label ?? "manual navigation"}
+          fallbackLabel={suggestedManualItem?.label ?? "supporting screens"}
         />
         <ArtifactWorkspace
           action={action}
@@ -511,11 +511,15 @@ function ManualFallbackBar({
           className="flex h-8 items-center gap-1.5 border-r border-border px-3 text-[11px] text-muted-foreground/70 transition-colors hover:bg-white/[0.04] hover:text-foreground"
         >
           <Zap size={11} />
-          Manual fallback
+          Supporting screens
           <ChevronDown size={10} />
         </button>
         {open ? (
           <div className="absolute left-0 top-full z-50 mt-1 grid min-w-[480px] grid-cols-2 gap-1.5 rounded-lg border border-border bg-card p-1.5 shadow-xl">
+            <p className="break-anywhere col-span-2 px-2 pb-1 text-[10px] leading-relaxed text-muted-foreground/60">
+              Supporting screens help complete the routed current action. They
+              do not replace the current-action guidance.
+            </p>
             <ManualNavGroup
               title="Architect"
               items={architectItems}
@@ -835,7 +839,7 @@ function CurrentRequiredActionPanel({
     return (
       <CurrentActionStatePanel
         title="No current action returned"
-        description="The durable model loaded successfully but did not provide a current action. Refresh the route or use manual navigation for supporting work."
+        description="The durable model loaded successfully but did not provide a current action. Refresh the route or open a supporting screen."
         tone="warning"
         onRefreshCurrentAction={onRefreshCurrentAction}
         onOpenFallback={onOpenFallback}
@@ -908,16 +912,16 @@ function CurrentRequiredActionPanel({
         <WarningGroups warnings={warnings} />
 
         <div>
-          <PanelLabel>Manual fallback / support</PanelLabel>
+          <PanelLabel>Supporting screen</PanelLabel>
           <div className="rounded-md border border-border bg-white/[0.025] p-3">
             <div className="mb-1 text-xs font-semibold text-foreground/80">
               {action.manualFallback?.available
-                ? `Manual fallback available in ${fallbackLabel}`
+                ? `Supporting screen available: ${fallbackLabel}`
                 : `Supporting screen: ${fallbackLabel}`}
             </div>
-            <p className="text-xs leading-relaxed text-muted-foreground/70">
+            <p className="break-anywhere text-xs leading-relaxed text-muted-foreground/70">
               {action.manualFallback?.instructions ??
-                "No route-specific fallback instructions were provided. Existing screens remain available as manual support and do not replace the durable current-action route."}
+                "No route-specific support instructions were provided. Existing screens remain available to help with the task, but the current-action route remains the workflow authority."}
             </p>
             {action.manualFallback?.artifactPath ? (
               <div className="mt-2 break-all font-mono text-[10px] leading-relaxed text-primary/70">
@@ -938,7 +942,9 @@ function CurrentRequiredActionPanel({
               : "bg-primary text-primary-foreground hover:bg-primary/85",
           )}
         >
-          {complete ? "Open manual navigation" : `Open manual support: ${fallbackLabel}`}
+          {complete
+            ? "Open supporting screens"
+            : `Open supporting screen: ${fallbackLabel}`}
           <ArrowRight size={12} />
         </button>
         <button
@@ -993,7 +999,7 @@ function CurrentActionStatePanel({
             onClick={onOpenFallback}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-xs font-medium text-muted-foreground/80 transition-colors hover:bg-white/[0.04] hover:text-foreground"
           >
-            Open manual navigation
+            Open supporting screens
             <ArrowRight size={12} />
           </button>
         ) : null}
@@ -1276,18 +1282,29 @@ function WarningSeverityGroup({
       </div>
       <div className="flex flex-col gap-2">
         {warnings.map((warning) => (
-          <div key={`${warning.code}|${warning.sourceArtifactPath ?? warning.message}`}>
-            <div className="text-[10px] font-semibold text-foreground/65">
-              {warning.code}
-            </div>
-            <p className={cn("mt-0.5 text-[11px] leading-relaxed", styles.text)}>
-              {warning.message}
+          <div
+            key={`${warning.code}|${warning.sourceArtifactPath ?? warning.message}`}
+            className="min-w-0"
+          >
+            <p
+              className={cn(
+                "break-anywhere text-[11px] leading-relaxed",
+                styles.text,
+              )}
+            >
+              {plainLanguageWarning(warning)}
             </p>
-            {warning.sourceArtifactPath ? (
-              <div className="mt-1 break-all font-mono text-[9px] leading-relaxed text-muted-foreground/55">
-                {warning.sourceArtifactPath}
-              </div>
-            ) : null}
+            <details className="mt-1 text-[9px] leading-relaxed text-muted-foreground/55">
+              <summary className="break-anywhere cursor-pointer">
+                Technical details: {warning.code}
+              </summary>
+              <p className="break-anywhere mt-1">{warning.message}</p>
+              {warning.sourceArtifactPath ? (
+                <div className="break-anywhere mt-1 font-mono">
+                  {warning.sourceArtifactPath}
+                </div>
+              ) : null}
+            </details>
           </div>
         ))}
       </div>
@@ -1352,45 +1369,45 @@ function ContextInspector({
     <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-border bg-card/20">
       <div className="border-b border-border px-4 pb-2 pt-3">
         <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground/40">
-          Context
+          Route &amp; evidence context
         </div>
+        <p className="break-anywhere mt-1 text-[10px] leading-relaxed text-muted-foreground/55">
+          Reference details for the current route and selected supporting
+          workspace.
+        </p>
       </div>
       <div className="flex flex-1 flex-col gap-4 px-4 py-3">
         <InspectorSection
-          title="Active Route"
+          title="Workspace"
+          items={[
+            ["Supporting screen", activeManualItem?.label ?? "None selected"],
+            ["Screen purpose", activeManualItem?.shortDesc ?? "No supporting screen selected"],
+          ]}
+        />
+        <InspectorSection
+          title="Route metadata"
           items={[
             ["Phase", action?.phaseId ?? "None reported"],
             ["Work Card", action?.workCardId ?? "None reported"],
             ["Status", action?.status ?? "Unknown"],
-            ["Manual screen", activeManualItem?.label ?? "None selected"],
+            ["Evidence files", String(action?.sourceArtifacts.length ?? 0)],
+            ["Missing inputs", String(action?.missingArtifacts.length ?? 0)],
+            ["Notices", String(warnings.length + errorMessages.length)],
           ]}
         />
         <InspectorArtifactSection
-          title="Evidence"
+          title="Evidence index"
           artifacts={action?.sourceArtifacts ?? []}
         />
         <InspectorMissingSection
-          title="Missing"
+          title="Missing inputs"
           missing={action?.missingArtifacts ?? []}
         />
         <InspectorWarningSection
-          title="Warnings"
+          title="Notice index"
           warnings={warnings}
           errors={errorMessages}
         />
-        {action?.manualFallback ? (
-          <div>
-            <SectionLabel>Manual Fallback</SectionLabel>
-            <div className="rounded-md border border-border bg-white/[0.025] p-2.5">
-              <div className="mb-1 font-mono text-[10px] text-primary/75">
-                {action.manualFallback.artifactPath ?? "Available"}
-              </div>
-              <p className="text-[11px] leading-relaxed text-muted-foreground/70">
-                {action.manualFallback.instructions}
-              </p>
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -1625,7 +1642,7 @@ function InfoBlock({
       <PanelLabel>{label}</PanelLabel>
       <p
         className={cn(
-          "text-xs leading-relaxed",
+          "break-anywhere min-w-0 text-xs leading-relaxed",
           tone === "success" && "text-emerald-400/70",
           tone === "warning" && "text-amber-400/70",
           !tone && "text-muted-foreground/80",
@@ -1660,12 +1677,12 @@ function Notice({
   return (
     <div
       className={cn(
-        "flex gap-2 rounded-md border px-3 py-2 text-xs leading-relaxed",
+        "flex min-w-0 gap-2 rounded-md border px-3 py-2 text-xs leading-relaxed",
         styles[type],
       )}
     >
       <span className="mt-0.5 shrink-0">{icons[type]}</span>
-      <span>{children}</span>
+      <span className="break-anywhere min-w-0">{children}</span>
     </div>
   );
 }
@@ -1681,7 +1698,7 @@ function ArtifactLine({
       <span className="min-w-[64px] shrink-0 text-muted-foreground/45">
         {artifact.role}
       </span>
-      <span className="truncate font-mono">{artifact.path}</span>
+      <span className="break-anywhere min-w-0 font-mono">{artifact.path}</span>
     </div>
   );
 }
@@ -1702,7 +1719,7 @@ function InspectorSection({
             <span className="text-[10px] leading-none text-muted-foreground/45">
               {label}
             </span>
-            <span className="text-[11px] leading-snug text-foreground/65">
+            <span className="break-anywhere text-[11px] leading-snug text-foreground/65">
               {value}
             </span>
           </div>
@@ -1765,7 +1782,7 @@ function InspectorMissingSection({
             <div className="break-all font-mono text-[10px] leading-relaxed text-amber-300/80">
               {artifact.path}
             </div>
-            <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground/65">
+            <div className="break-anywhere mt-1 text-[11px] leading-relaxed text-muted-foreground/65">
               {artifact.reason}
             </div>
           </div>
@@ -1793,7 +1810,7 @@ function InspectorWarningSection({
     ...warnings.map((warning) => ({
       key: `${warning.code}|${warning.sourceArtifactPath ?? warning.message}`,
       label: warning.code,
-      message: warning.message,
+      message: plainLanguageWarning(warning),
       tone:
         warning.severity === "blocking"
           ? "text-red-300/85"
@@ -1819,7 +1836,12 @@ function InspectorWarningSection({
             <div className="mb-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/45">
               {entry.label}
             </div>
-            <p className={cn("text-[11px] leading-relaxed", entry.tone)}>
+            <p
+              className={cn(
+                "break-anywhere text-[11px] leading-relaxed",
+                entry.tone,
+              )}
+            >
               {entry.message}
             </p>
           </div>
@@ -1832,6 +1854,32 @@ function InspectorWarningSection({
       </div>
     </div>
   );
+}
+
+function plainLanguageWarning(
+  warning: ChampCityCurrentRequiredActionWarning,
+): string {
+  if (warning.code === "stale_current_executable_work_card") {
+    return "The roadmap's current Work Card label is behind the newer planning evidence. The app is following the newer Work Card records.";
+  }
+
+  if (warning.code === "superseded_phase_artifact") {
+    return "An older planning file is available for reference only. It does not control the current workflow.";
+  }
+
+  if (warning.code === "missing_stale_validation_target") {
+    return "An older validation report points to a file that is no longer present. This is historical context and does not block the current action.";
+  }
+
+  if (warning.code.endsWith("_read_warning")) {
+    return "The app could not read one supporting file, so some route context may be incomplete. The technical details identify the file.";
+  }
+
+  if (warning.code.endsWith("_json_invalid")) {
+    return "A supporting planning file is not valid JSON, so some route context may be missing. The technical details identify the file.";
+  }
+
+  return warning.message;
 }
 
 function roleLabel(role: string): string {

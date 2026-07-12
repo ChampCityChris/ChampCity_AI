@@ -2,8 +2,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
+  type ClipboardEvent as ReactClipboardEvent,
   type ReactNode,
 } from "react";
 import {
@@ -32,7 +34,16 @@ import {
 } from "lucide-react";
 
 import logoImage from "../assets/champcity_ai_ui_branding.png";
-import { WorkflowRouterShell } from "./WorkflowRouterShell";
+import {
+  readHumanValidationDraft,
+  storeHumanValidationDraft,
+  type HumanValidationDraft,
+  type HumanValidationDraftCache,
+} from "../../shared/workCards/humanValidationDrafts";
+import {
+  getManualScreenForCurrentAction,
+  WorkflowRouterShell,
+} from "./WorkflowRouterShell";
 
 type AppScreen =
   | "project-intake"
@@ -251,10 +262,7 @@ const initialWorkCardForm: ChampCityWorkCardDraftInput = {
   operatorNotes: "",
 };
 
-const initialHumanValidationForm: Omit<
-  ChampCityHumanValidationFormInput,
-  "phase" | "workCardFileName" | "builderReportFileName"
-> = {
+const initialHumanValidationForm: HumanValidationDraft = {
   validationResult: "Not Tested",
   testedItems: "",
   passedItems: "",
@@ -392,12 +400,17 @@ export default function App() {
     useState<AppScreen>("project-intake");
   const [phase, setPhase] = useState(defaultPhase);
   const [activeCard, setActiveCard] = useState<UiWorkCardSummary | null>(null);
+  const [humanValidationDrafts, setHumanValidationDrafts] =
+    useState<HumanValidationDraftCache>({});
+  const [humanValidationTargetSelections, setHumanValidationTargetSelections] =
+    useState<Record<string, string>>({});
   const [currentActionResult, setCurrentActionResult] =
     useState<ChampCityCurrentRequiredActionResult | null>(null);
   const [currentActionLoadState, setCurrentActionLoadState] = useState<
     "loading" | "ready" | "error"
   >("loading");
   const [currentActionError, setCurrentActionError] = useState<string>();
+  const hasAlignedInitialWorkspace = useRef(false);
   const { phases: availablePhases } = useAvailablePhases();
   const phaseOptions = useMemo(
     () => buildPhaseOptions(phase, availablePhases),
@@ -446,7 +459,23 @@ export default function App() {
     if (currentAction?.phaseId) {
       setPhase(currentAction.phaseId);
     }
-  }, [currentActionResult]);
+
+    if (!currentAction || hasAlignedInitialWorkspace.current) {
+      return;
+    }
+
+    const suggestedScreen = getManualScreenForCurrentAction(currentAction);
+
+    if (
+      activeScreen === "project-intake" &&
+      suggestedScreen !== "project-intake" &&
+      workflowSteps.some((step) => step.id === suggestedScreen)
+    ) {
+      setActiveScreen(suggestedScreen as AppScreen);
+    }
+
+    hasAlignedInitialWorkspace.current = true;
+  }, [activeScreen, currentActionResult]);
 
   function handlePhaseChange(nextPhase: string) {
     setPhase(nextPhase);
@@ -580,6 +609,33 @@ export default function App() {
         onPhaseChange={handlePhaseChange}
         activeCard={activeCard}
         onActiveCardChange={setActiveCard}
+        drafts={humanValidationDrafts}
+        selectedTargetFileName={
+          humanValidationTargetSelections[phase] ?? ""
+        }
+        onSelectedTargetFileNameChange={(fileName) =>
+          setHumanValidationTargetSelections((previous) => ({
+            ...previous,
+            [phase]: fileName,
+          }))
+        }
+        onDraftChange={(targetFileName, updateDraft) =>
+          setHumanValidationDrafts((previous) =>
+            storeHumanValidationDraft(
+              previous,
+              phase,
+              targetFileName,
+              updateDraft(
+                readHumanValidationDraft(
+                  previous,
+                  phase,
+                  targetFileName,
+                  initialHumanValidationForm,
+                ),
+              ),
+            ),
+          )
+        }
       />
     ),
     "phase-closeout": (
@@ -6204,7 +6260,19 @@ function HumanValidationScreen({
   activeCard,
   onPhaseChange,
   onActiveCardChange,
-}: ScreenProps) {
+  drafts,
+  selectedTargetFileName,
+  onSelectedTargetFileNameChange,
+  onDraftChange,
+}: ScreenProps & {
+  drafts: HumanValidationDraftCache;
+  selectedTargetFileName: string;
+  onSelectedTargetFileNameChange: (fileName: string) => void;
+  onDraftChange: (
+    targetFileName: string,
+    updateDraft: (draft: HumanValidationDraft) => HumanValidationDraft,
+  ) => void;
+}) {
   const { targets, invalidFiles, errors: listErrors, isLoading } =
     useValidationTargets(phase);
   const {
@@ -6213,9 +6281,9 @@ function HumanValidationScreen({
     isLoading: isValidationStatusLoading,
     reload: reloadValidationStatuses,
   } = useValidationStatuses(phase);
-  const [selectedFileName, setSelectedFileName] = useState(() =>
-    activeCard?.phase === phase ? activeCard.fileName ?? "" : "",
-  );
+  const selectedFileName =
+    selectedTargetFileName ||
+    (activeCard?.phase === phase ? activeCard.fileName ?? "" : "");
   const [builderReports, setBuilderReports] = useState<
     ChampCityHumanValidationBuilderReportOption[]
   >([]);
@@ -6224,7 +6292,12 @@ function HumanValidationScreen({
   >([]);
   const [selectedBuilderReportFileName, setSelectedBuilderReportFileName] =
     useState("");
-  const [form, setForm] = useState(initialHumanValidationForm);
+  const form = readHumanValidationDraft(
+    drafts,
+    phase,
+    selectedFileName,
+    initialHumanValidationForm,
+  );
   const [previewResult, setPreviewResult] =
     useState<ChampCityHumanValidationPreviewResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -6281,21 +6354,29 @@ function HumanValidationScreen({
     const headerSelectedFileName =
       activeCard?.phase === phase ? activeCard.fileName ?? "" : "";
 
-    setSelectedFileName((previous) => {
-      if (
-        headerSelectedFileName &&
-        targets.some((target) => target.fileName === headerSelectedFileName)
-      ) {
-        return previous === headerSelectedFileName
-          ? previous
-          : headerSelectedFileName;
-      }
+    const nextFileName =
+      selectedTargetFileName &&
+      targets.some((target) => target.fileName === selectedTargetFileName)
+        ? selectedTargetFileName
+        : headerSelectedFileName &&
+      targets.some((target) => target.fileName === headerSelectedFileName)
+        ? headerSelectedFileName
+        : targets.some((target) => target.fileName === selectedFileName)
+          ? selectedFileName
+          : targets[0]?.fileName ?? "";
 
-      return targets.some((target) => target.fileName === previous)
-        ? previous
-        : targets[0]?.fileName ?? "";
-    });
-  }, [activeCard?.fileName, activeCard?.phase, phase, targets]);
+    if (nextFileName !== selectedTargetFileName) {
+      onSelectedTargetFileNameChange(nextFileName);
+    }
+  }, [
+    activeCard?.fileName,
+    activeCard?.phase,
+    onSelectedTargetFileNameChange,
+    phase,
+    selectedFileName,
+    selectedTargetFileName,
+    targets,
+  ]);
 
   useEffect(() => {
     setImportedEvidencePaths([]);
@@ -6440,25 +6521,24 @@ function HumanValidationScreen({
   }, [validationInput, isLoading]);
 
   function updateForm<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
-    setForm((previous) => ({ ...previous, [field]: value }));
-  }
-
-  async function importEvidenceFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
+    if (!selectedFileName) {
       return;
     }
 
+    onDraftChange(selectedFileName, (previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
+
+  async function attachEvidenceFile(file: File, successMessage: string) {
     if (!selectedFileName) {
       setErrors(["Select a Validation Target before attaching evidence."]);
-      event.target.value = "";
       return;
     }
 
     if (!/\.(png|jpe?g|webp|gif|txt|md)$/i.test(file.name)) {
       setErrors(["Attach a .png, .jpg, .jpeg, .webp, .gif, .txt, or .md file."]);
-      event.target.value = "";
       return;
     }
 
@@ -6490,21 +6570,59 @@ function HumanValidationScreen({
         result.savedRelativePath as string,
         ...previous,
       ]);
-      setForm((previous) => ({
+      onDraftChange(selectedFileName, (previous) => ({
         ...previous,
         screenshotOrFileReferences: appendLine(
           previous.screenshotOrFileReferences,
           result.savedRelativePath as string,
         ),
       }));
-      setStatusMessage("Evidence file attached.");
+      setStatusMessage(successMessage);
     } catch {
       setIsBusy(false);
       setErrors(["The evidence file could not be attached."]);
       setStatusMessage("Evidence import needs attention.");
-    } finally {
-      event.target.value = "";
     }
+  }
+
+  async function importEvidenceFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      await attachEvidenceFile(file, "Evidence file attached.");
+    }
+
+    event.target.value = "";
+  }
+
+  async function pasteScreenshotEvidence(
+    event: ReactClipboardEvent<HTMLTextAreaElement>,
+  ) {
+    const clipboardImage =
+      Array.from(event.clipboardData.files).find((file) =>
+        file.type.startsWith("image/"),
+      ) ??
+      Array.from(event.clipboardData.items)
+        .find((item) => item.type.startsWith("image/"))
+        ?.getAsFile();
+
+    if (!clipboardImage) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const extension = clipboardImage.type.split("/")[1]?.replace("jpeg", "jpg") || "png";
+    const hasSupportedExtension = /\.(png|jpe?g|webp|gif)$/i.test(
+      clipboardImage.name,
+    );
+    const file = hasSupportedExtension
+      ? clipboardImage
+      : new File([clipboardImage], `pasted-screenshot.${extension}`, {
+          type: clipboardImage.type,
+        });
+
+    await attachEvidenceFile(file, "Pasted screenshot attached.");
   }
 
   async function saveValidation() {
@@ -6553,8 +6671,11 @@ function HumanValidationScreen({
             />
             <ValidationTargetSelect
               targets={targets}
+              validationStatusByTargetFileName={
+                validationStatusByTargetFileName
+              }
               selectedFileName={selectedFileName}
-              onChange={setSelectedFileName}
+              onChange={onSelectedTargetFileNameChange}
               isLoading={isLoading}
             />
             {selectedValidationTarget ? (
@@ -6718,6 +6839,8 @@ function HumanValidationScreen({
                     className={cn(textareaCls, "break-anywhere")}
                     value={form.screenshotOrFileReferences}
                     rows={2}
+                    placeholder="Paste a screenshot, paste a repo-relative file path, or use Import Screenshot/File."
+                    onPaste={(event) => void pasteScreenshotEvidence(event)}
                     onChange={(event) =>
                       updateForm(
                         "screenshotOrFileReferences",
@@ -6725,6 +6848,11 @@ function HumanValidationScreen({
                       )
                     }
                   />
+                  <p className="break-anywhere text-[11px] leading-relaxed text-muted-foreground/60">
+                    Paste an image directly with Ctrl+V. If clipboard image paste
+                    is unavailable, paste a repo-relative path or choose a file
+                    below; failures are reported above this form.
+                  </p>
                   <label className="flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground">
                     <Upload size={13} />
                     <span>Import Screenshot/File</span>
@@ -7610,11 +7738,16 @@ function WorkCardSelect({
 
 function ValidationTargetSelect({
   targets,
+  validationStatusByTargetFileName,
   selectedFileName,
   onChange,
   isLoading,
 }: {
   targets: ChampCityValidationTargetSummary[];
+  validationStatusByTargetFileName: Map<
+    string,
+    ChampCityHumanValidationStatusSummary
+  >;
   selectedFileName: string;
   onChange: (fileName: string) => void;
   isLoading: boolean;
@@ -7632,11 +7765,17 @@ function ValidationTargetSelect({
             {isLoading ? "Loading..." : "Select a Validation Target"}
           </option>
         ) : null}
-        {targets.map((target) => (
-          <option key={target.fileName} value={target.fileName}>
-            {target.label} ({target.fileName})
-          </option>
-        ))}
+        {targets.map((target) => {
+          const status = validationStatusByTargetFileName.get(target.fileName);
+
+          return (
+            <option key={target.fileName} value={target.fileName}>
+              {target.label} — {status
+                ? `${validationStatusLabel(status)}; report ${status.validationReportMarkdownFile ?? status.validationReportJsonFile}`
+                : "not validated yet"} ({target.fileName})
+            </option>
+          );
+        })}
       </select>
     </Field>
   );
@@ -8176,15 +8315,20 @@ function ValidationStatusCard({
   }
 
   return (
-    <div className="grid min-w-0 gap-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] p-3">
+    <div
+      className={cn(
+        "grid min-w-0 gap-3 rounded-lg border p-3",
+        validationStatusContainerColor(status),
+      )}
+    >
       <div className="flex min-w-0 items-center justify-between gap-3">
         <h3 className="text-xs font-semibold text-foreground">
           Validation Status
         </h3>
         <ValidationStatusPill
-          className={validationResultColor(status.validationResult)}
+          className={validationStatusColor(status)}
         >
-          {status.validationResult}
+          {validationStatusLabel(status)}
         </ValidationStatusPill>
       </div>
       <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2.5">
@@ -8812,6 +8956,14 @@ function ManualChecklist({
     <Notice type={checklist.detected ? "info" : "warning"}>
       <div className="grid gap-2">
         <strong>Manual validation checklist</strong>
+        {checklist.sourceLabel ? (
+          <span className="break-anywhere text-[11px] text-muted-foreground/70">
+            Source: {checklist.sourceLabel}
+            {checklist.sourceFileName
+              ? ` — ${checklist.sourceFileName}`
+              : ""}
+          </span>
+        ) : null}
         <MonoBlock className="max-h-36">{checklist.text}</MonoBlock>
       </div>
     </Notice>
@@ -10053,6 +10205,82 @@ function validationResultColor(result: string): string {
   }
 
   return "border-border bg-muted text-muted-foreground";
+}
+
+function validationStatusLabel(
+  status: ChampCityHumanValidationStatusSummary,
+): string {
+  const decision = status.operatorDecision.toLowerCase();
+
+  if (decision.startsWith("deferred")) {
+    return "Deferred";
+  }
+
+  if (decision.startsWith("failed") || status.validationResult === "Fail") {
+    return "Failed";
+  }
+
+  if (decision.startsWith("blocked") || status.validationResult === "Blocked") {
+    return "Blocked";
+  }
+
+  if (decision.startsWith("partial") || status.validationResult === "Partial") {
+    return "Partial";
+  }
+
+  if (decision.startsWith("passed") && status.validationResult === "Pass") {
+    return "Passed";
+  }
+
+  return "Recorded — review decision";
+}
+
+function validationStatusColor(
+  status: ChampCityHumanValidationStatusSummary,
+): string {
+  const label = validationStatusLabel(status);
+
+  if (label === "Passed") {
+    return validationResultColor("Pass");
+  }
+
+  if (label === "Failed") {
+    return validationResultColor("Fail");
+  }
+
+  if (label === "Blocked") {
+    return validationResultColor("Blocked");
+  }
+
+  if (label === "Partial" || label === "Deferred") {
+    return validationResultColor("Partial");
+  }
+
+  return validationResultColor("Not Tested");
+}
+
+function validationStatusContainerColor(
+  status: ChampCityHumanValidationStatusSummary,
+): string {
+  const label = validationStatusLabel(status);
+
+  if (label === "Passed") {
+    return "border-emerald-400/20 bg-emerald-400/[0.04]";
+  }
+
+  if (label === "Failed") {
+    return "border-red-400/20 bg-red-400/[0.04]";
+  }
+
+  if (label === "Blocked") {
+    return "border-orange-400/20 bg-orange-400/[0.04]";
+  }
+
+  if (label === "Partial" || label === "Deferred") {
+    return "border-amber-400/20 bg-amber-400/[0.04]";
+  }
+
+  return "border-border bg-white/[0.02]";
 }
 
 function cn(...classes: (string | undefined | false | null)[]) {
