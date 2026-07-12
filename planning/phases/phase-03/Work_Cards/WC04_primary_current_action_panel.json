@@ -1,0 +1,55 @@
+{
+  "work_card_id": "WC04",
+  "phase_id": "phase-03",
+  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+  "title": "Primary Current Action Panel",
+  "status": "ready_for_implementer",
+  "created": "2026-07-12",
+  "risk_level": "high",
+  "dependencies": [
+    "WC02",
+    "WC03",
+    "planning/phases/phase-03/Work_Card_Plan.md",
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.md"
+  ],
+  "purpose": "Replace screen-picker behavior with a stronger primary guided action surface inside the WC03 workflow-router shell.",
+  "base_branch": "dev",
+  "implementation_branch": "feature/phase-03-wc04-current-action-panel",
+  "must_not_push_to": [
+    "dev",
+    "master"
+  ],
+  "must_not_merge_to_dev": true,
+  "included_scope": [
+    "Refine WorkflowRouterShell current-action panel behavior and presentation.",
+    "Use the WC02 current-action model as the only routing authority.",
+    "Display current action title, summary, reason, responsible role, status, phase, Work Card, expected output, routes, manual fallback, warnings, source artifacts, and missing artifacts clearly.",
+    "Improve warning display so severity is clear.",
+    "Separate source evidence, missing evidence, and expected output.",
+    "Clarify fallback/manual screen affordance.",
+    "Create the required WC04 Implementer Report."
+  ],
+  "out_of_scope": [
+    "Do not implement WC05-WC15 route-specific work.",
+    "Do not perform a screen-by-screen rework phase.",
+    "Do not remove existing screens.",
+    "Do not create Operator validation records.",
+    "Do not close Phase 03.",
+    "Do not push directly to dev or master."
+  ],
+  "acceptance_criteria": [
+    "The WC03 shell remains visible and recognizable.",
+    "The current-action panel is clearly the primary guided action surface.",
+    "The panel displays action title, summary, responsible role, status, reason, phase/work-card references, expected output, source evidence, missing evidence, routes, warnings, and manual fallback where available.",
+    "The panel uses WC02 current-action data and does not duplicate routing logic in the renderer.",
+    "Blocking and non-blocking warnings are visually distinct.",
+    "The fallback action opens or clearly points to the relevant subordinate screen.",
+    "Existing screens remain reachable.",
+    "Renderer filesystem access is not broadened.",
+    "WC05-WC15 route-specific scope is not implemented prematurely.",
+    "WC04 Implementer Report exists."
+  ],
+  "required_report": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04_primary_current_action_panel.md",
+  "next_action_after_completion": "Architect review of pushed WC04 feature branch and Implementer Report"
+}
