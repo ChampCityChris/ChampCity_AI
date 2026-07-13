@@ -32,6 +32,7 @@ export interface WorkCardValidationTargetFields {
   phase: string;
   status: string;
   riskLevel?: string;
+  parentWorkCardId?: string;
 }
 
 export interface InvalidValidationTargetFile {
@@ -78,12 +79,38 @@ export function buildValidationTargetFromWorkCardFields(
     title: workCard.title,
     status: workCard.status,
     risk: workCard.riskLevel,
+    parentWorkCardId: workCard.parentWorkCardId,
     sourceJsonFile: fileName,
     sourceMarkdownFile,
     expectedImplementerReportFile,
     fileName,
     label: `${workCard.workCardId} - ${workCard.title}`,
   };
+}
+
+export function resolveValidationTargetFileName(
+  targets: readonly ValidationTargetSummary[],
+  currentSelection: string,
+  routedTargetId: string | undefined,
+  alignRoutedTarget: boolean,
+): string {
+  const normalizedRoutedTargetId = routedTargetId?.trim().toLowerCase();
+
+  if (alignRoutedTarget && normalizedRoutedTargetId) {
+    const routedTarget = targets.find(
+      (target) => target.id.trim().toLowerCase() === normalizedRoutedTargetId,
+    );
+
+    if (routedTarget) {
+      return routedTarget.fileName;
+    }
+  }
+
+  if (targets.some((target) => target.fileName === currentSelection)) {
+    return currentSelection;
+  }
+
+  return targets[0]?.fileName ?? "";
 }
 
 export function validateValidationTargetRecord(

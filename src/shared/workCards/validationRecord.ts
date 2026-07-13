@@ -129,8 +129,14 @@ export interface HumanValidationStatusListResult {
 export interface ManualValidationChecklistExtraction {
   detected: boolean;
   text: string;
-  sourceLabel?: "Architect Review" | "Work Card" | "Implementer Report";
+  sourceLabel?:
+    | "Architect Review"
+    | "Repair Work Card"
+    | "Parent Work Card"
+    | "Work Card"
+    | "Implementer Report";
   sourceFileName?: string;
+  isFallback?: boolean;
 }
 
 export interface HumanValidationPreviewResult {

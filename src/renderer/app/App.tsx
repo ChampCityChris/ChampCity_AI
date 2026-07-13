@@ -40,6 +40,7 @@ import {
   type HumanValidationDraft,
   type HumanValidationDraftCache,
 } from "../../shared/workCards/humanValidationDrafts";
+import { resolveValidationTargetFileName } from "../../shared/workCards/validationTarget";
 import {
   getManualScreenForCurrentAction,
   WorkflowRouterShell,
@@ -609,6 +610,13 @@ export default function App() {
         onPhaseChange={handlePhaseChange}
         activeCard={activeCard}
         onActiveCardChange={setActiveCard}
+        routedTargetId={
+          currentActionResult?.currentAction?.responsibleRole === "operator" &&
+          currentActionResult.currentAction.status === "needs_validation" &&
+          currentActionResult.currentAction.phaseId === phase
+            ? currentActionResult.currentAction.workCardId
+            : undefined
+        }
         drafts={humanValidationDrafts}
         selectedTargetFileName={
           humanValidationTargetSelections[phase] ?? ""
@@ -6260,6 +6268,7 @@ function HumanValidationScreen({
   activeCard,
   onPhaseChange,
   onActiveCardChange,
+  routedTargetId,
   drafts,
   selectedTargetFileName,
   onSelectedTargetFileNameChange,
@@ -6267,6 +6276,7 @@ function HumanValidationScreen({
 }: ScreenProps & {
   drafts: HumanValidationDraftCache;
   selectedTargetFileName: string;
+  routedTargetId?: string;
   onSelectedTargetFileNameChange: (fileName: string) => void;
   onDraftChange: (
     targetFileName: string,
@@ -6284,6 +6294,7 @@ function HumanValidationScreen({
   const selectedFileName =
     selectedTargetFileName ||
     (activeCard?.phase === phase ? activeCard.fileName ?? "" : "");
+  const lastAlignedRouteKey = useRef("");
   const [builderReports, setBuilderReports] = useState<
     ChampCityHumanValidationBuilderReportOption[]
   >([]);
@@ -6307,9 +6318,6 @@ function HumanValidationScreen({
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
     useState<ChampCityHumanValidationSaveResult | null>(null);
-  const [importedEvidencePaths, setImportedEvidencePaths] = useState<string[]>(
-    [],
-  );
 
   const selectedValidationTarget =
     targets.find((target) => target.fileName === selectedFileName) ?? null;
@@ -6353,17 +6361,35 @@ function HumanValidationScreen({
 
     const headerSelectedFileName =
       activeCard?.phase === phase ? activeCard.fileName ?? "" : "";
+    const currentSelection = selectedTargetFileName || headerSelectedFileName;
+    const routeKey = routedTargetId
+      ? `${phase}::${routedTargetId.trim().toLowerCase()}`
+      : "";
+    const routedTargetExists = Boolean(
+      routedTargetId &&
+        targets.some(
+          (target) =>
+            target.id.trim().toLowerCase() ===
+            routedTargetId.trim().toLowerCase(),
+        ),
+    );
+    const shouldAlignRoutedTarget = Boolean(
+      routeKey &&
+        routedTargetExists &&
+        lastAlignedRouteKey.current !== routeKey,
+    );
+    const nextFileName = resolveValidationTargetFileName(
+      targets,
+      currentSelection,
+      routedTargetId,
+      shouldAlignRoutedTarget,
+    );
 
-    const nextFileName =
-      selectedTargetFileName &&
-      targets.some((target) => target.fileName === selectedTargetFileName)
-        ? selectedTargetFileName
-        : headerSelectedFileName &&
-      targets.some((target) => target.fileName === headerSelectedFileName)
-        ? headerSelectedFileName
-        : targets.some((target) => target.fileName === selectedFileName)
-          ? selectedFileName
-          : targets[0]?.fileName ?? "";
+    if (shouldAlignRoutedTarget) {
+      lastAlignedRouteKey.current = routeKey;
+    } else if (!routeKey) {
+      lastAlignedRouteKey.current = "";
+    }
 
     if (nextFileName !== selectedTargetFileName) {
       onSelectedTargetFileNameChange(nextFileName);
@@ -6373,14 +6399,10 @@ function HumanValidationScreen({
     activeCard?.phase,
     onSelectedTargetFileNameChange,
     phase,
-    selectedFileName,
+    routedTargetId,
     selectedTargetFileName,
     targets,
   ]);
-
-  useEffect(() => {
-    setImportedEvidencePaths([]);
-  }, [phase, selectedFileName]);
 
   useEffect(() => {
     if (selectedFileName.trim().length === 0) {
@@ -6566,10 +6588,6 @@ function HumanValidationScreen({
         return;
       }
 
-      setImportedEvidencePaths((previous) => [
-        result.savedRelativePath as string,
-        ...previous,
-      ]);
       onDraftChange(selectedFileName, (previous) => ({
         ...previous,
         screenshotOrFileReferences: appendLine(
@@ -6596,7 +6614,7 @@ function HumanValidationScreen({
   }
 
   async function pasteScreenshotEvidence(
-    event: ReactClipboardEvent<HTMLTextAreaElement>,
+    event: ReactClipboardEvent<HTMLElement>,
   ) {
     const clipboardImage =
       Array.from(event.clipboardData.files).find((file) =>
@@ -6834,28 +6852,37 @@ function HumanValidationScreen({
                 onChange={(value) => updateForm("evidenceReferences", value)}
               />
               <Field label="Screenshots or files by path">
-                <div className="grid gap-2">
-                  <textarea
-                    className={cn(textareaCls, "break-anywhere")}
-                    value={form.screenshotOrFileReferences}
-                    rows={2}
-                    placeholder="Paste a screenshot, paste a repo-relative file path, or use Import Screenshot/File."
-                    onPaste={(event) => void pasteScreenshotEvidence(event)}
-                    onChange={(event) =>
-                      updateForm(
-                        "screenshotOrFileReferences",
-                        event.target.value,
-                      )
-                    }
-                  />
-                  <p className="break-anywhere text-[11px] leading-relaxed text-muted-foreground/60">
-                    Paste an image directly with Ctrl+V. If clipboard image paste
-                    is unavailable, paste a repo-relative path or choose a file
-                    below; failures are reported above this form.
-                  </p>
-                  <label className="flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground">
+                <div
+                  className="grid gap-2 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  tabIndex={0}
+                  title="Focus this evidence area and press Ctrl+V to paste a screenshot."
+                  onPaste={(event) => void pasteScreenshotEvidence(event)}
+                >
+                  {evidenceAttachmentPaths(form.screenshotOrFileReferences).length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 max-[720px]:grid-cols-1">
+                      {evidenceAttachmentPaths(form.screenshotOrFileReferences).map(
+                        (filePath) => (
+                          <div
+                            key={filePath}
+                            title={filePath}
+                            className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-white/[0.03] px-2.5 py-2"
+                          >
+                            <FileText size={14} className="shrink-0 text-primary/70" />
+                            <span className="truncate text-[11px] text-foreground/80">
+                              {evidenceAttachmentFileName(filePath)}
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground/55">
+                      No screenshot evidence attached.
+                    </span>
+                  )}
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground">
                     <Upload size={13} />
-                    <span>Import Screenshot/File</span>
+                    <span>Attach or paste screenshot</span>
                     <input
                       className="sr-only"
                       type="file"
@@ -6863,15 +6890,23 @@ function HumanValidationScreen({
                       onChange={(event) => void importEvidenceFile(event)}
                     />
                   </label>
-                  {importedEvidencePaths.length > 0 ? (
-                    <div className="grid gap-1 text-[10px] text-muted-foreground/70">
-                      {importedEvidencePaths.slice(0, 3).map((filePath) => (
-                        <code key={filePath} className="break-anywhere">
-                          {filePath}
-                        </code>
-                      ))}
-                    </div>
-                  ) : null}
+                  <details className="rounded-md border border-border bg-black/10 px-3 py-2 text-[11px] text-muted-foreground/65">
+                    <summary className="cursor-pointer font-medium text-foreground/70">
+                      Add or edit repo-relative paths
+                    </summary>
+                    <textarea
+                      className={cn(textareaCls, "mt-2 break-anywhere")}
+                      value={form.screenshotOrFileReferences}
+                      rows={2}
+                      placeholder="Paste an image or enter a repo-relative evidence path."
+                      onChange={(event) =>
+                        updateForm(
+                          "screenshotOrFileReferences",
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </details>
                 </div>
               </Field>
             </FieldRow>
@@ -8956,9 +8991,15 @@ function ManualChecklist({
     <Notice type={checklist.detected ? "info" : "warning"}>
       <div className="grid gap-2">
         <strong>Manual validation checklist</strong>
+        {checklist.isFallback ? (
+          <span className="break-anywhere text-[11px] font-medium leading-relaxed text-amber-200/85">
+            No durable Architect validation guidance found for this target.
+            Showing fallback guidance.
+          </span>
+        ) : null}
         {checklist.sourceLabel ? (
           <span className="break-anywhere text-[11px] text-muted-foreground/70">
-            Source: {checklist.sourceLabel}
+            Checklist source: {checklist.sourceLabel}
             {checklist.sourceFileName
               ? ` — ${checklist.sourceFileName}`
               : ""}
@@ -10054,6 +10095,18 @@ function appendLine(value: string, nextLine: string): string {
   const trimmed = value.trim();
 
   return trimmed.length > 0 ? `${trimmed}\n${nextLine}` : nextLine;
+}
+
+function evidenceAttachmentPaths(value: string): string[] {
+  return value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+function evidenceAttachmentFileName(filePath: string): string {
+  return filePath.split(/[\\/]/).filter(Boolean).pop() ?? "Evidence file";
 }
 
 function validateWorkCardForm(form: ChampCityWorkCardDraftInput): string[] {

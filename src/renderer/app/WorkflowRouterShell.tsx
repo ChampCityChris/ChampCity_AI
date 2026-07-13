@@ -378,11 +378,6 @@ export function WorkflowRouterShell({
         >
           {children}
         </ArtifactWorkspace>
-        <ContextInspector
-          action={action}
-          result={currentActionResult}
-          activeManualItem={activeManualItem}
-        />
       </div>
       <ActivityLog
         action={action}
@@ -508,17 +503,18 @@ function ManualFallbackBar({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
+          title="Browse screens beyond the route-specific action button"
           className="flex h-8 items-center gap-1.5 border-r border-border px-3 text-[11px] text-muted-foreground/70 transition-colors hover:bg-white/[0.04] hover:text-foreground"
         >
-          <Zap size={11} />
-          Supporting screens
+          <Wrench size={11} />
+          More tools
           <ChevronDown size={10} />
         </button>
         {open ? (
           <div className="absolute left-0 top-full z-50 mt-1 grid min-w-[480px] grid-cols-2 gap-1.5 rounded-lg border border-border bg-card p-1.5 shadow-xl">
             <p className="break-anywhere col-span-2 px-2 pb-1 text-[10px] leading-relaxed text-muted-foreground/60">
-              Supporting screens help complete the routed current action. They
-              do not replace the current-action guidance.
+              Manual tool directory. Use the primary action button for the
+              routed screen; browse here only when another tool is needed.
             </p>
             <ManualNavGroup
               title="Architect"
