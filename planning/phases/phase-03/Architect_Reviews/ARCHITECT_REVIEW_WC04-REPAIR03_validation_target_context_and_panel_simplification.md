@@ -11,9 +11,10 @@ Reviewed by: Architect
 ## Reviewed Branch
 
 - Branch: `feature/phase-03-wc04-repair03-validation-target-context`
-- Base branch reported by Implementer: `feature/phase-03-wc04-repair02-routing-gate`
+- Required base branch: `feature/phase-03-wc04-repair02-routing-gate`
+- Repository status at review time: working tree contains only previously identified unrelated/untracked generated files outside this repair scope
 - Merge to `dev`: not performed
-- Changes to `master`: none
+- Change to `master`: not performed
 
 ## Reviewed Implementer Report
 
@@ -21,144 +22,126 @@ Reviewed by: Architect
 
 ## Source Validation Failure
 
-WC04-REPAIR03 was created after WC04-REPAIR01 validation recorded:
+The repair responds to failed WC04-REPAIR01 Operator validation, which identified these unresolved issues:
 
-- `Validation Result: Partial`
-- `Operator Decision: Failed - repair needed`
-
-Validated failures addressed by this repair were:
-
-- Human Validation opened to the repair workflow but selected WC01 instead of WC04-REPAIR01.
-- Prior Work Cards showed as not validated even when durable reports existed.
+- Human Validation opened on the repair route but selected WC01 instead of WC04-REPAIR01.
 - Checklist guidance did not reliably use Architect guidance.
-- Right-side context panel duplicated the left-side current-action panel.
-- Screenshot evidence display was too verbose and path-heavy.
-- Supporting-screen navigation was redundant/confusing.
+- Prior validation targets still showed as not validated.
+- The right context panel duplicated left-panel information.
+- Screenshot evidence display was too verbose.
+- Supporting-screen navigation felt redundant.
 
 ## Review Outcome
 
 WC04-REPAIR03 is ready for Operator validation.
 
-No further repair is required before Operator validation.
-
-## Scope Review
-
-The Implementer Report states the repair was limited to validation target selection, validation status/report context, checklist guidance precedence, right-panel simplification, screenshot evidence display, and supporting-screen navigation simplification.
-
-The report also states WC05-WC15 were not implemented and the live current-action route remains `WC04-REPAIR01 / repair_validation_required`, not WC05.
-
-This matches the WC04-REPAIR03 scope.
-
-## Files Reported By Implementer
-
-Created:
-
-- `scripts/verify-wc04-repair03.mjs`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md`
-
-Modified:
-
-- `src/shared/workCards/validationTarget.ts`
-- `src/shared/workCards/validationRecord.ts`
-- `src/main/workCards/workCardFileStore.ts`
-- `src/renderer/app/App.tsx`
-- `src/renderer/app/WorkflowRouterShell.tsx`
-
-Not created or modified:
-
-- no WC05-WC15 Work Card, UI, route-specific behavior, or planning artifact
-- no Operator validation record or Human Validation acceptance record
-- no WC02 current-action evaluator change
-- no dependency, provider SDK, database, cloud, auth, connector, deployment, or unrestricted renderer filesystem access
+No additional repair is required before Operator validation.
 
 ## Technical Review
 
-### Pass: route-driven validation target selection
+### Pass: Route-driven validation target selection
 
-The Implementer Report states that Human Validation now receives the durable routed Work Card ID when the current action belongs to the selected phase, is Operator-owned, and has `needs_validation` status. The route is resolved generically to a matching validation target file.
+The Implementer Report states that Human Validation now resolves the routed repair target generically from the current action Work Card ID and selects the matching validation target file. For the current route, WC04-REPAIR01 resolves to `WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json`.
 
-For the current durable repair route, `WC04-REPAIR01` resolves to `WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json` instead of falling back to WC01.
+The report also states that manual target selection is preserved after the initial route alignment, so the Operator can still intentionally inspect another target without the route repeatedly overwriting that choice.
 
-This addresses the primary validation-target selection failure.
+### Pass: Prior validation target context
 
-### Pass: manual target selection is preserved
+The report states that validation report loading now recognizes both current validation record shape and the legacy Phase 03 snake-case record shape. It specifically confirms visibility for:
 
-The report states that route alignment is applied once per route key and later manual selection is not overwritten. The focused fixture confirms initial WC04 repair routing selects WC04-REPAIR01 and later manual selection of WC02 remains selected.
+- WC01 pass / Passed - proceed
+- WC04 raw Pass with effective Deferred decision
+- WC04-REPAIR01 raw Partial with effective Failed decision
+- associated validation report filename context
 
-This addresses the risk of making the app forcibly route every render and preserves Operator control.
+This addresses the reported problem that prior work cards appeared as not validated.
 
-### Pass: prior validation status/report context is improved
+### Pass: Checklist source precedence
 
-The report states that durable validation-report loading now recognizes both current validation records and the older Phase 03 snake-case validation record shape. It reports effective status, raw result, Operator decision, JSON/Markdown report names, and timestamp.
+The report states that checklist guidance now uses this precedence:
 
-The report also states that deferred, failed, partial, blocked, passed, and not-yet-validated states remain distinct.
+1. exact or repair-chain-related Architect Review guidance;
+2. selected repair or Work Card acceptance criteria / validation expectations;
+3. parent Work Card criteria / validation expectations;
+4. selected Implementer Report manual validation section.
 
-This addresses the prior-target context failure.
+The report states that the WC04 repair path uses `ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md`, which references the selected WC04-REPAIR01 target. It also states fallback sources are explicitly labeled when durable Architect guidance is unavailable.
 
-### Pass: checklist source precedence is clarified
+Architect disposition: acceptable for validation. Operator should confirm the visible checklist now reads like Architect validation guidance rather than Implementer self-validation.
 
-The report states the checklist source order is now:
+### Pass: Right context panel simplification
 
-1. exact or repair-chain-related durable Architect Review guidance
-2. selected repair/Work Card acceptance criteria or validation expectations
-3. parent Work Card acceptance criteria or validation expectations
-4. selected Implementer Report manual validation section
+The report states that the shell no longer renders the right-side route/evidence context inspector. Route authority, reason, evidence, missing inputs, warnings, expected output, and route-specific action remain in the left current-action panel, while the central workspace gains width.
 
-The report also states the UI labels fallback sources explicitly when durable Architect guidance is missing.
+This addresses the Operator’s concern that the right context panel duplicated the left panel.
 
-This sufficiently addresses the checklist guidance problem for Operator validation.
+### Pass: Screenshot evidence simplification
 
-### Pass: right context panel simplification
+The report states that screenshot/file references now render as concise attachment cards showing filenames, with durable repo-relative paths available only in a collapsed editor. Clipboard paste and constrained IPC file attachment remain available. No new renderer filesystem access or dependency was added.
 
-The report states the right-side route/evidence context inspector is no longer rendered, returning space to the central artifact workspace and leaving the left panel as the route authority.
+Architect disposition: acceptable for validation. Operator should still confirm the screenshot experience is usable enough, noting that thumbnail previews were intentionally not added in this pass.
 
-This addresses the duplicate-panel failure. Operator validation should confirm the resulting layout still feels usable and does not remove needed context.
+### Pass: Supporting-screen navigation simplification
 
-### Pass: screenshot evidence display simplified
+The report states that the top Supporting Screens dropdown has been replaced by a collapsed `More tools` directory and that the route-specific primary action remains the intended path.
 
-The report states screenshot/file references now render as concise attachment cards showing filenames rather than full paths, with repo-relative paths moved into a collapsed editor. Clipboard paste and constrained file import remain available.
+This addresses the redundancy concern while preserving access to existing screens.
 
-This addresses the screenshot evidence verbosity issue within the approved scope. A live image thumbnail was intentionally not added because that would require a separate safe renderer delivery mechanism.
+### Pass: Routing gate preserved
+
+The report states that existing current-action fixtures still confirm the live route remains `WC04-REPAIR01 / repair_validation_required` and does not advance to WC05.
+
+This preserves the WC04-REPAIR02 routing-gate fix.
 
 ## Validation Review
 
 Reported validation passed:
 
-- `node --check scripts/verify-wc04-repair03.mjs`
 - `npm run validate:codex`
+- `node --check scripts/verify-wc04-repair03.mjs`
 - `node scripts/verify-wc04-repair03.mjs`
 - `node scripts/verify-work-card-fixture.mjs --current-action-only`
 - `node scripts/verify-wc04-repair01.mjs`
 - `git diff --check`
 
-The report states the current-action fixture confirms the live route remains `WC04-REPAIR01 / repair_validation_required`, not WC05.
+Reported skipped validation:
 
-Reported skipped validation is acceptable: Operator visual/usability validation, Electron interactive startup, and screenshot-paste usability judgment remain Operator-owned.
+- Operator manual/visual/usability validation, because it is Operator-owned
+- Electron interactive visual acceptance, because this belongs to Operator validation
+- separate unit/build wrapper calls, because the full validation wrapper ran the required test/type/build work
 
-## Residual Risks
+Architect disposition: acceptable. The repair is ready for Operator validation.
 
-- Screenshot evidence is displayed as filename cards, not live thumbnails. If the Operator requires image previews, that should become a separate approved repair or later Work Card because it requires a safe renderer file-serving/design path.
-- The right context panel removal should be validated visually to ensure it improves clarity rather than simply removing useful evidence.
-- Architect guidance selection depends on durable Architect Review artifacts referencing target IDs clearly.
-- Some legacy validation status vocabulary may still be unsupported if future historical artifacts use different wording.
-- Two unrelated untracked/generated paths remain outside this repair scope and should not be committed casually:
-  - `planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
-  - `planning/phases/phase-03/Validation_Evidence/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation/image.png`
+## Remaining Untracked Items
+
+The Implementer Report and MCP status identify two unrelated pre-existing untracked paths that were intentionally not staged:
+
+- `planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
+- `planning/phases/phase-03/Validation_Evidence/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation/image.png`
+
+These are not part of WC04-REPAIR03 acceptance and should not be merged accidentally unless separately reviewed.
 
 ## Operator Validation Guidance
 
-Operator validation should focus on these items:
+Operator validation should confirm:
 
 1. Current WC04 repair route opens Human Validation with WC04-REPAIR01 selected.
-2. A later manual target choice remains selected and is not overwritten by rerendering.
-3. Prior targets show effective/raw status, Operator decision, report filename, and timestamp context where available.
+2. A later manual target choice remains selected and is not overwritten.
+3. Prior targets show effective/raw status, Operator decision, report filename, and timestamp context.
 4. Durable WC04-REPAIR02 Architect guidance is shown for the current target.
 5. Fallback guidance is clearly labeled when durable Architect guidance is absent.
 6. The right context panel is absent or no longer duplicates the left current-action panel.
 7. Screenshot paste/import and concise evidence cards are usable.
-8. `More tools`, the process rail, and the primary action button retain expected screen reachability.
+8. More tools, process rail, and primary action button retain expected screen reachability.
 9. Current-action routing remains on WC04-REPAIR01 repair validation and does not advance to WC05.
 10. WC05-WC15 behavior has not been implemented prematurely.
+
+## Residual Risks
+
+- Screenshot display uses concise filename cards rather than image thumbnails. Thumbnail previews would require a separately approved safe renderer delivery path.
+- Architect guidance discovery depends on durable Architect Review content and naming conventions. Future reviews should continue to include explicit Operator validation guidance.
+- The two unrelated untracked generated paths remain outside this repair.
+- Operator visual/usability judgment is still required before resolving the WC04 repair chain.
 
 ## Decision
 
@@ -168,6 +151,4 @@ No additional repair is required before Operator validation.
 
 ## Recommended Next Action
 
-Operator validates WC04-REPAIR03 from `feature/phase-03-wc04-repair03-validation-target-context`.
-
-If passed, record the validation report and then merge the validated WC04 repair chain forward according to the approved branch workflow. If failed, create the next repair card from the specific failed validation evidence.
+Operator validates WC04-REPAIR03 from `feature/phase-03-wc04-repair03-validation-target-context`. If passed, record the validation report, then merge the approved repair chain into the parent WC04 feature branch and eventually into `dev` through the approved branch process. Do not start WC05 until the WC04 repair chain is durably validated and merged.
