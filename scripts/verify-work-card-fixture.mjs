@@ -642,6 +642,25 @@ async function assertCurrentRequiredActionModel() {
         ],
       },
     })],
+    ["operator_validation_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            architectReview: {
+              status: "Ready for Operator Validation",
+              sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
+            },
+            validation: validation(
+              "Fail",
+              "Failed - repair needed",
+              false,
+              { routeBlocked: true },
+            ),
+          }),
+        ],
+      },
+    })],
     ["repair_sub_card_creation_required", makeCurrentActionState({
       activePhase: {
         workCards: [
@@ -878,6 +897,14 @@ async function assertCurrentRequiredActionModel() {
     "WC04-REPAIR01": [
       "repair_validation_required",
     ],
+    WC05: [
+      "implementer_report_required",
+      "architect_review_of_implementer_report_required",
+      "operator_validation_required",
+    ],
+    WC06: [
+      "operator_validation_required",
+    ],
   };
   const liveWorkCardId = liveCurrentAction.currentAction.workCardId;
 
@@ -974,7 +1001,7 @@ function workCard(overrides = {}) {
   };
 }
 
-function validation(result, decision, repairRequired) {
+function validation(result, decision, repairRequired, overrides = {}) {
   return {
     result,
     decision,
@@ -982,6 +1009,7 @@ function validation(result, decision, repairRequired) {
     sourceArtifacts: [
       artifact("planning/phases/phase-99/Validation_Reports/VALIDATION_REPORT_WC01_fixture_work_card.md", "Validation Report"),
     ],
+    ...overrides,
   };
 }
 

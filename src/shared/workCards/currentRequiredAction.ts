@@ -115,6 +115,7 @@ export interface CurrentActionValidationState {
   result?: string;
   decision?: string;
   repairRequired?: boolean;
+  routeBlocked?: boolean;
   sourceArtifacts: CurrentActionArtifactReference[];
 }
 
@@ -896,8 +897,17 @@ function evaluateWorkCardState(
     workCard.architectReview.sourceArtifact,
   ]);
 
-  if (!workCard.validation) {
+  if (architectReviewRequiresRepair(workCard.architectReview)) {
+    return evaluateRepairRoute(phase, workCard, reviewSources, warnings);
+  }
+
+  const validationNeedsRetry = workCard.validation?.routeBlocked === true;
+
+  if (!workCard.validation || validationNeedsRetry) {
     const expectedPath = `planning/phases/${phase.phaseId}/Validation_Reports/VALIDATION_REPORT_${workCard.workCardId}_${slugifyForPath(workCard.title)}.md`;
+    const validationSources = validationNeedsRetry
+      ? workCard.validation?.sourceArtifacts ?? []
+      : [];
 
     return action(warnings, {
       id: "operator_validation_required",
@@ -911,14 +921,19 @@ function evaluateWorkCardState(
       workCardId: workCard.workCardId,
       workCardTitle: workCard.title,
       status: "needs_validation",
-      reason:
-        "Architect review evidence exists, but no Operator Validation Report is available.",
-      sourceArtifacts: reviewSources,
+      reason: validationNeedsRetry
+        ? "Architect review evidence is ready, but the prior validation attempt was blocked by incorrect current-action routing and did not validate the Work Card."
+        : "Architect review evidence exists, but no Operator Validation Report is available.",
+      sourceArtifacts: uniqueArtifacts([
+        ...reviewSources,
+        ...validationSources,
+      ]),
       missingArtifacts: [
         {
           path: expectedPath,
-          reason:
-            "Operator validation creates the durable Validation Record.",
+          reason: validationNeedsRetry
+            ? "A new Operator validation attempt is required because no passing Validation Record exists."
+            : "Operator validation creates the durable Validation Record.",
         },
       ],
       expectedOutput: {
@@ -1198,7 +1213,7 @@ function isCandidateResolved(
 function isFailingValidation(
   validation: CurrentActionValidationState | undefined,
 ): boolean {
-  if (!validation) {
+  if (!validation || validation.routeBlocked) {
     return false;
   }
 
@@ -1215,6 +1230,16 @@ function isFailingValidation(
 
   return ["fail", "failed", "partial", "blocked", "rejected"].includes(result) ||
     /repair/.test(result);
+}
+
+function architectReviewRequiresRepair(
+  review: CurrentActionArchitectReviewState,
+): boolean {
+  const status = normalizeStatus(review.status);
+
+  return /repair.*required|changes.*required|not.*ready.*validation/.test(
+    status,
+  );
 }
 
 function isPassingValidation(

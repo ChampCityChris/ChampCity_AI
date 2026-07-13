@@ -3751,6 +3751,11 @@ async function readCurrentActionWorkCards(
         `ARCHITECT_REVIEW_${fields.workCardId}`,
         "Architect Review",
       );
+      const architectReviewStatus = architectReviewArtifact
+        ? await readArchitectReviewStatus(
+            absoluteFromRepoPath(architectReviewArtifact.path),
+          )
+        : undefined;
       const validation = await findValidationForWorkCard(phase, fields.workCardId);
       const repair = await findRepairState(phase, fields.workCardId);
 
@@ -3765,10 +3770,11 @@ async function readCurrentActionWorkCards(
         implementerReport,
         architectReview: architectReviewArtifact
           ? {
-              status: await readFirstStatusLine(absoluteFromRepoPath(
-                architectReviewArtifact.path,
-              )),
-              sourceArtifact: architectReviewArtifact,
+              status: architectReviewStatus,
+              sourceArtifact: {
+                ...architectReviewArtifact,
+                status: architectReviewStatus ?? architectReviewArtifact.status,
+              },
             }
           : undefined,
         validation,
@@ -3832,6 +3838,7 @@ async function findValidationForWorkCard(
             getRecordString(parsed, "operatorDecision") ||
             getRecordString(parsed, "decision"),
           repairRequired: getRecordBoolean(parsed, "repair_required"),
+          routeBlocked: isRouteBlockedValidationRecord(parsed),
           sourceArtifacts,
         },
       });
@@ -4046,6 +4053,35 @@ async function readFirstStatusLine(filePath: string): Promise<string | undefined
       .find((candidate) => /^Status\s*:/i.test(candidate.trim()));
 
     return line?.replace(/^Status\s*:\s*/i, "").trim();
+  } catch {
+    return undefined;
+  }
+}
+
+async function readArchitectReviewStatus(
+  filePath: string,
+): Promise<string | undefined> {
+  const explicitStatus = await readFirstStatusLine(filePath);
+
+  if (explicitStatus) {
+    return explicitStatus;
+  }
+
+  try {
+    const content = await readFile(filePath, "utf8");
+    const repairRequired = content.match(
+      /^Repair(?: is)? required before Operator(?: visual)? validation\.?$/im,
+    );
+
+    if (repairRequired) {
+      return repairRequired[0].replace(/\.$/, "");
+    }
+
+    const ready = content.match(
+      /^Ready for Operator(?: visual)? validation\.?$/im,
+    );
+
+    return ready?.[0].replace(/\.$/, "");
   } catch {
     return undefined;
   }
@@ -4348,11 +4384,13 @@ function coerceWorkCardValidationTargetFields(
 
   const workCardId =
     getRecordString(candidate, "workCardId") ||
-    getRecordString(candidate, "work_card_id");
+    getRecordString(candidate, "work_card_id") ||
+    getRecordString(candidate, "id");
   const title = getRecordString(candidate, "title");
   const phase =
     getRecordString(candidate, "phase") ||
-    getRecordString(candidate, "phase_id");
+    getRecordString(candidate, "phase_id") ||
+    getRecordString(candidate, "phaseId");
   const status = getRecordString(candidate, "status") || "ready_for_implementer";
   const riskLevel =
     getRecordString(candidate, "riskLevel") ||
@@ -4379,6 +4417,38 @@ function coerceWorkCardValidationTargetFields(
     riskLevel,
     parentWorkCardId,
   };
+}
+
+function isRouteBlockedValidationRecord(candidate: unknown): boolean {
+  const result = normalizeCurrentActionStatus(
+    getRecordString(candidate, "validationResult") ||
+      getRecordString(candidate, "validation_result") ||
+      getRecordString(candidate, "status"),
+  );
+
+  if (!["fail", "failed", "blocked", "partial", "not_tested"].includes(result)) {
+    return false;
+  }
+
+  const detail = [
+    getRecordString(candidate, "failedItems"),
+    getRecordString(candidate, "failed_items"),
+    getRecordString(candidate, "observedErrors"),
+    getRecordString(candidate, "observed_errors"),
+    getRecordString(candidate, "additionalOperatorObservations"),
+    getRecordString(candidate, "additional_operator_observations"),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    /\bvalidation\b.{0,100}\b(?:cannot|could not|can't)\b.{0,100}\b(?:reach|open|access)/is.test(
+      detail,
+    ) ||
+    /\bad[\s-]*hoc work card capture\b.{0,160}\b(?:instead of|rather than)\b.{0,100}\bvalidation\b/is.test(
+      detail,
+    )
+  );
 }
 
 function getRecordString(candidate: unknown, key: string): string {

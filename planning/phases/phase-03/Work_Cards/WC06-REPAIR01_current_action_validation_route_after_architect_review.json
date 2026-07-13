@@ -1,0 +1,54 @@
+{
+  "workCardId": "WC06-REPAIR01",
+  "title": "Current Action Validation Route After Architect Review",
+  "phase": "phase-03",
+  "parentWorkCardId": "WC06",
+  "status": "ready_for_implementer",
+  "createdDate": "2026-07-13",
+  "baseBranch": "feature/phase-03-wc06-left-to-right-workflow-visibility",
+  "targetBranch": "feature/phase-03-wc06-repair01-validation-route",
+  "repairTrigger": "WC06 Operator validation failed because current action routed to Full Work Card creation required / Ad Hoc Work Card Capture instead of WC06 Operator validation.",
+  "primarySources": [
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md",
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+    "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
+    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md",
+    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md"
+  ],
+  "problem": "The app treats WC06 as needing full Work Card creation even though the full Work Card, Implementer Report, and Architect Review exist. The routed workspace opens Ad Hoc Work Card Capture instead of Human Validation.",
+  "goal": "Route WC06 to Operator validation after Architect Review when no passing validation report exists, and prevent routing back to full Work Card creation for an existing numbered Work Card.",
+  "includedScope": [
+    "Recognize existing WC06 Work Card artifacts",
+    "Stop routing WC06 to full Work Card creation when artifacts exist",
+    "Route Architect-reviewed WC06 to Operator validation",
+    "Ensure routed workspace is Human Validation rather than Ad Hoc Work Card Capture",
+    "Prevent premature WC07 advancement",
+    "Preserve WC06 workflow visibility",
+    "Preserve WC05 support navigation",
+    "Preserve WC04 validation and repair behavior",
+    "Add fixture coverage for the failed routing scenario"
+  ],
+  "outOfScope": [
+    "WC07-WC15 implementation",
+    "Workflow guide redesign",
+    "Full UI rework",
+    "Passing Operator validation record creation",
+    "Phase closeout",
+    "Merge to dev",
+    "Push to master",
+    "Provider SDKs, cloud services, database, auth, browser automation, MCP passthrough, connectors, or deployment code"
+  ],
+  "acceptanceCriteria": [
+    "Current action no longer routes WC06 to Full Work Card creation required when the WC06 Work Card exists",
+    "Current action routes WC06 to Operator validation after Architect Review and before passing validation",
+    "Routed workspace is Human Validation rather than Ad Hoc Work Card Capture",
+    "Current-action panel and workflow guide agree on WC06 validation state",
+    "WC06 does not advance to WC07 before validation passes",
+    "WC06 workflow visibility remains intact",
+    "WC05 supporting-tools behavior remains intact",
+    "WC04 validation/repair behavior remains intact",
+    "Focused fixture coverage exists for the failed routing scenario",
+    "WC06-REPAIR01 Implementer Report exists"
+  ],
+  "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md"
+}

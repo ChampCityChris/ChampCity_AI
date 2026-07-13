@@ -96,12 +96,12 @@ assert.equal(preview.ok, true, preview.errorMessages?.join(" "));
 assert.equal(preview.manualValidationChecklist?.sourceLabel, "Architect Review");
 assert.equal(
   preview.manualValidationChecklist?.sourceFileName,
-  "ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+  "ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
 );
 assert.equal(preview.manualValidationChecklist?.isFallback, false);
 assert.match(
   preview.manualValidationChecklist?.text ?? "",
-  /Architect disposition: acceptable for validation/,
+  /WC04 current-action panel behavior remains usable/,
 );
 
 const fallbackPreview = await previewHumanValidationRecord({
@@ -136,7 +136,7 @@ assert.equal(fallbackPreview.manualValidationChecklist?.isFallback, false);
 
 const currentActionResult = await getCurrentRequiredAction();
 assert.equal(currentActionResult.ok, true);
-assert.equal(currentActionResult.currentAction?.workCardId, "WC05");
-assert.notEqual(currentActionResult.currentAction?.workCardId, "WC06");
+assert.equal(currentActionResult.currentAction?.workCardId, "WC06");
+assert.notEqual(currentActionResult.currentAction?.workCardId, "WC07");
 
 console.log("WC04-REPAIR03 focused fixture passed.");
