@@ -21,6 +21,10 @@ import {
 } from "lucide-react";
 
 import logoImage from "../assets/champcity_ai_ui_branding.png";
+import {
+  resolveSupportNavigationState,
+  type SupportNavigationItem,
+} from "../../shared/workCards/supportNavigation";
 
 type WorkflowState =
   | "project-intake"
@@ -45,12 +49,9 @@ interface RailStep {
   group: "project" | "phase" | "loop" | "closeout";
 }
 
-interface ManualNavigationItem {
-  id: string;
+interface ManualNavigationItem extends SupportNavigationItem {
   label: string;
   mode: "architect" | "implementer";
-  screenTitle: string;
-  shortDesc: string;
 }
 
 interface ActiveCardSummary {
@@ -321,16 +322,32 @@ export function WorkflowRouterShell({
   const [activityOpen, setActivityOpen] = useState(false);
   const action = currentActionResult?.currentAction;
   const workflowState = getWorkflowStateForAction(action);
-  const activeManualItem = manualNavigationItems.find(
-    (item) => item.id === activeScreen,
-  );
   const suggestedManualScreen = getManualScreenForCurrentAction(action);
-  const suggestedManualItem = manualNavigationItems.find(
-    (item) => item.id === suggestedManualScreen,
+  const supportNavigation = resolveSupportNavigationState(
+    manualNavigationItems,
+    suggestedManualScreen,
+    activeScreen,
   );
+  const activeManualItem = supportNavigation.activeScreen;
+  const suggestedManualItem = supportNavigation.routedScreen;
+  const routedActionAvailable = Boolean(
+    action && currentActionLoadState === "ready",
+  );
+  const unresolvedRouteMessage =
+    routedActionAvailable && !supportNavigation.routedScreenResolved
+    ? `ChampCity A/I tried to open the routed screen "${suggestedManualScreen}", but that screen is not available in this build. The current action has not changed. Use Supporting tools to open an available reference or recovery screen.`
+    : undefined;
 
   function openSuggestedFallback() {
-    onManualScreenChange(suggestedManualScreen);
+    if (suggestedManualItem) {
+      onManualScreenChange(suggestedManualItem.id);
+    }
+  }
+
+  function openSupportingScreen(screen: string) {
+    if (manualNavigationItems.some((item) => item.id === screen)) {
+      onManualScreenChange(screen);
+    }
   }
 
   return (
@@ -344,22 +361,29 @@ export function WorkflowRouterShell({
         currentActionLoadState={currentActionLoadState}
         workflowState={workflowState}
       />
-      <ManualFallbackBar
+      <SupportingToolsBar
         activeScreen={activeScreen}
         activeManualItem={activeManualItem}
+        routedManualItem={suggestedManualItem}
+        routedActionAvailable={routedActionAvailable}
+        isViewingSupportingScreen={
+          routedActionAvailable
+            ? supportNavigation.isViewingSupportingScreen
+            : Boolean(activeManualItem)
+        }
         phase={phase}
         phaseOptions={phaseOptions}
         activeCard={activeCard}
         workCards={workCards}
         manualNavigationItems={manualNavigationItems}
-        onManualScreenChange={onManualScreenChange}
+        onManualScreenChange={openSupportingScreen}
         onPhaseChange={onPhaseChange}
         onCardChange={onCardChange}
       />
       <ProcessRail
         workflowState={workflowState}
         onStep={(state) =>
-          onManualScreenChange(getManualScreenForWorkflowState(state))
+          openSupportingScreen(getManualScreenForWorkflowState(state))
         }
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -368,13 +392,31 @@ export function WorkflowRouterShell({
           loadState={currentActionLoadState}
           error={currentActionError}
           onRefreshCurrentAction={onRefreshCurrentAction}
-          onOpenFallback={openSuggestedFallback}
-          fallbackLabel={suggestedManualItem?.label ?? "supporting screens"}
+          onOpenRoutedScreen={
+            routedActionAvailable && supportNavigation.routedScreenResolved
+              ? openSuggestedFallback
+              : undefined
+          }
+          routedScreenLabel={suggestedManualItem?.label ?? suggestedManualScreen}
+          unresolvedRouteMessage={unresolvedRouteMessage}
         />
         <ArtifactWorkspace
           action={action}
           activeManualItem={activeManualItem}
+          routedScreenId={suggestedManualScreen}
+          isViewingRoutedScreen={
+            routedActionAvailable && supportNavigation.isViewingRoutedScreen
+          }
+          isViewingSupportingScreen={
+            routedActionAvailable &&
+            supportNavigation.isViewingSupportingScreen
+          }
           loadState={currentActionLoadState}
+          onReturnToCurrentAction={
+            routedActionAvailable && supportNavigation.routedScreenResolved
+              ? openSuggestedFallback
+              : undefined
+          }
         >
           {children}
         </ArtifactWorkspace>
@@ -466,9 +508,12 @@ function TopStatusStrip({
   );
 }
 
-function ManualFallbackBar({
+function SupportingToolsBar({
   activeScreen,
   activeManualItem,
+  routedManualItem,
+  routedActionAvailable,
+  isViewingSupportingScreen,
   phase,
   phaseOptions,
   activeCard,
@@ -480,6 +525,9 @@ function ManualFallbackBar({
 }: {
   activeScreen: string;
   activeManualItem: ManualNavigationItem | undefined;
+  routedManualItem: ManualNavigationItem | undefined;
+  routedActionAvailable: boolean;
+  isViewingSupportingScreen: boolean;
   phase: string;
   phaseOptions: string[];
   activeCard: ActiveCardSummary | null;
@@ -503,21 +551,23 @@ function ManualFallbackBar({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
           title="Browse screens beyond the route-specific action button"
           className="flex h-8 items-center gap-1.5 border-r border-border px-3 text-[11px] text-muted-foreground/70 transition-colors hover:bg-white/[0.04] hover:text-foreground"
         >
           <Wrench size={11} />
-          More tools
+          Supporting tools
           <ChevronDown size={10} />
         </button>
         {open ? (
           <div className="absolute left-0 top-full z-50 mt-1 grid min-w-[480px] grid-cols-2 gap-1.5 rounded-lg border border-border bg-card p-1.5 shadow-xl">
             <p className="break-anywhere col-span-2 px-2 pb-1 text-[10px] leading-relaxed text-muted-foreground/60">
-              Manual tool directory. Use the primary action button for the
-              routed screen; browse here only when another tool is needed.
+              Reference and recovery tools. Opening one changes only the
+              workspace view; it does not complete or advance the current
+              action.
             </p>
             <ManualNavGroup
-              title="Architect"
+              title="Architect support"
               items={architectItems}
               activeScreen={activeScreen}
               onSelect={(screen) => {
@@ -526,7 +576,7 @@ function ManualFallbackBar({
               }}
             />
             <ManualNavGroup
-              title="Implementer"
+              title="Implementer support"
               items={implementerItems}
               activeScreen={activeScreen}
               onSelect={(screen) => {
@@ -537,12 +587,23 @@ function ManualFallbackBar({
           </div>
         ) : null}
       </div>
-      <span className="min-w-0 truncate px-3 text-[10px] text-muted-foreground/45">
-        {activeManualItem?.screenTitle ?? activeScreen}
+      <span
+        className={cn(
+          "min-w-0 truncate px-3 text-[10px]",
+          isViewingSupportingScreen
+            ? "text-amber-300/80"
+            : "text-primary/70",
+        )}
+      >
+        {!routedActionAvailable
+          ? `Supporting workspace: ${activeManualItem?.screenTitle ?? activeScreen}`
+          : isViewingSupportingScreen
+          ? `Viewing supporting screen: ${activeManualItem?.screenTitle ?? activeScreen}`
+          : `Routed workspace: ${routedManualItem?.screenTitle ?? activeManualItem?.screenTitle ?? activeScreen}`}
       </span>
       <div className="flex-1" />
       <label className="flex h-8 items-center gap-1.5 border-l border-border px-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/40">
-        Phase
+        Reference phase
         <select
           value={phase}
           onChange={(event) => onPhaseChange(event.target.value)}
@@ -556,7 +617,7 @@ function ManualFallbackBar({
         </select>
       </label>
       <label className="flex h-8 items-center gap-1.5 border-l border-border px-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/40">
-        Work Card
+        Reference card
         <select
           value={activeCard?.fileName ?? ""}
           onChange={(event) => onCardChange(event.target.value)}
@@ -699,7 +760,7 @@ function ProcessRail({
               <button
                 type="button"
                 onClick={() => onStep(step.states[0])}
-                title={`Open fallback screen: ${step.label}`}
+                title={`Open the ${step.label} screen without changing the current action.`}
                 className="group flex w-[72px] flex-col items-center gap-1 transition-all"
               >
                 <div
@@ -759,6 +820,10 @@ function ProcessRail({
           );
         })}
         <div className="ml-4 flex items-center gap-4 text-[9px] text-muted-foreground/35">
+          <span className="flex items-center gap-1 text-primary/55">
+            <Info size={9} />
+            Route position · step clicks open support only
+          </span>
           <span className="flex items-center gap-1">
             <RotateCcw size={9} className="text-primary/35" />
             WC loop repeats per card
@@ -784,15 +849,17 @@ function CurrentRequiredActionPanel({
   loadState,
   error,
   onRefreshCurrentAction,
-  onOpenFallback,
-  fallbackLabel,
+  onOpenRoutedScreen,
+  routedScreenLabel,
+  unresolvedRouteMessage,
 }: {
   action: ChampCityCurrentRequiredAction | undefined;
   loadState: LoadState;
   error?: string;
   onRefreshCurrentAction: () => void | Promise<void>;
-  onOpenFallback: () => void;
-  fallbackLabel: string;
+  onOpenRoutedScreen?: () => void;
+  routedScreenLabel: string;
+  unresolvedRouteMessage?: string;
 }) {
   const actorColors: Record<string, string> = {
     operator: "text-primary",
@@ -826,7 +893,7 @@ function CurrentRequiredActionPanel({
         description={error ?? "Current-action state could not be loaded."}
         tone="error"
         onRefreshCurrentAction={onRefreshCurrentAction}
-        onOpenFallback={onOpenFallback}
+        onOpenFallback={onOpenRoutedScreen}
       />
     );
   }
@@ -838,7 +905,7 @@ function CurrentRequiredActionPanel({
         description="The durable model loaded successfully but did not provide a current action. Refresh the route or open a supporting screen."
         tone="warning"
         onRefreshCurrentAction={onRefreshCurrentAction}
-        onOpenFallback={onOpenFallback}
+        onOpenFallback={onOpenRoutedScreen}
       />
     );
   }
@@ -908,12 +975,10 @@ function CurrentRequiredActionPanel({
         <WarningGroups warnings={warnings} />
 
         <div>
-          <PanelLabel>Supporting screen</PanelLabel>
+          <PanelLabel>Routed screen</PanelLabel>
           <div className="rounded-md border border-border bg-white/[0.025] p-3">
             <div className="mb-1 text-xs font-semibold text-foreground/80">
-              {action.manualFallback?.available
-                ? `Supporting screen available: ${fallbackLabel}`
-                : `Supporting screen: ${fallbackLabel}`}
+              {`Screen for this action: ${routedScreenLabel}`}
             </div>
             <p className="break-anywhere text-xs leading-relaxed text-muted-foreground/70">
               {action.manualFallback?.instructions ??
@@ -926,23 +991,29 @@ function CurrentRequiredActionPanel({
             ) : null}
           </div>
         </div>
+
+        {unresolvedRouteMessage ? (
+          <Notice type="warning">{unresolvedRouteMessage}</Notice>
+        ) : null}
       </div>
       <div className="flex flex-col gap-2 border-t border-border px-5 pb-5 pt-4">
-        <button
-          type="button"
-          onClick={onOpenFallback}
-          className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors",
-            urgent
-              ? "border border-red-500/30 bg-red-500/15 text-red-300 hover:bg-red-500/25"
-              : "bg-primary text-primary-foreground hover:bg-primary/85",
-          )}
-        >
-          {complete
-            ? "Open supporting screens"
-            : `Open supporting screen: ${fallbackLabel}`}
-          <ArrowRight size={12} />
-        </button>
+        {onOpenRoutedScreen ? (
+          <button
+            type="button"
+            onClick={onOpenRoutedScreen}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors",
+              urgent
+                ? "border border-red-500/30 bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                : "bg-primary text-primary-foreground hover:bg-primary/85",
+            )}
+          >
+            {complete
+              ? `Open routed screen: ${routedScreenLabel}`
+              : `Continue current action: ${routedScreenLabel}`}
+            <ArrowRight size={12} />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => {
@@ -1311,22 +1382,82 @@ function WarningSeverityGroup({
 function ArtifactWorkspace({
   action,
   activeManualItem,
+  routedScreenId,
+  isViewingRoutedScreen,
+  isViewingSupportingScreen,
   loadState,
+  onReturnToCurrentAction,
   children,
 }: {
   action: ChampCityCurrentRequiredAction | undefined;
   activeManualItem: ManualNavigationItem | undefined;
+  routedScreenId: string;
+  isViewingRoutedScreen: boolean;
+  isViewingSupportingScreen: boolean;
   loadState: LoadState;
+  onReturnToCurrentAction?: () => void;
   children: ReactNode;
 }) {
   const artifactTitle =
-    action?.expectedOutput?.path ??
-    action?.expectedOutput?.artifactType ??
     activeManualItem?.screenTitle ??
-    "Artifact workspace";
+    "Supporting workspace";
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      {loadState !== "ready" || !action ? (
+        <div className="shrink-0 border-b border-border bg-card/30 px-5 py-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+            Supporting workspace available
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground/70">
+            {loadState === "loading"
+              ? "The current action is still loading. You may use this screen for reference while the route is resolved."
+              : "The current action is unavailable. Supporting tools remain available for reference or recovery and do not advance workflow state."}
+          </p>
+        </div>
+      ) : isViewingSupportingScreen ? (
+        <div className="flex shrink-0 items-center gap-4 border-b border-amber-400/20 bg-amber-400/[0.06] px-5 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300/80">
+              Viewing supporting screen
+            </div>
+            <div className="mt-1 text-sm font-semibold text-foreground">
+              {activeManualItem?.screenTitle ?? "Supporting tool"}
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground/75">
+              This screen is for reference or recovery. Current action remains:
+              {` ${action?.title ?? "unavailable"}`}. Opening it changes only
+              this workspace view; durable workflow state is unchanged.
+            </p>
+          </div>
+          {onReturnToCurrentAction ? (
+            <button
+              type="button"
+              onClick={onReturnToCurrentAction}
+              className="flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
+            >
+              Return to current action
+              <ArrowRight size={12} />
+            </button>
+          ) : null}
+        </div>
+      ) : isViewingRoutedScreen ? (
+        <div className="shrink-0 border-b border-primary/15 bg-primary/[0.035] px-5 py-2 text-[11px] text-primary/75">
+          Routed current-action screen · {action?.title ?? "Current action"}
+        </div>
+      ) : (
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/[0.06] px-5 py-3">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300/80">
+            Routed screen unavailable
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground/75">
+            ChampCity A/I tried to open "{routedScreenId}", but no matching
+            screen is available. The current action remains
+            {` ${action?.title ?? "unchanged"}`}. Supporting tools are still
+            available for reference or recovery.
+          </p>
+        </div>
+      )}
       <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card/20 px-5 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <FileText
@@ -1336,6 +1467,11 @@ function ArtifactWorkspace({
           <span className="truncate font-mono text-xs text-foreground/70">
             {artifactTitle}
           </span>
+          {isViewingRoutedScreen && action?.expectedOutput?.path ? (
+            <span className="truncate text-[10px] text-muted-foreground/45">
+              Expected output: {action.expectedOutput.path}
+            </span>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <WriteBadge state={loadState} />

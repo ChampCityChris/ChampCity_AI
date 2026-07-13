@@ -430,6 +430,14 @@ export default function App() {
     [],
   );
 
+  const handleSupportScreenChange = useCallback((screenId: string) => {
+    if (!workflowSteps.some((step) => step.id === screenId)) {
+      return;
+    }
+
+    setActiveScreen(screenId as AppScreen);
+  }, []);
+
   const loadCurrentRequiredAction = useCallback(async () => {
     setCurrentActionLoadState("loading");
     setCurrentActionError(undefined);
@@ -668,7 +676,7 @@ export default function App() {
       currentActionLoadState={currentActionLoadState}
       currentActionError={currentActionError}
       onRefreshCurrentAction={loadCurrentRequiredAction}
-      onManualScreenChange={(screenId) => setActiveScreen(screenId as AppScreen)}
+      onManualScreenChange={handleSupportScreenChange}
       onPhaseChange={handlePhaseChange}
       onCardChange={handleHeaderCardChange}
     >
