@@ -1,0 +1,127 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { getCurrentRequiredAction } from "../dist/main/workCards/workCardFileStore.js";
+import { resolveSupportNavigationState } from "../dist/shared/workCards/supportNavigation.js";
+import { resolveWorkflowVisibility } from "../dist/shared/workCards/workflowVisibility.js";
+
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(scriptDirectory, "..");
+const readRepositoryFile = (repoPath) =>
+  readFileSync(resolve(repositoryRoot, repoPath), "utf8");
+
+const workCard = JSON.parse(
+  readRepositoryFile(
+    "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
+  ),
+);
+assert.equal(workCard.id, "WC06");
+assert.equal(workCard.phaseId, "phase-03");
+assert.equal(
+  Object.hasOwn(workCard, "workCardId"),
+  false,
+  "The fixture must preserve the alternate WC06 id/phaseId artifact shape that triggered the defect.",
+);
+
+const failedValidation = JSON.parse(
+  readRepositoryFile(
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+  ),
+);
+assert.equal(failedValidation.validationResult, "Fail");
+assert.match(
+  `${failedValidation.failedItems} ${failedValidation.observedErrors}`,
+  /Ad Hoc Work Card Capture|validation cannot be reached/i,
+  "The fixture must exercise the route-blocked WC06 validation attempt.",
+);
+
+const currentActionResult = await getCurrentRequiredAction();
+assert.equal(
+  currentActionResult.ok,
+  true,
+  currentActionResult.errorMessages?.join(" "),
+);
+
+const currentAction = currentActionResult.currentAction;
+assert.equal(currentAction?.workCardId, "WC06");
+assert.notEqual(currentAction?.workCardId, "WC07");
+assert.equal(currentAction?.id, "operator_validation_required");
+assert.notEqual(currentAction?.id, "full_work_card_creation_required");
+assert.equal(currentAction?.responsibleRole, "operator");
+assert.equal(currentAction?.status, "needs_validation");
+
+const sourcePaths = new Set(
+  currentAction?.sourceArtifacts.map((artifact) => artifact.path),
+);
+for (const expectedPath of [
+  "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
+  "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
+  "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md",
+  "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
+  "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+]) {
+  assert.equal(
+    sourcePaths.has(expectedPath),
+    true,
+    `WC06 current-action evidence is missing ${expectedPath}.`,
+  );
+}
+
+const architectReviewEvidence = currentAction?.sourceArtifacts.find(
+  (artifact) => artifact.role === "Architect Review",
+);
+assert.match(
+  architectReviewEvidence?.status ?? "",
+  /ready for operator validation/i,
+  "The WC06 Architect Review outcome must be recognized as ready for Operator validation.",
+);
+
+const workflowGuide = resolveWorkflowVisibility(currentAction);
+assert.equal(workflowGuide.activeStepLabel, "Work Card Loop");
+assert.equal(
+  workflowGuide.workCardLoopStages.find(
+    (stage) => stage.id === "operator-validation",
+  )?.state,
+  "current",
+);
+
+const navigationItems = Object.freeze([
+  Object.freeze({
+    id: "new-work-card",
+    label: "Ad Hoc Work Card",
+    screenTitle: "Ad Hoc Work Card Capture",
+    shortDesc: "Create an unplanned draft",
+  }),
+  Object.freeze({
+    id: "human-validation",
+    label: "Validate",
+    screenTitle: "Human Validation",
+    shortDesc: "Validate the routed Work Card",
+  }),
+]);
+const navigation = resolveSupportNavigationState(
+  navigationItems,
+  "human-validation",
+  "human-validation",
+);
+assert.equal(navigation.routedScreen?.screenTitle, "Human Validation");
+assert.equal(navigation.isViewingRoutedScreen, true);
+assert.notEqual(navigation.routedScreen?.screenTitle, "Ad Hoc Work Card Capture");
+
+const workflowRouterSource = readRepositoryFile(
+  "src/renderer/app/WorkflowRouterShell.tsx",
+);
+assert.match(
+  workflowRouterSource,
+  /operator_validation_required:\s*"human-validation"/,
+  "Operator validation must map to the Human Validation workspace.",
+);
+assert.match(
+  workflowRouterSource,
+  /full_work_card_creation_required:\s*"new-work-card"/,
+  "The fixture must distinguish Human Validation from Ad Hoc Work Card Capture.",
+);
+
+console.log("WC06-REPAIR01 validation-route focused fixture passed.");

@@ -96,12 +96,12 @@ assert.equal(preview.ok, true, preview.errorMessages?.join(" "));
 assert.equal(preview.manualValidationChecklist?.sourceLabel, "Architect Review");
 assert.equal(
   preview.manualValidationChecklist?.sourceFileName,
-  "ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+  "ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
 );
 assert.equal(preview.manualValidationChecklist?.isFallback, false);
 assert.match(
   preview.manualValidationChecklist?.text ?? "",
-  /WC04 validation\/repair behaviors still work/,
+  /WC04 current-action panel behavior remains usable/,
 );
 
 const fallbackPreview = await previewHumanValidationRecord({

@@ -162,16 +162,30 @@ assert.equal(liveCurrentAction.ok, true, liveCurrentAction.errorMessages?.join("
 assert.equal(
   liveCurrentAction.currentAction?.workCardId,
   "WC06",
-  "The router must remain on WC06 while this implementation awaits review.",
+  "The router must remain on WC06 until WC06 receives passing validation.",
 );
 assert.notEqual(
   liveCurrentAction.currentAction?.workCardId,
   "WC07",
   "WC06 must not advance the router to WC07 prematurely.",
 );
+assert.equal(
+  liveCurrentAction.currentAction?.id,
+  "operator_validation_required",
+  "Architect-reviewed WC06 must route to Operator validation.",
+);
+assert.equal(liveCurrentAction.currentAction?.responsibleRole, "operator");
+assert.equal(liveCurrentAction.currentAction?.status, "needs_validation");
 
 const liveGuide = resolveWorkflowVisibility(liveCurrentAction.currentAction);
 assert.equal(liveGuide.positionKnown, true);
 assert.equal(liveGuide.activeStepLabel, "Work Card Loop");
+assert.equal(
+  liveGuide.workCardLoopStages.find(
+    (stage) => stage.id === "operator-validation",
+  )?.state,
+  "current",
+  "The visible WC06 workflow guide must agree with the validation route.",
+);
 
 console.log("WC06 workflow-visibility focused fixture passed.");
