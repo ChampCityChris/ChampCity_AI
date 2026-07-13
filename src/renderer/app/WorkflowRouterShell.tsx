@@ -25,6 +25,13 @@ import {
   resolveSupportNavigationState,
   type SupportNavigationItem,
 } from "../../shared/workCards/supportNavigation";
+import {
+  resolveWorkflowVisibility,
+  workflowGuideGroups,
+  workflowLoopGuides,
+  type WorkflowGuideStepPosition,
+  type WorkflowGuideStepState,
+} from "../../shared/workCards/workflowVisibility";
 
 type WorkflowState =
   | "project-intake"
@@ -41,13 +48,6 @@ type WorkflowState =
   | "next-phase";
 
 type LoadState = "loading" | "ready" | "error";
-
-interface RailStep {
-  index: number;
-  label: string;
-  states: WorkflowState[];
-  group: "project" | "phase" | "loop" | "closeout";
-}
 
 interface ManualNavigationItem extends SupportNavigationItem {
   label: string;
@@ -80,85 +80,6 @@ interface WorkflowRouterShellProps {
   onCardChange: (fileName: string) => void;
   children: ReactNode;
 }
-
-const RAIL_STEPS: RailStep[] = [
-  {
-    index: 0,
-    label: "Intake",
-    states: ["project-intake"],
-    group: "project",
-  },
-  {
-    index: 1,
-    label: "Interview",
-    states: ["project-interview"],
-    group: "project",
-  },
-  {
-    index: 2,
-    label: "Recon",
-    states: ["reconciliation"],
-    group: "project",
-  },
-  {
-    index: 3,
-    label: "Mapping",
-    states: ["project-mapping"],
-    group: "project",
-  },
-  {
-    index: 4,
-    label: "Phase Plan",
-    states: ["phase-mapping"],
-    group: "phase",
-  },
-  {
-    index: 5,
-    label: "Work Card",
-    states: ["work-card-review"],
-    group: "loop",
-  },
-  {
-    index: 6,
-    label: "Implement",
-    states: ["implementer-active"],
-    group: "loop",
-  },
-  {
-    index: 7,
-    label: "Report",
-    states: ["architect-review"],
-    group: "loop",
-  },
-  {
-    index: 8,
-    label: "Validate",
-    states: ["operator-validation", "repair-subcard"],
-    group: "loop",
-  },
-  {
-    index: 9,
-    label: "Closeout",
-    states: ["phase-closeout"],
-    group: "closeout",
-  },
-  {
-    index: 10,
-    label: "Next Phase",
-    states: ["next-phase"],
-    group: "closeout",
-  },
-];
-
-const GROUP_LABELS: Record<
-  RailStep["group"],
-  { label: string; color: string }
-> = {
-  project: { label: "PROJECT SETUP", color: "text-blue-400/60" },
-  phase: { label: "PHASE LOOP", color: "text-violet-400/60" },
-  loop: { label: "WORK CARD LOOP", color: "text-primary/60" },
-  closeout: { label: "CLOSEOUT", color: "text-emerald-400/60" },
-};
 
 const workflowStepToState: Record<string, WorkflowState> = {
   "project intake": "project-intake",
@@ -254,10 +175,6 @@ function normalizeWorkflowStep(value: string | undefined): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-}
-
-function stateToRailIndex(state: WorkflowState): number {
-  return RAIL_STEPS.find((step) => step.states.includes(state))?.index ?? 0;
 }
 
 function getWorkflowStateForAction(
@@ -381,10 +298,9 @@ export function WorkflowRouterShell({
         onCardChange={onCardChange}
       />
       <ProcessRail
-        workflowState={workflowState}
-        onStep={(state) =>
-          openSupportingScreen(getManualScreenForWorkflowState(state))
-        }
+        action={action}
+        loadState={currentActionLoadState}
+        onStep={openSupportingScreen}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <CurrentRequiredActionPanel
@@ -688,159 +604,389 @@ function ManualNavGroup({
 }
 
 function ProcessRail({
-  workflowState,
+  action,
+  loadState,
   onStep,
 }: {
-  workflowState: WorkflowState;
-  onStep: (state: WorkflowState) => void;
+  action: ChampCityCurrentRequiredAction | undefined;
+  loadState: LoadState;
+  onStep: (screen: string) => void;
 }) {
-  const activeIndex = stateToRailIndex(workflowState);
-  const groups = RAIL_STEPS.reduce<Array<{ key: RailStep["group"]; steps: RailStep[] }>>(
-    (result, step) => {
-      const current = result[result.length - 1];
-
-      if (!current || current.key !== step.group) {
-        result.push({ key: step.group, steps: [step] });
-      } else {
-        current.steps.push(step);
-      }
-
-      return result;
-    },
-    [],
+  const guide = resolveWorkflowVisibility(
+    loadState === "ready" ? action : undefined,
   );
+  const approvalLoop = workflowLoopGuides.find(
+    (loop) => loop.id === "approval-revision",
+  );
+  const workCardLoop = workflowLoopGuides.find(
+    (loop) => loop.id === "work-card",
+  );
+  const phaseLoop = workflowLoopGuides.find((loop) => loop.id === "phase");
+  const routedScreenId = loadState === "ready" && action
+    ? getManualScreenForCurrentAction(action)
+    : undefined;
+  const positionMessage =
+    loadState === "loading"
+      ? "Loading the durable current action. Step history is not inferred while the route is loading."
+      : loadState === "error"
+        ? "The durable current action is unavailable. Step history is not inferred; supporting references remain non-mutating."
+        : guide.positionMessage;
 
   return (
-    <div className="shrink-0 border-b border-border bg-card/50 px-4 py-0">
-      <div className="flex h-5 items-end">
-        {groups.map((group, groupIndex) => {
-          const groupLabel = GROUP_LABELS[group.key];
-          const stepWidth = 72;
-          const connectorWidth = 20;
-          const width =
-            group.steps.length * stepWidth +
-            (group.steps.length - 1) * connectorWidth;
-          const isLast = groupIndex === groups.length - 1;
-
-          return (
-            <div
-              key={group.key}
-              className="flex shrink-0 items-end"
-              style={{
-                width: isLast ? undefined : width + connectorWidth,
-              }}
+    <section
+      aria-labelledby="workflow-guide-title"
+      className="shrink-0 border-b border-border bg-card/55"
+    >
+      <div className="flex items-center gap-3 border-b border-border/70 px-4 py-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2
+              id="workflow-guide-title"
+              className="text-xs font-semibold text-foreground"
             >
+              Locked workflow · left to right
+            </h2>
+            <Badge className="border-primary/25 bg-primary/10 text-[9px] uppercase tracking-[0.12em] text-primary">
+              Current action is the authority
+            </Badge>
+          </div>
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground/65">
+            {positionMessage}
+          </p>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2 text-[9px] text-muted-foreground/70">
+          {(
+            [
+              "completed",
+              "current",
+              "upcoming",
+              "blocked",
+              "repair",
+              "unknown",
+            ] as const
+          ).map((state) => (
+            <span key={state} className="flex items-center gap-1">
               <span
                 className={cn(
-                  "pb-1 text-[8px] font-bold uppercase leading-none tracking-[0.16em]",
-                  groupLabel.color,
+                  "h-2 w-2 rounded-full border",
+                  workflowStateDotClass(state),
                 )}
-                style={{
-                  width: isLast ? undefined : width,
-                  textAlign: "center",
-                }}
-              >
-                {groupLabel.label}
-              </span>
-              {!isLast ? <div className="flex-1" /> : null}
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex items-center pb-2.5">
-        {RAIL_STEPS.map((step, index) => {
-          const isActive = step.index === activeIndex;
-          const isDone = step.index < activeIndex;
-          const isRepairActive =
-            workflowState === "repair-subcard" && step.index === 8;
-          const isLast = index === RAIL_STEPS.length - 1;
-
-          return (
-            <div key={step.index} className="flex shrink-0 items-center">
-              <button
-                type="button"
-                onClick={() => onStep(step.states[0])}
-                title={`Open the ${step.label} screen without changing the current action.`}
-                className="group flex w-[72px] flex-col items-center gap-1 transition-all"
-              >
-                <div
-                  className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all",
-                    isActive &&
-                      !isRepairActive &&
-                      "border-primary bg-primary/20 shadow-[0_0_0_3px_rgba(0,204,230,0.15)]",
-                    isRepairActive &&
-                      "border-red-400 bg-red-400/20 shadow-[0_0_0_3px_rgba(239,68,68,0.15)]",
-                    isDone && "border-emerald-400/60 bg-emerald-400/15",
-                    !isActive &&
-                      !isDone &&
-                      "border-border bg-white/[0.02] group-hover:border-muted-foreground/40",
-                  )}
-                >
-                  {isDone ? (
-                    <Check size={11} className="text-emerald-400" />
-                  ) : isActive ? (
-                    <Circle
-                      size={8}
-                      className={cn(
-                        isRepairActive
-                          ? "fill-red-400 text-red-400"
-                          : "fill-primary text-primary",
-                      )}
-                    />
-                  ) : (
-                    <Circle size={6} className="text-muted-foreground/25" />
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "text-center text-[10px] font-medium leading-tight",
-                    isActive && !isRepairActive && "text-primary",
-                    isRepairActive && "text-red-400",
-                    isDone && "text-muted-foreground/60",
-                    !isActive &&
-                      !isDone &&
-                      "text-muted-foreground/40 group-hover:text-muted-foreground/70",
-                  )}
-                >
-                  {isRepairActive ? "Repair" : step.label}
-                </span>
-              </button>
-              {!isLast ? (
-                <div
-                  className={cn(
-                    "h-px w-5 shrink-0",
-                    step.index < activeIndex
-                      ? "bg-emerald-400/30"
-                      : "bg-white/[0.08]",
-                  )}
-                />
-              ) : null}
-            </div>
-          );
-        })}
-        <div className="ml-4 flex items-center gap-4 text-[9px] text-muted-foreground/35">
-          <span className="flex items-center gap-1 text-primary/55">
-            <Info size={9} />
-            Route position · step clicks open support only
-          </span>
-          <span className="flex items-center gap-1">
-            <RotateCcw size={9} className="text-primary/35" />
-            WC loop repeats per card
-          </span>
-          <span className="flex items-center gap-1">
-            <RotateCcw size={9} className="text-violet-400/35" />
-            Phase loop repeats per phase
-          </span>
-          {workflowState === "repair-subcard" ? (
-            <span className="flex items-center gap-1 text-red-400/60">
-              <Wrench size={9} />
-              Repair loop active
+              />
+              {workflowStateLabel(state)}
             </span>
-          ) : null}
+          ))}
         </div>
       </div>
+      <div className="overflow-x-auto px-4 pb-2 pt-2">
+        <div className="flex min-w-[1748px] items-end">
+          {workflowGuideGroups.map((group, groupIndex) => {
+            const groupSteps = guide.steps.filter(
+              (step) => step.groupId === group.id,
+            );
+            const isLastGroup = groupIndex === workflowGuideGroups.length - 1;
+
+            return (
+              <div key={group.id} className="flex shrink-0 items-end">
+                <div>
+                  <div
+                    className={cn(
+                      "mb-1 flex h-5 min-w-0 items-center justify-center gap-1.5 rounded border px-2 text-[9px] font-semibold uppercase tracking-[0.14em]",
+                      workflowGroupClass(group.id),
+                    )}
+                  >
+                    <span>{group.label}</span>
+                    <span className="truncate normal-case tracking-normal opacity-55">
+                      · {group.description}
+                    </span>
+                  </div>
+                  <div className="flex items-stretch">
+                    {groupSteps.map((step, stepIndex) => (
+                      <div key={step.id} className="flex items-center">
+                        <WorkflowGuideStepButton
+                          step={step}
+                          isRoutedScreen={step.supportScreenId === routedScreenId}
+                          onStep={onStep}
+                        />
+                        {stepIndex < groupSteps.length - 1 ? (
+                          <WorkflowGuideConnector state={step.state} />
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {!isLastGroup ? (
+                  <WorkflowGuideConnector
+                    state={groupSteps[groupSteps.length - 1]?.state ?? "unknown"}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-1 flex min-w-[1748px] items-center gap-1.5 text-[9px] text-primary/65">
+          <Info size={10} className="shrink-0" />
+          Step clicks are view-only. They open a reference screen or the
+          already-routed primary screen; they never save, complete, approve,
+          validate, repair, or advance durable workflow state.
+        </div>
+      </div>
+      <div className="overflow-x-auto border-t border-border/70 px-4 py-2">
+        <div className="grid min-w-[1500px] grid-cols-[0.8fr_1.7fr_1.1fr] gap-2">
+          {approvalLoop ? <WorkflowLoopCard loop={approvalLoop} /> : null}
+          {workCardLoop ? (
+            <WorkCardLoopCard
+              label={workCardLoop.label}
+              description={workCardLoop.description}
+              repeatLabel={workCardLoop.repeatLabel}
+              stages={guide.workCardLoopStages}
+            />
+          ) : null}
+          {phaseLoop ? <WorkflowLoopCard loop={phaseLoop} /> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WorkflowGuideStepButton({
+  step,
+  isRoutedScreen,
+  onStep,
+}: {
+  step: WorkflowGuideStepPosition;
+  isRoutedScreen: boolean;
+  onStep: (screen: string) => void;
+}) {
+  const isActive = ["current", "blocked", "repair"].includes(step.state);
+  const stateLabel = workflowStateLabel(step.state);
+
+  return (
+    <button
+      type="button"
+      aria-current={isActive ? "step" : undefined}
+      aria-label={`${step.label}: ${stateLabel}. ${
+        isRoutedScreen
+          ? "Open the routed current-action screen"
+          : "Open a supporting reference screen"
+      } without changing durable workflow state.`}
+      onClick={() => onStep(step.supportScreenId)}
+      title={
+        isRoutedScreen
+          ? `Open the routed ${step.label} screen. The current action will not change.`
+          : `Open ${step.label} as support/reference only. The current action will not change.`
+      }
+      className={cn(
+        "group flex h-[72px] w-[116px] shrink-0 flex-col rounded-md border px-2 py-1.5 text-left transition-colors",
+        workflowStepClass(step.state),
+      )}
+    >
+      <span className="flex w-full items-center gap-1 text-[8px] font-semibold uppercase tracking-[0.1em]">
+        <span className="opacity-55">
+          {String(step.index + 1).padStart(2, "0")}
+        </span>
+        <span className="ml-auto flex items-center gap-1">
+          {workflowStateIcon(step.state)}
+          {stateLabel}
+        </span>
+      </span>
+      <span className="mt-1 line-clamp-3 text-[10px] font-semibold leading-[1.15]">
+        {step.label}
+      </span>
+      <span className="mt-auto text-[8px] text-current opacity-45 group-hover:opacity-75">
+        {isRoutedScreen ? "Open routed action" : "Open reference only"}
+      </span>
+    </button>
+  );
+}
+
+function WorkflowGuideConnector({ state }: { state: WorkflowGuideStepState }) {
+  return (
+    <div className="flex w-5 shrink-0 items-center justify-center">
+      <ArrowRight
+        size={12}
+        className={cn(
+          state === "completed" ? "text-emerald-400/55" : "text-white/15",
+          state === "current" && "text-primary/55",
+          state === "blocked" && "text-red-400/55",
+          state === "repair" && "text-amber-400/55",
+        )}
+      />
     </div>
+  );
+}
+
+function WorkflowLoopCard({
+  loop,
+}: {
+  loop: (typeof workflowLoopGuides)[number];
+}) {
+  return (
+    <div className="rounded-md border border-border bg-black/10 px-2.5 py-2">
+      <div className="flex items-center gap-1.5">
+        <RotateCcw size={11} className="shrink-0 text-violet-400/70" />
+        <span className="text-[10px] font-semibold text-foreground">
+          {loop.label}
+        </span>
+        <span className="ml-auto text-[8px] text-violet-300/60">
+          {loop.repeatLabel}
+        </span>
+      </div>
+      <p className="mt-1 truncate text-[8px] text-muted-foreground/55">
+        {loop.description}
+      </p>
+      <div className="mt-1.5 flex items-center gap-1 overflow-hidden">
+        {loop.stages.map((stage, index) => (
+          <div key={stage} className="flex min-w-0 items-center gap-1">
+            <span className="truncate rounded border border-violet-400/15 bg-violet-400/[0.06] px-1.5 py-1 text-[8px] text-violet-200/70">
+              {stage}
+            </span>
+            {index < loop.stages.length - 1 ? (
+              <ArrowRight size={8} className="shrink-0 text-violet-400/30" />
+            ) : (
+              <RotateCcw size={8} className="shrink-0 text-violet-400/45" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkCardLoopCard({
+  label,
+  description,
+  repeatLabel,
+  stages,
+}: {
+  label: string;
+  description: string;
+  repeatLabel: string;
+  stages: ReadonlyArray<{
+    id: string;
+    label: string;
+    state: WorkflowGuideStepState;
+  }>;
+}) {
+  return (
+    <div className="rounded-md border border-primary/20 bg-primary/[0.035] px-2.5 py-2">
+      <div className="flex items-center gap-1.5">
+        <RotateCcw size={11} className="shrink-0 text-primary/75" />
+        <span className="text-[10px] font-semibold text-foreground">{label}</span>
+        <span className="ml-auto text-[8px] text-primary/60">{repeatLabel}</span>
+      </div>
+      <p className="mt-1 truncate text-[8px] text-muted-foreground/55">
+        {description}
+      </p>
+      <div className="mt-1.5 flex items-center gap-1 overflow-hidden">
+        {stages.map((stage, index) => (
+          <div key={stage.id} className="flex min-w-0 items-center gap-1">
+            <span
+              className={cn(
+                "truncate rounded border px-1.5 py-1 text-[8px]",
+                workflowLoopStageClass(stage.state),
+              )}
+            >
+              {stage.label}
+            </span>
+            {index < stages.length - 1 ? (
+              <ArrowRight size={8} className="shrink-0 text-primary/25" />
+            ) : (
+              <RotateCcw size={8} className="shrink-0 text-primary/45" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function workflowStateLabel(state: WorkflowGuideStepState): string {
+  return {
+    completed: "Completed",
+    current: "Current",
+    upcoming: "Upcoming",
+    blocked: "Blocked",
+    repair: "Repair",
+    unknown: "Not confirmed",
+  }[state];
+}
+
+function workflowStateIcon(state: WorkflowGuideStepState) {
+  if (state === "completed") {
+    return <Check size={8} />;
+  }
+
+  if (state === "blocked") {
+    return <AlertTriangle size={8} />;
+  }
+
+  if (state === "repair") {
+    return <Wrench size={8} />;
+  }
+
+  if (state === "unknown") {
+    return <Info size={8} />;
+  }
+
+  return (
+    <Circle
+      size={7}
+      className={state === "current" ? "fill-current" : ""}
+    />
+  );
+}
+
+function workflowStateDotClass(state: WorkflowGuideStepState): string {
+  return {
+    completed: "border-emerald-400/70 bg-emerald-400/35",
+    current: "border-primary bg-primary/45",
+    upcoming: "border-white/20 bg-white/[0.04]",
+    blocked: "border-red-400 bg-red-400/40",
+    repair: "border-amber-400 bg-amber-400/40",
+    unknown: "border-slate-400/35 bg-slate-400/10",
+  }[state];
+}
+
+function workflowStepClass(state: WorkflowGuideStepState): string {
+  return {
+    completed:
+      "border-emerald-400/30 bg-emerald-400/[0.07] text-emerald-200/75 hover:border-emerald-400/50",
+    current:
+      "border-primary bg-primary/[0.13] text-primary shadow-[0_0_0_2px_rgba(0,204,230,0.16),0_0_18px_rgba(0,204,230,0.08)] hover:bg-primary/[0.17]",
+    upcoming:
+      "border-border bg-white/[0.015] text-muted-foreground/55 hover:border-muted-foreground/40 hover:text-muted-foreground/80",
+    blocked:
+      "border-red-400/75 bg-red-400/[0.13] text-red-300 shadow-[0_0_0_2px_rgba(248,113,113,0.12)] hover:bg-red-400/[0.17]",
+    repair:
+      "border-amber-400/75 bg-amber-400/[0.13] text-amber-300 shadow-[0_0_0_2px_rgba(251,191,36,0.12)] hover:bg-amber-400/[0.17]",
+    unknown:
+      "border-dashed border-slate-500/35 bg-slate-400/[0.025] text-slate-400/55 hover:border-slate-400/50",
+  }[state];
+}
+
+function workflowLoopStageClass(state: WorkflowGuideStepState): string {
+  return {
+    completed:
+      "border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-300/75",
+    current: "border-primary/60 bg-primary/[0.15] font-semibold text-primary",
+    upcoming: "border-border bg-white/[0.02] text-muted-foreground/50",
+    blocked: "border-red-400/60 bg-red-400/[0.12] font-semibold text-red-300",
+    repair:
+      "border-amber-400/60 bg-amber-400/[0.12] font-semibold text-amber-300",
+    unknown: "border-dashed border-slate-500/30 text-slate-400/45",
+  }[state];
+}
+
+function workflowGroupClass(groupId: string): string {
+  return (
+    {
+      capture: "border-blue-400/15 bg-blue-400/[0.05] text-blue-300/70",
+      frame: "border-indigo-400/15 bg-indigo-400/[0.05] text-indigo-300/70",
+      plan: "border-violet-400/15 bg-violet-400/[0.05] text-violet-300/70",
+      build: "border-primary/20 bg-primary/[0.06] text-primary/75",
+      prove:
+        "border-emerald-400/15 bg-emerald-400/[0.05] text-emerald-300/70",
+    }[groupId] ?? "border-border bg-white/[0.02] text-muted-foreground"
   );
 }
 
