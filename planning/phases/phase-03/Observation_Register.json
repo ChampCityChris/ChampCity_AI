@@ -1,0 +1,99 @@
+{
+  "schema": "champcity.phaseObservationRegister.v1",
+  "project": "ChampCity A/I",
+  "phaseId": "phase-03",
+  "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+  "status": "active",
+  "createdAt": "2026-07-13",
+  "governanceRule": "Every Operator validation observation must receive an Architect disposition. Future Work Card creation must review this register and explicitly include in-scope observations or state that none are in scope.",
+  "allowedDispositions": [
+    "repair_now",
+    "carry_into_current_work_card",
+    "carry_into_next_work_card",
+    "defer_to_later_phase_03_work_card",
+    "defer_to_post_phase_03_ui_cleanup",
+    "transfer_to_product_backlog_future_phase",
+    "no_action_required"
+  ],
+  "observations": [
+    {
+      "observationId": "PH03-OBS-001",
+      "title": "Validation checklist should become editable or structured",
+      "sourceArtifact": "Multiple WC04/WC05/WC06 validation observations",
+      "sourceWorkCard": "multiple",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate What was tested and checklist content.",
+      "architectDisposition": "defer_to_later_phase_03_work_card",
+      "dispositionRationale": "Real validation UX debt, but not blocking WC07 Artifact Review Workspace. More directly related to validation record authoring and validation/repair route work.",
+      "assignedTarget": "WC12 or post-Phase-03 validation UX cleanup",
+      "status": "deferred",
+      "resolutionArtifact": null
+    },
+    {
+      "observationId": "PH03-OBS-002",
+      "title": "Screenshot paste and evidence UI needs cleanup",
+      "sourceArtifact": "WC04 repair validation observations",
+      "sourceWorkCard": "WC04-REPAIR01 / WC04-REPAIR03",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "Screenshot paste should be primary, attach button should be fallback, repo-relative paths should clear after image creation, and screenshot evidence should be shown more like an image/card rather than long path text.",
+      "architectDisposition": "defer_to_later_phase_03_work_card",
+      "dispositionRationale": "Screenshot input improved enough for prior repair validation to pass, but the remaining issue is broader validation-evidence UX rather than WC07 artifact review.",
+      "assignedTarget": "WC12 or post-Phase-03 UI cleanup",
+      "status": "deferred",
+      "resolutionArtifact": null
+    },
+    {
+      "observationId": "PH03-OBS-003",
+      "title": "Source Evidence should not show full raw paths",
+      "sourceArtifact": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+      "sourceWorkCard": "WC05",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "Source Evidence section of the left context menu needs significant UI improvement. The full path should not be used as the primary display. A clickable link that opens the document is ideal.",
+      "architectDisposition": "carry_into_current_work_card",
+      "dispositionRationale": "WC07 is about the artifact review workspace and should make source artifacts readable, grouped, and openable where safe.",
+      "assignedTarget": "WC07 — Artifact Review Workspace",
+      "status": "assigned",
+      "resolutionArtifact": null
+    },
+    {
+      "observationId": "PH03-OBS-004",
+      "title": "Supporting screens are reachable but not populated",
+      "sourceArtifact": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+      "sourceWorkCard": "WC05",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "Supporting screens do not pull in any information; they remain blank.",
+      "architectDisposition": "carry_into_current_work_card_and_defer_remainder",
+      "dispositionRationale": "WC07 should prevent a blank central workspace when current-action artifact context exists. Full route-specific screen population belongs to later route-correction Work Cards.",
+      "assignedTarget": "WC07 for current-action artifact context; later Phase 03 route-specific cards for remaining screen population",
+      "status": "assigned_partially_deferred",
+      "resolutionArtifact": null
+    },
+    {
+      "observationId": "PH03-OBS-005",
+      "title": "Multi-project workspace support does not exist",
+      "sourceArtifact": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+      "sourceWorkCard": "WC05",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "There is no way currently to work multiple projects through the application.",
+      "architectDisposition": "transfer_to_product_backlog_future_phase",
+      "dispositionRationale": "Multi-project/workspace management is valid product functionality but outside Phase 03 router UI correction.",
+      "assignedTarget": "Future project/workspace management phase",
+      "status": "transferred_future_scope",
+      "resolutionArtifact": null
+    },
+    {
+      "observationId": "PH03-OBS-006",
+      "title": "Work Card Loop needs artifact access during validation",
+      "sourceArtifact": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+      "sourceWorkCard": "WC06-REPAIR01",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "Work Card Loop Action Bar does not allow navigation to see Work Card, Implementer Report, or Architect Review captured information. This does not block WC06 repair validation but is a considerable gap because those are the most likely pieces of information an Operator wants to look back on during validation testing.",
+      "architectDisposition": "carry_into_current_work_card",
+      "dispositionRationale": "WC07 is directly scoped to artifact review and should expose Work Card, Implementer Report, Architect Review, validation records, repair records, source evidence, missing evidence, and expected output while preserving current-action context.",
+      "assignedTarget": "WC07 — Artifact Review Workspace",
+      "status": "assigned",
+      "resolutionArtifact": null
+    }
+  ],
+  "currentWorkCardHandlingNote": "WC07 was created before this register existed and was already submitted to the Implementer. Do not retroactively alter WC07 scope solely because this register was added after handoff. Validate WC07 against its existing Work Card and the observations that naturally fall within its stated artifact-review scope. If WC07 does not address PH03-OBS-003 or PH03-OBS-006, that may be a WC07 repair issue. Do not fail WC07 for PH03-OBS-001, PH03-OBS-002, or PH03-OBS-005."
+}
