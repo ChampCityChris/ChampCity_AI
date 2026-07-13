@@ -51,14 +51,24 @@ assert.equal(
   statusesById.get("WC04")?.operatorDecision,
   "Deferred - not validated yet",
 );
-assert.equal(statusesById.get("WC04-REPAIR01")?.validationResult, "Partial");
+assert.equal(statusesById.get("WC04-REPAIR01")?.validationResult, "Pass");
 assert.equal(
   statusesById.get("WC04-REPAIR01")?.operatorDecision,
-  "Failed - repair needed",
+  "Passed - proceed",
 );
 assert.match(
   statusesById.get("WC04-REPAIR01")?.validationReportMarkdownFile ?? "",
   /^VALIDATION_REPORT_WC04-REPAIR01_/,
+);
+assert.equal(statusesById.get("WC04-REPAIR02")?.validationResult, "Pass");
+assert.equal(
+  statusesById.get("WC04-REPAIR02")?.operatorDecision,
+  "Passed - proceed",
+);
+assert.equal(statusesById.get("WC04-REPAIR03")?.validationResult, "Pass");
+assert.equal(
+  statusesById.get("WC04-REPAIR03")?.operatorDecision,
+  "Passed - proceed",
 );
 
 const preview = await previewHumanValidationRecord({
@@ -86,12 +96,12 @@ assert.equal(preview.ok, true, preview.errorMessages?.join(" "));
 assert.equal(preview.manualValidationChecklist?.sourceLabel, "Architect Review");
 assert.equal(
   preview.manualValidationChecklist?.sourceFileName,
-  "ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md",
+  "ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
 );
 assert.equal(preview.manualValidationChecklist?.isFallback, false);
 assert.match(
   preview.manualValidationChecklist?.text ?? "",
-  /Operator Validation Guidance/,
+  /Architect disposition: acceptable for validation/,
 );
 
 const fallbackPreview = await previewHumanValidationRecord({
@@ -116,16 +126,17 @@ const fallbackPreview = await previewHumanValidationRecord({
 assert.equal(fallbackPreview.ok, true, fallbackPreview.errorMessages?.join(" "));
 assert.equal(
   fallbackPreview.manualValidationChecklist?.sourceLabel,
-  "Repair Work Card",
+  "Architect Review",
 );
-assert.equal(fallbackPreview.manualValidationChecklist?.isFallback, true);
+assert.equal(
+  fallbackPreview.manualValidationChecklist?.sourceFileName,
+  "ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+);
+assert.equal(fallbackPreview.manualValidationChecklist?.isFallback, false);
 
 const currentActionResult = await getCurrentRequiredAction();
-assert.equal(
-  currentActionResult.currentAction?.id,
-  "repair_validation_required",
-);
-assert.equal(currentActionResult.currentAction?.workCardId, "WC04-REPAIR01");
-assert.notEqual(currentActionResult.currentAction?.workCardId, "WC05");
+assert.equal(currentActionResult.ok, true);
+assert.equal(currentActionResult.currentAction?.workCardId, "WC05");
+assert.notEqual(currentActionResult.currentAction?.workCardId, "WC06");
 
 console.log("WC04-REPAIR03 focused fixture passed.");
