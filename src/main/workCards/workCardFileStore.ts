@@ -81,14 +81,19 @@ import {
   type BuilderReportFileLoadRequest,
   type BuilderReportFileLoadResult,
   extractManualValidationChecklist,
+  extractWorkCardValidationChecklist,
   getDifferentProblemGuidance,
   isHumanValidationOperatorDecision,
   isHumanValidationResult,
   noBuilderReportSelectedWarning,
+  noManualValidationChecklistDetectedMessage,
   type HumanValidationBuilderReportListRequest,
   type HumanValidationBuilderReportListResult,
   type HumanValidationBuilderReportOption,
   type HumanValidationFormInput,
+  type HumanValidationOperatorDecision,
+  type HumanValidationResult,
+  type ManualValidationChecklistExtraction,
   type HumanValidationPreviewResult,
   type HumanValidationRecord,
   type HumanValidationSaveResult,
@@ -3520,6 +3525,10 @@ async function buildHumanValidationPreview(
   const shouldRepair = shouldGenerateRepairPrompt(record);
   const validationMarkdown = renderValidationRecordMarkdown(record);
   const repairPrompt = shouldRepair ? renderRepairPrompt(record) : undefined;
+  const manualValidationChecklist = await resolveManualValidationChecklist(
+    target,
+    builderReport,
+  );
 
   return {
     ok: true,
@@ -3527,9 +3536,7 @@ async function buildHumanValidationPreview(
     validationMarkdown,
     repairPrompt,
     shouldGenerateRepairPrompt: shouldRepair,
-    manualValidationChecklist: builderReport
-      ? extractManualValidationChecklist(builderReport.content)
-      : undefined,
+    manualValidationChecklist,
     builderReportWarning: builderReport
       ? undefined
       : noBuilderReportSelectedWarning,
@@ -4190,6 +4197,17 @@ function isRepoWorkCardResolved(
   candidateStatus: string | undefined,
   workCard: CurrentActionWorkCardState,
 ): boolean {
+  if (
+    isRepoPassingValidation(workCard.validation) ||
+    isRepoPassingValidation(workCard.repair?.validation)
+  ) {
+    return true;
+  }
+
+  if (workCard.validation || workCard.repair) {
+    return false;
+  }
+
   const status = normalizeCurrentActionStatus(candidateStatus || workCard.status);
 
   if (
@@ -4209,8 +4227,7 @@ function isRepoWorkCardResolved(
     return true;
   }
 
-  return isRepoPassingValidation(workCard.validation) ||
-    isRepoPassingValidation(workCard.repair?.validation);
+  return false;
 }
 
 function isRepoPassingValidation(
@@ -4227,12 +4244,11 @@ function isRepoPassingValidation(
     return false;
   }
 
-  return (
-    result === "pass" ||
-    result === "passed" ||
-    decision === "passed_proceed" ||
-    decision === "passed"
-  );
+  if (decision.length > 0) {
+    return decision === "passed_proceed" || decision === "passed";
+  }
+
+  return result === "pass" || result === "passed";
 }
 
 function addSupersededPhaseWarnings(
@@ -4342,6 +4358,10 @@ function coerceWorkCardValidationTargetFields(
     getRecordString(candidate, "riskLevel") ||
     getRecordString(candidate, "risk_level") ||
     undefined;
+  const parentWorkCardId =
+    getRecordString(candidate, "parentWorkCardId") ||
+    getRecordString(candidate, "parent_work_card_id") ||
+    undefined;
 
   if (!workCardId || !title || !phase) {
     return undefined;
@@ -4357,6 +4377,7 @@ function coerceWorkCardValidationTargetFields(
     phase,
     status,
     riskLevel,
+    parentWorkCardId,
   };
 }
 
@@ -6155,6 +6176,136 @@ async function readOptionalBuilderReport(
   };
 }
 
+async function resolveManualValidationChecklist(
+  target: ValidationTargetSummary,
+  builderReport: { fileName: string; content: string } | undefined,
+): Promise<ManualValidationChecklistExtraction | undefined> {
+  const architectChecklist = await findArchitectValidationChecklist(target);
+
+  if (architectChecklist) {
+    return architectChecklist;
+  }
+
+  if (target.sourceMarkdownFile) {
+    const candidateDirectories = [
+      resolveWorkCardsDirectory(target.phase),
+      resolveValidationTargetsDirectory(target.phase),
+    ];
+
+    for (const directory of candidateDirectories) {
+      const filePath = resolveInside(directory, target.sourceMarkdownFile);
+
+      if (!(await pathExists(filePath))) {
+        continue;
+      }
+
+      const workCardChecklist = extractWorkCardValidationChecklist(
+        await readFile(filePath, "utf8"),
+      );
+
+      if (workCardChecklist.detected) {
+        return {
+          ...workCardChecklist,
+          sourceLabel: target.parentWorkCardId
+            ? "Repair Work Card"
+            : "Work Card",
+          sourceFileName: target.sourceMarkdownFile,
+          isFallback: true,
+        };
+      }
+    }
+  }
+
+  if (target.parentWorkCardId) {
+    const parentWorkCard = await findMatchingMarkdownArtifact(
+      resolveWorkCardsDirectory(target.phase),
+      target.parentWorkCardId,
+      "Parent Work Card",
+    );
+
+    if (parentWorkCard?.path) {
+      const parentChecklist = extractWorkCardValidationChecklist(
+        await readFile(absoluteFromRepoPath(parentWorkCard.path), "utf8"),
+      );
+
+      if (parentChecklist.detected) {
+        return {
+          ...parentChecklist,
+          sourceLabel: "Parent Work Card",
+          sourceFileName: path.basename(parentWorkCard.path),
+          isFallback: true,
+        };
+      }
+    }
+  }
+
+  if (!builderReport) {
+    return {
+      detected: false,
+      text: noManualValidationChecklistDetectedMessage,
+      isFallback: true,
+    };
+  }
+
+  return {
+    ...extractManualValidationChecklist(builderReport.content),
+    sourceLabel: "Implementer Report",
+    sourceFileName: builderReport.fileName,
+    isFallback: true,
+  };
+}
+
+async function findArchitectValidationChecklist(
+  target: ValidationTargetSummary,
+): Promise<ManualValidationChecklistExtraction | undefined> {
+  const directory = resolveInside(
+    planningPhasesRoot,
+    target.phase,
+    "Architect_Reviews",
+  );
+  const targetId = target.id.trim().toLowerCase();
+  const exactPrefix = `architect_review_${targetId}`;
+  const candidates: Array<{
+    fileName: string;
+    content: string;
+    exact: boolean;
+  }> = [];
+
+  for (const fileName of await readDirectoryFileNames(directory, ".md")) {
+    const filePath = resolveInside(directory, fileName);
+    const content = await readFile(filePath, "utf8");
+    const stem = path.basename(fileName, path.extname(fileName)).toLowerCase();
+    const exact = stem === exactPrefix || stem.startsWith(`${exactPrefix}_`);
+
+    if (exact || content.toLowerCase().includes(targetId)) {
+      candidates.push({ fileName, content, exact });
+    }
+  }
+
+  candidates.sort((left, right) => {
+    if (left.exact !== right.exact) {
+      return left.exact ? -1 : 1;
+    }
+
+    return right.fileName.localeCompare(left.fileName);
+  });
+
+  for (const candidate of candidates) {
+    const checklist = extractManualValidationChecklist(candidate.content);
+
+    if (checklist.detected) {
+      return {
+        ...checklist,
+        sourceLabel: "Architect Review",
+        sourceFileName: candidate.fileName,
+        isFallback: false,
+      };
+    }
+  }
+
+  return undefined;
+}
+
 async function listBuilderReportOptionsForWorkCard(
   workCard: WorkCard,
 ): Promise<{
@@ -6502,19 +6653,20 @@ function toHumanValidationStatusRecord(
     throw new Error("Validation Report JSON must be an object.");
   }
 
-  const recordPhase = requireStatusText(candidate.phase, "Phase");
+  const recordPhase = requireStatusText(
+    candidate.phase ?? candidate.phase_id,
+    "Phase",
+  );
 
   if (recordPhase !== phase.trim()) {
     throw new Error("Validation Report phase must match the selected phase folder.");
   }
 
-  const validationResult = requireStatusText(
-    candidate.validationResult,
-    "Validation result",
+  const validationResult = normalizeHumanValidationResult(
+    candidate.validationResult ?? candidate.status,
   );
-  const operatorDecision = requireStatusText(
-    candidate.operatorDecision,
-    "Operator decision",
+  const operatorDecision = normalizeHumanValidationOperatorDecision(
+    candidate.operatorDecision ?? candidate.decision,
   );
 
   if (!isHumanValidationResult(validationResult)) {
@@ -6525,23 +6677,38 @@ function toHumanValidationStatusRecord(
     throw new Error("Operator decision is not a supported value.");
   }
 
+  const validationTargetKindValue =
+    candidate.validationTargetKind ?? candidate.validation_target_kind;
+  const validationTargetKind =
+    typeof validationTargetKindValue === "string" &&
+    isValidationTargetKind(validationTargetKindValue)
+      ? validationTargetKindValue
+      : undefined;
+
   const statusRecord: HumanValidationStatusRecord = {
     phase: recordPhase,
     validationResult,
     operatorDecision,
-    workCardId: normalizeOptionalText(candidate.workCardId),
-    workCardTitle: normalizeOptionalText(candidate.workCardTitle),
-    validationTargetId: normalizeOptionalText(candidate.validationTargetId),
-    validationTargetKind:
-      typeof candidate.validationTargetKind === "string" &&
-      isValidationTargetKind(candidate.validationTargetKind)
-        ? candidate.validationTargetKind
-        : undefined,
-    validationTargetTitle: normalizeOptionalText(candidate.validationTargetTitle),
-    validationTargetSourceJsonFile: normalizeOptionalText(
-      candidate.validationTargetSourceJsonFile,
+    workCardId: normalizeOptionalText(
+      candidate.workCardId ?? candidate.work_card_id,
     ),
-    createdAt: normalizeOptionalText(candidate.createdAt),
+    workCardTitle: normalizeOptionalText(
+      candidate.workCardTitle ?? candidate.work_card_title,
+    ),
+    validationTargetId: normalizeOptionalText(
+      candidate.validationTargetId ?? candidate.validation_target_id,
+    ),
+    validationTargetKind,
+    validationTargetTitle: normalizeOptionalText(
+      candidate.validationTargetTitle ?? candidate.validation_target_title,
+    ),
+    validationTargetSourceJsonFile: normalizeOptionalText(
+      candidate.validationTargetSourceJsonFile ??
+        candidate.validation_target_source_json_file,
+    ),
+    createdAt: normalizeOptionalText(
+      candidate.createdAt ?? candidate.validation_date,
+    ),
   };
 
   if (
@@ -6553,6 +6720,44 @@ function toHumanValidationStatusRecord(
   }
 
   return statusRecord;
+}
+
+function normalizeHumanValidationResult(value: unknown): HumanValidationResult {
+  const text = requireStatusText(value, "Validation result");
+
+  if (isHumanValidationResult(text)) {
+    return text;
+  }
+
+  const normalized = text.trim().toLowerCase().replace(/[_-]+/g, " ");
+  const resultByLegacyValue: Record<string, string> = {
+    pass: "Pass",
+    passed: "Pass",
+    fail: "Fail",
+    failed: "Fail",
+    partial: "Partial",
+    blocked: "Blocked",
+    "not tested": "Not Tested",
+  };
+  const result = resultByLegacyValue[normalized];
+
+  if (!result || !isHumanValidationResult(result)) {
+    throw new Error("Validation result is not a supported value.");
+  }
+
+  return result;
+}
+
+function normalizeHumanValidationOperatorDecision(
+  value: unknown,
+): HumanValidationOperatorDecision {
+  const text = requireStatusText(value, "Operator decision");
+
+  if (!isHumanValidationOperatorDecision(text)) {
+    throw new Error("Operator decision is not a supported value.");
+  }
+
+  return text;
 }
 
 function validationRecordMatchesTarget(

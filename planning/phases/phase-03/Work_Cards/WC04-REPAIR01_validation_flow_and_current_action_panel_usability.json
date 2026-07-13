@@ -1,0 +1,57 @@
+{
+  "work_card_id": "WC04-REPAIR01",
+  "parent_work_card_id": "WC04",
+  "phase_id": "phase-03",
+  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+  "title": "Validation Flow and Current Action Panel Usability",
+  "status": "ready_for_implementer",
+  "created": "2026-07-12",
+  "risk_level": "high",
+  "repair_trigger": "WC04 Operator validation was deferred and not accepted due to validation-flow and current-action usability defects.",
+  "base_branch": "feature/phase-03-wc04-current-action-panel",
+  "implementation_branch": "feature/phase-03-wc04-repair01-validation-flow",
+  "must_not_merge_to_dev": true,
+  "must_not_push_to": [
+    "dev",
+    "master"
+  ],
+  "source_authority": [
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
+    "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.md",
+    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04_primary_current_action_panel.md",
+    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.md"
+  ],
+  "included_scope": [
+    "Preserve validation draft content across navigation.",
+    "Align visible workspace with Operator Validation current-action routes instead of unrelated Project Intake default.",
+    "Rename or explain Manual Fallback using Operator-friendly language.",
+    "Fix warning and information text wrapping and readability.",
+    "Prefer Architect Review validation guidance for the validation checklist.",
+    "Show prior validation target status and report context when available.",
+    "Distinguish the right-side context panel from the left current-action panel.",
+    "Improve screenshot evidence input or provide a clear fallback."
+  ],
+  "out_of_scope": [
+    "Do not implement WC05-WC15 route-specific behavior.",
+    "Do not perform a full screen-by-screen UI rework.",
+    "Do not redesign the WC03 shell.",
+    "Do not create Operator validation records.",
+    "Do not close Phase 03.",
+    "Do not merge to dev.",
+    "Do not push to master."
+  ],
+  "acceptance_criteria": [
+    "Validation form text survives navigation away from and back to the validation screen for the active target.",
+    "The visible workspace no longer opens to unrelated Project Intake when the current action is Operator Validation.",
+    "Manual Fallback wording is replaced or explained with Operator-friendly language.",
+    "Warning and information messages wrap and remain readable.",
+    "Technical warnings include plain-language meaning where feasible.",
+    "The validation checklist prefers Architect Review guidance over Implementer Report text.",
+    "Previous validation targets show report/result/decision context when available.",
+    "The right context panel is distinct from the left current-action panel.",
+    "Screenshot evidence input supports paste or provides a clear fallback instead of silent failure.",
+    "No WC05-WC15 behavior is implemented prematurely."
+  ],
+  "required_report": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+  "next_action_after_completion": "Architect review of WC04-REPAIR01 Implementer Report"
+}

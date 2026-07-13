@@ -1169,23 +1169,30 @@ function isCandidateResolved(
   candidate: CurrentActionWorkCardCandidate,
   workCard: CurrentActionWorkCardState | undefined,
 ): boolean {
-  if (resolvedCandidateStatuses.has(normalizeStatus(candidate.status))) {
+  if (!workCard) {
+    return resolvedCandidateStatuses.has(normalizeStatus(candidate.status));
+  }
+
+  if (
+    isPassingValidation(workCard.validation) ||
+    isPassingValidation(workCard.repair?.validation)
+  ) {
     return true;
   }
 
-  if (!workCard) {
+  if (workCard.validation || workCard.repair) {
     return false;
+  }
+
+  if (resolvedCandidateStatuses.has(normalizeStatus(candidate.status))) {
+    return true;
   }
 
   if (resolvedCandidateStatuses.has(normalizeStatus(workCard.status))) {
     return true;
   }
 
-  if (isPassingValidation(workCard.validation)) {
-    return true;
-  }
-
-  return isPassingValidation(workCard.repair?.validation);
+  return false;
 }
 
 function isFailingValidation(
@@ -1202,10 +1209,12 @@ function isFailingValidation(
   const result = normalizeStatus(validation.result);
   const decision = normalizeStatus(validation.decision);
 
-  return (
-    ["fail", "failed", "partial", "blocked"].includes(result) ||
-    /repair|failed|partial|blocked/.test(decision)
-  );
+  if (decision.length > 0) {
+    return /defer|not_validated|fail|block|partial|repair|reject/.test(decision);
+  }
+
+  return ["fail", "failed", "partial", "blocked", "rejected"].includes(result) ||
+    /repair/.test(result);
 }
 
 function isPassingValidation(
@@ -1218,12 +1227,11 @@ function isPassingValidation(
   const result = normalizeStatus(validation.result);
   const decision = normalizeStatus(validation.decision);
 
-  return (
-    result === "pass" ||
-    result === "passed" ||
-    decision === "passed_proceed" ||
-    decision === "passed"
-  );
+  if (decision.length > 0) {
+    return decision === "passed_proceed" || decision === "passed";
+  }
+
+  return result === "pass" || result === "passed";
 }
 
 function normalizeStatus(value: string | undefined): string {
