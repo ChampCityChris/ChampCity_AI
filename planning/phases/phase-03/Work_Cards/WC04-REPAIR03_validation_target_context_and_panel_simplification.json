@@ -1,0 +1,58 @@
+{
+  "work_card_id": "WC04-REPAIR03",
+  "phase_id": "phase-03",
+  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+  "title": "Validation Target Context and Panel Simplification",
+  "status": "ready_for_implementer",
+  "created": "2026-07-13",
+  "risk_level": "high",
+  "parent_work_card_id": "WC04",
+  "parent_repair_chain": [
+    "WC04-REPAIR01",
+    "WC04-REPAIR02"
+  ],
+  "trigger": "WC04-REPAIR01 validation was Partial with Operator Decision Failed - repair needed.",
+  "base_branch": "feature/phase-03-wc04-repair02-routing-gate",
+  "implementation_branch": "feature/phase-03-wc04-repair03-validation-target-context",
+  "must_not_push_to": [
+    "dev",
+    "master"
+  ],
+  "must_not_merge_to_dev": true,
+  "primary_sources": [
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md"
+  ],
+  "passed_behavior_to_preserve": [
+    "deferred WC04 validation does not count as passed",
+    "current action does not advance to WC05",
+    "validation text survives navigation",
+    "warning/info text wraps",
+    "screenshot paste or fallback works"
+  ],
+  "failures_to_repair": [
+    "active repair route opens repair screen but Validation Target dropdown selects WC01 instead of WC04-REPAIR01",
+    "checklist source does not use Architect guidance or fallback clarity correctly",
+    "prior targets still show as not validated despite durable reports",
+    "right context panel duplicates left current-action panel",
+    "screenshot evidence messaging/display is too verbose",
+    "supporting screens dropdown is redundant to the action bar"
+  ],
+  "acceptance_criteria": [
+    "Active repair validation routes select the active repair Work Card target by default",
+    "Manual validation target selection remains possible after initial route alignment",
+    "Prior validation targets show durable report/result/decision context when available",
+    "Deferred, partial, failed, blocked, and passed targets are distinguishable",
+    "Checklist source is clearly identified and Architect Review guidance is preferred when durable guidance exists",
+    "Missing Architect guidance is explicitly labeled as fallback guidance",
+    "Right context panel is removed, collapsed, or materially changed so it is not a duplicate of the left panel",
+    "Screenshot evidence UI is less verbose and easier to scan",
+    "Supporting screen navigation remains available without redundant confusing dropdown behavior",
+    "Previously passed WC04-REPAIR01 behavior remains intact",
+    "WC05 is not implemented or selected prematurely",
+    "WC04-REPAIR03 Implementer Report exists"
+  ],
+  "required_report": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+  "next_action_after_completion": "Architect review of WC04-REPAIR03 Implementer Report"
+}
