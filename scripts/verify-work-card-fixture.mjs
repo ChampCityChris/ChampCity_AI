@@ -725,6 +725,106 @@ async function assertCurrentRequiredActionModel() {
     }
   }
 
+  const unresolvedOperatorDecisions = [
+    "Deferred - not validated yet",
+    "Not validated yet",
+    "Failed - repair needed",
+    "Fail",
+    "Blocked - operator/build environment issue",
+    "Partial - repair or follow-up needed",
+    "Rejected",
+    "Repair required",
+  ];
+
+  for (const decision of unresolvedOperatorDecisions) {
+    const action = evaluateCurrentRequiredAction(
+      makeCurrentActionState({
+        activePhase: {
+          workCardCandidates: [
+            {
+              workCardId: "WC01",
+              title: "Fixture Work Card",
+              order: 1,
+              status: "completed",
+              sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+            },
+            {
+              workCardId: "WC02",
+              title: "Next Fixture Work Card",
+              order: 2,
+              status: "planned",
+              sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+            },
+          ],
+          workCards: [
+            workCard({
+              status: "completed",
+              implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+              architectReview: {
+                status: "Ready for Operator Validation",
+                sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
+              },
+              validation: validation("Pass", decision, decision === "Repair required"),
+              repair: {
+                repairId: "WC01-REPAIR01",
+                repairWorkCard: artifact("planning/phases/phase-99/Work_Cards/WC01-REPAIR01_test.md", "Repair Work Card"),
+                implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01-REPAIR01_test.md", "Repair Implementer Report"),
+              },
+            }),
+          ],
+        },
+      }),
+    );
+
+    if (
+      action.id !== "repair_validation_required" ||
+      action.workCardId !== "WC01-REPAIR01"
+    ) {
+      console.error(
+        `Operator decision ${decision} should keep WC01 on repair validation, got ${action.workCardId ?? "none"}/${action.id}.`,
+      );
+      process.exit(1);
+    }
+  }
+
+  const passingDecisionOverrideAction = evaluateCurrentRequiredAction(
+    makeCurrentActionState({
+      activePhase: {
+        workCardCandidates: [
+          {
+            workCardId: "WC01",
+            title: "Fixture Work Card",
+            order: 1,
+            status: "planned",
+            sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+          },
+          {
+            workCardId: "WC02",
+            title: "Next Fixture Work Card",
+            order: 2,
+            status: "planned",
+            sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+          },
+        ],
+        workCards: [
+          workCard({
+            validation: validation("Fail", "Passed - proceed", false),
+          }),
+        ],
+      },
+    }),
+  );
+
+  if (
+    passingDecisionOverrideAction.id !== "full_work_card_creation_required" ||
+    passingDecisionOverrideAction.workCardId !== "WC02"
+  ) {
+    console.error(
+      "A passing Operator decision should override a conflicting raw failure and resolve WC01.",
+    );
+    process.exit(1);
+  }
+
   const warningAction = evaluateCurrentRequiredAction(
     makeCurrentActionState({
       warnings: [
@@ -774,6 +874,9 @@ async function assertCurrentRequiredActionModel() {
       "implementer_report_required",
       "architect_review_of_implementer_report_required",
       "operator_validation_required",
+    ],
+    "WC04-REPAIR01": [
+      "repair_validation_required",
     ],
   };
   const liveWorkCardId = liveCurrentAction.currentAction.workCardId;

@@ -4194,6 +4194,17 @@ function isRepoWorkCardResolved(
   candidateStatus: string | undefined,
   workCard: CurrentActionWorkCardState,
 ): boolean {
+  if (
+    isRepoPassingValidation(workCard.validation) ||
+    isRepoPassingValidation(workCard.repair?.validation)
+  ) {
+    return true;
+  }
+
+  if (workCard.validation || workCard.repair) {
+    return false;
+  }
+
   const status = normalizeCurrentActionStatus(candidateStatus || workCard.status);
 
   if (
@@ -4213,8 +4224,7 @@ function isRepoWorkCardResolved(
     return true;
   }
 
-  return isRepoPassingValidation(workCard.validation) ||
-    isRepoPassingValidation(workCard.repair?.validation);
+  return false;
 }
 
 function isRepoPassingValidation(
@@ -4231,12 +4241,11 @@ function isRepoPassingValidation(
     return false;
   }
 
-  return (
-    result === "pass" ||
-    result === "passed" ||
-    decision === "passed_proceed" ||
-    decision === "passed"
-  );
+  if (decision.length > 0) {
+    return decision === "passed_proceed" || decision === "passed";
+  }
+
+  return result === "pass" || result === "passed";
 }
 
 function addSupersededPhaseWarnings(
