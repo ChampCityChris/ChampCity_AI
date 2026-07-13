@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronUp,
   Circle,
+  Eye,
   FileText,
   FolderOpen,
   GitBranch,
@@ -17,6 +18,7 @@ import {
   RotateCcw,
   Save,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 
@@ -32,6 +34,10 @@ import {
   type WorkflowGuideStepPosition,
   type WorkflowGuideStepState,
 } from "../../shared/workCards/workflowVisibility";
+import {
+  buildArtifactReviewWorkspace,
+  getArtifactDisplayName,
+} from "../../shared/workCards/artifactReviewWorkspace";
 
 type WorkflowState =
   | "project-intake"
@@ -1252,6 +1258,11 @@ function ExpectedOutputCard({
 }: {
   expectedOutput: ChampCityCurrentRequiredAction["expectedOutput"];
 }) {
+  const displayName = getArtifactDisplayName(
+    expectedOutput?.path,
+    expectedOutput?.artifactType ?? "Expected output",
+  );
+
   return (
     <div>
       <PanelLabel>Expected output</PanelLabel>
@@ -1259,12 +1270,20 @@ function ExpectedOutputCard({
         {expectedOutput ? (
           <>
             <div className="text-xs font-semibold text-primary/85">
+              {displayName}
+            </div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/55">
               {expectedOutput.artifactType}
             </div>
             {expectedOutput.path ? (
-              <div className="mt-1.5 break-all font-mono text-[10px] leading-relaxed text-foreground/70">
-                {expectedOutput.path}
-              </div>
+              <details className="mt-2 text-[10px] text-muted-foreground/55">
+                <summary className="cursor-pointer text-primary/65">
+                  Path details
+                </summary>
+                <div className="break-anywhere mt-1 font-mono leading-relaxed text-foreground/65">
+                  {expectedOutput.path}
+                </div>
+              </details>
             ) : null}
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
               {expectedOutput.description}
@@ -1373,14 +1392,22 @@ function MissingEvidenceLine({
 }: {
   artifact: ChampCityCurrentRequiredAction["missingArtifacts"][number];
 }) {
+  const displayName = getArtifactDisplayName(artifact.path, "Missing artifact");
+
   return (
     <div className="rounded-md border border-amber-400/20 bg-amber-400/[0.04] p-2.5">
-      <div className="break-all font-mono text-[10px] leading-relaxed text-amber-300/85">
-        {artifact.path}
+      <div className="text-[11px] font-semibold leading-relaxed text-amber-300/85">
+        {displayName}
       </div>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/70">
         {artifact.reason}
       </p>
+      <details className="mt-1.5 text-[10px] text-muted-foreground/55">
+        <summary className="cursor-pointer">Path details</summary>
+        <div className="break-anywhere mt-1 font-mono leading-relaxed">
+          {artifact.path}
+        </div>
+      </details>
     </div>
   );
 }
@@ -1547,6 +1574,43 @@ function ArtifactWorkspace({
   const artifactTitle =
     activeManualItem?.screenTitle ??
     "Supporting workspace";
+  const reviewModel = useMemo(
+    () => (action ? buildArtifactReviewWorkspace(action) : undefined),
+    [action],
+  );
+  const [reviewOpen, setReviewOpen] = useState(true);
+  const [previewTarget, setPreviewTarget] = useState<{
+    path: string;
+    displayName: string;
+  } | null>(null);
+  const [previewResult, setPreviewResult] =
+    useState<ChampCityPlanningArtifactPreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    setPreviewTarget(null);
+    setPreviewResult(null);
+    setPreviewLoading(false);
+  }, [action?.id, action?.phaseId, action?.workCardId]);
+
+  async function previewArtifact(path: string, displayName: string) {
+    setPreviewTarget({ path, displayName });
+    setPreviewResult(null);
+    setPreviewLoading(true);
+
+    try {
+      const result = await window.champCity.previewPlanningArtifact({ path });
+
+      setPreviewResult(result);
+    } catch {
+      setPreviewResult({
+        ok: false,
+        errorMessages: ["The constrained planning preview did not respond."],
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1615,7 +1679,11 @@ function ArtifactWorkspace({
           </span>
           {isViewingRoutedScreen && action?.expectedOutput?.path ? (
             <span className="truncate text-[10px] text-muted-foreground/45">
-              Expected output: {action.expectedOutput.path}
+              Expected output:{" "}
+              {getArtifactDisplayName(
+                action.expectedOutput.path,
+                action.expectedOutput.artifactType,
+              )}
             </span>
           ) : null}
         </div>
@@ -1624,10 +1692,412 @@ function ArtifactWorkspace({
           {action?.status ? <StatusBadge status={action.status} /> : null}
         </div>
       </div>
+      {reviewModel?.hasContext ? (
+        <CurrentActionArtifactReview
+          model={reviewModel}
+          open={reviewOpen}
+          onToggle={() => setReviewOpen((value) => !value)}
+          previewTarget={previewTarget}
+          previewResult={previewResult}
+          previewLoading={previewLoading}
+          onPreview={(path, displayName) => {
+            void previewArtifact(path, displayName);
+          }}
+          onClosePreview={() => {
+            setPreviewTarget(null);
+            setPreviewResult(null);
+          }}
+        />
+      ) : null}
       <div className="min-h-0 flex-1 overflow-hidden bg-background/75">
         {children}
       </div>
     </div>
+  );
+}
+
+function CurrentActionArtifactReview({
+  model,
+  open,
+  onToggle,
+  previewTarget,
+  previewResult,
+  previewLoading,
+  onPreview,
+  onClosePreview,
+}: {
+  model: ChampCityArtifactReviewWorkspaceModel;
+  open: boolean;
+  onToggle: () => void;
+  previewTarget: { path: string; displayName: string } | null;
+  previewResult: ChampCityPlanningArtifactPreviewResult | null;
+  previewLoading: boolean;
+  onPreview: (path: string, displayName: string) => void;
+  onClosePreview: () => void;
+}) {
+  const sourceCount = model.sourceGroups.reduce(
+    (total, group) => total + group.artifacts.length,
+    0,
+  );
+
+  return (
+    <section
+      className={cn(
+        "flex shrink-0 flex-col border-b border-primary/20 bg-card/25",
+        open && "h-[38%] min-h-[280px] max-h-[430px]",
+      )}
+      aria-label="Current action artifact workspace"
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex shrink-0 items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-white/[0.025]"
+        aria-expanded={open}
+      >
+        <FolderOpen size={15} className="shrink-0 text-primary/75" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/75">
+            Current action artifacts
+          </div>
+          <div className="mt-0.5 truncate text-xs text-foreground/70">
+            {model.workCardLabel} - {model.workflowStep}
+          </div>
+        </div>
+        <div className="hidden shrink-0 items-center gap-2 text-[10px] text-muted-foreground/55 xl:flex">
+          <span>{sourceCount} source</span>
+          <span>-</span>
+          <span>{model.missingArtifacts.length} missing</span>
+          <span>-</span>
+          <span>{model.expectedOutput ? "1 expected output" : "No expected output"}</span>
+        </div>
+        {open ? (
+          <ChevronUp size={14} className="shrink-0 text-muted-foreground/55" />
+        ) : (
+          <ChevronDown size={14} className="shrink-0 text-muted-foreground/55" />
+        )}
+      </button>
+      {open ? (
+        <div className="flex min-h-0 flex-1 border-t border-border">
+          <div className="min-w-0 flex-[3] overflow-y-auto px-5 py-4">
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              <ArtifactContextValue label="Phase" value={model.phaseLabel} />
+              <ArtifactContextValue label="Workflow step" value={model.workflowStep} />
+              <ArtifactContextValue label="Work Card" value={model.workCardLabel} />
+            </div>
+
+            {model.expectedOutput ? (
+              <ArtifactExpectedOutputCard
+                output={model.expectedOutput}
+                onPreview={onPreview}
+              />
+            ) : null}
+
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <SectionLabel>Source artifacts</SectionLabel>
+                <span className="text-[9px] text-muted-foreground/45">
+                  Read-only evidence from the current-action route
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                {model.sourceGroups.map((group) => (
+                  <ArtifactRoleGroup
+                    key={group.id}
+                    group={group}
+                    selectedPath={previewTarget?.path}
+                    onPreview={onPreview}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <ArtifactMissingGroup artifacts={model.missingArtifacts} />
+          </div>
+          <ArtifactPreviewPane
+            target={previewTarget}
+            result={previewResult}
+            loading={previewLoading}
+            onClose={onClosePreview}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ArtifactContextValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-white/[0.02] px-3 py-2">
+      <div className="text-[9px] uppercase tracking-[0.1em] text-muted-foreground/45">
+        {label}
+      </div>
+      <div className="mt-1 break-words text-[11px] font-medium leading-snug text-foreground/70">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ArtifactExpectedOutputCard({
+  output,
+  onPreview,
+}: {
+  output: ChampCityArtifactReviewExpectedOutput;
+  onPreview: (path: string, displayName: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-primary/25 bg-primary/[0.055] p-3.5">
+      <div className="flex items-start gap-3">
+        <Save size={14} className="mt-0.5 shrink-0 text-primary/80" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-primary/75">
+            Expected output / draft area
+          </div>
+          <div className="mt-1 text-sm font-semibold text-foreground/85">
+            {output.displayName}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground/60">
+            <span>{output.artifactType}</span>
+            <span>-</span>
+            <span className={output.exists ? "text-amber-300/80" : "text-primary/75"}>
+              {output.stateLabel}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/70">
+            {output.description}
+          </p>
+          {output.path ? (
+            <details className="mt-2 text-[10px] text-muted-foreground/50">
+              <summary className="cursor-pointer">Path details</summary>
+              <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                {output.path}
+              </div>
+            </details>
+          ) : null}
+        </div>
+        {output.path && output.previewable ? (
+          <button
+            type="button"
+            onClick={() => onPreview(output.path!, output.displayName)}
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
+          >
+            <Eye size={11} />
+            Preview
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ArtifactRoleGroup({
+  group,
+  selectedPath,
+  onPreview,
+}: {
+  group: ChampCityArtifactReviewGroup;
+  selectedPath?: string;
+  onPreview: (path: string, displayName: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-white/[0.018] p-3">
+      <div className="mb-2">
+        <div className="text-[11px] font-semibold text-foreground/80">
+          {group.label} <span className="text-muted-foreground/40">({group.artifacts.length})</span>
+        </div>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground/50">
+          {group.description}
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        {group.artifacts.map((artifact) => (
+          <ArtifactReviewCard
+            key={artifact.key}
+            artifact={artifact}
+            selected={selectedPath === artifact.path}
+            onPreview={onPreview}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ArtifactReviewCard({
+  artifact,
+  selected,
+  onPreview,
+}: {
+  artifact: ChampCityArtifactReviewEntry;
+  selected: boolean;
+  onPreview: (path: string, displayName: string) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-3 py-2.5",
+        selected
+          ? "border-primary/40 bg-primary/[0.08]"
+          : "border-border bg-background/35",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <FileText size={12} className="mt-0.5 shrink-0 text-muted-foreground/45" />
+        <div className="min-w-0 flex-1">
+          <div className="break-words text-[11px] font-medium leading-snug text-foreground/75">
+            {artifact.displayName}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground/50">
+            <span>{artifact.role}</span>
+            <span>-</span>
+            <span>{artifact.format}</span>
+            <span>-</span>
+            <span className={artifact.exists ? "text-emerald-300/65" : "text-amber-300/75"}>
+              {artifact.exists ? "Available" : "Missing"}
+            </span>
+            {artifact.status ? (
+              <>
+                <span>-</span>
+                <span>{artifact.status}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+        {artifact.previewable ? (
+          <button
+            type="button"
+            onClick={() => onPreview(artifact.path, artifact.displayName)}
+            className="flex shrink-0 items-center gap-1 rounded border border-border px-2 py-1 text-[9px] font-semibold text-primary/80 transition-colors hover:border-primary/30 hover:bg-primary/10"
+          >
+            <Eye size={10} />
+            Preview
+          </button>
+        ) : null}
+      </div>
+      <details className="mt-1.5 pl-5 text-[9px] text-muted-foreground/45">
+        <summary className="cursor-pointer">Path details</summary>
+        <div className="break-anywhere mt-1 font-mono leading-relaxed">
+          {artifact.path}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function ArtifactMissingGroup({
+  artifacts,
+}: {
+  artifacts: ChampCityArtifactReviewMissingEntry[];
+}) {
+  return (
+    <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-400/[0.035] p-3">
+      <div className="text-[11px] font-semibold text-amber-300/85">
+        Missing evidence <span className="text-amber-300/45">({artifacts.length})</span>
+      </div>
+      {artifacts.length > 0 ? (
+        <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+          {artifacts.map((artifact) => (
+            <div key={artifact.key} className="rounded-md border border-amber-400/15 bg-background/25 p-2.5">
+              <div className="text-[11px] font-medium text-amber-200/80">
+                {artifact.displayName}
+              </div>
+              <div className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-muted-foreground/45">
+                {artifact.role}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/65">
+                {artifact.reason}
+              </p>
+              <details className="mt-1.5 text-[9px] text-muted-foreground/45">
+                <summary className="cursor-pointer">Path details</summary>
+                <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                  {artifact.path}
+                </div>
+              </details>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-[10px] text-muted-foreground/55">
+          No missing artifacts are reported for this current action.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ArtifactPreviewPane({
+  target,
+  result,
+  loading,
+  onClose,
+}: {
+  target: { path: string; displayName: string } | null;
+  result: ChampCityPlanningArtifactPreviewResult | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <aside className="flex w-[40%] min-w-[300px] flex-col border-l border-border bg-background/45">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+        <Eye size={12} className="text-primary/70" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground/50">
+            Read-only Markdown preview
+          </div>
+          <div className="mt-0.5 truncate text-[11px] font-medium text-foreground/70">
+            {target?.displayName ?? "Select an available Markdown artifact"}
+          </div>
+        </div>
+        {target ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-muted-foreground/45 transition-colors hover:bg-white/[0.05] hover:text-foreground/75"
+            aria-label="Close artifact preview"
+          >
+            <X size={13} />
+          </button>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {!target ? (
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+            <FileText size={24} className="text-muted-foreground/20" />
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground/55">
+              Preview a Work Card, Implementer Report, Architect Review, Validation Report, or other available planning Markdown file without leaving the current workflow context.
+            </p>
+          </div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground/65">
+            <RefreshCw size={12} className="animate-spin" />
+            Loading constrained planning preview...
+          </div>
+        ) : result?.ok && result.content !== undefined ? (
+          <>
+            <div className="mb-3 rounded-md border border-emerald-400/15 bg-emerald-400/[0.04] px-3 py-2 text-[10px] leading-relaxed text-emerald-200/70">
+              Read only. Previewing this artifact does not save, approve, validate, repair, or advance workflow state.
+            </div>
+            <pre className="break-words whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-foreground/72">
+              {result.content}
+            </pre>
+            {result.truncated ? (
+              <Notice type="info">Preview truncated for display safety.</Notice>
+            ) : null}
+            <details className="mt-3 text-[9px] text-muted-foreground/45">
+              <summary className="cursor-pointer">Path details</summary>
+              <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                {result.path ?? target.path}
+              </div>
+            </details>
+          </>
+        ) : (
+          <Notice type="error">
+            {result?.errorMessages?.join(" ") ??
+              "The artifact preview could not be loaded."}
+          </Notice>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -1970,13 +2440,26 @@ function ArtifactLine({
 }: {
   artifact: ChampCityCurrentRequiredAction["sourceArtifacts"][number];
 }) {
+  const displayName = getArtifactDisplayName(artifact.path, artifact.role);
+
   return (
-    <div className="flex items-center gap-1.5 text-[11px] text-foreground/60">
-      <FileText size={10} className="shrink-0 text-muted-foreground/40" />
-      <span className="min-w-[64px] shrink-0 text-muted-foreground/45">
-        {artifact.role}
-      </span>
-      <span className="break-anywhere min-w-0 font-mono">{artifact.path}</span>
+    <div className="rounded-md border border-border bg-white/[0.02] px-2.5 py-2 text-[11px] text-foreground/70">
+      <div className="flex min-w-0 items-start gap-2">
+        <FileText size={11} className="mt-0.5 shrink-0 text-muted-foreground/40" />
+        <div className="min-w-0 flex-1">
+          <div className="break-words font-medium leading-snug">{displayName}</div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground/50">
+            {artifact.role}
+            {artifact.status ? ` - ${artifact.status}` : ""}
+          </div>
+        </div>
+      </div>
+      <details className="mt-1.5 pl-[19px] text-[9px] text-muted-foreground/50">
+        <summary className="cursor-pointer">Path details</summary>
+        <div className="break-anywhere mt-1 font-mono leading-relaxed">
+          {artifact.path}
+        </div>
+      </details>
     </div>
   );
 }

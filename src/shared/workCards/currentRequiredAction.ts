@@ -750,7 +750,17 @@ function evaluateWorkCardState(
   ]);
 
   if (isFailingValidation(workCard.validation)) {
-    return evaluateRepairRoute(phase, workCard, workCardSources, warnings);
+    return evaluateRepairRoute(
+      phase,
+      workCard,
+      uniqueArtifacts([
+        ...workCardSources,
+        workCard.implementerReport,
+        workCard.architectReview?.sourceArtifact,
+        ...(workCard.validation?.sourceArtifacts ?? []),
+      ]),
+      warnings,
+    );
   }
 
   if (operatorReviewStatuses.has(status)) {
@@ -948,7 +958,15 @@ function evaluateWorkCardState(
     });
   }
 
-  return evaluateRepairRoute(phase, workCard, reviewSources, warnings);
+  return evaluateRepairRoute(
+    phase,
+    workCard,
+    uniqueArtifacts([
+      ...reviewSources,
+      ...(workCard.validation?.sourceArtifacts ?? []),
+    ]),
+    warnings,
+  );
 }
 
 function evaluateRepairRoute(
@@ -1056,6 +1074,7 @@ function evaluateRepairRoute(
       sourceArtifacts: uniqueArtifacts([
         ...repairSources,
         repair.implementerReport,
+        ...(repair.validation?.sourceArtifacts ?? []),
       ]),
       missingArtifacts: [
         {

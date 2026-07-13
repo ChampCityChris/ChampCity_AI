@@ -171,6 +171,15 @@ import type {
   CurrentRequiredActionResult,
   CurrentRequiredActionWarning,
 } from "../shared/workCards/currentRequiredAction";
+import type {
+  ArtifactReviewEntry,
+  ArtifactReviewExpectedOutput,
+  ArtifactReviewGroup,
+  ArtifactReviewMissingEntry,
+  ArtifactReviewWorkspaceModel,
+  PlanningArtifactPreviewRequest,
+  PlanningArtifactPreviewResult,
+} from "../shared/workCards/artifactReviewWorkspace";
 
 declare global {
   type ChampCityWorkCardDraftInput = WorkCardDraftInput;
@@ -366,6 +375,14 @@ declare global {
     CurrentRequiredActionWarning;
   type ChampCityCurrentRequiredActionResult =
     CurrentRequiredActionResult;
+  type ChampCityArtifactReviewEntry = ArtifactReviewEntry;
+  type ChampCityArtifactReviewExpectedOutput = ArtifactReviewExpectedOutput;
+  type ChampCityArtifactReviewGroup = ArtifactReviewGroup;
+  type ChampCityArtifactReviewMissingEntry = ArtifactReviewMissingEntry;
+  type ChampCityArtifactReviewWorkspaceModel = ArtifactReviewWorkspaceModel;
+  type ChampCityPlanningArtifactPreviewRequest =
+    PlanningArtifactPreviewRequest;
+  type ChampCityPlanningArtifactPreviewResult = PlanningArtifactPreviewResult;
 
   interface Window {
     champCity: {
@@ -513,6 +530,9 @@ declare global {
         phase: string,
       ) => Promise<PhaseCloseoutSummaryResult>;
       getCurrentRequiredAction: () => Promise<CurrentRequiredActionResult>;
+      previewPlanningArtifact: (
+        input: PlanningArtifactPreviewRequest,
+      ) => Promise<PlanningArtifactPreviewResult>;
       previewPhaseCloseoutRecord: (
         input: PhaseCloseoutFormInput,
       ) => Promise<PhaseCloseoutPreviewResult>;

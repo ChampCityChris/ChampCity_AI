@@ -39,6 +39,7 @@ import {
   previewPhaseIntake,
   previewPhaseMap,
   previewPhasePlanningDocuments,
+  previewPlanningArtifact,
   previewProjectRoadmap,
   previewProjectArchitectInterviewPrompt,
   previewProjectIntake,
@@ -88,6 +89,7 @@ import type {
   ValidationEvidenceFileImportRequest,
 } from "../shared/workCards/validationRecord";
 import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRecord";
+import type { PlanningArtifactPreviewRequest } from "../shared/workCards/artifactReviewWorkspace";
 
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
@@ -410,6 +412,11 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:getCurrentRequiredAction", () =>
     getCurrentRequiredAction(),
+  );
+  ipcMain.handle(
+    "workCards:previewPlanningArtifact",
+    (_event, input: PlanningArtifactPreviewRequest) =>
+      previewPlanningArtifact(input),
   );
   ipcMain.handle(
     "workCards:previewPhaseCloseoutRecord",

@@ -1,4 +1,12 @@
-import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { readFileSync, readdirSync, statSync, type Dirent } from "node:fs";
 import path from "node:path";
 
@@ -134,6 +142,12 @@ import {
   type CurrentRequiredActionState,
   type CurrentRequiredActionWarning,
 } from "../../shared/workCards/currentRequiredAction";
+import {
+  getArtifactDisplayName,
+  isPlanningMarkdownPreviewable,
+  type PlanningArtifactPreviewRequest,
+  type PlanningArtifactPreviewResult,
+} from "../../shared/workCards/artifactReviewWorkspace";
 import { renderWorkCardMarkdown } from "../../shared/workCards/renderWorkCardMarkdown";
 import { routeWorkCardRisk } from "../../shared/workCards/riskRouter";
 import type { WorkCard } from "../../shared/workCards/workCardSchema";
@@ -378,6 +392,70 @@ export async function getCurrentRequiredAction(): Promise<CurrentRequiredActionR
       ok: false,
       workflowSteps: [],
       errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function previewPlanningArtifact(
+  input: PlanningArtifactPreviewRequest,
+): Promise<PlanningArtifactPreviewResult> {
+  const requestedPath =
+    typeof input?.path === "string"
+      ? input.path.trim().replace(/\\/g, "/")
+      : "";
+
+  if (!isPlanningMarkdownPreviewable(requestedPath)) {
+    return {
+      ok: false,
+      errorMessages: [
+        "Only repo-relative Markdown files inside the planning folder can be previewed.",
+      ],
+    };
+  }
+
+  try {
+    const planningRoot = resolveInside(repositoryRoot, "planning");
+    const relativeSegments = requestedPath.split("/").slice(1);
+    const filePath = resolveInside(planningRoot, ...relativeSegments);
+    const resolvedPlanningRoot = await realpath(planningRoot);
+    const resolvedFilePath = resolveInside(
+      resolvedPlanningRoot,
+      await realpath(filePath),
+    );
+    const fileStats = await stat(resolvedFilePath);
+
+    if (!fileStats.isFile()) {
+      return {
+        ok: false,
+        errorMessages: ["The selected planning artifact is not a file."],
+      };
+    }
+
+    if (fileStats.size > 2 * 1024 * 1024) {
+      return {
+        ok: false,
+        errorMessages: [
+          "The selected planning artifact is too large for the inline preview.",
+        ],
+      };
+    }
+
+    const content = await readFile(resolvedFilePath, "utf8");
+    const previewLimit = 120_000;
+
+    return {
+      ok: true,
+      path: requestedPath,
+      displayName: getArtifactDisplayName(requestedPath),
+      content: content.slice(0, previewLimit),
+      truncated: content.length > previewLimit,
+    };
+  } catch {
+    return {
+      ok: false,
+      errorMessages: [
+        "The selected planning artifact could not be read. It may be missing or unavailable.",
+      ],
     };
   }
 }
@@ -3825,6 +3903,14 @@ async function findValidationForWorkCard(
       const sourceArtifacts = [
         await artifactReferenceForPath(filePath, "Validation Report JSON"),
         await artifactReferenceForPath(markdownPath, "Validation Report Markdown"),
+        ...(await Promise.all(
+          getPlanningEvidenceReferences(parsed).map((evidencePath) =>
+            artifactReferenceForPath(
+              absoluteFromRepoPath(evidencePath),
+              "Source Evidence",
+            ),
+          ),
+        )),
       ];
 
       matching.push({
@@ -3850,6 +3936,43 @@ async function findValidationForWorkCard(
   matching.sort((left, right) => right.modifiedMs - left.modifiedMs);
 
   return matching[0]?.validation;
+}
+
+function getPlanningEvidenceReferences(record: unknown): string[] {
+  const values = [
+    getRecordString(record, "evidenceReferences"),
+    getRecordString(record, "evidence_references"),
+    getRecordString(record, "screenshotOrFileReferences"),
+    getRecordString(record, "screenshot_or_file_references"),
+  ];
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    for (const line of value.split(/\r?\n/)) {
+      const normalized = line
+        .trim()
+        .replace(/^[-*]\s+/, "")
+        .replace(/^`|`$/g, "")
+        .replace(/\\/g, "/");
+      const segments = normalized.split("/");
+
+      if (
+        !normalized.startsWith("planning/") ||
+        segments.some(
+          (segment) => segment.length === 0 || segment === "." || segment === "..",
+        ) ||
+        seen.has(normalized)
+      ) {
+        continue;
+      }
+
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+
+  return result;
 }
 
 async function findRepairState(
