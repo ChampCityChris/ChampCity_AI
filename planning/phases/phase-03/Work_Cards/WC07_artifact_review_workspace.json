@@ -1,0 +1,83 @@
+{
+  "id": "WC07",
+  "title": "Artifact Review Workspace",
+  "phaseId": "phase-03",
+  "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+  "status": "ready_for_implementer",
+  "created": "2026-07-13",
+  "purpose": "Tie artifact review and artifact creation to the current workflow step instead of separate manual screen selection.",
+  "humanGoal": "The Operator should be able to inspect the relevant Work Card, Implementer Report, Architect Review, validation records, repair records, source evidence, missing evidence, and expected output from the current routed workspace without losing workflow context.",
+  "dependencies": [
+    "WC02 Durable Current Required Action Model",
+    "WC03 Figma Workflow Router UI Shell Integration",
+    "WC04 Primary Current Action Panel",
+    "WC05 Subordinate Navigation and Manual Fallback Preservation",
+    "WC06 Left-to-Right Workflow Visibility"
+  ],
+  "primarySources": [
+    "planning/phases/phase-03/Work_Card_Plan.md",
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability_2.md"
+  ],
+  "problem": "The app knows the current action and exposes supporting screens, but the center workspace is not yet a reliable artifact review surface. The Operator still cannot easily inspect the artifacts needed for validation, review, approval, repair, or creation from one routed workspace.",
+  "requiredImplementation": [
+    "Present current-action artifact context in the center workspace.",
+    "Group artifacts by role, including Work Card, Implementer Report, Architect Review, Validation Report, Repair, expected output, source evidence, missing evidence, and other support.",
+    "Use readable artifact labels instead of full raw paths as the primary display.",
+    "Provide a safe open or preview affordance for repo-relative planning artifacts where supported by constrained app mechanisms.",
+    "Clearly separate source artifacts from expected output and draft artifacts.",
+    "Expose Work Card, Implementer Report, and Architect Review during Operator validation when present.",
+    "Expose Work Card and Implementer Report during Architect review when present.",
+    "Expose parent Work Card, failed validation, repair Work Card, repair report, and expected repair validation during repair validation when present.",
+    "Prevent blank supporting workspaces when current-action artifact context exists.",
+    "Preserve current-action router authority.",
+    "Preserve WC04 current-action panel behavior.",
+    "Preserve WC05 support-navigation behavior.",
+    "Preserve WC06 left-to-right workflow guide behavior.",
+    "Do not implement WC08-WC15."
+  ],
+  "acceptanceCriteria": [
+    "The routed workspace presents current-action artifact context, not a blank or unrelated screen, when current-action evidence exists.",
+    "Work Card, Implementer Report, Architect Review, Validation Report, Repair, source evidence, missing evidence, and expected output are distinguishable where present.",
+    "Artifact entries use readable labels instead of raw full-path walls as the primary display.",
+    "Long paths wrap or are placed behind details or secondary display.",
+    "The Operator can inspect or preview safe Markdown planning artifacts through constrained app-owned mechanisms.",
+    "Operator validation context exposes Work Card, Implementer Report, Architect Review, and expected Validation Report when those artifacts exist.",
+    "Architect review context exposes Work Card, Implementer Report, and expected Architect Review output when those artifacts exist.",
+    "Repair validation context exposes parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.",
+    "Expected output and draft artifact context is clearly separated from source artifacts.",
+    "Opening or previewing artifacts does not save records, approve, validate, repair, advance state, or mutate the current-action route.",
+    "WC04 current-action panel behavior remains intact.",
+    "WC05 support-navigation behavior remains intact.",
+    "WC06 left-to-right workflow guide behavior remains intact.",
+    "WC08-WC15 behavior is not implemented prematurely.",
+    "Implementer Report exists and documents validation results, skipped checks, and residual risks."
+  ],
+  "outOfScope": [
+    "WC08 Current Step Context Inspector",
+    "WC09-WC15 route-specific workflow corrections",
+    "full shell redesign",
+    "locked workflow sequence changes",
+    "unrestricted renderer filesystem access",
+    "provider SDKs, cloud services, database, authentication, deployment, MCP passthrough, browser automation, or external connectors",
+    "Operator validation records",
+    "Phase 03 closeout",
+    "merge to dev",
+    "push to master"
+  ],
+  "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md",
+  "targetBranch": "feature/phase-03-wc07-artifact-review-workspace",
+  "baseBranch": "dev",
+  "validationExpectations": [
+    "Read AGENTS.md before work.",
+    "Read docs/dev/VALIDATION_COMMAND_LANES.md before validation.",
+    "Run the approved normal Windows validation lane.",
+    "Run type/build validation.",
+    "Run current-action fixture validation if affected.",
+    "Run WC04/WC05/WC06 focused fixture validation if affected.",
+    "Add focused artifact-workspace fixture checks if feasible.",
+    "Verify no unrestricted renderer filesystem access was introduced.",
+    "Run local safety scans before staging."
+  ]
+}
