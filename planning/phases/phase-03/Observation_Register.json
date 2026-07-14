@@ -3,56 +3,74 @@
   "project": "ChampCity A/I",
   "phase": "phase-03",
   "lastUpdated": "2026-07-14",
+  "crossPhaseRegister": "planning/project/Project_Observation_Register.md",
   "openObservations": [
     {
       "id": "PH03-OBS-001",
+      "title": "Validation checklist should become editable / structured",
       "projectRegisterLink": "PROJ-OBS-001",
       "status": "Deferred",
-      "assignedTarget": "WC12 or post-Phase-03 validation UX cleanup",
-      "title": "Validation checklist should become editable / structured"
+      "assignedTarget": "WC12 or post-Phase-03 validation UX cleanup"
     },
     {
       "id": "PH03-OBS-002",
+      "title": "Screenshot paste and evidence UI needs cleanup",
       "projectRegisterLink": "PROJ-OBS-002",
       "status": "Deferred",
-      "assignedTarget": "WC12 or post-Phase-03 UI cleanup",
-      "title": "Screenshot paste and evidence UI needs cleanup"
+      "assignedTarget": "WC12 or post-Phase-03 UI cleanup"
     },
     {
       "id": "PH03-OBS-005",
+      "title": "Multi-project / workspace support does not exist",
       "projectRegisterLink": "PROJ-OBS-003",
       "status": "Transferred / Future scope",
-      "assignedTarget": "Future project/workspace management phase",
-      "title": "Multi-project / workspace support does not exist"
+      "assignedTarget": "Future project/workspace management phase"
     },
     {
       "id": "PH03-OBS-007",
+      "title": "Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate",
       "projectRegisterLink": "PROJ-OBS-004",
       "status": "Deferred",
-      "assignedTarget": "Later Phase 03 navigation/layout cleanup or post-Phase-03 UI consolidation",
-      "title": "Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate"
+      "assignedTarget": "Later Phase 03 navigation/layout cleanup Work Card or post-Phase-03 UI consolidation pass"
     },
     {
       "id": "PH03-OBS-008",
+      "title": "Report review protocol and validation disposition role confusion",
       "projectRegisterLink": "PROJ-OBS-005",
       "status": "Assigned",
-      "assignedTarget": "WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance",
-      "title": "Report review protocol and validation disposition role confusion"
+      "assignedTarget": "WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance"
+    },
+    {
+      "id": "PH03-OBS-009",
+      "title": "Controlled route recovery is needed when current-action routing is wrong or blocks validation",
+      "sourceArtifact": "Operator discussion after WC08-REPAIR02 validation was blocked by incorrect routing to WC09 Ad Hoc Work Card Capture.",
+      "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
+      "dateCaptured": "2026-07-14",
+      "operatorObservation": "The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.",
+      "architectDisposition": "Defer to a dedicated controlled route recovery Work Card after WC08-REPAIR03 unblocks the immediate validation route.",
+      "dispositionRationale": "This is broader than the immediate WC08-REPAIR03 routing bug. It should create a durable recovery request and Architect disposition gate rather than an unrestricted Operator override.",
+      "assignedTarget": "Planned WC08-REPAIR04 — Operator Route Recovery Request and Architect Disposition Gate, or equivalent Phase 03 route-recovery Work Card before deeper WC09-WC15 work continues.",
+      "status": "Planned / Deferred until after WC08-REPAIR03",
+      "resolutionArtifact": "Pending",
+      "projectRegisterLink": "PROJ-OBS-006"
     }
   ],
   "resolvedObservations": [
     {
       "id": "PH03-OBS-003",
+      "title": "Source Evidence should not show full raw paths",
       "status": "Resolved",
       "resolutionArtifact": "VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md"
     },
     {
       "id": "PH03-OBS-004",
+      "title": "Supporting screens are reachable but not populated",
       "status": "Resolved for WC07 scope / residual route-specific screen population deferred by scope",
       "resolutionArtifact": "VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md"
     },
     {
       "id": "PH03-OBS-006",
+      "title": "Work Card Loop needs artifact access during validation",
       "status": "Resolved",
       "resolutionArtifact": "VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md"
     }

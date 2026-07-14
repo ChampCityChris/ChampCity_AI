@@ -87,6 +87,19 @@ Each future Work Card creation pass must review both the project-level and phase
 - Resolution artifact: Pending WC08-REPAIR02 validation
 - Project register link: PROJ-OBS-005
 
+### PH03-OBS-009 — Controlled route recovery is needed when current-action routing is wrong or blocks validation
+
+- Source artifact: Operator discussion after WC08-REPAIR02 validation was blocked by incorrect routing to WC09 Ad Hoc Work Card Capture.
+- Source Work Card: WC08-REPAIR02 / WC08-REPAIR03
+- Date captured: 2026-07-14
+- Operator observation: The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.
+- Architect disposition: Defer to a dedicated controlled route recovery Work Card after WC08-REPAIR03 unblocks the immediate validation route.
+- Disposition rationale: This is broader than the immediate WC08-REPAIR03 routing bug. It should create a durable recovery request and Architect disposition gate rather than an unrestricted Operator override.
+- Assigned target: Planned WC08-REPAIR04 — Operator Route Recovery Request and Architect Disposition Gate, or equivalent Phase 03 route-recovery Work Card before deeper WC09-WC15 work continues.
+- Status: Planned / Deferred until after WC08-REPAIR03
+- Resolution artifact: Pending
+- Project register link: PROJ-OBS-006
+
 ## Resolved Observations
 
 ### PH03-OBS-003 — Source Evidence should not show full raw paths

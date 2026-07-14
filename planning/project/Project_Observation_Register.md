@@ -17,16 +17,7 @@ Every just-in-time Work Card creation pass must review both:
 - `planning/phases/<active-phase>/Observation_Register.md`
 - `planning/phases/<active-phase>/Observation_Register.json`
 
-Before creating a Work Card, the Architect must decide whether each open observation is:
-
-- in scope for the new Work Card;
-- still deferred to a later Work Card in the current phase;
-- deferred to a later phase;
-- transferred to product backlog;
-- resolved by prior work;
-- no action required.
-
-If an observation is in scope, the Work Card must include it under `Carried-Forward Observations Included`. The Architect must not silently drop project-level or phase-level observations.
+Before creating a Work Card, the Architect must decide whether each open observation is in scope for the new Work Card, still deferred to later work, transferred to backlog/future phase, already resolved, or no action required. If an observation is in scope, the Work Card must include it under `Carried-Forward Observations Included`.
 
 At phase closeout, every phase observation not marked `Resolved` or `No action required` must be copied, linked, or already represented in this project-level register.
 
@@ -101,6 +92,20 @@ At phase closeout, every phase observation not marked `Resolved` or `No action r
 - Assigned target: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance
 - Status: Assigned
 - Resolution artifact: Pending WC08-REPAIR02 validation
+
+### PROJ-OBS-006 — Controlled route recovery is needed when current-action routing is wrong or blocks validation
+
+- Source Observation ID: PH03-OBS-009
+- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
+- Source artifact: Operator discussion after WC08-REPAIR02 validation was blocked by incorrect routing to WC09 Ad Hoc Work Card Capture.
+- Source Work Card: WC08-REPAIR02 / WC08-REPAIR03
+- Date captured: 2026-07-14
+- Operator observation: The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.
+- Architect disposition: Defer to a dedicated controlled route recovery Work Card after WC08-REPAIR03 unblocks the immediate validation route.
+- Disposition rationale: This is broader than the immediate WC08-REPAIR03 routing bug. It should create a durable recovery request and Architect disposition gate rather than an unrestricted Operator override.
+- Assigned target: Planned WC08-REPAIR04 — Operator Route Recovery Request and Architect Disposition Gate, or equivalent Phase 03 route-recovery Work Card before deeper WC09-WC15 work continues.
+- Status: Planned / Deferred until after WC08-REPAIR03
+- Resolution artifact: Pending
 
 ## Resolved Phase-Local Observations Not Promoted
 
