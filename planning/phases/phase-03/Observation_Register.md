@@ -5,11 +5,18 @@ Project: ChampCity A/I
 Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 Created: 2026-07-13
 Last updated: 2026-07-14
-Purpose: Durable register for non-blocking Operator observations, carry-forward items, deferred UI issues, and product-scope notes discovered during Phase 03 validation.
+Purpose: Durable phase-local register for Operator observations, carry-forward items, deferred UI issues, and product-scope notes discovered during Phase 03 validation.
+
+Cross-phase register: `planning/project/Project_Observation_Register.md`
 
 ## Governance Rule
 
 Every Operator validation observation must receive an Architect disposition. Observations must not remain only inside validation-report prose if they represent a possible repair, carry-forward, later Work Card requirement, post-phase cleanup item, or future product backlog item.
+
+This Phase 03 register records where the observation was discovered and triaged. Any observation not fully resolved inside Phase 03 must also be represented in the project-level register:
+
+- `planning/project/Project_Observation_Register.md`
+- `planning/project/Project_Observation_Register.json`
 
 Allowed dispositions:
 
@@ -21,7 +28,7 @@ Allowed dispositions:
 - Transfer to product backlog / future phase
 - No action required
 
-Each future Work Card creation pass must review this register before writing the Work Card. If an open observation belongs in the new Work Card scope, the Work Card must list it under `Carried-Forward Observations Included`. If no observations are in scope, the Work Card must explicitly say the register was reviewed and none were included.
+Each future Work Card creation pass must review both the project-level and phase-level observation registers before writing the Work Card. If an open observation belongs in the new Work Card scope, the Work Card must list it under `Carried-Forward Observations Included`. If no observations are in scope, the Work Card must explicitly say both registers were reviewed and none were included.
 
 ## Entry Fields
 
@@ -37,6 +44,7 @@ Each observation uses this structure:
 - Assigned target
 - Status
 - Resolution artifact
+- Project register link, if unresolved beyond this phase
 
 ## Open / Assigned Observations
 
@@ -51,6 +59,7 @@ Each observation uses this structure:
 - Assigned target: WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 validation UX cleanup if WC12 scope is kept narrower.
 - Status: Deferred
 - Resolution artifact: Pending
+- Project register link: PROJ-OBS-001
 
 ### PH03-OBS-002 — Screenshot paste and evidence UI needs cleanup
 
@@ -63,6 +72,7 @@ Each observation uses this structure:
 - Assigned target: WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 UI cleanup.
 - Status: Deferred
 - Resolution artifact: Pending
+- Project register link: PROJ-OBS-002
 
 ### PH03-OBS-005 — Multi-project / workspace support does not exist
 
@@ -75,6 +85,7 @@ Each observation uses this structure:
 - Assigned target: Future project/workspace management phase.
 - Status: Transferred / Future scope
 - Resolution artifact: Pending future phase planning
+- Project register link: PROJ-OBS-003
 
 ### PH03-OBS-007 — Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate
 
@@ -87,6 +98,7 @@ Each observation uses this structure:
 - Assigned target: Later Phase 03 navigation/layout cleanup Work Card or post-Phase-03 UI consolidation pass.
 - Status: Deferred
 - Resolution artifact: Pending
+- Project register link: PROJ-OBS-004
 
 ## Resolved Observations
 
@@ -101,6 +113,7 @@ Each observation uses this structure:
 - Assigned target: WC07 — Artifact Review Workspace; repaired by WC07-REPAIR01.
 - Status: Resolved
 - Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
+- Project register link: Not promoted; resolved phase-local item.
 
 ### PH03-OBS-004 — Supporting screens are reachable but not populated
 
@@ -113,6 +126,7 @@ Each observation uses this structure:
 - Assigned target: WC07 — Artifact Review Workspace for current-action artifact context; later route-specific cards only if needed.
 - Status: Resolved for WC07 scope / residual route-specific screen population deferred by scope
 - Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
+- Project register link: Not promoted as open item; resolved for WC07 scope. Reopen as a new project observation only if later route-specific screen work requires it.
 
 ### PH03-OBS-006 — Work Card Loop needs artifact access during validation
 
@@ -125,6 +139,7 @@ Each observation uses this structure:
 - Assigned target: WC07 — Artifact Review Workspace; repaired by WC07-REPAIR01.
 - Status: Resolved
 - Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
+- Project register link: Not promoted; resolved phase-local item.
 
 ## Work Card Creation Requirement
 
@@ -133,26 +148,39 @@ Every future just-in-time Work Card creation prompt must include this requiremen
 ```text
 Before creating this Work Card, review:
 
-planning/phases/<phase-id>/Observation_Register.md
-planning/phases/<phase-id>/Observation_Register.json
+planning/project/Project_Observation_Register.md
+planning/project/Project_Observation_Register.json
+planning/phases/<active-phase>/Observation_Register.md
+planning/phases/<active-phase>/Observation_Register.json
 
 For every open observation, determine whether it is:
 - in scope for this Work Card;
 - already resolved by prior work;
 - still deferred to a later Work Card in this phase;
-- deferred to post-phase UI cleanup;
+- deferred to a later phase;
 - transferred to product backlog / future phase;
 - no action required.
 
-If an observation is in scope, explicitly include it in the Work Card under “Carried-Forward Observations Included.”
+If an observation is in scope, explicitly include it in the Work Card under `Carried-Forward Observations Included`.
 
-If no observation is in scope, state that the Observation Register was reviewed and no open observations are included.
+If no observation is in scope, state that both Observation Registers were reviewed and no open observations are included.
 
 The Architect must not silently drop Operator observations.
+```
+
+## Phase Closeout Requirement
+
+Phase closeout must include Observation Register reconciliation:
+
+```text
+Observation Register Reconciliation:
+- Confirm all phase observations are Resolved, No action required, or represented in the Project Observation Register.
+- List any project-level observations created or updated during closeout.
+- Identify any observations that must influence next-phase activation or next-phase mapping.
 ```
 
 ## Current WC07 Handling Note
 
 WC07 failed initial validation and was repaired through WC07-REPAIR01. The WC07-REPAIR01 validation report passed and resolves PH03-OBS-003 and PH03-OBS-006, and resolves the WC07-scoped portion of PH03-OBS-004.
 
-PH03-OBS-007 is not a WC07-REPAIR01 blocker. It should be considered during the next Work Card creation pass and either assigned to a later Phase 03 navigation/layout cleanup Work Card or explicitly deferred.
+PH03-OBS-007 is not a WC07-REPAIR01 blocker. It is represented in the Project Observation Register as PROJ-OBS-004 and must be considered during the next Work Card creation pass.

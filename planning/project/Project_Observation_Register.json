@@ -1,0 +1,95 @@
+{
+  "status": "Active",
+  "project": "ChampCity A/I",
+  "created": "2026-07-14",
+  "purpose": "Cross-phase register for unresolved, deferred, future-scope, or product-level observations discovered during phase execution and Operator validation.",
+  "governanceRule": {
+    "summary": "Phase Observation Registers record where observations are discovered and triaged. The Project Observation Register records observations that must remain visible across phase boundaries.",
+    "workCardCreationReviewRequired": [
+      "planning/project/Project_Observation_Register.md",
+      "planning/project/Project_Observation_Register.json",
+      "planning/phases/<active-phase>/Observation_Register.md",
+      "planning/phases/<active-phase>/Observation_Register.json"
+    ],
+    "phaseCloseoutRequirement": "Every phase closeout must confirm all phase observations are Resolved, No action required, or represented in the Project Observation Register."
+  },
+  "openObservations": [
+    {
+      "projectObservationId": "PROJ-OBS-001",
+      "title": "Validation checklist should become editable / structured",
+      "sourceObservationId": "PH03-OBS-001",
+      "sourcePhase": "phase-03",
+      "sourceArtifact": "Phase 03 Observation Register; WC04/WC05/WC06 validation observations",
+      "sourceWorkCard": "Multiple validation reports",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate What was tested and checklist content.",
+      "architectDisposition": "Deferred to validation-record workflow work.",
+      "dispositionRationale": "This is durable validation UX debt. It is not specific to one Work Card and should remain visible until the validation-record creation flow is repaired or redesigned.",
+      "assignedTarget": "WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 validation UX cleanup if WC12 scope is kept narrower.",
+      "status": "Deferred",
+      "resolutionArtifact": "Pending"
+    },
+    {
+      "projectObservationId": "PROJ-OBS-002",
+      "title": "Screenshot paste and evidence UI needs cleanup",
+      "sourceObservationId": "PH03-OBS-002",
+      "sourcePhase": "phase-03",
+      "sourceArtifact": "Phase 03 Observation Register; WC04 repair validation observations",
+      "sourceWorkCard": "WC04-REPAIR01 / WC04-REPAIR03",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "Screenshot paste should be the primary input method, the attach button should be fallback, repo-relative paths should clear after image creation, and screenshot evidence should be shown more like an image/card rather than long path text.",
+      "architectDisposition": "Deferred to validation-record workflow work.",
+      "dispositionRationale": "This is broader validation evidence UX, not limited to a single Work Card. It should remain visible across phases until addressed.",
+      "assignedTarget": "WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 UI cleanup.",
+      "status": "Deferred",
+      "resolutionArtifact": "Pending"
+    },
+    {
+      "projectObservationId": "PROJ-OBS-003",
+      "title": "Multi-project / workspace support does not exist",
+      "sourceObservationId": "PH03-OBS-005",
+      "sourcePhase": "phase-03",
+      "sourceArtifact": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+      "sourceWorkCard": "WC05 — Subordinate Navigation and Manual Fallback Preservation",
+      "dateCaptured": "2026-07-13",
+      "operatorObservation": "There is no way currently to work multiple projects through the application.",
+      "architectDisposition": "Transfer to product backlog / future phase.",
+      "dispositionRationale": "Multi-project/workspace management is valid product functionality but outside Phase 03 router UI correction. It must not disappear at Phase 03 closeout.",
+      "assignedTarget": "Future project/workspace management phase.",
+      "status": "Future scope",
+      "resolutionArtifact": "Pending future phase planning"
+    },
+    {
+      "projectObservationId": "PROJ-OBS-004",
+      "title": "Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate",
+      "sourceObservationId": "PH03-OBS-007",
+      "sourcePhase": "phase-03",
+      "sourceArtifact": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md",
+      "sourceWorkCard": "WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability",
+      "dateCaptured": "2026-07-14",
+      "operatorObservation": "Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.",
+      "architectDisposition": "Deferred to later navigation/layout cleanup.",
+      "dispositionRationale": "This is a valid global navigation/readability issue. It was not a WC07-REPAIR01 blocker because WC07-REPAIR01 repaired artifact workspace layout ownership, not the global workflow/action bar system. It affects workspace real estate and should be considered before creating additional route-specific screens.",
+      "assignedTarget": "Later Phase 03 navigation/layout cleanup Work Card, WC08 if scope aligns, or post-Phase-03 UI consolidation pass.",
+      "status": "Deferred",
+      "resolutionArtifact": "Pending"
+    }
+  ],
+  "resolvedPhaseLocalObservationsNotPromoted": [
+    {
+      "sourceObservationId": "PH03-OBS-003",
+      "title": "Source Evidence should not show full raw paths",
+      "status": "Resolved by WC07-REPAIR01 validation"
+    },
+    {
+      "sourceObservationId": "PH03-OBS-004",
+      "title": "Supporting screens are reachable but not populated",
+      "status": "Resolved for WC07 current-action artifact context; residual route-specific screen population deferred by scope"
+    },
+    {
+      "sourceObservationId": "PH03-OBS-006",
+      "title": "Work Card Loop needs artifact access during validation",
+      "status": "Resolved by WC07-REPAIR01 validation"
+    }
+  ]
+}
