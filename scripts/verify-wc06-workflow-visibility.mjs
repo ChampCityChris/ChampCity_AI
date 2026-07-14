@@ -161,26 +161,26 @@ const liveCurrentAction = await getCurrentRequiredAction();
 assert.equal(liveCurrentAction.ok, true, liveCurrentAction.errorMessages?.join(" "));
 assert.equal(
   liveCurrentAction.currentAction?.workCardId,
-  "WC08",
-  "Passing prior validation should allow the router to reach the active WC08 Architect Review step.",
+  "WC08-REPAIR02",
+  "Passing prior Work Cards must not bypass the pending WC08-REPAIR02 validation step.",
 );
 assert.equal(
   liveCurrentAction.currentAction?.id,
-  "architect_review_of_implementer_report_required",
-  "The completed WC08 Implementer Report should require Architect Review.",
+  "repair_validation_required",
+  "The completed and reviewed WC08-REPAIR02 repair should require Operator validation.",
 );
-assert.equal(liveCurrentAction.currentAction?.responsibleRole, "architect");
-assert.equal(liveCurrentAction.currentAction?.status, "needs_review");
+assert.equal(liveCurrentAction.currentAction?.responsibleRole, "operator");
+assert.equal(liveCurrentAction.currentAction?.status, "needs_validation");
 
 const liveGuide = resolveWorkflowVisibility(liveCurrentAction.currentAction);
 assert.equal(liveGuide.positionKnown, true);
 assert.equal(liveGuide.activeStepLabel, "Work Card Loop");
 assert.equal(
   liveGuide.workCardLoopStages.find(
-    (stage) => stage.id === "architect-review",
+    (stage) => stage.id === "validation-again",
   )?.state,
-  "current",
-  "The visible workflow guide must agree with the current WC08 Architect Review route.",
+  "repair",
+  "The visible workflow guide must agree with the current repair-validation route.",
 );
 
 console.log("WC06 workflow-visibility focused fixture passed.");

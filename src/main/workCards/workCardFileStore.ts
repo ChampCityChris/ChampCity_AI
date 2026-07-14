@@ -3920,6 +3920,11 @@ async function findValidationForWorkCard(
           ),
         )),
       ];
+      const architectDisposition = getArchitectDisposition(parsed);
+      const legacyOperatorDecision =
+        getRecordString(parsed, "operatorDecision") ||
+        getRecordString(parsed, "operator_decision") ||
+        getRecordString(parsed, "decision");
 
       matching.push({
         modifiedMs: stats.mtimeMs,
@@ -3928,12 +3933,13 @@ async function findValidationForWorkCard(
             getRecordString(parsed, "validationResult") ||
             getRecordString(parsed, "validation_result") ||
             getRecordString(parsed, "status"),
-          decision: getArchitectDisposition(parsed),
+          decision: architectDisposition,
           architectDispositionPending: isArchitectDispositionPending(parsed),
-          legacyOperatorDecision:
-            getRecordString(parsed, "operatorDecision") ||
-            getRecordString(parsed, "operator_decision") ||
-            getRecordString(parsed, "decision"),
+          architectDispositionMissing:
+            /_repair\d+$/i.test(normalizeCurrentActionId(workCardId)) &&
+            !architectDisposition &&
+            !legacyOperatorDecision,
+          legacyOperatorDecision,
           repairRequired: getRecordBoolean(parsed, "repair_required"),
           routeBlocked: isRouteBlockedValidationRecord(parsed),
           sourceArtifacts,
@@ -4009,12 +4015,34 @@ async function findRepairState(
     `REPAIR_PROMPT_${workCardId}`,
     "Repair Prompt",
   );
+  const repairStates = await findRepairWorkCardStates(phase, workCardId);
+  const validationReadyRepair = repairStates.find(
+    isRepoRepairValidationObligationUnresolved,
+  );
+
+  if (validationReadyRepair) {
+    return {
+      ...validationReadyRepair,
+      repairPrompt,
+    };
+  }
+
+  const fallbackRepair = repairStates[0];
+
+  if (fallbackRepair) {
+    return {
+      ...fallbackRepair,
+      repairPrompt,
+    };
+  }
+
   const repairWorkCard = await findRepairWorkCardArtifact(phase, workCardId);
 
   if (!repairPrompt && !repairWorkCard) {
     return undefined;
   }
 
+  // Compatibility fallback for legacy prompt/Markdown-only repair routes.
   const repairId = `${workCardId}-REPAIR01`;
   const implementerReport = await findMatchingMarkdownArtifact(
     resolveBuilderReportsDirectory(phase),
@@ -4030,6 +4058,84 @@ async function findRepairState(
     implementerReport,
     validation,
   };
+}
+
+async function findRepairWorkCardStates(
+  phase: string,
+  parentWorkCardId: string,
+): Promise<CurrentActionRepairState[]> {
+  const directory = resolveWorkCardsDirectory(phase);
+  const entries = await readDirectoryFileNames(directory, ".json");
+  const parentId = normalizeCurrentActionId(parentWorkCardId);
+  const repairPrefix = normalizeCurrentActionId(`${parentWorkCardId}-REPAIR`);
+  const repairs: CurrentActionRepairState[] = [];
+
+  for (const fileName of entries) {
+    const filePath = resolveInside(directory, fileName);
+
+    try {
+      const parsed = JSON.parse(await readFile(filePath, "utf8")) as unknown;
+      const fields = coerceWorkCardValidationTargetFields(parsed, phase);
+
+      if (!fields) {
+        continue;
+      }
+
+      const repairId = normalizeCurrentActionId(fields.workCardId);
+      const declaredParentId = normalizeCurrentActionId(
+        fields.parentWorkCardId ?? "",
+      );
+
+      if (
+        !repairId.startsWith(repairPrefix) ||
+        (declaredParentId && declaredParentId !== parentId)
+      ) {
+        continue;
+      }
+
+      const markdownPath = filePath.replace(/\.json$/i, ".md");
+      const implementerReport = await findMatchingMarkdownArtifact(
+        resolveBuilderReportsDirectory(phase),
+        `BUILDER_REPORT_${fields.workCardId}`,
+        "Repair Implementer Report",
+      );
+      const architectReviewArtifact = await findMatchingMarkdownArtifact(
+        resolveInside(planningPhasesRoot, phase, "Architect_Reviews"),
+        `ARCHITECT_REVIEW_${fields.workCardId}`,
+        "Repair Architect Review",
+      );
+      const architectReviewStatus = architectReviewArtifact
+        ? await readArchitectReviewStatus(
+            absoluteFromRepoPath(architectReviewArtifact.path),
+          )
+        : undefined;
+
+      repairs.push({
+        repairId: fields.workCardId,
+        title: fields.title,
+        repairWorkCard: await artifactReferenceForPath(
+          markdownPath,
+          "Repair Work Card",
+          fields.status,
+        ),
+        implementerReport,
+        architectReview: architectReviewArtifact
+          ? {
+              status: architectReviewStatus,
+              sourceArtifact: {
+                ...architectReviewArtifact,
+                status: architectReviewStatus ?? architectReviewArtifact.status,
+              },
+            }
+          : undefined,
+        validation: await findValidationForWorkCard(phase, fields.workCardId),
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  return repairs;
 }
 
 async function findRepairWorkCardArtifact(
@@ -4395,6 +4501,10 @@ function isRepoWorkCardResolved(
   candidateStatus: string | undefined,
   workCard: CurrentActionWorkCardState,
 ): boolean {
+  if (isRepoRepairValidationObligationUnresolved(workCard.repair)) {
+    return false;
+  }
+
   if (
     isRepoPassingValidation(workCard.validation) ||
     isRepoPassingValidation(workCard.repair?.validation)
@@ -4428,6 +4538,28 @@ function isRepoWorkCardResolved(
   return false;
 }
 
+function isRepoRepairValidationObligationUnresolved(
+  repair: CurrentActionRepairState | undefined,
+): boolean {
+  if (
+    !repair ||
+    !artifactReferenceExists(repair.repairWorkCard) ||
+    !artifactReferenceExists(repair.implementerReport)
+  ) {
+    return false;
+  }
+
+  const reviewStatus = normalizeCurrentActionStatus(
+    repair.architectReview?.status,
+  );
+
+  if (!/ready_for_operator_(?:visual_)?validation/.test(reviewStatus)) {
+    return false;
+  }
+
+  return !isRepoPassingValidation(repair.validation);
+}
+
 function isRepoPassingValidation(
   validation: CurrentActionValidationState | undefined,
 ): boolean {
@@ -4443,6 +4575,10 @@ function isRepoPassingValidation(
   }
 
   if (validation.architectDispositionPending) {
+    return false;
+  }
+
+  if (validation.architectDispositionMissing) {
     return false;
   }
 

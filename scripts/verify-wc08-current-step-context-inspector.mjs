@@ -329,9 +329,9 @@ async function main() {
   );
   assert.equal(
     liveModel.route.actionId,
-    "architect_review_of_implementer_report_required",
+    "repair_validation_required",
   );
-  assert.equal(liveModel.route.workCardLabel.startsWith("WC08"), true);
+  assert.equal(liveModel.route.workCardLabel.startsWith("WC08-REPAIR02"), true);
 
   const rendererSource = await readFile(
     new URL("../src/renderer/app/WorkflowRouterShell.tsx", import.meta.url),

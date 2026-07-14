@@ -120,6 +120,7 @@ export interface CurrentActionValidationState {
   result?: string;
   decision?: string;
   architectDispositionPending?: boolean;
+  architectDispositionMissing?: boolean;
   legacyOperatorDecision?: string;
   repairRequired?: boolean;
   routeBlocked?: boolean;
@@ -133,9 +134,11 @@ export interface CurrentActionArchitectReviewState {
 
 export interface CurrentActionRepairState {
   repairId?: string;
+  title?: string;
   repairPrompt?: CurrentActionArtifactReference;
   repairWorkCard?: CurrentActionArtifactReference;
   implementerReport?: CurrentActionArtifactReference;
+  architectReview?: CurrentActionArchitectReviewState;
   validation?: CurrentActionValidationState;
 }
 
@@ -760,6 +763,20 @@ function evaluateWorkCardState(
     ...workCard.sourceArtifacts,
   ]);
 
+  if (hasUnresolvedRepairValidationObligation(workCard.repair)) {
+    return evaluateRepairRoute(
+      phase,
+      workCard,
+      uniqueArtifacts([
+        ...workCardSources,
+        workCard.implementerReport,
+        workCard.architectReview?.sourceArtifact,
+        ...(workCard.validation?.sourceArtifacts ?? []),
+      ]),
+      warnings,
+    );
+  }
+
   if (workCard.validation?.architectDispositionPending) {
     return architectValidationDispositionAction(
       phase,
@@ -1014,7 +1031,8 @@ function evaluateRepairRoute(
 ): CurrentRequiredAction {
   const repair = workCard.repair;
   const repairId = repair?.repairId ?? `${workCard.workCardId}-REPAIR01`;
-  const repairWorkCardPath = `planning/phases/${phase.phaseId}/Work_Cards/${repairId}_${slugifyForPath(workCard.title)}.md`;
+  const repairTitle = repair?.title ?? `Repair: ${workCard.title}`;
+  const repairWorkCardPath = `planning/phases/${phase.phaseId}/Work_Cards/${repairId}_${slugifyForPath(repairTitle)}.md`;
 
   if (!repair?.repairPrompt && !repair?.repairWorkCard) {
     return action(warnings, {
@@ -1054,6 +1072,7 @@ function evaluateRepairRoute(
     ...sourceArtifacts,
     repair.repairWorkCard,
     repair.repairPrompt,
+    repair.architectReview?.sourceArtifact,
   ]);
 
   if (!artifactExists(repair.implementerReport)) {
@@ -1069,7 +1088,7 @@ function evaluateRepairRoute(
       phaseId: phase.phaseId,
       phaseTitle: phase.phaseTitle,
       workCardId: repairId,
-      workCardTitle: `Repair: ${workCard.title}`,
+      workCardTitle: repairTitle,
       status: "available",
       reason:
         "Repair was requested, but no repair Implementer Report is available.",
@@ -1119,7 +1138,7 @@ function evaluateRepairRoute(
       phaseId: phase.phaseId,
       phaseTitle: phase.phaseTitle,
       workCardId: repairId,
-      workCardTitle: `Repair: ${workCard.title}`,
+      workCardTitle: repairTitle,
       status: "needs_validation",
       reason:
         "Repair implementation evidence exists, but no passing repair Validation Record is available.",
@@ -1259,6 +1278,10 @@ function isCandidateResolved(
     return resolvedCandidateStatuses.has(normalizeStatus(candidate.status));
   }
 
+  if (hasUnresolvedRepairValidationObligation(workCard.repair)) {
+    return false;
+  }
+
   if (
     isPassingValidation(workCard.validation) ||
     isPassingValidation(workCard.repair?.validation)
@@ -1281,13 +1304,29 @@ function isCandidateResolved(
   return false;
 }
 
+function hasUnresolvedRepairValidationObligation(
+  repair: CurrentActionRepairState | undefined,
+): boolean {
+  if (
+    !repair ||
+    !artifactExists(repair.repairWorkCard) ||
+    !artifactExists(repair.implementerReport) ||
+    !isArchitectReviewReadyForOperatorValidation(repair.architectReview)
+  ) {
+    return false;
+  }
+
+  return !isPassingValidation(repair.validation);
+}
+
 function isFailingValidation(
   validation: CurrentActionValidationState | undefined,
 ): boolean {
   if (
     !validation ||
     validation.routeBlocked ||
-    validation.architectDispositionPending
+    validation.architectDispositionPending ||
+    validation.architectDispositionMissing
   ) {
     return false;
   }
@@ -1317,6 +1356,14 @@ function architectReviewRequiresRepair(
   );
 }
 
+function isArchitectReviewReadyForOperatorValidation(
+  review: CurrentActionArchitectReviewState | undefined,
+): boolean {
+  return /ready_for_operator_(?:visual_)?validation/.test(
+    normalizeStatus(review?.status),
+  );
+}
+
 function isArchitectReviewIncomplete(
   review: CurrentActionArchitectReviewState | undefined,
 ): boolean {
@@ -1331,6 +1378,7 @@ function isPassingValidation(
   if (
     !validation ||
     validation.architectDispositionPending ||
+    validation.architectDispositionMissing ||
     isFailingValidation(validation)
   ) {
     return false;

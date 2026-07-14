@@ -478,6 +478,7 @@ function buildRepairCategory(
       repair.repairPrompt,
       repair.repairWorkCard,
       repair.implementerReport,
+      repair.architectReview?.sourceArtifact,
       ...(repair.validation?.sourceArtifacts ?? []),
     ]);
 

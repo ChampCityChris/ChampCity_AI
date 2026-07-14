@@ -56,12 +56,12 @@ const currentActionResult = await getCurrentRequiredAction();
 assert.equal(currentActionResult.ok, true);
 assert.equal(
   currentActionResult.currentAction?.workCardId,
-  "WC08",
-  "Accepted prior work must allow the WC08 Architect Review route without changing support-navigation semantics.",
+  "WC08-REPAIR02",
+  "Accepted prior work must allow the pending repair-validation route without changing support-navigation semantics.",
 );
 assert.equal(
   currentActionResult.currentAction?.id,
-  "architect_review_of_implementer_report_required",
+  "repair_validation_required",
 );
 
 console.log("WC05 support-navigation focused fixture passed.");

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -843,6 +844,172 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
     }
   }
 
+  const pendingRepairValidationAction = evaluateCurrentRequiredAction(
+    makeCurrentActionState({
+      activePhase: {
+        workCardCandidates: [
+          {
+            workCardId: "WC08",
+            title: "Current Step Context Inspector",
+            order: 8,
+            status: "completed",
+            sourceArtifact: artifact(
+              "planning/phases/phase-03/Work_Card_Plan.md",
+              "Mapped Work Card candidate",
+            ),
+          },
+          {
+            workCardId: "WC09",
+            title: "Next Planned Work Card",
+            order: 9,
+            status: "planned",
+            sourceArtifact: artifact(
+              "planning/phases/phase-03/Work_Card_Plan.md",
+              "Mapped Work Card candidate",
+            ),
+          },
+        ],
+        workCards: [
+          workCard({
+            workCardId: "WC08",
+            title: "Current Step Context Inspector",
+            phaseId: "phase-03",
+            status: "completed",
+            implementerReport: artifact(
+              "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md",
+              "Implementer Report",
+            ),
+            architectReview: {
+              status: "Ready for Operator validation",
+              sourceArtifact: artifact(
+                "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md",
+                "Architect Review",
+              ),
+            },
+            validation: validation("Pass", undefined, false, {
+              legacyOperatorDecision: "Partial - repair or follow-up needed",
+            }),
+            repair: {
+              repairId: "WC08-REPAIR02",
+              title:
+                "Report Review Protocol and Validation Disposition Governance",
+              repairWorkCard: artifact(
+                "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                "Repair Work Card",
+              ),
+              implementerReport: artifact(
+                "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                "Repair Implementer Report",
+              ),
+              architectReview: {
+                status: "Ready for Operator validation",
+                sourceArtifact: artifact(
+                  "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                  "Repair Architect Review",
+                ),
+              },
+            },
+          }),
+        ],
+      },
+    }),
+  );
+
+  assert.equal(pendingRepairValidationAction.id, "repair_validation_required");
+  assert.equal(pendingRepairValidationAction.workCardId, "WC08-REPAIR02");
+  assert.notEqual(
+    pendingRepairValidationAction.workCardId,
+    "WC09",
+    "An unresolved repair validation obligation must block the next mapped Work Card.",
+  );
+  assert.match(
+    pendingRepairValidationAction.expectedOutput?.path ?? "",
+    /VALIDATION_REPORT_WC08-REPAIR02_/,
+  );
+  assert.equal(pendingRepairValidationAction.responsibleRole, "operator");
+  assert.equal(pendingRepairValidationAction.status, "needs_validation");
+
+  for (const validationOverride of [
+    {
+      architectDispositionPending: true,
+      decision: pendingArchitectDisposition,
+      legacyOperatorDecision: "Passed - proceed",
+    },
+    {
+      architectDispositionMissing: true,
+      decision: undefined,
+      legacyOperatorDecision: undefined,
+    },
+  ]) {
+    const unresolvedDispositionAction = evaluateCurrentRequiredAction(
+      makeCurrentActionState({
+        activePhase: {
+          workCardCandidates: [
+            {
+              workCardId: "WC08",
+              title: "Current Step Context Inspector",
+              order: 8,
+              status: "completed",
+            },
+            {
+              workCardId: "WC09",
+              title: "Next Planned Work Card",
+              order: 9,
+              status: "planned",
+            },
+          ],
+          workCards: [
+            workCard({
+              workCardId: "WC08",
+              title: "Current Step Context Inspector",
+              phaseId: "phase-03",
+              status: "completed",
+              validation: validation("Pass", undefined, false, {
+                legacyOperatorDecision: "Partial - repair or follow-up needed",
+              }),
+              repair: {
+                repairId: "WC08-REPAIR02",
+                title:
+                  "Report Review Protocol and Validation Disposition Governance",
+                repairWorkCard: artifact(
+                  "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                  "Repair Work Card",
+                ),
+                implementerReport: artifact(
+                  "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                  "Repair Implementer Report",
+                ),
+                architectReview: {
+                  status: "Ready for Operator validation",
+                  sourceArtifact: artifact(
+                    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                    "Repair Architect Review",
+                  ),
+                },
+                validation: validation(
+                  "Pass",
+                  validationOverride.decision,
+                  false,
+                  validationOverride,
+                ),
+              },
+            }),
+          ],
+        },
+      }),
+    );
+
+    assert.notEqual(unresolvedDispositionAction.workCardId, "WC09");
+    assert.equal(unresolvedDispositionAction.workCardId, "WC08-REPAIR02");
+    assert.equal(
+      unresolvedDispositionAction.id,
+      validationOverride.architectDispositionPending
+        ? "architect_review_of_validation_report_required"
+        : "repair_validation_required",
+      "Pending or missing Architect disposition must not resolve a repair validation.",
+    );
+  }
+
   const passingDecisionOverrideAction = evaluateCurrentRequiredAction(
     makeCurrentActionState({
       activePhase: {
@@ -999,6 +1166,10 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
       "implementer_report_required",
       "architect_review_of_implementer_report_required",
       "operator_validation_required",
+    ],
+    "WC08-REPAIR02": [
+      "repair_validation_required",
+      "architect_review_of_validation_report_required",
     ],
   };
   const liveWorkCardId = liveCurrentAction.currentAction.workCardId;
