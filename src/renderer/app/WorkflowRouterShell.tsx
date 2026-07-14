@@ -1351,7 +1351,7 @@ function ArtifactWorkspace({
   );
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<
     "artifacts" | "action" | "context"
-  >(reviewModel?.hasContext ? "artifacts" : "action");
+  >("action");
   const [previewTarget, setPreviewTarget] = useState<{
     path: string;
     displayName: string;
@@ -1361,11 +1361,11 @@ function ArtifactWorkspace({
   const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
-    setActiveWorkspaceTab(reviewModel?.hasContext ? "artifacts" : "action");
+    setActiveWorkspaceTab("action");
     setPreviewTarget(null);
     setPreviewResult(null);
     setPreviewLoading(false);
-  }, [action?.id, action?.phaseId, action?.workCardId, reviewModel?.hasContext]);
+  }, [action?.id, action?.phaseId, action?.workCardId]);
 
   const showArtifactWorkspace = Boolean(
     reviewModel &&
@@ -1487,6 +1487,16 @@ function ArtifactWorkspace({
           role="tablist"
           aria-label="Current action workspace"
         >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "action"}
+            onClick={() => setActiveWorkspaceTab("action")}
+            className={workspaceTabClass(activeWorkspaceTab === "action")}
+          >
+            <CheckSquare size={12} />
+            Complete current action
+          </button>
           {showArtifactWorkspace && reviewModel ? (
             <button
               type="button"
@@ -1502,16 +1512,6 @@ function ArtifactWorkspace({
               </span>
             </button>
           ) : null}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeWorkspaceTab === "action"}
-            onClick={() => setActiveWorkspaceTab("action")}
-            className={workspaceTabClass(activeWorkspaceTab === "action")}
-          >
-            <CheckSquare size={12} />
-            Complete current action
-          </button>
           {showContextInspector ? (
             <button
               type="button"
@@ -1521,11 +1521,11 @@ function ArtifactWorkspace({
               className={workspaceTabClass(activeWorkspaceTab === "context")}
             >
               <Eye size={12} />
-              Route context
+              Why this step?
             </button>
           ) : null}
           <span className="ml-auto hidden text-[10px] text-muted-foreground/50 lg:block">
-            Artifacts owns document review. Route context explains the selection.
+            Complete the action, review its artifacts, or inspect the route context.
           </span>
         </div>
       ) : null}
@@ -1563,7 +1563,7 @@ function ArtifactWorkspace({
             activeWorkspaceTab !== "context" && "hidden",
           )}
           role="tabpanel"
-          aria-label="Route context"
+          aria-label="Why this step? Route context"
         >
           <CurrentStepContextInspector model={contextModel} />
         </div>
@@ -2091,16 +2091,16 @@ function CurrentStepContextInspector({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-foreground">
-                Why this action?
+                Why this step?
               </h2>
               <Badge className="border-emerald-400/20 bg-emerald-400/8 text-emerald-300">
                 Read-only
               </Badge>
             </div>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground/70">
-              This inspector explains the durable evidence behind the current
-              route. It cannot save records, approve work, validate, repair, or
-              advance workflow state.
+              A plain-language explanation of why ChampCity A/I stopped here,
+              what must happen next, and which durable evidence would change
+              the route.
             </p>
           </div>
           <div className="rounded-md border border-border bg-card/35 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground/60">
@@ -2108,230 +2108,448 @@ function CurrentStepContextInspector({
           </div>
         </header>
 
-        <section aria-labelledby="route-selection-title">
+        <section
+          aria-labelledby="why-current-action-title"
+          className="rounded-xl border border-primary/25 bg-primary/[0.055] p-4"
+        >
           <ContextSectionHeading
-            id="route-selection-title"
-            title="Route selection"
-            description="Human-readable route identity and the evaluator's reason."
+            id="why-current-action-title"
+            title="Why this is the current action"
+            description={model.route.title}
+          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PlainLanguageList
+              title="Evidence already on record"
+              items={model.explanation.evidenceOnRecord}
+              tone="available"
+            />
+            <PlainLanguageList
+              title="Still missing or pending"
+              items={model.explanation.pendingEvidence}
+              tone="pending"
+            />
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-lg border border-border/80 bg-background/35 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary/75">
+                Why this comes before later work
+              </div>
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground/80">
+                {model.explanation.priorityReason}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/80 bg-background/35 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary/75">
+                Why the app has not advanced
+              </div>
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground/80">
+                {model.explanation.advancementBlock}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="what-happens-next-title">
+          <ContextSectionHeading
+            id="what-happens-next-title"
+            title="What happens next"
+            description="The owner, required action, durable output, and following step."
           />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <ContextMetadataCard label="Current action" value={model.route.title} />
             <ContextMetadataCard
-              label="Responsible role"
-              value={roleLabel(model.route.responsibleRole)}
+              label="Who is responsible"
+              value={model.nextAction.responsibleParty}
             />
             <ContextMetadataCard
-              label="Workflow step"
-              value={model.route.workflowStep}
+              label="What they must do"
+              value={model.nextAction.requiredAction}
             />
             <ContextMetadataCard
-              label="Status"
-              value={formatContextValue(model.route.status)}
+              label="Durable output expected"
+              value={model.nextAction.expectedOutput}
             />
-            <ContextMetadataCard label="Phase" value={model.route.phaseLabel} />
             <ContextMetadataCard
-              label="Work Card"
-              value={model.route.workCardLabel}
+              label="After that output exists"
+              value={model.nextAction.afterCompletion}
             />
           </div>
-          <div className="mt-3 rounded-lg border border-primary/20 bg-primary/[0.045] px-4 py-3">
-            <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary/70">
-              Why it was selected
-            </div>
-            <p className="mt-1 text-sm leading-relaxed text-foreground/80">
-              {model.route.reason}
-            </p>
-            <details className="mt-2 text-[10px] text-primary/55">
-              <summary className="cursor-pointer select-none">
-                Technical route ID
-              </summary>
-              <div className="break-anywhere mt-1 font-mono leading-relaxed">
-                {model.route.actionId}
-              </div>
-            </details>
-          </div>
-          {model.route.outcomes.length > 0 ? (
-            <div className="mt-3 grid gap-2 md:grid-cols-3">
-              {model.route.outcomes.map((outcome) => (
-                <div
-                  key={outcome.id}
-                  className="rounded-md border border-border bg-card/25 px-3 py-2.5"
-                >
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
-                    {outcome.label}
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-foreground/70">
-                    {outcome.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : null}
         </section>
 
-        <section aria-labelledby="durable-state-title">
+        <section aria-labelledby="route-change-title">
           <ContextSectionHeading
-            id="durable-state-title"
-            title="Durable state categories"
-            description="Summaries only. Use Artifacts for document browsing and preview."
+            id="route-change-title"
+            title="What would change this route"
+            description="Only durable evidence or disposition can move the workflow."
           />
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {model.stateCategories.map((state) => (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {model.routeChangeConditions.map((condition, index) => (
               <div
-                key={state.id}
-                className="flex min-h-[132px] flex-col rounded-lg border border-border bg-card/25 px-3.5 py-3"
+                key={condition.id}
+                className="flex gap-3 rounded-lg border border-border bg-card/25 px-4 py-3"
               >
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">
-                      {state.label}
-                    </div>
-                    <div className="mt-1 break-words text-sm font-semibold text-foreground/85">
-                      {formatContextValue(state.status)}
-                    </div>
-                  </div>
-                  <Badge className={contextAuthorityClass(state.authority)}>
-                    {contextAuthorityLabel(state.authority)}
-                  </Badge>
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/8 text-[10px] font-bold text-primary">
+                  {index + 1}
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground/70">
-                  {state.summary}
+                <p className="text-sm leading-relaxed text-foreground/75">
+                  {condition.description}
                 </p>
-                <div className="mt-auto pt-2 text-[10px] text-muted-foreground/45">
-                  {state.evidenceCount} supporting record
-                  {state.evidenceCount === 1 ? "" : "s"} reported
-                </div>
               </div>
             ))}
           </div>
         </section>
 
-        <section aria-labelledby="missing-records-title">
-          <ContextSectionHeading
-            id="missing-records-title"
-            title={`Missing records (${model.missingRecords.length})`}
-            description="The reason is primary; the expected path stays collapsed."
-          />
-          {model.missingRecords.length === 0 ? (
-            <Notice type="success">
-              No missing records were reported for the current route.
-            </Notice>
-          ) : (
+        <details className="group rounded-xl border border-amber-400/25 bg-amber-400/[0.045]">
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+            <AlertTriangle size={16} className="shrink-0 text-amber-300" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-amber-200">
+                This route looks wrong
+              </div>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/70">
+                Review the controlling records and prepare an Architect handoff.
+                Opening this guidance does not change the route.
+              </p>
+            </div>
+            <ChevronDown
+              size={14}
+              className="shrink-0 text-amber-300 transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="border-t border-amber-400/15 px-4 py-4">
             <div className="grid gap-3 lg:grid-cols-2">
-              {model.missingRecords.map((record) => (
-                <div
-                  key={record.key}
-                  className={cn(
-                    "rounded-lg border px-3.5 py-3",
-                    record.impact === "blocking"
-                      ? "border-red-400/20 bg-red-400/[0.05]"
-                      : record.impact === "expected_next"
-                        ? "border-primary/20 bg-primary/[0.04]"
-                        : "border-amber-400/20 bg-amber-400/[0.04]",
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-foreground/85">
-                        {record.displayName}
-                      </div>
-                      <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/50">
-                        {record.recordType}
-                      </div>
-                    </div>
-                    <Badge
-                      className={
-                        record.impact === "blocking"
-                          ? "border-red-400/20 bg-red-400/8 text-red-300"
-                          : record.impact === "expected_next"
-                            ? "border-primary/20 bg-primary/8 text-primary"
-                            : "border-amber-400/20 bg-amber-400/8 text-amber-300"
-                      }
-                    >
-                      {record.impactLabel}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
-                    {record.reason}
-                  </p>
-                  <details className="mt-2 text-[10px] text-muted-foreground/50">
-                    <summary className="cursor-pointer select-none">
-                      Expected path
-                    </summary>
-                    <div className="break-anywhere mt-1 font-mono leading-relaxed">
-                      {record.path}
-                    </div>
-                  </details>
+              <div className="rounded-lg border border-border bg-background/30 px-4 py-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-300/80">
+                  Record currently controlling the stop
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section aria-labelledby="evidence-health-title">
-          <ContextSectionHeading
-            id="evidence-health-title"
-            title={`Warnings and evidence health (${model.evidenceHealth.length})`}
-            description="Blocking, warning, and informational records are separated. Historical evidence is never labeled as controlling authority."
-          />
-          {model.evidenceHealth.length === 0 ? (
-            <Notice type="success">
-              No stale, superseded, malformed, unreadable, or other warning
-              evidence was reported.
-            </Notice>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {warningGroups.map((group) =>
-                group.items.length > 0 ? (
-                  <ContextEvidenceHealthGroup
-                    key={group.severity}
-                    severity={group.severity}
-                    items={group.items}
-                  />
-                ) : null,
-              )}
-            </div>
-          )}
-        </section>
-
-        <section aria-labelledby="capability-state-title">
-          <ContextSectionHeading
-            id="capability-state-title"
-            title="Available app capability context"
-            description="Only state already exposed to this renderer is reported; unavailable data is not guessed."
-          />
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {model.capabilities.map((capability) => (
-              <div
-                key={capability.id}
-                className="rounded-lg border border-border bg-card/25 px-3.5 py-3"
-              >
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1 text-xs font-semibold text-foreground/80">
-                    {capability.label}
-                  </div>
-                  <Badge className={capabilityStateClass(capability.state)}>
-                    {capability.statusLabel}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground/70">
-                  {capability.summary}
+                <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">
+                  {model.correctionGuidance.controllingIssue}
                 </p>
-                {capability.technicalDetail ? (
-                  <details className="mt-2 text-[10px] text-muted-foreground/50">
-                    <summary className="cursor-pointer select-none">
-                      Technical detail
-                    </summary>
-                    <div className="break-anywhere mt-1 font-mono leading-relaxed">
-                      {capability.technicalDetail}
-                    </div>
-                  </details>
-                ) : null}
               </div>
-            ))}
+              <div className="rounded-lg border border-border bg-background/30 px-4 py-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-300/80">
+                  What to review in Artifacts
+                </div>
+                {model.correctionGuidance.recordsToReview.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {model.correctionGuidance.recordsToReview.map((record) => (
+                      <Badge
+                        key={record}
+                        className="border-border bg-card/50 text-muted-foreground"
+                      >
+                        {record}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">
+                    Review the controlling records listed in the Artifacts tab.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-3 rounded-lg border border-border bg-black/10 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/55">
+                Handoff summary — select and copy
+              </div>
+              <p className="mt-2 select-all whitespace-pre-wrap text-xs leading-relaxed text-foreground/70">
+                {model.correctionGuidance.handoffSummary}
+              </p>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-amber-200/65">
+              Send the summary to the Architect for review. Do not mark work
+              complete, skip validation, or create replacement evidence to force
+              another route.
+            </p>
           </div>
-        </section>
+        </details>
+
+        <details className="group rounded-xl border border-border bg-card/15">
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+            <Eye size={15} className="shrink-0 text-muted-foreground/65" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-foreground/75">
+                Detailed route diagnostics
+              </div>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/55">
+                Technical route identity, state categories, record paths,
+                warnings, and capability status.
+              </p>
+            </div>
+            <ChevronDown
+              size={14}
+              className="shrink-0 text-muted-foreground/60 transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="flex flex-col gap-6 border-t border-border px-4 py-5">
+            <section aria-labelledby="route-selection-title">
+              <ContextSectionHeading
+                id="route-selection-title"
+                title="Route identity"
+                description="Evaluator metadata and outcome fields."
+              />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <ContextMetadataCard
+                  label="Current action"
+                  value={model.route.title}
+                />
+                <ContextMetadataCard
+                  label="Responsible role"
+                  value={roleLabel(model.route.responsibleRole)}
+                />
+                <ContextMetadataCard
+                  label="Workflow step"
+                  value={model.route.workflowStep}
+                />
+                <ContextMetadataCard
+                  label="Status"
+                  value={formatContextValue(model.route.status)}
+                />
+                <ContextMetadataCard
+                  label="Phase"
+                  value={model.route.phaseLabel}
+                />
+                <ContextMetadataCard
+                  label="Work Card"
+                  value={model.route.workCardLabel}
+                />
+              </div>
+              <div className="mt-3 rounded-lg border border-border bg-background/25 px-4 py-3">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                  Evaluator reason
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-foreground/75">
+                  {model.route.reason}
+                </p>
+                <details className="mt-2 text-[10px] text-muted-foreground/50">
+                  <summary className="cursor-pointer select-none">
+                    Technical route ID
+                  </summary>
+                  <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                    {model.route.actionId}
+                  </div>
+                </details>
+              </div>
+              {model.route.outcomes.length > 0 ? (
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  {model.route.outcomes.map((outcome) => (
+                    <div
+                      key={outcome.id}
+                      className="rounded-md border border-border bg-card/25 px-3 py-2.5"
+                    >
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
+                        {outcome.label}
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-foreground/70">
+                        {outcome.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
+            <section aria-labelledby="durable-state-title">
+              <ContextSectionHeading
+                id="durable-state-title"
+                title="Durable state categories"
+                description="Summaries only. Use Artifacts for document browsing and preview."
+              />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {model.stateCategories.map((state) => (
+                  <div
+                    key={state.id}
+                    className="flex min-h-[132px] flex-col rounded-lg border border-border bg-card/25 px-3.5 py-3"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">
+                          {state.label}
+                        </div>
+                        <div className="mt-1 break-words text-sm font-semibold text-foreground/85">
+                          {formatContextValue(state.status)}
+                        </div>
+                      </div>
+                      <Badge className={contextAuthorityClass(state.authority)}>
+                        {contextAuthorityLabel(state.authority)}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground/70">
+                      {state.summary}
+                    </p>
+                    <div className="mt-auto pt-2 text-[10px] text-muted-foreground/45">
+                      {state.evidenceCount} supporting record
+                      {state.evidenceCount === 1 ? "" : "s"} reported
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby="missing-records-title">
+              <ContextSectionHeading
+                id="missing-records-title"
+                title={`Missing records (${model.missingRecords.length})`}
+                description="The reason is primary; the expected path stays collapsed."
+              />
+              {model.missingRecords.length === 0 ? (
+                <Notice type="success">
+                  No missing records were reported for the current route.
+                </Notice>
+              ) : (
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {model.missingRecords.map((record) => (
+                    <div
+                      key={record.key}
+                      className={cn(
+                        "rounded-lg border px-3.5 py-3",
+                        record.impact === "blocking"
+                          ? "border-red-400/20 bg-red-400/[0.05]"
+                          : record.impact === "expected_next"
+                            ? "border-primary/20 bg-primary/[0.04]"
+                            : "border-amber-400/20 bg-amber-400/[0.04]",
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-foreground/85">
+                            {record.displayName}
+                          </div>
+                          <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/50">
+                            {record.recordType}
+                          </div>
+                        </div>
+                        <Badge
+                          className={
+                            record.impact === "blocking"
+                              ? "border-red-400/20 bg-red-400/8 text-red-300"
+                              : record.impact === "expected_next"
+                                ? "border-primary/20 bg-primary/8 text-primary"
+                                : "border-amber-400/20 bg-amber-400/8 text-amber-300"
+                          }
+                        >
+                          {record.impactLabel}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
+                        {record.reason}
+                      </p>
+                      <details className="mt-2 text-[10px] text-muted-foreground/50">
+                        <summary className="cursor-pointer select-none">
+                          Expected path
+                        </summary>
+                        <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                          {record.path}
+                        </div>
+                      </details>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section aria-labelledby="evidence-health-title">
+              <ContextSectionHeading
+                id="evidence-health-title"
+                title={`Warnings and evidence health (${model.evidenceHealth.length})`}
+                description="Historical evidence is never labeled as controlling authority."
+              />
+              {model.evidenceHealth.length === 0 ? (
+                <Notice type="success">
+                  No stale, superseded, malformed, unreadable, or other warning
+                  evidence was reported.
+                </Notice>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {warningGroups.map((group) =>
+                    group.items.length > 0 ? (
+                      <ContextEvidenceHealthGroup
+                        key={group.severity}
+                        severity={group.severity}
+                        items={group.items}
+                      />
+                    ) : null,
+                  )}
+                </div>
+              )}
+            </section>
+
+            <section aria-labelledby="capability-state-title">
+              <ContextSectionHeading
+                id="capability-state-title"
+                title="Available app capability context"
+                description="Only state exposed to this renderer is reported; unavailable data is not guessed."
+              />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {model.capabilities.map((capability) => (
+                  <div
+                    key={capability.id}
+                    className="rounded-lg border border-border bg-card/25 px-3.5 py-3"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1 text-xs font-semibold text-foreground/80">
+                        {capability.label}
+                      </div>
+                      <Badge className={capabilityStateClass(capability.state)}>
+                        {capability.statusLabel}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground/70">
+                      {capability.summary}
+                    </p>
+                    {capability.technicalDetail ? (
+                      <details className="mt-2 text-[10px] text-muted-foreground/50">
+                        <summary className="cursor-pointer select-none">
+                          Technical detail
+                        </summary>
+                        <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                          {capability.technicalDetail}
+                        </div>
+                      </details>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </details>
       </div>
+    </div>
+  );
+}
+
+function PlainLanguageList({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  tone: "available" | "pending";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-4 py-3",
+        tone === "available"
+          ? "border-emerald-400/20 bg-emerald-400/[0.04]"
+          : "border-amber-400/20 bg-amber-400/[0.04]",
+      )}
+    >
+      <div
+        className={cn(
+          "text-[10px] font-bold uppercase tracking-[0.12em]",
+          tone === "available" ? "text-emerald-300/80" : "text-amber-300/80",
+        )}
+      >
+        {title}
+      </div>
+      <ul className="mt-2 flex list-disc flex-col gap-2 pl-4 marker:text-muted-foreground/45">
+        {items.map((item) => (
+          <li key={item} className="text-xs leading-relaxed text-foreground/75">
+            {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -107,6 +107,22 @@ At phase closeout, every phase observation not marked `Resolved` or `No action r
 - Status: Planned / Deferred until after WC08-REPAIR03
 - Resolution artifact: Pending
 
+### PROJ-OBS-007 — Artifact authority and revision governance is undefined
+
+- Source Observation ID: PH03-OBS-010
+- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
+- Source artifact: Architect review of amended WC08-REPAIR02 Human Validation Reports and duplicate `_2` validation artifacts created by the application.
+- Source Work Card: WC08-REPAIR02 / WC08-REPAIR03
+- Date captured: 2026-07-14
+- Architect observation: The application currently creates a new suffixed artifact when an existing validation report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. This creates multiple durable artifacts for the same workflow event and makes authority ambiguous.
+- Architect disposition: Establish a project-wide artifact authority and revision governance rule before implementing a storage fix.
+- Disposition rationale: Artifact identity and artifact revision are separate concepts. At any point in time, every workflow artifact must have exactly one authoritative revision. Historical revisions may exist, but routing, review, and automation must never infer authority from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration.
+- Architectural determination: One artifact represents one durable workflow event; revisions represent edits to that artifact. ChampCity A/I must explicitly resolve one authoritative revision for Work Cards, Builder Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.
+- Candidate implementation models: Single authoritative artifact with overwrite semantics and Git history; explicitly versioned artifacts with superseded metadata; or immutable artifacts with a separate authoritative index. Filename suffixes alone are not an authority model.
+- Assigned target: Future artifact authority and revision governance Work Card, to be planned before workflow automation depends on duplicate or revised artifacts.
+- Status: Open / Architectural design required
+- Resolution artifact: Pending
+
 ## Resolved Phase-Local Observations Not Promoted
 
 These Phase 03 observations are intentionally not open project-level work items because they were resolved by WC07/WC07-REPAIR01 or resolved for WC07 scope:

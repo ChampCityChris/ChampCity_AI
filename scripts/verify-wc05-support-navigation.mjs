@@ -59,9 +59,12 @@ assert.equal(
   "WC08-REPAIR02",
   "Accepted prior work must allow the pending repair-validation route without changing support-navigation semantics.",
 );
-assert.equal(
-  currentActionResult.currentAction?.id,
-  "repair_validation_required",
+assert.ok(
+  [
+    "repair_validation_required",
+    "architect_review_of_validation_report_required",
+  ].includes(currentActionResult.currentAction?.id ?? ""),
+  "WC08-REPAIR02 must remain unresolved while validation or Architect disposition is pending.",
 );
 
 console.log("WC05 support-navigation focused fixture passed.");

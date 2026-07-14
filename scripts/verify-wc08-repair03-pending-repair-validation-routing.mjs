@@ -5,18 +5,100 @@ import {
   getCurrentRequiredAction,
   listHumanValidationTargets,
 } from "../dist/main/workCards/workCardFileStore.js";
+import { evaluateCurrentRequiredAction } from "../dist/shared/workCards/currentRequiredAction.js";
 import { resolveValidationTargetFileName } from "../dist/shared/workCards/validationTarget.js";
 import { resolveWorkflowVisibility } from "../dist/shared/workCards/workflowVisibility.js";
 
-const currentActionResult = await getCurrentRequiredAction();
-assert.equal(
-  currentActionResult.ok,
-  true,
-  currentActionResult.errorMessages?.join(" "),
-);
+function artifact(path, role) {
+  return { path, role, exists: true };
+}
 
-const currentAction = currentActionResult.currentAction;
-assert.ok(currentAction, "The current-action evaluator must return an action.");
+const currentAction = evaluateCurrentRequiredAction({
+  project: {
+    projectName: "Pending repair fixture",
+    projectIntake: artifact("planning/project/intake.json", "Project Intake"),
+    projectInterview: artifact("planning/project/interview.json", "Project Interview"),
+    reconciliationReview: artifact("planning/project/reconciliation.json", "Reconciliation Review"),
+    projectRoadmap: artifact("planning/project/roadmap.json", "Roadmap"),
+    phaseMap: artifact("planning/project/phase-map.json", "Phase Map"),
+    operatorProjectApproval: artifact("planning/project/approval.md", "Operator Project Approval"),
+  },
+  activePhase: {
+    phaseId: "phase-03",
+    phaseTitle: "Pending repair routing fixture",
+    status: "active",
+    sourceArtifacts: [
+      artifact("planning/phases/phase-03/Phase_Interview.md", "Phase Interview"),
+      artifact("planning/phases/phase-03/Phase_Planning.md", "Phase Planning"),
+      artifact("planning/phases/phase-03/Work_Card_Plan.md", "Work Card Plan"),
+    ],
+    operatorPhaseApproval: artifact(
+      "planning/phases/phase-03/Operator_Phase_Approval.md",
+      "Operator Phase Approval",
+    ),
+    workCardCandidates: [
+      { workCardId: "WC08", title: "Current Step Context Inspector", order: 8 },
+      { workCardId: "WC09", title: "Later mapped candidate", order: 9 },
+    ],
+    workCards: [
+      {
+        workCardId: "WC08",
+        title: "Current Step Context Inspector",
+        phaseId: "phase-03",
+        status: "repair_required",
+        sourceArtifacts: [
+          artifact(
+            "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md",
+            "Work Card Markdown",
+          ),
+        ],
+        implementerReport: artifact(
+          "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md",
+          "Implementer Report",
+        ),
+        architectReview: {
+          status: "Ready for Operator validation",
+          sourceArtifact: artifact(
+            "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md",
+            "Architect Review",
+          ),
+        },
+        validation: {
+          result: "Pass",
+          decision: "passed",
+          sourceArtifacts: [
+            artifact(
+              "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+              "Validation Report Markdown",
+            ),
+          ],
+        },
+        repair: {
+          repairId: "WC08-REPAIR02",
+          title: "Report Review Protocol and Validation Disposition Governance",
+          repairWorkCard: artifact(
+            "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+            "Repair Work Card",
+          ),
+          implementerReport: artifact(
+            "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+            "Repair Implementer Report",
+          ),
+          architectReview: {
+            status: "Ready for Operator validation",
+            sourceArtifact: artifact(
+              "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+              "Architect Review",
+            ),
+          },
+        },
+      },
+    ],
+    roadmapUpdatedAfterCloseout: false,
+    nextPhaseActivated: false,
+  },
+});
+
 assert.equal(currentAction.id, "repair_validation_required");
 assert.equal(currentAction.workCardId, "WC08-REPAIR02");
 assert.equal(currentAction.responsibleRole, "operator");
@@ -35,6 +117,25 @@ assert.equal(
   ),
   true,
   "The ready Architect Review must remain source evidence for the routed repair validation.",
+);
+
+const currentActionResult = await getCurrentRequiredAction();
+assert.equal(
+  currentActionResult.ok,
+  true,
+  currentActionResult.errorMessages?.join(" "),
+);
+assert.ok(
+  currentActionResult.currentAction,
+  "The live current-action evaluator must return an action.",
+);
+assert.notEqual(currentActionResult.currentAction.workCardId, "WC09");
+assert.ok(
+  [
+    "repair_validation_required",
+    "architect_review_of_validation_report_required",
+  ].includes(currentActionResult.currentAction.id),
+  "Missing or pending repair validation must continue to block the later WC09 candidate.",
 );
 
 const targetResult = await listHumanValidationTargets("phase-03");

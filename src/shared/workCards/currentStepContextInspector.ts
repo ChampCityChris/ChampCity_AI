@@ -112,8 +112,37 @@ export interface CurrentStepRouteOutcome {
   description: string;
 }
 
+export interface CurrentStepPlainLanguageExplanation {
+  evidenceOnRecord: string[];
+  pendingEvidence: string[];
+  priorityReason: string;
+  advancementBlock: string;
+}
+
+export interface CurrentStepNextActionExplanation {
+  responsibleParty: string;
+  requiredAction: string;
+  expectedOutput: string;
+  afterCompletion: string;
+}
+
+export interface CurrentStepRouteChangeCondition {
+  id: string;
+  description: string;
+}
+
+export interface CurrentStepRouteCorrectionGuidance {
+  recordsToReview: string[];
+  controllingIssue: string;
+  handoffSummary: string;
+}
+
 export interface CurrentStepContextInspectorModel {
   readOnly: true;
+  explanation: CurrentStepPlainLanguageExplanation;
+  nextAction: CurrentStepNextActionExplanation;
+  routeChangeConditions: CurrentStepRouteChangeCondition[];
+  correctionGuidance: CurrentStepRouteCorrectionGuidance;
   route: {
     actionId: string;
     title: string;
@@ -236,8 +265,24 @@ export function buildCurrentStepContextInspector(
   routeContext: CurrentStepRouteContext | undefined,
   capabilityInput: CurrentStepCapabilityInput,
 ): CurrentStepContextInspectorModel {
+  const stateCategories =
+    routeContext?.categories ?? buildFallbackStateCategories(action);
+  const missingRecords = buildMissingRecords(action);
+
   return {
     readOnly: true,
+    explanation: buildPlainLanguageExplanation(
+      action,
+      stateCategories,
+      missingRecords,
+    ),
+    nextAction: buildNextActionExplanation(action),
+    routeChangeConditions: buildRouteChangeConditions(action, missingRecords),
+    correctionGuidance: buildCorrectionGuidance(
+      action,
+      stateCategories,
+      missingRecords,
+    ),
     route: {
       actionId: action.id,
       title: action.title,
@@ -253,38 +298,273 @@ export function buildCurrentStepContextInspector(
         : "Not reported by current app state",
       outcomes: buildRouteOutcomes(action),
     },
-    stateCategories:
-      routeContext?.categories ?? buildFallbackStateCategories(action),
-    missingRecords: action.missingArtifacts.map((missing) => {
-      const isExpectedNext =
-        normalizePath(missing.path) ===
-        normalizePath(action.expectedOutput?.path ?? "");
-      const impact =
-        action.status === "blocked"
-          ? "blocking"
-          : isExpectedNext
-            ? "expected_next"
-            : "warning";
-
-      return {
-        key: `${missing.path}|${missing.reason}`,
-        displayName: getArtifactDisplayName(missing.path),
-        recordType: inferRecordType(missing.path),
-        reason: missing.reason,
-        path: missing.path,
-        impact,
-        impactLabel:
-          impact === "blocking"
-            ? "Blocks current route"
-            : impact === "expected_next"
-              ? "Expected next record"
-              : "Route warning",
-      };
-    }),
+    stateCategories,
+    missingRecords,
     evidenceHealth: buildEvidenceHealth(action),
     capabilities: buildCapabilities(action, capabilityInput),
     artifactGuidance:
       "Use the Artifacts tab to browse or preview source documents. This inspector summarizes route evidence without creating a second artifact list.",
+  };
+}
+
+function buildMissingRecords(
+  action: CurrentRequiredAction,
+): CurrentStepMissingRecord[] {
+  return action.missingArtifacts.map((missing) => {
+    const isExpectedNext =
+      normalizePath(missing.path) ===
+      normalizePath(action.expectedOutput?.path ?? "");
+    const impact =
+      action.status === "blocked"
+        ? "blocking"
+        : isExpectedNext
+          ? "expected_next"
+          : "warning";
+
+    return {
+      key: `${missing.path}|${missing.reason}`,
+      displayName: getArtifactDisplayName(missing.path),
+      recordType: inferRecordType(missing.path),
+      reason: missing.reason,
+      path: missing.path,
+      impact,
+      impactLabel:
+        impact === "blocking"
+          ? "Blocks current route"
+          : impact === "expected_next"
+            ? "Expected next record"
+            : "Route warning",
+    };
+  });
+}
+
+function buildPlainLanguageExplanation(
+  action: CurrentRequiredAction,
+  categories: CurrentStepStateCategory[],
+  missingRecords: CurrentStepMissingRecord[],
+): CurrentStepPlainLanguageExplanation {
+  const categoryPriority: CurrentStepStateCategoryId[] = [
+    "repair",
+    "operator_validation",
+    "architect_review",
+    "implementer_report",
+    "work_card",
+    "phase",
+    "project",
+    "phase_closeout",
+    "roadmap",
+    "next_phase",
+  ];
+  const evidenceOnRecord = categories
+    .filter(
+      (state) =>
+        state.evidenceCount > 0 &&
+        state.authority !== "historical" &&
+        state.authority !== "not_reported",
+    )
+    .sort(
+      (left, right) =>
+        categoryPriority.indexOf(left.id) - categoryPriority.indexOf(right.id),
+    )
+    .slice(0, 5)
+    .map(
+      (state) =>
+        `${state.label}: ${plainContextValue(state.status)}. ${state.summary}`,
+    );
+
+  if (evidenceOnRecord.length === 0) {
+    const sourceRoles = uniqueStrings(
+      action.sourceArtifacts
+        .filter((artifact) => !isHistoricalStatus(artifact.status))
+        .map((artifact) => artifact.role),
+    );
+
+    evidenceOnRecord.push(
+      ...sourceRoles
+        .slice(0, 5)
+        .map((role) => `${role} evidence is available to the route evaluator.`),
+    );
+  }
+
+  if (evidenceOnRecord.length === 0) {
+    evidenceOnRecord.push(
+      "The current-action evaluator returned this route, but it did not report a supporting record summary.",
+    );
+  }
+
+  const pendingEvidence = missingRecords
+    .filter(
+      (record) =>
+        record.impact === "blocking" || record.impact === "expected_next",
+    )
+    .map(
+      (record) =>
+        `${record.recordType} is still required. ${ensureSentence(record.reason)}`,
+    );
+
+  if (pendingEvidence.length === 0 && action.expectedOutput) {
+    pendingEvidence.push(
+      `${action.expectedOutput.artifactType} is still pending. ${ensureSentence(action.expectedOutput.description)}`,
+    );
+  }
+
+  if (pendingEvidence.length === 0) {
+    const pendingCategory = categories.find(
+      (state) =>
+        state.authority === "controlling" &&
+        /pending|required next|blocked/i.test(state.status),
+    );
+
+    pendingEvidence.push(
+      pendingCategory
+        ? `${pendingCategory.label} remains unresolved. ${pendingCategory.summary}`
+        : action.status === "complete"
+          ? "No additional evidence is pending for this completed route."
+          : `The route is waiting for ${plainRoleLabel(action.responsibleRole)} to complete the current action.`,
+    );
+  }
+
+  const routeTarget = action.workCardId
+    ? `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""}`
+    : action.phaseId
+      ? `${action.phaseId}${action.phaseTitle ? ` - ${action.phaseTitle}` : ""}`
+      : action.workflowStep;
+  const unresolvedObligation =
+    action.expectedOutput?.artifactType ?? action.title;
+  const priorityReason =
+    action.status === "complete"
+      ? `The durable evidence for ${routeTarget} is resolved, so no later action is being held behind this completed route.`
+      : action.status === "blocked"
+        ? `The recorded blocker for ${routeTarget} takes priority over later work. ${ensureSentence(action.reason)}`
+        : `This action has priority over later work because ${routeTarget} still has an unresolved ${unresolvedObligation.toLowerCase()} obligation. ${ensureSentence(action.reason)}`;
+  const advancementBlock =
+    action.status === "complete"
+      ? "The app may select a later action the next time durable state is evaluated."
+      : action.expectedOutput
+        ? `The app has not advanced because ${action.expectedOutput.artifactType.toLowerCase()} is not yet recorded as resolved. ${ensureSentence(action.expectedOutput.description)}`
+        : missingRecords.length > 0
+          ? `The app has not advanced because ${missingRecords[0].recordType.toLowerCase()} is still unresolved. ${ensureSentence(missingRecords[0].reason)}`
+          : `The app has not advanced because ${plainRoleLabel(action.responsibleRole)} has not yet completed this action in durable workflow evidence.`;
+
+  return {
+    evidenceOnRecord,
+    pendingEvidence,
+    priorityReason,
+    advancementBlock,
+  };
+}
+
+function buildNextActionExplanation(
+  action: CurrentRequiredAction,
+): CurrentStepNextActionExplanation {
+  return {
+    responsibleParty: plainRoleLabel(action.responsibleRole),
+    requiredAction: ensureSentence(action.summary || action.title),
+    expectedOutput: action.expectedOutput
+      ? `${action.expectedOutput.artifactType}: ${ensureSentence(action.expectedOutput.description)}`
+      : action.status === "complete"
+        ? "No new durable output is expected for this completed route."
+        : "No separate durable output was reported; completing the current action is the required evidence.",
+    afterCompletion: action.successRoute
+      ? `After the required evidence is complete, the workflow can continue to ${ensureSentence(action.successRoute)}`
+      : "After the action is complete, ChampCity A/I will evaluate the durable records again and select the next unresolved action.",
+  };
+}
+
+function buildRouteChangeConditions(
+  action: CurrentRequiredAction,
+  missingRecords: CurrentStepMissingRecord[],
+): CurrentStepRouteChangeCondition[] {
+  const conditions: CurrentStepRouteChangeCondition[] = [];
+
+  if (action.expectedOutput) {
+    conditions.push({
+      id: "expected-output",
+      description: action.successRoute
+        ? `Recording a resolved ${action.expectedOutput.artifactType} would let the app evaluate the route toward ${ensureSentence(action.successRoute)}`
+        : `Recording a resolved ${action.expectedOutput.artifactType} would let the app evaluate the next durable action.`,
+    });
+  } else if (action.successRoute) {
+    conditions.push({
+      id: "success",
+      description: `Evidence that the current action is complete would let the workflow continue to ${ensureSentence(action.successRoute)}`,
+    });
+  }
+
+  for (const record of missingRecords.filter(
+    (item) =>
+      item.impact === "blocking" &&
+      normalizeValue(item.recordType) !==
+        normalizeValue(action.expectedOutput?.artifactType),
+  )) {
+    conditions.push({
+      id: `missing-${record.key}`,
+      description: `Providing or correcting the required ${record.recordType} would remove this recorded route blocker.`,
+    });
+  }
+
+  if (action.failureRoute) {
+    conditions.push({
+      id: "failure",
+      description: `Evidence that the action failed or needs revision would select this path: ${ensureSentence(action.failureRoute)}`,
+    });
+  }
+
+  if (action.repairRoute) {
+    conditions.push({
+      id: "repair",
+      description: `An Architect disposition requiring repair would select this path: ${ensureSentence(action.repairRoute)}`,
+    });
+  }
+
+  if (conditions.length === 0) {
+    conditions.push({
+      id: "reevaluate",
+      description:
+        "A change to the controlling durable evidence would cause ChampCity A/I to evaluate the route again.",
+    });
+  }
+
+  return conditions;
+}
+
+function buildCorrectionGuidance(
+  action: CurrentRequiredAction,
+  categories: CurrentStepStateCategory[],
+  missingRecords: CurrentStepMissingRecord[],
+): CurrentStepRouteCorrectionGuidance {
+  const sourceRoles = uniqueStrings(
+    action.sourceArtifacts
+      .filter((artifact) => !isHistoricalStatus(artifact.status))
+      .map((artifact) => artifact.role),
+  );
+  const recordsToReview = sourceRoles.length > 0
+    ? sourceRoles.slice(0, 6)
+    : categories
+        .filter(
+          (state) =>
+            state.evidenceCount > 0 && state.authority !== "historical",
+        )
+        .map((state) => state.label)
+        .slice(0, 6);
+  const target = action.workCardId
+    ? `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""}`
+    : action.phaseId
+      ? `${action.phaseId}${action.phaseTitle ? ` - ${action.phaseTitle}` : ""}`
+      : action.workflowStep;
+  const controllingIssue = action.expectedOutput
+    ? `The route is waiting for ${action.expectedOutput.artifactType}. ${ensureSentence(action.expectedOutput.description)}`
+    : missingRecords[0]
+      ? `${missingRecords[0].recordType} is unresolved. ${ensureSentence(missingRecords[0].reason)}`
+      : ensureSentence(action.reason);
+  const reviewList = recordsToReview.length > 0
+    ? joinHumanList(recordsToReview)
+    : "the controlling records shown in Artifacts";
+
+  return {
+    recordsToReview,
+    controllingIssue,
+    handoffSummary: `Route review requested for ${target}. ChampCity A/I selected "${action.title}" because ${ensureSentence(action.reason)} It currently expects ${action.expectedOutput?.artifactType ?? "the current action"} to be resolved. Please review ${reviewList} and confirm which durable record or Architect disposition should control the route. This request does not authorize skipping evidence or changing workflow state.`,
   };
 }
 
@@ -995,6 +1275,62 @@ function evidenceClassificationLabel(
 
 function severityRank(severity: CurrentRequiredActionWarningSeverity): number {
   return { blocking: 0, warning: 1, info: 2 }[severity];
+}
+
+function plainRoleLabel(
+  role: CurrentRequiredAction["responsibleRole"],
+): string {
+  return {
+    operator: "Operator",
+    architect: "Architect",
+    implementer: "Implementer",
+    app_system: "ChampCity A/I",
+  }[role];
+}
+
+function plainContextValue(value: string): string {
+  return value.replace(/_/g, " ");
+}
+
+function ensureSentence(value: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed || /[.!?]$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `${trimmed}.`;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+
+  return values.filter((value) => {
+    const key = normalizeValue(value);
+
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function isHistoricalStatus(status: string | undefined): boolean {
+  return /stale|superseded|historical/.test(normalizeValue(status));
+}
+
+function joinHumanList(values: string[]): string {
+  if (values.length <= 1) {
+    return values[0] ?? "the controlling route records";
+  }
+
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
 }
 
 function normalizePath(value: string): string {

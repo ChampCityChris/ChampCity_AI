@@ -162,25 +162,37 @@ assert.equal(liveCurrentAction.ok, true, liveCurrentAction.errorMessages?.join("
 assert.equal(
   liveCurrentAction.currentAction?.workCardId,
   "WC08-REPAIR02",
-  "Passing prior Work Cards must not bypass the pending WC08-REPAIR02 validation step.",
+  "Passing prior Work Cards must not bypass the pending WC08-REPAIR02 validation/disposition step.",
+);
+assert.ok(
+  [
+    "repair_validation_required",
+    "architect_review_of_validation_report_required",
+  ].includes(liveCurrentAction.currentAction?.id ?? ""),
+  "WC08-REPAIR02 must require Operator validation or pending Architect disposition.",
+);
+const liveRepairValidationPending =
+  liveCurrentAction.currentAction?.id === "repair_validation_required";
+assert.equal(
+  liveCurrentAction.currentAction?.responsibleRole,
+  liveRepairValidationPending ? "operator" : "architect",
 );
 assert.equal(
-  liveCurrentAction.currentAction?.id,
-  "repair_validation_required",
-  "The completed and reviewed WC08-REPAIR02 repair should require Operator validation.",
+  liveCurrentAction.currentAction?.status,
+  liveRepairValidationPending ? "needs_validation" : "needs_review",
 );
-assert.equal(liveCurrentAction.currentAction?.responsibleRole, "operator");
-assert.equal(liveCurrentAction.currentAction?.status, "needs_validation");
 
 const liveGuide = resolveWorkflowVisibility(liveCurrentAction.currentAction);
 assert.equal(liveGuide.positionKnown, true);
 assert.equal(liveGuide.activeStepLabel, "Work Card Loop");
 assert.equal(
   liveGuide.workCardLoopStages.find(
-    (stage) => stage.id === "validation-again",
+    (stage) =>
+      stage.id ===
+      (liveRepairValidationPending ? "validation-again" : "architect-review"),
   )?.state,
-  "repair",
-  "The visible workflow guide must agree with the current repair-validation route.",
+  liveRepairValidationPending ? "repair" : "current",
+  "The visible workflow guide must agree with the current repair validation/disposition route.",
 );
 
 console.log("WC06 workflow-visibility focused fixture passed.");

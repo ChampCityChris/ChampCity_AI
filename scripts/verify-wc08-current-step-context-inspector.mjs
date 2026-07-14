@@ -235,6 +235,12 @@ async function main() {
   );
 
   assert.equal(model.readOnly, true);
+  assert.match(model.explanation.priorityReason, /priority over later work/i);
+  assert.match(model.explanation.advancementBlock, /has not advanced/i);
+  assert.equal(model.nextAction.responsibleParty, "Operator");
+  assert.match(model.nextAction.expectedOutput, /Repair Validation Record/i);
+  assert.equal(model.routeChangeConditions.length > 0, true);
+  assert.match(model.correctionGuidance.handoffSummary, /route review requested/i);
   assert.equal(model.route.reason, fixtureAction.reason);
   assert.deepEqual(
     model.route.outcomes.map((outcome) => outcome.id),
@@ -328,8 +334,11 @@ async function main() {
     },
   );
   assert.equal(
-    liveModel.route.actionId,
-    "repair_validation_required",
+    [
+      "repair_validation_required",
+      "architect_review_of_validation_report_required",
+    ].includes(liveModel.route.actionId),
+    true,
   );
   assert.equal(liveModel.route.workCardLabel.startsWith("WC08-REPAIR02"), true);
 
@@ -345,8 +354,13 @@ async function main() {
     1,
     "WC08 must not duplicate the WC07 artifact list.",
   );
-  assert.match(rendererSource, />\s*Route context\s*</);
-  assert.match(rendererSource, /aria-label="Route context"/);
+  assert.match(rendererSource, />\s*Why this step\?\s*</);
+  assert.match(rendererSource, /aria-label="Why this step\? Route context"/);
+  assert.match(rendererSource, /Why this is the current action/);
+  assert.match(rendererSource, /What happens next/);
+  assert.match(rendererSource, /What would change this route/);
+  assert.match(rendererSource, /This route looks wrong/);
+  assert.match(rendererSource, /Detailed route diagnostics/);
   assert.match(rendererSource, />\s*Artifacts\s*/);
   assert.match(rendererSource, /Complete current action/);
   assert.doesNotMatch(

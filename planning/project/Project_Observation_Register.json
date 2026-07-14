@@ -82,6 +82,26 @@
       "assignedTarget": "Planned WC08-REPAIR04 — Operator Route Recovery Request and Architect Disposition Gate, or equivalent Phase 03 route-recovery Work Card before deeper WC09-WC15 work continues.",
       "status": "Planned / Deferred until after WC08-REPAIR03",
       "resolutionArtifact": "Pending"
+    },
+    {
+      "id": "PROJ-OBS-007",
+      "sourceObservationId": "PH03-OBS-010",
+      "title": "Artifact authority and revision governance is undefined",
+      "sourcePhase": "phase-03",
+      "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
+      "dateCaptured": "2026-07-14",
+      "architectObservation": "The application creates a new suffixed artifact when an existing validation report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. Multiple durable artifacts can therefore represent the same workflow event.",
+      "architectDisposition": "Establish a project-wide artifact authority and revision governance rule before implementing a storage fix.",
+      "dispositionRationale": "Artifact identity and artifact revision are separate concepts. Every workflow artifact must have exactly one authoritative revision, and authority must not be inferred from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration.",
+      "architecturalDetermination": "One artifact represents one durable workflow event; revisions represent edits. ChampCity A/I must explicitly resolve one authoritative revision for Work Cards, Builder Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.",
+      "candidateImplementationModels": [
+        "Single authoritative artifact with overwrite semantics and Git history",
+        "Explicitly versioned artifacts with superseded metadata",
+        "Immutable artifacts with a separate authoritative index"
+      ],
+      "assignedTarget": "Future artifact authority and revision governance Work Card before workflow automation depends on duplicate or revised artifacts.",
+      "status": "Open / Architectural design required",
+      "resolutionArtifact": "Pending"
     }
   ]
 }

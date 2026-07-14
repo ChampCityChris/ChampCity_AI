@@ -53,6 +53,26 @@
       "status": "Planned / Deferred until after WC08-REPAIR03",
       "resolutionArtifact": "Pending",
       "projectRegisterLink": "PROJ-OBS-006"
+    },
+    {
+      "id": "PH03-OBS-010",
+      "title": "Artifact authority and revision governance is undefined",
+      "sourceArtifact": "Architect review of amended WC08-REPAIR02 Human Validation Reports and duplicate _2 validation artifacts created by the application.",
+      "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
+      "dateCaptured": "2026-07-14",
+      "architectObservation": "The application creates a new suffixed validation artifact when an existing report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. Multiple durable reports can therefore represent the same workflow event.",
+      "architectDisposition": "Promote to project-level architectural governance and require explicit design before implementation.",
+      "dispositionRationale": "Artifact identity and artifact revision are separate concepts. Every workflow artifact must have exactly one authoritative revision, and authority must not be inferred from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration.",
+      "architecturalDetermination": "ChampCity A/I shall distinguish artifact identity from artifact revision. One artifact represents one durable workflow event; revisions represent edits. The workflow model must explicitly resolve exactly one authoritative revision for all durable workflow artifact types.",
+      "candidateImplementationModels": [
+        "Single authoritative artifact with overwrite semantics and Git history",
+        "Explicitly versioned artifacts with superseded metadata",
+        "Immutable artifacts with a separate authoritative index"
+      ],
+      "assignedTarget": "Future artifact authority and revision governance Work Card before workflow automation depends on duplicate or revised artifacts.",
+      "status": "Open / Architectural design required",
+      "resolutionArtifact": "Pending",
+      "projectRegisterLink": "PROJ-OBS-007"
     }
   ],
   "resolvedObservations": [
