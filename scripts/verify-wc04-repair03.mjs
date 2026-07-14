@@ -136,7 +136,10 @@ assert.equal(fallbackPreview.manualValidationChecklist?.isFallback, false);
 
 const currentActionResult = await getCurrentRequiredAction();
 assert.equal(currentActionResult.ok, true);
-assert.equal(currentActionResult.currentAction?.workCardId, "WC07");
-assert.equal(currentActionResult.currentAction?.id, "implementer_report_required");
+assert.equal(currentActionResult.currentAction?.workCardId, "WC07-REPAIR01");
+assert.equal(
+  currentActionResult.currentAction?.id,
+  "repair_validation_required",
+);
 
 console.log("WC04-REPAIR03 focused fixture passed.");

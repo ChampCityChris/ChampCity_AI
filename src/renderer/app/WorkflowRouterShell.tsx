@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle,
+  CheckSquare,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -37,6 +38,7 @@ import {
 import {
   buildArtifactReviewWorkspace,
   getArtifactDisplayName,
+  shouldShowCurrentActionArtifactWorkspace,
 } from "../../shared/workCards/artifactReviewWorkspace";
 
 type WorkflowState =
@@ -339,6 +341,7 @@ export function WorkflowRouterShell({
               ? openSuggestedFallback
               : undefined
           }
+          onOpenSupportScreen={openSupportingScreen}
         >
           {children}
         </ArtifactWorkspace>
@@ -1065,7 +1068,7 @@ function CurrentRequiredActionPanel({
   const complete = action.status === "complete";
 
   return (
-    <div className="flex w-[400px] shrink-0 flex-col gap-0 overflow-y-auto border-r border-border bg-card/35">
+    <div className="flex w-[340px] shrink-0 flex-col gap-0 overflow-y-auto border-r border-border bg-card/35">
       <div
         className={cn(
           "border-b border-border px-5 pb-4 pt-5",
@@ -1110,38 +1113,41 @@ function CurrentRequiredActionPanel({
           />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-5 px-5 py-4">
+      <div className="flex flex-1 flex-col gap-4 px-5 py-4">
         <InfoBlock
           label="Why this is next"
           body={action.reason}
         />
 
-        <ExpectedOutputCard expectedOutput={expectedOutput} />
-
-        <EvidenceList artifacts={action.sourceArtifacts} />
-
-        <MissingEvidenceList missing={action.missingArtifacts} />
-
-        <RouteOutcomes action={action} />
-
-        <WarningGroups warnings={warnings} />
-
         <div>
-          <PanelLabel>Routed screen</PanelLabel>
-          <div className="rounded-md border border-border bg-white/[0.025] p-3">
-            <div className="mb-1 text-xs font-semibold text-foreground/80">
-              {`Screen for this action: ${routedScreenLabel}`}
+          <PanelLabel>Expected output</PanelLabel>
+          <div className="rounded-md border border-primary/20 bg-primary/[0.04] px-3 py-2.5">
+            <div className="text-xs font-semibold text-primary/85">
+              {expectedOutput
+                ? getArtifactDisplayName(
+                    expectedOutput.path,
+                    expectedOutput.artifactType,
+                  )
+                : "No expected output reported"}
             </div>
-            <p className="break-anywhere text-xs leading-relaxed text-muted-foreground/70">
-              {action.manualFallback?.instructions ??
-                "No route-specific support instructions were provided. Existing screens remain available to help with the task, but the current-action route remains the workflow authority."}
-            </p>
-            {action.manualFallback?.artifactPath ? (
-              <div className="mt-2 break-all font-mono text-[10px] leading-relaxed text-primary/70">
-                {action.manualFallback.artifactPath}
+            {expectedOutput ? (
+              <div className="mt-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/55">
+                {expectedOutput.artifactType}
               </div>
             ) : null}
           </div>
+        </div>
+
+        <div>
+          <PanelLabel>Artifact summary</PanelLabel>
+          <div className="grid grid-cols-3 gap-2" aria-label="Current action artifact counts">
+            <ActionCount label="Source" value={action.sourceArtifacts.length} />
+            <ActionCount label="Missing" value={action.missingArtifacts.length} tone="warning" />
+            <ActionCount label="Notices" value={warnings.length} tone={urgent ? "warning" : "neutral"} />
+          </div>
+          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground/55">
+            Review artifact details in the center workspace.
+          </p>
         </div>
 
         {unresolvedRouteMessage ? (
@@ -1195,7 +1201,7 @@ function CurrentActionStatePanel({
   onOpenFallback?: () => void;
 }) {
   return (
-    <div className="flex w-[400px] shrink-0 flex-col border-r border-border bg-card/35 p-5">
+    <div className="flex w-[340px] shrink-0 flex-col border-r border-border bg-card/35 p-5">
       <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.16em] text-primary/80">
         Primary guided action
       </div>
@@ -1412,6 +1418,41 @@ function MissingEvidenceLine({
   );
 }
 
+function ActionCount({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number;
+  tone?: "neutral" | "warning";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-2 py-2 text-center",
+        tone === "warning" && value > 0
+          ? "border-amber-400/20 bg-amber-400/[0.04]"
+          : "border-border bg-white/[0.025]",
+      )}
+    >
+      <div
+        className={cn(
+          "text-sm font-semibold",
+          tone === "warning" && value > 0
+            ? "text-amber-300/80"
+            : "text-foreground/75",
+        )}
+      >
+        {value}
+      </div>
+      <div className="mt-0.5 text-[8px] uppercase tracking-[0.1em] text-muted-foreground/45">
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function RouteOutcomes({
   action,
 }: {
@@ -1560,6 +1601,7 @@ function ArtifactWorkspace({
   isViewingSupportingScreen,
   loadState,
   onReturnToCurrentAction,
+  onOpenSupportScreen,
   children,
 }: {
   action: ChampCityCurrentRequiredAction | undefined;
@@ -1569,16 +1611,17 @@ function ArtifactWorkspace({
   isViewingSupportingScreen: boolean;
   loadState: LoadState;
   onReturnToCurrentAction?: () => void;
+  onOpenSupportScreen: (screen: string) => void;
   children: ReactNode;
 }) {
-  const artifactTitle =
-    activeManualItem?.screenTitle ??
-    "Supporting workspace";
+  const workspaceTitle = activeManualItem?.screenTitle ?? "Supporting workspace";
   const reviewModel = useMemo(
     () => (action ? buildArtifactReviewWorkspace(action) : undefined),
     [action],
   );
-  const [reviewOpen, setReviewOpen] = useState(true);
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<
+    "artifacts" | "action"
+  >(reviewModel?.hasContext ? "artifacts" : "action");
   const [previewTarget, setPreviewTarget] = useState<{
     path: string;
     displayName: string;
@@ -1588,10 +1631,25 @@ function ArtifactWorkspace({
   const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
+    setActiveWorkspaceTab(reviewModel?.hasContext ? "artifacts" : "action");
     setPreviewTarget(null);
     setPreviewResult(null);
     setPreviewLoading(false);
-  }, [action?.id, action?.phaseId, action?.workCardId]);
+  }, [action?.id, action?.phaseId, action?.workCardId, reviewModel?.hasContext]);
+
+  const showArtifactWorkspace = Boolean(
+    reviewModel &&
+      shouldShowCurrentActionArtifactWorkspace({
+        hasContext: reviewModel.hasContext,
+        isViewingRoutedScreen,
+        isViewingSupportingScreen,
+      }),
+  );
+  const sourceCount =
+    reviewModel?.sourceGroups.reduce(
+      (total, group) => total + group.artifacts.length,
+      0,
+    ) ?? 0;
 
   async function previewArtifact(path: string, displayName: string) {
     setPreviewTarget({ path, displayName });
@@ -1675,64 +1733,114 @@ function ArtifactWorkspace({
             className="shrink-0 text-muted-foreground/50"
           />
           <span className="truncate font-mono text-xs text-foreground/70">
-            {artifactTitle}
+            {workspaceTitle}
           </span>
-          {isViewingRoutedScreen && action?.expectedOutput?.path ? (
-            <span className="truncate text-[10px] text-muted-foreground/45">
-              Expected output:{" "}
-              {getArtifactDisplayName(
-                action.expectedOutput.path,
-                action.expectedOutput.artifactType,
-              )}
-            </span>
-          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <WriteBadge state={loadState} />
           {action?.status ? <StatusBadge status={action.status} /> : null}
         </div>
       </div>
-      {reviewModel?.hasContext ? (
-        <CurrentActionArtifactReview
-          model={reviewModel}
-          open={reviewOpen}
-          onToggle={() => setReviewOpen((value) => !value)}
-          previewTarget={previewTarget}
-          previewResult={previewResult}
-          previewLoading={previewLoading}
-          onPreview={(path, displayName) => {
-            void previewArtifact(path, displayName);
-          }}
-          onClosePreview={() => {
-            setPreviewTarget(null);
-            setPreviewResult(null);
-          }}
-        />
+
+      {showArtifactWorkspace && reviewModel ? (
+        <div
+          className="flex shrink-0 items-center gap-2 border-b border-border bg-card/25 px-5 py-2"
+          role="tablist"
+          aria-label="Current action workspace"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "artifacts"}
+            onClick={() => setActiveWorkspaceTab("artifacts")}
+            className={workspaceTabClass(activeWorkspaceTab === "artifacts")}
+          >
+            <FolderOpen size={12} />
+            Artifacts
+            <span className="text-[9px] opacity-65">
+              {sourceCount + reviewModel.missingArtifacts.length + (reviewModel.expectedOutput ? 1 : 0)}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "action"}
+            onClick={() => setActiveWorkspaceTab("action")}
+            className={workspaceTabClass(activeWorkspaceTab === "action")}
+          >
+            <CheckSquare size={12} />
+            Complete current action
+          </button>
+          <span className="ml-auto hidden text-[10px] text-muted-foreground/50 lg:block">
+            Review evidence, then use the current-action screen to complete the task.
+          </span>
+        </div>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-hidden bg-background/75">
+
+      {showArtifactWorkspace && reviewModel ? (
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            activeWorkspaceTab !== "artifacts" && "hidden",
+          )}
+          role="tabpanel"
+          aria-label="Artifacts"
+        >
+          <CurrentActionArtifactReview
+            model={reviewModel}
+            previewTarget={previewTarget}
+            previewResult={previewResult}
+            previewLoading={previewLoading}
+            onPreview={(path, displayName) => {
+              void previewArtifact(path, displayName);
+            }}
+            onOpenSupportScreen={onOpenSupportScreen}
+            onClosePreview={() => {
+              setPreviewTarget(null);
+              setPreviewResult(null);
+            }}
+          />
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-hidden bg-background/75",
+          showArtifactWorkspace && activeWorkspaceTab === "artifacts" && "hidden",
+        )}
+        role={showArtifactWorkspace ? "tabpanel" : undefined}
+        aria-label={showArtifactWorkspace ? "Complete current action" : undefined}
+      >
         {children}
       </div>
     </div>
   );
 }
 
+function workspaceTabClass(active: boolean): string {
+  return cn(
+    "flex items-center gap-2 rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors",
+    active
+      ? "border-primary/35 bg-primary/12 text-primary"
+      : "border-border bg-background/30 text-muted-foreground/70 hover:bg-white/[0.04] hover:text-foreground",
+  );
+}
+
 function CurrentActionArtifactReview({
   model,
-  open,
-  onToggle,
   previewTarget,
   previewResult,
   previewLoading,
   onPreview,
+  onOpenSupportScreen,
   onClosePreview,
 }: {
   model: ChampCityArtifactReviewWorkspaceModel;
-  open: boolean;
-  onToggle: () => void;
   previewTarget: { path: string; displayName: string } | null;
   previewResult: ChampCityPlanningArtifactPreviewResult | null;
   previewLoading: boolean;
   onPreview: (path: string, displayName: string) => void;
+  onOpenSupportScreen: (screen: string) => void;
   onClosePreview: () => void;
 }) {
   const sourceCount = model.sourceGroups.reduce(
@@ -1742,22 +1850,14 @@ function CurrentActionArtifactReview({
 
   return (
     <section
-      className={cn(
-        "flex shrink-0 flex-col border-b border-primary/20 bg-card/25",
-        open && "h-[38%] min-h-[280px] max-h-[430px]",
-      )}
+      className="flex h-full min-h-0 flex-col bg-card/15"
       aria-label="Current action artifact workspace"
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex shrink-0 items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-white/[0.025]"
-        aria-expanded={open}
-      >
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-3">
         <FolderOpen size={15} className="shrink-0 text-primary/75" />
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/75">
-            Current action artifacts
+            Artifact review
           </div>
           <div className="mt-0.5 truncate text-xs text-foreground/70">
             {model.workCardLabel} - {model.workflowStep}
@@ -1770,122 +1870,84 @@ function CurrentActionArtifactReview({
           <span>-</span>
           <span>{model.expectedOutput ? "1 expected output" : "No expected output"}</span>
         </div>
-        {open ? (
-          <ChevronUp size={14} className="shrink-0 text-muted-foreground/55" />
-        ) : (
-          <ChevronDown size={14} className="shrink-0 text-muted-foreground/55" />
-        )}
-      </button>
-      {open ? (
-        <div className="flex min-h-0 flex-1 border-t border-border">
-          <div className="min-w-0 flex-[3] overflow-y-auto px-5 py-4">
-            <div className="mb-4 grid grid-cols-3 gap-2">
-              <ArtifactContextValue label="Phase" value={model.phaseLabel} />
-              <ArtifactContextValue label="Workflow step" value={model.workflowStep} />
-              <ArtifactContextValue label="Work Card" value={model.workCardLabel} />
+      </header>
+      <div className="flex min-h-0 flex-1">
+        <aside
+          className="w-[38%] min-w-[320px] max-w-[440px] overflow-y-auto border-r border-border bg-background/25 px-4 py-4"
+          aria-label="Current action artifact list"
+        >
+          <div className="mb-4">
+            <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground/50">
+              One artifact list
             </div>
-
-            {model.expectedOutput ? (
-              <ArtifactExpectedOutputCard
-                output={model.expectedOutput}
-                onPreview={onPreview}
-              />
-            ) : null}
-
-            <div className="mt-4">
-              <div className="mb-2 flex items-center justify-between">
-                <SectionLabel>Source artifacts</SectionLabel>
-                <span className="text-[9px] text-muted-foreground/45">
-                  Read-only evidence from the current-action route
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                {model.sourceGroups.map((group) => (
-                  <ArtifactRoleGroup
-                    key={group.id}
-                    group={group}
-                    selectedPath={previewTarget?.path}
-                    onPreview={onPreview}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <ArtifactMissingGroup artifacts={model.missingArtifacts} />
+            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/60">
+              Every item states whether it can be previewed, opened as support, or is unavailable.
+            </p>
           </div>
-          <ArtifactPreviewPane
-            target={previewTarget}
-            result={previewResult}
-            loading={previewLoading}
-            onClose={onClosePreview}
-          />
-        </div>
-      ) : null}
+
+          {model.expectedOutput ? (
+            <ArtifactExpectedOutputGroup
+              output={model.expectedOutput}
+              selectedPath={previewTarget?.path}
+              onPreview={onPreview}
+              onOpenSupportScreen={onOpenSupportScreen}
+            />
+          ) : null}
+
+          {model.sourceGroups.map((group) => (
+            <ArtifactRoleGroup
+              key={group.id}
+              group={group}
+              selectedPath={previewTarget?.path}
+              onPreview={onPreview}
+              onOpenSupportScreen={onOpenSupportScreen}
+            />
+          ))}
+
+          <ArtifactMissingGroup artifacts={model.missingArtifacts} />
+        </aside>
+        <ArtifactPreviewPane
+          target={previewTarget}
+          result={previewResult}
+          loading={previewLoading}
+          onClose={onClosePreview}
+        />
+      </div>
     </section>
   );
 }
 
-function ArtifactContextValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-md border border-border bg-white/[0.02] px-3 py-2">
-      <div className="text-[9px] uppercase tracking-[0.1em] text-muted-foreground/45">
-        {label}
-      </div>
-      <div className="mt-1 break-words text-[11px] font-medium leading-snug text-foreground/70">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ArtifactExpectedOutputCard({
+function ArtifactExpectedOutputGroup({
   output,
+  selectedPath,
   onPreview,
+  onOpenSupportScreen,
 }: {
   output: ChampCityArtifactReviewExpectedOutput;
+  selectedPath?: string;
   onPreview: (path: string, displayName: string) => void;
+  onOpenSupportScreen: (screen: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-primary/25 bg-primary/[0.055] p-3.5">
-      <div className="flex items-start gap-3">
-        <Save size={14} className="mt-0.5 shrink-0 text-primary/80" />
-        <div className="min-w-0 flex-1">
-          <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-primary/75">
-            Expected output / draft area
-          </div>
-          <div className="mt-1 text-sm font-semibold text-foreground/85">
-            {output.displayName}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground/60">
-            <span>{output.artifactType}</span>
-            <span>-</span>
-            <span className={output.exists ? "text-amber-300/80" : "text-primary/75"}>
-              {output.stateLabel}
-            </span>
-          </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/70">
-            {output.description}
-          </p>
-          {output.path ? (
-            <details className="mt-2 text-[10px] text-muted-foreground/50">
-              <summary className="cursor-pointer">Path details</summary>
-              <div className="break-anywhere mt-1 font-mono leading-relaxed">
-                {output.path}
-              </div>
-            </details>
-          ) : null}
-        </div>
-        {output.path && output.previewable ? (
-          <button
-            type="button"
-            onClick={() => onPreview(output.path!, output.displayName)}
-            className="flex shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
-          >
-            <Eye size={11} />
-            Preview
-          </button>
-        ) : null}
-      </div>
+    <div className="mb-4">
+      <ArtifactGroupHeading
+        label="Expected Output"
+        count={1}
+        tone="expected"
+      />
+      <ArtifactRowShell
+        selected={Boolean(output.path && selectedPath === output.path)}
+        tone="expected"
+        icon={<Save size={12} />}
+        displayName={output.displayName}
+        metadata={`${output.artifactType} - ${output.stateLabel}`}
+        description={output.description}
+        path={output.path}
+        interactionState={output.interactionState}
+        supportScreenId={output.supportScreenId}
+        onPreview={onPreview}
+        onOpenSupportScreen={onOpenSupportScreen}
+      />
     </div>
   );
 }
@@ -1894,28 +1956,24 @@ function ArtifactRoleGroup({
   group,
   selectedPath,
   onPreview,
+  onOpenSupportScreen,
 }: {
   group: ChampCityArtifactReviewGroup;
   selectedPath?: string;
   onPreview: (path: string, displayName: string) => void;
+  onOpenSupportScreen: (screen: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-white/[0.018] p-3">
-      <div className="mb-2">
-        <div className="text-[11px] font-semibold text-foreground/80">
-          {group.label} <span className="text-muted-foreground/40">({group.artifacts.length})</span>
-        </div>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground/50">
-          {group.description}
-        </p>
-      </div>
+    <div className="mb-4">
+      <ArtifactGroupHeading label={group.label} count={group.artifacts.length} />
       <div className="flex flex-col gap-2">
         {group.artifacts.map((artifact) => (
-          <ArtifactReviewCard
+          <ArtifactReviewRow
             key={artifact.key}
             artifact={artifact}
             selected={selectedPath === artifact.path}
             onPreview={onPreview}
+            onOpenSupportScreen={onOpenSupportScreen}
           />
         ))}
       </div>
@@ -1923,64 +1981,31 @@ function ArtifactRoleGroup({
   );
 }
 
-function ArtifactReviewCard({
+function ArtifactReviewRow({
   artifact,
   selected,
   onPreview,
+  onOpenSupportScreen,
 }: {
   artifact: ChampCityArtifactReviewEntry;
   selected: boolean;
   onPreview: (path: string, displayName: string) => void;
+  onOpenSupportScreen: (screen: string) => void;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-md border px-3 py-2.5",
-        selected
-          ? "border-primary/40 bg-primary/[0.08]"
-          : "border-border bg-background/35",
-      )}
-    >
-      <div className="flex items-start gap-2">
-        <FileText size={12} className="mt-0.5 shrink-0 text-muted-foreground/45" />
-        <div className="min-w-0 flex-1">
-          <div className="break-words text-[11px] font-medium leading-snug text-foreground/75">
-            {artifact.displayName}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground/50">
-            <span>{artifact.role}</span>
-            <span>-</span>
-            <span>{artifact.format}</span>
-            <span>-</span>
-            <span className={artifact.exists ? "text-emerald-300/65" : "text-amber-300/75"}>
-              {artifact.exists ? "Available" : "Missing"}
-            </span>
-            {artifact.status ? (
-              <>
-                <span>-</span>
-                <span>{artifact.status}</span>
-              </>
-            ) : null}
-          </div>
-        </div>
-        {artifact.previewable ? (
-          <button
-            type="button"
-            onClick={() => onPreview(artifact.path, artifact.displayName)}
-            className="flex shrink-0 items-center gap-1 rounded border border-border px-2 py-1 text-[9px] font-semibold text-primary/80 transition-colors hover:border-primary/30 hover:bg-primary/10"
-          >
-            <Eye size={10} />
-            Preview
-          </button>
-        ) : null}
-      </div>
-      <details className="mt-1.5 pl-5 text-[9px] text-muted-foreground/45">
-        <summary className="cursor-pointer">Path details</summary>
-        <div className="break-anywhere mt-1 font-mono leading-relaxed">
-          {artifact.path}
-        </div>
-      </details>
-    </div>
+    <ArtifactRowShell
+      selected={selected}
+      icon={<FileText size={12} />}
+      displayName={artifact.displayName}
+      metadata={[artifact.role, artifact.format, artifact.status]
+        .filter(Boolean)
+        .join(" - ")}
+      path={artifact.path}
+      interactionState={artifact.interactionState}
+      supportScreenId={artifact.supportScreenId}
+      onPreview={onPreview}
+      onOpenSupportScreen={onOpenSupportScreen}
+    />
   );
 }
 
@@ -1990,38 +2015,208 @@ function ArtifactMissingGroup({
   artifacts: ChampCityArtifactReviewMissingEntry[];
 }) {
   return (
-    <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-400/[0.035] p-3">
-      <div className="text-[11px] font-semibold text-amber-300/85">
-        Missing evidence <span className="text-amber-300/45">({artifacts.length})</span>
-      </div>
-      {artifacts.length > 0 ? (
-        <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+    artifacts.length > 0 ? (
+      <div className="mb-4">
+        <ArtifactGroupHeading
+          label="Missing Evidence"
+          count={artifacts.length}
+          tone="missing"
+        />
+        <div className="flex flex-col gap-2">
           {artifacts.map((artifact) => (
-            <div key={artifact.key} className="rounded-md border border-amber-400/15 bg-background/25 p-2.5">
-              <div className="text-[11px] font-medium text-amber-200/80">
-                {artifact.displayName}
-              </div>
-              <div className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-muted-foreground/45">
-                {artifact.role}
-              </div>
-              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/65">
-                {artifact.reason}
-              </p>
-              <details className="mt-1.5 text-[9px] text-muted-foreground/45">
-                <summary className="cursor-pointer">Path details</summary>
-                <div className="break-anywhere mt-1 font-mono leading-relaxed">
-                  {artifact.path}
-                </div>
-              </details>
-            </div>
+            <ArtifactRowShell
+              key={artifact.key}
+              selected={false}
+              tone="missing"
+              icon={<AlertTriangle size={12} />}
+              displayName={artifact.displayName}
+              metadata={artifact.role}
+              description={artifact.reason}
+              path={artifact.path}
+              interactionState="missing"
+            />
           ))}
         </div>
-      ) : (
-        <p className="mt-1 text-[10px] text-muted-foreground/55">
-          No missing artifacts are reported for this current action.
-        </p>
+      </div>
+    ) : null
+  );
+}
+
+function ArtifactGroupHeading({
+  label,
+  count,
+  tone = "source",
+}: {
+  label: string;
+  count: number;
+  tone?: "source" | "expected" | "missing";
+}) {
+  return (
+    <div
+      className={cn(
+        "mb-2 flex items-center justify-between border-b pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em]",
+        tone === "expected"
+          ? "border-primary/20 text-primary/80"
+          : tone === "missing"
+            ? "border-amber-400/20 text-amber-300/80"
+            : "border-border text-foreground/60",
       )}
+    >
+      <span>{label}</span>
+      <span className="text-[9px] opacity-55">{count}</span>
     </div>
+  );
+}
+
+function ArtifactRowShell({
+  selected,
+  tone = "source",
+  icon,
+  displayName,
+  metadata,
+  description,
+  path,
+  interactionState,
+  supportScreenId,
+  onPreview,
+  onOpenSupportScreen,
+}: {
+  selected: boolean;
+  tone?: "source" | "expected" | "missing";
+  icon: ReactNode;
+  displayName: string;
+  metadata: string;
+  description?: string;
+  path?: string;
+  interactionState:
+    | "preview"
+    | "open_support_screen"
+    | "not_previewable"
+    | "missing";
+  supportScreenId?: string;
+  onPreview?: (path: string, displayName: string) => void;
+  onOpenSupportScreen?: (screen: string) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-3 py-2.5",
+        selected
+          ? "border-primary/45 bg-primary/[0.09]"
+          : tone === "expected"
+            ? "border-primary/25 bg-primary/[0.045]"
+            : tone === "missing"
+              ? "border-amber-400/20 bg-amber-400/[0.035]"
+              : "border-border bg-background/35",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            "mt-0.5 shrink-0",
+            tone === "expected"
+              ? "text-primary/75"
+              : tone === "missing"
+                ? "text-amber-300/70"
+                : "text-muted-foreground/45",
+          )}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="break-words text-[11px] font-semibold leading-snug text-foreground/80">
+            {displayName}
+          </div>
+          <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground/55">
+            {metadata}
+          </div>
+          {description ? (
+            <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/65">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        <ArtifactInteractionControl
+          state={interactionState}
+          path={path}
+          displayName={displayName}
+          supportScreenId={supportScreenId}
+          onPreview={onPreview}
+          onOpenSupportScreen={onOpenSupportScreen}
+        />
+      </div>
+      {path ? (
+        <details className="mt-1.5 pl-5 text-[9px] text-muted-foreground/45">
+          <summary className="cursor-pointer">Path details</summary>
+          <div className="break-anywhere mt-1 font-mono leading-relaxed">
+            {path}
+          </div>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function ArtifactInteractionControl({
+  state,
+  path,
+  displayName,
+  supportScreenId,
+  onPreview,
+  onOpenSupportScreen,
+}: {
+  state:
+    | "preview"
+    | "open_support_screen"
+    | "not_previewable"
+    | "missing";
+  path?: string;
+  displayName: string;
+  supportScreenId?: string;
+  onPreview?: (path: string, displayName: string) => void;
+  onOpenSupportScreen?: (screen: string) => void;
+}) {
+  if (state === "preview" && path && onPreview) {
+    return (
+      <button
+        type="button"
+        onClick={() => onPreview(path, displayName)}
+        className="flex shrink-0 items-center gap-1 rounded border border-primary/25 bg-primary/[0.07] px-2 py-1 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/15"
+      >
+        <Eye size={10} />
+        Preview
+      </button>
+    );
+  }
+
+  if (
+    state === "open_support_screen" &&
+    supportScreenId &&
+    onOpenSupportScreen
+  ) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenSupportScreen(supportScreenId)}
+        className="flex shrink-0 items-center gap-1 rounded border border-violet-400/25 bg-violet-400/[0.06] px-2 py-1 text-[9px] font-semibold text-violet-300/85 transition-colors hover:bg-violet-400/12"
+      >
+        Open support screen
+        <ArrowRight size={9} />
+      </button>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded border px-2 py-1 text-[9px] font-semibold",
+        state === "missing"
+          ? "border-amber-400/25 bg-amber-400/[0.06] text-amber-300/80"
+          : "border-border bg-white/[0.02] text-muted-foreground/55",
+      )}
+    >
+      {state === "missing" ? "Missing" : "Not previewable"}
+    </span>
   );
 }
 
@@ -2037,7 +2232,7 @@ function ArtifactPreviewPane({
   onClose: () => void;
 }) {
   return (
-    <aside className="flex w-[40%] min-w-[300px] flex-col border-l border-border bg-background/45">
+    <aside className="flex min-w-0 flex-1 flex-col bg-background/45" aria-label="Artifact preview">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
         <Eye size={12} className="text-primary/70" />
         <div className="min-w-0 flex-1">
@@ -2062,8 +2257,11 @@ function ArtifactPreviewPane({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {!target ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <FileText size={24} className="text-muted-foreground/20" />
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground/55">
+            <FileText size={28} className="text-muted-foreground/20" />
+            <div className="mt-3 text-sm font-semibold text-foreground/70">
+              No artifact selected
+            </div>
+            <p className="mt-2 max-w-lg text-xs leading-relaxed text-muted-foreground/55">
               Preview a Work Card, Implementer Report, Architect Review, Validation Report, or other available planning Markdown file without leaving the current workflow context.
             </p>
           </div>
@@ -2077,7 +2275,7 @@ function ArtifactPreviewPane({
             <div className="mb-3 rounded-md border border-emerald-400/15 bg-emerald-400/[0.04] px-3 py-2 text-[10px] leading-relaxed text-emerald-200/70">
               Read only. Previewing this artifact does not save, approve, validate, repair, or advance workflow state.
             </div>
-            <pre className="break-words whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-foreground/72">
+            <pre className="mx-auto max-w-5xl break-words whitespace-pre-wrap font-sans text-[13px] leading-6 text-foreground/78">
               {result.content}
             </pre>
             {result.truncated ? (
@@ -2092,8 +2290,8 @@ function ArtifactPreviewPane({
           </>
         ) : (
           <Notice type="error">
-            {result?.errorMessages?.join(" ") ??
-              "The artifact preview could not be loaded."}
+            Preview failed. {result?.errorMessages?.join(" ") ??
+              "The artifact could not be loaded."}
           </Notice>
         )}
       </div>

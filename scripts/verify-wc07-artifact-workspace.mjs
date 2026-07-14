@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   buildArtifactReviewWorkspace,
   getArtifactDisplayName,
+  getArtifactSupportScreen,
   isPlanningMarkdownPreviewable,
+  shouldShowCurrentActionArtifactWorkspace,
 } from "../dist/shared/workCards/artifactReviewWorkspace.js";
 import {
   getCurrentRequiredAction,
@@ -75,7 +78,9 @@ async function main() {
     "Operator validation should group Work Card, Implementer Report, and Architect Review evidence.",
   );
   assert.equal(operatorModel.expectedOutput?.exists, false);
+  assert.equal(operatorModel.expectedOutput?.interactionState, "missing");
   assert.equal(operatorModel.missingArtifacts.length, 1);
+  assert.equal(operatorModel.missingArtifacts[0].interactionState, "missing");
   assert.notEqual(
     operatorModel.sourceGroups[0].artifacts[0].displayName,
     operatorModel.sourceGroups[0].artifacts[0].path,
@@ -114,6 +119,16 @@ async function main() {
     architectModel.expectedOutput?.artifactType,
     "Architect Review",
   );
+
+  for (const group of operatorModel.sourceGroups) {
+    for (const entry of group.artifacts) {
+      assert.equal(
+        entry.interactionState,
+        "preview",
+        `Available planning Markdown should expose Preview: ${entry.path}`,
+      );
+    }
+  }
 
   const repairModel = buildArtifactReviewWorkspace(
     action({
@@ -163,6 +178,54 @@ async function main() {
     );
   }
   assert.equal(repairModel.expectedOutput?.artifactType, "Repair Validation Record");
+  const sourceEvidence = repairModel.sourceGroups
+    .flatMap((group) => group.artifacts)
+    .find((entry) => entry.groupId === "source_evidence");
+  assert.equal(
+    sourceEvidence?.interactionState,
+    "not_previewable",
+    "Existing image evidence should explicitly report Not previewable.",
+  );
+
+  const supportModel = buildArtifactReviewWorkspace(
+    action({
+      sourceArtifacts: [
+        artifact(
+          "planning/project/Project_Intake/PROJECT_INTAKE_fixture.json",
+          "Project Intake JSON",
+        ),
+      ],
+    }),
+  );
+  const supportArtifact = supportModel.sourceGroups[0].artifacts[0];
+
+  assert.equal(supportArtifact.interactionState, "open_support_screen");
+  assert.equal(supportArtifact.supportScreenId, "project-intake");
+  assert.equal(
+    getArtifactSupportScreen(
+      "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_fixture.json",
+    ),
+    "repository-reconciliation",
+  );
+
+  assert.equal(
+    shouldShowCurrentActionArtifactWorkspace({
+      hasContext: true,
+      isViewingRoutedScreen: true,
+      isViewingSupportingScreen: false,
+    }),
+    true,
+    "The routed current-action workspace should own artifact review.",
+  );
+  assert.equal(
+    shouldShowCurrentActionArtifactWorkspace({
+      hasContext: true,
+      isViewingRoutedScreen: false,
+      isViewingSupportingScreen: true,
+    }),
+    false,
+    "Supporting-screen mode must suppress the current-action artifact workspace.",
+  );
 
   assert.equal(
     getArtifactDisplayName(
@@ -210,8 +273,45 @@ async function main() {
     "A live current action with evidence or expected output must not produce a blank artifact workspace.",
   );
 
+  const rendererSource = await readFile(
+    new URL("../src/renderer/app/WorkflowRouterShell.tsx", import.meta.url),
+    "utf8",
+  );
+  const artifactListMarkers =
+    rendererSource.match(/aria-label="Current action artifact list"/g) ?? [];
+
+  assert.equal(
+    artifactListMarkers.length,
+    1,
+    "The renderer must expose exactly one current-action artifact list.",
+  );
+
+  const leftPanelStart = rendererSource.indexOf(
+    "function CurrentRequiredActionPanel(",
+  );
+  const leftPanelEnd = rendererSource.indexOf(
+    "function CurrentActionStatePanel(",
+  );
+  const leftPanelSource = rendererSource.slice(leftPanelStart, leftPanelEnd);
+
+  assert.doesNotMatch(
+    leftPanelSource,
+    /<EvidenceList|<MissingEvidenceList|<RouteOutcomes|<WarningGroups/,
+    "The left panel must not render artifact lists, route outcomes, or warning stacks.",
+  );
+  assert.match(
+    leftPanelSource,
+    /Current action artifact counts/,
+    "The left panel should retain compact artifact counts.",
+  );
+  assert.match(
+    rendererSource,
+    /Complete current action/,
+    "The routed action form must remain available through an explicit workspace tab.",
+  );
+
   console.log(
-    "WC07 artifact workspace fixture passed: role grouping, readable labels, expected/missing separation, constrained preview, and live non-blank context verified.",
+    "WC07 repair artifact workspace fixture passed: strict layout ownership, one artifact list, explicit interaction states, large preview routing, and current-action access verified.",
   );
 }
 

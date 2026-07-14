@@ -56,12 +56,12 @@ const currentActionResult = await getCurrentRequiredAction();
 assert.equal(currentActionResult.ok, true);
 assert.equal(
   currentActionResult.currentAction?.workCardId,
-  "WC07",
-  "Accepted WC05 and WC06 work must allow the durable route to reach WC07 without changing support-navigation semantics.",
+  "WC07-REPAIR01",
+  "Accepted WC05 and WC06 work must allow the WC07 repair route without changing support-navigation semantics.",
 );
 assert.equal(
   currentActionResult.currentAction?.id,
-  "implementer_report_required",
+  "repair_validation_required",
 );
 
 console.log("WC05 support-navigation focused fixture passed.");

@@ -53,11 +53,11 @@ assert.equal(
 );
 
 const currentAction = currentActionResult.currentAction;
-assert.equal(currentAction?.workCardId, "WC07");
-assert.equal(currentAction?.id, "implementer_report_required");
+assert.equal(currentAction?.workCardId, "WC07-REPAIR01");
+assert.equal(currentAction?.id, "repair_validation_required");
 assert.notEqual(currentAction?.id, "full_work_card_creation_required");
-assert.equal(currentAction?.responsibleRole, "implementer");
-assert.equal(currentAction?.status, "available");
+assert.equal(currentAction?.responsibleRole, "operator");
+assert.equal(currentAction?.status, "needs_validation");
 
 const architectReview = readRepositoryFile(
   "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
@@ -72,9 +72,9 @@ const workflowGuide = resolveWorkflowVisibility(currentAction);
 assert.equal(workflowGuide.activeStepLabel, "Work Card Loop");
 assert.equal(
   workflowGuide.workCardLoopStages.find(
-    (stage) => stage.id === "implementer",
+    (stage) => stage.id === "validation-again",
   )?.state,
-  "current",
+  "repair",
 );
 
 const navigationItems = Object.freeze([

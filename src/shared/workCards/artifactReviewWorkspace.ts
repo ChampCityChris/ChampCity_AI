@@ -12,6 +12,12 @@ export type ArtifactReviewGroupId =
   | "source_evidence"
   | "other_support";
 
+export type ArtifactReviewInteractionState =
+  | "preview"
+  | "open_support_screen"
+  | "not_previewable"
+  | "missing";
+
 export interface ArtifactReviewEntry {
   key: string;
   path: string;
@@ -22,6 +28,8 @@ export interface ArtifactReviewEntry {
   status?: string;
   exists: boolean;
   previewable: boolean;
+  interactionState: ArtifactReviewInteractionState;
+  supportScreenId?: string;
 }
 
 export interface ArtifactReviewGroup {
@@ -37,6 +45,7 @@ export interface ArtifactReviewMissingEntry {
   displayName: string;
   role: string;
   reason: string;
+  interactionState: "missing";
 }
 
 export interface ArtifactReviewExpectedOutput {
@@ -47,6 +56,8 @@ export interface ArtifactReviewExpectedOutput {
   exists: boolean;
   previewable: boolean;
   stateLabel: string;
+  interactionState: ArtifactReviewInteractionState;
+  supportScreenId?: string;
 }
 
 export interface ArtifactReviewWorkspaceModel {
@@ -141,6 +152,7 @@ export function buildArtifactReviewWorkspace(
     displayName: getArtifactDisplayName(artifact.path),
     role: inferArtifactRole(artifact.path),
     reason: artifact.reason,
+    interactionState: "missing" as const,
   }));
   const expectedOutput = action.expectedOutput
     ? buildExpectedOutput(action, sourceEntries)
@@ -162,6 +174,18 @@ export function buildArtifactReviewWorkspace(
       missingArtifacts.length > 0 ||
       Boolean(expectedOutput),
   };
+}
+
+export function shouldShowCurrentActionArtifactWorkspace(input: {
+  hasContext: boolean;
+  isViewingRoutedScreen: boolean;
+  isViewingSupportingScreen: boolean;
+}): boolean {
+  return (
+    input.hasContext &&
+    input.isViewingRoutedScreen &&
+    !input.isViewingSupportingScreen
+  );
 }
 
 export function getArtifactDisplayName(
@@ -229,6 +253,44 @@ export function isPlanningMarkdownPreviewable(artifactPath: string): boolean {
   );
 }
 
+export function getArtifactSupportScreen(
+  artifactPath: string,
+): string | undefined {
+  const normalized = normalizeRepoPath(artifactPath).toLowerCase();
+
+  if (normalized.includes("/project_intake/")) {
+    return "project-intake";
+  }
+
+  if (normalized.includes("/project_architect_interview_prompts/")) {
+    return "project-architect-interview";
+  }
+
+  if (
+    normalized.includes("/project_planning_documents/") ||
+    normalized.includes("/project_roadmap/")
+  ) {
+    return "project-planning-documents";
+  }
+
+  if (normalized.includes("/repository_reconciliation/")) {
+    return "repository-reconciliation";
+  }
+
+  if (normalized.includes("/phase_map/")) {
+    return "phase-map-builder";
+  }
+
+  if (
+    normalized.includes("/work_card_plans/") ||
+    /\/work_card_plan\.(md|json)$/i.test(normalized)
+  ) {
+    return "work-card-plan-review";
+  }
+
+  return undefined;
+}
+
 export function inferArtifactGroup(
   artifact: Pick<CurrentActionArtifactReference, "path" | "role">,
 ): ArtifactReviewGroupId {
@@ -273,6 +335,12 @@ export function inferArtifactGroup(
 function toReviewEntry(
   artifact: CurrentActionArtifactReference,
 ): ArtifactReviewEntry {
+  const exists = artifact.exists !== false;
+  const previewable = exists && isPlanningMarkdownPreviewable(artifact.path);
+  const supportScreenId = exists
+    ? getArtifactSupportScreen(artifact.path)
+    : undefined;
+
   return {
     key: `${artifact.path}|${artifact.role}`,
     path: artifact.path,
@@ -281,9 +349,16 @@ function toReviewEntry(
     groupId: inferArtifactGroup(artifact),
     format: getArtifactFormat(artifact.path),
     status: artifact.status,
-    exists: artifact.exists !== false,
-    previewable:
-      artifact.exists !== false && isPlanningMarkdownPreviewable(artifact.path),
+    exists,
+    previewable,
+    interactionState: !exists
+      ? "missing"
+      : previewable
+        ? "preview"
+        : supportScreenId
+          ? "open_support_screen"
+          : "not_previewable",
+    supportScreenId,
   };
 }
 
@@ -297,6 +372,11 @@ function buildExpectedOutput(
     (artifact) => normalizeRepoPath(artifact.path) === normalizedExpectedPath,
   );
   const exists = Boolean(existing?.exists);
+  const previewable = Boolean(existing?.previewable);
+  const supportScreenId =
+    exists && expectedOutput.path
+      ? getArtifactSupportScreen(expectedOutput.path)
+      : undefined;
 
   return {
     path: expectedOutput.path,
@@ -307,8 +387,16 @@ function buildExpectedOutput(
     artifactType: expectedOutput.artifactType,
     description: expectedOutput.description,
     exists,
-    previewable: Boolean(existing?.previewable),
+    previewable,
     stateLabel: exists ? "Existing record - update or replace expected" : "Expected next - not created yet",
+    interactionState: !exists
+      ? "missing"
+      : previewable
+        ? "preview"
+        : supportScreenId
+          ? "open_support_screen"
+          : "not_previewable",
+    supportScreenId,
   };
 }
 
