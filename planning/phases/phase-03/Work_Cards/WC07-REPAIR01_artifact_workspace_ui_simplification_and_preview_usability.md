@@ -1,15 +1,15 @@
-# Repair Work Card: WC07-REPAIR01 — Artifact Workspace UI Simplification and Preview Usability
+# Repair Work Card: WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability
 
 Status: ready_for_implementer
 Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 Parent Work Card: WC07 — Artifact Review Workspace
 Repair ID: WC07-REPAIR01
 Created: 2026-07-14
-Revision: 2 — tightened UI repair authority after Operator clarification that the defect is existing pane clutter and duplicated information, not merely lack of another cleaner pane.
+Rewritten: 2026-07-14
 
 ## Repair Trigger
 
-WC07 received a deferred Operator validation decision. The validation report records that the Operator could not meaningfully validate WC07 because the artifact review workspace was visually confusing, did not make document access obvious, and did not visibly prove that artifact documents were being pulled into the workspace.
+WC07 received a deferred Operator validation decision. The validation report records that the Operator could not meaningfully validate WC07 because the artifact review workspace was visually confusing, duplicative, hard to operate, and did not make document access or preview behavior obvious.
 
 Primary source:
 
@@ -17,6 +17,12 @@ Primary source:
 
 Supporting sources:
 
+- `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json`
+- `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image.png`
+- `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_2.png`
+- `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_3.png`
+- `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_4.png`
+- `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_5.png`
 - `planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md`
 - `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md`
@@ -38,155 +44,213 @@ The report lists these failed WC07 checks:
 5. Planning Markdown preview works inline and stays read-only.
 6. Expected output, source artifacts, and missing evidence are visually distinct.
 
-The report also records these usability failures in plain language:
+The report and screenshots also show a broader UI defect: the implementation created multiple competing artifact/context surfaces. The left panel, center workspace, routed form, preview area, workflow rail, and supporting-screen mode all display overlapping context. The result is not merely cluttered. It prevents the Operator from understanding what screen owns the current task.
 
-- The Operator could not tell what information was being displayed.
-- It was not clear that artifact documents were actually being loaded for viewing.
-- Architect Review could not be clicked/opened in a way that allowed validation.
-- Artifact cards became useless because they did not open in a Markdown viewer or open externally.
-- The Markdown preview appeared empty or unusably small.
-- The UI became a jumbled set of repeated embedded panels.
-- Clicking the Work Card Loop action moved the Operator away from the current screen and required `Return to current action` to continue.
-- Other action bar clicks did not clearly show different information, or the UI made the change impossible to understand.
+## Core Diagnosis
 
-## Diagnosis
+The failed WC07 implementation already has too many visible panes, repeated artifact summaries, duplicated current-action information, duplicated source evidence, and competing places that appear to show the same context.
 
-The WC07 implementation appears to have satisfied some data-model and fixture requirements, but it failed the human UI requirement. The implementation gave the app additional artifact context mechanics, but the visible interface did not make that context understandable or usable.
+The repair must **remove, consolidate, or suppress existing duplicate surfaces**. Do not add another pane beside the current clutter. Do not add another embedded window. Do not solve this by placing a cleaner component next to the existing confusing layout.
 
-The core defect is not merely that one button failed. The defect is that the Artifact Review Workspace lacks a disciplined information architecture. It added more surfaces instead of creating one clear place where the Operator can inspect artifacts while preserving the current workflow context.
+The defect is a layout-ownership failure:
 
-## Non-Negotiable UI Correction
-
-The existing WC07 UI already has too many panes, repeated artifact summaries, duplicated current-action information, and competing places that appear to show the same context.
-
-The repair must **remove, consolidate, or collapse existing duplicate information**. It must not add a new pane beside the existing clutter. It must not solve the problem by embedding another window inside the current window. It must not create another copy of source evidence, route metadata, expected output, or current-action summary in a different location.
-
-The expected result is a simpler UI than the failed WC07 implementation, not a more elaborate UI.
+- The persistent left panel is acting as both a current-action summary and an artifact browser.
+- The center workspace is also acting as an artifact browser.
+- The routed validation form is visually demoted by artifact scaffolding.
+- Supporting/reference screens can show current-action artifact context even though the user is no longer viewing the routed current-action workspace.
+- Artifact cards look important but are inconsistently clickable, previewable, or inert.
+- Markdown preview technically exists but is not discoverable or visually central enough to validate.
 
 ## Repair Goal
 
-Replace the confusing artifact-review presentation with a simple, constrained, Operator-readable artifact workspace.
+Create a strict layout ownership model.
 
 Human goal:
 
 The Operator should be able to answer these questions in under five seconds:
 
-1. What artifact am I looking at?
-2. Is it the Work Card, Implementer Report, Architect Review, Validation Report, Repair artifact, source evidence, missing evidence, or expected output?
-3. Can I preview or open it?
-4. Where is the current routed action?
-5. Am I still on the current action, or am I only looking at supporting information?
+1. What is my current required action?
+2. Am I on the current-action workspace or only viewing supporting/reference material?
+3. Where do I inspect artifacts?
+4. Which artifact is selected?
+5. Can this artifact be previewed, opened elsewhere in the app, or is it missing/non-previewable?
+6. Where do I complete the current action form?
 
-## Required UI Structure
+## Required Layout Ownership Model
 
-Do not invent a new complex UI pattern. Implement a clear artifact workspace with this structure:
+### 1. Top workflow guide owns orientation only
 
-### 1. Single artifact review area
+The locked workflow guide and Work Card loop may show where the user is in the process. They must not become artifact browsers or a competing workspace.
 
-The center workspace must have one obvious artifact review area. Do not create multiple competing panels that repeat the same source evidence, expected output, route metadata, current-action title, Work Card ID, or artifact list.
+The top workflow guide may remain visible, but it must not cause confusion about the current workspace. If existing layout constraints make it consume too much vertical space, it may be made more compact or collapsible, provided WC06 orientation behavior remains intact.
 
-Required behavior:
+### 2. Left panel owns compact current-action summary only
 
-- There must be exactly one primary artifact list for the current route.
-- There must be exactly one primary preview/details area for the selected artifact.
-- Current-action summary remains in the existing current-action panel, not repeated across multiple center panels.
-- Expected output appears once in the artifact workspace.
-- Source artifacts appear once in the artifact workspace.
-- Missing evidence appears once in the artifact workspace.
-- Path details may be hidden behind details controls, but the same path list must not appear in several UI regions.
+The left panel must stop acting as an artifact browser when the center artifact workspace is active.
+
+The left panel may show:
+
+- Next required action.
+- Responsible role.
+- Workflow step.
+- Phase.
+- Work Card.
+- Why this is next.
+- Expected output summary.
+- A compact count of source artifacts, missing artifacts, and warnings.
+- A primary `Continue current action` / `Return to current action` affordance.
+
+The left panel must not show these as long card stacks while the center artifact workspace is active:
+
+- Source evidence cards.
+- Missing evidence cards.
+- Warning stacks.
+- Route outcomes.
+- Routed-screen launcher details.
+- Repeated artifact lists already shown in the center workspace.
+- Full raw path walls.
+
+If those details remain available from the left panel, they must be collapsed behind a secondary details affordance and must not duplicate the center artifact workspace as another primary browsing surface.
+
+### 3. Center workspace owns current work
+
+The center workspace is the only primary work area.
+
+When the user is on the routed current action, the center workspace must show:
+
+- One artifact review surface.
+- One current-action form or routed action surface.
+- Clear labels explaining which area is artifact evidence and which area is the form/screen used to complete the action.
+
+The center workspace must not duplicate current-action summary cards that are already visible in the left panel. It may show a short header for context, but it must not repeat the entire left-panel summary.
+
+### 4. Center artifact review owns artifact browsing
+
+Artifact browsing belongs only to the center workspace.
+
+There must be one artifact list or artifact selector. Do not render artifact lists in multiple places. Do not show source evidence as cards in the left panel and again in the center. Do not display expected output in both the left panel and center as competing detailed panels.
 
 Acceptable structure:
 
-- A top artifact context header.
-- A single artifact list grouped by role.
-- A large readable preview/details pane.
-- A clear route-specific action area or tab.
+- Header: current action and route context.
+- Artifact list grouped by role.
+- Large preview/details pane.
+- Current action form or a clearly labeled tab/section for it.
 
 Unacceptable structure:
 
-- Multiple nested embedded windows.
-- Duplicate artifact lists in more than one place.
-- Duplicate current-action summaries in the left panel and multiple center panels.
-- Duplicate expected-output blocks.
-- Duplicate source-evidence blocks.
-- Tiny preview panes that cannot be read.
-- Artifact cards that look clickable but do nothing.
-- Artifact context scattered between left panel, center workspace, route screen, and hidden details with no clear hierarchy.
+- Artifact lists in both left and center as primary UI.
+- Expected output cards in multiple locations.
+- Current-action summary repeated across left and center.
+- Nested embedded windows.
+- Tiny preview panes.
+- Inert artifact cards that look clickable.
+- Artifact context rendered inside unrelated support/reference screens.
 
-### 2. Duplicate information removal rule
+### 5. Supporting screen mode owns reference/recovery only
 
-Before adding new UI, remove or consolidate existing duplicate UI.
+When the Operator is viewing a supporting/reference screen, such as Project Intake, the app must suppress the full current-action artifact workspace.
 
-If the same information is already visible in the current-action panel, the artifact workspace may reference it briefly but must not reproduce the full panel content.
+Supporting screen mode must show:
 
-If the same artifact appears in more than one artifact group, pick one group and explain its role there. Do not show the same artifact repeatedly unless there is a clear, distinct purpose that is visible to the Operator.
+- The selected supporting screen.
+- A clear banner stating this is reference/support only.
+- A clear statement that the durable current action has not changed.
+- A prominent `Return to current action` button.
 
-If a supporting screen already shows blank or confusing content, do not rely on that screen as the primary artifact review method. The artifact workspace must provide the useful current-action artifact context directly.
+Supporting screen mode must not show:
 
-### 3. Artifact list must be explicit and grouped
+- The full WC07 current-action artifact workspace.
+- Current-action artifact lists.
+- Current-action preview panes.
+- Expected-output panels for the current action.
+- Duplicate evidence context that belongs to the current-action workspace.
 
-The artifact list must clearly show these groups when applicable:
+The artifact review workspace belongs to the routed current action, not every supporting/reference screen.
 
-- Expected Output
-- Work Card
-- Implementer Report
-- Architect Review
-- Validation Report
-- Repair Artifacts
-- Source Evidence
-- Missing Evidence
-- Other Support
+### 6. Current action form must remain usable
 
-The groups must be visually distinguishable. Source artifacts, missing evidence, and expected output must not be blended together.
+The current action form cannot be buried underneath a large artifact wall.
 
-### 4. Artifact cards must have working actions
+For Operator Validation, the validation form must be easy to reach and visually connected to the current action. Acceptable approaches:
 
-Every artifact card must clearly indicate one of the following:
+- A clear tab structure such as `Artifacts` and `Validation Record`, with the active tab obvious.
+- A split layout where artifact review and the validation form both remain readable.
+- A stacked layout where the form appears before excessive evidence details and does not require hunting through duplicated context.
+
+The Operator must always know where to complete the current action.
+
+## Required Artifact Interaction Rules
+
+Every artifact row or card must have exactly one visible state:
 
 - `Preview` — safe Markdown preview is available.
-- `Open supporting screen` — existing app screen is the available viewing method.
-- `Not previewable` — the file type cannot currently be previewed.
-- `Missing` — the artifact is expected but not available.
+- `Open support screen` — the app can open an existing screen that represents this artifact or context.
+- `Not previewable` — the artifact exists but cannot currently be previewed.
+- `Missing` — the artifact is expected but unavailable.
 
-If an artifact cannot be previewed, the UI must say why in plain language. Do not show a button that appears to open something but does nothing.
+No inert artifact cards. If a card is not clickable, it must not look clickable. If a card has a button, the button must do something visible or show a clear error state.
 
-### 5. Markdown preview must be usable
+Previewable Markdown artifacts must visibly load content in a large readable preview pane. Empty preview states must explain one of these conditions:
 
-If Markdown preview is supported, it must be visibly usable.
+- No artifact selected.
+- The selected artifact is not previewable.
+- The selected artifact is missing.
+- Preview failed, with plain-language reason.
+- Preview is loading.
 
-Minimum requirements:
+The preview must remain read-only and must not save, approve, validate, repair, or advance workflow state.
 
-- The preview pane must be large enough to read on a normal desktop window.
-- Selecting a previewable Markdown artifact must visibly load content.
-- Empty preview states must explain whether no artifact is selected, the artifact is not previewable, loading failed, or the artifact is missing.
-- The preview must show the selected artifact label and path context.
-- The preview must remain read-only.
+## Required Artifact Groups
 
-Do not hide the preview behind a tiny embedded window. Do not create a preview area that is technically present but visually useless.
+The artifact list must clearly group artifacts by role when applicable:
 
-### 6. Route-specific screen must not disappear or be confused with artifact preview
+- Expected Output.
+- Work Card.
+- Implementer Report.
+- Architect Review.
+- Validation Report.
+- Repair Artifacts.
+- Source Evidence.
+- Missing Evidence.
+- Other Support.
 
-The current routed workflow screen must remain accessible, but it should not be buried under repeated artifact panels.
+Expected output, source artifacts, and missing evidence must be visually distinct.
 
-Acceptable approaches:
+Full repo-relative paths may remain available under secondary details, but they must not be the primary label or dominate the screen.
 
-- A clear two-tab structure: `Artifacts` and `Current action form`.
-- A split layout where one pane is artifact list/preview and one pane is the current action form, if both remain readable.
-- A large artifact review workspace with a clear button or tab back to the current-action form.
+## Required Route Coverage
 
-The Operator must always know whether they are looking at artifact evidence or the form/screen used to complete the current action.
+### Operator validation route
 
-### 7. Process/action bar clicks must not create confusing context switches
+The Operator validation route must visibly expose:
 
-Clicking the Work Card Loop / process rail must not dump the Operator into a different confusing screen without clear context.
+- Work Card.
+- Implementer Report.
+- Architect Review.
+- Expected Validation Report.
+- Relevant prior validation or evidence records where present.
+- The validation form.
 
-If a click opens a support/reference view, the UI must clearly say:
+### Architect review route
 
-- This is support/reference only.
-- The current action has not changed.
-- Use `Return to current action` to go back.
+The Architect review route must visibly expose:
 
-However, WC07 should reduce the need to use process/action bar navigation for artifact review. The required Work Card, Implementer Report, Architect Review, validation, repair, and expected-output artifacts should be visible in the Artifact Review Workspace itself.
+- Work Card.
+- Implementer Report.
+- Expected Architect Review output.
+- The current review form/screen if present.
+
+### Repair validation route
+
+The repair validation route must visibly expose:
+
+- Parent Work Card.
+- Failed parent validation.
+- Repair Work Card.
+- Repair Implementer Report.
+- Expected repair validation output.
+- Any referenced evidence files.
 
 ## Carried-Forward Observations Included
 
@@ -194,19 +258,19 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 
 - Source: `planning/phases/phase-03/Observation_Register.md`
 - Included because: WC07 artifact review must use readable labels and functional preview/open affordances instead of raw path walls.
-- Acceptance impact: Full paths may exist under details, but they must not be the primary UI label.
+- Acceptance impact: Full paths may exist under details, but they must not be the primary UI label. Source evidence must not be duplicated as a long persistent left-panel card stack when the center artifact workspace is active.
 
 ### PH03-OBS-004 — Supporting screens are reachable but not populated
 
 - Source: `planning/phases/phase-03/Observation_Register.md`
 - Included because: WC07 must prevent blank artifact workspace states when current-action artifact context exists.
-- Acceptance impact: Current-action artifact context must populate the workspace even if route-specific screens remain imperfect.
+- Acceptance impact: Current-action artifact context must populate the routed current-action workspace. Supporting/reference screens must remain reference-only and must not render the full current-action artifact workspace.
 
 ### PH03-OBS-006 — Work Card Loop needs artifact access during validation
 
 - Source: `planning/phases/phase-03/Observation_Register.md`
 - Included because: WC07 must expose Work Card, Implementer Report, Architect Review, validation records, repair records, and expected output during validation/review routes.
-- Acceptance impact: Operator validation must allow the Operator to inspect those artifacts without hunting through blank supporting screens.
+- Acceptance impact: Operator validation must allow the Operator to inspect those artifacts without hunting through blank supporting screens or duplicate artifact surfaces.
 
 ## Out Of Scope
 
@@ -214,7 +278,7 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 - Do not build a full document management system.
 - Do not add unrestricted renderer filesystem access.
 - Do not add browser automation, Playwright, provider SDKs, database, cloud service, authentication, MCP, connector, deployment, or release features.
-- Do not redesign the entire app shell.
+- Do not redesign the entire app shell outside the layout ownership changes required for WC07 repair.
 - Do not replace the current-action router.
 - Do not mutate durable workflow state through artifact preview or support navigation.
 - Do not create Operator validation records.
@@ -224,22 +288,27 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 
 ## Acceptance Criteria
 
-- The center workspace has one clear artifact review area, not a jumble of duplicated embedded panels.
-- The repair removes, consolidates, or collapses existing duplicated artifact/context surfaces.
-- It is visually obvious that the repaired UI has fewer competing artifact/context panels than the failed WC07 implementation.
+- The repaired UI is visibly simpler than the failed WC07 implementation.
+- The left panel is reduced to compact current-action summary and no longer acts as the primary source-evidence browser while the center artifact workspace is active.
+- The center workspace is the only primary artifact-review surface.
+- There is one artifact list or selector, not multiple competing artifact lists.
+- There is one expected-output presentation, not duplicate detailed expected-output cards in multiple places.
+- Current-action summary is not redundantly repeated across left and center as competing card groups.
+- Supporting screen mode suppresses the full current-action artifact workspace and clearly identifies itself as reference/support only.
 - Artifact groups are visually clear and include expected output, source artifacts, missing evidence, Work Card, Implementer Report, Architect Review, validation, and repair artifacts where applicable.
 - Artifact labels are readable and do not use full paths as the primary display.
 - Full paths are available only as secondary details.
-- Previewable Markdown artifacts visibly load in a readable pane.
+- Previewable Markdown artifacts visibly load in a large readable pane.
 - Non-previewable artifacts clearly say they cannot be previewed.
 - Missing artifacts clearly say they are missing.
-- Operator validation routes visibly expose Work Card, Implementer Report, Architect Review, and expected Validation Report when present.
+- No artifact card appears clickable unless it has a working visible action.
+- Operator validation routes visibly expose Work Card, Implementer Report, Architect Review, expected Validation Report, and the validation form when present.
 - Architect review routes visibly expose Work Card, Implementer Report, and expected Architect Review output when present.
 - Repair validation routes visibly expose parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.
-- Expected output, source artifacts, and missing evidence are visually distinct and not duplicated in multiple locations.
+- Expected output, source artifacts, and missing evidence are visually distinct.
 - Previewing artifacts remains read-only and does not save, approve, validate, repair, or advance workflow state.
 - Process/action bar navigation remains support-only and does not become workflow authority.
-- WC04 current-action panel remains primary.
+- WC04 current-action panel remains available as a compact summary.
 - WC05 support-navigation behavior remains intact.
 - WC06 left-to-right workflow guide remains intact.
 - WC08-WC15 behavior does not appear prematurely.
@@ -251,9 +320,9 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 - Run the approved normal Windows validation lane.
 - Run TypeScript/type validation and build validation.
 - Run WC07 artifact workspace focused fixture validation if maintained or updated.
+- Add or update focused fixture coverage for the layout ownership rules where feasible, including suppression of current-action artifact workspace in supporting-screen mode and non-duplication of artifact lists.
 - Run current-action-only fixture validation if affected.
 - Run WC04/WC05/WC06 preservation fixtures if affected.
-- Add or update a focused assertion that the artifact workspace does not render duplicate primary artifact lists or duplicate expected/source/missing sections.
 - Run local safety scans before staging.
 - Do not perform Operator validation.
 
@@ -268,13 +337,16 @@ The report must include:
 - repair branch name;
 - implementation summary;
 - files changed;
-- what duplicate or competing panes were removed, consolidated, or collapsed;
-- how the artifact workspace UI was simplified;
-- how duplicate source evidence, expected output, missing evidence, and current-action displays were avoided;
+- how the UI was simplified compared with failed WC07;
+- what duplicate panels or repeated information were removed, consolidated, or suppressed;
+- how the left panel was reduced to compact current-action summary;
+- how the center workspace became the single artifact-review owner;
+- how supporting-screen mode suppresses the current-action artifact workspace;
 - how artifact grouping is displayed;
 - how readable labels replaced raw path-dominant display;
 - how Markdown preview usability was fixed;
 - how non-previewable and missing artifacts are explained;
+- how inert artifact cards were avoided;
 - how Operator validation, Architect review, and repair validation routes expose the required artifacts;
 - how current-action router authority is preserved;
 - how WC04/WC05/WC06 behavior was preserved;
@@ -290,7 +362,7 @@ The report must include:
 You are acting as Implementer for ChampCity A/I.
 
 Repair Work Card:
-WC07-REPAIR01 — Artifact Workspace UI Simplification and Preview Usability
+WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability
 
 Base branch:
 feature/phase-03-wc07-artifact-review-workspace
@@ -312,9 +384,7 @@ Do not push to master.
 Do not perform Operator validation.
 
 Primary objective:
-Repair the WC07 artifact workspace so it is usable by a human Operator. The current implementation may have data plumbing, but the visible UI is too confusing to validate.
-
-The existing WC07 UI already has too many panes and duplicated information. Do not add another pane. Do not embed another window. Remove, consolidate, or collapse duplicate artifact/context surfaces and replace the failed implementation with one clear artifact review workspace.
+Repair the WC07 artifact workspace by enforcing strict layout ownership. The failed implementation already has too many panes, duplicate artifact displays, duplicate current-action summaries, long left-panel evidence stacks, confusing support-screen mixing, and unclear artifact click/preview behavior. Do not add another pane to the existing clutter. Remove, consolidate, or suppress duplicate surfaces so the Operator has one clear artifact workspace.
 
 Before editing:
 1. Confirm current repo and remote.
@@ -326,20 +396,23 @@ Before editing:
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
 6. Read this WC07-REPAIR01 Work Card.
 7. Read the failed WC07 validation report.
-8. Read WC07 Work Card, Implementer Report, and Architect Review.
-9. Read planning/phases/phase-03/Observation_Register.md.
-10. Inspect WorkflowRouterShell, artifactReviewWorkspace model, preview IPC, current-action routing, support navigation, and Human Validation screen.
+8. Review the WC07 validation evidence screenshots.
+9. Read WC07 Work Card, Implementer Report, and Architect Review.
+10. Read planning/phases/phase-03/Observation_Register.md.
+11. Inspect WorkflowRouterShell, artifactReviewWorkspace model, preview IPC, current-action routing, support navigation, and Human Validation screen.
 
 Required repair:
-- Build one clear artifact review area.
-- Remove, consolidate, or collapse duplicate/competing artifact and context panels that already exist.
-- Do not add another nested pane or embedded window.
-- Make artifact groups readable and role-based.
-- Make artifact preview or non-previewable/missing state explicit.
-- Make Markdown preview large enough and visibly populated when a previewable artifact is selected.
-- Avoid duplicate source evidence, expected output, missing evidence, and current-action summary displays.
-- Keep current routed action accessible without burying it in nested panels.
-- Keep process/action bar clicks support-only.
+- Apply the layout ownership model.
+- Left panel = compact current-action summary only.
+- Center workspace = current work and artifact review owner.
+- Supporting screen mode = reference/recovery only; no full current-action artifact workspace.
+- One artifact list, not multiple competing artifact lists.
+- One expected-output presentation, not duplicate detailed expected-output panels.
+- Large readable Markdown preview for previewable Markdown.
+- Explicit `Preview`, `Open support screen`, `Not previewable`, or `Missing` state for every artifact row/card.
+- No inert artifact cards.
+- Current action form remains easy to find and use.
+- Preserve current-action router authority.
 - Preserve WC04/WC05/WC06 behavior.
 
 Final response must include:
