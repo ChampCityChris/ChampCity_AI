@@ -2961,7 +2961,7 @@ export async function previewArchitectReviewRecord(
       {
         phase: input.phase,
         builderReportFileName: builderReport.fileName,
-        currentActionBinding: input.currentActionBinding,
+        routedReviewBinding: input.routedReviewBinding,
       },
       workCard,
     );

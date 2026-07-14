@@ -11,6 +11,7 @@ import {
   findCurrentActionArchitectReviewWorkCardFileName,
   resolveCurrentActionArchitectReviewBinding,
 } from "../dist/shared/workCards/architectReviewRecord.js";
+import { authoritativeCurrentActionImplementerReportStatus } from "../dist/shared/workCards/currentRequiredAction.js";
 
 const phase = "phase-03";
 const targetId = "WC08-REPAIR04";
@@ -55,6 +56,7 @@ const syntheticAction = {
     {
       path: `planning/phases/${phase}/Builder_Reports/${targetBuilderReportFileName}`,
       role: "Repair Implementer Report",
+      status: authoritativeCurrentActionImplementerReportStatus,
       exists: true,
     },
   ],
@@ -70,8 +72,17 @@ const syntheticAction = {
 const syntheticResolution =
   resolveCurrentActionArchitectReviewBinding(syntheticAction);
 assert.deepEqual(syntheticResolution.errors, []);
+assert.equal(syntheticResolution.binding?.bindingSource, "current_action");
+assert.equal(
+  syntheticResolution.binding?.currentActionId,
+  "architect_review_of_implementer_report_required",
+);
 assert.equal(syntheticResolution.binding?.phaseId, phase);
 assert.equal(syntheticResolution.binding?.workCardId, targetId);
+assert.equal(
+  syntheticResolution.binding?.builderReportPath,
+  `planning/phases/${phase}/Builder_Reports/${targetBuilderReportFileName}`,
+);
 assert.equal(
   syntheticResolution.binding?.builderReportFileName,
   targetBuilderReportFileName,
@@ -80,6 +91,48 @@ assert.equal(
 assert.equal(
   syntheticResolution.binding?.expectedOutputFileName,
   expectedOutputFileName,
+);
+assert.equal(
+  syntheticResolution.binding?.expectedOutputPath,
+  `planning/phases/${phase}/Architect_Reviews/${expectedOutputFileName}`,
+);
+assert.deepEqual(syntheticResolution.binding?.blockingState, {
+  blocked: false,
+  issues: [],
+});
+
+const ambiguousResolution = resolveCurrentActionArchitectReviewBinding({
+  ...syntheticAction,
+  sourceArtifacts: syntheticAction.sourceArtifacts.map((artifact) => ({
+    ...artifact,
+    status: authoritativeCurrentActionImplementerReportStatus,
+  })),
+});
+assert.equal(ambiguousResolution.binding?.blockingState.blocked, true);
+assert.ok(
+  ambiguousResolution.binding?.blockingState.issues.some(
+    (issue) => issue.kind === "ambiguity",
+  ),
+  "Multiple marked source reports must produce a blocking ambiguity state.",
+);
+
+const mismatchedResolution = resolveCurrentActionArchitectReviewBinding({
+  ...syntheticAction,
+  sourceArtifacts: [
+    {
+      path: `planning/phases/${phase}/Builder_Reports/${referenceBuilderReportFileName}`,
+      role: "Incorrect authoritative report",
+      status: authoritativeCurrentActionImplementerReportStatus,
+      exists: true,
+    },
+  ],
+});
+assert.equal(mismatchedResolution.binding?.blockingState.blocked, true);
+assert.ok(
+  mismatchedResolution.binding?.blockingState.issues.some(
+    (issue) => issue.kind === "mismatch",
+  ),
+  "A marked report for a different repair must produce a blocking mismatch state.",
 );
 
 const syntheticBoundWorkCard =
@@ -108,6 +161,7 @@ const liveResolution = resolveCurrentActionArchitectReviewBinding(
   currentActionResult.currentAction,
 );
 assert.deepEqual(liveResolution.errors, []);
+assert.equal(liveResolution.binding?.bindingSource, "current_action");
 assert.equal(liveResolution.binding?.phaseId, phase);
 assert.equal(liveResolution.binding?.workCardId, targetId);
 assert.equal(
@@ -145,7 +199,7 @@ const completeReviewInput = {
   phase,
   workCardFileName: targetWorkCardFileName,
   builderReportFileName: targetBuilderReportFileName,
-  currentActionBinding: liveResolution.binding,
+  routedReviewBinding: liveResolution.binding,
   decision: "Ready for Operator validation",
   workCardCompliance: "The implementation remains within WC08-REPAIR04 scope.",
   changedFilesReviewed: "Reviewed the reported source and focused fixture changes.",
@@ -215,11 +269,11 @@ assert.match(
 );
 assert.match(
   architectReviewScreenSource,
-  /disabled=\{Boolean\(routedAction\)\}/,
+  /disabled=\{Boolean\(routedReviewBinding\)\}/,
 );
-assert.match(architectReviewScreenSource, /setDraft\(\{ \.\.\.initialArchitectReviewDraft \}\)/);
-assert.match(architectReviewScreenSource, /setPreviewResult\(null\)/);
-assert.match(architectReviewScreenSource, /setSaveResult\(null\)/);
+assert.match(architectReviewScreenSource, /routedReviewBinding\?\.blockingState\.blocked/);
+assert.match(architectReviewScreenSource, /routedReviewBinding\.builderReportPath/);
+assert.match(architectReviewScreenSource, /routedReviewBinding\.expectedOutputPath/);
 assert.doesNotMatch(
   architectReviewScreenSource.slice(
     0,
@@ -254,5 +308,5 @@ assert.doesNotMatch(
 );
 
 console.log(
-  "WC08-REPAIR06 focused fixture passed: current-action target authority, exact REPAIR04 report binding, reference-card independence, mismatch rejection, reset behavior, output targeting, and route preservation verified.",
+  "WC08-REPAIR06 focused fixture passed: typed current-action contract authority, exact REPAIR04 report binding, blocking-state propagation, reference-card independence, mismatch rejection, output targeting, and route preservation verified.",
 );

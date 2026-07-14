@@ -48,6 +48,9 @@ export interface CurrentActionArtifactReference {
   exists?: boolean;
 }
 
+export const authoritativeCurrentActionImplementerReportStatus =
+  "authoritative_current_action_implementer_report" as const;
+
 export interface CurrentActionMissingArtifact {
   path: string;
   reason: string;
@@ -956,10 +959,10 @@ function evaluateWorkCardState(
     });
   }
 
-  const reportSources = uniqueArtifacts([
-    ...workCardSources,
+  const reportSources = withAuthoritativeCurrentActionImplementerReport(
+    workCardSources,
     workCard.implementerReport,
-  ]);
+  );
 
   const architectReviewIncomplete = isArchitectReviewIncomplete(
     workCard.architectReview,
@@ -1192,10 +1195,10 @@ function evaluateRepairRoute(
       reason: repairReviewIncomplete
         ? "The repair Architect Review is incomplete and must provide substantive Operator validation steps before validation."
         : "The locked workflow routes repair Implementer Reports to Architect review before Operator validation.",
-      sourceArtifacts: uniqueArtifacts([
-        ...repairSources,
+      sourceArtifacts: withAuthoritativeCurrentActionImplementerReport(
+        repairSources,
         repair.implementerReport,
-      ]),
+      ),
       missingArtifacts: [
         {
           path: expectedPath,
@@ -1684,6 +1687,25 @@ function uniqueArtifacts(
   }
 
   return result;
+}
+
+function withAuthoritativeCurrentActionImplementerReport(
+  artifacts: Array<CurrentActionArtifactReference | undefined>,
+  implementerReport: CurrentActionArtifactReference | undefined,
+): CurrentActionArtifactReference[] {
+  if (!implementerReport?.path) {
+    return uniqueArtifacts(artifacts);
+  }
+
+  return uniqueArtifacts([
+    ...artifacts.filter(
+      (artifact) => artifact?.path !== implementerReport.path,
+    ),
+    {
+      ...implementerReport,
+      status: authoritativeCurrentActionImplementerReportStatus,
+    },
+  ]);
 }
 
 function uniqueMissingArtifacts(

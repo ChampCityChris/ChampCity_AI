@@ -3,7 +3,10 @@ import {
   architectReviewOutputHeadings,
 } from "./reportReviewProtocol";
 import { buildWorkCardFileStem } from "./workCardFileNames";
-import type { CurrentRequiredAction } from "./currentRequiredAction";
+import {
+  authoritativeCurrentActionImplementerReportStatus,
+  type CurrentRequiredAction,
+} from "./currentRequiredAction";
 import {
   validateArchitectReview,
   type ArchitectReviewValidationResult,
@@ -26,7 +29,7 @@ export interface ArchitectReviewFormInput {
   phase: string;
   workCardFileName: string;
   builderReportFileName: string;
-  currentActionBinding?: CurrentActionArchitectReviewBinding;
+  routedReviewBinding?: RoutedArchitectReviewBinding;
   decision?: ArchitectReviewDecision;
   workCardCompliance: string;
   changedFilesReviewed: string;
@@ -44,17 +47,36 @@ export interface ArchitectReviewTarget {
   parentWorkCardId?: string;
 }
 
-export interface CurrentActionArchitectReviewBinding {
-  actionId: "architect_review_of_implementer_report_required";
+export type RoutedArchitectReviewBindingIssueKind =
+  | "missing"
+  | "ambiguity"
+  | "mismatch";
+
+export interface RoutedArchitectReviewBindingIssue {
+  kind: RoutedArchitectReviewBindingIssueKind;
+  message: string;
+}
+
+export interface RoutedArchitectReviewBindingBlockingState {
+  blocked: boolean;
+  issues: RoutedArchitectReviewBindingIssue[];
+}
+
+export interface RoutedArchitectReviewBinding {
+  bindingSource: "current_action";
+  currentActionId: "architect_review_of_implementer_report_required";
   phaseId: string;
   workCardId: string;
   workCardTitle: string;
+  builderReportPath: string;
   builderReportFileName: string;
+  expectedOutputPath: string;
   expectedOutputFileName: string;
+  blockingState: RoutedArchitectReviewBindingBlockingState;
 }
 
-export interface CurrentActionArchitectReviewBindingResult {
-  binding?: CurrentActionArchitectReviewBinding;
+export interface RoutedArchitectReviewBindingResult {
+  binding?: RoutedArchitectReviewBinding;
   errors: string[];
 }
 
@@ -121,7 +143,7 @@ export function buildArchitectReviewFileName(
 
 export function resolveCurrentActionArchitectReviewBinding(
   action: CurrentRequiredAction | undefined,
-): CurrentActionArchitectReviewBindingResult {
+): RoutedArchitectReviewBindingResult {
   if (!action) {
     return { errors: [] };
   }
@@ -137,80 +159,113 @@ export function resolveCurrentActionArchitectReviewBinding(
   const phaseId = action.phaseId?.trim() ?? "";
   const workCardId = action.workCardId?.trim() ?? "";
   const workCardTitle = action.workCardTitle?.trim() ?? "";
-  const errors: string[] = [];
+  const issues: RoutedArchitectReviewBindingIssue[] = [];
+  const addIssue = (
+    kind: RoutedArchitectReviewBindingIssueKind,
+    message: string,
+  ) => issues.push({ kind, message });
 
   if (!phaseId) {
-    errors.push("The current action does not identify its phase.");
+    addIssue("missing", "The current action does not identify its phase.");
   }
 
   if (!workCardId) {
-    errors.push(
+    addIssue(
+      "missing",
       "The current action does not identify its Work Card or repair target.",
     );
   }
 
   if (!workCardTitle) {
-    errors.push("The current action does not identify its Work Card or repair title.");
+    addIssue(
+      "missing",
+      "The current action does not identify its Work Card or repair title.",
+    );
   }
 
-  const exactBuilderReportFileNames = [
+  const authoritativeBuilderReportPaths = [
     ...new Set(
       action.sourceArtifacts
-        .map((artifact) => fileNameFromArtifactPath(artifact.path))
         .filter(
-          (fileName) =>
-            fileName.length > 0 &&
-            isExactImplementerReportForWorkCard(fileName, workCardId),
-        ),
+          (artifact) =>
+            artifact.status ===
+            authoritativeCurrentActionImplementerReportStatus,
+        )
+        .map((artifact) => artifact.path.trim())
+        .filter(Boolean),
     ),
   ];
 
-  if (exactBuilderReportFileNames.length === 0 && workCardId) {
-    errors.push(
-      `Current action ${workCardId} does not cite an exact matching Implementer Report in source artifacts.`,
+  if (authoritativeBuilderReportPaths.length === 0) {
+    addIssue(
+      "missing",
+      `Current action ${workCardId || "target"} does not mark an authoritative Implementer Report in source artifacts.`,
     );
-  } else if (exactBuilderReportFileNames.length > 1) {
-    errors.push(
-      `Current action ${workCardId} cites multiple exact Implementer Reports and requires Architect authority before one can be selected.`,
+  } else if (authoritativeBuilderReportPaths.length > 1) {
+    addIssue(
+      "ambiguity",
+      `Current action ${workCardId || "target"} marks multiple authoritative Implementer Reports and requires Architect authority before one can be selected.`,
     );
   }
 
-  const expectedOutputFileName = fileNameFromArtifactPath(
-    action.expectedOutput?.path ?? "",
-  );
+  const builderReportPath =
+    authoritativeBuilderReportPaths.length === 1
+      ? authoritativeBuilderReportPaths[0]
+      : "";
+  const builderReportFileName = fileNameFromArtifactPath(builderReportPath);
+
+  if (
+    builderReportFileName &&
+    workCardId &&
+    !isExactImplementerReportForWorkCard(builderReportFileName, workCardId)
+  ) {
+    addIssue(
+      "mismatch",
+      `Current action ${workCardId} marks ${builderReportFileName} as authoritative, but that report targets a different Work Card or repair ID.`,
+    );
+  }
+
+  const expectedOutputPath = action.expectedOutput?.path?.trim() ?? "";
+  const expectedOutputFileName = fileNameFromArtifactPath(expectedOutputPath);
 
   if (!expectedOutputFileName) {
-    errors.push(
+    addIssue(
+      "missing",
       `Current action ${workCardId || "target"} does not identify its expected output.`,
     );
   } else if (
     workCardId &&
     !isExactArchitectReviewForWorkCard(expectedOutputFileName, workCardId)
   ) {
-    errors.push(
+    addIssue(
+      "mismatch",
       `Current action ${workCardId} expects ${expectedOutputFileName}, which does not target the same exact Work Card or repair ID.`,
     );
   }
 
-  if (errors.length > 0) {
-    return { errors };
-  }
-
+  const errors = issues.map((issue) => issue.message);
   return {
     binding: {
-      actionId: "architect_review_of_implementer_report_required",
+      bindingSource: "current_action",
+      currentActionId: "architect_review_of_implementer_report_required",
       phaseId,
       workCardId,
       workCardTitle,
-      builderReportFileName: exactBuilderReportFileNames[0],
+      builderReportPath,
+      builderReportFileName,
+      expectedOutputPath,
       expectedOutputFileName,
+      blockingState: {
+        blocked: issues.length > 0,
+        issues,
+      },
     },
-    errors: [],
+    errors,
   };
 }
 
 export function findCurrentActionArchitectReviewWorkCardFileName(
-  binding: CurrentActionArchitectReviewBinding,
+  binding: RoutedArchitectReviewBinding,
   workCards: readonly ArchitectReviewWorkCardOption[],
 ): string | undefined {
   return workCards.find(
@@ -230,28 +285,49 @@ export function isExactImplementerReportForWorkCard(
 export function validateArchitectReviewAssociation(
   input: Pick<
     ArchitectReviewFormInput,
-    "phase" | "builderReportFileName" | "currentActionBinding"
+    "phase" | "builderReportFileName" | "routedReviewBinding"
   >,
   target: ArchitectReviewTarget,
 ): string[] {
   const errors: string[] = [];
   const selectedReport = input.builderReportFileName.trim();
-
-  if (!isExactImplementerReportForWorkCard(selectedReport, target.workCardId)) {
-    errors.push(
-      `Selected Work Card ${target.workCardId} and Implementer Report ${selectedReport || "none"} do not share the same exact Work Card or repair ID. Choose the Implementer Report for ${target.workCardId}.`,
-    );
-  }
-
-  const binding = input.currentActionBinding;
+  const binding = input.routedReviewBinding;
 
   if (!binding) {
+    if (
+      !isExactImplementerReportForWorkCard(selectedReport, target.workCardId)
+    ) {
+      errors.push(
+        `Selected Work Card ${target.workCardId} and Implementer Report ${selectedReport || "none"} do not share the same exact Work Card or repair ID. Choose the Implementer Report for ${target.workCardId}. The Architect owns correcting this manual association before preview or save.`,
+      );
+    }
+
     return errors;
   }
 
-  if (binding.actionId !== "architect_review_of_implementer_report_required") {
+  if (binding.bindingSource !== "current_action") {
     errors.push(
-      `Current-action binding ${binding.actionId} cannot control this Architect Review.`,
+      `Routed-review binding source ${binding.bindingSource} cannot control this Architect Review.`,
+    );
+  }
+
+  if (
+    binding.currentActionId !==
+    "architect_review_of_implementer_report_required"
+  ) {
+    errors.push(
+      `Current-action binding ${binding.currentActionId} cannot control this Architect Review.`,
+    );
+  }
+
+  errors.push(...binding.blockingState.issues.map((issue) => issue.message));
+
+  if (
+    binding.blockingState.blocked &&
+    binding.blockingState.issues.length === 0
+  ) {
+    errors.push(
+      "The routed-review binding is blocked and does not identify a resolvable ambiguity or mismatch.",
     );
   }
 
@@ -267,9 +343,23 @@ export function validateArchitectReviewAssociation(
     );
   }
 
+  if (!sameIdentifier(target.title, binding.workCardTitle)) {
+    errors.push(
+      `Current action targets ${binding.workCardTitle}, but the selected Work Card title is ${target.title}.`,
+    );
+  }
+
   if (!sameFileName(selectedReport, binding.builderReportFileName)) {
     errors.push(
       `Current action ${binding.workCardId} requires ${binding.builderReportFileName}, but ${selectedReport || "no Implementer Report"} is selected.`,
+    );
+  }
+
+  const selectedReportPath = `planning/phases/${input.phase.trim()}/Builder_Reports/${selectedReport}`;
+
+  if (!sameArtifactPath(selectedReportPath, binding.builderReportPath)) {
+    errors.push(
+      `Current action ${binding.workCardId} requires report path ${binding.builderReportPath || "not identified"}, but the selected report resolves to ${selectedReportPath}.`,
     );
   }
 
@@ -278,6 +368,20 @@ export function validateArchitectReviewAssociation(
   if (!sameFileName(generatedOutputFileName, binding.expectedOutputFileName)) {
     errors.push(
       `Current action ${binding.workCardId} requires output ${binding.expectedOutputFileName}, but the selected Work Card would create ${generatedOutputFileName}.`,
+    );
+  }
+
+  const generatedOutputPath = `planning/phases/${input.phase.trim()}/Architect_Reviews/${generatedOutputFileName}`;
+
+  if (!sameArtifactPath(generatedOutputPath, binding.expectedOutputPath)) {
+    errors.push(
+      `Current action ${binding.workCardId} requires output path ${binding.expectedOutputPath || "not identified"}, but the selected Work Card would create ${generatedOutputPath}.`,
+    );
+  }
+
+  if (errors.length > 0) {
+    errors.push(
+      "The Architect owns correction of the routed current-action binding; Reference-card selection cannot override it.",
     );
   }
 
@@ -398,5 +502,12 @@ function sameFileName(left: string, right: string): boolean {
   return (
     fileNameFromArtifactPath(left).toLowerCase() ===
     fileNameFromArtifactPath(right).toLowerCase()
+  );
+}
+
+function sameArtifactPath(left: string, right: string): boolean {
+  return (
+    left.trim().replace(/\\/g, "/").toLowerCase() ===
+    right.trim().replace(/\\/g, "/").toLowerCase()
   );
 }

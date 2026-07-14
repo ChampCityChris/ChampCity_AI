@@ -136,7 +136,9 @@ const appSource = await readFile(
 );
 assert.match(appSource, /"architect-review":\s*\(\s*<ArchitectReviewScreen/);
 assert.match(appSource, /Architect Review of Repair Implementer Report/);
-assert.match(appSource, /routedAction\.workCardId/);
+assert.match(appSource, /const routedArchitectReviewBinding = useMemo/);
+assert.match(appSource, /routedReviewBinding\.workCardId/);
+assert.match(appSource, /routedReviewBinding\.builderReportPath/);
 assert.match(appSource, /routedReportFileName/);
 assert.match(appSource, /This workflow does not create or replace an/);
 assert.match(appSource, /Compatibility diagnostics:/);
