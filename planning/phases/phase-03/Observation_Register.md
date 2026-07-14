@@ -4,6 +4,7 @@ Status: Active
 Project: ChampCity A/I
 Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 Created: 2026-07-13
+Last updated: 2026-07-14
 Purpose: Durable register for non-blocking Operator observations, carry-forward items, deferred UI issues, and product-scope notes discovered during Phase 03 validation.
 
 ## Governance Rule
@@ -63,30 +64,6 @@ Each observation uses this structure:
 - Status: Deferred
 - Resolution artifact: Pending
 
-### PH03-OBS-003 — Source Evidence should not show full raw paths
-
-- Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
-- Source Work Card: WC05
-- Date captured: 2026-07-13
-- Operator observation: Source Evidence section of the left context menu needs significant UI improvement. The full path should not be used as the primary display. A clickable link that opens the document is ideal.
-- Architect disposition: Carry into current Work Card.
-- Disposition rationale: WC07 is specifically about the artifact review workspace and should make source artifacts readable, grouped, and openable where safe.
-- Assigned target: WC07 — Artifact Review Workspace
-- Status: Assigned
-- Resolution artifact: Pending WC07 validation
-
-### PH03-OBS-004 — Supporting screens are reachable but not populated
-
-- Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
-- Source Work Card: WC05
-- Date captured: 2026-07-13
-- Operator observation: Supporting screens do not pull in any information; they remain blank.
-- Architect disposition: Carry into current Work Card where relevant; otherwise defer remaining screen-specific population.
-- Disposition rationale: WC07 should prevent a blank central workspace when current-action artifact context exists. Full route-specific screen population belongs to later route-correction Work Cards.
-- Assigned target: WC07 — Artifact Review Workspace for current-action artifact context; later Phase 03 route-specific cards for remaining screen population.
-- Status: Assigned / Partially deferred
-- Resolution artifact: Pending WC07 validation
-
 ### PH03-OBS-005 — Multi-project / workspace support does not exist
 
 - Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
@@ -99,17 +76,55 @@ Each observation uses this structure:
 - Status: Transferred / Future scope
 - Resolution artifact: Pending future phase planning
 
+### PH03-OBS-007 — Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate
+
+- Source artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
+- Source Work Card: WC07-REPAIR01
+- Date captured: 2026-07-14
+- Operator observation: Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.
+- Architect disposition: Defer to later Phase 03 navigation/layout pass.
+- Disposition rationale: This is a valid global navigation/readability issue, but it is not a WC07-REPAIR01 blocker because the repair target was artifact workspace layout ownership, left-panel simplification, preview usability, support/current-action separation, and validation-form accessibility. Collapsing or redesigning the top workflow/action bars would affect WC06 workflow visibility and WC05 support navigation and should be handled as its own scoped Work Card or later UI consolidation pass.
+- Assigned target: Later Phase 03 navigation/layout cleanup Work Card or post-Phase-03 UI consolidation pass.
+- Status: Deferred
+- Resolution artifact: Pending
+
+## Resolved Observations
+
+### PH03-OBS-003 — Source Evidence should not show full raw paths
+
+- Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
+- Source Work Card: WC05
+- Date captured: 2026-07-13
+- Operator observation: Source Evidence section of the left context menu needs significant UI improvement. The full path should not be used as the primary display. A clickable link that opens the document is ideal.
+- Architect disposition: Carried into WC07 / WC07-REPAIR01.
+- Disposition rationale: WC07 and WC07-REPAIR01 were specifically scoped to artifact review. WC07-REPAIR01 validation confirms the left panel no longer acts as source-evidence browser, artifact rows are previewable/open support/missing/not-previewable, and the workspace contains less duplicative information.
+- Assigned target: WC07 — Artifact Review Workspace; repaired by WC07-REPAIR01.
+- Status: Resolved
+- Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
+
+### PH03-OBS-004 — Supporting screens are reachable but not populated
+
+- Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
+- Source Work Card: WC05
+- Date captured: 2026-07-13
+- Operator observation: Supporting screens do not pull in any information; they remain blank.
+- Architect disposition: Carried into WC07 where relevant; remaining route-specific population deferred.
+- Disposition rationale: WC07-REPAIR01 validation confirms the current-action artifact workspace is separated from supporting/reference screens and is usable for artifact review. This resolves the portion of the observation tied to current-action artifact context. Full route-specific supporting screen population remains outside WC07 and should only be reopened if a later screen-specific Work Card requires it.
+- Assigned target: WC07 — Artifact Review Workspace for current-action artifact context; later route-specific cards only if needed.
+- Status: Resolved for WC07 scope / residual route-specific screen population deferred by scope
+- Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
+
 ### PH03-OBS-006 — Work Card Loop needs artifact access during validation
 
 - Source artifact: VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
 - Source Work Card: WC06-REPAIR01
 - Date captured: 2026-07-13
 - Operator observation: Work Card Loop Action Bar does not allow navigation to see Work Card, Implementer Report, or Architect Review captured information. This does not block WC06 repair validation but is a considerable gap because those are the most likely pieces of information an Operator wants to look back on during validation testing.
-- Architect disposition: Carry into current Work Card.
-- Disposition rationale: WC07 is directly scoped to artifact review and should expose Work Card, Implementer Report, Architect Review, validation records, repair records, source evidence, missing evidence, and expected output while preserving current-action context.
-- Assigned target: WC07 — Artifact Review Workspace
-- Status: Assigned
-- Resolution artifact: Pending WC07 validation
+- Architect disposition: Carried into WC07 / WC07-REPAIR01.
+- Disposition rationale: WC07-REPAIR01 validation confirms artifact rows are clickable and move to preview or screen, preview buttons load content, and the validation form is reachable through the tabbed workspace.
+- Assigned target: WC07 — Artifact Review Workspace; repaired by WC07-REPAIR01.
+- Status: Resolved
+- Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
 
 ## Work Card Creation Requirement
 
@@ -138,6 +153,6 @@ The Architect must not silently drop Operator observations.
 
 ## Current WC07 Handling Note
 
-WC07 was created before this register existed and was already submitted to the Implementer. Do not retroactively alter WC07 scope solely because this register was added after handoff. Validate WC07 against its existing Work Card and the observations that naturally fall within its stated artifact-review scope.
+WC07 failed initial validation and was repaired through WC07-REPAIR01. The WC07-REPAIR01 validation report passed and resolves PH03-OBS-003 and PH03-OBS-006, and resolves the WC07-scoped portion of PH03-OBS-004.
 
-If WC07 does not address PH03-OBS-003 or PH03-OBS-006, that may be a WC07 repair issue because those observations align with the existing WC07 objective. If WC07 does not address PH03-OBS-001, PH03-OBS-002, or PH03-OBS-005, do not fail WC07 on that basis; those are assigned outside WC07 scope.
+PH03-OBS-007 is not a WC07-REPAIR01 blocker. It should be considered during the next Work Card creation pass and either assigned to a later Phase 03 navigation/layout cleanup Work Card or explicitly deferred.
