@@ -3,6 +3,7 @@
 Status: Active
 Project: ChampCity A/I
 Created: 2026-07-14
+Last updated: 2026-07-14
 Purpose: Cross-phase register for unresolved, deferred, future-scope, or product-level observations discovered during phase execution and Operator validation.
 
 ## Governance Rule
@@ -12,9 +13,11 @@ Phase Observation Registers record where an observation was discovered and triag
 Every just-in-time Work Card creation pass must review both:
 
 - `planning/project/Project_Observation_Register.md`
+- `planning/project/Project_Observation_Register.json`
 - `planning/phases/<active-phase>/Observation_Register.md`
+- `planning/phases/<active-phase>/Observation_Register.json`
 
-Before creating a Work Card, the Architect must decide whether each open project-level observation is:
+Before creating a Work Card, the Architect must decide whether each open observation is:
 
 - in scope for the new Work Card;
 - still deferred to a later Work Card in the current phase;
@@ -26,23 +29,6 @@ Before creating a Work Card, the Architect must decide whether each open project
 If an observation is in scope, the Work Card must include it under `Carried-Forward Observations Included`. The Architect must not silently drop project-level or phase-level observations.
 
 At phase closeout, every phase observation not marked `Resolved` or `No action required` must be copied, linked, or already represented in this project-level register.
-
-## Entry Fields
-
-Each observation uses this structure:
-
-- Project Observation ID
-- Source Observation ID
-- Source phase
-- Source artifact
-- Source Work Card
-- Date captured
-- Operator observation
-- Architect disposition
-- Disposition rationale
-- Assigned target
-- Status
-- Resolution artifact
 
 ## Open / Deferred / Future-Scope Observations
 
@@ -98,9 +84,23 @@ Each observation uses this structure:
 - Operator observation: Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.
 - Architect disposition: Deferred to later navigation/layout cleanup.
 - Disposition rationale: This is a valid global navigation/readability issue. It was not a WC07-REPAIR01 blocker because WC07-REPAIR01 repaired artifact workspace layout ownership, not the global workflow/action bar system. It affects workspace real estate and should be considered before creating additional route-specific screens.
-- Assigned target: Later Phase 03 navigation/layout cleanup Work Card, WC08 if scope aligns, or post-Phase-03 UI consolidation pass.
+- Assigned target: Later Phase 03 navigation/layout cleanup Work Card, or post-Phase-03 UI consolidation pass.
 - Status: Deferred
 - Resolution artifact: Pending
+
+### PROJ-OBS-005 — Report review protocol and validation disposition role confusion
+
+- Source Observation ID: PH03-OBS-008
+- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
+- Source artifact: Operator discussion following WC08 validation review; `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md`
+- Source Work Card: WC08 — Current Step Context Inspector
+- Date captured: 2026-07-14
+- Operator observation: Validation reports and Implementer Reports lack embedded Architect review instructions. The `Operator Decision` dropdown in validation reports creates role confusion because it asks the Operator to make workflow disposition decisions that should be made by the Architect after analysis.
+- Architect disposition: Immediate repair Work Card.
+- Disposition rationale: This is a process defect causing inconsistent Architect review, inconsistent repair creation, and inconsistent validation-step output. It should be repaired before deeper route work continues.
+- Assigned target: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance
+- Status: Assigned
+- Resolution artifact: Pending WC08-REPAIR02 validation
 
 ## Resolved Phase-Local Observations Not Promoted
 

@@ -18,33 +18,7 @@ This Phase 03 register records where the observation was discovered and triaged.
 - `planning/project/Project_Observation_Register.md`
 - `planning/project/Project_Observation_Register.json`
 
-Allowed dispositions:
-
-- Repair now
-- Carry into current Work Card
-- Carry into next Work Card
-- Defer to later Phase 03 Work Card
-- Defer to post-Phase-03 UI cleanup
-- Transfer to product backlog / future phase
-- No action required
-
-Each future Work Card creation pass must review both the project-level and phase-level observation registers before writing the Work Card. If an open observation belongs in the new Work Card scope, the Work Card must list it under `Carried-Forward Observations Included`. If no observations are in scope, the Work Card must explicitly say both registers were reviewed and none were included.
-
-## Entry Fields
-
-Each observation uses this structure:
-
-- Observation ID
-- Source artifact
-- Source Work Card
-- Date captured
-- Operator observation
-- Architect disposition
-- Disposition rationale
-- Assigned target
-- Status
-- Resolution artifact
-- Project register link, if unresolved beyond this phase
+Each future Work Card creation pass must review both the project-level and phase-level observation registers before writing the Work Card.
 
 ## Open / Assigned Observations
 
@@ -55,7 +29,7 @@ Each observation uses this structure:
 - Date captured: 2026-07-13
 - Operator observation: The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate “What was tested” and checklist content.
 - Architect disposition: Defer to later validation-record workflow work.
-- Disposition rationale: This is real validation UX debt, but it is not blocking WC07 Artifact Review Workspace. It is more directly related to validation record authoring and the later validation/repair route work.
+- Disposition rationale: This is real validation UX debt and is more directly related to validation record authoring and the later validation/repair route work.
 - Assigned target: WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 validation UX cleanup if WC12 scope is kept narrower.
 - Status: Deferred
 - Resolution artifact: Pending
@@ -94,49 +68,41 @@ Each observation uses this structure:
 - Date captured: 2026-07-14
 - Operator observation: Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.
 - Architect disposition: Defer to later Phase 03 navigation/layout pass.
-- Disposition rationale: This is a valid global navigation/readability issue, but it is not a WC07-REPAIR01 blocker because the repair target was artifact workspace layout ownership, left-panel simplification, preview usability, support/current-action separation, and validation-form accessibility. Collapsing or redesigning the top workflow/action bars would affect WC06 workflow visibility and WC05 support navigation and should be handled as its own scoped Work Card or later UI consolidation pass.
+- Disposition rationale: This is a valid global navigation/readability issue. Collapsing or redesigning the top workflow/action bars would affect WC06 workflow visibility and WC05 support navigation and should be handled as its own scoped Work Card or later UI consolidation pass.
 - Assigned target: Later Phase 03 navigation/layout cleanup Work Card or post-Phase-03 UI consolidation pass.
 - Status: Deferred
 - Resolution artifact: Pending
 - Project register link: PROJ-OBS-004
 
+### PH03-OBS-008 — Report review protocol and validation disposition role confusion
+
+- Source artifact: Operator discussion following WC08 validation report review; VALIDATION_REPORT_WC08_current_step_context_inspector.md
+- Source Work Card: WC08
+- Date captured: 2026-07-14
+- Operator observation: Validation reports and Implementer Reports lack embedded Architect review instructions. The Operator Decision dropdown in validation reports creates role confusion because it asks the Operator to make workflow disposition decisions that should be made by the Architect after analyzing the report and evidence.
+- Architect disposition: Immediate repair Work Card.
+- Disposition rationale: This is a process defect causing inconsistent Architect review, inconsistent repair creation, and inconsistent validation-step output. It should be repaired before deeper route work continues.
+- Assigned target: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance
+- Status: Assigned
+- Resolution artifact: Pending WC08-REPAIR02 validation
+- Project register link: PROJ-OBS-005
+
 ## Resolved Observations
 
 ### PH03-OBS-003 — Source Evidence should not show full raw paths
 
-- Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
-- Source Work Card: WC05
-- Date captured: 2026-07-13
-- Operator observation: Source Evidence section of the left context menu needs significant UI improvement. The full path should not be used as the primary display. A clickable link that opens the document is ideal.
-- Architect disposition: Carried into WC07 / WC07-REPAIR01.
-- Disposition rationale: WC07 and WC07-REPAIR01 were specifically scoped to artifact review. WC07-REPAIR01 validation confirms the left panel no longer acts as source-evidence browser, artifact rows are previewable/open support/missing/not-previewable, and the workspace contains less duplicative information.
-- Assigned target: WC07 — Artifact Review Workspace; repaired by WC07-REPAIR01.
 - Status: Resolved
 - Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
 - Project register link: Not promoted; resolved phase-local item.
 
 ### PH03-OBS-004 — Supporting screens are reachable but not populated
 
-- Source artifact: VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
-- Source Work Card: WC05
-- Date captured: 2026-07-13
-- Operator observation: Supporting screens do not pull in any information; they remain blank.
-- Architect disposition: Carried into WC07 where relevant; remaining route-specific population deferred.
-- Disposition rationale: WC07-REPAIR01 validation confirms the current-action artifact workspace is separated from supporting/reference screens and is usable for artifact review. This resolves the portion of the observation tied to current-action artifact context. Full route-specific supporting screen population remains outside WC07 and should only be reopened if a later screen-specific Work Card requires it.
-- Assigned target: WC07 — Artifact Review Workspace for current-action artifact context; later route-specific cards only if needed.
 - Status: Resolved for WC07 scope / residual route-specific screen population deferred by scope
 - Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
-- Project register link: Not promoted as open item; resolved for WC07 scope. Reopen as a new project observation only if later route-specific screen work requires it.
+- Project register link: Not promoted as open item; resolved for WC07 scope.
 
 ### PH03-OBS-006 — Work Card Loop needs artifact access during validation
 
-- Source artifact: VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
-- Source Work Card: WC06-REPAIR01
-- Date captured: 2026-07-13
-- Operator observation: Work Card Loop Action Bar does not allow navigation to see Work Card, Implementer Report, or Architect Review captured information. This does not block WC06 repair validation but is a considerable gap because those are the most likely pieces of information an Operator wants to look back on during validation testing.
-- Architect disposition: Carried into WC07 / WC07-REPAIR01.
-- Disposition rationale: WC07-REPAIR01 validation confirms artifact rows are clickable and move to preview or screen, preview buttons load content, and the validation form is reachable through the tabbed workspace.
-- Assigned target: WC07 — Artifact Review Workspace; repaired by WC07-REPAIR01.
 - Status: Resolved
 - Resolution artifact: VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
 - Project register link: Not promoted; resolved phase-local item.
@@ -178,9 +144,3 @@ Observation Register Reconciliation:
 - List any project-level observations created or updated during closeout.
 - Identify any observations that must influence next-phase activation or next-phase mapping.
 ```
-
-## Current WC07 Handling Note
-
-WC07 failed initial validation and was repaired through WC07-REPAIR01. The WC07-REPAIR01 validation report passed and resolves PH03-OBS-003 and PH03-OBS-006, and resolves the WC07-scoped portion of PH03-OBS-004.
-
-PH03-OBS-007 is not a WC07-REPAIR01 blocker. It is represented in the Project Observation Register as PROJ-OBS-004 and must be considered during the next Work Card creation pass.

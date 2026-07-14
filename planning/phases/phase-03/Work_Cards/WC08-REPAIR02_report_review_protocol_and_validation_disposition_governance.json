@@ -1,0 +1,39 @@
+{
+  "id": "WC08-REPAIR02",
+  "title": "Report Review Protocol and Validation Disposition Governance",
+  "phaseId": "phase-03",
+  "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+  "parentWorkCardId": "WC08",
+  "status": "ready_for_implementer",
+  "created": "2026-07-14",
+  "repairTrigger": "WC08 validation exposed a report-template and review-protocol defect: validation reports ask the Operator to select workflow disposition and do not embed stable Architect review rules; Implementer Reports also lack consistent embedded Architect review instructions.",
+  "primaryObjective": "Repair the report-template and review-protocol system so validation reports and Implementer Reports contain embedded Architect review instructions and no longer force the Operator to make workflow disposition decisions.",
+  "baseBranch": "feature/phase-03-wc08-current-step-context-inspector",
+  "targetBranch": "feature/phase-03-wc08-repair02-report-review-protocol",
+  "carriedForwardObservations": [
+    {
+      "id": "PROJ-OBS-005/PH03-OBS-008",
+      "summary": "Validation and Implementer reports lack embedded Architect review instructions, and Operator Decision in validation reports creates role confusion."
+    }
+  ],
+  "requiredImplementation": [
+    "Remove or deprecate Operator Decision as final routing authority in new validation reports.",
+    "Add Architect Disposition Pending to validation reports.",
+    "Add field semantics and Architect Review Instructions to validation reports.",
+    "Support Pass with concerns or equivalent non-blocking concern state.",
+    "Treat legacy operatorDecision as advisory, not final disposition.",
+    "Add Architect Review Instructions to Implementer Reports.",
+    "Standardize Architect Review output shape.",
+    "Require Operator validation steps when an implementation is ready for Operator validation.",
+    "Preserve existing workflow behavior outside report-template/report-protocol scope."
+  ],
+  "outOfScope": [
+    "Do not implement WC08-REPAIR01 route-context explanation changes in this pass.",
+    "Do not implement WC09-WC15.",
+    "Do not redesign the entire validation screen beyond required report-template/report-field changes.",
+    "Do not perform Operator validation.",
+    "Do not merge to dev.",
+    "Do not push to master."
+  ],
+  "requiredReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md"
+}
