@@ -1,0 +1,73 @@
+{
+  "id": "WC08-REPAIR01",
+  "title": "Route Context Explanation and Correction Affordance",
+  "phaseId": "phase-03",
+  "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+  "parentWorkCardId": "WC08",
+  "status": "ready_for_implementer",
+  "created": "2026-07-14",
+  "repairTrigger": {
+    "validationReport": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+    "operatorDecision": "Partial - repair or follow-up needed",
+    "failedItem": "It explains why the current action was selected.",
+    "summary": "Route Context exposes a large amount of information, but it does not clearly communicate to a non-technical Operator why the app selected the current action."
+  },
+  "objective": "Repair WC08 Route Context so it begins with a plain-language explanation of why the current action was selected, what happens next, what would change the route, and how the Operator can flag an incorrect route without mutating durable workflow state.",
+  "scope": [
+    "Add plain-language route explanation summary",
+    "Make detailed diagnostics secondary",
+    "Add non-mutating route-correction/review affordance",
+    "Reorder or relabel tabs into a logical human workflow",
+    "Preserve WC07 anti-clutter layout ownership",
+    "Preserve WC04/WC05/WC06/WC07 behavior"
+  ],
+  "outOfScope": [
+    "WC09-WC15",
+    "top workflow rail redesign",
+    "Supporting Tools redesign",
+    "new permanent panes",
+    "second artifact browser",
+    "route override mutation system",
+    "Operator validation record creation",
+    "merge to dev",
+    "push to master"
+  ],
+  "acceptanceCriteria": [
+    "Route Context starts with a plain-language Why this is the current action explanation.",
+    "Explanation states what evidence caused the route and what missing/pending evidence prevents the next route.",
+    "What happens next is visible in plain language.",
+    "What would change this route is visible in plain language.",
+    "There is a visible non-mutating route-correction/review affordance.",
+    "Detailed categories, paths, warning codes, and capability diagnostics are secondary.",
+    "Tab order or labels follow human workflow rather than implementation chronology.",
+    "Complete current action remains easy to reach.",
+    "Artifacts remains the only artifact list/preview surface.",
+    "Left panel remains compact.",
+    "Supporting/reference screens do not show the full Route Context inspector.",
+    "No WC07 clutter regression is introduced.",
+    "WC04/WC05/WC06/WC07 behavior remains usable.",
+    "WC09-WC15 behavior does not appear.",
+    "WC08-REPAIR01 Implementer Report exists."
+  ],
+  "carriedForwardObservations": [
+    {
+      "id": "PH03-WC08-OBS-001",
+      "title": "Route Context is too technical and does not explain progress",
+      "source": "VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+      "status": "repair_now"
+    },
+    {
+      "id": "PH03-WC08-OBS-002",
+      "title": "Operator needs a way to say the route is wrong",
+      "source": "VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+      "status": "repair_now"
+    },
+    {
+      "id": "PH03-WC08-OBS-003",
+      "title": "Tab order does not match human workflow",
+      "source": "VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+      "status": "repair_now"
+    }
+  ],
+  "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md"
+}
