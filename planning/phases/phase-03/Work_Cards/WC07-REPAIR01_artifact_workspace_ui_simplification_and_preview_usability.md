@@ -5,6 +5,7 @@ Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action 
 Parent Work Card: WC07 — Artifact Review Workspace
 Repair ID: WC07-REPAIR01
 Created: 2026-07-14
+Revision: 2 — tightened UI repair authority after Operator clarification that the defect is existing pane clutter and duplicated information, not merely lack of another cleaner pane.
 
 ## Repair Trigger
 
@@ -54,6 +55,14 @@ The WC07 implementation appears to have satisfied some data-model and fixture re
 
 The core defect is not merely that one button failed. The defect is that the Artifact Review Workspace lacks a disciplined information architecture. It added more surfaces instead of creating one clear place where the Operator can inspect artifacts while preserving the current workflow context.
 
+## Non-Negotiable UI Correction
+
+The existing WC07 UI already has too many panes, repeated artifact summaries, duplicated current-action information, and competing places that appear to show the same context.
+
+The repair must **remove, consolidate, or collapse existing duplicate information**. It must not add a new pane beside the existing clutter. It must not solve the problem by embedding another window inside the current window. It must not create another copy of source evidence, route metadata, expected output, or current-action summary in a different location.
+
+The expected result is a simpler UI than the failed WC07 implementation, not a more elaborate UI.
+
 ## Repair Goal
 
 Replace the confusing artifact-review presentation with a simple, constrained, Operator-readable artifact workspace.
@@ -74,12 +83,22 @@ Do not invent a new complex UI pattern. Implement a clear artifact workspace wit
 
 ### 1. Single artifact review area
 
-The center workspace must have one obvious artifact review area. Do not create multiple competing panels that repeat the same source evidence, expected output, or route metadata.
+The center workspace must have one obvious artifact review area. Do not create multiple competing panels that repeat the same source evidence, expected output, route metadata, current-action title, Work Card ID, or artifact list.
+
+Required behavior:
+
+- There must be exactly one primary artifact list for the current route.
+- There must be exactly one primary preview/details area for the selected artifact.
+- Current-action summary remains in the existing current-action panel, not repeated across multiple center panels.
+- Expected output appears once in the artifact workspace.
+- Source artifacts appear once in the artifact workspace.
+- Missing evidence appears once in the artifact workspace.
+- Path details may be hidden behind details controls, but the same path list must not appear in several UI regions.
 
 Acceptable structure:
 
 - A top artifact context header.
-- A left or top artifact list grouped by role.
+- A single artifact list grouped by role.
 - A large readable preview/details pane.
 - A clear route-specific action area or tab.
 
@@ -87,11 +106,24 @@ Unacceptable structure:
 
 - Multiple nested embedded windows.
 - Duplicate artifact lists in more than one place.
+- Duplicate current-action summaries in the left panel and multiple center panels.
+- Duplicate expected-output blocks.
+- Duplicate source-evidence blocks.
 - Tiny preview panes that cannot be read.
 - Artifact cards that look clickable but do nothing.
 - Artifact context scattered between left panel, center workspace, route screen, and hidden details with no clear hierarchy.
 
-### 2. Artifact list must be explicit and grouped
+### 2. Duplicate information removal rule
+
+Before adding new UI, remove or consolidate existing duplicate UI.
+
+If the same information is already visible in the current-action panel, the artifact workspace may reference it briefly but must not reproduce the full panel content.
+
+If the same artifact appears in more than one artifact group, pick one group and explain its role there. Do not show the same artifact repeatedly unless there is a clear, distinct purpose that is visible to the Operator.
+
+If a supporting screen already shows blank or confusing content, do not rely on that screen as the primary artifact review method. The artifact workspace must provide the useful current-action artifact context directly.
+
+### 3. Artifact list must be explicit and grouped
 
 The artifact list must clearly show these groups when applicable:
 
@@ -107,7 +139,7 @@ The artifact list must clearly show these groups when applicable:
 
 The groups must be visually distinguishable. Source artifacts, missing evidence, and expected output must not be blended together.
 
-### 3. Artifact cards must have working actions
+### 4. Artifact cards must have working actions
 
 Every artifact card must clearly indicate one of the following:
 
@@ -118,7 +150,7 @@ Every artifact card must clearly indicate one of the following:
 
 If an artifact cannot be previewed, the UI must say why in plain language. Do not show a button that appears to open something but does nothing.
 
-### 4. Markdown preview must be usable
+### 5. Markdown preview must be usable
 
 If Markdown preview is supported, it must be visibly usable.
 
@@ -130,21 +162,21 @@ Minimum requirements:
 - The preview must show the selected artifact label and path context.
 - The preview must remain read-only.
 
-Do not hide the preview behind a tiny embedded window.
+Do not hide the preview behind a tiny embedded window. Do not create a preview area that is technically present but visually useless.
 
-### 5. Route-specific screen must not disappear or be confused with artifact preview
+### 6. Route-specific screen must not disappear or be confused with artifact preview
 
 The current routed workflow screen must remain accessible, but it should not be buried under repeated artifact panels.
 
 Acceptable approaches:
 
 - A clear two-tab structure: `Artifacts` and `Current action form`.
-- A large artifact review area above a clearly separated current-action form, only if the layout remains readable.
 - A split layout where one pane is artifact list/preview and one pane is the current action form, if both remain readable.
+- A large artifact review workspace with a clear button or tab back to the current-action form.
 
 The Operator must always know whether they are looking at artifact evidence or the form/screen used to complete the current action.
 
-### 6. Process/action bar clicks must not create confusing context switches
+### 7. Process/action bar clicks must not create confusing context switches
 
 Clicking the Work Card Loop / process rail must not dump the Operator into a different confusing screen without clear context.
 
@@ -193,6 +225,8 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 ## Acceptance Criteria
 
 - The center workspace has one clear artifact review area, not a jumble of duplicated embedded panels.
+- The repair removes, consolidates, or collapses existing duplicated artifact/context surfaces.
+- It is visually obvious that the repaired UI has fewer competing artifact/context panels than the failed WC07 implementation.
 - Artifact groups are visually clear and include expected output, source artifacts, missing evidence, Work Card, Implementer Report, Architect Review, validation, and repair artifacts where applicable.
 - Artifact labels are readable and do not use full paths as the primary display.
 - Full paths are available only as secondary details.
@@ -202,7 +236,7 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 - Operator validation routes visibly expose Work Card, Implementer Report, Architect Review, and expected Validation Report when present.
 - Architect review routes visibly expose Work Card, Implementer Report, and expected Architect Review output when present.
 - Repair validation routes visibly expose parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.
-- Expected output, source artifacts, and missing evidence are visually distinct.
+- Expected output, source artifacts, and missing evidence are visually distinct and not duplicated in multiple locations.
 - Previewing artifacts remains read-only and does not save, approve, validate, repair, or advance workflow state.
 - Process/action bar navigation remains support-only and does not become workflow authority.
 - WC04 current-action panel remains primary.
@@ -219,6 +253,7 @@ However, WC07 should reduce the need to use process/action bar navigation for ar
 - Run WC07 artifact workspace focused fixture validation if maintained or updated.
 - Run current-action-only fixture validation if affected.
 - Run WC04/WC05/WC06 preservation fixtures if affected.
+- Add or update a focused assertion that the artifact workspace does not render duplicate primary artifact lists or duplicate expected/source/missing sections.
 - Run local safety scans before staging.
 - Do not perform Operator validation.
 
@@ -233,8 +268,9 @@ The report must include:
 - repair branch name;
 - implementation summary;
 - files changed;
+- what duplicate or competing panes were removed, consolidated, or collapsed;
 - how the artifact workspace UI was simplified;
-- how duplicate/competing panels were removed or avoided;
+- how duplicate source evidence, expected output, missing evidence, and current-action displays were avoided;
 - how artifact grouping is displayed;
 - how readable labels replaced raw path-dominant display;
 - how Markdown preview usability was fixed;
@@ -276,7 +312,9 @@ Do not push to master.
 Do not perform Operator validation.
 
 Primary objective:
-Repair the WC07 artifact workspace so it is usable by a human Operator. The current implementation may have data plumbing, but the visible UI is too confusing to validate. Replace the jumbled, repeated, embedded-window presentation with one clear artifact review workspace.
+Repair the WC07 artifact workspace so it is usable by a human Operator. The current implementation may have data plumbing, but the visible UI is too confusing to validate.
+
+The existing WC07 UI already has too many panes and duplicated information. Do not add another pane. Do not embed another window. Remove, consolidate, or collapse duplicate artifact/context surfaces and replace the failed implementation with one clear artifact review workspace.
 
 Before editing:
 1. Confirm current repo and remote.
@@ -294,10 +332,12 @@ Before editing:
 
 Required repair:
 - Build one clear artifact review area.
+- Remove, consolidate, or collapse duplicate/competing artifact and context panels that already exist.
+- Do not add another nested pane or embedded window.
 - Make artifact groups readable and role-based.
 - Make artifact preview or non-previewable/missing state explicit.
 - Make Markdown preview large enough and visibly populated when a previewable artifact is selected.
-- Remove or collapse duplicate/competing artifact panels.
+- Avoid duplicate source evidence, expected output, missing evidence, and current-action summary displays.
 - Keep current routed action accessible without burying it in nested panels.
 - Keep process/action bar clicks support-only.
 - Preserve WC04/WC05/WC06 behavior.

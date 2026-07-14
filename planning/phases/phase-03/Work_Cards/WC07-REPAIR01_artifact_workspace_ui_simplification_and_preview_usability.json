@@ -4,57 +4,91 @@
   "phaseId": "phase-03",
   "parentWorkCardId": "WC07",
   "status": "ready_for_implementer",
+  "revision": 2,
   "created": "2026-07-14",
-  "repairTrigger": {
-    "validationReport": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
-    "validationResult": "Not Tested",
-    "operatorDecision": "Deferred - not validated yet",
-    "summary": "Operator could not meaningfully validate WC07 because the artifact workspace UI was confusing, artifact access was unclear, preview appeared empty or unusably small, and the interface used repeated embedded panels."
+  "revisionReason": "Tightened after Operator clarification that the defect is existing pane clutter and duplicated information, not merely lack of another cleaner pane.",
+  "repairTrigger": "WC07 validation was deferred/not tested because the Operator could not meaningfully validate the artifact review workspace. The UI was visually confusing, artifact access was unclear, Markdown preview appeared empty or unusably small, and artifact context was duplicated across competing surfaces.",
+  "primaryObjective": "Repair the WC07 artifact workspace so it is usable by a human Operator by replacing the jumbled, repeated, embedded-window presentation with one clear artifact review workspace.",
+  "nonNegotiableUiCorrection": "The existing WC07 UI already has too many panes, repeated artifact summaries, duplicated current-action information, and competing places that appear to show the same context. The repair must remove, consolidate, or collapse existing duplicate information. It must not add a new pane beside the existing clutter, embed another window, or create another copy of source evidence, route metadata, expected output, or current-action summary in a different location. The repaired UI must be simpler than the failed WC07 implementation.",
+  "sourceArtifacts": [
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
+    "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md",
+    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md",
+    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md",
+    "planning/phases/phase-03/Observation_Register.md"
+  ],
+  "carriedForwardObservations": [
+    {
+      "id": "PH03-OBS-003",
+      "title": "Source Evidence should not show full raw paths",
+      "acceptanceImpact": "Readable artifact labels must be primary. Full paths may exist only as secondary details."
+    },
+    {
+      "id": "PH03-OBS-004",
+      "title": "Supporting screens are reachable but not populated",
+      "acceptanceImpact": "Current-action artifact context must populate the workspace when available, even if route-specific screens remain imperfect."
+    },
+    {
+      "id": "PH03-OBS-006",
+      "title": "Work Card Loop needs artifact access during validation",
+      "acceptanceImpact": "Operator validation must expose Work Card, Implementer Report, Architect Review, validation records, repair records, and expected output without requiring the Operator to hunt through blank supporting screens."
+    }
+  ],
+  "requiredUiStructure": {
+    "singleArtifactReviewArea": [
+      "Exactly one primary artifact list for the current route.",
+      "Exactly one primary preview/details area for the selected artifact.",
+      "Current-action summary remains in the current-action panel and is not repeated across multiple center panels.",
+      "Expected output appears once in the artifact workspace.",
+      "Source artifacts appear once in the artifact workspace.",
+      "Missing evidence appears once in the artifact workspace.",
+      "Path details may be hidden behind details controls, but the same path list must not appear in several UI regions."
+    ],
+    "duplicateInformationRemovalRule": [
+      "Before adding new UI, remove or consolidate existing duplicate UI.",
+      "If the same information is already visible in the current-action panel, the artifact workspace may reference it briefly but must not reproduce the full panel content.",
+      "If the same artifact appears in more than one group, pick one group and explain its role there.",
+      "Do not rely on blank or confusing supporting screens as the primary artifact review method."
+    ],
+    "artifactGroups": [
+      "Expected Output",
+      "Work Card",
+      "Implementer Report",
+      "Architect Review",
+      "Validation Report",
+      "Repair Artifacts",
+      "Source Evidence",
+      "Missing Evidence",
+      "Other Support"
+    ],
+    "artifactCardActions": [
+      "Preview",
+      "Open supporting screen",
+      "Not previewable",
+      "Missing"
+    ],
+    "previewRequirements": [
+      "Preview pane must be large enough to read on a normal desktop window.",
+      "Selecting a previewable Markdown artifact must visibly load content.",
+      "Empty preview states must explain no selection, not previewable, loading failed, or missing.",
+      "Preview must show selected artifact label and path context.",
+      "Preview remains read-only."
+    ]
   },
-  "goal": "Replace the confusing artifact review presentation with one clear, constrained, Operator-readable artifact workspace while preserving current-action router authority.",
-  "includedObservations": [
-    "PH03-OBS-003",
-    "PH03-OBS-004",
-    "PH03-OBS-006"
-  ],
-  "baseBranch": "feature/phase-03-wc07-artifact-review-workspace",
-  "targetBranch": "feature/phase-03-wc07-repair01-artifact-ui-simplification",
-  "sourceOfTruth": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
-  "requiredRepairs": [
-    "Create one clear artifact review area instead of multiple duplicated embedded panels.",
-    "Group artifacts by role: Expected Output, Work Card, Implementer Report, Architect Review, Validation Report, Repair Artifacts, Source Evidence, Missing Evidence, Other Support.",
-    "Use readable artifact labels as the primary display; full paths must be secondary details only.",
-    "Make artifact actions explicit: Preview, Open supporting screen, Not previewable, or Missing.",
-    "Make Markdown preview visibly usable with a large readable pane and clear selected-artifact state.",
-    "Clearly distinguish artifact evidence from the current routed action form/screen.",
-    "Ensure Operator validation routes expose Work Card, Implementer Report, Architect Review, and expected Validation Report.",
-    "Ensure Architect review routes expose Work Card, Implementer Report, and expected Architect Review output.",
-    "Ensure repair validation routes expose parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.",
-    "Preserve current-action router authority and prevent preview/support navigation from mutating durable workflow state.",
-    "Preserve WC04, WC05, and WC06 behaviors.",
-    "Do not implement WC08-WC15."
-  ],
-  "outOfScope": [
-    "Full document management system",
-    "Unrestricted renderer filesystem access",
-    "Browser automation",
-    "Provider SDKs",
-    "Database/cloud/auth/MCP/connector/deployment/release features",
-    "Full app shell redesign",
-    "Current-action router replacement",
-    "Operator validation record creation",
-    "Phase closeout",
-    "Merge to dev",
-    "Push to master"
-  ],
   "acceptanceCriteria": [
     "The center workspace has one clear artifact review area, not a jumble of duplicated embedded panels.",
+    "The repair removes, consolidates, or collapses existing duplicated artifact/context surfaces.",
+    "It is visually obvious that the repaired UI has fewer competing artifact/context panels than the failed WC07 implementation.",
     "Artifact groups are visually clear and include expected output, source artifacts, missing evidence, Work Card, Implementer Report, Architect Review, validation, and repair artifacts where applicable.",
     "Artifact labels are readable and do not use full paths as the primary display.",
+    "Full paths are available only as secondary details.",
     "Previewable Markdown artifacts visibly load in a readable pane.",
     "Non-previewable artifacts clearly say they cannot be previewed.",
     "Missing artifacts clearly say they are missing.",
-    "Expected output, source artifacts, and missing evidence are visually distinct.",
+    "Operator validation routes visibly expose Work Card, Implementer Report, Architect Review, and expected Validation Report when present.",
+    "Architect review routes visibly expose Work Card, Implementer Report, and expected Architect Review output when present.",
+    "Repair validation routes visibly expose parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.",
+    "Expected output, source artifacts, and missing evidence are visually distinct and not duplicated in multiple locations.",
     "Previewing artifacts remains read-only and does not save, approve, validate, repair, or advance workflow state.",
     "Process/action bar navigation remains support-only and does not become workflow authority.",
     "WC04 current-action panel remains primary.",
@@ -62,6 +96,20 @@
     "WC06 left-to-right workflow guide remains intact.",
     "WC08-WC15 behavior does not appear prematurely.",
     "WC07-REPAIR01 Implementer Report exists."
+  ],
+  "outOfScope": [
+    "WC08-WC15",
+    "Full document management system",
+    "Unrestricted renderer filesystem access",
+    "Browser automation or Playwright",
+    "Provider SDKs, database, cloud service, authentication, MCP, connector, deployment, or release features",
+    "Entire app shell redesign",
+    "Current-action router replacement",
+    "Durable workflow mutation through artifact preview or support navigation",
+    "Operator validation records",
+    "Phase 03 closeout",
+    "Merge to dev",
+    "Push to master"
   ],
   "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md"
 }
