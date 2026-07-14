@@ -1,0 +1,45 @@
+{
+  "workCardId": "WC08-REPAIR03",
+  "title": "Pending Repair Validation Blocks Next Work Card Advancement",
+  "phase": "phase-03",
+  "parentWorkCardId": "WC08",
+  "status": "ready_for_implementer",
+  "riskLevel": "high",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "problem": "The app routes to WC09 full Work Card creation even though WC08-REPAIR02 still requires Operator validation, preventing the Operator from validating WC08-REPAIR02 through the application.",
+  "goal": "Ensure unresolved repair validation blocks advancement to the next mapped Work Card.",
+  "userOutcome": "The Operator can validate WC08-REPAIR02 through the app before the workflow advances to WC09.",
+  "scope": [
+    "Fix current-action evaluation for unresolved repair validation obligations.",
+    "Route WC08-REPAIR02 to Human Validation when Architect Review is ready and no repair validation exists.",
+    "Block WC09 creation while WC08 repair validation remains unresolved.",
+    "Preserve WC08-REPAIR02 report-governance behavior.",
+    "Add focused regression fixture coverage."
+  ],
+  "outOfScope": [
+    "Do not implement WC08-REPAIR01.",
+    "Do not implement WC09-WC15.",
+    "Do not create or fake WC08-REPAIR02 validation reports.",
+    "Do not redesign UI.",
+    "Do not merge to dev or push to master."
+  ],
+  "acceptanceCriteria": [
+    "Current-action evaluation routes to WC08-REPAIR02 validation instead of WC09 creation when WC08-REPAIR02 has Architect Review ready and lacks repair validation.",
+    "Routed workspace is Human Validation, not Ad Hoc Work Card Capture.",
+    "Expected output is a WC08-REPAIR02 validation record.",
+    "Pending Architect disposition remains unresolved.",
+    "Legacy Operator Decision remains advisory only.",
+    "Next Work Card candidate advancement is blocked until unresolved repair validation completes.",
+    "WC08-REPAIR01 remains unimplemented.",
+    "WC09-WC15 behavior does not appear."
+  ],
+  "validationPlan": [
+    "Run approved Windows validation lane.",
+    "Run type/build validation.",
+    "Run current-action-only fixture validation.",
+    "Add and run focused regression fixture for pending WC08-REPAIR02 validation blocking WC09.",
+    "Run WC08 report-protocol fixture if affected.",
+    "Run preservation fixtures if affected."
+  ],
+  "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md"
+}
