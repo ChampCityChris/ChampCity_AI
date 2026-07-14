@@ -87,6 +87,7 @@ import {
   buildArchitectReviewFileName,
   isRepairTarget,
   renderArchitectReviewRecord,
+  validateArchitectReviewAssociation,
   validateArchitectReviewForm,
   type ArchitectReviewFormInput,
   type ArchitectReviewPreviewResult,
@@ -2956,10 +2957,17 @@ export async function previewArchitectReviewRecord(
       throw new Error("Choose the existing Implementer Report to review.");
     }
 
-    if (!fileNameMatchesWorkCardId(builderReport.fileName, workCard.workCardId)) {
-      throw new Error(
-        "The selected Implementer Report does not match the selected Work Card.",
-      );
+    const associationErrors = validateArchitectReviewAssociation(
+      {
+        phase: input.phase,
+        builderReportFileName: builderReport.fileName,
+        currentActionBinding: input.currentActionBinding,
+      },
+      workCard,
+    );
+
+    if (associationErrors.length > 0) {
+      throw new Error(associationErrors.join(" "));
     }
 
     const reviewMarkdown = renderArchitectReviewRecord(input, workCard);

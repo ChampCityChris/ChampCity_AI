@@ -42,12 +42,14 @@ import {
 } from "../../shared/workCards/humanValidationDrafts";
 import { resolveValidationTargetFileName } from "../../shared/workCards/validationTarget";
 import { architectReviewDecisionValues } from "../../shared/workCards/reportReviewProtocol";
-import type {
-  ArchitectReviewDecision,
-  ArchitectReviewFormInput,
-  ArchitectReviewPreviewResult,
-  ArchitectReviewSaveResult,
-  ArchitectReviewSectionKey,
+import {
+  findCurrentActionArchitectReviewWorkCardFileName,
+  resolveCurrentActionArchitectReviewBinding,
+  type ArchitectReviewDecision,
+  type ArchitectReviewFormInput,
+  type ArchitectReviewPreviewResult,
+  type ArchitectReviewSaveResult,
+  type ArchitectReviewSectionKey,
 } from "../../shared/workCards/architectReviewRecord";
 import {
   getManualScreenForCurrentAction,
@@ -645,8 +647,7 @@ export default function App() {
         onActiveCardChange={setActiveCard}
         routedAction={
           currentActionResult?.currentAction?.id ===
-            "architect_review_of_implementer_report_required" &&
-          currentActionResult.currentAction.phaseId === phase
+          "architect_review_of_implementer_report_required"
             ? currentActionResult.currentAction
             : undefined
         }
@@ -6313,7 +6314,10 @@ function BuilderReportCaptureScreen({
 
 type ArchitectReviewDraft = Omit<
   ArchitectReviewFormInput,
-  "phase" | "workCardFileName" | "builderReportFileName"
+  | "phase"
+  | "workCardFileName"
+  | "builderReportFileName"
+  | "currentActionBinding"
 >;
 
 const initialArchitectReviewDraft: ArchitectReviewDraft = {
@@ -6332,11 +6336,17 @@ function ArchitectReviewScreen({
   phase,
   phaseOptions,
   onPhaseChange,
-  onActiveCardChange,
   routedAction,
 }: ScreenProps & { routedAction?: ChampCityCurrentRequiredAction }) {
+  const bindingResult = useMemo(
+    () => resolveCurrentActionArchitectReviewBinding(routedAction),
+    [routedAction],
+  );
+  const currentActionBinding = bindingResult.binding;
+  const reviewPhase =
+    currentActionBinding?.phaseId ?? routedAction?.phaseId ?? phase;
   const { workCards, invalidFiles, errors: listErrors, isLoading } =
-    useWorkCards(phase);
+    useWorkCards(reviewPhase);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [builderReports, setBuilderReports] = useState<
     ChampCityHumanValidationBuilderReportOption[]
@@ -6358,35 +6368,63 @@ function ArchitectReviewScreen({
   const [isBusy, setIsBusy] = useState(false);
   const lastAlignedRouteKey = useRef("");
 
-  const selectedWorkCard = useSelectedWorkCard(
-    workCards,
-    selectedFileName,
-    onActiveCardChange,
-  );
-  const routedReportFileName = useMemo(
+  const selectedWorkCardRecord = useMemo(
     () =>
-      routedAction?.sourceArtifacts
-        .find(
-          (artifact) =>
-            /implementer report/i.test(artifact.role) &&
-            /\/Builder_Reports\//i.test(artifact.path),
-        )
-        ?.path.split(/[\\/]/)
-        .pop() ?? "",
-    [routedAction],
+      workCards.find((workCard) => workCard.fileName === selectedFileName) ??
+      null,
+    [selectedFileName, workCards],
   );
+  const selectedWorkCard = selectedWorkCardRecord
+    ? toUiWorkCardSummary(selectedWorkCardRecord)
+    : null;
+  const routedReportFileName =
+    currentActionBinding?.builderReportFileName ?? "";
+  const bindingErrors = routedAction ? bindingResult.errors : [];
+  const hasReviewErrors =
+    listErrors.length > 0 || bindingErrors.length > 0 || errors.length > 0;
   const isRepairReview = Boolean(
-    selectedWorkCard?.workCardId.match(/-REPAIR\d+$/i) ||
-      workCards.find((workCard) => workCard.fileName === selectedFileName)
-        ?.kind === "repair",
+    (currentActionBinding?.workCardId ?? selectedWorkCard?.workCardId)?.match(
+      /-REPAIR\d+$/i,
+    ) || selectedWorkCardRecord?.kind === "repair",
   );
   const routedBindingActive = Boolean(
-    routedAction?.workCardId &&
+    currentActionBinding &&
       selectedWorkCard?.workCardId.toLowerCase() ===
-        routedAction.workCardId.toLowerCase() &&
-      (!routedReportFileName ||
-        selectedBuilderReportFileName === routedReportFileName),
+        currentActionBinding.workCardId.toLowerCase() &&
+      selectedBuilderReportFileName === routedReportFileName,
   );
+  const routeKey = routedAction
+    ? [
+        routedAction.id,
+        routedAction.phaseId ?? "",
+        routedAction.workCardId ?? "",
+        routedAction.workCardTitle ?? "",
+        routedReportFileName,
+        routedAction.expectedOutput?.path ?? "",
+        ...routedAction.sourceArtifacts.map((artifact) => artifact.path),
+      ].join("::")
+    : `manual::${phase}`;
+
+  useEffect(() => {
+    if (lastAlignedRouteKey.current === routeKey) {
+      return;
+    }
+
+    lastAlignedRouteKey.current = routeKey;
+    setSelectedFileName("");
+    setBuilderReports([]);
+    setSelectedBuilderReportFileName("");
+    setBuilderReportText("");
+    setDraft({ ...initialArchitectReviewDraft });
+    setPreviewResult(null);
+    setSaveResult(null);
+    setErrors([]);
+    setStatusMessage(
+      routedAction
+        ? "Binding the Architect Review from current-action state."
+        : "Select an Implementer Report to review.",
+    );
+  }, [routeKey, routedAction]);
 
   useEffect(() => {
     if (workCards.length === 0) {
@@ -6394,37 +6432,28 @@ function ArchitectReviewScreen({
       return;
     }
 
-    const routeKey = routedAction?.workCardId
-      ? `${phase}::${routedAction.workCardId.toLowerCase()}`
-      : "";
-    const routedWorkCard = routedAction?.workCardId
-      ? workCards.find(
-          (workCard) =>
-            workCard.workCardId.toLowerCase() ===
-            routedAction.workCardId?.toLowerCase(),
+    const routedFileName = currentActionBinding
+      ? findCurrentActionArchitectReviewWorkCardFileName(
+          currentActionBinding,
+          workCards,
         )
-      : undefined;
-    const shouldAlignRoute = Boolean(
-      routeKey &&
-        routedWorkCard &&
-        lastAlignedRouteKey.current !== routeKey,
-    );
-    const nextFileName = shouldAlignRoute
-      ? routedWorkCard?.fileName ?? ""
+      : routedAction?.workCardId
+        ? workCards.find(
+            (workCard) =>
+              workCard.workCardId.toLowerCase() ===
+              routedAction.workCardId?.toLowerCase(),
+          )?.fileName
+        : undefined;
+    const nextFileName = routedAction
+      ? routedFileName ?? ""
       : workCards.some((workCard) => workCard.fileName === selectedFileName)
         ? selectedFileName
         : workCards[0]?.fileName ?? "";
 
-    if (shouldAlignRoute) {
-      lastAlignedRouteKey.current = routeKey;
-    } else if (!routeKey) {
-      lastAlignedRouteKey.current = "";
-    }
-
     if (nextFileName !== selectedFileName) {
       setSelectedFileName(nextFileName);
     }
-  }, [phase, routedAction, selectedFileName, workCards]);
+  }, [currentActionBinding, routedAction, selectedFileName, workCards]);
 
   useEffect(() => {
     if (!selectedFileName) {
@@ -6440,7 +6469,7 @@ function ArchitectReviewScreen({
 
     window.champCity
       .listHumanValidationBuilderReports({
-        phase,
+        phase: reviewPhase,
         workCardFileName: selectedFileName,
       })
       .then((result) => {
@@ -6462,13 +6491,13 @@ function ArchitectReviewScreen({
 
         const options = result.options ?? [];
         const routedMatch = options.find(
-          (option) => option.fileName === routedReportFileName,
+          (option) =>
+            option.fileName.toLowerCase() ===
+            routedReportFileName.toLowerCase(),
         );
-        const nextReportFileName =
-          routedMatch?.fileName ||
-          result.defaultFileName ||
-          options[0]?.fileName ||
-          "";
+        const nextReportFileName = routedAction
+          ? routedMatch?.fileName ?? ""
+          : result.defaultFileName || options[0]?.fileName || "";
 
         setBuilderReports(options);
         setSelectedBuilderReportFileName(nextReportFileName);
@@ -6479,6 +6508,12 @@ function ArchitectReviewScreen({
               ? "Implementer Report association loaded."
               : "No matching Implementer Report is available.",
         );
+
+        if (routedAction && currentActionBinding && !routedMatch) {
+          setErrors([
+            `Current action ${currentActionBinding.workCardId} requires ${currentActionBinding.builderReportFileName}, but that report is not available for the routed target.`,
+          ]);
+        }
       })
       .catch(() => {
         if (!active) {
@@ -6495,7 +6530,13 @@ function ArchitectReviewScreen({
     return () => {
       active = false;
     };
-  }, [phase, routedReportFileName, selectedFileName]);
+  }, [
+    currentActionBinding,
+    reviewPhase,
+    routedAction,
+    routedReportFileName,
+    selectedFileName,
+  ]);
 
   useEffect(() => {
     if (!selectedBuilderReportFileName) {
@@ -6507,7 +6548,7 @@ function ArchitectReviewScreen({
 
     window.champCity
       .loadBuilderReportFile({
-        phase,
+        phase: reviewPhase,
         fileName: selectedBuilderReportFileName,
       })
       .then((result) => {
@@ -6535,20 +6576,32 @@ function ArchitectReviewScreen({
     return () => {
       active = false;
     };
-  }, [phase, selectedBuilderReportFileName]);
+  }, [reviewPhase, selectedBuilderReportFileName]);
 
   const previewInput = useMemo<ArchitectReviewFormInput | null>(() => {
-    if (!selectedFileName || !selectedBuilderReportFileName) {
+    if (
+      !selectedFileName ||
+      !selectedBuilderReportFileName ||
+      (routedAction && !currentActionBinding)
+    ) {
       return null;
     }
 
     return {
-      phase,
+      phase: reviewPhase,
       workCardFileName: selectedFileName,
       builderReportFileName: selectedBuilderReportFileName,
       ...draft,
+      currentActionBinding: routedAction ? currentActionBinding : undefined,
     };
-  }, [draft, phase, selectedBuilderReportFileName, selectedFileName]);
+  }, [
+    currentActionBinding,
+    draft,
+    reviewPhase,
+    routedAction,
+    selectedBuilderReportFileName,
+    selectedFileName,
+  ]);
 
   useEffect(() => {
     if (!previewInput) {
@@ -6642,35 +6695,76 @@ function ArchitectReviewScreen({
                 : "Architect Review of Implementer Report"
             }
             description="Review the existing implementation evidence and create the governed Architect Review output."
-            badge={phase}
+            badge={reviewPhase}
           />
           {routedAction ? (
             <Notice type={routedBindingActive ? "success" : "info"}>
-              {routedBindingActive
-                ? `${routedAction.workCardId} and its Implementer Report were selected from current-action state.`
-                : `Binding routed target ${routedAction.workCardId ?? "current action"}. Manual fallback remains available.`}
+              <div className="grid gap-1">
+                <strong>Bound from current action:</strong>
+                <span>
+                  {currentActionBinding?.workCardId ??
+                    routedAction.workCardId ??
+                    "Unresolved target"}
+                  {currentActionBinding?.workCardTitle
+                    ? ` - ${currentActionBinding.workCardTitle}`
+                    : ""}
+                </span>
+                <code className="break-anywhere">
+                  {currentActionBinding?.builderReportFileName ??
+                    "Exact Implementer Report binding unavailable"}
+                </code>
+                <span>
+                  Expected output: {" "}
+                  <code className="break-anywhere">
+                    {currentActionBinding?.expectedOutputFileName ??
+                      routedAction.expectedOutput?.path ??
+                      "not identified"}
+                  </code>
+                </span>
+                <span>
+                  The Reference card is optional navigation context and does not
+                  control this routed review.
+                </span>
+              </div>
             </Notice>
           ) : null}
-          <ErrorList errors={[...listErrors, ...errors]} />
+          <ErrorList errors={[...listErrors, ...bindingErrors, ...errors]} />
           <FieldGroup title="Current Action Binding">
-            <PhaseField
-              phase={phase}
-              phaseOptions={phaseOptions}
-              onPhaseChange={onPhaseChange}
-            />
+            {routedAction ? (
+              <Field label="Routed current-action phase">
+                <div className={inputCls}>{reviewPhase}</div>
+              </Field>
+            ) : (
+              <PhaseField
+                phase={phase}
+                phaseOptions={phaseOptions}
+                onPhaseChange={onPhaseChange}
+              />
+            )}
             <WorkCardSelect
               workCards={workCards}
               selectedFileName={selectedFileName}
               onChange={setSelectedFileName}
               isLoading={isLoading}
               allowEmpty
-              emptyLabel="Select Work Card fallback"
+              disabled={Boolean(routedAction)}
+              label={
+                routedAction
+                  ? "Routed current-action Work Card"
+                  : "Saved Work Card JSON"
+              }
+              emptyLabel={
+                routedAction
+                  ? "Current-action Work Card unavailable"
+                  : "Select Work Card fallback"
+              }
             />
             {selectedWorkCard ? <WorkCardSummary card={selectedWorkCard} /> : null}
             <Field label="Associated Implementer Report">
               <select
                 className={selectCls}
                 value={selectedBuilderReportFileName}
+                disabled={Boolean(routedAction)}
                 onChange={(event) =>
                   setSelectedBuilderReportFileName(event.target.value)
                 }
@@ -6690,7 +6784,8 @@ function ArchitectReviewScreen({
             <Notice type="info">
               Review mode: Architect review of {isRepairReview ? "repair " : ""}
               Implementer Report. This workflow does not create or replace an
-              Implementer Report.
+              Implementer Report. Manual Work Card and report selectors are
+              available only when no routed current action controls the review.
             </Notice>
           </FieldGroup>
           <FieldGroup title="Architect Review Assessment">
@@ -6775,7 +6870,7 @@ function ArchitectReviewScreen({
             saveLabel="Save Architect Review"
             saveDisabled={isBusy || !previewResult?.validation?.valid}
             statusMessage={statusMessage}
-            statusType={errors.length > 0 ? "error" : "success"}
+            statusType={hasReviewErrors ? "error" : "success"}
           />
           <InvalidWorkCardFiles files={invalidFiles} />
         </div>
@@ -8318,6 +8413,8 @@ function WorkCardSelect({
   onChange,
   isLoading,
   allowEmpty,
+  disabled,
+  label = "Saved Work Card JSON",
   emptyLabel = "Select a Work Card",
 }: {
   workCards: ChampCitySavedWorkCardSummary[];
@@ -8325,14 +8422,16 @@ function WorkCardSelect({
   onChange: (fileName: string) => void;
   isLoading: boolean;
   allowEmpty?: boolean;
+  disabled?: boolean;
+  label?: string;
   emptyLabel?: string;
 }) {
   return (
-    <Field label="Saved Work Card JSON">
+    <Field label={label}>
       <select
         className={selectCls}
         value={selectedFileName}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         onChange={(event) => onChange(event.target.value)}
       >
         {allowEmpty || workCards.length === 0 ? (
