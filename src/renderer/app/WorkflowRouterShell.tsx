@@ -40,6 +40,12 @@ import {
   getArtifactDisplayName,
   shouldShowCurrentActionArtifactWorkspace,
 } from "../../shared/workCards/artifactReviewWorkspace";
+import {
+  buildCurrentStepContextInspector,
+  shouldShowCurrentStepContextInspector,
+  type CurrentStepContextInspectorModel,
+  type CurrentStepEvidenceHealthItem,
+} from "../../shared/workCards/currentStepContextInspector";
 
 type WorkflowState =
   | "project-intake"
@@ -326,6 +332,7 @@ export function WorkflowRouterShell({
         />
         <ArtifactWorkspace
           action={action}
+          routeContext={currentActionResult?.routeContext}
           activeManualItem={activeManualItem}
           routedScreenId={suggestedManualScreen}
           isViewingRoutedScreen={
@@ -1259,165 +1266,6 @@ function ActionMetadata({
   );
 }
 
-function ExpectedOutputCard({
-  expectedOutput,
-}: {
-  expectedOutput: ChampCityCurrentRequiredAction["expectedOutput"];
-}) {
-  const displayName = getArtifactDisplayName(
-    expectedOutput?.path,
-    expectedOutput?.artifactType ?? "Expected output",
-  );
-
-  return (
-    <div>
-      <PanelLabel>Expected output</PanelLabel>
-      <div className="rounded-md border border-primary/20 bg-primary/[0.04] p-3">
-        {expectedOutput ? (
-          <>
-            <div className="text-xs font-semibold text-primary/85">
-              {displayName}
-            </div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/55">
-              {expectedOutput.artifactType}
-            </div>
-            {expectedOutput.path ? (
-              <details className="mt-2 text-[10px] text-muted-foreground/55">
-                <summary className="cursor-pointer text-primary/65">
-                  Path details
-                </summary>
-                <div className="break-anywhere mt-1 font-mono leading-relaxed text-foreground/65">
-                  {expectedOutput.path}
-                </div>
-              </details>
-            ) : null}
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
-              {expectedOutput.description}
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground/65">
-            No expected output was provided by the current-action model.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function EvidenceList({
-  artifacts,
-}: {
-  artifacts: ChampCityCurrentRequiredAction["sourceArtifacts"];
-}) {
-  const visible = artifacts.slice(0, 4);
-  const overflow = artifacts.slice(4);
-
-  return (
-    <div>
-      <PanelLabel>Source evidence ({artifacts.length})</PanelLabel>
-      <div className="flex flex-col gap-1.5">
-        {visible.map((artifact) => (
-          <ArtifactLine
-            key={`${artifact.path}|${artifact.role}`}
-            artifact={artifact}
-          />
-        ))}
-        {overflow.length > 0 ? (
-          <details className="rounded-md border border-border bg-white/[0.02] px-2.5 py-2">
-            <summary className="cursor-pointer text-[11px] text-primary/75">
-              Show {overflow.length} more source artifact
-              {overflow.length === 1 ? "" : "s"}
-            </summary>
-            <div className="mt-2 flex flex-col gap-1.5">
-              {overflow.map((artifact) => (
-                <ArtifactLine
-                  key={`${artifact.path}|${artifact.role}`}
-                  artifact={artifact}
-                />
-              ))}
-            </div>
-          </details>
-        ) : null}
-        {artifacts.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60">
-            No source artifacts reported for this route.
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MissingEvidenceList({
-  missing,
-}: {
-  missing: ChampCityCurrentRequiredAction["missingArtifacts"];
-}) {
-  const visible = missing.slice(0, 4);
-  const overflow = missing.slice(4);
-
-  return (
-    <div>
-      <PanelLabel>Missing evidence ({missing.length})</PanelLabel>
-      <div className="flex flex-col gap-2">
-        {visible.map((artifact) => (
-          <MissingEvidenceLine
-            key={`${artifact.path}|${artifact.reason}`}
-            artifact={artifact}
-          />
-        ))}
-        {overflow.length > 0 ? (
-          <details className="rounded-md border border-amber-400/20 bg-amber-400/[0.03] px-2.5 py-2">
-            <summary className="cursor-pointer text-[11px] text-amber-300/80">
-              Show {overflow.length} more missing artifact
-              {overflow.length === 1 ? "" : "s"}
-            </summary>
-            <div className="mt-2 flex flex-col gap-2">
-              {overflow.map((artifact) => (
-                <MissingEvidenceLine
-                  key={`${artifact.path}|${artifact.reason}`}
-                  artifact={artifact}
-                />
-              ))}
-            </div>
-          </details>
-        ) : null}
-        {missing.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60">
-            No missing artifacts reported.
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MissingEvidenceLine({
-  artifact,
-}: {
-  artifact: ChampCityCurrentRequiredAction["missingArtifacts"][number];
-}) {
-  const displayName = getArtifactDisplayName(artifact.path, "Missing artifact");
-
-  return (
-    <div className="rounded-md border border-amber-400/20 bg-amber-400/[0.04] p-2.5">
-      <div className="text-[11px] font-semibold leading-relaxed text-amber-300/85">
-        {displayName}
-      </div>
-      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/70">
-        {artifact.reason}
-      </p>
-      <details className="mt-1.5 text-[10px] text-muted-foreground/55">
-        <summary className="cursor-pointer">Path details</summary>
-        <div className="break-anywhere mt-1 font-mono leading-relaxed">
-          {artifact.path}
-        </div>
-      </details>
-    </div>
-  );
-}
-
 function ActionCount({
   label,
   value,
@@ -1453,148 +1301,9 @@ function ActionCount({
   );
 }
 
-function RouteOutcomes({
-  action,
-}: {
-  action: ChampCityCurrentRequiredAction;
-}) {
-  const routes = [
-    action.successRoute
-      ? { label: "After success", value: action.successRoute, tone: "success" as const }
-      : null,
-    action.failureRoute
-      ? { label: "After failure / revision", value: action.failureRoute, tone: "warning" as const }
-      : null,
-    action.repairRoute
-      ? { label: "Repair route", value: action.repairRoute, tone: "warning" as const }
-      : null,
-  ].filter((route): route is NonNullable<typeof route> => route !== null);
-
-  if (routes.length === 0) {
-    return null;
-  }
-
-  return (
-    <div>
-      <PanelLabel>Route outcomes</PanelLabel>
-      <div className="flex flex-col gap-3">
-        {routes.map((route) => (
-          <InfoBlock
-            key={route.label}
-            label={route.label}
-            body={route.value}
-            tone={route.tone}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function WarningGroups({
-  warnings,
-}: {
-  warnings: ChampCityCurrentRequiredActionWarning[];
-}) {
-  const severityOrder = ["blocking", "warning", "info"] as const;
-
-  return (
-    <div>
-      <PanelLabel>Warnings and notices ({warnings.length})</PanelLabel>
-      {warnings.length === 0 ? (
-        <Notice type="success">No warnings reported for this route.</Notice>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {severityOrder.map((severity) => {
-            const entries = warnings.filter(
-              (warning) => warning.severity === severity,
-            );
-
-            return entries.length > 0 ? (
-              <WarningSeverityGroup
-                key={severity}
-                severity={severity}
-                warnings={entries}
-              />
-            ) : null;
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function WarningSeverityGroup({
-  severity,
-  warnings,
-}: {
-  severity: ChampCityCurrentRequiredActionWarning["severity"];
-  warnings: ChampCityCurrentRequiredActionWarning[];
-}) {
-  const styles = {
-    blocking: {
-      label: "Blocking",
-      border: "border-red-400/30",
-      background: "bg-red-400/[0.07]",
-      text: "text-red-200/90",
-      icon: <AlertTriangle size={12} />,
-    },
-    warning: {
-      label: "Warning",
-      border: "border-amber-400/25",
-      background: "bg-amber-400/[0.05]",
-      text: "text-amber-200/90",
-      icon: <AlertTriangle size={12} />,
-    },
-    info: {
-      label: "Information",
-      border: "border-blue-400/20",
-      background: "bg-blue-400/[0.04]",
-      text: "text-blue-200/85",
-      icon: <Info size={12} />,
-    },
-  }[severity];
-
-  return (
-    <div className={cn("rounded-md border p-2.5", styles.border, styles.background)}>
-      <div className={cn("mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em]", styles.text)}>
-        {styles.icon}
-        {styles.label} ({warnings.length})
-      </div>
-      <div className="flex flex-col gap-2">
-        {warnings.map((warning) => (
-          <div
-            key={`${warning.code}|${warning.sourceArtifactPath ?? warning.message}`}
-            className="min-w-0"
-          >
-            <p
-              className={cn(
-                "break-anywhere text-[11px] leading-relaxed",
-                styles.text,
-              )}
-            >
-              {plainLanguageWarning(warning)}
-            </p>
-            <details className="mt-1 text-[9px] leading-relaxed text-muted-foreground/55">
-              <summary className="break-anywhere cursor-pointer">
-                Technical details: {warning.code}
-              </summary>
-              <p className="break-anywhere mt-1">{warning.message}</p>
-              {warning.sourceArtifactPath ? (
-                <div className="break-anywhere mt-1 font-mono">
-                  {warning.sourceArtifactPath}
-                </div>
-              ) : null}
-            </details>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ArtifactWorkspace({
   action,
+  routeContext,
   activeManualItem,
   routedScreenId,
   isViewingRoutedScreen,
@@ -1605,6 +1314,7 @@ function ArtifactWorkspace({
   children,
 }: {
   action: ChampCityCurrentRequiredAction | undefined;
+  routeContext: ChampCityCurrentRequiredActionResult["routeContext"];
   activeManualItem: ManualNavigationItem | undefined;
   routedScreenId: string;
   isViewingRoutedScreen: boolean;
@@ -1619,8 +1329,26 @@ function ArtifactWorkspace({
     () => (action ? buildArtifactReviewWorkspace(action) : undefined),
     [action],
   );
+  const contextModel = useMemo(
+    () =>
+      action
+        ? buildCurrentStepContextInspector(action, routeContext, {
+            currentActionIpcState:
+              loadState === "ready"
+                ? "available"
+                : loadState === "loading"
+                  ? "loading"
+                  : "unavailable",
+            planningArtifactPreviewState:
+              typeof window.champCity.previewPlanningArtifact === "function"
+                ? "available"
+                : "unavailable",
+          })
+        : undefined,
+    [action, loadState, routeContext],
+  );
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<
-    "artifacts" | "action"
+    "artifacts" | "action" | "context"
   >(reviewModel?.hasContext ? "artifacts" : "action");
   const [previewTarget, setPreviewTarget] = useState<{
     path: string;
@@ -1645,6 +1373,15 @@ function ArtifactWorkspace({
         isViewingSupportingScreen,
       }),
   );
+  const showContextInspector = Boolean(
+    contextModel &&
+      shouldShowCurrentStepContextInspector({
+        hasAction: Boolean(action),
+        isViewingRoutedScreen,
+        isViewingSupportingScreen,
+      }),
+  );
+  const showCurrentActionTabs = showArtifactWorkspace || showContextInspector;
   const sourceCount =
     reviewModel?.sourceGroups.reduce(
       (total, group) => total + group.artifacts.length,
@@ -1742,25 +1479,27 @@ function ArtifactWorkspace({
         </div>
       </div>
 
-      {showArtifactWorkspace && reviewModel ? (
+      {showCurrentActionTabs ? (
         <div
           className="flex shrink-0 items-center gap-2 border-b border-border bg-card/25 px-5 py-2"
           role="tablist"
           aria-label="Current action workspace"
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeWorkspaceTab === "artifacts"}
-            onClick={() => setActiveWorkspaceTab("artifacts")}
-            className={workspaceTabClass(activeWorkspaceTab === "artifacts")}
-          >
-            <FolderOpen size={12} />
-            Artifacts
-            <span className="text-[9px] opacity-65">
-              {sourceCount + reviewModel.missingArtifacts.length + (reviewModel.expectedOutput ? 1 : 0)}
-            </span>
-          </button>
+          {showArtifactWorkspace && reviewModel ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeWorkspaceTab === "artifacts"}
+              onClick={() => setActiveWorkspaceTab("artifacts")}
+              className={workspaceTabClass(activeWorkspaceTab === "artifacts")}
+            >
+              <FolderOpen size={12} />
+              Artifacts
+              <span className="text-[9px] opacity-65">
+                {sourceCount + reviewModel.missingArtifacts.length + (reviewModel.expectedOutput ? 1 : 0)}
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             role="tab"
@@ -1771,8 +1510,20 @@ function ArtifactWorkspace({
             <CheckSquare size={12} />
             Complete current action
           </button>
+          {showContextInspector ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeWorkspaceTab === "context"}
+              onClick={() => setActiveWorkspaceTab("context")}
+              className={workspaceTabClass(activeWorkspaceTab === "context")}
+            >
+              <Eye size={12} />
+              Route context
+            </button>
+          ) : null}
           <span className="ml-auto hidden text-[10px] text-muted-foreground/50 lg:block">
-            Review evidence, then use the current-action screen to complete the task.
+            Artifacts owns document review. Route context explains the selection.
           </span>
         </div>
       ) : null}
@@ -1803,13 +1554,28 @@ function ArtifactWorkspace({
         </div>
       ) : null}
 
+      {showContextInspector && contextModel ? (
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            activeWorkspaceTab !== "context" && "hidden",
+          )}
+          role="tabpanel"
+          aria-label="Route context"
+        >
+          <CurrentStepContextInspector model={contextModel} />
+        </div>
+      ) : null}
+
       <div
         className={cn(
           "min-h-0 flex-1 overflow-hidden bg-background/75",
-          showArtifactWorkspace && activeWorkspaceTab === "artifacts" && "hidden",
+          ((showArtifactWorkspace && activeWorkspaceTab === "artifacts") ||
+            (showContextInspector && activeWorkspaceTab === "context")) &&
+            "hidden",
         )}
-        role={showArtifactWorkspace ? "tabpanel" : undefined}
-        aria-label={showArtifactWorkspace ? "Complete current action" : undefined}
+        role={showCurrentActionTabs ? "tabpanel" : undefined}
+        aria-label={showCurrentActionTabs ? "Complete current action" : undefined}
       >
         {children}
       </div>
@@ -2299,64 +2065,438 @@ function ArtifactPreviewPane({
   );
 }
 
-function ContextInspector({
-  action,
-  result,
-  activeManualItem,
+function CurrentStepContextInspector({
+  model,
 }: {
-  action: ChampCityCurrentRequiredAction | undefined;
-  result: ChampCityCurrentRequiredActionResult | null;
-  activeManualItem: ManualNavigationItem | undefined;
+  model: CurrentStepContextInspectorModel;
 }) {
-  const warnings = action?.warnings ?? [];
-  const errorMessages = result?.errorMessages ?? [];
+  const warningGroups = (
+    ["blocking", "warning", "info"] as const
+  ).map((severity) => ({
+    severity,
+    items: model.evidenceHealth.filter(
+      (warning) => warning.severity === severity,
+    ),
+  }));
 
   return (
-    <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-border bg-card/20">
-      <div className="border-b border-border px-4 pb-2 pt-3">
-        <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground/40">
-          Route &amp; evidence context
-        </div>
-        <p className="break-anywhere mt-1 text-[10px] leading-relaxed text-muted-foreground/55">
-          Reference details for the current route and selected supporting
-          workspace.
-        </p>
-      </div>
-      <div className="flex flex-1 flex-col gap-4 px-4 py-3">
-        <InspectorSection
-          title="Workspace"
-          items={[
-            ["Supporting screen", activeManualItem?.label ?? "None selected"],
-            ["Screen purpose", activeManualItem?.shortDesc ?? "No supporting screen selected"],
-          ]}
-        />
-        <InspectorSection
-          title="Route metadata"
-          items={[
-            ["Phase", action?.phaseId ?? "None reported"],
-            ["Work Card", action?.workCardId ?? "None reported"],
-            ["Status", action?.status ?? "Unknown"],
-            ["Evidence files", String(action?.sourceArtifacts.length ?? 0)],
-            ["Missing inputs", String(action?.missingArtifacts.length ?? 0)],
-            ["Notices", String(warnings.length + errorMessages.length)],
-          ]}
-        />
-        <InspectorArtifactSection
-          title="Evidence index"
-          artifacts={action?.sourceArtifacts ?? []}
-        />
-        <InspectorMissingSection
-          title="Missing inputs"
-          missing={action?.missingArtifacts ?? []}
-        />
-        <InspectorWarningSection
-          title="Notice index"
-          warnings={warnings}
-          errors={errorMessages}
-        />
+    <div className="h-full overflow-y-auto bg-background/75">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-5">
+        <header className="flex flex-wrap items-start gap-3 border-b border-border pb-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+            <Eye size={16} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-foreground">
+                Why this action?
+              </h2>
+              <Badge className="border-emerald-400/20 bg-emerald-400/8 text-emerald-300">
+                Read-only
+              </Badge>
+            </div>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground/70">
+              This inspector explains the durable evidence behind the current
+              route. It cannot save records, approve work, validate, repair, or
+              advance workflow state.
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-card/35 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground/60">
+            {model.artifactGuidance}
+          </div>
+        </header>
+
+        <section aria-labelledby="route-selection-title">
+          <ContextSectionHeading
+            id="route-selection-title"
+            title="Route selection"
+            description="Human-readable route identity and the evaluator's reason."
+          />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <ContextMetadataCard label="Current action" value={model.route.title} />
+            <ContextMetadataCard
+              label="Responsible role"
+              value={roleLabel(model.route.responsibleRole)}
+            />
+            <ContextMetadataCard
+              label="Workflow step"
+              value={model.route.workflowStep}
+            />
+            <ContextMetadataCard
+              label="Status"
+              value={formatContextValue(model.route.status)}
+            />
+            <ContextMetadataCard label="Phase" value={model.route.phaseLabel} />
+            <ContextMetadataCard
+              label="Work Card"
+              value={model.route.workCardLabel}
+            />
+          </div>
+          <div className="mt-3 rounded-lg border border-primary/20 bg-primary/[0.045] px-4 py-3">
+            <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary/70">
+              Why it was selected
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-foreground/80">
+              {model.route.reason}
+            </p>
+            <details className="mt-2 text-[10px] text-primary/55">
+              <summary className="cursor-pointer select-none">
+                Technical route ID
+              </summary>
+              <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                {model.route.actionId}
+              </div>
+            </details>
+          </div>
+          {model.route.outcomes.length > 0 ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-3">
+              {model.route.outcomes.map((outcome) => (
+                <div
+                  key={outcome.id}
+                  className="rounded-md border border-border bg-card/25 px-3 py-2.5"
+                >
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
+                    {outcome.label}
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-foreground/70">
+                    {outcome.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section aria-labelledby="durable-state-title">
+          <ContextSectionHeading
+            id="durable-state-title"
+            title="Durable state categories"
+            description="Summaries only. Use Artifacts for document browsing and preview."
+          />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {model.stateCategories.map((state) => (
+              <div
+                key={state.id}
+                className="flex min-h-[132px] flex-col rounded-lg border border-border bg-card/25 px-3.5 py-3"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">
+                      {state.label}
+                    </div>
+                    <div className="mt-1 break-words text-sm font-semibold text-foreground/85">
+                      {formatContextValue(state.status)}
+                    </div>
+                  </div>
+                  <Badge className={contextAuthorityClass(state.authority)}>
+                    {contextAuthorityLabel(state.authority)}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground/70">
+                  {state.summary}
+                </p>
+                <div className="mt-auto pt-2 text-[10px] text-muted-foreground/45">
+                  {state.evidenceCount} supporting record
+                  {state.evidenceCount === 1 ? "" : "s"} reported
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="missing-records-title">
+          <ContextSectionHeading
+            id="missing-records-title"
+            title={`Missing records (${model.missingRecords.length})`}
+            description="The reason is primary; the expected path stays collapsed."
+          />
+          {model.missingRecords.length === 0 ? (
+            <Notice type="success">
+              No missing records were reported for the current route.
+            </Notice>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {model.missingRecords.map((record) => (
+                <div
+                  key={record.key}
+                  className={cn(
+                    "rounded-lg border px-3.5 py-3",
+                    record.impact === "blocking"
+                      ? "border-red-400/20 bg-red-400/[0.05]"
+                      : record.impact === "expected_next"
+                        ? "border-primary/20 bg-primary/[0.04]"
+                        : "border-amber-400/20 bg-amber-400/[0.04]",
+                  )}
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-foreground/85">
+                        {record.displayName}
+                      </div>
+                      <div className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/50">
+                        {record.recordType}
+                      </div>
+                    </div>
+                    <Badge
+                      className={
+                        record.impact === "blocking"
+                          ? "border-red-400/20 bg-red-400/8 text-red-300"
+                          : record.impact === "expected_next"
+                            ? "border-primary/20 bg-primary/8 text-primary"
+                            : "border-amber-400/20 bg-amber-400/8 text-amber-300"
+                      }
+                    >
+                      {record.impactLabel}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
+                    {record.reason}
+                  </p>
+                  <details className="mt-2 text-[10px] text-muted-foreground/50">
+                    <summary className="cursor-pointer select-none">
+                      Expected path
+                    </summary>
+                    <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                      {record.path}
+                    </div>
+                  </details>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="evidence-health-title">
+          <ContextSectionHeading
+            id="evidence-health-title"
+            title={`Warnings and evidence health (${model.evidenceHealth.length})`}
+            description="Blocking, warning, and informational records are separated. Historical evidence is never labeled as controlling authority."
+          />
+          {model.evidenceHealth.length === 0 ? (
+            <Notice type="success">
+              No stale, superseded, malformed, unreadable, or other warning
+              evidence was reported.
+            </Notice>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {warningGroups.map((group) =>
+                group.items.length > 0 ? (
+                  <ContextEvidenceHealthGroup
+                    key={group.severity}
+                    severity={group.severity}
+                    items={group.items}
+                  />
+                ) : null,
+              )}
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="capability-state-title">
+          <ContextSectionHeading
+            id="capability-state-title"
+            title="Available app capability context"
+            description="Only state already exposed to this renderer is reported; unavailable data is not guessed."
+          />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {model.capabilities.map((capability) => (
+              <div
+                key={capability.id}
+                className="rounded-lg border border-border bg-card/25 px-3.5 py-3"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1 text-xs font-semibold text-foreground/80">
+                    {capability.label}
+                  </div>
+                  <Badge className={capabilityStateClass(capability.state)}>
+                    {capability.statusLabel}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground/70">
+                  {capability.summary}
+                </p>
+                {capability.technicalDetail ? (
+                  <details className="mt-2 text-[10px] text-muted-foreground/50">
+                    <summary className="cursor-pointer select-none">
+                      Technical detail
+                    </summary>
+                    <div className="break-anywhere mt-1 font-mono leading-relaxed">
+                      {capability.technicalDetail}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );
+}
+
+function ContextSectionHeading({
+  id,
+  title,
+  description,
+}: {
+  id: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+      <h3 id={id} className="text-xs font-bold uppercase tracking-[0.13em] text-foreground/75">
+        {title}
+      </h3>
+      <p className="text-[10px] leading-relaxed text-muted-foreground/50">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function ContextMetadataCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-card/25 px-3 py-2.5">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
+        {label}
+      </div>
+      <div
+        className="break-words mt-1 text-xs leading-relaxed text-foreground/75"
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ContextEvidenceHealthGroup({
+  severity,
+  items,
+}: {
+  severity: "blocking" | "warning" | "info";
+  items: CurrentStepEvidenceHealthItem[];
+}) {
+  const styles = {
+    blocking: {
+      label: "Blocking",
+      border: "border-red-400/20",
+      background: "bg-red-400/[0.045]",
+      text: "text-red-300",
+    },
+    warning: {
+      label: "Warnings",
+      border: "border-amber-400/20",
+      background: "bg-amber-400/[0.04]",
+      text: "text-amber-300",
+    },
+    info: {
+      label: "Informational / historical",
+      border: "border-blue-400/20",
+      background: "bg-blue-400/[0.035]",
+      text: "text-blue-300",
+    },
+  }[severity];
+
+  return (
+    <div>
+      <div className={cn("mb-2 text-[10px] font-bold uppercase tracking-[0.12em]", styles.text)}>
+        {styles.label} ({items.length})
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {items.map((item) => (
+          <div
+            key={item.key}
+            className={cn(
+              "rounded-lg border px-3.5 py-3",
+              styles.border,
+              styles.background,
+            )}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <div className={cn("text-xs font-semibold", styles.text)}>
+                {item.label}
+              </div>
+              <Badge
+                className={
+                  item.authority === "historical"
+                    ? "border-slate-400/20 bg-slate-400/8 text-slate-300"
+                    : item.authority === "blocking"
+                      ? "border-red-400/20 bg-red-400/8 text-red-300"
+                      : "border-border bg-card/40 text-muted-foreground"
+                }
+              >
+                {item.authority === "historical"
+                  ? "Not controlling"
+                  : item.authority === "blocking"
+                    ? "Controls block"
+                    : "Supporting"}
+              </Badge>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground/75">
+              {item.summary}
+            </p>
+            <details className="mt-2 text-[10px] text-muted-foreground/50">
+              <summary className="cursor-pointer select-none">
+                Technical details
+              </summary>
+              <div className="mt-1 flex flex-col gap-1 rounded border border-border/70 bg-black/10 p-2 font-mono leading-relaxed">
+                <div>Code: {item.technicalCode}</div>
+                <div className="break-anywhere">{item.technicalMessage}</div>
+                {item.sourceArtifactPath ? (
+                  <div className="break-anywhere">{item.sourceArtifactPath}</div>
+                ) : null}
+              </div>
+            </details>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function contextAuthorityLabel(
+  authority: CurrentStepContextInspectorModel["stateCategories"][number]["authority"],
+): string {
+  return {
+    controlling: "Controls route",
+    supporting: "Supporting",
+    historical: "Historical",
+    not_reported: "Not reported",
+  }[authority];
+}
+
+function contextAuthorityClass(
+  authority: CurrentStepContextInspectorModel["stateCategories"][number]["authority"],
+): string {
+  return {
+    controlling: "border-primary/20 bg-primary/8 text-primary",
+    supporting: "border-blue-400/20 bg-blue-400/8 text-blue-300",
+    historical: "border-slate-400/20 bg-slate-400/8 text-slate-300",
+    not_reported: "border-border bg-card/40 text-muted-foreground/60",
+  }[authority];
+}
+
+function capabilityStateClass(
+  state: CurrentStepContextInspectorModel["capabilities"][number]["state"],
+): string {
+  return {
+    available: "border-emerald-400/20 bg-emerald-400/8 text-emerald-300",
+    loading: "border-amber-400/20 bg-amber-400/8 text-amber-300",
+    degraded: "border-amber-400/20 bg-amber-400/8 text-amber-300",
+    unavailable: "border-red-400/20 bg-red-400/8 text-red-300",
+    not_reported: "border-border bg-card/40 text-muted-foreground/60",
+  }[state];
+}
+
+function formatContextValue(value: string): string {
+  return value.replace(/_/g, " ");
 }
 
 function ActivityLog({
@@ -2566,14 +2706,6 @@ function PanelLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/35">
-      {children}
-    </div>
-  );
-}
-
 function InfoBlock({
   label,
   body,
@@ -2631,214 +2763,6 @@ function Notice({
       <span className="break-anywhere min-w-0">{children}</span>
     </div>
   );
-}
-
-function ArtifactLine({
-  artifact,
-}: {
-  artifact: ChampCityCurrentRequiredAction["sourceArtifacts"][number];
-}) {
-  const displayName = getArtifactDisplayName(artifact.path, artifact.role);
-
-  return (
-    <div className="rounded-md border border-border bg-white/[0.02] px-2.5 py-2 text-[11px] text-foreground/70">
-      <div className="flex min-w-0 items-start gap-2">
-        <FileText size={11} className="mt-0.5 shrink-0 text-muted-foreground/40" />
-        <div className="min-w-0 flex-1">
-          <div className="break-words font-medium leading-snug">{displayName}</div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground/50">
-            {artifact.role}
-            {artifact.status ? ` - ${artifact.status}` : ""}
-          </div>
-        </div>
-      </div>
-      <details className="mt-1.5 pl-[19px] text-[9px] text-muted-foreground/50">
-        <summary className="cursor-pointer">Path details</summary>
-        <div className="break-anywhere mt-1 font-mono leading-relaxed">
-          {artifact.path}
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function InspectorSection({
-  title,
-  items,
-}: {
-  title: string;
-  items: Array<[string, string]>;
-}) {
-  return (
-    <div>
-      <SectionLabel>{title}</SectionLabel>
-      <div className="flex flex-col gap-1.5">
-        {items.map(([label, value]) => (
-          <div key={label} className="flex flex-col gap-0.5">
-            <span className="text-[10px] leading-none text-muted-foreground/45">
-              {label}
-            </span>
-            <span className="break-anywhere text-[11px] leading-snug text-foreground/65">
-              {value}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function InspectorArtifactSection({
-  title,
-  artifacts,
-}: {
-  title: string;
-  artifacts: ChampCityCurrentRequiredAction["sourceArtifacts"];
-}) {
-  return (
-    <div>
-      <SectionLabel>{title}</SectionLabel>
-      <div className="flex flex-col gap-2">
-        {artifacts.slice(0, 6).map((artifact) => (
-          <div
-            key={`${artifact.path}|${artifact.role}`}
-            className="rounded-md border border-border bg-white/[0.025] p-2"
-          >
-            <div className="mb-1 text-[10px] text-muted-foreground/45">
-              {artifact.role}
-            </div>
-            <div className="break-all font-mono text-[10px] leading-relaxed text-foreground/65">
-              {artifact.path}
-            </div>
-          </div>
-        ))}
-        {artifacts.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground/55">
-            No evidence artifacts reported.
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function InspectorMissingSection({
-  title,
-  missing,
-}: {
-  title: string;
-  missing: ChampCityCurrentRequiredAction["missingArtifacts"];
-}) {
-  return (
-    <div>
-      <SectionLabel>{title}</SectionLabel>
-      <div className="flex flex-col gap-2">
-        {missing.slice(0, 4).map((artifact) => (
-          <div
-            key={artifact.path}
-            className="rounded-md border border-amber-400/15 bg-amber-400/[0.04] p-2"
-          >
-            <div className="break-all font-mono text-[10px] leading-relaxed text-amber-300/80">
-              {artifact.path}
-            </div>
-            <div className="break-anywhere mt-1 text-[11px] leading-relaxed text-muted-foreground/65">
-              {artifact.reason}
-            </div>
-          </div>
-        ))}
-        {missing.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground/55">
-            No missing artifacts reported.
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function InspectorWarningSection({
-  title,
-  warnings,
-  errors,
-}: {
-  title: string;
-  warnings: ChampCityCurrentRequiredActionWarning[];
-  errors: string[];
-}) {
-  const entries = [
-    ...warnings.map((warning) => ({
-      key: `${warning.code}|${warning.sourceArtifactPath ?? warning.message}`,
-      label: warning.code,
-      message: plainLanguageWarning(warning),
-      tone:
-        warning.severity === "blocking"
-          ? "text-red-300/85"
-          : "text-amber-300/85",
-    })),
-    ...errors.map((message) => ({
-      key: `error|${message}`,
-      label: "error",
-      message,
-      tone: "text-red-300/85",
-    })),
-  ];
-
-  return (
-    <div>
-      <SectionLabel>{title}</SectionLabel>
-      <div className="flex flex-col gap-2">
-        {entries.slice(0, 5).map((entry) => (
-          <div
-            key={entry.key}
-            className="rounded-md border border-amber-400/15 bg-amber-400/[0.04] p-2"
-          >
-            <div className="mb-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/45">
-              {entry.label}
-            </div>
-            <p
-              className={cn(
-                "break-anywhere text-[11px] leading-relaxed",
-                entry.tone,
-              )}
-            >
-              {entry.message}
-            </p>
-          </div>
-        ))}
-        {entries.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground/55">
-            No warnings reported.
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function plainLanguageWarning(
-  warning: ChampCityCurrentRequiredActionWarning,
-): string {
-  if (warning.code === "stale_current_executable_work_card") {
-    return "The roadmap's current Work Card label is behind the newer planning evidence. The app is following the newer Work Card records.";
-  }
-
-  if (warning.code === "superseded_phase_artifact") {
-    return "An older planning file is available for reference only. It does not control the current workflow.";
-  }
-
-  if (warning.code === "missing_stale_validation_target") {
-    return "An older validation report points to a file that is no longer present. This is historical context and does not block the current action.";
-  }
-
-  if (warning.code.endsWith("_read_warning")) {
-    return "The app could not read one supporting file, so some route context may be incomplete. The technical details identify the file.";
-  }
-
-  if (warning.code.endsWith("_json_invalid")) {
-    return "A supporting planning file is not valid JSON, so some route context may be missing. The technical details identify the file.";
-  }
-
-  return warning.message;
 }
 
 function roleLabel(role: string): string {

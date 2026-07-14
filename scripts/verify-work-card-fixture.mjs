@@ -925,6 +925,11 @@ async function assertCurrentRequiredActionModel() {
       "repair_implementer_handoff_required",
       "repair_validation_required",
     ],
+    WC08: [
+      "implementer_report_required",
+      "architect_review_of_implementer_report_required",
+      "operator_validation_required",
+    ],
   };
   const liveWorkCardId = liveCurrentAction.currentAction.workCardId;
 

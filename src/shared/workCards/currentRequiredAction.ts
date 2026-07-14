@@ -1,3 +1,8 @@
+import {
+  buildCurrentStepRouteContext,
+  type CurrentStepRouteContext,
+} from "./currentStepContextInspector";
+
 export const lockedWorkflowSteps = [
   "Project Intake",
   "Project Interview",
@@ -175,6 +180,7 @@ export interface CurrentRequiredActionState {
 export interface CurrentRequiredActionResult {
   ok: boolean;
   currentAction?: CurrentRequiredAction;
+  routeContext?: CurrentStepRouteContext;
   workflowSteps: readonly LockedWorkflowStep[];
   errorMessages?: string[];
 }
@@ -650,9 +656,12 @@ export function buildCurrentRequiredActionResult(
   state: CurrentRequiredActionState,
 ): CurrentRequiredActionResult {
   try {
+    const currentAction = evaluateCurrentRequiredAction(state);
+
     return {
       ok: true,
-      currentAction: evaluateCurrentRequiredAction(state),
+      currentAction,
+      routeContext: buildCurrentStepRouteContext(state, currentAction),
       workflowSteps: lockedWorkflowSteps,
     };
   } catch (error) {
