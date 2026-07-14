@@ -804,6 +804,17 @@ async function assertCurrentRequiredActionModel() {
       );
       process.exit(1);
     }
+
+    if (
+      !action.sourceArtifacts.some((source) =>
+        source.path.includes("/Validation_Reports/VALIDATION_REPORT_WC01_"),
+      )
+    ) {
+      console.error(
+        `Operator decision ${decision} repair validation should retain the failed parent Validation Report as source evidence. Sources: ${action.sourceArtifacts.map((source) => source.path).join(", ")}`,
+      );
+      process.exit(1);
+    }
   }
 
   const passingDecisionOverrideAction = evaluateCurrentRequiredAction(
@@ -904,6 +915,15 @@ async function assertCurrentRequiredActionModel() {
     ],
     WC06: [
       "operator_validation_required",
+    ],
+    WC07: [
+      "implementer_report_required",
+      "architect_review_of_implementer_report_required",
+      "operator_validation_required",
+    ],
+    "WC07-REPAIR01": [
+      "repair_implementer_handoff_required",
+      "repair_validation_required",
     ],
   };
   const liveWorkCardId = liveCurrentAction.currentAction.workCardId;

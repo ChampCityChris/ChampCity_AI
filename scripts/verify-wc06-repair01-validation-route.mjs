@@ -37,6 +37,14 @@ assert.match(
   "The fixture must exercise the route-blocked WC06 validation attempt.",
 );
 
+const passingRepairValidation = JSON.parse(
+  readRepositoryFile(
+    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+  ),
+);
+assert.equal(passingRepairValidation.validationResult, "Pass");
+assert.equal(passingRepairValidation.operatorDecision, "Passed - proceed");
+
 const currentActionResult = await getCurrentRequiredAction();
 assert.equal(
   currentActionResult.ok,
@@ -45,46 +53,28 @@ assert.equal(
 );
 
 const currentAction = currentActionResult.currentAction;
-assert.equal(currentAction?.workCardId, "WC06");
-assert.notEqual(currentAction?.workCardId, "WC07");
-assert.equal(currentAction?.id, "operator_validation_required");
+assert.equal(currentAction?.workCardId, "WC07-REPAIR01");
+assert.equal(currentAction?.id, "repair_validation_required");
 assert.notEqual(currentAction?.id, "full_work_card_creation_required");
 assert.equal(currentAction?.responsibleRole, "operator");
 assert.equal(currentAction?.status, "needs_validation");
 
-const sourcePaths = new Set(
-  currentAction?.sourceArtifacts.map((artifact) => artifact.path),
-);
-for (const expectedPath of [
-  "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
-  "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
-  "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md",
+const architectReview = readRepositoryFile(
   "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
-  "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
-]) {
-  assert.equal(
-    sourcePaths.has(expectedPath),
-    true,
-    `WC06 current-action evidence is missing ${expectedPath}.`,
-  );
-}
-
-const architectReviewEvidence = currentAction?.sourceArtifacts.find(
-  (artifact) => artifact.role === "Architect Review",
 );
 assert.match(
-  architectReviewEvidence?.status ?? "",
+  architectReview,
   /ready for operator validation/i,
-  "The WC06 Architect Review outcome must be recognized as ready for Operator validation.",
+  "The WC06 Architect Review must retain its ready-for-validation decision.",
 );
 
 const workflowGuide = resolveWorkflowVisibility(currentAction);
 assert.equal(workflowGuide.activeStepLabel, "Work Card Loop");
 assert.equal(
   workflowGuide.workCardLoopStages.find(
-    (stage) => stage.id === "operator-validation",
+    (stage) => stage.id === "validation-again",
   )?.state,
-  "current",
+  "repair",
 );
 
 const navigationItems = Object.freeze([
