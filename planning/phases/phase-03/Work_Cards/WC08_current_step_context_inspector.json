@@ -1,0 +1,121 @@
+{
+  "id": "WC08",
+  "title": "Current Step Context Inspector",
+  "phaseId": "phase-03",
+  "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+  "status": "ready_for_implementer",
+  "created": "2026-07-14",
+  "order": 8,
+  "dependencies": [
+    "WC02",
+    "WC03",
+    "WC07",
+    "WC07-REPAIR01"
+  ],
+  "candidateSource": {
+    "path": "planning/phases/phase-03/Work_Card_Plan.md",
+    "candidateTitle": "WC08 — Current Step Context Inspector",
+    "candidatePurpose": "Let the Operator see the durable-state evidence behind the routed current action.",
+    "candidateSummary": "Map a context inspector that shows current project/phase state, relevant artifact paths, missing records, stale/superseded artifacts, MCP/write availability, and why the current step is available or blocked."
+  },
+  "purpose": "Let the Operator inspect why the app selected the current required action without adding another permanent, duplicative workspace surface.",
+  "humanProblem": "The Operator needs to understand why ChampCity A/I believes the current action is correct, but the UI must not reintroduce the duplicated panes and context surfaces repaired in WC07-REPAIR01.",
+  "sourceAuthority": [
+    "planning/phases/phase-03/Work_Card_Plan.md",
+    "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md",
+    "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.json",
+    "planning/project/Project_Observation_Register.md",
+    "planning/project/Project_Observation_Register.json",
+    "planning/phases/phase-03/Observation_Register.md",
+    "planning/phases/phase-03/Observation_Register.json"
+  ],
+  "carriedForwardObservationsIncluded": [
+    {
+      "projectObservationId": "PROJ-OBS-004",
+      "phaseObservationId": "PH03-OBS-007",
+      "title": "Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate",
+      "source": "planning/project/Project_Observation_Register.md; planning/phases/phase-03/Observation_Register.md",
+      "reasonIncluded": "WC08 risks adding another context surface. The inspector must avoid worsening top-level navigation clutter and must not add another always-visible pane or duplicate Supporting Tools/action-bar information.",
+      "acceptanceImpact": "WC08 must provide context through a collapsible, tabbed, or otherwise subordinate inspector; it must not add persistent workspace clutter."
+    }
+  ],
+  "openObservationsReviewedButNotIncluded": [
+    {
+      "projectObservationId": "PROJ-OBS-001",
+      "phaseObservationId": "PH03-OBS-001",
+      "title": "Validation checklist should become editable / structured",
+      "dispositionForWC08": "Not in scope; belongs to WC12 or later validation-record workflow work."
+    },
+    {
+      "projectObservationId": "PROJ-OBS-002",
+      "phaseObservationId": "PH03-OBS-002",
+      "title": "Screenshot paste and evidence UI needs cleanup",
+      "dispositionForWC08": "Not in scope; belongs to WC12 or later validation evidence UX work."
+    },
+    {
+      "projectObservationId": "PROJ-OBS-003",
+      "phaseObservationId": "PH03-OBS-005",
+      "title": "Multi-project / workspace support does not exist",
+      "dispositionForWC08": "Not in scope; belongs to a future project/workspace management phase."
+    }
+  ],
+  "requiredDesignModel": {
+    "leftPanelOwnership": "Left panel remains compact current-action summary only and must not regain source-evidence, missing-evidence, route-outcome, warning, or raw-path stacks.",
+    "centerWorkspaceOwnership": "Center workspace owns current work and artifact review. The context inspector may be tabbed, collapsible, or dismissible, but must not compete with artifacts or the current-action form.",
+    "supportingScreenMode": "Supporting/reference screens must not render the full current-step context inspector as their own content."
+  },
+  "requiredFunctionalBehavior": [
+    "Provide readable route explanation from current required action model.",
+    "Show durable project, phase, Work Card, Implementer Report, Architect Review, validation, repair, closeout, roadmap, and next-phase state categories when available.",
+    "Explain missing records with type, reason, and secondary/collapsed path detail.",
+    "Surface stale, superseded, malformed, unreadable, and warning evidence in plain language before technical detail.",
+    "Expose app read/write or capability state only when available; otherwise state that it is not reported by current app state.",
+    "Keep the inspector read-only and non-mutating.",
+    "Preserve artifact-review and current-action form usability."
+  ],
+  "acceptanceCriteria": [
+    "A current-action context inspector is available from the routed current-action workspace.",
+    "The inspector explains why the current action was selected using human-readable labels.",
+    "The inspector shows project, phase, Work Card, report, review, validation, and repair state categories when available.",
+    "Missing records are explained with type, reason, and secondary/collapsed path detail.",
+    "Warnings are grouped by severity and use plain-language wording before technical detail.",
+    "Stale/superseded/historical records are not presented as controlling workflow authority.",
+    "Read/write or app capability state is shown only when available; otherwise the UI says it is not reported.",
+    "The inspector is read-only and does not mutate workflow state.",
+    "The inspector does not add another always-visible pane competing with the workspace.",
+    "The left panel remains compact and does not regain artifact/source/missing/warning stacks.",
+    "Supporting/reference screens do not render the full context inspector as if it were their own content.",
+    "WC07 artifact review remains the owner of artifact browsing/preview.",
+    "Artifacts and Complete current action remain easy to reach.",
+    "WC04, WC05, WC06, and WC07-REPAIR01 behavior remains preserved.",
+    "WC09-WC15 behavior is not implemented.",
+    "BUILDER_REPORT_WC08_current_step_context_inspector.md is created."
+  ],
+  "validationExpectations": [
+    "Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before validation.",
+    "Run the approved normal Windows validation lane.",
+    "Run type/build validation.",
+    "Run current-action-only fixture validation if affected.",
+    "Run WC04/WC05/WC06/WC07 focused fixtures if affected.",
+    "Add or update a focused WC08 fixture verifying layout ownership, read-only behavior, warning/missing record presentation, and non-duplication of WC07 artifact review.",
+    "Run local safety scans before staging.",
+    "Do not perform Operator validation."
+  ],
+  "outOfScope": [
+    "WC09-WC15 implementation",
+    "full app shell redesign",
+    "full WC06 workflow guide redesign/removal",
+    "full Supporting Tools redesign unless narrowly required to prevent WC08 duplication",
+    "validation checklist authoring improvements",
+    "screenshot paste/evidence cleanup",
+    "multi-project/workspace management",
+    "unrestricted renderer filesystem access",
+    "provider SDKs, database, cloud services, authentication, MCP integration, connector behavior, deployment, release, or packaging changes",
+    "Operator validation record creation",
+    "merge to dev",
+    "push to master"
+  ],
+  "requiredBuilderReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md",
+  "targetBranch": "feature/phase-03-wc08-current-step-context-inspector",
+  "baseBranch": "dev"
+}
