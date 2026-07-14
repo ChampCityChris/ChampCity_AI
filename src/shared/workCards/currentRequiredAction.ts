@@ -119,6 +119,8 @@ export interface CurrentActionWorkCardCandidate {
 export interface CurrentActionValidationState {
   result?: string;
   decision?: string;
+  architectDispositionPending?: boolean;
+  legacyOperatorDecision?: string;
   repairRequired?: boolean;
   routeBlocked?: boolean;
   sourceArtifacts: CurrentActionArtifactReference[];
@@ -758,6 +760,22 @@ function evaluateWorkCardState(
     ...workCard.sourceArtifacts,
   ]);
 
+  if (workCard.validation?.architectDispositionPending) {
+    return architectValidationDispositionAction(
+      phase,
+      workCard.workCardId,
+      workCard.title,
+      workCard.validation,
+      uniqueArtifacts([
+        ...workCardSources,
+        workCard.implementerReport,
+        workCard.architectReview?.sourceArtifact,
+        ...workCard.validation.sourceArtifacts,
+      ]),
+      warnings,
+    );
+  }
+
   if (isFailingValidation(workCard.validation)) {
     return evaluateRepairRoute(
       phase,
@@ -875,7 +893,15 @@ function evaluateWorkCardState(
     workCard.implementerReport,
   ]);
 
-  if (!workCard.architectReview || reportReceivedStatuses.has(status)) {
+  const architectReviewIncomplete = isArchitectReviewIncomplete(
+    workCard.architectReview,
+  );
+
+  if (
+    !workCard.architectReview ||
+    reportReceivedStatuses.has(status) ||
+    architectReviewIncomplete
+  ) {
     const expectedPath = `planning/phases/${phase.phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${workCard.workCardId}_${slugifyForPath(workCard.title)}.md`;
 
     return action(warnings, {
@@ -891,7 +917,9 @@ function evaluateWorkCardState(
       workCardTitle: workCard.title,
       status: "needs_review",
       reason:
-        "The locked workflow routes Implementer Reports to Architect review before validation.",
+        architectReviewIncomplete
+          ? "The Architect Review uses the standard output shape but is incomplete. A Ready for Operator validation decision requires substantive Operator Validation Steps."
+          : "The locked workflow routes Implementer Reports to Architect review before validation.",
       sourceArtifacts: reportSources,
       missingArtifacts: [
         {
@@ -903,7 +931,7 @@ function evaluateWorkCardState(
         path: expectedPath,
         artifactType: "Architect Review",
         description:
-          "Review decision that either routes to Operator validation or repair.",
+          "Standard Architect Review with decision, compliance, evidence assessment, Observation Register impact, Operator Validation Steps, and required repair scope.",
       },
       successRoute: "Operator validation",
       repairRoute: "Repair sub-card creation if Architect review finds defects.",
@@ -1061,6 +1089,21 @@ function evaluateRepairRoute(
       successRoute: "Repair validation",
       manualFallback: fallback(expectedPath),
     });
+  }
+
+  if (repair.validation?.architectDispositionPending) {
+    return architectValidationDispositionAction(
+      phase,
+      repairId,
+      workCard.title,
+      repair.validation,
+      uniqueArtifacts([
+        ...repairSources,
+        repair.implementerReport,
+        ...repair.validation.sourceArtifacts,
+      ]),
+      warnings,
+    );
   }
 
   if (!isPassingValidation(repair.validation)) {
@@ -1241,7 +1284,11 @@ function isCandidateResolved(
 function isFailingValidation(
   validation: CurrentActionValidationState | undefined,
 ): boolean {
-  if (!validation || validation.routeBlocked) {
+  if (
+    !validation ||
+    validation.routeBlocked ||
+    validation.architectDispositionPending
+  ) {
     return false;
   }
 
@@ -1270,10 +1317,22 @@ function architectReviewRequiresRepair(
   );
 }
 
+function isArchitectReviewIncomplete(
+  review: CurrentActionArchitectReviewState | undefined,
+): boolean {
+  return /architect.*review.*incomplete|operator.*validation.*steps.*required/.test(
+    normalizeStatus(review?.status),
+  );
+}
+
 function isPassingValidation(
   validation: CurrentActionValidationState | undefined,
 ): boolean {
-  if (!validation || isFailingValidation(validation)) {
+  if (
+    !validation ||
+    validation.architectDispositionPending ||
+    isFailingValidation(validation)
+  ) {
     return false;
   }
 
@@ -1281,10 +1340,62 @@ function isPassingValidation(
   const decision = normalizeStatus(validation.decision);
 
   if (decision.length > 0) {
-    return decision === "passed_proceed" || decision === "passed";
+    return [
+      "passed_proceed",
+      "passed",
+      "mergeable",
+      "ready_to_merge",
+      "no_action_required",
+      "pass_with_observation",
+      "pass_with_observations",
+      "carry_forward_observation",
+      "future_scope_product_backlog",
+    ].includes(decision);
   }
 
-  return result === "pass" || result === "passed";
+  return ["pass", "passed", "pass_with_concerns"].includes(result);
+}
+
+function architectValidationDispositionAction(
+  phase: CurrentActionPhaseState,
+  targetId: string,
+  targetTitle: string,
+  validation: CurrentActionValidationState,
+  sourceArtifacts: CurrentActionArtifactReference[],
+  warnings: CurrentRequiredActionWarning[],
+): CurrentRequiredAction {
+  const validationArtifact = validation.sourceArtifacts.find((artifactRef) =>
+    /validation report/i.test(artifactRef.role),
+  );
+
+  return action(warnings, {
+    id: "architect_review_of_validation_report_required",
+    workflowStep: "Work Card Loop",
+    title: "Architect review of Validation Report required",
+    summary:
+      "Operator validation evidence is recorded and awaits Architect disposition.",
+    responsibleRole: "architect",
+    phaseId: phase.phaseId,
+    phaseTitle: phase.phaseTitle,
+    workCardId: targetId,
+    workCardTitle: targetTitle,
+    status: "needs_review",
+    reason:
+      "Validation Result records the functional outcome, but merge, repair, deferral, backlog, and no-action routing remain pending until Architect review.",
+    sourceArtifacts,
+    missingArtifacts: [],
+    expectedOutput: {
+      path: validationArtifact?.path,
+      artifactType: "Architect validation disposition",
+      description:
+        "Complete the pending Architect Disposition using the embedded review instructions and standard output shape.",
+    },
+    successRoute: "Next Work Card candidate or Phase Closeout",
+    repairRoute: "Create an exact-scope repair Work Card if Architect review requires it.",
+    manualFallback: validationArtifact
+      ? fallback(validationArtifact.path)
+      : undefined,
+  });
 }
 
 function normalizeStatus(value: string | undefined): string {

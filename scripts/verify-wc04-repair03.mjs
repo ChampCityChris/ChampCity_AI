@@ -79,7 +79,7 @@ const preview = await previewHumanValidationRecord({
     "WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
   builderReportFileName:
     "BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
-  validationResult: "Not Tested",
+  validationResult: "Not tested",
   testedItems: "",
   passedItems: "",
   failedItems: "",
@@ -88,7 +88,6 @@ const preview = await previewHumanValidationRecord({
   commandsRun: "",
   observedErrors: "",
   additionalOperatorObservations: "",
-  operatorDecision: "Deferred - not validated yet",
   recommendedNextAction: "",
 });
 
@@ -110,7 +109,7 @@ const fallbackPreview = await previewHumanValidationRecord({
     "WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
   validationTargetFileName:
     "WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
-  validationResult: "Not Tested",
+  validationResult: "Not tested",
   testedItems: "",
   passedItems: "",
   failedItems: "",
@@ -119,7 +118,6 @@ const fallbackPreview = await previewHumanValidationRecord({
   commandsRun: "",
   observedErrors: "",
   additionalOperatorObservations: "",
-  operatorDecision: "Deferred - not validated yet",
   recommendedNextAction: "",
 });
 

@@ -264,7 +264,7 @@ const initialWorkCardForm: ChampCityWorkCardDraftInput = {
 };
 
 const initialHumanValidationForm: HumanValidationDraft = {
-  validationResult: "Not Tested",
+  validationResult: "Not tested",
   testedItems: "",
   passedItems: "",
   failedItems: "",
@@ -273,7 +273,6 @@ const initialHumanValidationForm: HumanValidationDraft = {
   commandsRun: "",
   observedErrors: "",
   additionalOperatorObservations: "",
-  operatorDecision: "Deferred - not validated yet",
   recommendedNextAction: "",
 };
 
@@ -6530,8 +6529,8 @@ function HumanValidationScreen({
 
         setStatusMessage(
           result.shouldGenerateRepairPrompt
-            ? "Validation preview generated. Repair prompt will be saved."
-            : "Validation preview generated.",
+            ? "Architect disposition requires repair. Repair prompt will be saved."
+            : "Validation preview generated. Architect disposition is pending.",
         );
       })
       .catch(() => {
@@ -6797,33 +6796,13 @@ function HumanValidationScreen({
                     )
                   }
                 >
-                  {["Pass", "Fail", "Partial", "Blocked", "Not Tested"].map(
-                    (option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </Field>
-              <Field label="Operator decision">
-                <select
-                  className={selectCls}
-                  value={form.operatorDecision}
-                  onChange={(event) =>
-                    updateForm(
-                      "operatorDecision",
-                      event.target.value as ChampCityHumanValidationOperatorDecision,
-                    )
-                  }
-                >
                   {[
-                    "Passed - proceed",
-                    "Failed - repair needed",
-                    "Partial - repair or follow-up needed",
-                    "Blocked - operator/build environment issue",
-                    "Deferred - not validated yet",
-                    "Different problem found - open new Work Card",
+                    "Pass",
+                    "Pass with concerns",
+                    "Partial",
+                    "Fail",
+                    "Not tested",
+                    "Blocked",
                   ].map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -6831,7 +6810,18 @@ function HumanValidationScreen({
                   ))}
                 </select>
               </Field>
+              <Field label="Architect disposition">
+                <div className="rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
+                  Pending Architect review
+                </div>
+              </Field>
             </FieldRow>
+            <Notice type="info">
+              Use <strong>Concern</strong> for a non-blocking item-level issue and
+              <strong> Fail</strong> only when an acceptance criterion was not
+              satisfied enough to pass. The Architect decides merge, repair,
+              deferral, and backlog disposition after reviewing this evidence.
+            </Notice>
             <TextAreaField
               label="What was tested?"
               value={form.testedItems}
@@ -6941,7 +6931,7 @@ function HumanValidationScreen({
               }
             />
             <TextAreaField
-              label="Recommended next action"
+              label="Operator suggested follow-up (advisory)"
               value={form.recommendedNextAction}
               rows={2}
               onChange={(value) => updateForm("recommendedNextAction", value)}
@@ -8386,9 +8376,15 @@ function ValidationStatusCard({
           }
         />
         <SummaryItem
-          label="Latest Operator decision"
-          value={status.operatorDecision}
+          label="Architect disposition"
+          value={status.architectDisposition}
         />
+        {status.legacyOperatorDecision ? (
+          <SummaryItem
+            label="Legacy Operator Decision (advisory)"
+            value={status.legacyOperatorDecision}
+          />
+        ) : null}
         <SummaryItem
           label="Report JSON"
           value={status.validationReportJsonFile}
@@ -9050,8 +9046,9 @@ function RepairPromptState({
 
   return (
     <Notice type="info">
-      No Repair Implementer Prompt will be generated for the current result and
-      Operator decision.
+      No Repair Implementer Prompt will be generated while Architect disposition
+      is pending. Validation Result records the functional outcome; it does not
+      decide workflow routing by itself.
     </Notice>
   );
 }
@@ -10257,7 +10254,7 @@ function validationResultColor(result: string): string {
     return "border-red-400/20 bg-red-400/10 text-red-300";
   }
 
-  if (result === "Partial") {
+  if (result === "Partial" || result === "Pass with concerns") {
     return "border-amber-400/20 bg-amber-400/10 text-amber-300";
   }
 
@@ -10271,29 +10268,25 @@ function validationResultColor(result: string): string {
 function validationStatusLabel(
   status: ChampCityHumanValidationStatusSummary,
 ): string {
-  const decision = status.operatorDecision.toLowerCase();
+  const disposition = status.architectDisposition.toLowerCase();
 
-  if (decision.startsWith("deferred")) {
-    return "Deferred";
+  if (disposition.includes("pending architect review")) {
+    return "Pending Architect review";
   }
 
-  if (decision.startsWith("failed") || status.validationResult === "Fail") {
-    return "Failed";
+  if (disposition.includes("repair required")) {
+    return "Repair required";
   }
 
-  if (decision.startsWith("blocked") || status.validationResult === "Blocked") {
+  if (disposition.includes("blocked") || status.validationResult === "Blocked") {
     return "Blocked";
   }
 
-  if (decision.startsWith("partial") || status.validationResult === "Partial") {
-    return "Partial";
+  if (disposition.includes("not recorded")) {
+    return "Legacy report - Architect review not recorded";
   }
 
-  if (decision.startsWith("passed") && status.validationResult === "Pass") {
-    return "Passed";
-  }
-
-  return "Recorded — review decision";
+  return "Architect reviewed";
 }
 
 function validationStatusColor(
@@ -10301,11 +10294,11 @@ function validationStatusColor(
 ): string {
   const label = validationStatusLabel(status);
 
-  if (label === "Passed") {
-    return validationResultColor("Pass");
+  if (label === "Architect reviewed") {
+    return validationResultColor(status.validationResult);
   }
 
-  if (label === "Failed") {
+  if (label === "Repair required") {
     return validationResultColor("Fail");
   }
 
@@ -10313,11 +10306,14 @@ function validationStatusColor(
     return validationResultColor("Blocked");
   }
 
-  if (label === "Partial" || label === "Deferred") {
+  if (
+    label === "Pending Architect review" ||
+    label === "Legacy report - Architect review not recorded"
+  ) {
     return validationResultColor("Partial");
   }
 
-  return validationResultColor("Not Tested");
+  return validationResultColor("Not tested");
 }
 
 function validationStatusContainerColor(
@@ -10325,11 +10321,11 @@ function validationStatusContainerColor(
 ): string {
   const label = validationStatusLabel(status);
 
-  if (label === "Passed") {
+  if (label === "Architect reviewed" && status.validationResult === "Pass") {
     return "border-emerald-400/20 bg-emerald-400/[0.04]";
   }
 
-  if (label === "Failed") {
+  if (label === "Repair required") {
     return "border-red-400/20 bg-red-400/[0.04]";
   }
 
@@ -10337,7 +10333,10 @@ function validationStatusContainerColor(
     return "border-orange-400/20 bg-orange-400/[0.04]";
   }
 
-  if (label === "Partial" || label === "Deferred") {
+  if (
+    label === "Pending Architect review" ||
+    label === "Legacy report - Architect review not recorded"
+  ) {
     return "border-amber-400/20 bg-amber-400/[0.04]";
   }
 

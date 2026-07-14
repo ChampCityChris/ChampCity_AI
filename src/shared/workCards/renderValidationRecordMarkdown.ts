@@ -1,5 +1,11 @@
 import type { HumanValidationRecord } from "./validationRecord";
 import { validateHumanValidationRecord } from "./validationRecord";
+import {
+  architectDispositionLines,
+  validationArchitectReviewInstructionLines,
+  validationFieldSemanticsLines,
+  validationItemResultValues,
+} from "./reportReviewProtocol";
 
 export const validationRecordNonMutatingNote =
   "This Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.";
@@ -51,6 +57,17 @@ export function renderValidationRecordMarkdown(
     `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
   );
 
+  const legacyOperatorDecisionLines = record.operatorDecision
+    ? [
+        "## Legacy Operator Decision (Deprecated / Advisory)",
+        "",
+        record.operatorDecision,
+        "",
+        "This legacy field is advisory context only. It is not final routing authority and must not be the sole trigger for repair, merge, or deferral.",
+        "",
+      ]
+    : [];
+
   return [
     `# Human Validation Report - ${targetId} ${targetTitle}`,
     "",
@@ -61,6 +78,12 @@ export function renderValidationRecordMarkdown(
     "## Validation Result",
     "",
     record.validationResult,
+    "",
+    "## Acceptance-Criteria Item Result Guidance",
+    "",
+    `Use item-level results where feasible: ${validationItemResultValues.join(
+      ", ",
+    )}. A Concern is non-blocking unless the evidence shows an acceptance criterion was not satisfied enough to pass.`,
     "",
     "## What Was Tested?",
     "",
@@ -94,13 +117,16 @@ export function renderValidationRecordMarkdown(
     "",
     formatText(record.additionalOperatorObservations),
     "",
-    "## Operator Decision",
-    "",
-    record.operatorDecision,
-    "",
-    "## Recommended Next Action",
+    "## Operator Suggested Follow-up (Advisory)",
     "",
     formatText(record.recommendedNextAction),
+    "",
+    ...legacyOperatorDecisionLines,
+    ...validationFieldSemanticsLines(),
+    "",
+    ...validationArchitectReviewInstructionLines(),
+    "",
+    ...architectDispositionLines(record.architectDisposition),
     "",
     "## Generated Timestamp",
     "",

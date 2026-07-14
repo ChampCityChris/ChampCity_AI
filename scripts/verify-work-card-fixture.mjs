@@ -271,13 +271,19 @@ const {
   buildHumanValidationRecord,
   buildValidationReportJsonFileName,
   buildValidationReportMarkdownFileName,
-  differentProblemFoundGuidance,
   extractManualValidationChecklist,
   noBuilderReportSelectedWarning,
   shouldGenerateRepairPrompt,
   validateHumanValidationRecord,
   validateValidationReportFileName,
 } = require("../dist/shared/workCards/validationRecord.js");
+const {
+  architectReviewOutputTemplateLines,
+  pendingArchitectDisposition,
+} = require("../dist/shared/workCards/reportReviewProtocol.js");
+const {
+  validateArchitectReview,
+} = require("../dist/shared/workCards/validateArchitectReview.js");
 const {
   routeWorkCardRisk,
 } = require("../dist/shared/workCards/riskRouter.js");
@@ -337,6 +343,15 @@ const {
 if (process.argv.includes("--current-action-only")) {
   await assertCurrentRequiredActionModel();
   console.log("Current required action fixture validation passed.");
+  process.exit(0);
+}
+
+if (process.argv.includes("--report-protocol-only")) {
+  assertBuilderPrompt();
+  await assertBuilderReportCapture();
+  await assertHumanValidationAndRepair();
+  await assertCurrentRequiredActionModel(true);
+  console.log("Report review protocol fixture validation passed.");
   process.exit(0);
 }
 
@@ -555,7 +570,7 @@ await assertCurrentRequiredActionModel();
 
 console.log("Work Card fixture validation passed.");
 
-async function assertCurrentRequiredActionModel() {
+async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false) {
   if (
     !lockedWorkflowSteps.includes("Project Intake") ||
     !lockedWorkflowSteps.includes("Work Card Loop") ||
@@ -638,6 +653,23 @@ async function assertCurrentRequiredActionModel() {
               status: "Ready for Operator Validation",
               sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
             },
+          }),
+        ],
+      },
+    })],
+    ["architect_review_of_validation_report_required", makeCurrentActionState({
+      activePhase: {
+        workCards: [
+          workCard({
+            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            architectReview: {
+              status: "Ready for Operator Validation",
+              sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
+            },
+            validation: validation("Partial", pendingArchitectDisposition, false, {
+              architectDispositionPending: true,
+              legacyOperatorDecision: "Partial - repair or follow-up needed",
+            }),
           }),
         ],
       },
@@ -744,18 +776,12 @@ async function assertCurrentRequiredActionModel() {
     }
   }
 
-  const unresolvedOperatorDecisions = [
-    "Deferred - not validated yet",
-    "Not validated yet",
-    "Failed - repair needed",
-    "Fail",
-    "Blocked - operator/build environment issue",
-    "Partial - repair or follow-up needed",
-    "Rejected",
-    "Repair required",
+  const unresolvedArchitectDispositions = [
+    "Repair required before Operator validation",
+    "Blocked / incomplete",
   ];
 
-  for (const decision of unresolvedOperatorDecisions) {
+  for (const decision of unresolvedArchitectDispositions) {
     const action = evaluateCurrentRequiredAction(
       makeCurrentActionState({
         activePhase: {
@@ -800,7 +826,7 @@ async function assertCurrentRequiredActionModel() {
       action.workCardId !== "WC01-REPAIR01"
     ) {
       console.error(
-        `Operator decision ${decision} should keep WC01 on repair validation, got ${action.workCardId ?? "none"}/${action.id}.`,
+        `Architect disposition ${decision} should keep WC01 on repair validation, got ${action.workCardId ?? "none"}/${action.id}.`,
       );
       process.exit(1);
     }
@@ -811,7 +837,7 @@ async function assertCurrentRequiredActionModel() {
       )
     ) {
       console.error(
-        `Operator decision ${decision} repair validation should retain the failed parent Validation Report as source evidence. Sources: ${action.sourceArtifacts.map((source) => source.path).join(", ")}`,
+        `Architect disposition ${decision} repair validation should retain the failed parent Validation Report as source evidence. Sources: ${action.sourceArtifacts.map((source) => source.path).join(", ")}`,
       );
       process.exit(1);
     }
@@ -838,7 +864,7 @@ async function assertCurrentRequiredActionModel() {
         ],
         workCards: [
           workCard({
-            validation: validation("Fail", "Passed - proceed", false),
+            validation: validation("Fail", "Mergeable", false),
           }),
         ],
       },
@@ -850,7 +876,47 @@ async function assertCurrentRequiredActionModel() {
     passingDecisionOverrideAction.workCardId !== "WC02"
   ) {
     console.error(
-      "A passing Operator decision should override a conflicting raw failure and resolve WC01.",
+      "A final mergeable Architect disposition should override a conflicting raw failure and resolve WC01.",
+    );
+    process.exit(1);
+  }
+
+  const legacyOperatorAdvisoryAction = evaluateCurrentRequiredAction(
+    makeCurrentActionState({
+      activePhase: {
+        workCardCandidates: [
+          {
+            workCardId: "WC01",
+            title: "Fixture Work Card",
+            order: 1,
+            status: "planned",
+            sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+          },
+          {
+            workCardId: "WC02",
+            title: "Next Fixture Work Card",
+            order: 2,
+            status: "planned",
+            sourceArtifact: artifact("planning/phases/phase-99/Work_Card_Plan.md", "Mapped Work Card candidate"),
+          },
+        ],
+        workCards: [
+          workCard({
+            validation: validation("Pass", undefined, false, {
+              legacyOperatorDecision: "Failed - repair needed",
+            }),
+          }),
+        ],
+      },
+    }),
+  );
+
+  if (
+    legacyOperatorAdvisoryAction.id !== "full_work_card_creation_required" ||
+    legacyOperatorAdvisoryAction.workCardId !== "WC02"
+  ) {
+    console.error(
+      "Legacy Operator Decision incorrectly controlled current-action routing.",
     );
     process.exit(1);
   }
@@ -875,6 +941,10 @@ async function assertCurrentRequiredActionModel() {
   ) {
     console.error("Current-action warnings did not preserve stale target references.");
     process.exit(1);
+  }
+
+  if (skipLiveRepositoryCheck) {
+    return;
   }
 
   const liveCurrentAction = await getCurrentRequiredAction();
@@ -1371,6 +1441,10 @@ function assertBuilderPrompt() {
     "git status --short --branch",
     "git remote -v",
     "Implementer Report Requirement",
+    "## Architect Review Instructions",
+    "## Architect Review Decision",
+    "## Observation Register Impact",
+    "## Operator Validation Steps",
     "BUILDER_REPORT_WC05_generate_builder_prompt.md",
     "Do not push unless explicitly instructed.",
     "Do not create a release tag unless explicitly instructed.",
@@ -1462,6 +1536,11 @@ async function assertBuilderReportCapture() {
     "",
     "## Recommended Next Builder Task",
     "Operator should manually validate the screen.",
+    "",
+    "## Architect Review Instructions",
+    "The Architect must not rely only on this report's claims.",
+    "Ready for Operator validation requires Operator Validation Steps.",
+    "Observation Register impact must be assessed.",
   ].join("\n");
   const completeValidation = validateBuilderReport(completeReport);
 
@@ -1865,7 +1944,6 @@ async function assertHumanValidationAndRepair() {
     commandsRun: "npm start",
     observedErrors: "No repair prompt preview was visible.",
     additionalOperatorObservations: "The validation record should remain non-mutating.",
-    operatorDecision: "Failed - repair needed",
     recommendedNextAction: "Repair the missing prompt preview.",
   };
   const record = buildHumanValidationRecord(
@@ -1883,6 +1961,16 @@ async function assertHumanValidationAndRepair() {
     process.exit(1);
   }
 
+  if (
+    Object.hasOwn(record, "operatorDecision") ||
+    record.architectDisposition !== pendingArchitectDisposition
+  ) {
+    console.error(
+      "New Human Validation records must omit Operator Decision and set Architect Disposition pending.",
+    );
+    process.exit(1);
+  }
+
   const validationMarkdown = renderValidationRecordMarkdown(record);
   const requiredValidationText = [
     "# Human Validation Report - WC07 Human validation and repair loop",
@@ -1897,8 +1985,11 @@ async function assertHumanValidationAndRepair() {
     "## Manual Commands Run",
     "## Observed Errors",
     "## Additional Operator Observations",
-    "## Operator Decision",
-    "## Recommended Next Action",
+    "## Operator Suggested Follow-up (Advisory)",
+    "## Field Semantics",
+    "## Architect Review Instructions",
+    "## Architect Disposition",
+    "Status: Pending Architect review",
     validationRecordNonMutatingNote,
   ];
   const missingValidationText = requiredValidationText.filter(
@@ -1910,6 +2001,41 @@ async function assertHumanValidationAndRepair() {
     for (const text of missingValidationText) {
       console.error(`- ${text}`);
     }
+    process.exit(1);
+  }
+
+  const readyReviewLines = architectReviewOutputTemplateLines().filter(
+    (line) =>
+      ![
+        "- Repair required before Operator validation",
+        "- Blocked / incomplete",
+        "- Out of scope",
+      ].includes(line),
+  );
+  const readyWithoutSteps = validateArchitectReview(readyReviewLines.join("\n"));
+
+  if (readyWithoutSteps.valid || readyWithoutSteps.hasOperatorValidationSteps) {
+    console.error(
+      "Ready Architect Review without Operator Validation Steps was not rejected.",
+    );
+    process.exit(1);
+  }
+
+  const stepsHeadingIndex = readyReviewLines.indexOf(
+    "## Operator Validation Steps",
+  );
+  readyReviewLines.splice(
+    stepsHeadingIndex + 1,
+    0,
+    "",
+    "1. Open the routed validation target and confirm the acceptance criteria.",
+  );
+  const readyWithSteps = validateArchitectReview(readyReviewLines.join("\n"));
+
+  if (!readyWithSteps.valid || !readyWithSteps.hasOperatorValidationSteps) {
+    console.error(
+      `Ready Architect Review with Operator Validation Steps failed validation: ${readyWithSteps.errors.join(" ")}`,
+    );
     process.exit(1);
   }
 
@@ -2050,8 +2176,7 @@ async function assertHumanValidationAndRepair() {
     validationTargetFileName: repairValidationTarget?.fileName,
     builderReportFileName:
       "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
-    validationResult: "Not Tested",
-    operatorDecision: "Deferred - not validated yet",
+    validationResult: "Not tested",
   });
 
   if (
@@ -2071,8 +2196,7 @@ async function assertHumanValidationAndRepair() {
     validationTargetFileName: repairValidationTarget?.fileName,
     builderReportFileName:
       "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
-    validationResult: "Not Tested",
-    operatorDecision: "Deferred - not validated yet",
+    validationResult: "Not tested",
   });
 
   if (mismatchedRepairTargetPreview.ok) {
@@ -2080,113 +2204,49 @@ async function assertHumanValidationAndRepair() {
     process.exit(1);
   }
 
-  const repairCases = [
-    {
-      validationResult: "Fail",
-      operatorDecision: "Deferred - not validated yet",
-    },
-    {
-      validationResult: "Partial",
-      operatorDecision: "Deferred - not validated yet",
-    },
-    {
-      validationResult: "Blocked",
-      operatorDecision: "Deferred - not validated yet",
-    },
-    {
-      validationResult: "Pass",
-      operatorDecision: "Failed - repair needed",
-    },
-    {
-      validationResult: "Pass",
-      operatorDecision: "Partial - repair or follow-up needed",
-    },
-    {
-      validationResult: "Pass",
-      operatorDecision: "Blocked - operator/build environment issue",
-    },
-  ];
-
-  for (const repairCase of repairCases) {
-    const repairRecord = buildHumanValidationRecord(
+  for (const validationResult of [
+    "Pass",
+    "Pass with concerns",
+    "Partial",
+    "Fail",
+    "Not tested",
+    "Blocked",
+  ]) {
+    const pendingRecord = buildHumanValidationRecord(
       workCardHumanValidationFixture,
-      {
-        ...baseInput,
-        validationResult: repairCase.validationResult,
-        operatorDecision: repairCase.operatorDecision,
-      },
+      { ...baseInput, validationResult },
       "2026-06-29T12:00:00.000Z",
     );
 
-    if (!shouldGenerateRepairPrompt(repairRecord)) {
+    if (shouldGenerateRepairPrompt(pendingRecord)) {
       console.error(
-        `Repair prompt was not generated for ${repairCase.validationResult} / ${repairCase.operatorDecision}.`,
+        `Validation Result ${validationResult} generated repair before Architect disposition.`,
       );
       process.exit(1);
     }
   }
 
-  const noRepairCases = [
-    {
-      validationResult: "Pass",
-      operatorDecision: "Passed - proceed",
-    },
-    {
-      validationResult: "Not Tested",
-      operatorDecision: "Deferred - not validated yet",
-    },
-    {
-      validationResult: "Fail",
-      operatorDecision: "Different problem found - open new Work Card",
-    },
-  ];
+  const legacyAdvisoryRecord = {
+    ...record,
+    operatorDecision: "Failed - repair needed",
+  };
 
-  for (const noRepairCase of noRepairCases) {
-    const noRepairRecord = buildHumanValidationRecord(
-      workCardHumanValidationFixture,
-      {
-        ...baseInput,
-        validationResult: noRepairCase.validationResult,
-        operatorDecision: noRepairCase.operatorDecision,
-      },
-      "2026-06-29T12:00:00.000Z",
-    );
-
-    if (shouldGenerateRepairPrompt(noRepairRecord)) {
-      console.error(
-        `Repair prompt should not be generated for ${noRepairCase.validationResult} / ${noRepairCase.operatorDecision}.`,
-      );
-      process.exit(1);
-    }
-  }
-
-  const differentProblemRecord = buildHumanValidationRecord(
-    workCardHumanValidationFixture,
-    {
-      ...baseInput,
-      operatorDecision: "Different problem found - open new Work Card",
-    },
-    "2026-06-29T12:00:00.000Z",
-  );
-  const differentProblemPreview = await previewHumanValidationRecord({
-    ...baseInput,
-    operatorDecision: "Different problem found - open new Work Card",
-  });
-
-  if (
-    differentProblemPreview.differentProblemGuidance !==
-    differentProblemFoundGuidance
-  ) {
-    console.error("Different problem guidance did not tell the Operator to open a new Work Card.");
+  if (shouldGenerateRepairPrompt(legacyAdvisoryRecord)) {
+    console.error("Legacy Operator Decision must remain advisory and must not generate repair.");
     process.exit(1);
   }
 
-  if (shouldGenerateRepairPrompt(differentProblemRecord)) {
-    console.error("Different problem decisions must not generate repair prompts.");
+  const architectRepairRecord = {
+    ...record,
+    architectDisposition: "Repair required before Operator validation",
+  };
+
+  if (!shouldGenerateRepairPrompt(architectRepairRecord)) {
+    console.error("Final Architect repair disposition did not generate a repair prompt.");
     process.exit(1);
   }
 
-  const repairPrompt = renderRepairPrompt(record, {
+  const repairPrompt = renderRepairPrompt(architectRepairRecord, {
     validationRecordFileName: "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
   });
   const requiredRepairPromptText = [
@@ -2198,6 +2258,8 @@ async function assertHumanValidationAndRepair() {
     "git remote -v",
     "Read `AGENTS.md`.",
     "Read the validation record",
+    "## Validation Evidence And Architect Disposition",
+    "Architect disposition: Repair required before Operator validation",
     "## Validation Commands",
     "npm run typecheck",
     "npm run build",
@@ -2208,6 +2270,9 @@ async function assertHumanValidationAndRepair() {
     "Do not broaden implementation.",
     "Do not update Work Card status.",
     "Implementer Report Requirement",
+    "## Architect Review Instructions",
+    "## Architect Review Decision",
+    "## Operator Validation Steps",
     "BUILDER_REPORT_REPAIR_WC07_human_validation_and_repair_loop.md",
     "Do not create a release tag.",
     "Do not push unless explicitly instructed.",
@@ -2303,7 +2368,7 @@ async function assertHumanValidationAndRepair() {
     "Validation Target",
     "Validation_Targets",
     "attachValidationEvidenceFile",
-    "Import Screenshot/File",
+    "Attach or paste screenshot",
     "Validation_Evidence",
     "Selected Implementer Report does not match",
     "workCards:attachValidationEvidenceFile",

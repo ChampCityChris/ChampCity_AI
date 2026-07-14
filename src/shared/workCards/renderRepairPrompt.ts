@@ -4,13 +4,14 @@ import {
 } from "./renderBuilderPrompt";
 import type { HumanValidationRecord } from "./validationRecord";
 import { buildWorkCardFileStem } from "./workCardFileNames";
+import { implementerReportArchitectReviewInstructionLines } from "./reportReviewProtocol";
 
 export interface RepairPromptRenderOptions {
   validationRecordFileName?: string;
 }
 
 export const repairPromptScopeGuard =
-  "Repair only the failure validated by the Operator. Do not broaden implementation.";
+  "Repair only the exact scope classified by the Architect from the Operator validation evidence. Do not broaden implementation.";
 
 export function renderRepairPrompt(
   record: HumanValidationRecord,
@@ -35,10 +36,16 @@ export function renderRepairPrompt(
     `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
     `- Validation record: ${options.validationRecordFileName ?? "Use the saved validation record created with this prompt."}`,
     "",
-    "## Operator Validation Result",
+    "## Validation Evidence And Architect Disposition",
     "",
     `- Validation result: ${record.validationResult}`,
-    `- Operator decision: ${record.operatorDecision}`,
+    `- Architect disposition: ${record.architectDisposition}`,
+    ...(record.operatorDecision
+      ? [
+          `- Legacy Operator Decision (advisory only): ${record.operatorDecision}`,
+          "- Legacy Operator Decision is context only and is not repair, merge, or deferral authority.",
+        ]
+      : []),
     "",
     "## What Passed",
     "",
@@ -115,6 +122,10 @@ export function renderRepairPrompt(
     "Filename pattern: `BUILDER_REPORT_REPAIR_<work_card_id>_<slug>.md`",
     "",
     `Expected report name: \`${repairReportFileName}\``,
+    "",
+    "Copy the following durable section into the repair Implementer Report so its review protocol travels with the implementation evidence:",
+    "",
+    ...implementerReportArchitectReviewInstructionLines(),
     "",
     "## Git Instructions",
     "",

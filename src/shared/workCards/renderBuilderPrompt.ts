@@ -1,6 +1,7 @@
 import { buildWorkCardFileStem } from "./workCardFileNames";
 import type { WorkCard } from "./workCardSchema";
 import { validateWorkCard } from "./validateWorkCard";
+import { implementerReportArchitectReviewInstructionLines } from "./reportReviewProtocol";
 
 export interface BuilderPromptSupportingArtifact {
   fileName: string;
@@ -223,6 +224,10 @@ export function renderBuilderPrompt(
       "Blocking questions, if any.",
       "Recommended next Implementer task.",
     ]),
+    "",
+    "Copy the following durable section into the Implementer Report so its review protocol travels with the implementation evidence:",
+    "",
+    ...implementerReportArchitectReviewInstructionLines(),
     "",
     "## Git Instructions",
     "",

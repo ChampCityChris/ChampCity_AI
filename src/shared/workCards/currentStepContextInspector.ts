@@ -431,7 +431,9 @@ function buildValidationCategory(
       validationStatus(workCard.validation),
       repairIsCurrent
         ? "The prior Operator Validation outcome initiated the repair route. The active repair state, not this prior record alone, controls the current step."
-        : "The latest Operator Validation state contributes to the selected route.",
+        : workCard.validation.architectDispositionPending
+          ? "The Operator supplied validation evidence. Architect disposition is pending and controls the next workflow decision."
+          : "The latest Operator Validation state contributes to the selected route.",
       repairIsCurrent ? "supporting" : "controlling",
       countAvailable(workCard.validation.sourceArtifacts),
     );
@@ -867,6 +869,12 @@ function countAvailable(
 }
 
 function validationStatus(validation: CurrentActionValidationState): string {
+  if (validation.architectDispositionPending) {
+    return validation.result
+      ? `${validation.result} - Architect disposition pending`
+      : "Architect disposition pending";
+  }
+
   if (validation.decision && validation.result) {
     return `${validation.result} - ${validation.decision}`;
   }

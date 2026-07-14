@@ -81,6 +81,8 @@ import {
 } from "../../shared/workCards/phaseCloseoutRecord";
 import { renderPhaseCloseoutMarkdown } from "../../shared/workCards/renderPhaseCloseoutMarkdown";
 import { renderValidationRecordMarkdown } from "../../shared/workCards/renderValidationRecordMarkdown";
+import { pendingArchitectDisposition } from "../../shared/workCards/reportReviewProtocol";
+import { validateArchitectReview } from "../../shared/workCards/validateArchitectReview";
 import {
   buildHumanValidationRecord,
   buildValidationReportJsonFileName,
@@ -337,7 +339,7 @@ interface LatestHumanValidationStatus extends HumanValidationStatusSummary {
 
 type HumanValidationStatusRecord = Pick<
   HumanValidationRecord,
-  "phase" | "validationResult" | "operatorDecision"
+  "phase" | "validationResult"
 > &
   Partial<
     Pick<
@@ -348,6 +350,8 @@ type HumanValidationStatusRecord = Pick<
       | "validationTargetKind"
       | "validationTargetTitle"
       | "validationTargetSourceJsonFile"
+      | "architectDisposition"
+      | "operatorDecision"
       | "createdAt"
     >
   >;
@@ -2773,6 +2777,10 @@ export async function listHumanValidationStatuses(
           validationTargetId: target.id,
           validationTargetKind: target.kind,
           validationResult: record.validationResult,
+          architectDisposition:
+            record.architectDisposition ??
+            "Not recorded (legacy report; Architect review required)",
+          legacyOperatorDecision: record.operatorDecision,
           operatorDecision: record.operatorDecision,
           validationReportJsonFile: fileName,
           validationReportMarkdownFile: await findValidationReportMarkdownFileName(
@@ -3920,8 +3928,11 @@ async function findValidationForWorkCard(
             getRecordString(parsed, "validationResult") ||
             getRecordString(parsed, "validation_result") ||
             getRecordString(parsed, "status"),
-          decision:
+          decision: getArchitectDisposition(parsed),
+          architectDispositionPending: isArchitectDispositionPending(parsed),
+          legacyOperatorDecision:
             getRecordString(parsed, "operatorDecision") ||
+            getRecordString(parsed, "operator_decision") ||
             getRecordString(parsed, "decision"),
           repairRequired: getRecordBoolean(parsed, "repair_required"),
           routeBlocked: isRouteBlockedValidationRecord(parsed),
@@ -3973,6 +3984,20 @@ function getPlanningEvidenceReferences(record: unknown): string[] {
   }
 
   return result;
+}
+
+function getArchitectDisposition(record: unknown): string | undefined {
+  return (
+    getRecordString(record, "architectDisposition") ||
+    getRecordString(record, "architect_disposition")
+  );
+}
+
+function isArchitectDispositionPending(record: unknown): boolean {
+  return (
+    normalizeCurrentActionStatus(getArchitectDisposition(record)) ===
+    normalizeCurrentActionStatus(pendingArchitectDisposition)
+  );
 }
 
 async function findRepairState(
@@ -4184,14 +4209,28 @@ async function readFirstStatusLine(filePath: string): Promise<string | undefined
 async function readArchitectReviewStatus(
   filePath: string,
 ): Promise<string | undefined> {
-  const explicitStatus = await readFirstStatusLine(filePath);
-
-  if (explicitStatus) {
-    return explicitStatus;
-  }
-
   try {
     const content = await readFile(filePath, "utf8");
+    const standardReview = validateArchitectReview(content);
+
+    if (standardReview.usesStandardShape) {
+      if (!standardReview.valid) {
+        return `Architect review incomplete - ${standardReview.errors.join(" ")}`;
+      }
+
+      return standardReview.decision;
+    }
+
+    const explicitStatus = content
+      .split(/\r?\n/)
+      .find((candidate) => /^Status\s*:/i.test(candidate.trim()))
+      ?.replace(/^Status\s*:\s*/i, "")
+      .trim();
+
+    if (explicitStatus) {
+      return explicitStatus;
+    }
+
     const repairRequired = content.match(
       /^Repair(?: is)? required before Operator(?: visual)? validation\.?$/im,
     );
@@ -4403,11 +4442,25 @@ function isRepoPassingValidation(
     return false;
   }
 
-  if (decision.length > 0) {
-    return decision === "passed_proceed" || decision === "passed";
+  if (validation.architectDispositionPending) {
+    return false;
   }
 
-  return result === "pass" || result === "passed";
+  if (decision.length > 0) {
+    return [
+      "passed_proceed",
+      "passed",
+      "mergeable",
+      "ready_to_merge",
+      "no_action_required",
+      "pass_with_observation",
+      "pass_with_observations",
+      "carry_forward_observation",
+      "future_scope_product_backlog",
+    ].includes(decision);
+  }
+
+  return ["pass", "passed", "pass_with_concerns"].includes(result);
 }
 
 function addSupersededPhaseWarnings(
@@ -6858,16 +6911,25 @@ function toHumanValidationStatusRecord(
   const validationResult = normalizeHumanValidationResult(
     candidate.validationResult ?? candidate.status,
   );
-  const operatorDecision = normalizeHumanValidationOperatorDecision(
-    candidate.operatorDecision ?? candidate.decision,
+  const architectDisposition = normalizeOptionalText(
+    candidate.architectDisposition ?? candidate.architect_disposition,
   );
+  const legacyOperatorDecisionValue =
+    candidate.operatorDecision ?? candidate.operator_decision ?? candidate.decision;
+  const operatorDecision =
+    legacyOperatorDecisionValue === undefined
+      ? undefined
+      : normalizeHumanValidationOperatorDecision(legacyOperatorDecisionValue);
 
   if (!isHumanValidationResult(validationResult)) {
     throw new Error("Validation result is not a supported value.");
   }
 
-  if (!isHumanValidationOperatorDecision(operatorDecision)) {
-    throw new Error("Operator decision is not a supported value.");
+  if (
+    operatorDecision !== undefined &&
+    !isHumanValidationOperatorDecision(operatorDecision)
+  ) {
+    throw new Error("Legacy Operator decision is not a supported advisory value.");
   }
 
   const validationTargetKindValue =
@@ -6881,6 +6943,7 @@ function toHumanValidationStatusRecord(
   const statusRecord: HumanValidationStatusRecord = {
     phase: recordPhase,
     validationResult,
+    architectDisposition,
     operatorDecision,
     workCardId: normalizeOptionalText(
       candidate.workCardId ?? candidate.work_card_id,
@@ -6926,11 +6989,12 @@ function normalizeHumanValidationResult(value: unknown): HumanValidationResult {
   const resultByLegacyValue: Record<string, string> = {
     pass: "Pass",
     passed: "Pass",
+    "pass with concerns": "Pass with concerns",
     fail: "Fail",
     failed: "Fail",
     partial: "Partial",
     blocked: "Blocked",
-    "not tested": "Not Tested",
+    "not tested": "Not tested",
   };
   const result = resultByLegacyValue[normalized];
 
@@ -6944,10 +7008,10 @@ function normalizeHumanValidationResult(value: unknown): HumanValidationResult {
 function normalizeHumanValidationOperatorDecision(
   value: unknown,
 ): HumanValidationOperatorDecision {
-  const text = requireStatusText(value, "Operator decision");
+  const text = requireStatusText(value, "Legacy Operator decision");
 
   if (!isHumanValidationOperatorDecision(text)) {
-    throw new Error("Operator decision is not a supported value.");
+    throw new Error("Legacy Operator decision is not a supported advisory value.");
   }
 
   return text;

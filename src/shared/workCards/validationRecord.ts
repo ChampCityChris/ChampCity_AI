@@ -7,13 +7,15 @@ import {
 } from "./validationTarget";
 import type { WorkCard } from "./workCardSchema";
 import { validateWorkCard } from "./validateWorkCard";
+import { pendingArchitectDisposition } from "./reportReviewProtocol";
 
 export const humanValidationResults = [
   "Pass",
+  "Pass with concerns",
   "Fail",
   "Partial",
   "Blocked",
-  "Not Tested",
+  "Not tested",
 ] as const;
 
 export type HumanValidationResult = (typeof humanValidationResults)[number];
@@ -52,7 +54,9 @@ export interface HumanValidationRecord {
   commandsRun: string;
   observedErrors: string;
   additionalOperatorObservations: string;
-  operatorDecision: HumanValidationOperatorDecision;
+  architectDisposition: string;
+  /** @deprecated Legacy reports only. Advisory context, never routing authority. */
+  operatorDecision?: HumanValidationOperatorDecision;
   recommendedNextAction: string;
   createdAt: string;
 }
@@ -71,7 +75,6 @@ export interface HumanValidationFormInput {
   commandsRun: string;
   observedErrors: string;
   additionalOperatorObservations: string;
-  operatorDecision: HumanValidationOperatorDecision;
   recommendedNextAction: string;
 }
 
@@ -108,7 +111,10 @@ export interface HumanValidationStatusSummary {
   validationTargetId: string;
   validationTargetKind?: ValidationTargetKind;
   validationResult: HumanValidationResult;
-  operatorDecision: HumanValidationOperatorDecision;
+  architectDisposition: string;
+  legacyOperatorDecision?: HumanValidationOperatorDecision;
+  /** @deprecated Alias retained for legacy status consumers; advisory only. */
+  operatorDecision?: HumanValidationOperatorDecision;
   validationReportJsonFile: string;
   validationReportMarkdownFile?: string;
   createdAt?: string;
@@ -206,22 +212,11 @@ export const noManualValidationChecklistDetectedMessage =
   "No Operator validation guidance was detected in the Architect Review, Work Card, or selected Implementer Report.";
 
 export const differentProblemFoundGuidance =
-  "Different problem found. Create a new Work Card instead of repairing the selected Work Card.";
-
-const repairTriggerResults: HumanValidationResult[] = [
-  "Fail",
-  "Partial",
-  "Blocked",
-];
-
-const repairTriggerDecisions: HumanValidationOperatorDecision[] = [
-  "Failed - repair needed",
-  "Partial - repair or follow-up needed",
-  "Blocked - operator/build environment issue",
-];
+  "Architect disposition classifies this as outside the selected Work Card. Create or update the appropriate Work Card instead of treating Operator notes as repair authority.";
 
 const manualValidationSectionPatterns = [
   /operator validation guidance/i,
+  /operator validation steps/i,
   /manual validation should confirm/i,
   /manual validation required/i,
   /manual electron validation/i,
@@ -248,10 +243,6 @@ export function buildHumanValidationRecord(
 
   if (!isHumanValidationResult(input.validationResult)) {
     throw new Error("Choose a valid validation result.");
-  }
-
-  if (!isHumanValidationOperatorDecision(input.operatorDecision)) {
-    throw new Error("Choose a valid Operator decision.");
   }
 
   const builderReportFile = input.builderReportFileName?.trim();
@@ -282,7 +273,7 @@ export function buildHumanValidationRecord(
     commandsRun: input.commandsRun,
     observedErrors: input.observedErrors,
     additionalOperatorObservations: input.additionalOperatorObservations,
-    operatorDecision: input.operatorDecision,
+    architectDisposition: pendingArchitectDisposition,
     recommendedNextAction: input.recommendedNextAction,
     createdAt,
   };
@@ -310,8 +301,13 @@ export function validateHumanValidationRecord(
     errors.push("Validation result is not a supported value.");
   }
 
-  if (!isHumanValidationOperatorDecision(record.operatorDecision)) {
-    errors.push("Operator decision is not a supported value.");
+  requireText(record.architectDisposition, "Architect disposition", errors);
+
+  if (
+    record.operatorDecision !== undefined &&
+    !isHumanValidationOperatorDecision(record.operatorDecision)
+  ) {
+    errors.push("Legacy Operator decision is not a supported advisory value.");
   }
 
   return {
@@ -323,24 +319,21 @@ export function validateHumanValidationRecord(
 export function shouldGenerateRepairPrompt(
   record: HumanValidationRecord,
 ): boolean {
-  if (
-    record.operatorDecision ===
-    "Different problem found - open new Work Card"
-  ) {
+  const disposition = normalizeDisposition(record.architectDisposition);
+
+  if (!disposition || disposition === normalizeDisposition(pendingArchitectDisposition)) {
     return false;
   }
 
-  return (
-    repairTriggerResults.includes(record.validationResult) ||
-    repairTriggerDecisions.includes(record.operatorDecision)
-  );
+  return /repair_required|repair_before_operator_validation/.test(disposition);
 }
 
 export function getDifferentProblemGuidance(
   record: HumanValidationRecord,
 ): string | undefined {
-  return record.operatorDecision ===
-    "Different problem found - open new Work Card"
+  return /out_of_scope|different_problem/.test(
+    normalizeDisposition(record.architectDisposition),
+  )
     ? differentProblemFoundGuidance
     : undefined;
 }
@@ -510,4 +503,12 @@ function requireText(
   if (value.trim().length === 0) {
     errors.push(`${label} is required.`);
   }
+}
+
+function normalizeDisposition(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }

@@ -7,7 +7,7 @@ import {
 import { previewHumanValidationRecord } from "../dist/main/workCards/workCardFileStore.js";
 
 const emptyDraft = {
-  validationResult: "Not Tested",
+  validationResult: "Not tested",
   testedItems: "",
   passedItems: "",
   failedItems: "",
@@ -16,7 +16,6 @@ const emptyDraft = {
   commandsRun: "",
   observedErrors: "",
   additionalOperatorObservations: "",
-  operatorDecision: "Deferred - not validated yet",
   recommendedNextAction: "",
 };
 

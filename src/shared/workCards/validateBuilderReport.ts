@@ -25,6 +25,7 @@ export interface BuilderReportValidationResult {
     hasSecurityNotes: boolean;
     hasBlockingQuestions: boolean;
     hasRecommendedNextTask: boolean;
+    hasArchitectReviewInstructions: boolean;
     hasCommitHash: boolean;
     hasValidationResults: boolean;
     hasBlockers: boolean;
@@ -107,6 +108,10 @@ const requiredReportSignals = [
     key: "hasRecommendedNextTask",
     label: "Recommended next Implementer task.",
   },
+  {
+    key: "hasArchitectReviewInstructions",
+    label: "Architect Review Instructions.",
+  },
 ] as const satisfies readonly {
   key: keyof BuilderReportValidationResult["detected"];
   label: string;
@@ -160,6 +165,11 @@ export function validateBuilderReport(
       /recommended next implementer task|next implementer task|recommended next builder task|next builder task|recommended next task/i.test(
         normalized,
       ),
+    hasArchitectReviewInstructions:
+      /^##\s+architect review instructions\s*$/im.test(normalized) &&
+      /ready for operator validation/i.test(normalized) &&
+      /operator validation steps/i.test(normalized) &&
+      /observation register/i.test(normalized),
     hasCommitHash: /\b[0-9a-f]{7,40}\b/i.test(normalized),
     hasValidationResults:
       /passed|failed|completed successfully|reported .*passed|validation .*passed|npm run .* - passed|npm run .* passed/i.test(
