@@ -114,7 +114,11 @@ export interface CurrentStepRouteOutcome {
 
 export interface CurrentStepPlainLanguageExplanation {
   evidenceOnRecord: string[];
+  acceptedEvidence: string[];
   pendingEvidence: string[];
+  missingEvidence: string[];
+  nonControllingEvidence: string[];
+  ambiguityWarnings: string[];
   priorityReason: string;
   advancementBlock: string;
 }
@@ -134,7 +138,12 @@ export interface CurrentStepRouteChangeCondition {
 export interface CurrentStepRouteCorrectionGuidance {
   recordsToReview: string[];
   controllingIssue: string;
-  handoffSummary: string;
+  currentRoute: string;
+  expectedControllingEvidence: string[];
+  pendingOrMissingEvidence: string[];
+  ambiguityWarnings: string[];
+  durableAction: string;
+  governanceSummary: string;
 }
 
 export interface CurrentStepContextInspectorModel {
@@ -150,8 +159,12 @@ export interface CurrentStepContextInspectorModel {
     responsibleRole: string;
     workflowStep: string;
     status: string;
+    phaseId?: string;
     phaseLabel: string;
+    workCardId?: string;
+    workCardTitle?: string;
     workCardLabel: string;
+    expectedOutput?: string;
     outcomes: CurrentStepRouteOutcome[];
   };
   stateCategories: CurrentStepStateCategory[];
@@ -180,7 +193,14 @@ export function buildCurrentStepRouteContext(
 ): CurrentStepRouteContext {
   const phase = state.activePhase;
   const workCard = findCurrentWorkCard(phase, action.workCardId);
-  const repairIsCurrent = normalizeValue(action.id).startsWith("repair_");
+  const repairIsCurrent =
+    normalizeValue(action.id).startsWith("repair_") ||
+    Boolean(
+      action.workCardId &&
+        workCard?.repair?.repairId &&
+        normalizeValue(action.workCardId) ===
+          normalizeValue(workCard.repair.repairId),
+    );
   const projectArtifacts = [
     state.project.projectIntake,
     state.project.projectInterview,
@@ -229,28 +249,9 @@ export function buildCurrentStepRouteContext(
             "phase",
             "No active phase state was reported for this route.",
           ),
-      workCard
-        ? category(
-            "work_card",
-            workCard.status || action.status,
-            `${workCard.workCardId} - ${workCard.title} is the Work Card state matched to the current route.`,
-            "controlling",
-            countAvailable(workCard.sourceArtifacts),
-          )
-        : action.workCardId
-          ? category(
-              "work_card",
-              action.status,
-              `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""} is named by the route. Its detailed Work Card state was not included in the evaluated phase state.`,
-              "controlling",
-              0,
-            )
-          : notReported(
-              "work_card",
-              "This route does not report a current Work Card.",
-            ),
-      buildImplementerReportCategory(action, workCard),
-      buildArchitectReviewCategory(action, workCard),
+      buildWorkCardCategory(action, workCard, repairIsCurrent),
+      buildImplementerReportCategory(action, workCard, repairIsCurrent),
+      buildArchitectReviewCategory(action, workCard, repairIsCurrent),
       buildValidationCategory(action, workCard, repairIsCurrent),
       buildRepairCategory(action, workCard, repairIsCurrent),
       buildCloseoutCategory(action, phase),
@@ -283,19 +284,25 @@ export function buildCurrentStepContextInspector(
       stateCategories,
       missingRecords,
     ),
-    route: {
+      route: {
       actionId: action.id,
       title: action.title,
       reason: action.reason,
       responsibleRole: action.responsibleRole,
       workflowStep: action.workflowStep,
-      status: action.status,
+        status: action.status,
+        phaseId: action.phaseId,
       phaseLabel: action.phaseId
         ? `${action.phaseId}${action.phaseTitle ? ` - ${action.phaseTitle}` : ""}`
         : "Not reported by current app state",
-      workCardLabel: action.workCardId
+        workCardLabel: action.workCardId
         ? `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""}`
-        : "Not reported by current app state",
+          : "Not reported by current app state",
+        workCardId: action.workCardId,
+        workCardTitle: action.workCardTitle,
+        expectedOutput: action.expectedOutput
+          ? `${action.expectedOutput.artifactType}: ${ensureSentence(action.expectedOutput.description)}`
+          : undefined,
       outcomes: buildRouteOutcomes(action),
     },
     stateCategories,
@@ -355,60 +362,83 @@ function buildPlainLanguageExplanation(
     "roadmap",
     "next_phase",
   ];
-  const evidenceOnRecord = categories
-    .filter(
-      (state) =>
-        state.evidenceCount > 0 &&
-        state.authority !== "historical" &&
-        state.authority !== "not_reported",
-    )
-    .sort(
-      (left, right) =>
-        categoryPriority.indexOf(left.id) - categoryPriority.indexOf(right.id),
-    )
-    .slice(0, 5)
-    .map(
-      (state) =>
-        `${state.label}: ${plainContextValue(state.status)}. ${state.summary}`,
-    );
+  const explicitEvidence = action.evidenceClassifications ?? [];
+  const acceptedEvidence = explicitEvidence
+    .filter((item) => item.classification === "accepted_controlling")
+    .map((item) => `${item.label}: ${ensureSentence(item.summary)}`);
 
-  if (evidenceOnRecord.length === 0) {
+  if (acceptedEvidence.length === 0) {
+    acceptedEvidence.push(
+      ...categories
+        .filter(
+          (state) =>
+            state.evidenceCount > 0 &&
+            state.authority !== "historical" &&
+            state.authority !== "not_reported",
+        )
+        .sort(
+          (left, right) =>
+            categoryPriority.indexOf(left.id) -
+            categoryPriority.indexOf(right.id),
+        )
+        .slice(0, 5)
+        .map(
+          (state) =>
+            `${state.label}: ${plainContextValue(state.status)}. ${state.summary}`,
+        ),
+    );
+  }
+
+  if (acceptedEvidence.length === 0) {
     const sourceRoles = uniqueStrings(
       action.sourceArtifacts
         .filter((artifact) => !isHistoricalStatus(artifact.status))
         .map((artifact) => artifact.role),
     );
 
-    evidenceOnRecord.push(
+    acceptedEvidence.push(
       ...sourceRoles
         .slice(0, 5)
         .map((role) => `${role} evidence is available to the route evaluator.`),
     );
   }
 
-  if (evidenceOnRecord.length === 0) {
-    evidenceOnRecord.push(
+  if (acceptedEvidence.length === 0) {
+    acceptedEvidence.push(
       "The current-action evaluator returned this route, but it did not report a supporting record summary.",
     );
   }
 
-  const pendingEvidence = missingRecords
+  const pendingEvidence = explicitEvidence
     .filter(
-      (record) =>
-        record.impact === "blocking" || record.impact === "expected_next",
+      (item) => item.classification === "present_pending_disposition",
     )
+    .map((item) => `${item.label}: ${ensureSentence(item.summary)}`);
+  const missingEvidence = missingRecords
     .map(
       (record) =>
         `${record.recordType} is still required. ${ensureSentence(record.reason)}`,
     );
+  const nonControllingEvidence = explicitEvidence
+    .filter(
+      (item) => item.classification === "stale_historical_superseded",
+    )
+    .map((item) => `${item.label}: ${ensureSentence(item.summary)}`);
+  const ambiguityWarnings = explicitEvidence
+    .filter((item) => item.classification === "duplicate_ambiguous")
+    .map((item) => `${item.label}: ${ensureSentence(item.summary)}`);
 
-  if (pendingEvidence.length === 0 && action.expectedOutput) {
+  if (
+    pendingEvidence.length === 0 &&
+    missingEvidence.length === 0 &&
+    action.expectedOutput
+  ) {
     pendingEvidence.push(
       `${action.expectedOutput.artifactType} is still pending. ${ensureSentence(action.expectedOutput.description)}`,
     );
   }
 
-  if (pendingEvidence.length === 0) {
+  if (pendingEvidence.length === 0 && missingEvidence.length === 0) {
     const pendingCategory = categories.find(
       (state) =>
         state.authority === "controlling" &&
@@ -447,8 +477,12 @@ function buildPlainLanguageExplanation(
           : `The app has not advanced because ${plainRoleLabel(action.responsibleRole)} has not yet completed this action in durable workflow evidence.`;
 
   return {
-    evidenceOnRecord,
+    evidenceOnRecord: acceptedEvidence,
+    acceptedEvidence,
     pendingEvidence,
+    missingEvidence,
+    nonControllingEvidence,
+    ambiguityWarnings,
     priorityReason,
     advancementBlock,
   };
@@ -533,20 +567,23 @@ function buildCorrectionGuidance(
   categories: CurrentStepStateCategory[],
   missingRecords: CurrentStepMissingRecord[],
 ): CurrentStepRouteCorrectionGuidance {
-  const sourceRoles = uniqueStrings(
-    action.sourceArtifacts
-      .filter((artifact) => !isHistoricalStatus(artifact.status))
-      .map((artifact) => artifact.role),
-  );
-  const recordsToReview = sourceRoles.length > 0
-    ? sourceRoles.slice(0, 6)
-    : categories
+  const classifiedEvidence = action.evidenceClassifications ?? [];
+  const recordsToReview = uniqueStrings(
+    classifiedEvidence.map((item) => item.label),
+  ).slice(0, 8);
+
+  if (recordsToReview.length === 0) {
+    recordsToReview.push(
+      ...categories
         .filter(
           (state) =>
             state.evidenceCount > 0 && state.authority !== "historical",
         )
         .map((state) => state.label)
-        .slice(0, 6);
+        .slice(0, 6),
+    );
+  }
+
   const target = action.workCardId
     ? `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""}`
     : action.phaseId
@@ -557,14 +594,41 @@ function buildCorrectionGuidance(
     : missingRecords[0]
       ? `${missingRecords[0].recordType} is unresolved. ${ensureSentence(missingRecords[0].reason)}`
       : ensureSentence(action.reason);
-  const reviewList = recordsToReview.length > 0
-    ? joinHumanList(recordsToReview)
-    : "the controlling records shown in Artifacts";
+  const expectedControllingEvidence = classifiedEvidence
+    .filter((item) => item.classification === "accepted_controlling")
+    .map((item) => `${item.label}: ${ensureSentence(item.summary)}`);
+  const pendingOrMissingEvidence = [
+    ...classifiedEvidence
+      .filter(
+        (item) => item.classification === "present_pending_disposition",
+      )
+      .map((item) => `${item.label}: ${ensureSentence(item.summary)}`),
+    ...missingRecords.map(
+      (record) =>
+        `${record.recordType}: ${ensureSentence(record.reason)}`,
+    ),
+  ];
+  const ambiguityWarnings = classifiedEvidence
+    .filter((item) => item.classification === "duplicate_ambiguous")
+    .map((item) => `${item.label}: ${ensureSentence(item.summary)}`);
 
   return {
     recordsToReview,
     controllingIssue,
-    handoffSummary: `Route review requested for ${target}. ChampCity A/I selected "${action.title}" because ${ensureSentence(action.reason)} It currently expects ${action.expectedOutput?.artifactType ?? "the current action"} to be resolved. Please review ${reviewList} and confirm which durable record or Architect disposition should control the route. This request does not authorize skipping evidence or changing workflow state.`,
+    currentRoute: `${target}: ${action.title}. ${ensureSentence(action.reason)}`,
+    expectedControllingEvidence:
+      expectedControllingEvidence.length > 0
+        ? expectedControllingEvidence
+        : ["Review the controlling records shown in the existing Artifacts tab."],
+    pendingOrMissingEvidence:
+      pendingOrMissingEvidence.length > 0
+        ? pendingOrMissingEvidence
+        : ["No separate missing or pending record was reported by the evaluator."],
+    ambiguityWarnings,
+    durableAction:
+      "Save a Route Review Request inside ChampCity A/I. The request records the concern for Architect disposition without changing the selected route.",
+    governanceSummary:
+      "The Operator reports the concern. The Architect decides which evidence controls. The Implementer repairs the evaluator or artifact model only when assigned. Saving a request cannot approve, validate, complete, skip, or advance work.",
   };
 }
 
@@ -636,15 +700,65 @@ function notReported(
   );
 }
 
+function buildWorkCardCategory(
+  action: CurrentRequiredAction,
+  workCard: CurrentActionWorkCardState | undefined,
+  repairIsCurrent: boolean,
+): CurrentStepStateCategory {
+  const repair = repairIsCurrent ? workCard?.repair : undefined;
+
+  if (repair?.repairWorkCard) {
+    return category(
+      "work_card",
+      repair.status || repair.repairWorkCard.status || action.status,
+      `${repair.repairId ?? action.workCardId ?? "Repair"}${repair.title ? ` - ${repair.title}` : ""} is the controlling Repair Work Card matched to the current route.`,
+      "controlling",
+      1,
+    );
+  }
+
+  if (workCard) {
+    return category(
+      "work_card",
+      workCard.status || action.status,
+      `${workCard.workCardId} - ${workCard.title} is the Work Card state matched to the current route.`,
+      "controlling",
+      countAvailable(workCard.sourceArtifacts),
+    );
+  }
+
+  if (action.workCardId) {
+    return category(
+      "work_card",
+      action.status,
+      `${action.workCardId}${action.workCardTitle ? ` - ${action.workCardTitle}` : ""} is named by the route. Its detailed Work Card state was not included in the evaluated phase state.`,
+      "controlling",
+      0,
+    );
+  }
+
+  return notReported(
+    "work_card",
+    "This route does not report a current Work Card.",
+  );
+}
+
 function buildImplementerReportCategory(
   action: CurrentRequiredAction,
   workCard: CurrentActionWorkCardState | undefined,
+  repairIsCurrent: boolean,
 ): CurrentStepStateCategory {
-  if (artifactIsAvailable(workCard?.implementerReport)) {
+  const implementerReport = repairIsCurrent
+    ? workCard?.repair?.implementerReport
+    : workCard?.implementerReport;
+
+  if (artifactIsAvailable(implementerReport)) {
     return category(
       "implementer_report",
-      workCard?.implementerReport?.status || "Available",
-      "An Implementer Report is available and contributes to the selected route.",
+      implementerReport?.status || "Available",
+      repairIsCurrent
+        ? "A repair Implementer Report is available and contributes to the selected repair route."
+        : "An Implementer Report is available and contributes to the selected route.",
       action.id === "implementer_report_required"
         ? "supporting"
         : "controlling",
@@ -671,14 +785,21 @@ function buildImplementerReportCategory(
 function buildArchitectReviewCategory(
   action: CurrentRequiredAction,
   workCard: CurrentActionWorkCardState | undefined,
+  repairIsCurrent: boolean,
 ): CurrentStepStateCategory {
-  if (artifactIsAvailable(workCard?.architectReview?.sourceArtifact)) {
+  const architectReview = repairIsCurrent
+    ? workCard?.repair?.architectReview
+    : workCard?.architectReview;
+
+  if (artifactIsAvailable(architectReview?.sourceArtifact)) {
     return category(
       "architect_review",
-      workCard?.architectReview?.status ||
-        workCard?.architectReview?.sourceArtifact.status ||
+      architectReview?.status ||
+        architectReview?.sourceArtifact.status ||
         "Available",
-      "An Architect Review is available and contributes to the selected route.",
+      repairIsCurrent
+        ? "A repair Architect Review is available and contributes to the selected repair route."
+        : "An Architect Review is available and contributes to the selected route.",
       "controlling",
       1,
     );
@@ -705,17 +826,23 @@ function buildValidationCategory(
   workCard: CurrentActionWorkCardState | undefined,
   repairIsCurrent: boolean,
 ): CurrentStepStateCategory {
-  if (workCard?.validation) {
+  const validation = repairIsCurrent
+    ? workCard?.repair?.validation
+    : workCard?.validation;
+
+  if (validation) {
     return category(
       "operator_validation",
-      validationStatus(workCard.validation),
+      validationStatus(validation),
       repairIsCurrent
-        ? "The prior Operator Validation outcome initiated the repair route. The active repair state, not this prior record alone, controls the current step."
-        : workCard.validation.architectDispositionPending
+        ? validation.architectDispositionPending
+          ? "Repair validation evidence is present, but Architect disposition remains pending."
+          : "Repair validation evidence is present for the selected repair route."
+        : validation.architectDispositionPending
           ? "The Operator supplied validation evidence. Architect disposition is pending and controls the next workflow decision."
           : "The latest Operator Validation state contributes to the selected route.",
-      repairIsCurrent ? "supporting" : "controlling",
-      countAvailable(workCard.validation.sourceArtifacts),
+      "controlling",
+      countAvailable(validation.sourceArtifacts),
     );
   }
 

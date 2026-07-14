@@ -134,6 +134,7 @@ import {
   buildCurrentRequiredActionResult,
   type CurrentActionArtifactReference,
   type CurrentActionArchitectReviewState,
+  type CurrentActionEvidenceClassification,
   type CurrentActionPhaseState,
   type CurrentActionPhaseCloseoutState,
   type CurrentActionRepairState,
@@ -144,6 +145,13 @@ import {
   type CurrentRequiredActionState,
   type CurrentRequiredActionWarning,
 } from "../../shared/workCards/currentRequiredAction";
+import {
+  buildRouteReviewRequest,
+  buildRouteReviewRequestFileNames,
+  renderRouteReviewRequestMarkdown,
+  type RouteReviewRequestInput,
+  type RouteReviewRequestSaveResult,
+} from "../../shared/workCards/routeReviewRequest";
 import {
   getArtifactDisplayName,
   isPlanningMarkdownPreviewable,
@@ -2919,6 +2927,50 @@ export async function saveHumanValidationRecord(
   }
 }
 
+export async function saveRouteReviewRequest(
+  input: RouteReviewRequestInput,
+): Promise<RouteReviewRequestSaveResult> {
+  try {
+    const record = buildRouteReviewRequest(input, new Date().toISOString());
+    const markdown = renderRouteReviewRequestMarkdown(record);
+    const fileNames = buildRouteReviewRequestFileNames(record);
+    const directory = resolveRouteReviewRequestsDirectory(record.phase);
+    const targets = await resolveAvailableFilePair(
+      directory,
+      fileNames.json,
+      fileNames.markdown,
+      "A safe Route Review Request filename could not be generated.",
+    );
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(targets.firstPath, `${JSON.stringify(record, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    await writeFile(targets.secondPath, markdown, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ok: true,
+      record,
+      markdown,
+      savedJsonFileName: targets.firstFileName,
+      savedMarkdownFileName: targets.secondFileName,
+      savedJsonPath: toRepoRelativePath(targets.firstPath),
+      savedMarkdownPath: toRepoRelativePath(targets.secondPath),
+    };
+  } catch (error) {
+    console.error("Failed to save Route Review Request.", error);
+
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export async function attachValidationEvidenceFile(
   input: ValidationEvidenceFileImportRequest,
 ): Promise<ValidationEvidenceFileImportResult> {
@@ -3108,6 +3160,20 @@ export function resolveValidationReportsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Validation_Reports");
+}
+
+export function resolveRouteReviewRequestsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(
+    planningPhasesRoot,
+    phase.trim(),
+    "Route_Review_Requests",
+  );
 }
 
 export function resolveValidationTargetsDirectory(phase: string): string {
@@ -3842,8 +3908,12 @@ async function readCurrentActionWorkCards(
             absoluteFromRepoPath(architectReviewArtifact.path),
           )
         : undefined;
-      const validation = await findValidationForWorkCard(phase, fields.workCardId);
-      const repair = await findRepairState(phase, fields.workCardId);
+      const validation = await findValidationForWorkCard(
+        phase,
+        fields.workCardId,
+        warnings,
+      );
+      const repair = await findRepairState(phase, fields.workCardId, warnings);
 
       result.push({
         workCardId: fields.workCardId,
@@ -3882,12 +3952,13 @@ async function readCurrentActionWorkCards(
 async function findValidationForWorkCard(
   phase: string,
   workCardId: string,
+  warnings: CurrentRequiredActionWarning[],
 ): Promise<CurrentActionValidationState | undefined> {
   const directory = resolveValidationReportsDirectory(phase);
   const entries = await readDirectoryFileNames(directory, ".json");
   const matching: Array<{
     validation: CurrentActionValidationState;
-    modifiedMs: number;
+    fileName: string;
   }> = [];
 
   for (const fileName of entries) {
@@ -3906,7 +3977,6 @@ async function findValidationForWorkCard(
         continue;
       }
 
-      const stats = await stat(filePath);
       const markdownPath = filePath.replace(/\.json$/i, ".md");
       const sourceArtifacts = [
         await artifactReferenceForPath(filePath, "Validation Report JSON"),
@@ -3927,7 +3997,7 @@ async function findValidationForWorkCard(
         getRecordString(parsed, "decision");
 
       matching.push({
-        modifiedMs: stats.mtimeMs,
+        fileName,
         validation: {
           result:
             getRecordString(parsed, "validationResult") ||
@@ -3942,6 +4012,7 @@ async function findValidationForWorkCard(
           legacyOperatorDecision,
           repairRequired: getRecordBoolean(parsed, "repair_required"),
           routeBlocked: isRouteBlockedValidationRecord(parsed),
+          authority: "single",
           sourceArtifacts,
         },
       });
@@ -3950,9 +4021,70 @@ async function findValidationForWorkCard(
     }
   }
 
-  matching.sort((left, right) => right.modifiedMs - left.modifiedMs);
+  if (matching.length === 0) {
+    return undefined;
+  }
 
-  return matching[0]?.validation;
+  if (matching.length === 1) {
+    return matching[0].validation;
+  }
+
+  const resultValues = uniqueNormalizedValues(
+    matching.map((match) => match.validation.result),
+  );
+  const decisionValues = uniqueNormalizedValues(
+    matching.map((match) => match.validation.decision),
+  );
+  const legacyDecisionValues = uniqueNormalizedValues(
+    matching.map((match) => match.validation.legacyOperatorDecision),
+  );
+  const sourceArtifacts = uniqueCurrentActionArtifacts(
+    matching.flatMap((match) => match.validation.sourceArtifacts),
+  );
+
+  warnings.push({
+    code: "duplicate_validation_evidence",
+    message: `${matching.length} Validation Reports target ${workCardId}. No report is treated as authoritative because revision authority is not explicitly recorded.`,
+    severity: "warning",
+    sourceArtifactPath: sourceArtifacts[0]?.path,
+  });
+
+  return {
+    result:
+      resultValues.length === 1
+        ? matching[0].validation.result
+        : "Conflicting validation results",
+    decision:
+      decisionValues.length === 1
+        ? matching.find((match) => match.validation.decision)?.validation.decision
+        : undefined,
+    architectDispositionPending: matching.every(
+      (match) => match.validation.architectDispositionPending === true,
+    ),
+    architectDispositionMissing: matching.every(
+      (match) => match.validation.architectDispositionMissing === true,
+    ),
+    legacyOperatorDecision:
+      legacyDecisionValues.length === 1
+        ? matching.find((match) => match.validation.legacyOperatorDecision)
+            ?.validation.legacyOperatorDecision
+        : undefined,
+    repairRequired: matching.some(
+      (match) => match.validation.repairRequired === true,
+    ),
+    routeBlocked: matching.some(
+      (match) => match.validation.routeBlocked === true,
+    ),
+    authority: "duplicate_ambiguous",
+    duplicateCount: matching.length,
+    conflictingResults:
+      resultValues.length > 1
+        ? matching
+            .map((match) => match.validation.result)
+            .filter((value): value is string => Boolean(value))
+        : undefined,
+    sourceArtifacts,
+  };
 }
 
 function getPlanningEvidenceReferences(record: unknown): string[] {
@@ -4009,30 +4141,103 @@ function isArchitectDispositionPending(record: unknown): boolean {
 async function findRepairState(
   phase: string,
   workCardId: string,
+  warnings: CurrentRequiredActionWarning[],
 ): Promise<CurrentActionRepairState | undefined> {
   const repairPrompt = await findMatchingMarkdownArtifact(
     resolveRepairPromptsDirectory(phase),
     `REPAIR_PROMPT_${workCardId}`,
     "Repair Prompt",
   );
-  const repairStates = await findRepairWorkCardStates(phase, workCardId);
-  const validationReadyRepair = repairStates.find(
-    isRepoRepairValidationObligationUnresolved,
+  const repairStates = await findRepairWorkCardStates(
+    phase,
+    workCardId,
+    warnings,
   );
 
-  if (validationReadyRepair) {
-    return {
-      ...validationReadyRepair,
-      repairPrompt,
-    };
-  }
+  if (repairStates.length > 0) {
+    const terminalStates = terminalRepairCandidates(repairStates, repairStates);
+    const explicitlyLinked = terminalRepairCandidates(
+      repairStates.filter(
+        (repair) =>
+          (repair.supersedesRepairIds?.length ?? 0) > 0 &&
+          !isRepoPassingValidation(repair.validation),
+      ),
+      repairStates,
+    );
+    const implementationRequired = terminalRepairCandidates(
+      repairStates.filter(
+        (repair) =>
+          artifactReferenceExists(repair.repairWorkCard) &&
+          !artifactReferenceExists(repair.implementerReport) &&
+          isRepairImplementerStatus(repair.status),
+      ),
+      repairStates,
+    );
+    const validationOrDispositionRequired = terminalRepairCandidates(
+      repairStates.filter(
+        (repair) =>
+          isRepoRepairValidationObligationUnresolved(repair) ||
+          repair.validation?.architectDispositionPending === true ||
+          repair.validation?.architectDispositionMissing === true ||
+          repair.validation?.authority === "duplicate_ambiguous",
+      ),
+      repairStates,
+    );
+    const authorityCandidates =
+      explicitlyLinked.length > 0
+        ? explicitlyLinked
+        : implementationRequired.length > 0
+          ? implementationRequired
+          : validationOrDispositionRequired.length > 0
+            ? validationOrDispositionRequired
+            : terminalRepairCandidates(
+                repairStates.filter(
+                  (repair) => !isRepoPassingValidation(repair.validation),
+                ),
+                repairStates,
+              );
+    const selectionCandidates =
+      authorityCandidates.length > 0
+        ? authorityCandidates
+        : terminalStates.filter((repair) =>
+            isRepoPassingValidation(repair.validation),
+          );
+    const stableCandidates = [...selectionCandidates].sort((left, right) =>
+      (left.repairId ?? "").localeCompare(right.repairId ?? ""),
+    );
+    const selected = stableCandidates[0] ?? repairStates[0];
+    const authorityAmbiguous = authorityCandidates.length > 1;
+    const ambiguityReason = authorityAmbiguous
+      ? `Multiple unresolved repairs (${stableCandidates
+          .map((repair) => repair.repairId)
+          .filter(Boolean)
+          .join(", ")}) lack an explicit relationship that identifies one controlling obligation.`
+      : undefined;
+    const evidenceClassifications = buildRepairEvidenceClassifications(
+      repairStates,
+      selected,
+      authorityAmbiguous,
+    );
+    const routeEvidenceArtifacts = uniqueCurrentActionArtifacts(
+      repairStates.flatMap(repairStateArtifacts),
+    );
 
-  const fallbackRepair = repairStates[0];
+    if (authorityAmbiguous) {
+      warnings.push({
+        code: "ambiguous_repair_route_authority",
+        message: ambiguityReason ?? "Repair route authority is ambiguous.",
+        severity: "blocking",
+        sourceArtifactPath: selected.repairWorkCard?.path,
+      });
+    }
 
-  if (fallbackRepair) {
     return {
-      ...fallbackRepair,
+      ...selected,
       repairPrompt,
+      routeEvidenceArtifacts,
+      evidenceClassifications,
+      authorityAmbiguous,
+      authorityAmbiguityReason: ambiguityReason,
     };
   }
 
@@ -4049,7 +4254,11 @@ async function findRepairState(
     `BUILDER_REPORT_${repairId}`,
     "Repair Implementer Report",
   );
-  const validation = await findValidationForWorkCard(phase, repairId);
+  const validation = await findValidationForWorkCard(
+    phase,
+    repairId,
+    warnings,
+  );
 
   return {
     repairId,
@@ -4063,6 +4272,7 @@ async function findRepairState(
 async function findRepairWorkCardStates(
   phase: string,
   parentWorkCardId: string,
+  warnings: CurrentRequiredActionWarning[],
 ): Promise<CurrentActionRepairState[]> {
   const directory = resolveWorkCardsDirectory(phase);
   const entries = await readDirectoryFileNames(directory, ".json");
@@ -4109,10 +4319,33 @@ async function findRepairWorkCardStates(
             absoluteFromRepoPath(architectReviewArtifact.path),
           )
         : undefined;
+      const triggerReferences = getRepairTriggerValidationReferences(parsed);
+      const triggerArtifacts = await Promise.all(
+        triggerReferences.map((reference) =>
+          artifactReferenceForPath(
+            absoluteFromRepoPath(reference),
+            "Repair trigger validation evidence",
+            "controlling_trigger",
+          ),
+        ),
+      );
+      const supersedesRepairIds = [
+        ...new Set([
+          ...getExplicitParentRepairIds(parsed),
+          ...triggerReferences
+            .map(extractValidationTargetIdFromPath)
+            .filter(
+              (targetId): targetId is string =>
+                Boolean(targetId) &&
+                /_repair\d+$/i.test(normalizeCurrentActionId(targetId)),
+            ),
+        ]),
+      ];
 
       repairs.push({
         repairId: fields.workCardId,
         title: fields.title,
+        status: fields.status,
         repairWorkCard: await artifactReferenceForPath(
           markdownPath,
           "Repair Work Card",
@@ -4128,7 +4361,13 @@ async function findRepairWorkCardStates(
               },
             }
           : undefined,
-        validation: await findValidationForWorkCard(phase, fields.workCardId),
+        validation: await findValidationForWorkCard(
+          phase,
+          fields.workCardId,
+          warnings,
+        ),
+        triggerArtifacts,
+        supersedesRepairIds,
       });
     } catch {
       continue;
@@ -4136,6 +4375,245 @@ async function findRepairWorkCardStates(
   }
 
   return repairs;
+}
+
+function terminalRepairCandidates(
+  candidates: CurrentActionRepairState[],
+  allRepairs: CurrentActionRepairState[],
+): CurrentActionRepairState[] {
+  const explicitlySupersededIds = new Set(
+    allRepairs.flatMap((repair) =>
+      (repair.supersedesRepairIds ?? []).map((repairId) =>
+        normalizeCurrentActionId(repairId),
+      ),
+    ),
+  );
+
+  return candidates.filter(
+    (candidate) =>
+      !explicitlySupersededIds.has(
+        normalizeCurrentActionId(candidate.repairId),
+      ),
+  );
+}
+
+function isRepairImplementerStatus(status: string | undefined): boolean {
+  return [
+    "approved_for_implementer_handoff",
+    "implementer_handoff_required",
+    "in_implementer_pass",
+    "ready_for_builder",
+    "ready_for_handoff",
+    "ready_for_implementer",
+  ].includes(normalizeCurrentActionStatus(status));
+}
+
+function repairStateArtifacts(
+  repair: CurrentActionRepairState,
+): CurrentActionArtifactReference[] {
+  return [
+    repair.repairWorkCard,
+    repair.implementerReport,
+    repair.architectReview?.sourceArtifact,
+    ...(repair.validation?.sourceArtifacts ?? []),
+    ...(repair.triggerArtifacts ?? []),
+  ].filter(
+    (artifact): artifact is CurrentActionArtifactReference => Boolean(artifact),
+  );
+}
+
+function buildRepairEvidenceClassifications(
+  repairs: CurrentActionRepairState[],
+  selected: CurrentActionRepairState,
+  authorityAmbiguous: boolean,
+): CurrentActionEvidenceClassification[] {
+  const result: CurrentActionEvidenceClassification[] = [];
+  const selectedId = normalizeCurrentActionId(selected.repairId);
+  const selectedSupersedes = new Set(
+    (selected.supersedesRepairIds ?? []).map((repairId) =>
+      normalizeCurrentActionId(repairId),
+    ),
+  );
+
+  result.push({
+    id: `controlling-${selected.repairId ?? "repair"}`,
+    label: `${selected.repairId ?? "Repair"} Work Card`,
+    summary: authorityAmbiguous
+      ? "This repair is shown only as part of an ambiguous set. Architect disposition must identify the controlling obligation."
+      : "This explicitly linked unresolved Repair Work Card controls the current route.",
+    classification: authorityAmbiguous
+      ? "duplicate_ambiguous"
+      : "accepted_controlling",
+    sourceArtifacts: selected.repairWorkCard
+      ? [selected.repairWorkCard]
+      : undefined,
+  });
+
+  if ((selected.triggerArtifacts?.length ?? 0) > 0) {
+    result.push({
+      id: `trigger-${selected.repairId ?? "repair"}`,
+      label: "Controlling repair trigger",
+      summary:
+        "The selected Repair Work Card explicitly cites this validation evidence as its trigger; the evaluator did not infer that relationship from a filename suffix or timestamp.",
+      classification: "accepted_controlling",
+      sourceArtifacts: selected.triggerArtifacts,
+    });
+  }
+
+  for (const repair of repairs) {
+    const repairId = repair.repairId ?? "Repair";
+    const normalizedRepairId = normalizeCurrentActionId(repair.repairId);
+
+    if (normalizedRepairId === selectedId) {
+      if (repair.validation?.authority === "duplicate_ambiguous") {
+        result.push(duplicateValidationClassification(repair));
+      }
+
+      if (
+        repair.validation?.architectDispositionPending ||
+        repair.validation?.architectDispositionMissing
+      ) {
+        result.push(pendingValidationClassification(repair));
+      }
+
+      continue;
+    }
+
+    if (selectedSupersedes.has(normalizedRepairId)) {
+      result.push({
+        id: `superseded-${repairId}`,
+        label: `${repairId} prior repair state`,
+        summary: `${repairId} remains historical evidence, but the selected Repair Work Card explicitly cites its validation and now controls the follow-up obligation.`,
+        classification: "stale_historical_superseded",
+        sourceArtifacts: repairStateArtifacts(repair),
+      });
+      continue;
+    }
+
+    if (repair.validation?.authority === "duplicate_ambiguous") {
+      result.push(duplicateValidationClassification(repair));
+    }
+
+    if (
+      repair.validation?.architectDispositionPending ||
+      repair.validation?.architectDispositionMissing
+    ) {
+      result.push(pendingValidationClassification(repair));
+      continue;
+    }
+
+    if (isRepoPassingValidation(repair.validation)) {
+      result.push({
+        id: `accepted-${repairId}`,
+        label: `${repairId} validated evidence`,
+        summary: `${repairId} has passing validation evidence on record. It remains supporting history and does not replace the selected unresolved repair obligation.`,
+        classification: "accepted_controlling",
+        sourceArtifacts: repairStateArtifacts(repair),
+      });
+      continue;
+    }
+
+    if (
+      artifactReferenceExists(repair.implementerReport) ||
+      repair.validation
+    ) {
+      result.push({
+        id: `non-controlling-${repairId}`,
+        label: `${repairId} non-controlling evidence`,
+        summary: `${repairId} evidence is present but does not have explicit authority over the selected repair route.`,
+        classification: "stale_historical_superseded",
+        sourceArtifacts: repairStateArtifacts(repair),
+      });
+    }
+  }
+
+  return result;
+}
+
+function duplicateValidationClassification(
+  repair: CurrentActionRepairState,
+): CurrentActionEvidenceClassification {
+  return {
+    id: `duplicate-${repair.repairId ?? "repair"}`,
+    label: `${repair.repairId ?? "Repair"} duplicate validation evidence`,
+    summary: `${repair.validation?.duplicateCount ?? 2} Validation Reports target the same repair. None is authoritative without explicit revision authority.`,
+    classification: "duplicate_ambiguous",
+    sourceArtifacts: repair.validation?.sourceArtifacts,
+  };
+}
+
+function pendingValidationClassification(
+  repair: CurrentActionRepairState,
+): CurrentActionEvidenceClassification {
+  return {
+    id: `pending-${repair.repairId ?? "repair"}`,
+    label: `${repair.repairId ?? "Repair"} validation evidence`,
+    summary: repair.validation?.architectDispositionMissing
+      ? "Validation evidence is present, but the required durable Architect disposition is missing."
+      : "Validation evidence is present, but its durable Architect disposition remains pending.",
+    classification: "present_pending_disposition",
+    sourceArtifacts: repair.validation?.sourceArtifacts,
+  };
+}
+
+function getRepairTriggerValidationReferences(record: unknown): string[] {
+  const directReferences = getRecordArray(record, "sourceValidationReports").filter(
+    (value): value is string => typeof value === "string",
+  );
+  const repairTrigger = isCurrentActionRecord(record)
+    ? record.repairTrigger
+    : undefined;
+  const nestedReference = isCurrentActionRecord(repairTrigger)
+    ? getRecordString(repairTrigger, "validationReport") ||
+      getRecordString(repairTrigger, "validation_report")
+    : "";
+  const references = [...directReferences, nestedReference]
+    .map((value) => value.trim().replace(/\\/g, "/"))
+    .filter(Boolean);
+
+  return [
+    ...new Set(
+      references.filter((reference) => {
+        const segments = reference.split("/");
+        return (
+          reference.startsWith("planning/") &&
+          reference.toLowerCase().includes("/validation_reports/") &&
+          !segments.some(
+            (segment) => segment.length === 0 || segment === "." || segment === "..",
+          )
+        );
+      }),
+    ),
+  ];
+}
+
+function getExplicitParentRepairIds(record: unknown): string[] {
+  const directValues = [
+    getRecordString(record, "parentRepairId"),
+    getRecordString(record, "parent_repair_id"),
+  ];
+  const chainValues = [
+    ...getRecordArray(record, "parentRepairChain"),
+    ...getRecordArray(record, "parent_repair_chain"),
+  ].filter((value): value is string => typeof value === "string");
+
+  return [
+    ...new Set(
+      [...directValues, ...chainValues]
+        .map((value) => value.trim())
+        .filter(
+          (value) =>
+            /^[A-Za-z0-9]+-REPAIR\d+$/i.test(value) &&
+            !value.includes(".."),
+        ),
+    ),
+  ];
+}
+
+function extractValidationTargetIdFromPath(pathValue: string): string | undefined {
+  return /VALIDATION_REPORT_([A-Za-z0-9]+(?:-REPAIR\d+)?)(?:_|\.|$)/i.exec(
+    pathValue,
+  )?.[1];
 }
 
 async function findRepairWorkCardArtifact(
@@ -4501,7 +4979,7 @@ function isRepoWorkCardResolved(
   candidateStatus: string | undefined,
   workCard: CurrentActionWorkCardState,
 ): boolean {
-  if (isRepoRepairValidationObligationUnresolved(workCard.repair)) {
+  if (isRepoRepairObligationUnresolved(workCard.repair)) {
     return false;
   }
 
@@ -4538,6 +5016,16 @@ function isRepoWorkCardResolved(
   return false;
 }
 
+function isRepoRepairObligationUnresolved(
+  repair: CurrentActionRepairState | undefined,
+): boolean {
+  return Boolean(
+    repair &&
+      artifactReferenceExists(repair.repairWorkCard) &&
+      !isRepoPassingValidation(repair.validation),
+  );
+}
+
 function isRepoRepairValidationObligationUnresolved(
   repair: CurrentActionRepairState | undefined,
 ): boolean {
@@ -4563,6 +5051,10 @@ function isRepoRepairValidationObligationUnresolved(
 function isRepoPassingValidation(
   validation: CurrentActionValidationState | undefined,
 ): boolean {
+  if (validation?.authority === "duplicate_ambiguous") {
+    return false;
+  }
+
   if (!validation?.result && !validation?.decision) {
     return false;
   }
@@ -4807,6 +5299,33 @@ function normalizeCurrentActionId(value: string | undefined): string {
 
 function normalizeCurrentActionStatus(value: string | undefined): string {
   return normalizeCurrentActionId(value);
+}
+
+function uniqueNormalizedValues(values: Array<string | undefined>): string[] {
+  return [
+    ...new Set(
+      values
+        .map((value) => normalizeCurrentActionStatus(value))
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function uniqueCurrentActionArtifacts(
+  artifacts: CurrentActionArtifactReference[],
+): CurrentActionArtifactReference[] {
+  const seen = new Set<string>();
+
+  return artifacts.filter((artifact) => {
+    const key = `${artifact.path}|${artifact.role}`;
+
+    if (!artifact.path || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalizeFileStem(value: string): string {

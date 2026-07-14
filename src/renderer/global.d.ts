@@ -172,6 +172,11 @@ import type {
   CurrentRequiredActionWarning,
 } from "../shared/workCards/currentRequiredAction";
 import type {
+  RouteReviewRequestInput,
+  RouteReviewRequestRecord,
+  RouteReviewRequestSaveResult,
+} from "../shared/workCards/routeReviewRequest";
+import type {
   ArtifactReviewEntry,
   ArtifactReviewExpectedOutput,
   ArtifactReviewGroup,
@@ -375,6 +380,9 @@ declare global {
     CurrentRequiredActionWarning;
   type ChampCityCurrentRequiredActionResult =
     CurrentRequiredActionResult;
+  type ChampCityRouteReviewRequestInput = RouteReviewRequestInput;
+  type ChampCityRouteReviewRequestRecord = RouteReviewRequestRecord;
+  type ChampCityRouteReviewRequestSaveResult = RouteReviewRequestSaveResult;
   type ChampCityArtifactReviewEntry = ArtifactReviewEntry;
   type ChampCityArtifactReviewExpectedOutput = ArtifactReviewExpectedOutput;
   type ChampCityArtifactReviewGroup = ArtifactReviewGroup;
@@ -530,6 +538,9 @@ declare global {
         phase: string,
       ) => Promise<PhaseCloseoutSummaryResult>;
       getCurrentRequiredAction: () => Promise<CurrentRequiredActionResult>;
+      saveRouteReviewRequest: (
+        input: RouteReviewRequestInput,
+      ) => Promise<RouteReviewRequestSaveResult>;
       previewPlanningArtifact: (
         input: PlanningArtifactPreviewRequest,
       ) => Promise<PlanningArtifactPreviewResult>;

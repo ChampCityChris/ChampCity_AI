@@ -56,15 +56,15 @@ const currentActionResult = await getCurrentRequiredAction();
 assert.equal(currentActionResult.ok, true);
 assert.equal(
   currentActionResult.currentAction?.workCardId,
-  "WC08-REPAIR02",
-  "Accepted prior work must allow the pending repair-validation route without changing support-navigation semantics.",
+  "WC08-REPAIR04",
+  "Accepted prior work must allow the explicit active repair route without changing support-navigation semantics.",
 );
 assert.ok(
   [
-    "repair_validation_required",
-    "architect_review_of_validation_report_required",
+    "repair_implementer_handoff_required",
+    "architect_review_of_implementer_report_required",
   ].includes(currentActionResult.currentAction?.id ?? ""),
-  "WC08-REPAIR02 must remain unresolved while validation or Architect disposition is pending.",
+  "WC08-REPAIR04 must remain unresolved while implementation or Architect review is pending.",
 );
 
 console.log("WC05 support-navigation focused fixture passed.");

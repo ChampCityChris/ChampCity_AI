@@ -27,7 +27,7 @@ Each future Work Card creation pass must review both the project-level and phase
 - Source artifact: WC04/WC05/WC06 validation observations
 - Source Work Card: Multiple validation reports
 - Date captured: 2026-07-13
-- Operator observation: The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate “What was tested” and checklist content.
+- Operator observation: The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate “What was tested” and checklist content. Later WC08-REPAIR01 validation also identified that Architect-provided Operator validation steps should focus on item-level acceptance criteria and observable validation assertions rather than broad navigation/setup steps such as opening the app or navigating to a screen.
 - Architect disposition: Defer to later validation-record workflow work.
 - Disposition rationale: This is real validation UX debt and is more directly related to validation record authoring and the later validation/repair route work.
 - Assigned target: WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 validation UX cleanup if WC12 scope is kept narrower.
@@ -93,11 +93,11 @@ Each future Work Card creation pass must review both the project-level and phase
 - Source Work Card: WC08-REPAIR02 / WC08-REPAIR03
 - Date captured: 2026-07-14
 - Operator observation: The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.
-- Architect disposition: Defer to a dedicated controlled route recovery Work Card after WC08-REPAIR03 unblocks the immediate validation route.
-- Disposition rationale: This is broader than the immediate WC08-REPAIR03 routing bug. It should create a durable recovery request and Architect disposition gate rather than an unrestricted Operator override.
-- Assigned target: Planned WC08-REPAIR04 — Operator Route Recovery Request and Architect Disposition Gate, or equivalent Phase 03 route-recovery Work Card before deeper WC09-WC15 work continues.
-- Status: Planned / Deferred until after WC08-REPAIR03
-- Resolution artifact: Pending
+- Architect disposition: Assigned to immediate repair after WC08-REPAIR01 validation confirmed the non-mutating prompt-style route guidance is insufficient for an end-user product workflow.
+- Disposition rationale: The app must provide a controlled in-application recovery path when routing is wrong, stale, or blocks validation. The recovery path must be governed by durable evidence and Architect disposition, not an unrestricted Operator override and not a copy/paste prompt to an Architect or LLM.
+- Assigned target: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority
+- Status: Assigned
+- Resolution artifact: Pending WC08-REPAIR04 validation
 - Project register link: PROJ-OBS-006
 
 ### PH03-OBS-010 — Artifact authority and revision governance is undefined

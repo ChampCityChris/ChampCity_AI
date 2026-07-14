@@ -53,22 +53,23 @@ assert.equal(
 );
 
 const currentAction = currentActionResult.currentAction;
-assert.equal(currentAction?.workCardId, "WC08-REPAIR02");
+assert.equal(currentAction?.workCardId, "WC08-REPAIR04");
 assert.ok(
   [
-    "repair_validation_required",
-    "architect_review_of_validation_report_required",
+    "repair_implementer_handoff_required",
+    "architect_review_of_implementer_report_required",
   ].includes(currentAction?.id ?? ""),
 );
 assert.notEqual(currentAction?.id, "full_work_card_creation_required");
-const repairValidationPending = currentAction?.id === "repair_validation_required";
+const repairImplementationPending =
+  currentAction?.id === "repair_implementer_handoff_required";
 assert.equal(
   currentAction?.responsibleRole,
-  repairValidationPending ? "operator" : "architect",
+  repairImplementationPending ? "implementer" : "architect",
 );
 assert.equal(
   currentAction?.status,
-  repairValidationPending ? "needs_validation" : "needs_review",
+  repairImplementationPending ? "available" : "needs_review",
 );
 
 const architectReview = readRepositoryFile(
@@ -86,9 +87,9 @@ assert.equal(
   workflowGuide.workCardLoopStages.find(
     (stage) =>
       stage.id ===
-      (repairValidationPending ? "validation-again" : "architect-review"),
+      (repairImplementationPending ? "repair" : "architect-review"),
   )?.state,
-  repairValidationPending ? "repair" : "current",
+  repairImplementationPending ? "repair" : "current",
 );
 
 const navigationItems = Object.freeze([

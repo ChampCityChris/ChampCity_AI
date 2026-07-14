@@ -46,6 +46,20 @@ function routeAction(overrides = {}) {
     },
     successRoute: "the next unresolved Work Card obligation",
     repairRoute: "an exact-scope repair Work Card",
+    evidenceClassifications: [
+      {
+        id: "accepted-repair-card",
+        label: "WC42-REPAIR07 Work Card",
+        summary: "The Repair Work Card controls the current route.",
+        classification: "accepted_controlling",
+      },
+      {
+        id: "pending-validation",
+        label: "WC42-REPAIR07 Validation Report",
+        summary: "Validation evidence exists and Architect disposition is pending.",
+        classification: "present_pending_disposition",
+      },
+    ],
     warnings: [],
     ...overrides,
   };
@@ -128,13 +142,18 @@ assert.match(model.nextAction.requiredAction, /Operator validation evidence/i);
 assert.match(model.nextAction.expectedOutput, /Architect validation disposition/i);
 assert.match(model.nextAction.afterCompletion, /next unresolved Work Card obligation/i);
 assert.equal(
-  model.explanation.evidenceOnRecord.some((item) =>
-    /Operator Validation.*Architect disposition pending/i.test(item),
+  model.explanation.acceptedEvidence.some((item) =>
+    /WC42-REPAIR07 Work Card/i.test(item),
   ),
   true,
-  "The plain-language explanation must identify validation evidence and its pending disposition.",
+  "The plain-language explanation must identify accepted controlling evidence.",
 );
 assert.match(model.explanation.pendingEvidence.join(" "), /disposition.*pending/i);
+assert.doesNotMatch(
+  model.explanation.acceptedEvidence.join(" "),
+  /disposition.*pending/i,
+  "Pending evidence must not be labeled accepted or controlling.",
+);
 assert.match(model.explanation.priorityReason, /WC42-REPAIR07/i);
 assert.match(model.explanation.priorityReason, /priority over later work/i);
 assert.match(model.explanation.advancementBlock, /has not advanced/i);
@@ -146,11 +165,14 @@ assert.equal(
   true,
 );
 assert.equal(
-  model.correctionGuidance.recordsToReview.includes("Validation Report Markdown"),
+  model.correctionGuidance.recordsToReview.includes(
+    "WC42-REPAIR07 Validation Report",
+  ),
   true,
 );
-assert.match(model.correctionGuidance.handoffSummary, /WC42-REPAIR07/i);
-assert.match(model.correctionGuidance.handoffSummary, /does not authorize skipping evidence/i);
+assert.match(model.correctionGuidance.currentRoute, /WC42-REPAIR07/i);
+assert.match(model.correctionGuidance.durableAction, /Route Review Request/i);
+assert.match(model.correctionGuidance.governanceSummary, /cannot approve/i);
 
 const alternateModel = buildCurrentStepContextInspector(
   routeAction({
@@ -244,9 +266,11 @@ assert.match(
 const correctionSource = inspectorSource.slice(correctionIndex, diagnosticsIndex);
 assert.doesNotMatch(
   correctionSource,
-  /onClick|onSave|onApprove|onValidate|onRepair|onAdvance|previewPlanningArtifact/,
-  "The route-correction affordance must not mutate workflow state or become an artifact browser.",
+  /saveHumanValidationRecord|saveArchitectPrompt|saveBuilderReportCapture|previewPlanningArtifact/,
+  "The route-correction affordance must not approve, validate, mutate workflow state, or become an artifact browser.",
 );
+assert.match(inspectorSource, /saveRouteReviewRequest/);
+assert.doesNotMatch(correctionSource, /Handoff summary|select and copy/);
 assert.doesNotMatch(
   inspectorSource,
   /CurrentActionArtifactReview|sourceArtifacts\.map|previewPlanningArtifact/,
@@ -271,6 +295,8 @@ assert.notEqual(
 );
 assert.ok(
   [
+    "repair_implementer_handoff_required",
+    "architect_review_of_implementer_report_required",
     "repair_validation_required",
     "architect_review_of_validation_report_required",
   ].includes(liveResult.currentAction.id),
@@ -278,5 +304,5 @@ assert.ok(
 );
 
 console.log(
-  "WC08-REPAIR01 focused fixture passed: generic route explanation, next-step guidance, route-change evidence, non-mutating correction guidance, secondary diagnostics, human tab order, and repair-routing preservation verified.",
+  "WC08-REPAIR01 focused fixture passed: generic route explanation, evidence authority labels, governed correction guidance, secondary diagnostics, human tab order, and repair-routing preservation verified.",
 );

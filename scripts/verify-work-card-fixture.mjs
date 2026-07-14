@@ -716,7 +716,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
         ],
       },
     })],
-    ["repair_validation_required", makeCurrentActionState({
+    ["architect_review_of_implementer_report_required", makeCurrentActionState({
       activePhase: {
         workCards: [
           workCard({
@@ -823,11 +823,11 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
     );
 
     if (
-      action.id !== "repair_validation_required" ||
+      action.id !== "architect_review_of_implementer_report_required" ||
       action.workCardId !== "WC01-REPAIR01"
     ) {
       console.error(
-        `Architect disposition ${decision} should keep WC01 on repair validation, got ${action.workCardId ?? "none"}/${action.id}.`,
+        `Architect disposition ${decision} should keep WC01 on repair Architect review, got ${action.workCardId ?? "none"}/${action.id}.`,
       );
       process.exit(1);
     }
@@ -838,7 +838,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
       )
     ) {
       console.error(
-        `Architect disposition ${decision} repair validation should retain the failed parent Validation Report as source evidence. Sources: ${action.sourceArtifacts.map((source) => source.path).join(", ")}`,
+        `Architect disposition ${decision} repair review should retain the failed parent Validation Report as source evidence. Sources: ${action.sourceArtifacts.map((source) => source.path).join(", ")}`,
       );
       process.exit(1);
     }
@@ -1170,6 +1170,10 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
     "WC08-REPAIR02": [
       "repair_validation_required",
       "architect_review_of_validation_report_required",
+    ],
+    "WC08-REPAIR04": [
+      "repair_implementer_handoff_required",
+      "architect_review_of_implementer_report_required",
     ],
   };
   const liveWorkCardId = liveCurrentAction.currentAction.workCardId;

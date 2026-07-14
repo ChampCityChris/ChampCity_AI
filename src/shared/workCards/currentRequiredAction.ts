@@ -59,6 +59,21 @@ export interface CurrentActionExpectedOutput {
   description: string;
 }
 
+export type CurrentActionEvidenceClassificationKind =
+  | "accepted_controlling"
+  | "present_pending_disposition"
+  | "missing_required"
+  | "stale_historical_superseded"
+  | "duplicate_ambiguous";
+
+export interface CurrentActionEvidenceClassification {
+  id: string;
+  label: string;
+  summary: string;
+  classification: CurrentActionEvidenceClassificationKind;
+  sourceArtifacts?: CurrentActionArtifactReference[];
+}
+
 export interface CurrentActionManualFallback {
   available: boolean;
   instructions: string;
@@ -91,6 +106,7 @@ export interface CurrentRequiredAction {
   failureRoute?: string;
   repairRoute?: string;
   manualFallback?: CurrentActionManualFallback;
+  evidenceClassifications?: CurrentActionEvidenceClassification[];
   warnings: CurrentRequiredActionWarning[];
 }
 
@@ -124,6 +140,9 @@ export interface CurrentActionValidationState {
   legacyOperatorDecision?: string;
   repairRequired?: boolean;
   routeBlocked?: boolean;
+  authority?: "single" | "duplicate_ambiguous";
+  duplicateCount?: number;
+  conflictingResults?: string[];
   sourceArtifacts: CurrentActionArtifactReference[];
 }
 
@@ -135,11 +154,18 @@ export interface CurrentActionArchitectReviewState {
 export interface CurrentActionRepairState {
   repairId?: string;
   title?: string;
+  status?: string;
   repairPrompt?: CurrentActionArtifactReference;
   repairWorkCard?: CurrentActionArtifactReference;
   implementerReport?: CurrentActionArtifactReference;
   architectReview?: CurrentActionArchitectReviewState;
   validation?: CurrentActionValidationState;
+  triggerArtifacts?: CurrentActionArtifactReference[];
+  supersedesRepairIds?: string[];
+  routeEvidenceArtifacts?: CurrentActionArtifactReference[];
+  evidenceClassifications?: CurrentActionEvidenceClassification[];
+  authorityAmbiguous?: boolean;
+  authorityAmbiguityReason?: string;
 }
 
 export interface CurrentActionWorkCardState {
@@ -763,7 +789,16 @@ function evaluateWorkCardState(
     ...workCard.sourceArtifacts,
   ]);
 
-  if (hasUnresolvedRepairValidationObligation(workCard.repair)) {
+  if (workCard.repair?.authorityAmbiguous) {
+    return architectRepairAuthorityAction(
+      phase,
+      workCard,
+      workCardSources,
+      warnings,
+    );
+  }
+
+  if (hasUnresolvedRepairObligation(workCard.repair)) {
     return evaluateRepairRoute(
       phase,
       workCard,
@@ -772,6 +807,22 @@ function evaluateWorkCardState(
         workCard.implementerReport,
         workCard.architectReview?.sourceArtifact,
         ...(workCard.validation?.sourceArtifacts ?? []),
+      ]),
+      warnings,
+    );
+  }
+
+  if (workCard.validation?.authority === "duplicate_ambiguous") {
+    return architectValidationEvidenceAuthorityAction(
+      phase,
+      workCard.workCardId,
+      workCard.title,
+      workCard.validation,
+      uniqueArtifacts([
+        ...workCardSources,
+        workCard.implementerReport,
+        workCard.architectReview?.sourceArtifact,
+        ...workCard.validation.sourceArtifacts,
       ]),
       warnings,
     );
@@ -1073,10 +1124,13 @@ function evaluateRepairRoute(
     repair.repairWorkCard,
     repair.repairPrompt,
     repair.architectReview?.sourceArtifact,
+    ...(repair.triggerArtifacts ?? []),
+    ...(repair.routeEvidenceArtifacts ?? []),
   ]);
+  const repairEvidenceClassifications = repair.evidenceClassifications;
 
   if (!artifactExists(repair.implementerReport)) {
-    const expectedPath = `planning/phases/${phase.phaseId}/Builder_Reports/BUILDER_REPORT_${repairId}_${slugifyForPath(workCard.title)}.md`;
+    const expectedPath = `planning/phases/${phase.phaseId}/Builder_Reports/BUILDER_REPORT_${repairId}_${slugifyForPath(repairTitle)}.md`;
 
     return action(warnings, {
       id: "repair_implementer_handoff_required",
@@ -1097,7 +1151,7 @@ function evaluateRepairRoute(
         {
           path: expectedPath,
           reason:
-            "Repair validation cannot proceed until the repair Implementer Report exists.",
+            "Architect review cannot proceed until the repair Implementer Report exists.",
         },
       ],
       expectedOutput: {
@@ -1105,16 +1159,69 @@ function evaluateRepairRoute(
         artifactType: "Repair Implementer Report",
         description: "Report from the repair implementation pass.",
       },
-      successRoute: "Repair validation",
+      successRoute: "Architect review of repair Implementer Report",
       manualFallback: fallback(expectedPath),
+      evidenceClassifications: repairEvidenceClassifications,
     });
   }
 
-  if (repair.validation?.architectDispositionPending) {
-    return architectValidationDispositionAction(
+  const repairReviewIncomplete = isArchitectReviewIncomplete(
+    repair.architectReview,
+  );
+
+  if (
+    !repair.architectReview ||
+    repairReviewIncomplete ||
+    (!isArchitectReviewReadyForOperatorValidation(repair.architectReview) &&
+      !architectReviewRequiresRepair(repair.architectReview))
+  ) {
+    const expectedPath = `planning/phases/${phase.phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${repairId}_${slugifyForPath(repairTitle)}.md`;
+
+    return action(warnings, {
+      id: "architect_review_of_implementer_report_required",
+      workflowStep: "Work Card Loop",
+      title: "Architect review of repair Implementer Report required",
+      summary:
+        "The repair Implementer Report exists and must be reviewed before Operator validation.",
+      responsibleRole: "architect",
+      phaseId: phase.phaseId,
+      phaseTitle: phase.phaseTitle,
+      workCardId: repairId,
+      workCardTitle: repairTitle,
+      status: "needs_review",
+      reason: repairReviewIncomplete
+        ? "The repair Architect Review is incomplete and must provide substantive Operator validation steps before validation."
+        : "The locked workflow routes repair Implementer Reports to Architect review before Operator validation.",
+      sourceArtifacts: uniqueArtifacts([
+        ...repairSources,
+        repair.implementerReport,
+      ]),
+      missingArtifacts: [
+        {
+          path: expectedPath,
+          reason:
+            "Architect review is required before the Operator validates this repair.",
+        },
+      ],
+      expectedOutput: {
+        path: expectedPath,
+        artifactType: "Repair Architect Review",
+        description:
+          "Architect decision and item-level Operator validation steps for the repair implementation.",
+      },
+      successRoute: "Repair Operator validation",
+      repairRoute:
+        "Create another exact-scope repair Work Card if Architect review finds blocking defects.",
+      manualFallback: fallback(expectedPath),
+      evidenceClassifications: repairEvidenceClassifications,
+    });
+  }
+
+  if (repair.validation?.authority === "duplicate_ambiguous") {
+    return architectValidationEvidenceAuthorityAction(
       phase,
       repairId,
-      workCard.title,
+      repairTitle,
       repair.validation,
       uniqueArtifacts([
         ...repairSources,
@@ -1122,11 +1229,28 @@ function evaluateRepairRoute(
         ...repair.validation.sourceArtifacts,
       ]),
       warnings,
+      repairEvidenceClassifications,
+    );
+  }
+
+  if (repair.validation?.architectDispositionPending) {
+    return architectValidationDispositionAction(
+      phase,
+      repairId,
+      repairTitle,
+      repair.validation,
+      uniqueArtifacts([
+        ...repairSources,
+        repair.implementerReport,
+        ...repair.validation.sourceArtifacts,
+      ]),
+      warnings,
+      repairEvidenceClassifications,
     );
   }
 
   if (!isPassingValidation(repair.validation)) {
-    const expectedPath = `planning/phases/${phase.phaseId}/Validation_Reports/VALIDATION_REPORT_${repairId}_${slugifyForPath(workCard.title)}.md`;
+    const expectedPath = `planning/phases/${phase.phaseId}/Validation_Reports/VALIDATION_REPORT_${repairId}_${slugifyForPath(repairTitle)}.md`;
 
     return action(warnings, {
       id: "repair_validation_required",
@@ -1162,6 +1286,7 @@ function evaluateRepairRoute(
       successRoute: "Next Work Card candidate or Phase Closeout",
       failureRoute: "Create another repair sub-card if validation fails again.",
       manualFallback: fallback(expectedPath),
+      evidenceClassifications: repairEvidenceClassifications,
     });
   }
 
@@ -1181,6 +1306,7 @@ function evaluateRepairRoute(
       "Durable validation evidence shows the Work Card or repair route has passed.",
     sourceArtifacts,
     missingArtifacts: [],
+    evidenceClassifications: repairEvidenceClassifications,
   });
 }
 
@@ -1278,7 +1404,7 @@ function isCandidateResolved(
     return resolvedCandidateStatuses.has(normalizeStatus(candidate.status));
   }
 
-  if (hasUnresolvedRepairValidationObligation(workCard.repair)) {
+  if (hasUnresolvedRepairObligation(workCard.repair)) {
     return false;
   }
 
@@ -1304,14 +1430,12 @@ function isCandidateResolved(
   return false;
 }
 
-function hasUnresolvedRepairValidationObligation(
+function hasUnresolvedRepairObligation(
   repair: CurrentActionRepairState | undefined,
 ): boolean {
   if (
     !repair ||
-    !artifactExists(repair.repairWorkCard) ||
-    !artifactExists(repair.implementerReport) ||
-    !isArchitectReviewReadyForOperatorValidation(repair.architectReview)
+    !artifactExists(repair.repairWorkCard)
   ) {
     return false;
   }
@@ -1324,6 +1448,7 @@ function isFailingValidation(
 ): boolean {
   if (
     !validation ||
+    validation.authority === "duplicate_ambiguous" ||
     validation.routeBlocked ||
     validation.architectDispositionPending ||
     validation.architectDispositionMissing
@@ -1377,6 +1502,7 @@ function isPassingValidation(
 ): boolean {
   if (
     !validation ||
+    validation.authority === "duplicate_ambiguous" ||
     validation.architectDispositionPending ||
     validation.architectDispositionMissing ||
     isFailingValidation(validation)
@@ -1411,6 +1537,7 @@ function architectValidationDispositionAction(
   validation: CurrentActionValidationState,
   sourceArtifacts: CurrentActionArtifactReference[],
   warnings: CurrentRequiredActionWarning[],
+  evidenceClassifications?: CurrentActionEvidenceClassification[],
 ): CurrentRequiredAction {
   const validationArtifact = validation.sourceArtifacts.find((artifactRef) =>
     /validation report/i.test(artifactRef.role),
@@ -1443,6 +1570,83 @@ function architectValidationDispositionAction(
     manualFallback: validationArtifact
       ? fallback(validationArtifact.path)
       : undefined,
+    evidenceClassifications,
+  });
+}
+
+function architectValidationEvidenceAuthorityAction(
+  phase: CurrentActionPhaseState,
+  targetId: string,
+  targetTitle: string,
+  validation: CurrentActionValidationState,
+  sourceArtifacts: CurrentActionArtifactReference[],
+  warnings: CurrentRequiredActionWarning[],
+  evidenceClassifications?: CurrentActionEvidenceClassification[],
+): CurrentRequiredAction {
+  const duplicateCount = validation.duplicateCount ?? 2;
+
+  return action(warnings, {
+    id: "architect_review_of_validation_report_required",
+    workflowStep: "Work Card Loop",
+    title: "Architect validation evidence authority review required",
+    summary:
+      "Multiple Validation Reports represent the same target and no explicit authoritative revision is recorded.",
+    responsibleRole: "architect",
+    phaseId: phase.phaseId,
+    phaseTitle: phase.phaseTitle,
+    workCardId: targetId,
+    workCardTitle: targetTitle,
+    status: "needs_review",
+    reason: `${duplicateCount} Validation Reports exist for this target. ChampCity A/I will not infer authority from filename suffixes, timestamps, or directory order.`,
+    sourceArtifacts,
+    missingArtifacts: [],
+    expectedOutput: {
+      artifactType: "Architect evidence authority disposition",
+      description:
+        "Record which validation evidence controls, whether another repair is required, and which records are historical or superseded.",
+    },
+    successRoute: "Re-evaluate the earliest unresolved repair obligation",
+    repairRoute:
+      "Create an exact-scope repair Work Card only if Architect disposition requires implementation changes.",
+    evidenceClassifications,
+  });
+}
+
+function architectRepairAuthorityAction(
+  phase: CurrentActionPhaseState,
+  workCard: CurrentActionWorkCardState,
+  sourceArtifacts: CurrentActionArtifactReference[],
+  warnings: CurrentRequiredActionWarning[],
+): CurrentRequiredAction {
+  const repair = workCard.repair;
+
+  return action(warnings, {
+    id: "architect_review_of_validation_report_required",
+    workflowStep: "Work Card Loop",
+    title: "Architect repair-route authority review required",
+    summary:
+      "Competing unresolved repair obligations do not identify one controlling route.",
+    responsibleRole: "architect",
+    phaseId: phase.phaseId,
+    phaseTitle: phase.phaseTitle,
+    workCardId: workCard.workCardId,
+    workCardTitle: workCard.title,
+    status: "needs_review",
+    reason:
+      repair?.authorityAmbiguityReason ??
+      "The repair chain is ambiguous and requires explicit Architect disposition.",
+    sourceArtifacts: uniqueArtifacts([
+      ...sourceArtifacts,
+      ...(repair?.routeEvidenceArtifacts ?? []),
+    ]),
+    missingArtifacts: [],
+    expectedOutput: {
+      artifactType: "Architect route authority disposition",
+      description:
+        "Identify the controlling repair obligation and classify competing records as accepted, pending, superseded, or non-controlling.",
+    },
+    successRoute: "Re-evaluate the selected repair obligation",
+    evidenceClassifications: repair?.evidenceClassifications,
   });
 }
 

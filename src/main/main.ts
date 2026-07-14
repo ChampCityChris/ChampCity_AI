@@ -63,6 +63,7 @@ import {
   saveProjectIntake,
   saveProjectPlanningDocuments,
   saveRepositoryReconciliation,
+  saveRouteReviewRequest,
   saveRiskReview,
 } from "./workCards/workCardFileStore";
 import type { WorkCardDraftInput } from "../shared/workCards/workCardDraft";
@@ -90,6 +91,7 @@ import type {
 } from "../shared/workCards/validationRecord";
 import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRecord";
 import type { PlanningArtifactPreviewRequest } from "../shared/workCards/artifactReviewWorkspace";
+import type { RouteReviewRequestInput } from "../shared/workCards/routeReviewRequest";
 
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
@@ -412,6 +414,10 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:getCurrentRequiredAction", () =>
     getCurrentRequiredAction(),
+  );
+  ipcMain.handle(
+    "workCards:saveRouteReviewRequest",
+    (_event, input: RouteReviewRequestInput) => saveRouteReviewRequest(input),
   );
   ipcMain.handle(
     "workCards:previewPlanningArtifact",

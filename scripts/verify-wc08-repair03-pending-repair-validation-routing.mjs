@@ -132,10 +132,17 @@ assert.ok(
 assert.notEqual(currentActionResult.currentAction.workCardId, "WC09");
 assert.ok(
   [
+    "repair_implementer_handoff_required",
+    "architect_review_of_implementer_report_required",
     "repair_validation_required",
     "architect_review_of_validation_report_required",
   ].includes(currentActionResult.currentAction.id),
-  "Missing or pending repair validation must continue to block the later WC09 candidate.",
+  "Any unresolved WC08 repair obligation must continue to block the later WC09 candidate.",
+);
+assert.equal(
+  currentActionResult.currentAction.workCardId,
+  "WC08-REPAIR04",
+  "The explicit REPAIR04 follow-up must control the live route without invalidating the REPAIR02 regression fixture.",
 );
 
 const targetResult = await listHumanValidationTargets("phase-03");
@@ -173,5 +180,5 @@ assert.match(
 );
 
 console.log(
-  "WC08-REPAIR03 focused fixture passed: pending WC08-REPAIR02 validation blocks WC09 and routes to Human Validation.",
+  "WC08-REPAIR03 focused fixture passed: synthetic REPAIR02 validation routing remains correct, while live REPAIR04 continues to block WC09.",
 );

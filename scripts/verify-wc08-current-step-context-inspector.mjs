@@ -222,8 +222,8 @@ async function main() {
   );
 
   assert.equal(repairCategory?.authority, "controlling");
-  assert.equal(validationCategory?.authority, "supporting");
-  assert.match(validationCategory?.summary ?? "", /prior Operator Validation/i);
+  assert.equal(validationCategory?.authority, "controlling");
+  assert.match(validationCategory?.summary ?? "", /expects an Operator Validation record/i);
 
   const model = buildCurrentStepContextInspector(
     fixtureAction,
@@ -240,7 +240,8 @@ async function main() {
   assert.equal(model.nextAction.responsibleParty, "Operator");
   assert.match(model.nextAction.expectedOutput, /Repair Validation Record/i);
   assert.equal(model.routeChangeConditions.length > 0, true);
-  assert.match(model.correctionGuidance.handoffSummary, /route review requested/i);
+  assert.match(model.correctionGuidance.durableAction, /Route Review Request/i);
+  assert.match(model.correctionGuidance.governanceSummary, /cannot approve/i);
   assert.equal(model.route.reason, fixtureAction.reason);
   assert.deepEqual(
     model.route.outcomes.map((outcome) => outcome.id),
@@ -335,12 +336,14 @@ async function main() {
   );
   assert.equal(
     [
+      "repair_implementer_handoff_required",
+      "architect_review_of_implementer_report_required",
       "repair_validation_required",
       "architect_review_of_validation_report_required",
     ].includes(liveModel.route.actionId),
     true,
   );
-  assert.equal(liveModel.route.workCardLabel.startsWith("WC08-REPAIR02"), true);
+  assert.equal(liveModel.route.workCardLabel.startsWith("WC08-REPAIR04"), true);
 
   const rendererSource = await readFile(
     new URL("../src/renderer/app/WorkflowRouterShell.tsx", import.meta.url),

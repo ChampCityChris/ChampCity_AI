@@ -2072,6 +2072,11 @@ function CurrentStepContextInspector({
 }: {
   model: CurrentStepContextInspectorModel;
 }) {
+  const [operatorConcern, setOperatorConcern] = useState("");
+  const [operatorExpectedRoute, setOperatorExpectedRoute] = useState("");
+  const [routeReviewSaving, setRouteReviewSaving] = useState(false);
+  const [routeReviewResult, setRouteReviewResult] =
+    useState<ChampCityRouteReviewRequestSaveResult | null>(null);
   const warningGroups = (
     ["blocking", "warning", "info"] as const
   ).map((severity) => ({
@@ -2080,6 +2085,48 @@ function CurrentStepContextInspector({
       (warning) => warning.severity === severity,
     ),
   }));
+
+  const saveRouteReview = async () => {
+    if (!operatorConcern.trim() || !model.route.phaseId) {
+      return;
+    }
+
+    setRouteReviewSaving(true);
+    setRouteReviewResult(null);
+
+    try {
+      const result = await window.champCity.saveRouteReviewRequest({
+        phase: model.route.phaseId,
+        currentActionId: model.route.actionId,
+        currentActionTitle: model.route.title,
+        currentActionReason: model.route.reason,
+        workCardId: model.route.workCardId,
+        workCardTitle: model.route.workCardTitle,
+        expectedOutput: model.route.expectedOutput,
+        operatorConcern: operatorConcern.trim(),
+        operatorExpectedRoute: operatorExpectedRoute.trim() || undefined,
+        evidenceSnapshot: {
+          acceptedOrControlling: model.explanation.acceptedEvidence,
+          presentPendingDisposition: model.explanation.pendingEvidence,
+          missingRequired: model.explanation.missingEvidence,
+          nonControlling: model.explanation.nonControllingEvidence,
+          ambiguityWarnings: model.explanation.ambiguityWarnings,
+        },
+      });
+      setRouteReviewResult(result);
+    } catch (error) {
+      setRouteReviewResult({
+        ok: false,
+        errorMessages: [
+          error instanceof Error
+            ? error.message
+            : "The Route Review Request could not be saved.",
+        ],
+      });
+    } finally {
+      setRouteReviewSaving(false);
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-background/75">
@@ -2119,15 +2166,34 @@ function CurrentStepContextInspector({
           />
           <div className="grid gap-4 lg:grid-cols-2">
             <PlainLanguageList
-              title="Evidence already on record"
-              items={model.explanation.evidenceOnRecord}
-              tone="available"
+              title="Accepted or controlling evidence"
+              items={model.explanation.acceptedEvidence}
+              tone="accepted"
             />
             <PlainLanguageList
-              title="Still missing or pending"
+              title="Present, pending Architect disposition"
               items={model.explanation.pendingEvidence}
               tone="pending"
             />
+            <PlainLanguageList
+              title="Missing and required next"
+              items={model.explanation.missingEvidence}
+              tone="missing"
+            />
+            <PlainLanguageList
+              title="Stale, historical, superseded, or non-controlling"
+              items={model.explanation.nonControllingEvidence}
+              tone="historical"
+            />
+            {model.explanation.ambiguityWarnings.length > 0 ? (
+              <div className="lg:col-span-2">
+                <PlainLanguageList
+                  title="Duplicate or ambiguous evidence"
+                  items={model.explanation.ambiguityWarnings}
+                  tone="ambiguity"
+                />
+              </div>
+            ) : null}
           </div>
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <div className="rounded-lg border border-border/80 bg-background/35 px-4 py-3">
@@ -2206,8 +2272,8 @@ function CurrentStepContextInspector({
                 This route looks wrong
               </div>
               <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/70">
-                Review the controlling records and prepare an Architect handoff.
-                Opening this guidance does not change the route.
+                Record a durable concern for Architect review. Opening or saving
+                this request does not change the route.
               </p>
             </div>
             <ChevronDown
@@ -2219,46 +2285,124 @@ function CurrentStepContextInspector({
             <div className="grid gap-3 lg:grid-cols-2">
               <div className="rounded-lg border border-border bg-background/30 px-4 py-3">
                 <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-300/80">
-                  Record currently controlling the stop
+                  Currently selected route
                 </div>
                 <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">
-                  {model.correctionGuidance.controllingIssue}
+                  {model.correctionGuidance.currentRoute}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-background/30 px-4 py-3">
                 <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-300/80">
-                  What to review in Artifacts
+                  Expected controlling evidence
                 </div>
-                {model.correctionGuidance.recordsToReview.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {model.correctionGuidance.recordsToReview.map((record) => (
-                      <Badge
+                <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-4 marker:text-amber-300/45">
+                  {model.correctionGuidance.expectedControllingEvidence.map(
+                    (record) => (
+                      <li
                         key={record}
-                        className="border-border bg-card/50 text-muted-foreground"
+                        className="text-xs leading-relaxed text-foreground/70"
                       >
                         {record}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">
-                    Review the controlling records listed in the Artifacts tab.
-                  </p>
-                )}
+                      </li>
+                    ),
+                  )}
+                </ul>
               </div>
             </div>
-            <div className="mt-3 rounded-lg border border-border bg-black/10 px-4 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/55">
-                Handoff summary — select and copy
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <PlainLanguageList
+                title="Pending or missing evidence"
+                items={model.correctionGuidance.pendingOrMissingEvidence}
+                tone="pending"
+              />
+              <PlainLanguageList
+                title="Ambiguity warnings"
+                items={model.correctionGuidance.ambiguityWarnings}
+                tone="ambiguity"
+              />
+            </div>
+            <div className="mt-3 rounded-lg border border-border bg-background/30 px-4 py-4">
+              <div className="text-sm font-semibold text-foreground/85">
+                Request route review
               </div>
-              <p className="mt-2 select-all whitespace-pre-wrap text-xs leading-relaxed text-foreground/70">
-                {model.correctionGuidance.handoffSummary}
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground/70">
+                {model.correctionGuidance.durableAction}
               </p>
+              <label className="mt-4 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/65">
+                Why does this route look wrong?{" "}
+                <span className="text-red-300">Required</span>
+                <textarea
+                  value={operatorConcern}
+                  onChange={(event) => {
+                    setOperatorConcern(event.target.value);
+                    setRouteReviewResult(null);
+                  }}
+                  maxLength={4000}
+                  rows={4}
+                  className="mt-1.5 w-full resize-y rounded-md border border-border bg-background/65 px-3 py-2 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition-colors focus:border-amber-300/55"
+                  placeholder="Describe the conflicting route or evidence without changing any workflow record."
+                />
+              </label>
+              <label className="mt-3 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/65">
+                Expected route or evidence{" "}
+                <span className="font-normal normal-case tracking-normal text-muted-foreground/45">
+                  Optional
+                </span>
+                <textarea
+                  value={operatorExpectedRoute}
+                  onChange={(event) => {
+                    setOperatorExpectedRoute(event.target.value);
+                    setRouteReviewResult(null);
+                  }}
+                  maxLength={2000}
+                  rows={3}
+                  className="mt-1.5 w-full resize-y rounded-md border border-border bg-background/65 px-3 py-2 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition-colors focus:border-amber-300/55"
+                  placeholder="Name the route, disposition, or durable artifact you expect the Architect to evaluate."
+                />
+              </label>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void saveRouteReview()}
+                  disabled={
+                    routeReviewSaving ||
+                    !operatorConcern.trim() ||
+                    !model.route.phaseId
+                  }
+                  className="inline-flex items-center gap-2 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {routeReviewSaving ? (
+                    <RefreshCw size={13} className="animate-spin" />
+                  ) : (
+                    <Save size={13} />
+                  )}
+                  {routeReviewSaving
+                    ? "Saving request..."
+                    : "Save Route Review Request"}
+                </button>
+                {!model.route.phaseId ? (
+                  <span className="text-xs text-red-300/75">
+                    The evaluator did not provide a phase, so the constrained
+                    request path is unavailable.
+                  </span>
+                ) : null}
+              </div>
+              {routeReviewResult?.ok ? (
+                <div className="mt-3 rounded-md border border-emerald-400/20 bg-emerald-400/[0.05] px-3 py-2 text-xs leading-relaxed text-emerald-200/80">
+                  Saved for pending Architect review at{" "}
+                  {routeReviewResult.savedMarkdownPath}. The selected route is
+                  unchanged; this request does not approve evidence or advance
+                  work.
+                </div>
+              ) : routeReviewResult ? (
+                <div className="mt-3 rounded-md border border-red-400/20 bg-red-400/[0.05] px-3 py-2 text-xs leading-relaxed text-red-200/80">
+                  {routeReviewResult.errorMessages?.join(" ") ??
+                    "The Route Review Request could not be saved."}
+                </div>
+              ) : null}
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-amber-200/65">
-              Send the summary to the Architect for review. Do not mark work
-              complete, skip validation, or create replacement evidence to force
-              another route.
+              {model.correctionGuidance.governanceSummary}
             </p>
           </div>
         </details>
@@ -2524,31 +2668,55 @@ function PlainLanguageList({
 }: {
   title: string;
   items: string[];
-  tone: "available" | "pending";
+  tone: "accepted" | "pending" | "missing" | "historical" | "ambiguity";
 }) {
+  const toneClasses = {
+    accepted: {
+      container: "border-emerald-400/20 bg-emerald-400/[0.04]",
+      title: "text-emerald-300/80",
+    },
+    pending: {
+      container: "border-amber-400/20 bg-amber-400/[0.04]",
+      title: "text-amber-300/80",
+    },
+    missing: {
+      container: "border-red-400/20 bg-red-400/[0.04]",
+      title: "text-red-300/80",
+    },
+    historical: {
+      container: "border-border bg-card/20",
+      title: "text-muted-foreground/65",
+    },
+    ambiguity: {
+      container: "border-orange-400/25 bg-orange-400/[0.05]",
+      title: "text-orange-300/85",
+    },
+  }[tone];
+
   return (
     <div
-      className={cn(
-        "rounded-lg border px-4 py-3",
-        tone === "available"
-          ? "border-emerald-400/20 bg-emerald-400/[0.04]"
-          : "border-amber-400/20 bg-amber-400/[0.04]",
-      )}
+      className={cn("rounded-lg border px-4 py-3", toneClasses.container)}
     >
       <div
         className={cn(
           "text-[10px] font-bold uppercase tracking-[0.12em]",
-          tone === "available" ? "text-emerald-300/80" : "text-amber-300/80",
+          toneClasses.title,
         )}
       >
         {title}
       </div>
       <ul className="mt-2 flex list-disc flex-col gap-2 pl-4 marker:text-muted-foreground/45">
-        {items.map((item) => (
-          <li key={item} className="text-xs leading-relaxed text-foreground/75">
-            {item}
+        {items.length > 0 ? (
+          items.map((item) => (
+            <li key={item} className="text-xs leading-relaxed text-foreground/75">
+              {item}
+            </li>
+          ))
+        ) : (
+          <li className="text-xs leading-relaxed text-muted-foreground/60">
+            No evidence was reported in this classification.
           </li>
-        ))}
+        )}
       </ul>
     </div>
   );
