@@ -1,0 +1,55 @@
+{
+  "workCardId": "WC08-REPAIR05",
+  "title": "Architect Review Route and Repair Work Card Association",
+  "phase": "phase-03",
+  "parentWorkCardId": "WC08",
+  "status": "ready_for_implementer",
+  "riskLevel": "high",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "problem": "WC08-REPAIR04 validation is blocked because the app identifies the current action as Architect review of a repair Implementer Report, but routes the workspace to Implementer Report Capture with no usable repair Work Card association and visible skipped-file schema warnings.",
+  "goal": "Route Architect review of repair Implementer Reports to an Architect review-capable workflow, auto-bind the current repair target and Implementer Report, and prevent historical invalid JSON warnings from blocking or dominating the routed current-action UI.",
+  "userOutcome": "The Operator can validate WC08-REPAIR04 through the application because the routed workspace matches the Architect review obligation and is pre-bound to WC08-REPAIR04 evidence.",
+  "scope": [
+    "Correct route-to-workspace mapping for architect_review_of_implementer_report_required repair targets.",
+    "Auto-bind WC08-REPAIR04 and its Implementer Report from current-action state.",
+    "Support repair Work Card schemas in Work Card association lists.",
+    "Downgrade or hide historical/superseded invalid JSON warnings in the routed workflow.",
+    "Preserve WC08-REPAIR04 route authority and route review behavior.",
+    "Add focused regression fixture coverage."
+  ],
+  "outOfScope": [
+    "WC09-WC15",
+    "full artifact revision governance",
+    "unrestricted route override",
+    "acceptance or Architect disposition",
+    "Operator validation",
+    "merge to dev",
+    "push to master"
+  ],
+  "acceptanceCriteria": [
+    "App opens to WC08-REPAIR04 or the actual current WC08 repair-chain obligation, not stale WC01 or WC09.",
+    "The routed workspace title and form behavior match Architect review of repair Implementer Report required.",
+    "The routed workspace does not show Implementer Report Capture as the primary task when the current action is Architect review.",
+    "The routed workspace auto-binds to WC08-REPAIR04 from current-action state.",
+    "The associated WC08-REPAIR04 Implementer Report is selected or displayed without requiring manual Work Card selection.",
+    "Repair Work Cards appear in association lists when a manual fallback selector is used.",
+    "Historical/superseded invalid JSON warnings do not block or dominate the current routed workflow.",
+    "The Operator can proceed to Architect review output creation or preview from the routed workspace.",
+    "WC08-REPAIR04 route review request behavior remains available and governed.",
+    "WC08-REPAIR04 evidence classification remains accurate.",
+    "WC08-REPAIR02 and WC08-REPAIR03 behavior remains intact.",
+    "WC09 remains blocked until WC08 repair-chain obligations are resolved.",
+    "Focused fixture coverage exists for repair Architect Review route binding and repair Work Card association.",
+    "WC08-REPAIR05 Implementer Report exists."
+  ],
+  "validationPlan": [
+    "Run approved Windows validation lane.",
+    "Run TypeScript/type validation and production build validation.",
+    "Run current-action-only fixture validation.",
+    "Add focused fixture coverage for Architect review route binding for repair Implementer Reports.",
+    "Add focused fixture coverage for WC08-REPAIR04 auto-binding and repair Work Card association parsing.",
+    "Run WC08-REPAIR04 route recovery fixture.",
+    "Run preservation fixtures for WC08-REPAIR01, WC08-REPAIR02, WC08-REPAIR03, and WC04-WC07 if affected."
+  ],
+  "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md"
+}

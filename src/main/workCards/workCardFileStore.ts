@@ -84,6 +84,15 @@ import { renderValidationRecordMarkdown } from "../../shared/workCards/renderVal
 import { pendingArchitectDisposition } from "../../shared/workCards/reportReviewProtocol";
 import { validateArchitectReview } from "../../shared/workCards/validateArchitectReview";
 import {
+  buildArchitectReviewFileName,
+  isRepairTarget,
+  renderArchitectReviewRecord,
+  validateArchitectReviewForm,
+  type ArchitectReviewFormInput,
+  type ArchitectReviewPreviewResult,
+  type ArchitectReviewSaveResult,
+} from "../../shared/workCards/architectReviewRecord";
+import {
   buildHumanValidationRecord,
   buildValidationReportJsonFileName,
   buildValidationReportMarkdownFileName,
@@ -2213,7 +2222,7 @@ export async function listSavedWorkCards(
       }
 
       try {
-        const workCard = await readSavedWorkCardFile(phase, fileName);
+        const workCard = await readSavedWorkCardAssociationFile(phase, fileName);
         workCards.push(toSavedWorkCardSummary(fileName, workCard));
       } catch (error) {
         invalidFiles.push({
@@ -2610,7 +2619,10 @@ export async function previewBuilderReportCapture(
 
   try {
     const workCard = input.workCardFileName
-      ? await readSavedWorkCardFile(input.phase, input.workCardFileName)
+      ? await readSavedWorkCardAssociationFile(
+          input.phase,
+          input.workCardFileName,
+        )
       : undefined;
     const savedFileName = buildBuilderReportFileName({
       reportType: input.reportType,
@@ -2927,6 +2939,98 @@ export async function saveHumanValidationRecord(
   }
 }
 
+export async function previewArchitectReviewRecord(
+  input: ArchitectReviewFormInput,
+): Promise<ArchitectReviewPreviewResult> {
+  try {
+    const workCard = await readSavedWorkCardAssociationFile(
+      input.phase,
+      input.workCardFileName,
+    );
+    const builderReport = await readOptionalBuilderReport(
+      input.phase,
+      input.builderReportFileName,
+    );
+
+    if (!builderReport) {
+      throw new Error("Choose the existing Implementer Report to review.");
+    }
+
+    if (!fileNameMatchesWorkCardId(builderReport.fileName, workCard.workCardId)) {
+      throw new Error(
+        "The selected Implementer Report does not match the selected Work Card.",
+      );
+    }
+
+    const reviewMarkdown = renderArchitectReviewRecord(input, workCard);
+    const validation = validateArchitectReviewForm(input, reviewMarkdown);
+
+    return {
+      ok: true,
+      reviewMarkdown,
+      savedFileName: buildArchitectReviewFileName(workCard),
+      workCardId: workCard.workCardId,
+      workCardTitle: workCard.title,
+      workCardFileName: input.workCardFileName,
+      builderReportFileName: builderReport.fileName,
+      reviewMode: isRepairTarget(workCard) ? "repair" : "work_card",
+      validation,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
+export async function saveArchitectReviewRecord(
+  input: ArchitectReviewFormInput,
+): Promise<ArchitectReviewSaveResult> {
+  try {
+    const preview = await previewArchitectReviewRecord(input);
+
+    if (
+      !preview.ok ||
+      !preview.reviewMarkdown ||
+      !preview.savedFileName ||
+      !preview.validation
+    ) {
+      return preview;
+    }
+
+    if (!preview.validation.valid) {
+      throw new Error(
+        `Architect Review is incomplete: ${preview.validation.errors.join(" ")}`,
+      );
+    }
+
+    const directory = resolveArchitectReviewsDirectory(input.phase);
+    const markdownPath = resolveInside(directory, preview.savedFileName);
+
+    await failIfExists(
+      markdownPath,
+      "An Architect Review for this Work Card already exists.",
+    );
+    await mkdir(directory, { recursive: true });
+    await writeFile(markdownPath, `${preview.reviewMarkdown.trimEnd()}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    return {
+      ...preview,
+      ok: true,
+      markdownPath: toRepoRelativePath(markdownPath),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
+  }
+}
+
 export async function saveRouteReviewRequest(
   input: RouteReviewRequestInput,
 ): Promise<RouteReviewRequestSaveResult> {
@@ -3140,6 +3244,16 @@ export function resolveBuilderReportsDirectory(phase: string): string {
   }
 
   return resolveInside(planningPhasesRoot, phase.trim(), "Builder_Reports");
+}
+
+export function resolveArchitectReviewsDirectory(phase: string): string {
+  const phaseErrors = validateSafePhaseFolder(phase);
+
+  if (phaseErrors.length > 0) {
+    throw new Error(phaseErrors.join(" "));
+  }
+
+  return resolveInside(planningPhasesRoot, phase.trim(), "Architect_Reviews");
 }
 
 export function resolveBuilderPromptsDirectory(phase: string): string {
@@ -5178,7 +5292,7 @@ function extractValidationTargetReferences(
   return [...references];
 }
 
-function coerceWorkCardValidationTargetFields(
+export function coerceWorkCardValidationTargetFields(
   candidate: unknown,
   selectedPhase: string,
 ): WorkCardValidationTargetFields | undefined {
@@ -5189,6 +5303,8 @@ function coerceWorkCardValidationTargetFields(
   const workCardId =
     getRecordString(candidate, "workCardId") ||
     getRecordString(candidate, "work_card_id") ||
+    getRecordString(candidate, "repairId") ||
+    getRecordString(candidate, "repair_id") ||
     getRecordString(candidate, "id");
   const title = getRecordString(candidate, "title");
   const phase =
@@ -6955,6 +7071,54 @@ async function readSavedWorkCardFile(
   return workCard;
 }
 
+async function readSavedWorkCardAssociationFile(
+  phase: string,
+  fileName: string,
+): Promise<WorkCardValidationTargetFields> {
+  const fileNameErrors = validateSavedWorkCardJsonFileName(fileName);
+
+  if (fileNameErrors.length > 0) {
+    throw new Error(fileNameErrors.join(" "));
+  }
+
+  const directory = resolveWorkCardsDirectory(phase);
+  const filePath = resolveInside(directory, fileName.trim());
+  const rawJson = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(rawJson) as unknown;
+  const validation = validateWorkCard(parsed);
+
+  if (validation.valid) {
+    const workCard = parsed as WorkCard;
+
+    if (workCard.phase !== phase.trim()) {
+      throw new Error(
+        "Saved Work Card phase must match the selected phase folder.",
+      );
+    }
+
+    return {
+      workCardId: workCard.workCardId,
+      title: workCard.title,
+      phase: workCard.phase,
+      status: workCard.status,
+      riskLevel: workCard.riskLevel,
+    };
+  }
+
+  const compatibleWorkCard = coerceWorkCardValidationTargetFields(
+    parsed,
+    phase,
+  );
+
+  if (!compatibleWorkCard) {
+    throw new Error(
+      `Saved Work Card JSON is not usable for association: ${validation.errors.join(" ")}`,
+    );
+  }
+
+  return compatibleWorkCard;
+}
+
 async function readWorkCardValidationTargetFile(
   phase: string,
   fileName: string,
@@ -6972,7 +7136,13 @@ async function readWorkCardValidationTargetFile(
   const validation = validateWorkCard(parsed);
 
   if (validation.valid) {
-    return buildWorkCardValidationTarget(parsed as WorkCard, fileName);
+    const workCard = parsed as WorkCard;
+
+    return buildWorkCardValidationTarget(
+      workCard,
+      fileName,
+      expectedBuilderReportFileName(workCard),
+    );
   }
 
   const compatibleWorkCard = coerceWorkCardValidationTargetFields(
@@ -6989,7 +7159,14 @@ async function readWorkCardValidationTargetFile(
   return buildValidationTargetFromWorkCardFields(
     compatibleWorkCard,
     fileName,
+    expectedBuilderReportFileName(compatibleWorkCard),
   );
+}
+
+function expectedBuilderReportFileName(
+  workCard: Pick<WorkCardValidationTargetFields, "workCardId" | "title">,
+): string {
+  return `BUILDER_REPORT_${buildWorkCardFileStem(workCard.workCardId, workCard.title)}.md`;
 }
 
 async function readHumanValidationTargetContext(input: {
@@ -7804,15 +7981,21 @@ function hasBuilderPromptHighRiskContext(
 
 function toSavedWorkCardSummary(
   fileName: string,
-  workCard: WorkCard,
+  workCard: WorkCardValidationTargetFields,
 ): SavedWorkCardSummary {
+  const isRepair =
+    Boolean(workCard.parentWorkCardId?.trim()) ||
+    /-REPAIR\d+$/i.test(workCard.workCardId.trim());
+
   return {
     fileName,
     workCardId: workCard.workCardId,
     title: workCard.title,
     status: workCard.status,
     phase: workCard.phase,
-    riskLevel: workCard.riskLevel,
+    riskLevel: workCard.riskLevel ?? "not_recorded",
+    parentWorkCardId: workCard.parentWorkCardId,
+    kind: isRepair ? "repair" : "work_card",
   };
 }
 

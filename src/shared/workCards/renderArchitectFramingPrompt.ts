@@ -9,6 +9,8 @@ export interface SavedWorkCardSummary {
   status: string;
   phase: string;
   riskLevel: string;
+  parentWorkCardId?: string;
+  kind?: "work_card" | "repair";
 }
 
 export interface InvalidSavedWorkCardFile {

@@ -41,6 +41,14 @@ import {
   type HumanValidationDraftCache,
 } from "../../shared/workCards/humanValidationDrafts";
 import { resolveValidationTargetFileName } from "../../shared/workCards/validationTarget";
+import { architectReviewDecisionValues } from "../../shared/workCards/reportReviewProtocol";
+import type {
+  ArchitectReviewDecision,
+  ArchitectReviewFormInput,
+  ArchitectReviewPreviewResult,
+  ArchitectReviewSaveResult,
+  ArchitectReviewSectionKey,
+} from "../../shared/workCards/architectReviewRecord";
 import {
   getManualScreenForCurrentAction,
   WorkflowRouterShell,
@@ -61,6 +69,7 @@ type AppScreen =
   | "risk-router"
   | "builder-prompt-generator"
   | "builder-report-capture"
+  | "architect-review"
   | "human-validation"
   | "phase-closeout";
 
@@ -247,6 +256,24 @@ const workflowSteps: WorkflowStep[] = [
   },
 ];
 
+const routedOnlyWorkflowScreens: WorkflowStep[] = [
+  {
+    id: "architect-review",
+    label: "Architect Review",
+    mode: "architect",
+    shortDesc: "Review implementation evidence",
+    screenTitle: "Architect Review of Implementer Report",
+    nextAction:
+      "Review the associated Implementer Report and create the governed Architect Review output.",
+    Icon: Eye,
+  },
+];
+
+const availableWorkflowScreens = [
+  ...workflowSteps,
+  ...routedOnlyWorkflowScreens,
+];
+
 const initialWorkCardForm: ChampCityWorkCardDraftInput = {
   workCardId: "WC02",
   title: "",
@@ -419,7 +446,7 @@ export default function App() {
   const { workCards: headerWorkCards } = useWorkCards(phase);
   const manualNavigationItems = useMemo(
     () =>
-      workflowSteps.map((step) => ({
+      availableWorkflowScreens.map((step) => ({
         id: step.id,
         label: step.label,
         mode: step.mode,
@@ -430,7 +457,7 @@ export default function App() {
   );
 
   const handleSupportScreenChange = useCallback((screenId: string) => {
-    if (!workflowSteps.some((step) => step.id === screenId)) {
+    if (!availableWorkflowScreens.some((step) => step.id === screenId)) {
       return;
     }
 
@@ -477,7 +504,7 @@ export default function App() {
     if (
       activeScreen === "project-intake" &&
       suggestedScreen !== "project-intake" &&
-      workflowSteps.some((step) => step.id === suggestedScreen)
+      availableWorkflowScreens.some((step) => step.id === suggestedScreen)
     ) {
       setActiveScreen(suggestedScreen as AppScreen);
     }
@@ -608,6 +635,21 @@ export default function App() {
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
+      />
+    ),
+    "architect-review": (
+      <ArchitectReviewScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        routedAction={
+          currentActionResult?.currentAction?.id ===
+            "architect_review_of_implementer_report_required" &&
+          currentActionResult.currentAction.phaseId === phase
+            ? currentActionResult.currentAction
+            : undefined
+        }
       />
     ),
     "human-validation": (
@@ -6269,6 +6311,543 @@ function BuilderReportCaptureScreen({
   );
 }
 
+type ArchitectReviewDraft = Omit<
+  ArchitectReviewFormInput,
+  "phase" | "workCardFileName" | "builderReportFileName"
+>;
+
+const initialArchitectReviewDraft: ArchitectReviewDraft = {
+  decision: undefined,
+  workCardCompliance: "",
+  changedFilesReviewed: "",
+  acceptanceCriteriaAssessment: "",
+  validationClaimsAssessment: "",
+  skippedChecksAssessment: "",
+  observationRegisterImpact: "",
+  operatorValidationSteps: "",
+  requiredRepair: "",
+};
+
+function ArchitectReviewScreen({
+  phase,
+  phaseOptions,
+  onPhaseChange,
+  onActiveCardChange,
+  routedAction,
+}: ScreenProps & { routedAction?: ChampCityCurrentRequiredAction }) {
+  const { workCards, invalidFiles, errors: listErrors, isLoading } =
+    useWorkCards(phase);
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [builderReports, setBuilderReports] = useState<
+    ChampCityHumanValidationBuilderReportOption[]
+  >([]);
+  const [selectedBuilderReportFileName, setSelectedBuilderReportFileName] =
+    useState("");
+  const [builderReportText, setBuilderReportText] = useState("");
+  const [draft, setDraft] = useState<ArchitectReviewDraft>({
+    ...initialArchitectReviewDraft,
+  });
+  const [previewResult, setPreviewResult] =
+    useState<ArchitectReviewPreviewResult | null>(null);
+  const [saveResult, setSaveResult] =
+    useState<ArchitectReviewSaveResult | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [statusMessage, setStatusMessage] = useState(
+    "Select an Implementer Report to review.",
+  );
+  const [isBusy, setIsBusy] = useState(false);
+  const lastAlignedRouteKey = useRef("");
+
+  const selectedWorkCard = useSelectedWorkCard(
+    workCards,
+    selectedFileName,
+    onActiveCardChange,
+  );
+  const routedReportFileName = useMemo(
+    () =>
+      routedAction?.sourceArtifacts
+        .find(
+          (artifact) =>
+            /implementer report/i.test(artifact.role) &&
+            /\/Builder_Reports\//i.test(artifact.path),
+        )
+        ?.path.split(/[\\/]/)
+        .pop() ?? "",
+    [routedAction],
+  );
+  const isRepairReview = Boolean(
+    selectedWorkCard?.workCardId.match(/-REPAIR\d+$/i) ||
+      workCards.find((workCard) => workCard.fileName === selectedFileName)
+        ?.kind === "repair",
+  );
+  const routedBindingActive = Boolean(
+    routedAction?.workCardId &&
+      selectedWorkCard?.workCardId.toLowerCase() ===
+        routedAction.workCardId.toLowerCase() &&
+      (!routedReportFileName ||
+        selectedBuilderReportFileName === routedReportFileName),
+  );
+
+  useEffect(() => {
+    if (workCards.length === 0) {
+      setSelectedFileName("");
+      return;
+    }
+
+    const routeKey = routedAction?.workCardId
+      ? `${phase}::${routedAction.workCardId.toLowerCase()}`
+      : "";
+    const routedWorkCard = routedAction?.workCardId
+      ? workCards.find(
+          (workCard) =>
+            workCard.workCardId.toLowerCase() ===
+            routedAction.workCardId?.toLowerCase(),
+        )
+      : undefined;
+    const shouldAlignRoute = Boolean(
+      routeKey &&
+        routedWorkCard &&
+        lastAlignedRouteKey.current !== routeKey,
+    );
+    const nextFileName = shouldAlignRoute
+      ? routedWorkCard?.fileName ?? ""
+      : workCards.some((workCard) => workCard.fileName === selectedFileName)
+        ? selectedFileName
+        : workCards[0]?.fileName ?? "";
+
+    if (shouldAlignRoute) {
+      lastAlignedRouteKey.current = routeKey;
+    } else if (!routeKey) {
+      lastAlignedRouteKey.current = "";
+    }
+
+    if (nextFileName !== selectedFileName) {
+      setSelectedFileName(nextFileName);
+    }
+  }, [phase, routedAction, selectedFileName, workCards]);
+
+  useEffect(() => {
+    if (!selectedFileName) {
+      setBuilderReports([]);
+      setSelectedBuilderReportFileName("");
+      setBuilderReportText("");
+      return;
+    }
+
+    let active = true;
+    setIsBusy(true);
+    setErrors([]);
+
+    window.champCity
+      .listHumanValidationBuilderReports({
+        phase,
+        workCardFileName: selectedFileName,
+      })
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsBusy(false);
+
+        if (!result.ok) {
+          setBuilderReports([]);
+          setSelectedBuilderReportFileName("");
+          setErrors(
+            result.errorMessages ?? ["Implementer Reports could not be loaded."],
+          );
+          setStatusMessage("Implementer Report association needs attention.");
+          return;
+        }
+
+        const options = result.options ?? [];
+        const routedMatch = options.find(
+          (option) => option.fileName === routedReportFileName,
+        );
+        const nextReportFileName =
+          routedMatch?.fileName ||
+          result.defaultFileName ||
+          options[0]?.fileName ||
+          "";
+
+        setBuilderReports(options);
+        setSelectedBuilderReportFileName(nextReportFileName);
+        setStatusMessage(
+          routedMatch
+            ? "Current-action target and Implementer Report are bound for Architect review."
+            : nextReportFileName
+              ? "Implementer Report association loaded."
+              : "No matching Implementer Report is available.",
+        );
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsBusy(false);
+        setBuilderReports([]);
+        setSelectedBuilderReportFileName("");
+        setErrors(["Implementer Reports could not be loaded."]);
+        setStatusMessage("Implementer Report association needs attention.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, routedReportFileName, selectedFileName]);
+
+  useEffect(() => {
+    if (!selectedBuilderReportFileName) {
+      setBuilderReportText("");
+      return;
+    }
+
+    let active = true;
+
+    window.champCity
+      .loadBuilderReportFile({
+        phase,
+        fileName: selectedBuilderReportFileName,
+      })
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        if (!result.ok || !result.content) {
+          setBuilderReportText("");
+          setErrors(
+            result.errorMessages ?? ["The Implementer Report could not be loaded."],
+          );
+          return;
+        }
+
+        setBuilderReportText(result.content);
+      })
+      .catch(() => {
+        if (active) {
+          setBuilderReportText("");
+          setErrors(["The Implementer Report could not be loaded."]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [phase, selectedBuilderReportFileName]);
+
+  const previewInput = useMemo<ArchitectReviewFormInput | null>(() => {
+    if (!selectedFileName || !selectedBuilderReportFileName) {
+      return null;
+    }
+
+    return {
+      phase,
+      workCardFileName: selectedFileName,
+      builderReportFileName: selectedBuilderReportFileName,
+      ...draft,
+    };
+  }, [draft, phase, selectedBuilderReportFileName, selectedFileName]);
+
+  useEffect(() => {
+    if (!previewInput) {
+      setPreviewResult(null);
+      return;
+    }
+
+    let active = true;
+    setIsBusy(true);
+    setSaveResult(null);
+
+    window.champCity
+      .previewArchitectReviewRecord(previewInput)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setIsBusy(false);
+        setPreviewResult(result);
+
+        if (!result.ok) {
+          setErrors(
+            result.errorMessages ?? ["Architect Review preview could not be generated."],
+          );
+          setStatusMessage("Architect Review preview needs attention.");
+          return;
+        }
+
+        setErrors([]);
+        setStatusMessage(
+          result.validation?.valid
+            ? "Architect Review is ready to save."
+            : "Complete the Architect assessment before saving.",
+        );
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setIsBusy(false);
+        setPreviewResult(null);
+        setErrors(["Architect Review preview could not be generated."]);
+        setStatusMessage("Architect Review preview needs attention.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [previewInput]);
+
+  function updateDraft<K extends keyof ArchitectReviewDraft>(
+    field: K,
+    value: ArchitectReviewDraft[K],
+  ) {
+    setDraft((previous) => ({ ...previous, [field]: value }));
+  }
+
+  async function saveReview() {
+    if (!previewInput) {
+      return;
+    }
+
+    setIsBusy(true);
+    setErrors([]);
+
+    const result = await window.champCity.saveArchitectReviewRecord(previewInput);
+
+    setIsBusy(false);
+    setPreviewResult(result);
+
+    if (!result.ok) {
+      setErrors(result.errorMessages ?? ["The Architect Review could not be saved."]);
+      setStatusMessage("Architect Review save needs attention.");
+      return;
+    }
+
+    setSaveResult(result);
+    setStatusMessage("Architect Review saved.");
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title={
+              isRepairReview
+                ? "Architect Review of Repair Implementer Report"
+                : "Architect Review of Implementer Report"
+            }
+            description="Review the existing implementation evidence and create the governed Architect Review output."
+            badge={phase}
+          />
+          {routedAction ? (
+            <Notice type={routedBindingActive ? "success" : "info"}>
+              {routedBindingActive
+                ? `${routedAction.workCardId} and its Implementer Report were selected from current-action state.`
+                : `Binding routed target ${routedAction.workCardId ?? "current action"}. Manual fallback remains available.`}
+            </Notice>
+          ) : null}
+          <ErrorList errors={[...listErrors, ...errors]} />
+          <FieldGroup title="Current Action Binding">
+            <PhaseField
+              phase={phase}
+              phaseOptions={phaseOptions}
+              onPhaseChange={onPhaseChange}
+            />
+            <WorkCardSelect
+              workCards={workCards}
+              selectedFileName={selectedFileName}
+              onChange={setSelectedFileName}
+              isLoading={isLoading}
+              allowEmpty
+              emptyLabel="Select Work Card fallback"
+            />
+            {selectedWorkCard ? <WorkCardSummary card={selectedWorkCard} /> : null}
+            <Field label="Associated Implementer Report">
+              <select
+                className={selectCls}
+                value={selectedBuilderReportFileName}
+                onChange={(event) =>
+                  setSelectedBuilderReportFileName(event.target.value)
+                }
+              >
+                <option value="">Select Implementer Report fallback</option>
+                {builderReports.map((option) => (
+                  <option key={option.fileName} value={option.fileName}>
+                    {option.fileName === routedReportFileName
+                      ? `${option.label} (current action)`
+                      : option.isDefaultMatch
+                        ? `${option.label} (match)`
+                        : option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Notice type="info">
+              Review mode: Architect review of {isRepairReview ? "repair " : ""}
+              Implementer Report. This workflow does not create or replace an
+              Implementer Report.
+            </Notice>
+          </FieldGroup>
+          <FieldGroup title="Architect Review Assessment">
+            <Field label="Decision">
+              <select
+                className={selectCls}
+                value={draft.decision ?? ""}
+                onChange={(event) =>
+                  updateDraft(
+                    "decision",
+                    (event.target.value || undefined) as
+                      | ArchitectReviewDecision
+                      | undefined,
+                  )
+                }
+              >
+                <option value="">Select Architect decision</option>
+                {architectReviewDecisionValues.map((decision) => (
+                  <option key={decision} value={decision}>
+                    {decision}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <ArchitectReviewTextArea
+              label="Work Card Compliance"
+              field="workCardCompliance"
+              value={draft.workCardCompliance}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Changed Files Reviewed"
+              field="changedFilesReviewed"
+              value={draft.changedFilesReviewed}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Acceptance Criteria Assessment"
+              field="acceptanceCriteriaAssessment"
+              value={draft.acceptanceCriteriaAssessment}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Validation Claims Assessment"
+              field="validationClaimsAssessment"
+              value={draft.validationClaimsAssessment}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Skipped Checks Assessment"
+              field="skippedChecksAssessment"
+              value={draft.skippedChecksAssessment}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Observation Register Impact"
+              field="observationRegisterImpact"
+              value={draft.observationRegisterImpact}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Operator Validation Steps"
+              field="operatorValidationSteps"
+              value={draft.operatorValidationSteps}
+              onChange={updateDraft}
+            />
+            <ArchitectReviewTextArea
+              label="Required Repair, if any"
+              field="requiredRepair"
+              value={draft.requiredRepair}
+              onChange={updateDraft}
+            />
+          </FieldGroup>
+          {saveResult?.markdownPath ? (
+            <Notice type="success">
+              Saved Architect Review at {" "}
+              <code className="break-anywhere">{saveResult.markdownPath}</code>
+            </Notice>
+          ) : null}
+          <ActionBar
+            onSave={() => void saveReview()}
+            saveLabel="Save Architect Review"
+            saveDisabled={isBusy || !previewResult?.validation?.valid}
+            statusMessage={statusMessage}
+            statusType={errors.length > 0 ? "error" : "success"}
+          />
+          <InvalidWorkCardFiles files={invalidFiles} />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Architect Review"
+          title="Architect Review Preview"
+          status={statusMessage}
+          filename={previewResult?.savedFileName}
+          onSave={() => void saveReview()}
+          saveLabel="Save Architect Review"
+          saveDisabled={isBusy || !previewResult?.validation?.valid}
+          emptyMessage="Bind a Work Card and Implementer Report to start review."
+        >
+          <div className="grid gap-4">
+            {previewResult?.validation &&
+            previewResult.validation.errors.length > 0 ? (
+              <Notice type="info">
+                <div className="grid gap-2">
+                  <strong>Review completion guidance</strong>
+                  <ul className="grid gap-1">
+                    {previewResult.validation.errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              </Notice>
+            ) : null}
+            <MonoBlock className="min-h-[320px]">
+              {previewResult?.reviewMarkdown ??
+                "No Architect Review preview generated yet."}
+            </MonoBlock>
+            <details className="rounded-md border border-border bg-white/[0.02] p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                Associated Implementer Report: {selectedBuilderReportFileName || "none"}
+              </summary>
+              <MonoBlock className="mt-3 max-h-[420px]">
+                {builderReportText || "No Implementer Report content loaded."}
+              </MonoBlock>
+            </details>
+          </div>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
+function ArchitectReviewTextArea({
+  label,
+  field,
+  value,
+  onChange,
+}: {
+  label: string;
+  field: ArchitectReviewSectionKey;
+  value: string;
+  onChange: <K extends keyof ArchitectReviewDraft>(
+    field: K,
+    value: ArchitectReviewDraft[K],
+  ) => void;
+}) {
+  return (
+    <TextAreaField
+      label={label}
+      value={value}
+      rows={4}
+      onChange={(nextValue) => onChange(field, nextValue)}
+    />
+  );
+}
+
 function HumanValidationScreen({
   phase,
   phaseOptions,
@@ -8490,9 +9069,15 @@ function InvalidWorkCardFiles({
   }
 
   return (
-    <Notice type="warning">
-      <div className="grid gap-2">
-        <strong>Skipped Work Card files</strong>
+    <details className="rounded-md border border-border bg-white/[0.02] px-3 py-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer font-semibold text-muted-foreground">
+        Compatibility diagnostics: {files.length} skipped Work Card {files.length === 1 ? "file" : "files"}
+      </summary>
+      <div className="mt-3 grid gap-2">
+        <p>
+          These historical or unsupported files are not current-action blockers.
+          Usable Work Cards remain available above.
+        </p>
         <ul className="grid gap-1">
           {files.map((file) => (
             <li key={file.fileName}>
@@ -8501,7 +9086,7 @@ function InvalidWorkCardFiles({
           ))}
         </ul>
       </div>
-    </Notice>
+    </details>
   );
 }
 

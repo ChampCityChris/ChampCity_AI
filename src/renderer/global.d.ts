@@ -177,6 +177,11 @@ import type {
   RouteReviewRequestSaveResult,
 } from "../shared/workCards/routeReviewRequest";
 import type {
+  ArchitectReviewFormInput,
+  ArchitectReviewPreviewResult,
+  ArchitectReviewSaveResult,
+} from "../shared/workCards/architectReviewRecord";
+import type {
   ArtifactReviewEntry,
   ArtifactReviewExpectedOutput,
   ArtifactReviewGroup,
@@ -513,6 +518,12 @@ declare global {
       saveBuilderReportCapture: (
         input: BuilderReportCaptureRequest,
       ) => Promise<BuilderReportCaptureSaveResult>;
+      previewArchitectReviewRecord: (
+        input: ArchitectReviewFormInput,
+      ) => Promise<ArchitectReviewPreviewResult>;
+      saveArchitectReviewRecord: (
+        input: ArchitectReviewFormInput,
+      ) => Promise<ArchitectReviewSaveResult>;
       loadBuilderReportFile: (
         input: BuilderReportFileLoadRequest,
       ) => Promise<BuilderReportFileLoadResult>;

@@ -110,6 +110,11 @@ import type {
   RouteReviewRequestSaveResult,
 } from "../shared/workCards/routeReviewRequest";
 import type {
+  ArchitectReviewFormInput,
+  ArchitectReviewPreviewResult,
+  ArchitectReviewSaveResult,
+} from "../shared/workCards/architectReviewRecord";
+import type {
   PlanningArtifactPreviewRequest,
   PlanningArtifactPreviewResult,
 } from "../shared/workCards/artifactReviewWorkspace";
@@ -295,6 +300,14 @@ const api = {
     input: BuilderReportCaptureRequest,
   ): Promise<BuilderReportCaptureSaveResult> =>
     ipcRenderer.invoke("workCards:saveBuilderReportCapture", input),
+  previewArchitectReviewRecord: (
+    input: ArchitectReviewFormInput,
+  ): Promise<ArchitectReviewPreviewResult> =>
+    ipcRenderer.invoke("workCards:previewArchitectReviewRecord", input),
+  saveArchitectReviewRecord: (
+    input: ArchitectReviewFormInput,
+  ): Promise<ArchitectReviewSaveResult> =>
+    ipcRenderer.invoke("workCards:saveArchitectReviewRecord", input),
   loadBuilderReportFile: (
     input: BuilderReportFileLoadRequest,
   ): Promise<BuilderReportFileLoadResult> =>

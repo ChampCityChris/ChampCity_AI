@@ -29,6 +29,7 @@ import {
   listSavedProjectRoadmaps,
   listSavedRepositoryReconciliations,
   listSavedWorkCards,
+  previewArchitectReviewRecord,
   previewArchitectPrompt,
   previewBuilderPrompt,
   previewBuilderReportCapture,
@@ -49,6 +50,7 @@ import {
   previewRiskReview,
   loadBuilderReportFile,
   saveArchitectPrompt,
+  saveArchitectReviewRecord,
   saveBuilderPrompt,
   saveBuilderReportCapture,
   saveDraftWorkCard,
@@ -92,6 +94,7 @@ import type {
 import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRecord";
 import type { PlanningArtifactPreviewRequest } from "../shared/workCards/artifactReviewWorkspace";
 import type { RouteReviewRequestInput } from "../shared/workCards/routeReviewRequest";
+import type { ArchitectReviewFormInput } from "../shared/workCards/architectReviewRecord";
 
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
@@ -377,6 +380,16 @@ function registerWorkCardIpc(): void {
     "workCards:saveBuilderReportCapture",
     (_event, input: BuilderReportCaptureRequest) =>
       saveBuilderReportCapture(input),
+  );
+  ipcMain.handle(
+    "workCards:previewArchitectReviewRecord",
+    (_event, input: ArchitectReviewFormInput) =>
+      previewArchitectReviewRecord(input),
+  );
+  ipcMain.handle(
+    "workCards:saveArchitectReviewRecord",
+    (_event, input: ArchitectReviewFormInput) =>
+      saveArchitectReviewRecord(input),
   );
   ipcMain.handle(
     "workCards:loadBuilderReportFile",
