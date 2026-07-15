@@ -553,6 +553,15 @@ declare global {
       saveArchitectReviewRecord: (
         input: ArchitectReviewFormInput,
       ) => Promise<ArchitectReviewSaveResult>;
+      saveCompletedViaRepairDisposition: (input: {
+        rationale: string;
+      }) => Promise<{
+        ok: boolean;
+        jsonPath?: string;
+        markdownPath?: string;
+        nextActionId?: string | null;
+        errorMessages?: string[];
+      }>;
       loadImplementerReportFile: (
         input: ImplementerReportFileLoadRequest,
       ) => Promise<ImplementerReportFileLoadResult>;

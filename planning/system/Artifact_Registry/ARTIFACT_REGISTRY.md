@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:a650556a30069bf7721d29a40d7d38af8fe3f8c3c0a8c85eb4173e2710c87c7f",
+  "payloadHash": "sha256:1d044353edb5174894bfc8cdcc2cc7f3707e5eb20163f62c11fc97ace7d5be95",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -150,10 +150,10 @@
     ],
     "supersedes": []
   },
-  "revision": 37,
+  "revision": 41,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T22:26:09.741Z"
+  "updatedAt": "2026-07-15T23:39:26.030Z"
 }
 -->
 
@@ -261,11 +261,11 @@ Entries: 132
 | champcity-ai/phase-04/diagnostic_report/WC01 | diagnostic_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01 | implementer_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01-REPAIR01 | implementer_report | 2 | blocked | yes | yes |
-| champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority | implementer_report | 2 | active | yes | yes |
+| champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority | implementer_report | 5 | active | yes | yes |
 | champcity-ai/phase-04/phase_activation/phase-04 | phase_activation | 1 | active | yes | yes |
 | champcity-ai/phase-04/phase_planning/Phase_Planning | phase_planning | 1 | active | yes | yes |
 | champcity-ai/phase-04/work_card/WC01 | work_card | 1 | active | yes | yes |
-| champcity-ai/phase-04/work_card/WC01-REPAIR01 | work_card | 2 | active | yes | yes |
+| champcity-ai/phase-04/work_card/WC01-REPAIR01 | work_card | 3 | active | yes | yes |
 | champcity-ai/phase-04/work_card_plan/Work_Card_Plan | work_card_plan | 1 | active | yes | yes |
 | champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |
 | champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |

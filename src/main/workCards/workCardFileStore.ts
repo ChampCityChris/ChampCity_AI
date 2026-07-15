@@ -3030,6 +3030,30 @@ export async function saveArchitectReviewRecord(
         workCardArtifactId: authority.target.artifactId,
         implementerReportArtifactId: authority.source.artifactId,
         decision: input.decision,
+        operatorValidationAuthorized: input.decision === "Ready for Operator validation",
+        ...(authority.binding.reviewScope === "combined_parent_and_final_repair"
+          ? {
+              reviewScope: "combined_parent_and_final_repair",
+              combinedParentReview: true,
+              repairedParentWorkCardArtifactId: authority.target.artifactId,
+              repairWorkCardArtifactId: authority.binding.combinedEvidence?.find(
+                (item) => item.artifactType === "work_card" && item.artifactId.includes("-REPAIR"),
+              )?.artifactId,
+              authorizingArchitectReviewArtifactId:
+                authority.binding.authorizingArchitectReviewArtifactId,
+              authorizingArchitectReviewRevision:
+                authority.binding.combinedEvidence?.find(
+                  (item) => item.artifactId === authority.binding.authorizingArchitectReviewArtifactId,
+                )?.revision,
+              originalImplementerReportArtifactId:
+                authority.binding.originalImplementerReportArtifactId,
+              repairImplementerReportArtifactId:
+                authority.binding.repairImplementerReportArtifactId,
+              finalPermittedRepair: true,
+              additionalRepairProhibited: true,
+              combinedEvidence: authority.binding.combinedEvidence ?? [],
+            }
+          : {}),
         workCardCompliance: input.workCardCompliance,
         changedFilesReviewed: input.changedFilesReviewed,
         acceptanceCriteriaAssessment: input.acceptanceCriteriaAssessment,
@@ -3059,6 +3083,30 @@ export async function saveArchitectReviewRecord(
       ok: false,
       errorMessages: [toPlainSaveError(error)],
     };
+  }
+}
+
+export async function saveCompletedViaRepairDisposition(input: {
+  rationale: string;
+}): Promise<{
+  ok: boolean;
+  jsonPath?: string;
+  markdownPath?: string;
+  nextActionId?: string | null;
+  errorMessages?: string[];
+}> {
+  try {
+    const committed = await canonicalWorkflowAuthority.commitCompletedViaRepairDisposition(
+      input.rationale,
+    );
+    return {
+      ok: true,
+      jsonPath: committed.pairCommit.artifact.jsonPath,
+      markdownPath: committed.pairCommit.artifact.markdownPath,
+      nextActionId: committed.state.currentAction?.actionId ?? null,
+    };
+  } catch (error) {
+    return { ok: false, errorMessages: [toPlainSaveError(error)] };
   }
 }
 

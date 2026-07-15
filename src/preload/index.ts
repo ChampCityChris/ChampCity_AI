@@ -357,6 +357,15 @@ const api = {
     input: ArchitectReviewFormInput,
   ): Promise<ArchitectReviewSaveResult> =>
     invokeProcess("workCards:saveArchitectReviewRecord", input),
+  saveCompletedViaRepairDisposition: (input: {
+    rationale: string;
+  }): Promise<{
+    ok: boolean;
+    jsonPath?: string;
+    markdownPath?: string;
+    nextActionId?: string | null;
+    errorMessages?: string[];
+  }> => ipcRenderer.invoke("workCards:saveCompletedViaRepairDisposition", input),
   loadImplementerReportFile: (
     input: ImplementerReportFileLoadRequest,
   ): Promise<ImplementerReportFileLoadResult> =>

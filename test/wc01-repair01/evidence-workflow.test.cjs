@@ -231,11 +231,35 @@ test("external Architect Review, Validation Report, and explicit repair decision
   });
 });
 
-test("explicit repair decision selects its exact repair and enforces the final numbered repair limit", async () => {
+test("final repair routes combined parent review, parent validation, and completed_via_repair before the next candidate", async () => {
   await temporaryRoot("champcity-repair-limit-", async (root) => {
     const projectId = "project-alpha";
     const phaseId = "phase-04";
-    await seedWorkCardLoop(root, projectId, phaseId, "WC01");
+    await seedWorkCardLoop(root, projectId, phaseId, "WC01", {
+      workCardData: { maxRepairCount: 1 },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId,
+      artifactId: `${projectId}/${phaseId}/work_card_plan/Work_Card_Plan`,
+      artifactType: "work_card_plan",
+      revision: 2,
+      stem: `planning/phases/${phaseId}/Work_Card_Plan`,
+      data: {
+        status: "approved",
+        candidates: [
+          { id: "WC01", title: "Authority cutover", order: 1 },
+          { id: "WC02", title: "Next approved candidate", order: 2 },
+        ],
+      },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC02",
+      artifactId: `${projectId}/${phaseId}/work_card/WC02`,
+      artifactType: "work_card",
+      stem: `planning/phases/${phaseId}/Work_Cards/WC02_next_candidate`,
+      expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC02`],
+      data: { workCardId: "WC02", status: "ready_for_implementer" },
+    });
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01",
       artifactId: `${projectId}/${phaseId}/implementer_report/WC01`,
@@ -258,7 +282,17 @@ test("explicit repair decision selects its exact repair and enforces the final n
       artifactType: "work_card",
       stem: `planning/phases/${phaseId}/Work_Cards/WC01-REPAIR01_authority_cutover`,
       expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`],
-      data: { workCardId: "WC01-REPAIR01", finalNumberedRepair: true },
+      sources: [
+        `${projectId}/${phaseId}/work_card/WC01`,
+        `${projectId}/${phaseId}/architect_review/WC01`,
+      ],
+      data: {
+        workCardId: "WC01-REPAIR01",
+        finalNumberedRepair: true,
+        authorizingArchitectReviewRevision: 1,
+        logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
+        controllingRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
+      },
     });
     let result = await projectGraph(root, projectId);
     assert.equal(result.projection.state.currentAction.actionId, "implementer_execution_required");
@@ -268,19 +302,108 @@ test("explicit repair decision selects its exact repair and enforces the final n
       projectId, phaseId, workCardId: "WC01-REPAIR01",
       artifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
       artifactType: "implementer_report",
+      parentArtifactId: `${projectId}/${phaseId}/work_card/WC01`,
       stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_authority_cutover`,
-      expectedOutputs: [`${projectId}/${phaseId}/architect_review/WC01-REPAIR01`],
+      sources: [`${projectId}/${phaseId}/work_card/WC01-REPAIR01`],
+      expectedOutputs: [`${projectId}/${phaseId}/architect_review/WC01`],
     });
+    result = await projectGraph(root, projectId, 2);
+    let action = result.projection.state.currentAction;
+    assert.equal(action.actionId, "architect_review_of_implementer_report_required");
+    assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
+    assert.deepEqual(action.sourceArtifactIds, [
+      `${projectId}/${phaseId}/implementer_report/WC01`,
+      `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
+      `${projectId}/${phaseId}/architect_review/WC01`,
+      `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
+    ]);
+    assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/architect_review/WC01`);
+    assert.equal(result.projection.repairLineage.finalNumberedRepair, true);
+
+    // Repair-specific review/validation evidence cannot independently complete the parent.
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01-REPAIR01",
       artifactId: `${projectId}/${phaseId}/architect_review/WC01-REPAIR01`,
       artifactType: "architect_review",
       stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_authority_cutover`,
-      data: { decision: "Repair required before Operator validation", requiredRepairId: "WC01-REPAIR02" },
+      expectedOutputs: [`${projectId}/${phaseId}/validation_report/WC01-REPAIR01`],
+      data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
     });
-    result = await projectGraph(root, projectId, 2);
-    assert.equal(result.projection.state.currentAction.actionId, "architect_disposition_required");
-    assert.notEqual(result.projection.state.currentAction.expectedOutput.artifactId, `${projectId}/${phaseId}/work_card/WC01-REPAIR02`);
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01-REPAIR01",
+      artifactId: `${projectId}/${phaseId}/validation_report/WC01-REPAIR01`,
+      artifactType: "validation_report",
+      stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01`,
+      data: { result: "Pass" },
+    });
+    result = await projectGraph(root, projectId, 3);
+    assert.equal(result.projection.state.currentAction.actionId, "architect_review_of_implementer_report_required");
+    assert.equal(result.projection.state.currentAction.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
+
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/architect_review/WC01`,
+      artifactType: "architect_review",
+      revision: 2,
+      stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01_authority_cutover`,
+      sources: [
+        `${projectId}/${phaseId}/implementer_report/WC01`,
+        `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
+        `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
+      ],
+      expectedOutputs: [`${projectId}/${phaseId}/validation_report/WC01`],
+      data: {
+        decision: "Ready for Operator validation",
+        operatorValidationAuthorized: true,
+        reviewScope: "combined_parent_and_final_repair",
+        combinedParentReview: true,
+        repairedParentWorkCardArtifactId: `${projectId}/${phaseId}/work_card/WC01`,
+        repairWorkCardArtifactId: `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
+        authorizingArchitectReviewArtifactId: `${projectId}/${phaseId}/architect_review/WC01`,
+        authorizingArchitectReviewRevision: 1,
+      },
+    });
+    result = await projectGraph(root, projectId, 4);
+    action = result.projection.state.currentAction;
+    assert.equal(action.actionId, "operator_validation_required");
+    assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
+    assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/validation_report/WC01`);
+
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/validation_report/WC01`,
+      artifactType: "validation_report",
+      stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
+      sources: [`${projectId}/${phaseId}/architect_review/WC01`],
+      data: { result: "Pass", workCardId: "WC01" },
+    });
+    result = await projectGraph(root, projectId, 5);
+    action = result.projection.state.currentAction;
+    assert.equal(action.actionId, "candidate_disposition_required");
+    assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
+    assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/candidate_disposition/WC01`);
+
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/candidate_disposition/WC01`,
+      artifactType: "candidate_disposition",
+      stem: `planning/phases/${phaseId}/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01`,
+      sources: [
+        `${projectId}/${phaseId}/work_card/WC01`,
+        `${projectId}/${phaseId}/implementer_report/WC01`,
+        `${projectId}/${phaseId}/architect_review/WC01`,
+        `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
+        `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
+        `${projectId}/${phaseId}/validation_report/WC01`,
+      ],
+      data: { status: "completed_via_repair", workCardId: "WC01" },
+    });
+    result = await projectGraph(root, projectId, 6);
+    action = result.projection.state.currentAction;
+    assert.equal(result.projection.state.phaseExecution.approvedCandidates[0].resolutionStatus, "completed_via_repair");
+    assert.equal(action.actionId, "implementer_execution_required");
+    assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC02`);
+    assert.equal(result.graph.byType("work_card", phaseId).some((node) => node.artifact.workCardId === "WC01-REPAIR02"), false);
   });
 });
 
@@ -313,6 +436,48 @@ test("incomplete, invalid, and duplicate canonical authority block visibly", asy
     assert.ok(graph.blockers.some((blocker) => blocker.code === "duplicate_authority"));
     assert.ok(graph.blockers.some((blocker) => blocker.code === "incomplete_pair"));
     assert.ok(graph.blockers.some((blocker) => blocker.code === "invalid_pair"));
+  });
+});
+
+test("ambiguous repaired-parent lineage blocks visibly and never invents WC01-REPAIR02", async () => {
+  await temporaryRoot("champcity-repair-lineage-block-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const parentArtifactId = `${projectId}/${phaseId}/work_card/WC01`;
+    await seedWorkCardLoop(root, projectId, phaseId, "WC01", {
+      workCardData: { maxRepairCount: 1 },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/implementer_report/WC01`,
+      artifactType: "implementer_report",
+      stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_WC01`,
+      expectedOutputs: [`${projectId}/${phaseId}/architect_review/WC01`],
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/architect_review/WC01`,
+      artifactType: "architect_review",
+      stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01`,
+      expectedOutputs: [`${projectId}/${phaseId}/work_card/WC01-REPAIR01`],
+      data: { decision: "Repair required before Operator validation", requiredRepairId: "WC01-REPAIR01" },
+    });
+    for (const repairId of ["WC01-REPAIR01", "WC01-REPAIR03"]) {
+      await writeArtifact(root, {
+        projectId, phaseId, workCardId: repairId,
+        parentArtifactId,
+        artifactId: `${projectId}/${phaseId}/work_card/${repairId}`,
+        artifactType: "work_card",
+        stem: `planning/phases/${phaseId}/Work_Cards/${repairId}`,
+        sources: [`${projectId}/${phaseId}/architect_review/WC01`],
+        expectedOutputs: [`${projectId}/${phaseId}/implementer_report/${repairId}`],
+        data: { workCardId: repairId, finalNumberedRepair: true },
+      });
+    }
+    const result = await projectGraph(root, projectId);
+    assert.equal(result.projection.state.currentAction.authorityStatus, "blocked");
+    assert.ok(result.projection.state.blockingConditions.some((blocker) => blocker.code === "repair_lineage_ambiguous"));
+    assert.equal(result.graph.byType("work_card", phaseId).some((node) => node.artifact.workCardId === "WC01-REPAIR02"), false);
   });
 });
 

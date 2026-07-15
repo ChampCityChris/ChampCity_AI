@@ -64,6 +64,7 @@ export interface RoutedArchitectReviewBinding {
   workflowStateRevision: number;
   targetArtifactId: string;
   sourceArtifactId: string;
+  sourceArtifactIds?: string[];
   expectedOutputArtifactId: string;
   phaseId: string;
   workCardId: string;
@@ -72,6 +73,20 @@ export interface RoutedArchitectReviewBinding {
   implementerReportFileName: string;
   expectedOutputPath: string;
   expectedOutputFileName: string;
+  reviewScope?: "standard" | "combined_parent_and_final_repair";
+  parentWorkCardId?: string;
+  repairWorkCardId?: string;
+  repairClassification?: "final_permitted_repair";
+  originalImplementerReportArtifactId?: string;
+  repairImplementerReportArtifactId?: string;
+  authorizingArchitectReviewArtifactId?: string;
+  combinedEvidence?: Array<{
+    artifactId: string;
+    artifactType: string;
+    title: string;
+    markdownPath: string;
+    revision: number;
+  }>;
   blockingState: RoutedArchitectReviewBindingBlockingState;
 }
 

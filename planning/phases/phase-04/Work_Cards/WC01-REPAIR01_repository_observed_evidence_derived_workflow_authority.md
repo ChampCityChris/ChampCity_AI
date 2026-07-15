@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: Phase 04 WC01-REPAIR01 Repository-Observed Evidence-Derived Workflow Authority"
   },
-  "payloadHash": "sha256:79175ac3f369aa20951a8cd615995fee01440fb9a5e15cd0b7e8b995c0297cff",
+  "payloadHash": "sha256:d3f8804f3d24c5b9c0be76c789df5074b294632875df0acfb62598b7ad15f07e",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -26,10 +26,10 @@
     ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T21:25:29.137Z",
+  "updatedAt": "2026-07-15T23:22:41.104Z",
   "workCardId": "WC01-REPAIR01"
 }
 -->

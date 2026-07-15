@@ -203,7 +203,7 @@ const actionIdToManualScreen: Record<string, string> = {
   roadmap_update_required: "project-planning-documents",
   next_phase_activation_required: "phase-map",
   repeat_phase_mapping_and_work_card_loop_required: "phase-map",
-  candidate_disposition_required: "work-card-plan-review",
+  candidate_disposition_required: "candidate-disposition",
 };
 
 function cn(...parts: Array<string | false | null | undefined>): string {

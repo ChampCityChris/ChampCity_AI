@@ -67,7 +67,18 @@ export type WorkflowBlockerCode =
   | "work_card_plan_unsynchronized"
   | "candidate_authority_ambiguous"
   | "candidate_unresolved"
-  | "active_repair_unresolved";
+  | "active_repair_unresolved"
+  | "repair_lineage_ambiguous"
+  | "repair_parent_invalid"
+  | "repair_authorization_mismatch"
+  | "repair_authorization_missing"
+  | "repair_limit_invalid"
+  | "repair_report_invalid"
+  | "parent_validation_ambiguous"
+  | "parent_disposition_ambiguous"
+  | "candidate_disposition_ambiguous"
+  | "candidate_validation_ambiguous"
+  | "completed_via_repair_evidence_missing";
 
 export interface WorkflowBlocker {
   code: WorkflowBlockerCode;

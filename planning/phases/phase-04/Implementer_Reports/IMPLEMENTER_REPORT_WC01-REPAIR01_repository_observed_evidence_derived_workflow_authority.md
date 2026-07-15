@@ -10,15 +10,18 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC01-REPAIR01 Repository-Observed Evidence-Derived Workflow Authority"
   },
-  "payloadHash": "sha256:515d8d93d1ddcbef819325c9ce1b0cab6ec84ce953a4ed22181a37cf6565e22c",
+  "payloadHash": "sha256:6bd4df4d06c0a79698fc352a2c8ab8e993e7139fa3ac8cc8b73d3bcca6c04504",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/architect_review/WC01-REPAIR01"
+      "champcity-ai/phase-04/architect_review/WC01"
     ],
     "sources": [
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/architect_review/WC01",
       "champcity-ai/phase-04/work_card/WC01-REPAIR01",
       "champcity-ai/phase-04/architecture_decision/WC01",
       "champcity-ai/phase-04/diagnostic_report/WC01"
@@ -27,181 +30,173 @@
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01"
     ]
   },
-  "revision": 2,
+  "revision": 5,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T22:26:09.741Z",
+  "updatedAt": "2026-07-15T23:39:26.030Z",
   "workCardId": "WC01-REPAIR01"
 }
 -->
 
 # Implementer Report: WC01-REPAIR01 Repository-Observed Evidence-Derived Workflow Authority
 
-Status: completed, awaiting Architect review and Operator acceptance
-Pass type: numbered repair Work Card implementation
+Status: completed, awaiting combined Architect Review of parent WC01
+Pass type: bounded correction to existing numbered repair Work Card WC01-REPAIR01
+Correction classification: repaired-parent acceptance routing correction; not WC01-REPAIR02
 Parent acceptance target: WC01 as completed_via_repair
 Repository path inspected: verified approved repo root
 Branch: feature/phase-04-wc01-repair01-evidence-derived-workflow
 Remote: origin matched the approved public ChampCityChris/ChampCity_AI repository
-Intended commit message: Replace snapshot authority with repository evidence projection
+Intended commit message: Correct repaired-parent acceptance routing
 Commit created: no
 Commit hash: pending until commit is created
 Push status: pending final commit
 
-## Implementation summary
+## Governance defect corrected
 
-ChampCity A/I now derives its routed workflow from synchronized canonical artifact pairs observed in the selected repository. A persistent multi-project workspace registry selects an isolated repository root. One verified artifact graph classifies controlling and historical evidence and reports invalid, incomplete, duplicate, conflicting, project-mismatched, or branch-mismatched authority. One evidence-derived projector combines that graph with the locked process contract, role gates, explicit governed decisions, and repair policy. Startup, focus, project switching, watcher events, manual refresh, external writes, and routed in-app writes all converge on the same refresh/projector path.
+The replacement repair Work Card and repair Implementer Report previously directed the evidence projector to a repair-specific Architect Review and repair-specific Operator Validation. That incorrectly made WC01-REPAIR01 an independent acceptance target. The correction preserves the repair implementation as evidence while making parent WC01 the combined Architect Review, Operator Validation, and final disposition target.
 
-The legacy CurrentRequiredAction evaluator, persisted Workflow State runtime store/adapter, independent transition writers, obsolete mounted fixtures, and old evaluator validation scripts were deleted. The old Workflow State pair remains untouched historical evidence and cannot override a repository scan. The durable Artifact Registry remains a synchronized audit/index for canonical app writes but is not required to discover valid external pairs.
+Correct lifecycle: parent WC01 report and repair-requesting WC01 review -> final WC01-REPAIR01 Work Card and report -> combined parent WC01 review -> parent WC01 validation -> explicit parent completed_via_repair disposition -> next approved unresolved candidate.
 
-## Canonical preflight and governance
+## Repair lineage representation
 
-- Verified the approved repo root, origin, starting feature branch, exact lineage, and worktree.
-- Preserved the expected Architect-authored Diagnostic Report and Architect Review evidence.
-- Verified the Diagnostic Report and Architect Review pairs as synchronized.
-- Confirmed the rejected predecessor repair pair was unregistered and invalid because its payload hash did not match its content.
-- Created and registered the approved architecture decision and replacement WC01-REPAIR01 pair through ArtifactPairService before deleting the rejected pair.
-- Preserved the earlier report as historical and gave this replacement report a distinct canonical identity that supersedes it.
-- WC01-REPAIR02 was not created.
+The evidence-derived projector now exposes one explicit RepairLineageProjection containing the repair Work Card artifact ID, repaired parent Work Card artifact ID, controlling repair report ID, stable logical repair-report ID, original parent report ID, authorizing parent review ID and revision, final-repair flag, maximum repair count, and final parent acceptance target.
 
-## Files created
+Canonical parentArtifactId and exact relationships control lineage. The repair must have exactly one parent, cite the parent review that authorized it, correspond to the exact report, remain within the maximum count, and have no competing controlling repair. String parsing is used only to validate the numbered suffix and never creates authority. Ambiguous or invalid lineage adds visible blocking conditions.
 
-- planning/phases/phase-04/Architecture_Decisions/ARCHITECTURE_DECISION_WC01_repository_observed_evidence_derived_multi_project_workflow.{md,json}
-- planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.{md,json}
+## Stable report identity decision
+
+Stable workflow identity: champcity-ai/phase-04/implementer_report/WC01-REPAIR01.
+Controlling physical artifact: champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority.
+
+The canonical artifact service enforces immutable logical-ID-to-fixed-path registration. Reassigning the existing descriptive pair to the older stable ID would violate that invariant. The safest canonical correction retained the existing physical artifact and added explicit Work Card/report lineage metadata resolving it as the sole controlling report for the stable repair identity. The older stable-ID report remains blocked historical evidence. No payload hash or Artifact Registry entry was edited manually; all durable pair and Registry revisions used ArtifactPairService.
+
+## Parent review routing
+
+When the final repair report exists and a combined parent review revision does not, the projector derives:
+
+- Action: architect_review_of_implementer_report_required
+- Target: champcity-ai/phase-04/work_card/WC01
+- Sources: champcity-ai/phase-04/implementer_report/WC01; champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority; champcity-ai/phase-04/architect_review/WC01; champcity-ai/phase-04/work_card/WC01-REPAIR01
+- Expected output: champcity-ai/phase-04/architect_review/WC01
+
+The existing parent review revision that authorized WC01-REPAIR01 is distinguished from a combined parent revision by explicit review scope, authorizing revision, repaired-parent ID, repair ID, source evidence, and revision advancement. A repair-specific review cannot authorize parent validation.
+
+The Architect Review UI identifies parent WC01, WC01-REPAIR01, final-repair classification, both reports, the original repair requirement, combined evidence, full-parent and repair questions, and the no-additional-repair warning. Saving uses the canonical parent review identity and writes a governed revision rather than a repair-specific review.
+
+## Parent validation routing
+
+A combined WC01 review that authorizes validation derives operator_validation_required with target champcity-ai/phase-04/work_card/WC01, source champcity-ai/phase-04/architect_review/WC01, and expected output champcity-ai/phase-04/validation_report/WC01. Repair-specific validation evidence cannot complete the parent.
+
+The Operator Validation UI identifies the repaired parent, completed-via-repair path, combined scope, exact refresh/project-switch/stale-state/legacy-authority checks, and the requirement that the Validation Report identify workCardId WC01.
+
+## completed_via_repair disposition behavior
+
+A passing parent WC01 Validation Report no longer activates the next Work Card. It derives the Operator-owned candidate_disposition_required action for WC01. The new canonical disposition operation requires a rationale and exact parent validation plus repair evidence, then atomically writes planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01.{md,json} with status completed_via_repair through the canonical artifact service.
+
+Only a single valid completed_via_repair disposition with the full parent and repair evidence set resolves WC01. Missing disposition keeps the next candidate inactive; duplicate or incomplete controlling dispositions block visibly. Failed parent validation and rejected combined review route to Architect disposition without creating another numbered repair.
+
+## Rewritten test ledger
+
+- Before the repair report, Implementer Execution targets WC01-REPAIR01.
+- External repair-report discovery routes combined Architect Review to parent WC01 with all four required sources.
+- Repair-specific review and validation cannot independently complete the parent.
+- Combined parent review authorization routes Operator Validation to WC01.
+- Passing parent validation routes candidate disposition, not the next candidate.
+- completed_via_repair resolves WC01 and activates the next approved unresolved candidate.
+- Ambiguous lineage, multiple controlling validation/disposition evidence, incomplete evidence, and invalid repair authority block.
+- WC01-REPAIR02 is never created.
+- Repeated refresh is a no-op; stale Workflow State is non-authoritative.
+- WC09-REPAIR02 exact-binding regression remains green.
+
+## Actual repository projection
+
+The actual selected repository projects with zero blockers:
+
+- Action: architect_review_of_implementer_report_required
+- Target: champcity-ai/phase-04/work_card/WC01
+- Sources: champcity-ai/phase-04/implementer_report/WC01; champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority; champcity-ai/phase-04/architect_review/WC01; champcity-ai/phase-04/work_card/WC01-REPAIR01
+- Expected output: champcity-ai/phase-04/architect_review/WC01
+
+No Architect Review revision, Validation Report, or completed_via_repair disposition was created on behalf of the Architect or Operator.
+
+## Electron, restart, and project-switch results
+
+The real built main/preload/renderer verifier begins before the repair report is detected. It proves repair Implementer Execution, writes an external synchronized repair report without import, manually refreshes, opens the combined parent review UI, previews and saves a parent WC01 review revision, reaches parent WC01 Operator Validation, detects an external passing parent Validation Report, blocks next-candidate activation at candidate_disposition_required, and invokes the real canonical disposition IPC to record completed_via_repair.
+
+Only after the durable disposition does WC02 become current. The same process switches to an isolated second configured project and back, reconstructing WC02 without leakage. A separately launched Electron process then reconstructs the same post-disposition WC02 route from repository evidence. Both processes exited successfully.
+
+## Architecture regression results
+
+Passed: external artifacts need no import; watcher and manual refresh share the projector path; multi-project configuration and isolation remain active; stale Workflow State cannot override evidence; Artifact Registry registration is not required for external discovery; one evidence-derived authority path remains; legacy CurrentRequiredAction authority remains deleted; in-app and external writes share refresh; restart recomputes; invalid and incomplete pairs block; unchanged refresh is a no-op; WC09-REPAIR02 regression remains green.
+
+## Changed files
+
 - planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.{md,json}
-- src/shared/projects/index.ts and projectWorkspace.ts
-- src/main/projects/index.ts and projectWorkspaceRegistry.ts
-- src/main/repository/index.ts, verifiedArtifactGraph.ts, repositoryRefreshService.ts, and repositoryObserver.ts
-- src/main/workflow/evidenceDerivedWorkflowProjector.ts
-- src/shared/workCards/currentActionProjection.ts
+- planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.{md,json}
+- planning/system/Artifact_Registry/ARTIFACT_REGISTRY.{md,json}
 - scripts/verify-wc01-mounted-evidence-workflow.cjs
+- src/main/main.ts
+- src/main/workCards/canonicalWorkflowAuthority.ts
+- src/main/workCards/workCardFileStore.ts
+- src/main/workflow/evidenceDerivedWorkflowProjector.ts
+- src/preload/index.ts
+- src/renderer/app/App.tsx
+- src/renderer/app/WorkflowRouterShell.tsx
+- src/renderer/global.d.ts
+- src/shared/workCards/architectReviewRecord.ts
+- src/shared/workflow/workflowContracts.ts
 - test/wc01-repair01/evidence-workflow.test.cjs
 
-## Architect-authored files preserved for this commit
+## Deleted files
 
-- planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.{md,json}
+None. Temporary canonical-update helpers were removed before validation and are not deliverables.
 
-## Files modified
+## Commands and results
 
-- docs/architecture/ARTIFACT_PAIR_AND_REVISION_STANDARD.md
-- docs/architecture/ROLE_GATE_CONTRACT.md
-- docs/architecture/ROUTED_ACTION_CONTRACT.md
-- docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md
-- package.json
-- planning/system/Artifact_Registry/ARTIFACT_REGISTRY.{md,json}
-- scripts/verify-wc06-workflow-visibility.mjs
-- scripts/verify-wc09-repository-gates.mjs
-- src/main/artifacts/artifactPairContracts.ts and artifactPairService.ts
-- src/main/canonicalRuntime.ts and src/main/main.ts
-- src/main/contextPackets/contextPacketService.ts and currentContextPacketCompiler.ts
-- src/main/workCards/canonicalWorkflowAuthority.ts and workCardFileStore.ts
-- src/main/workflow/canonicalRoutedScreenAdapter.ts, index.ts, routedActionService.ts, and routedProcessInvocationService.ts
-- src/preload/index.ts
-- src/renderer/app/App.tsx and WorkflowRouterShell.tsx
-- src/renderer/global.d.ts
-- src/shared/contextPackets/contextPacket.ts
-- src/shared/workCards/artifactReviewWorkspace.ts, currentStepContextInspector.ts, validateImplementerReport.ts, and workflowVisibility.ts
-- src/shared/workflow/workflowContracts.ts
-
-## Deletion ledger
-
-| Deleted file or authority | Reason | Replacement | Proof no production consumer remains |
-| --- | --- | --- | --- |
-| src/shared/workCards/currentRequiredAction.ts evaluator | Snapshot/status/filename authority duplicated repository evidence | EvidenceDerivedWorkflowProjector; presentation-only contracts moved to currentActionProjection.ts | TypeScript build passed; repository gate rejects the legacy import/name in production authority files |
-| src/main/workflow/workflowStateStore.ts | Persisted Workflow State was startup/runtime selector authority | RepositoryRefreshService projection provider | TypeScript build and all routed tests passed; production import gate passed |
-| src/main/workflow/workflowStateArtifactPort.ts | Runtime adapter gave the snapshot pair controlling authority | VerifiedArtifactGraph plus derived registry view | TypeScript build and stale-cache non-authority test passed |
-| RoutedProcessInvocationService independent state transition | In-app writes used a second transition path | Shared refreshAfterWrite callback | Real Electron save advanced only after repository refresh |
-| CanonicalWorkflowAuthority Workflow State commit | Architect Review save could bypass repository observation | Canonical pair write followed by shared refresh/projector | Mounted Electron initial and restart proofs passed |
-| test/wc09/workflow-authority.test.cjs | Contradictory snapshot-authority fixture | test/wc01-repair01/evidence-workflow.test.cjs | Replacement unit suite passed 37/37 |
-| test/wc09/cross-process-routed-invocation.test.cjs | Fixture began after the failed discovery boundary | Real main/preload/renderer Electron verifier | Two independent Electron processes passed |
-| scripts/verify-wc01-mounted-canonical-architect-review.cjs | Seeded the removed store directly | verify-wc01-mounted-evidence-workflow.cjs | Full renderer lane passed initial and restart modes |
-| scripts/verify-work-card-fixture.mjs | Imported the deleted evaluator | Verified graph/projector unit scenarios | Full unit lane passed |
-| scripts/verify-wc08-repair01-route-context-explanation.mjs | Read the deleted selector source as authority | Projector binding metadata and Current Step formatter | Repository gate and build passed |
-| scripts/verify-wc08-repair03-pending-repair-validation-routing.mjs | Invoked the deleted selector | Explicit repair/validation graph scenarios | Explicit-decision and repair-limit tests passed |
-| scripts/verify-wc08-repair04-controlled-route-recovery.mjs | Invoked the deleted selector | Evidence precedence plus projector tests | WC09 regression and repair-reopen tests passed |
-| Rejected unregistered WC01-REPAIR01 pair | Invalid payload hash and superseded scope | Registered replacement Work Card pair | Replacement pair re-read and registry verification passed before deletion |
-
-No production code imports the offline WC09 migration projector. Migration code remains isolated under scripts/migration for explicitly invoked historical migration only.
-
-## Acceptance matrix
-
-| # | Requirement | Result | Evidence |
-| --- | --- | --- | --- |
-| 1 | Exactly one production workflow authority path | Pass | Runtime composition and repository import gate |
-| 2 | Persistent configured-project registry | Pass | Registry persistence/selection unit test |
-| 3 | Add, validate, list, select, and switch projects without restart | Pass | IPC/UI implementation and project-switch isolation test |
-| 4 | Strict selected-project root isolation | Pass | Two-repository isolation test |
-| 5 | Automatic observation with debounced pair writes | Pass | Observer debounce test |
-| 6 | Explicit Refresh Repository State | Pass | Main/preload/renderer IPC and mounted Electron proof |
-| 7 | Focus, reopen, switch, and branch rescans | Pass | Runtime focus hook, restart/switch/branch tests |
-| 8 | Stable complete-pair verification and transaction-file filtering | Pass | Verified graph scanner and pair tests |
-| 9 | Visible incomplete, invalid, duplicate, relationship, and branch blockers | Pass | Graph blocker and branch-mismatch tests |
-| 10 | External canonical pairs discovered without registry import or mutation | Pass | External WC01 report/review/validation tests |
-| 11 | Artifact Registry treated as index/cache, not selector | Pass | Unregistered external report routing test |
-| 12 | Deterministic evidence-derived projector with exact bindings | Pass | WC01 exact route and WC09-REPAIR02 regression tests |
-| 13 | Explicit governed decisions and repair limits | Pass | Validation disposition and final-repair-limit tests |
-| 14 | Persisted Workflow State cannot override newer evidence | Pass | Stale-cache and restart test |
-| 15 | Unchanged scan is a no-op | Pass | Repeated fingerprint/projection-revision test |
-| 16 | Current Action UI shows project, observer, changes, blockers, and action | Pass | Renderer implementation and real Electron UI refresh proof |
-| 17 | Routed in-app and external writes share refresh/projector path | Pass | Runtime composition plus Electron Architect Review save |
-| 18 | Reference navigation cannot retarget routed authority | Pass | Exact binding regression coverage and routed adapter boundary |
-| 19 | Real relaunch recomputes and reaches Operator Validation after review | Pass | Two-process Electron initial/restart outputs |
-| 20 | Parent WC01 revalidated as completed_via_repair candidate | Technically ready | All automated requirements pass; Operator acceptance remains required |
-
-## Production reconstruction results
-
-The focused WC01 scenario begins with the unchanged WC01 Implementer Report present and the expected Architect Review absent. Repository scan and projection produce action architect_review_of_implementer_report_required with target champcity-ai/phase-04/work_card/WC01, source champcity-ai/phase-04/implementer_report/WC01, and expected output champcity-ai/phase-04/architect_review/WC01. No report revision, registry import, or Workflow State edit occurs. External review evidence advances to Operator Validation. Repeated no-change scan preserves the projection revision; restart, switch-away-and-back, watcher rescan, manual refresh, and branch refresh all reconstruct from the selected repository.
-
-## Commands run and results
-
-- Repo/remote/branch/lineage/worktree inspection: passed.
-- Canonical pair verification and Artifact Registry checks: passed.
-- npm run validate:codex:unit, approved normal Windows lane: passed; build passed and 37/37 tests passed.
+- Repository root, Git top-level, remote, branch, worktree, required artifacts, architecture authority, and WC01-REPAIR02 preflight: passed.
+- npm run validate:codex:build, approved normal Windows lane: passed.
+- npm run validate:codex:unit, approved normal Windows lane: passed; 38 passed, 0 failed, 0 skipped.
+- npm run test:renderer:built, approved normal Windows lane: passed; initial external-detection/save/project-switch process and independent restart process passed.
+- Actual repository scan/projector probe: passed with zero blockers and the exact combined parent review route.
 - npm run validate:codex, approved normal Windows lane: passed end to end.
-- Full-lane build: passed (TypeScript plus Vite production build).
-- Full-lane unit suite: 37 passed, 0 failed, 0 skipped.
-- Repository gates: 12 passed, including canonical pairs, single evidence projection authority, secrets, concrete local paths, generated junk, dependency scope, and changed-file scope.
-- Real Electron initial process: passed; Architect Review save refreshed to operator_validation_required.
-- Real Electron second process: passed; clean restart recomputed operator_validation_required from mounted repository evidence.
+- Repository gates: 12 passed, including 133 canonical Registry pairs, single evidence authority, legacy prohibition, secrets, concrete paths, generated junk, dependencies, and changed-file scope.
 - git diff --check: passed.
 
-Execution lane: all child-process-capable validation used the approved normal Windows lane defined in docs/dev/VALIDATION_COMMAND_LANES.md. No sandbox-only validation failure was used as evidence. An earlier sandbox directory-creation EPERM during canonical preflight was rerun successfully in the approved lane.
+One initial canonical service write in the restricted sandbox produced EPERM while opening a transaction stage file. Per docs/dev/VALIDATION_COMMAND_LANES.md it was rerun once in the approved normal Windows lane and succeeded. No sandbox-only result was treated as application evidence.
 
 ## Validation skipped and reason
 
-- Operator manual acceptance, visual/usability judgment, final Human Validation, and parent Work Card acceptance were not performed because Implementer authority does not include Operator acceptance.
-- No release tag was created because this feature-branch Work Card does not authorize a tag.
-- No merge to dev or master was performed because Architect/Operator review is required first.
+- Operator acceptance, manual visual/usability judgment, final Validation Report, completed_via_repair decision, and parent acceptance were not performed because Implementer authority excludes Operator acceptance.
+- No release tag or merge to dev/master was performed because this feature-branch correction does not authorize them.
 
 ## Manual validation required
 
-The Operator must select and switch real configured projects, confirm the displayed safe repository root and observer health, visually inspect changes/blockers/current-action guidance, exercise manual refresh after an external canonical pair write, confirm Architect Review and Operator Validation usability, and decide whether parent WC01 is accepted as completed_via_repair.
+The Architect must review parent WC01 using the original and repair evidence and decide whether to authorize Operator Validation. The Operator must then validate parent WC01, including refresh, project switching, external report detection, stale-state non-authority, and legacy-authority removal. Only after a pass may the Operator record completed_via_repair.
 
 ## Residual risks
 
-- Recursive filesystem observation depends on platform watcher behavior; the supported Windows lane passed, while other platforms need later compatibility validation.
-- A configured external repository must remain readable and writable for routed app writes; permission failures surface as blockers/errors but were not tested against every filesystem provider.
-- Electron emitted a non-fatal GPU command-buffer warning while the test windows closed; both processes exited successfully with the required assertions.
-- Operator visual and workflow acceptance remains outstanding.
+- The stable logical report identity is represented by explicit lineage metadata because the registered descriptive physical identity cannot be reassigned without violating fixed-path canonical history.
+- The combined parent review is a governed revision of the stable WC01 review identity; its payload preserves the authorizing review identity and revision because canonical files expose the latest revision while Git retains earlier content history.
+- Cross-platform filesystem watcher behavior beyond the approved Windows lane remains unvalidated.
+- Operator visual and product acceptance remains outstanding.
 
 ## Security and secret safety
 
-No secrets, tokens, credentials, API keys, .env files, provider SDKs, cloud services, authentication, databases, connectors, or MCP integrations were added. Renderer access remains mediated by constrained preload/main IPC. Durable artifacts contain repo-relative paths or <PROJECT_REPO> only. Repository safety gates passed.
+No secrets, tokens, credentials, API keys, .env files, authentication, database, cloud, connector, MCP, or provider SDK changes were added. Renderer writes remain mediated by preload/main IPC and canonical project-root constraints. Secret, concrete-path, generated-junk, and dependency gates passed.
 
 ## Files intentionally not created
 
 - WC01-REPAIR02
-- Operator acceptance or final Human Validation record
-- Workflow State replacement snapshot
-- Release tag, merge commit, authentication, database, cloud, connector, MCP, or provider SDK files
+- Repair-specific controlling Architect Review or Validation Report
+- Parent WC01 Validation Report
+- completed_via_repair disposition
+- Workflow State authority snapshot
+- Release tag or merge commit
 
 ## Git actions performed
 
-The required feature branch is active. Commit and push are intentionally pending until this synchronized final report revision is included. The report records Commit hash: pending in accordance with the same-commit hash rule. dev and master are not merge targets for this pass.
-
-## Dirty files before commit
-
-All remaining changed and untracked files are the intended Work Card implementation, planning authority, synchronized report/registry updates, tests, or preserved Architect Review evidence. Generated dist output is ignored and no unrelated dirty files were found.
+The required feature branch remains active. dev and master were inspected and remained unchanged during implementation. Commit and push are pending inclusion of this synchronized report revision. Commit hash remains pending under the same-commit hash rule.
 
 ## Blocking questions
 
@@ -209,8 +204,8 @@ None.
 
 ## Parent WC01 readiness conclusion
 
-The automated implementation and non-acceptance smoke evidence support treating WC01 as technically ready for completed_via_repair through WC01-REPAIR01. This is an Implementer readiness conclusion, not Operator acceptance. Architect review and Operator manual validation remain required.
+Parent WC01 is technically ready for combined Architect Review using the original WC01 evidence and final WC01-REPAIR01 evidence. This conclusion is Implementer readiness only; it is not Architect authorization or Operator acceptance.
 
 ## Recommended next Implementer task
 
-No additional Implementer repair is recommended. Present this feature branch and report for Architect review, then let the Operator complete manual validation and the parent-WC01 acceptance decision.
+No further numbered repair is recommended or permitted. Await combined Architect Review and the governed parent validation/disposition sequence.

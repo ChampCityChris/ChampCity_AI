@@ -5,21 +5,27 @@ const { app, BrowserWindow } = require("electron");
 
 const {
   buildCanonicalArtifact,
+  buildArtifactRegistry,
+  buildArtifactRegistryEntry,
   canonicalPrettyStringify,
   renderArtifactMarkdown,
 } = require("../dist/shared/artifacts");
 
 const repositoryRoot = path.resolve(__dirname, "..");
 const fixtureRoot = path.join(repositoryRoot, "tmp", "wc01-repair01-electron-project");
+const fixtureRootOther = path.join(repositoryRoot, "tmp", "wc01-repair01-electron-other-project");
 const userDataRoot = path.join(repositoryRoot, "tmp", "electron-runtime", "user-data");
 const workspacePath = path.join(userDataRoot, "project-workspaces.json");
 const projectId = "mounted-project";
 const phaseId = "phase-04";
 const workCardId = "WC01";
+const repairId = "WC01-REPAIR01";
+const otherProjectId = "mounted-other-project";
 const fixedTime = "2026-07-15T21:30:00.000Z";
 const prepare = process.argv.includes("--prepare");
 const restart = process.argv.includes("--restart");
 const cleanup = process.argv.includes("--cleanup");
+const seededArtifacts = [];
 
 if (prepare) prepareFixture();
 
@@ -36,9 +42,9 @@ app.whenReady().then(async () => {
     await waitFor(
       window,
       restart
-        ? `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "operator_validation_required")`
-        : `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "architect_review_of_implementer_report_required")`,
-      restart ? "restart Operator Validation projection" : "Architect Review evidence projection",
+        ? `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "implementer_execution_required" && result.currentAction?.workCardId === "WC02")`
+        : `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "implementer_execution_required" && result.currentAction?.workCardId === "${repairId}")`,
+      restart ? "restart next-candidate projection" : "repair Implementer Execution projection",
     );
 
     const initial = await window.webContents.executeJavaScript(
@@ -47,18 +53,32 @@ app.whenReady().then(async () => {
     );
     assert.equal(initial.ok, true);
     assert.equal(initial.currentAction.routedAction.bindingSource.kind, "evidence_projection");
-    assert.equal(initial.currentAction.workCardId, workCardId);
+    assert.equal(initial.currentAction.workCardId, restart ? "WC02" : repairId);
 
     if (!restart) {
-      assert.equal(initial.currentAction.id, "architect_review_of_implementer_report_required");
-      assert.equal(initial.currentAction.routedAction.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
-      assert.deepEqual(initial.currentAction.routedAction.sourceArtifactIds, [
-        `${projectId}/${phaseId}/implementer_report/${workCardId}`,
-      ]);
+      assert.equal(initial.currentAction.id, "implementer_execution_required");
+      assert.equal(initial.currentAction.workCardId, repairId);
+      assert.equal(initial.currentAction.routedAction.targetArtifactId, `${projectId}/${phaseId}/work_card/${repairId}`);
       assert.equal(
         initial.currentAction.routedAction.expectedOutput.artifactId,
-        `${projectId}/${phaseId}/architect_review/${workCardId}`,
+        `${projectId}/${phaseId}/implementer_report/${repairId}`,
       );
+
+      writeArtifact({
+        artifactId: `${projectId}/${phaseId}/implementer_report/${repairId}`,
+        artifactType: "implementer_report",
+        phaseId,
+        workCardId: repairId,
+        parentArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+        stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${repairId}_mounted_repair`,
+        sources: [`${projectId}/${phaseId}/work_card/${repairId}`],
+        expectedOutputs: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
+        data: {
+          workCardId: repairId,
+          logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/${repairId}`,
+        },
+        title: `Implementer Report: ${repairId} Mounted Repair`,
+      });
 
       await window.webContents.executeJavaScript(
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
@@ -66,8 +86,30 @@ app.whenReady().then(async () => {
       );
       await waitFor(
         window,
-        `document.body.innerText.includes("Blockers: 0")`,
-        "manual refresh result",
+        `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "architect_review_of_implementer_report_required" && result.currentAction?.workCardId === "${workCardId}")`,
+        "combined parent Architect Review after external repair report refresh",
+        20000,
+      );
+      const combined = await window.webContents.executeJavaScript(
+        `window.champCity.getCurrentRequiredAction()`,
+        true,
+      );
+      assert.equal(combined.currentAction.routedAction.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
+      assert.deepEqual(combined.currentAction.routedAction.sourceArtifactIds, [
+        `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+        `${projectId}/${phaseId}/implementer_report/${repairId}`,
+        `${projectId}/${phaseId}/architect_review/${workCardId}`,
+        `${projectId}/${phaseId}/work_card/${repairId}`,
+      ]);
+      assert.equal(combined.currentAction.routedAction.expectedOutput.artifactId, `${projectId}/${phaseId}/architect_review/${workCardId}`);
+      await window.webContents.executeJavaScript(
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Continue current action: Architect Review"))?.click(), true)`,
+        true,
+      );
+      await waitFor(
+        window,
+        `document.body.innerText.includes("Combined Architect Review of Parent WC01") && document.body.innerText.includes("No additional numbered repair is permitted")`,
+        "repaired-parent Architect Review UI",
       );
 
       const reviewResult = await window.webContents.executeJavaScript(
@@ -80,14 +122,14 @@ app.whenReady().then(async () => {
             implementerReportFileName: binding.implementerReportFileName,
             routedReviewBinding: binding,
             decision: "Ready for Operator validation",
-            workCardCompliance: "The exact routed Work Card was implemented.",
-            changedFilesReviewed: "Reviewed the evidence-derived workflow implementation.",
-            acceptanceCriteriaAssessment: "The mounted production path meets the criteria.",
-            validationClaimsAssessment: "Canonical pair and projector evidence were verified.",
-            skippedChecksAssessment: "Operator acceptance remains intentionally pending.",
+            workCardCompliance: "Parent WC01 is ready for Operator Validation.",
+            changedFilesReviewed: "Superseded authority remains removed.",
+            acceptanceCriteriaAssessment: "All parent WC01 requirements were revalidated.",
+            validationClaimsAssessment: "WC01-REPAIR01 corrected the identified defects.",
+            skippedChecksAssessment: "Another repair is prohibited.",
             observationRegisterImpact: "No observation status changed.",
             operatorValidationSteps: "Confirm the routed Operator Validation workspace.",
-            requiredRepair: "None identified."
+            requiredRepair: "Residual risks remain Operator-owned; no additional repair is permitted."
           };
           const preview = await window.champCity.previewArchitectReviewRecord(input);
           const saved = preview.ok && preview.validation?.valid
@@ -111,21 +153,61 @@ app.whenReady().then(async () => {
         true,
       );
       assert.equal(advanced.currentAction.id, "operator_validation_required");
+      assert.equal(advanced.currentAction.workCardId, workCardId);
+      assert.equal(advanced.currentAction.routedAction.expectedOutput.artifactId, `${projectId}/${phaseId}/validation_report/${workCardId}`);
+
+      await window.webContents.executeJavaScript(
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Continue current action: Validate"))?.click(), true)`,
+        true,
+      );
+      await waitFor(
+        window,
+        `document.body.innerText.includes("Operator Validation of Repaired Parent Work Card") && document.body.innerText.includes("Resolution path: completed via ${repairId}")`,
+        "repaired-parent Operator Validation UI",
+      );
+      writeArtifact({
+        artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}`,
+        artifactType: "validation_report",
+        phaseId,
+        workCardId,
+        stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_${workCardId}_mounted_parent`,
+        sources: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
+        data: { workCardId, result: "Pass" },
+        title: "Validation Report: WC01 Parent Pass",
+      });
+      await window.webContents.executeJavaScript(
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
+        true,
+      );
+      await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "candidate_disposition_required")`, "parent disposition gate after validation pass");
+      const dispositionResult = await window.webContents.executeJavaScript(
+        `window.champCity.saveCompletedViaRepairDisposition({ rationale: "Operator fixture confirms the complete repaired-parent outcome." })`,
+        true,
+      );
+      assert.equal(dispositionResult.ok, true, JSON.stringify(dispositionResult.errorMessages));
+      await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "implementer_execution_required" && result.currentAction?.workCardId === "WC02")`, "next candidate after durable completed_via_repair disposition");
+
+      await window.webContents.executeJavaScript(`window.champCity.selectProject("${otherProjectId}")`, true);
+      await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.routedAction?.bindingSource?.projectId === "${otherProjectId}")`, "switch to isolated project");
+      await window.webContents.executeJavaScript(`window.champCity.selectProject("${projectId}")`, true);
+      await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "implementer_execution_required" && result.currentAction?.workCardId === "WC02")`, "switch back reconstructs next candidate after disposition");
     } else {
-      assert.equal(initial.currentAction.id, "operator_validation_required");
-      assert.equal(initial.currentAction.routedAction.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
+      assert.equal(initial.currentAction.id, "implementer_execution_required");
+      assert.equal(initial.currentAction.workCardId, "WC02");
+      assert.equal(initial.currentAction.routedAction.targetArtifactId, `${projectId}/${phaseId}/work_card/WC02`);
     }
 
     console.log(JSON.stringify({
       mountedEvidenceWorkflow: "passed",
       mode: restart ? "restart" : "initial-save",
-      actionId: restart ? initial.currentAction.id : "operator_validation_required",
+      actionId: "implementer_execution_required",
       projectId,
     }));
     await require("../dist/main/canonicalRuntime.js").shutdownCanonicalRuntime();
     for (const candidate of BrowserWindow.getAllWindows()) candidate.destroy();
     if (cleanup) {
       fs.rmSync(fixtureRoot, { recursive: true, force: true });
+      fs.rmSync(fixtureRootOther, { recursive: true, force: true });
       fs.rmSync(workspacePath, { force: true });
     }
     app.exit(0);
@@ -140,6 +222,8 @@ app.whenReady().then(async () => {
 
 function prepareFixture() {
   fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  fs.rmSync(fixtureRootOther, { recursive: true, force: true });
+  seededArtifacts.length = 0;
   fs.mkdirSync(path.join(fixtureRoot, "planning"), { recursive: true });
   fs.writeFileSync(
     path.join(fixtureRoot, "package.json"),
@@ -158,7 +242,13 @@ function prepareFixture() {
     artifactType: "work_card_plan",
     phaseId,
     stem: `planning/phases/${phaseId}/Work_Card_Plan`,
-    data: { status: "approved", candidates: [{ id: workCardId, title: "Mounted authority cutover", order: 1 }] },
+    data: {
+      status: "approved",
+      candidates: [
+        { id: workCardId, title: "Mounted authority cutover", order: 1 },
+        { id: "WC02", title: "Mounted next candidate", order: 2 },
+      ],
+    },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/approval/Operator_Phase_Approval`,
@@ -174,7 +264,7 @@ function prepareFixture() {
     workCardId,
     stem: `planning/phases/${phaseId}/Work_Cards/WC01_mounted_authority_cutover`,
     expectedOutputs: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
-    data: { workCardId, status: "ready_for_implementer" },
+    data: { workCardId, status: "ready_for_implementer", maxRepairCount: 1 },
     title: "Work Card: WC01 Mounted Authority Cutover",
   });
   writeArtifact({
@@ -188,6 +278,67 @@ function prepareFixture() {
     data: { workCardId, status: "implemented_awaiting_architect_review" },
     title: "Implementer Report: WC01 Mounted Authority Cutover",
   });
+  writeArtifact({
+    artifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
+    artifactType: "architect_review",
+    phaseId,
+    workCardId,
+    stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01_mounted_authority_cutover`,
+    sources: [
+      `${projectId}/${phaseId}/work_card/${workCardId}`,
+      `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+    ],
+    expectedOutputs: [`${projectId}/${phaseId}/work_card/${repairId}`],
+    data: {
+      workCardId,
+      decision: "Repair required before Operator validation",
+      operatorValidationAuthorized: false,
+      requiredRepairId: repairId,
+    },
+    title: "Architect Review: WC01 Repair Required",
+  });
+  writeArtifact({
+    artifactId: `${projectId}/${phaseId}/work_card/${repairId}`,
+    artifactType: "work_card",
+    phaseId,
+    workCardId: repairId,
+    parentArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+    stem: `planning/phases/${phaseId}/Work_Cards/${repairId}_mounted_repair`,
+    sources: [
+      `${projectId}/${phaseId}/work_card/${workCardId}`,
+      `${projectId}/${phaseId}/architect_review/${workCardId}`,
+    ],
+    expectedOutputs: [`${projectId}/${phaseId}/implementer_report/${repairId}`],
+    data: {
+      workCardId: repairId,
+      parentWorkCardArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+      authorizingArchitectReviewArtifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
+      authorizingArchitectReviewRevision: 1,
+      finalNumberedRepair: true,
+      maximumRepairCount: 1,
+      logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/${repairId}`,
+      controllingRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/${repairId}`,
+      finalParentAcceptanceTargetArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+    },
+    title: `Repair Work Card: ${repairId} Mounted Repair`,
+  });
+  writeArtifact({
+    artifactId: `${projectId}/${phaseId}/work_card/WC02`,
+    artifactType: "work_card",
+    phaseId,
+    workCardId: "WC02",
+    stem: `planning/phases/${phaseId}/Work_Cards/WC02_mounted_next_candidate`,
+    expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC02`],
+    data: { workCardId: "WC02", status: "ready_for_implementer" },
+    title: "Work Card: WC02 Mounted Next Candidate",
+  });
+  writeRegistry();
+  fs.mkdirSync(path.join(fixtureRootOther, "planning"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRootOther, "package.json"),
+    JSON.stringify({ name: otherProjectId, productName: "Mounted Other Project" }),
+    "utf8",
+  );
   fs.mkdirSync(userDataRoot, { recursive: true });
   const configured = {
     projectId,
@@ -203,9 +354,16 @@ function prepareFixture() {
     lastScanResult: null,
     observerStatus: "stopped",
   };
+  const otherConfigured = {
+    ...configured,
+    projectId: otherProjectId,
+    displayName: "Mounted Other Project",
+    repositoryRoot: fixtureRootOther,
+    planningRoot: path.join(fixtureRootOther, "planning"),
+  };
   fs.writeFileSync(
     workspacePath,
-    `${JSON.stringify({ schemaVersion: "champcity.project-workspaces.v1", selectedProjectId: projectId, projects: [configured] }, null, 2)}\n`,
+    `${JSON.stringify({ schemaVersion: "champcity.project-workspaces.v1", selectedProjectId: projectId, projects: [configured, otherConfigured] }, null, 2)}\n`,
     "utf8",
   );
 }
@@ -219,6 +377,7 @@ function writeArtifact(input) {
     projectId,
     ...(input.phaseId ? { phaseId: input.phaseId } : {}),
     ...(input.workCardId ? { workCardId: input.workCardId } : {}),
+    ...(input.parentArtifactId ? { parentArtifactId: input.parentArtifactId } : {}),
     createdAt: fixedTime,
     updatedAt: fixedTime,
     jsonPath: `${input.stem}.json`,
@@ -241,6 +400,38 @@ function writeArtifact(input) {
   fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
   fs.writeFileSync(jsonPath, canonicalPrettyStringify(artifact), "utf8");
   fs.writeFileSync(markdownPath, renderArtifactMarkdown(artifact), "utf8");
+  seededArtifacts.push(artifact);
+}
+
+function writeRegistry() {
+  const registry = buildArtifactRegistry({
+    updatedAt: fixedTime,
+    entries: seededArtifacts.map((artifact) => buildArtifactRegistryEntry(artifact)),
+  });
+  const stem = "planning/system/Artifact_Registry/ARTIFACT_REGISTRY";
+  const registryArtifact = buildCanonicalArtifact({
+    artifactId: `${projectId}/system/artifact_registry`,
+    artifactType: "artifact_registry",
+    revision: 1,
+    status: "active",
+    projectId,
+    createdAt: fixedTime,
+    updatedAt: fixedTime,
+    jsonPath: `${stem}.json`,
+    markdownPath: `${stem}.md`,
+    relationships: { sources: [], expectedOutputs: [], supersedes: [], children: [] },
+    payload: {
+      kind: "artifact_registry",
+      title: "Canonical Artifact Registry",
+      contentMarkdown: `# Canonical Artifact Registry\n\nMounted test registry with ${registry.entries.length} entries.\n`,
+      data: registry,
+    },
+  });
+  const jsonPath = path.join(fixtureRoot, ...registryArtifact.jsonPath.split("/"));
+  const markdownPath = path.join(fixtureRoot, ...registryArtifact.markdownPath.split("/"));
+  fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
+  fs.writeFileSync(jsonPath, canonicalPrettyStringify(registryArtifact), "utf8");
+  fs.writeFileSync(markdownPath, renderArtifactMarkdown(registryArtifact), "utf8");
 }
 
 async function waitForWindow(timeoutMs = 20000) {

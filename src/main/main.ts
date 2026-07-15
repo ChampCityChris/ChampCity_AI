@@ -52,6 +52,7 @@ import {
   loadImplementerReportFile,
   saveArchitectPrompt,
   saveArchitectReviewRecord,
+  saveCompletedViaRepairDisposition,
   saveImplementerExecutionPacket,
   saveImplementerReportCapture,
   saveDraftWorkCard,
@@ -425,6 +426,11 @@ function registerWorkCardIpc(): void {
     "workCards:saveImplementerReportCapture",
     (_event, input: ImplementerReportCaptureRequest) =>
       saveImplementerReportCapture(input),
+  );
+  ipcMain.handle(
+    "workCards:saveCompletedViaRepairDisposition",
+    (_event, input: { rationale: string }) =>
+      saveCompletedViaRepairDisposition(input),
   );
   registerProcessIpc(
     "workCards:previewArchitectReviewRecord",

@@ -79,6 +79,7 @@ type AppScreen =
   | "implementer-report-capture"
   | "architect-review"
   | "human-validation"
+  | "candidate-disposition"
   | "phase-closeout";
 
 type NoticeType = "warning" | "error" | "info" | "success";
@@ -301,6 +302,15 @@ const routedOnlyWorkflowScreens: WorkflowStep[] = [
     nextAction:
       "Review the associated Implementer Report and create the governed Architect Review output.",
     Icon: Eye,
+  },
+  {
+    id: "candidate-disposition",
+    label: "Parent Disposition",
+    mode: "implementer",
+    shortDesc: "Record repaired-parent resolution",
+    screenTitle: "Completed via Repair Disposition",
+    nextAction: "Record the explicit Operator-approved parent resolution before advancing.",
+    Icon: CheckCircle,
   },
 ];
 
@@ -807,6 +817,9 @@ export default function App() {
             ? currentActionResult.currentAction.workCardId
             : undefined
         }
+        routedEvidenceArtifactIds={
+          currentActionResult?.currentAction?.routedAction?.bindingSource.evidenceArtifactIds ?? []
+        }
         drafts={humanValidationDrafts}
         selectedTargetFileName={
           humanValidationTargetSelections[phase] ?? ""
@@ -834,6 +847,12 @@ export default function App() {
             ),
           )
         }
+      />
+    ),
+    "candidate-disposition": (
+      <CandidateDispositionScreen
+        currentActionResult={currentActionResult}
+        onSaved={loadCurrentRequiredAction}
       />
     ),
     "phase-closeout": (
@@ -6460,6 +6479,8 @@ function ArchitectReviewScreen({
       /-REPAIR\d+$/i,
     ) || selectedWorkCardRecord?.kind === "repair",
   );
+  const isRepairedParentReview =
+    routedReviewBinding?.reviewScope === "combined_parent_and_final_repair";
   const routedBindingActive = Boolean(
     routedReviewBinding &&
       !routedReviewBinding.blockingState.blocked &&
@@ -6729,7 +6750,9 @@ function ArchitectReviewScreen({
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
             title={
-              isRepairReview
+              isRepairedParentReview
+                ? `Combined Architect Review of Parent ${routedReviewBinding?.parentWorkCardId ?? "Work Card"}`
+                : isRepairReview
                 ? "Architect Review of Repair Implementer Report"
                 : "Architect Review of Implementer Report"
             }
@@ -6772,6 +6795,27 @@ function ArchitectReviewScreen({
                   The Reference card is optional navigation context and does not
                   control this routed review.
                 </span>
+              </div>
+            </Notice>
+          ) : null}
+          {isRepairedParentReview ? (
+            <Notice type="warning">
+              <div className="grid gap-2">
+                <strong>Repaired-parent acceptance review</strong>
+                <span>Parent Work Card: {routedReviewBinding?.parentWorkCardId}</span>
+                <span>Repair Work Card: {routedReviewBinding?.repairWorkCardId}</span>
+                <span>Repair classification: final permitted repair</span>
+                <span>
+                  Review the combined original and repair implementation. The decision applies to the parent Work Card and may route only the parent to Operator Validation.
+                </span>
+                <strong>No additional numbered repair is permitted.</strong>
+                <ul className="grid gap-1">
+                  {routedReviewBinding?.combinedEvidence?.map((item) => (
+                    <li key={`${item.artifactId}:${item.revision}`}>
+                      {item.artifactType}: {item.title} (revision {item.revision})
+                    </li>
+                  ))}
+                </ul>
               </div>
             </Notice>
           ) : null}
@@ -6829,8 +6873,8 @@ function ArchitectReviewScreen({
               </select>
             </Field>
             <Notice type="info">
-              Review mode: Architect review of {isRepairReview ? "repair " : ""}
-              Implementer Report. This workflow does not create or replace an
+              Review mode: {isRepairedParentReview ? "combined parent and final repair evidence" : `Architect review of ${isRepairReview ? "repair " : ""}Implementer Report`}.
+              This workflow does not create or replace an
               Implementer Report. Manual Work Card and report selectors are
               available only when no routed current action controls the review.
             </Notice>
@@ -6858,31 +6902,31 @@ function ArchitectReviewScreen({
               </select>
             </Field>
             <ArchitectReviewTextArea
-              label="Work Card Compliance"
+              label={isRepairedParentReview ? "Is parent WC01 ready for Operator Validation?" : "Work Card Compliance"}
               field="workCardCompliance"
               value={draft.workCardCompliance}
               onChange={updateDraft}
             />
             <ArchitectReviewTextArea
-              label="Changed Files Reviewed"
+              label={isRepairedParentReview ? "Was superseded authority actually removed?" : "Changed Files Reviewed"}
               field="changedFilesReviewed"
               value={draft.changedFilesReviewed}
               onChange={updateDraft}
             />
             <ArchitectReviewTextArea
-              label="Acceptance Criteria Assessment"
+              label={isRepairedParentReview ? "Were all parent WC01 requirements revalidated?" : "Acceptance Criteria Assessment"}
               field="acceptanceCriteriaAssessment"
               value={draft.acceptanceCriteriaAssessment}
               onChange={updateDraft}
             />
             <ArchitectReviewTextArea
-              label="Validation Claims Assessment"
+              label={isRepairedParentReview ? "Did WC01-REPAIR01 correct the identified defects?" : "Validation Claims Assessment"}
               field="validationClaimsAssessment"
               value={draft.validationClaimsAssessment}
               onChange={updateDraft}
             />
             <ArchitectReviewTextArea
-              label="Skipped Checks Assessment"
+              label={isRepairedParentReview ? "Is another repair prohibited?" : "Skipped Checks Assessment"}
               field="skippedChecksAssessment"
               value={draft.skippedChecksAssessment}
               onChange={updateDraft}
@@ -6900,7 +6944,7 @@ function ArchitectReviewScreen({
               onChange={updateDraft}
             />
             <ArchitectReviewTextArea
-              label="Required Repair, if any"
+              label={isRepairedParentReview ? "Residual risks (no additional repair)" : "Required Repair, if any"}
               field="requiredRepair"
               value={draft.requiredRepair}
               onChange={updateDraft}
@@ -6990,6 +7034,91 @@ function ArchitectReviewTextArea({
   );
 }
 
+function CandidateDispositionScreen({
+  currentActionResult,
+  onSaved,
+}: {
+  currentActionResult: ChampCityCurrentRequiredActionResult | null;
+  onSaved: () => void | Promise<void>;
+}) {
+  const action = currentActionResult?.currentAction;
+  const routedAction = action?.routedAction;
+  const [rationale, setRationale] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [savedPath, setSavedPath] = useState<string>();
+  const authorized = action?.id === "candidate_disposition_required" &&
+    action.responsibleRole === "operator" &&
+    routedAction?.expectedOutput.artifactType === "candidate_disposition";
+
+  async function saveDisposition() {
+    if (!authorized || !rationale.trim()) return;
+    setBusy(true);
+    setErrors([]);
+    const result = await window.champCity.saveCompletedViaRepairDisposition({ rationale });
+    setBusy(false);
+    if (!result.ok) {
+      setErrors(result.errorMessages ?? ["The parent disposition could not be saved."]);
+      return;
+    }
+    setSavedPath(result.markdownPath);
+    await onSaved();
+  }
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full flex-col gap-5 p-4">
+          <ScreenIntro
+            title="Completed via Repair Parent Disposition"
+            description="Record the durable Operator-approved parent resolution. The next candidate cannot activate until this evidence exists."
+            badge={action?.phaseId ?? "governed action"}
+          />
+          <Notice type="warning">
+            <div className="grid gap-1">
+              <strong>Candidate: {action?.workCardId ?? "unresolved"}</strong>
+              <span>Status to record: completed_via_repair</span>
+              <span>This resolves the parent Work Card; it does not independently accept the repair Work Card.</span>
+            </div>
+          </Notice>
+          <ErrorList errors={errors} />
+          <FieldGroup title="Required evidence">
+            <ul className="grid gap-1">
+              {routedAction?.sourceArtifactIds.map((artifactId) => (
+                <li key={artifactId}><code className="break-anywhere">{artifactId}</code></li>
+              ))}
+            </ul>
+          </FieldGroup>
+          <TextAreaField
+            label="Operator rationale"
+            value={rationale}
+            rows={6}
+            onChange={setRationale}
+          />
+          {savedPath ? <Notice type="success">Saved <code className="break-anywhere">{savedPath}</code></Notice> : null}
+          <ActionBar
+            onSave={() => void saveDisposition()}
+            saveLabel="Record completed_via_repair"
+            saveDisabled={busy || !authorized || !rationale.trim()}
+            statusMessage={authorized ? "Operator disposition authority verified." : "This screen is not the current governed action."}
+            statusType={authorized ? "success" : "error"}
+          />
+        </div>
+      }
+      right={
+        <ArtifactPanel
+          eyebrow="Parent resolution"
+          title="Candidate Disposition Preview"
+          status={authorized ? "Ready for Operator rationale" : "Not authorized"}
+          emptyMessage="No disposition preview."
+        >
+          <MonoBlock>{`Candidate: ${action?.workCardId ?? "unresolved"}\nStatus: completed_via_repair\nExpected output: ${routedAction?.expectedOutput.artifactId ?? "unresolved"}\n\n${rationale}`}</MonoBlock>
+        </ArtifactPanel>
+      }
+    />
+  );
+}
+
 function HumanValidationScreen({
   phase,
   phaseOptions,
@@ -6997,6 +7126,7 @@ function HumanValidationScreen({
   onPhaseChange,
   onActiveCardChange,
   routedTargetId,
+  routedEvidenceArtifactIds,
   drafts,
   selectedTargetFileName,
   onSelectedTargetFileNameChange,
@@ -7005,6 +7135,7 @@ function HumanValidationScreen({
   drafts: HumanValidationDraftCache;
   selectedTargetFileName: string;
   routedTargetId?: string;
+  routedEvidenceArtifactIds?: string[];
   onSelectedTargetFileNameChange: (fileName: string) => void;
   onDraftChange: (
     targetFileName: string,
@@ -7046,6 +7177,14 @@ function HumanValidationScreen({
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
     useState<ChampCityHumanValidationSaveResult | null>(null);
+  const repairedParentValidation = Boolean(
+    routedTargetId &&
+      routedEvidenceArtifactIds?.some((artifactId) => /\/work_card\/[^/]+-REPAIR\d+$/i.test(artifactId)) &&
+      routedEvidenceArtifactIds?.some((artifactId) => /\/implementer_report\/[^/]+-REPAIR\d+/i.test(artifactId)),
+  );
+  const routedRepairId = routedEvidenceArtifactIds
+    ?.map((artifactId) => artifactId.match(/\/work_card\/([^/]+-REPAIR\d+)$/i)?.[1])
+    .find(Boolean);
 
   const selectedValidationTarget =
     targets.find((target) => target.fileName === selectedFileName) ?? null;
@@ -7402,10 +7541,27 @@ function HumanValidationScreen({
       left={
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
-            title="Human Validation"
+            title={repairedParentValidation ? "Operator Validation of Repaired Parent Work Card" : "Human Validation"}
             description="Record what the Operator tested and generate a narrow repair prompt only when needed."
             badge={phase}
           />
+          {repairedParentValidation ? (
+            <Notice type="warning">
+              <div className="grid gap-2">
+                <strong>Parent Work Card: {routedTargetId}</strong>
+                <span>Resolution path: completed via {routedRepairId}</span>
+                <span>The Validation Report must identify the parent Work Card, not the repair as an independent product outcome.</span>
+                <strong>Combined implementation scope and exact manual validation</strong>
+                <ul className="grid gap-1">
+                  <li>Confirm repository refresh detects external reports without import.</li>
+                  <li>Confirm project switching preserves strict repository isolation.</li>
+                  <li>Confirm stale cached state cannot override verified repository evidence.</li>
+                  <li>Confirm Current Action routes the parent review and validation targets exactly.</li>
+                  <li>Confirm legacy CurrentRequiredAction and snapshot authority remain removed.</li>
+                </ul>
+              </div>
+            </Notice>
+          ) : null}
           <ErrorList
             errors={[...listErrors, ...validationStatusErrors, ...errors]}
           />
