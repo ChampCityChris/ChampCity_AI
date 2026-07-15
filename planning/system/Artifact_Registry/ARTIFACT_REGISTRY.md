@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:f45f734b3dde8dc6254af09407ef21b80a5a2d717146b35dbe9fcef8f6d0c848",
+  "payloadHash": "sha256:68910b7303d2f2509c747a0e23ad1462ae06dbeab9b960786cb85e3756be80e1",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -110,6 +110,7 @@
       "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
       "champcity-ai/phase-04/approval/Operator_Phase_Approval",
       "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01",
       "champcity-ai/phase-04/phase_activation/phase-04",
       "champcity-ai/phase-04/phase_planning/Phase_Planning",
       "champcity-ai/phase-04/work_card/WC01",
@@ -145,16 +146,16 @@
     ],
     "supersedes": []
   },
-  "revision": 30,
+  "revision": 32,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T19:47:03.599Z"
+  "updatedAt": "2026-07-15T20:10:22.547Z"
 }
 -->
 
 # Canonical Artifact Registry
 
-Entries: 127
+Entries: 128
 
 | Artifact ID | Type | Revision | Status | Authority | Synchronized |
 | --- | --- | ---: | --- | --- | --- |
@@ -253,6 +254,7 @@ Entries: 127
 | champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | 2 | active | yes | yes |
 | champcity-ai/phase-04/approval/Operator_Phase_Approval | phase_approval | 1 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01 | implementer_report | 2 | active | yes | yes |
+| champcity-ai/phase-04/implementer_report/WC01-REPAIR01 | implementer_report | 2 | blocked | yes | yes |
 | champcity-ai/phase-04/phase_activation/phase-04 | phase_activation | 1 | active | yes | yes |
 | champcity-ai/phase-04/phase_planning/Phase_Planning | phase_planning | 1 | active | yes | yes |
 | champcity-ai/phase-04/work_card/WC01 | work_card | 1 | active | yes | yes |
