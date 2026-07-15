@@ -24,6 +24,7 @@ import {
   ListChecks,
   Map as MapIcon,
   MessageSquareText,
+  RefreshCw,
   Save,
   ShieldAlert,
   Upload,
@@ -32,6 +33,10 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import type {
+  ProjectScanResult,
+  ProjectWorkspaceListResult,
+} from "../../shared/projects";
 
 import logoImage from "../assets/champcity_ai_ui_branding.png";
 import {
@@ -467,6 +472,11 @@ export default function App() {
     "loading" | "ready" | "error"
   >("loading");
   const [currentActionError, setCurrentActionError] = useState<string>();
+  const [projectWorkspaces, setProjectWorkspaces] =
+    useState<ProjectWorkspaceListResult | null>(null);
+  const [projectPathDraft, setProjectPathDraft] = useState("");
+  const [projectBusy, setProjectBusy] = useState(false);
+  const [projectError, setProjectError] = useState<string>();
   const hasAlignedInitialWorkspace = useRef(false);
   const { phases: availablePhases } = useAvailablePhases();
   const phaseOptions = useMemo(
@@ -530,9 +540,79 @@ export default function App() {
     }
   }, []);
 
+  const loadProjectWorkspaces = useCallback(async () => {
+    const result = await window.champCity.listProjects();
+    setProjectWorkspaces(result);
+    setProjectError(result.errorMessages?.join(" ") || undefined);
+  }, []);
+
   useEffect(() => {
     void loadCurrentRequiredAction();
+    void loadProjectWorkspaces();
   }, [loadCurrentRequiredAction]);
+
+  useEffect(() => {
+    return window.champCity.onRepositoryProjectionChanged(
+      (_scanResult: ProjectScanResult) => {
+        void loadCurrentRequiredAction();
+        void loadProjectWorkspaces();
+      },
+    );
+  }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
+
+  const handleProjectSelect = useCallback(
+    async (projectId: string) => {
+      setProjectBusy(true);
+      setProjectError(undefined);
+      try {
+        const result = await window.champCity.selectProject(projectId);
+        setProjectWorkspaces(result);
+        if (!result.ok) throw new Error(result.errorMessages?.join(" ") || "Project switch failed.");
+        hasAlignedInitialWorkspace.current = false;
+        setActiveCard(null);
+        await loadCurrentRequiredAction();
+      } catch (error) {
+        setProjectError(error instanceof Error ? error.message : "Project switch failed.");
+      } finally {
+        setProjectBusy(false);
+      }
+    },
+    [loadCurrentRequiredAction],
+  );
+
+  const handleRepositoryRefresh = useCallback(async () => {
+    setProjectBusy(true);
+    setProjectError(undefined);
+    try {
+      const result = await window.champCity.refreshRepositoryState();
+      if (!result.ok && !result.scanResult) {
+        throw new Error(result.errorMessages?.join(" ") || "Repository refresh failed.");
+      }
+      await Promise.all([loadCurrentRequiredAction(), loadProjectWorkspaces()]);
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : "Repository refresh failed.");
+    } finally {
+      setProjectBusy(false);
+    }
+  }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
+
+  const handleAddProject = useCallback(async () => {
+    if (!projectPathDraft.trim()) return;
+    setProjectBusy(true);
+    setProjectError(undefined);
+    try {
+      const result = await window.champCity.addProject({
+        repositoryRoot: projectPathDraft.trim(),
+      });
+      setProjectWorkspaces(result);
+      if (!result.ok) throw new Error(result.errorMessages?.join(" ") || "Project configuration failed.");
+      setProjectPathDraft("");
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : "Project configuration failed.");
+    } finally {
+      setProjectBusy(false);
+    }
+  }, [projectPathDraft]);
 
   useEffect(() => {
     const currentAction = currentActionResult?.currentAction;
@@ -690,6 +770,12 @@ export default function App() {
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
+        onWorkflowAdvanced={async (nextScreenId) => {
+          await loadCurrentRequiredAction();
+          if (nextScreenId === "architect-review") {
+            setActiveScreen("architect-review");
+          }
+        }}
       />
     ),
     "architect-review": (
@@ -775,6 +861,18 @@ export default function App() {
       onManualScreenChange={handleSupportScreenChange}
       onPhaseChange={handlePhaseChange}
       onCardChange={handleHeaderCardChange}
+      projectWorkspaceBar={
+        <ProjectWorkspaceBar
+          workspaces={projectWorkspaces}
+          pathDraft={projectPathDraft}
+          busy={projectBusy}
+          error={projectError}
+          onPathDraftChange={setProjectPathDraft}
+          onSelect={handleProjectSelect}
+          onRefresh={handleRepositoryRefresh}
+          onAdd={handleAddProject}
+        />
+      }
     >
       {screen}
     </WorkflowRouterShell>
@@ -5998,7 +6096,10 @@ function ImplementerReportCaptureScreen({
   phaseOptions,
   onPhaseChange,
   onActiveCardChange,
-}: ScreenProps) {
+  onWorkflowAdvanced,
+}: ScreenProps & {
+  onWorkflowAdvanced?: (nextScreenId?: string) => void | Promise<void>;
+}) {
   const { workCards, invalidFiles, errors: listErrors, isLoading } =
     useWorkCards(phase);
   const [selectedFileName, setSelectedFileName] = useState("");
@@ -6013,11 +6114,6 @@ function ImplementerReportCaptureScreen({
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
     useState<ChampCityImplementerReportCaptureSaveResult | null>(null);
-  const [importableReports, setImportableReports] = useState<
-    ChampCityHumanValidationImplementerReportOption[]
-  >([]);
-  const [selectedImportReportFileName, setSelectedImportReportFileName] =
-    useState("");
 
   const selectedWorkCard = useSelectedWorkCard(
     workCards,
@@ -6034,55 +6130,6 @@ function ImplementerReportCaptureScreen({
       );
     }
   }, [reportType, workCards]);
-
-  useEffect(() => {
-    if (reportType !== "Work Card" || selectedFileName.trim().length === 0) {
-      setImportableReports([]);
-      setSelectedImportReportFileName("");
-      return;
-    }
-
-    let active = true;
-
-    window.champCity
-      .listHumanValidationImplementerReports({
-        phase,
-        workCardFileName: selectedFileName,
-      })
-      .then((result) => {
-        if (!active) {
-          return;
-        }
-
-        if (!result.ok) {
-          setImportableReports([]);
-          setSelectedImportReportFileName("");
-          return;
-        }
-
-        const options = result.options ?? [];
-        const defaultFileName = result.defaultFileName ?? "";
-
-        setImportableReports(options);
-        setSelectedImportReportFileName(defaultFileName);
-
-        if (defaultFileName) {
-          void loadSavedReportText(defaultFileName, () => active);
-        }
-      })
-      .catch(() => {
-        if (!active) {
-          return;
-        }
-
-        setImportableReports([]);
-        setSelectedImportReportFileName("");
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [phase, reportType, selectedFileName]);
 
   useEffect(() => {
     let active = true;
@@ -6136,79 +6183,6 @@ function ImplementerReportCaptureScreen({
     };
   }, [phase, reportType, selectedFileName, topic, reportText]);
 
-  async function importReportFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!/\.(md|txt)$/i.test(file.name)) {
-      setErrors(["Import a Markdown or text report file."]);
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      applyImportedReportText(file.name, text);
-    } catch {
-      setErrors(["The selected report file could not be imported."]);
-      setStatusMessage("Report import needs attention.");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  async function loadSavedReportText(fileName: string, isActive?: () => boolean) {
-    if (fileName.trim().length === 0) {
-      return;
-    }
-
-    setIsBusy(true);
-    setErrors([]);
-
-    try {
-      const result = await window.champCity.loadImplementerReportFile({
-        phase,
-        fileName,
-      });
-
-      if (isActive && !isActive()) {
-        return;
-      }
-
-      setIsBusy(false);
-
-      if (!result.ok || !result.content || !result.fileName) {
-        setErrors(
-          result.errorMessages ?? ["The saved Implementer Report could not be loaded."],
-        );
-        setStatusMessage("Report import needs attention.");
-        return;
-      }
-
-      applyImportedReportText(result.fileName, result.content);
-    } catch {
-      if (isActive && !isActive()) {
-        return;
-      }
-
-      setIsBusy(false);
-      setErrors(["The saved Implementer Report could not be loaded."]);
-      setStatusMessage("Report import needs attention.");
-    }
-  }
-
-  function applyImportedReportText(fileName: string, text: string) {
-    setReportText(text);
-    setTopic((previous) =>
-      previous.trim().length > 0
-        ? previous
-        : fileName.replace(/\.(md|txt)$/i, "").replace(/[_-]+/g, " "),
-    );
-    setStatusMessage("Implementer Report text imported.");
-  }
-
   async function saveReport() {
     setIsBusy(true);
     setErrors([]);
@@ -6233,6 +6207,7 @@ function ImplementerReportCaptureScreen({
 
     setSaveResult(result);
     setStatusMessage("Implementer Report saved.");
+    await onWorkflowAdvanced?.(result.workflowTransition?.nextScreenId ?? undefined);
   }
 
   return (
@@ -6241,7 +6216,7 @@ function ImplementerReportCaptureScreen({
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
             title="Implementer Report Capture"
-            description="Paste or import implementation evidence, then save it in the canonical Implementer_Reports folder."
+            description="Create an in-app report when needed. Reports already written to the selected repository are observed automatically and do not need import."
             badge={phase}
           />
           <ErrorList errors={[...listErrors, ...errors]} />
@@ -6279,43 +6254,8 @@ function ImplementerReportCaptureScreen({
             <TextField label="Topic" value={topic} onChange={setTopic} />
           </FieldGroup>
           <FieldGroup title="Report Text">
-            {importableReports.length > 0 ? (
-              <Field label="Saved Implementer Report">
-                <select
-                  className={selectCls}
-                  value={selectedImportReportFileName}
-                  onChange={(event) => {
-                    const fileName = event.target.value;
-
-                    setSelectedImportReportFileName(fileName);
-                    void loadSavedReportText(fileName);
-                  }}
-                >
-                  <option value="">Select saved report to import</option>
-                  {importableReports.map((option) => (
-                    <option key={option.fileName} value={option.fileName}>
-                      {option.isDefaultMatch
-                        ? `${option.label} (match)`
-                        : option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-            <Field label="Import .md or .txt file">
-              <label className="flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground">
-                <Upload size={13} />
-                <span>Choose report file</span>
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept=".md,.txt,text/markdown,text/plain"
-                  onChange={(event) => void importReportFile(event)}
-                />
-              </label>
-            </Field>
             <TextAreaField
-              label="Paste or edit Implementer Report Markdown"
+              label="Implementer Report Markdown"
               value={reportText}
               rows={16}
               onChange={setReportText}
@@ -6345,7 +6285,7 @@ function ImplementerReportCaptureScreen({
           onSave={() => void saveReport()}
           saveLabel="Save"
           saveDisabled={isBusy || !previewResult?.validation?.validEnoughToSave}
-          emptyMessage="Paste or import report text to see validation signals."
+          emptyMessage="Enter report text to see validation signals."
         >
           <div className="grid gap-4">
             {previewResult?.validation ? (
@@ -6363,6 +6303,86 @@ function ImplementerReportCaptureScreen({
         </ArtifactPanel>
       }
     />
+  );
+}
+
+function ProjectWorkspaceBar({
+  workspaces,
+  pathDraft,
+  busy,
+  error,
+  onPathDraftChange,
+  onSelect,
+  onRefresh,
+  onAdd,
+}: {
+  workspaces: ProjectWorkspaceListResult | null;
+  pathDraft: string;
+  busy: boolean;
+  error?: string;
+  onPathDraftChange: (value: string) => void;
+  onSelect: (projectId: string) => void | Promise<void>;
+  onRefresh: () => void | Promise<void>;
+  onAdd: () => void | Promise<void>;
+}) {
+  const selected = workspaces?.projects.find((project) => project.selected);
+  const scan = selected?.lastScanResult;
+  return (
+    <div className="shrink-0 border-b border-border bg-card/55 px-4 py-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+        <span className="font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+          Active project
+        </span>
+        <select
+          aria-label="Active project"
+          value={workspaces?.selectedProjectId ?? ""}
+          disabled={busy || !workspaces?.projects.length}
+          onChange={(event) => void onSelect(event.target.value)}
+          className="min-w-[13rem] rounded border border-border bg-[#0e1218] px-2 py-1 text-foreground"
+        >
+          {(workspaces?.projects ?? []).map((project) => (
+            <option key={project.projectId} value={project.projectId}>
+              {project.displayName}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={busy || !selected}
+          onClick={() => void onRefresh()}
+          className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-primary disabled:opacity-50"
+        >
+          <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
+          Refresh Repository State
+        </button>
+        <input
+          aria-label="Repository directory to add"
+          value={pathDraft}
+          onChange={(event) => onPathDraftChange(event.target.value)}
+          placeholder="Repository directory"
+          className="min-w-[16rem] flex-1 rounded border border-border bg-white/[0.04] px-2 py-1 text-foreground"
+        />
+        <button
+          type="button"
+          disabled={busy || !pathDraft.trim()}
+          onClick={() => void onAdd()}
+          className="rounded border border-border px-2 py-1 text-foreground/80 disabled:opacity-50"
+        >
+          Add project
+        </button>
+      </div>
+      <div className="mt-1 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground/60">
+        <span className="truncate">{selected?.repositoryRoot ?? "No configured repository"}</span>
+        <span>Observer: {selected?.observerStatus ?? "stopped"}</span>
+        <span>Last scan: {scan?.scannedAt ?? "not scanned"}</span>
+        <span>
+          Changes: +{scan?.changes.addedArtifactIds.length ?? 0} / ~{scan?.changes.changedArtifactIds.length ?? 0} / -{scan?.changes.removedArtifactIds.length ?? 0}
+        </span>
+        <span>Blockers: {scan?.blockers.length ?? 0}</span>
+        <span>Action: {scan?.currentAction?.actionId ?? "unavailable"}</span>
+      </div>
+      {error ? <div className="mt-1 text-[10px] text-red-300">{error}</div> : null}
+    </div>
   );
 }
 

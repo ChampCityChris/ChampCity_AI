@@ -18,8 +18,8 @@ Role authorization is checked:
 - when the routed action is projected;
 - before a routed preview is generated;
 - before a pair is written;
-- before the registry is updated;
-- before workflow state advances;
+- before the durable Registry cache is updated by an in-app write;
+- before the repository refresh can expose a new projected route;
 - before an over-budget context packet is exported.
 
 The active screen must match the contract’s responsible role and expected output type. Support navigation does not grant permission to perform the screen’s governed action.
@@ -39,4 +39,4 @@ An unauthorized action returns a blocking result containing action ID, expected 
 
 ## Evidence Requirement
 
-Every transition declares its required source artifact IDs and expected output artifact. Authorization alone is insufficient: sources must be authoritative and synchronized, and the output pair plus registry update must succeed before state advancement.
+Every projected step declares its required source artifact IDs and expected output artifact. Authorization alone is insufficient: sources must be controlling and synchronized. In-app output pairs must commit successfully before the shared repository refresh can expose the next route; external pairs must pass the same stable scan and verification boundary.

@@ -170,7 +170,7 @@ import type {
   CurrentRequiredAction,
   CurrentRequiredActionResult,
   CurrentRequiredActionWarning,
-} from "../shared/workCards/currentRequiredAction";
+} from "../shared/workCards/currentActionProjection";
 import type {
   RouteReviewRequestInput,
   RouteReviewRequestRecord,
@@ -196,6 +196,13 @@ import type {
   CurrentContextPacketPreviewRequest,
   CurrentContextPacketPreviewResult,
 } from "../shared/contextPackets/contextPacket";
+import type {
+  AddProjectWorkspaceRequest,
+  ProjectScanResult,
+  ProjectWorkspaceListResult,
+  ProjectWorkspaceMutationResult,
+  RefreshRepositoryStateResult,
+} from "../shared/projects";
 
 declare global {
   type ChampCityWorkCardDraftInput = WorkCardDraftInput;
@@ -410,6 +417,17 @@ declare global {
 
   interface Window {
     champCity: {
+      listProjects: () => Promise<ProjectWorkspaceListResult>;
+      addProject: (
+        input: AddProjectWorkspaceRequest,
+      ) => Promise<ProjectWorkspaceMutationResult>;
+      selectProject: (
+        projectId: string,
+      ) => Promise<ProjectWorkspaceMutationResult>;
+      refreshRepositoryState: () => Promise<RefreshRepositoryStateResult>;
+      onRepositoryProjectionChanged: (
+        listener: (result: ProjectScanResult) => void,
+      ) => () => void;
       getAppInfo: () => {
         name: string;
         stage: string;

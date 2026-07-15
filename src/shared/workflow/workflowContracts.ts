@@ -78,9 +78,11 @@ export interface WorkflowBlocker {
 }
 
 export interface RoutedActionBindingSource {
-  kind: "workflow_state_index";
+  kind: "workflow_state_index" | "evidence_projection";
   workflowStateArtifactId: string;
   stateRevision: number;
+  projectId?: string;
+  evidenceArtifactIds?: string[];
 }
 
 export interface RoutedActionContract {

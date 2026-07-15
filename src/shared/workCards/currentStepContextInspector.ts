@@ -8,7 +8,7 @@ import type {
   CurrentRequiredActionState,
   CurrentRequiredActionWarning,
   CurrentRequiredActionWarningSeverity,
-} from "./currentRequiredAction";
+} from "./currentActionProjection";
 
 export type CurrentStepStateCategoryId =
   | "project"

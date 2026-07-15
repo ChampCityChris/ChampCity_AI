@@ -22,7 +22,6 @@ import {
   runInRoutedWriteScope,
   type RoutedWriteAuthority,
 } from "./routedWriteScope";
-import { WorkflowStateStore } from "./workflowStateStore";
 
 export interface RoutedProcessAuthorization {
   state: WorkflowStateIndex;
@@ -61,11 +60,16 @@ export class RoutedProcessInvocationService {
 
   constructor(
     private readonly routedActions: RoutedActionService,
-    private readonly workflowStateStore: WorkflowStateStore,
     private readonly artifactPairs: ArtifactPairService,
-    private readonly clock: () => string = () => new Date().toISOString(),
+    private readonly options: {
+      registryProvider: () => Promise<import("../../shared/artifacts").ArtifactRegistry>;
+      refreshAfterWrite: (reason: string) => Promise<WorkflowStateIndex>;
+    },
   ) {
-    this.routedScreens = new CanonicalRoutedScreenAdapter(artifactPairs);
+    this.routedScreens = new CanonicalRoutedScreenAdapter(
+      artifactPairs,
+      options.registryProvider,
+    );
   }
 
   async authorize(
@@ -180,25 +184,10 @@ export class RoutedProcessInvocationService {
         );
       }
 
-      const transition = await this.workflowStateStore.advanceAfterArtifactCommit(
-        {
-          actionId: authority.action.actionId,
-          stateRevision: authority.state.stateRevision,
-          actorRole: authority.action.role,
-          route,
-          ...(authority.action.actionId === "phase_mapping_required"
-            ? { phaseMappingDecision: phaseMappingDecision(input.payload) }
-            : {}),
-          occurredAt: this.clock(),
-        },
-        {
-          artifactId: scoped.expectedOutputCommit.artifactId,
-          artifactType: scoped.expectedOutputCommit.artifactType,
-          pairVerified: true,
-          registryCommitted: true,
-        },
+      const projected = await this.options.refreshAfterWrite(
+        `routed-write:${authority.action.actionId}:${route}`,
       );
-      return attachTransition(scoped.result, transition.state);
+      return attachTransition(scoped.result, projected);
     } catch (error) {
       return {
         ok: false,
@@ -250,20 +239,6 @@ function assertRendererBinding(
       "The renderer routed-action binding is stale or mismatched; refresh Current Action.",
     );
   }
-}
-
-function phaseMappingDecision(payload: unknown): {
-  phaseInterviewRequired: boolean;
-  phaseInterviewArtifactId?: string | null;
-} {
-  if (!isRecord(payload)) return { phaseInterviewRequired: false };
-  return {
-    phaseInterviewRequired: payload.phaseInterviewRequired === true,
-    ...(typeof payload.phaseInterviewArtifactId === "string" &&
-    payload.phaseInterviewArtifactId.trim()
-      ? { phaseInterviewArtifactId: payload.phaseInterviewArtifactId }
-      : {}),
-  };
 }
 
 function isSuccessfulResult(value: unknown): boolean {

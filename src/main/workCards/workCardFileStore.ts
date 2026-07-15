@@ -21,7 +21,10 @@ import {
   ArtifactPairServiceError,
   type CanonicalArtifactLocation,
 } from "../artifacts";
-import { canonicalWorkflowAuthority } from "../canonicalRuntime";
+import {
+  canonicalWorkflowAuthority,
+  subscribeToActiveProjectRoot,
+} from "../canonicalRuntime";
 import {
   bindRoutedArtifactWrite,
   recordRoutedArtifactCommit,
@@ -158,7 +161,7 @@ import {
 import type {
   CurrentActionArtifactReference,
   CurrentRequiredActionResult,
-} from "../../shared/workCards/currentRequiredAction";
+} from "../../shared/workCards/currentActionProjection";
 import {
   buildRouteReviewRequest,
   buildRouteReviewRequestFileNames,
@@ -332,10 +335,25 @@ import {
   type SavedPhaseMapSummary,
 } from "../../shared/workCards/phaseMap";
 
-const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
-const artifactPairService = canonicalWorkflowAuthority.artifactPairs;
-const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
-const planningProjectRoot = path.join(repositoryRoot, "planning", "project");
+let repositoryRoot = path.resolve(__dirname, "..", "..", "..");
+let configuredProjectId = "champcity-ai";
+let planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
+let planningProjectRoot = path.join(repositoryRoot, "planning", "project");
+
+export function configureWorkCardRepositoryRoot(
+  projectRoot: string,
+  projectId: string,
+): void {
+  if (!path.isAbsolute(projectRoot)) {
+    throw new TypeError("Work Card repository root must be absolute.");
+  }
+  repositoryRoot = path.resolve(projectRoot);
+  configuredProjectId = projectId;
+  planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
+  planningProjectRoot = path.join(repositoryRoot, "planning", "project");
+}
+
+subscribeToActiveProjectRoot(configureWorkCardRepositoryRoot);
 const validationEvidenceAllowedExtensions = new Set([
   ".png",
   ".jpg",
@@ -6527,7 +6545,7 @@ async function saveCanonicalPlanningArtifact(
   let existing: CanonicalArtifact | undefined;
 
   try {
-    existing = (await artifactPairService.readArtifact(location)).artifact;
+    existing = (await canonicalWorkflowAuthority.artifactPairs.readArtifact(location)).artifact;
   } catch (error) {
     if (!(error instanceof ArtifactPairServiceError && error.code === "not_found")) {
       throw error;
@@ -6556,11 +6574,11 @@ async function saveCanonicalPlanningArtifact(
     relationships,
     data: toCanonicalJsonValue(input.data),
   });
-  const result = await artifactPairService.commitArtifact({
+  const result = await canonicalWorkflowAuthority.artifactPairs.commitArtifact({
     artifactId: routedWrite.artifactId,
     artifactType,
     status: existing?.status ?? input.status ?? "active",
-    projectId: existing?.projectId ?? "champcity-ai",
+    projectId: existing?.projectId ?? configuredProjectId,
     ...(phaseId ? { phaseId } : {}),
     ...(workCardId ? { workCardId } : {}),
     ...((existing?.parentArtifactId ?? input.parentArtifactId)
@@ -6594,7 +6612,7 @@ function buildCanonicalArtifactId(
     .trim()
     .replace(/\.(?:json|md)$/i, "")
     .replace(/[^A-Za-z0-9-]+/g, "_");
-  return `champcity-ai/${phaseId ?? "project"}/${artifactType}/${suffix}`;
+  return `${configuredProjectId}/${phaseId ?? "project"}/${artifactType}/${suffix}`;
 }
 
 function buildParentWorkCardArtifactId(
@@ -6603,7 +6621,7 @@ function buildParentWorkCardArtifactId(
 ): string | undefined {
   const parentWorkCardId = /^(WC\d+)-REPAIR\d+$/i.exec(workCardId.trim())?.[1];
   return parentWorkCardId
-    ? `champcity-ai/${phaseId}/work_card/${parentWorkCardId.toUpperCase()}`
+    ? `${configuredProjectId}/${phaseId}/work_card/${parentWorkCardId.toUpperCase()}`
     : undefined;
 }
 

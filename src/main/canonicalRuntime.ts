@@ -1,27 +1,207 @@
 import path from "node:path";
 
-import { CurrentContextPacketCompiler } from "./contextPackets/currentContextPacketCompiler";
+import type {
+  AddProjectWorkspaceRequest,
+  ProjectWorkspaceListResult,
+  ProjectWorkspaceMutationResult,
+  RefreshRepositoryStateResult,
+} from "../shared/projects";
+import {
+  CurrentContextPacketCompiler,
+} from "./contextPackets/currentContextPacketCompiler";
 import {
   ArtifactPairContextPacketWriter,
   ContextPacketService,
 } from "./contextPackets/contextPacketService";
+import { ProjectWorkspaceRegistry } from "./projects";
+import {
+  RepositoryObserver,
+  RepositoryRefreshService,
+  type RepositoryProjectionListener,
+} from "./repository";
 import { CanonicalWorkflowAuthority } from "./workCards/canonicalWorkflowAuthority";
 import { RoutedProcessInvocationService } from "./workflow";
 
-/** One main-process authority instance serializes every canonical commit. */
-export const canonicalRepositoryRoot = path.resolve(__dirname, "..", "..");
-export const canonicalWorkflowAuthority = new CanonicalWorkflowAuthority(
-  canonicalRepositoryRoot,
+interface ActiveProjectRuntime {
+  refresh: RepositoryRefreshService;
+  observer: RepositoryObserver;
+  authority: CanonicalWorkflowAuthority;
+  routedInvocation: RoutedProcessInvocationService;
+  contextCompiler: CurrentContextPacketCompiler;
+  contextService: ContextPacketService;
+}
+
+let workspaces: ProjectWorkspaceRegistry | null = null;
+let active: ActiveProjectRuntime | null = null;
+const projectionListeners = new Set<RepositoryProjectionListener>();
+const projectRootListeners = new Set<
+  (projectRoot: string, projectId: string) => void
+>();
+
+export const canonicalWorkflowAuthority = forwardingProxy<CanonicalWorkflowAuthority>(
+  () => requireActive().authority,
 );
-export const currentContextPacketCompiler = new CurrentContextPacketCompiler(
-  canonicalWorkflowAuthority,
+export const routedProcessInvocationService = forwardingProxy<RoutedProcessInvocationService>(
+  () => requireActive().routedInvocation,
 );
-export const routedProcessInvocationService = new RoutedProcessInvocationService(
-  canonicalWorkflowAuthority.routedActions,
-  canonicalWorkflowAuthority.workflowStateStore,
-  canonicalWorkflowAuthority.artifactPairs,
+export const currentContextPacketCompiler = forwardingProxy<CurrentContextPacketCompiler>(
+  () => requireActive().contextCompiler,
 );
-export const contextPacketService = new ContextPacketService(
-  canonicalRepositoryRoot,
-  new ArtifactPairContextPacketWriter(canonicalWorkflowAuthority.artifactPairs),
+export const contextPacketService = forwardingProxy<ContextPacketService>(
+  () => requireActive().contextService,
 );
+
+export async function initializeCanonicalRuntime(input: {
+  defaultRepositoryRoot: string;
+  workspaceStoragePath: string;
+}): Promise<void> {
+  workspaces = new ProjectWorkspaceRegistry({ storagePath: input.workspaceStoragePath });
+  const document = await workspaces.initialize(input.defaultRepositoryRoot);
+  const selectedProjectId = document.selectedProjectId;
+  if (!selectedProjectId) throw new Error("No active project is configured.");
+  await activateProject(selectedProjectId);
+}
+
+export async function listProjectWorkspaces(): Promise<ProjectWorkspaceListResult> {
+  try {
+    const registry = requireWorkspaces();
+    const document = await registry.load();
+    return {
+      ok: true,
+      selectedProjectId: document.selectedProjectId,
+      projects: await registry.list(),
+    };
+  } catch (error) {
+    return { ok: false, selectedProjectId: null, projects: [], errorMessages: [plainError(error)] };
+  }
+}
+
+export async function addProjectWorkspace(
+  request: AddProjectWorkspaceRequest,
+): Promise<ProjectWorkspaceMutationResult> {
+  try {
+    const registry = requireWorkspaces();
+    const project = await registry.addProject(request);
+    const listed = await listProjectWorkspaces();
+    return {
+      ...listed,
+      project: listed.projects.find((candidate) => candidate.projectId === project.projectId),
+    };
+  } catch (error) {
+    const listed = await listProjectWorkspaces();
+    return { ...listed, ok: false, errorMessages: [plainError(error)] };
+  }
+}
+
+export async function selectProjectWorkspace(
+  projectId: string,
+): Promise<ProjectWorkspaceMutationResult> {
+  try {
+    await requireWorkspaces().selectProject(projectId);
+    await activateProject(projectId);
+    const listed = await listProjectWorkspaces();
+    return {
+      ...listed,
+      project: listed.projects.find((candidate) => candidate.projectId === projectId),
+    };
+  } catch (error) {
+    const listed = await listProjectWorkspaces();
+    return { ...listed, ok: false, errorMessages: [plainError(error)] };
+  }
+}
+
+export async function refreshSelectedRepository(): Promise<RefreshRepositoryStateResult> {
+  return requireActive().refresh.manualRefreshResult();
+}
+
+export async function refreshSelectedRepositoryOnFocus(): Promise<void> {
+  await requireActive().refresh.refresh("application-focus");
+}
+
+export function subscribeToRepositoryProjection(
+  listener: RepositoryProjectionListener,
+): () => void {
+  projectionListeners.add(listener);
+  return () => projectionListeners.delete(listener);
+}
+
+export function subscribeToActiveProjectRoot(
+  listener: (projectRoot: string, projectId: string) => void,
+): () => void {
+  projectRootListeners.add(listener);
+  return () => projectRootListeners.delete(listener);
+}
+
+export async function shutdownCanonicalRuntime(): Promise<void> {
+  if (active) await active.observer.stop();
+  active = null;
+}
+
+async function activateProject(projectId: string): Promise<void> {
+  const registry = requireWorkspaces();
+  const project = await registry.selectProject(projectId);
+  if (active) await active.observer.stop();
+  const refresh = new RepositoryRefreshService(project, registry);
+  const authority = new CanonicalWorkflowAuthority(project.repositoryRoot, {
+    authorityProvider: refresh,
+    registryProvider: async () => (await refresh.getProjectionSnapshot()).registry,
+    refreshAfterWrite: async (reason) =>
+      (await refresh.refresh(reason)).projection.state,
+  });
+  const routedInvocation = new RoutedProcessInvocationService(
+    authority.routedActions,
+    authority.artifactPairs,
+    {
+      registryProvider: async () => (await refresh.getProjectionSnapshot()).registry,
+      refreshAfterWrite: async (reason) =>
+        (await refresh.refresh(reason)).projection.state,
+    },
+  );
+  const contextCompiler = new CurrentContextPacketCompiler(authority);
+  const contextService = new ContextPacketService(
+    project.repositoryRoot,
+    new ArtifactPairContextPacketWriter(authority.artifactPairs),
+    project.projectId,
+  );
+  const observer = new RepositoryObserver(project, registry, refresh);
+  for (const listener of projectionListeners) refresh.subscribe(listener);
+  for (const listener of projectRootListeners) {
+    listener(project.repositoryRoot, project.projectId);
+  }
+  active = {
+    refresh,
+    observer,
+    authority,
+    routedInvocation,
+    contextCompiler,
+    contextService,
+  };
+  await refresh.refresh("project-switch");
+  await observer.start();
+}
+
+function requireWorkspaces(): ProjectWorkspaceRegistry {
+  if (!workspaces) throw new Error("Project workspace registry is not initialized.");
+  return workspaces;
+}
+
+function requireActive(): ActiveProjectRuntime {
+  if (!active) throw new Error("Selected project runtime is not initialized.");
+  return active;
+}
+
+function forwardingProxy<T extends object>(resolve: () => T): T {
+  return new Proxy({} as T, {
+    get(_target, property) {
+      const value = Reflect.get(resolve(), property);
+      return typeof value === "function" ? value.bind(resolve()) : value;
+    },
+    set(_target, property, value) {
+      return Reflect.set(resolve(), property, value);
+    },
+  });
+}
+
+function plainError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

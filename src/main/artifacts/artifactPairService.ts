@@ -18,8 +18,8 @@ import {
   type JsonValue,
 } from "../../shared/artifacts";
 import {
-  ARTIFACT_REGISTRY_ARTIFACT_ID,
   ARTIFACT_REGISTRY_ARTIFACT_TYPE,
+  artifactRegistryArtifactId,
   ARTIFACT_REGISTRY_DIRECTORY,
   ARTIFACT_REGISTRY_FILE_STEM,
   ARTIFACT_REGISTRY_JSON_PATH,
@@ -490,7 +490,7 @@ export class ArtifactPairService {
     assertArtifactRegistry(registry);
 
     const registryArtifact = buildCanonicalArtifact({
-      artifactId: ARTIFACT_REGISTRY_ARTIFACT_ID,
+      artifactId: artifactRegistryArtifactId(projectId),
       artifactType: ARTIFACT_REGISTRY_ARTIFACT_TYPE,
       revision: (current?.artifact.revision ?? 0) + 1,
       status: "active",
@@ -528,7 +528,7 @@ export class ArtifactPairService {
     );
     if (!pair) return null;
     if (
-      pair.artifact.artifactId !== ARTIFACT_REGISTRY_ARTIFACT_ID ||
+      pair.artifact.artifactId !== artifactRegistryArtifactId(pair.artifact.projectId) ||
       pair.artifact.artifactType !== ARTIFACT_REGISTRY_ARTIFACT_TYPE
     ) {
       throw new ArtifactPairServiceError(
@@ -664,7 +664,8 @@ export class ArtifactPairService {
     paths: { jsonPath: string; markdownPath: string },
   ): void {
     if (
-      artifactId === ARTIFACT_REGISTRY_ARTIFACT_ID ||
+      artifactId === artifactRegistryArtifactId(artifactId.split("/")[0] ?? "") ||
+      artifactId.endsWith("/system/artifact_registry") ||
       artifactType === ARTIFACT_REGISTRY_ARTIFACT_TYPE ||
       paths.jsonPath === ARTIFACT_REGISTRY_JSON_PATH ||
       paths.markdownPath === ARTIFACT_REGISTRY_MARKDOWN_PATH

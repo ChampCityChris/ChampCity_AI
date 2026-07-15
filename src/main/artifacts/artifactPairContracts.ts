@@ -20,6 +20,10 @@ export const ARTIFACT_REGISTRY_ARTIFACT_ID =
   "champcity-ai/system/artifact_registry" as const;
 export const ARTIFACT_REGISTRY_ARTIFACT_TYPE = "artifact_registry" as const;
 
+export function artifactRegistryArtifactId(projectId: string): string {
+  return `${projectId}/system/artifact_registry`;
+}
+
 export interface CanonicalArtifactLocation {
   directoryPath: string;
   fileStem: string;

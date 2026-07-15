@@ -575,6 +575,54 @@ async function routedAuthorityBoundaryGate(root) {
   return finishGate(gate);
 }
 
+async function evidenceProjectionAuthorityGate(root) {
+  const gate = makeGate("single_evidence_projection_runtime_authority");
+  const requiredFiles = [
+    "src/main/canonicalRuntime.ts",
+    "src/main/repository/repositoryRefreshService.ts",
+    "src/main/repository/verifiedArtifactGraph.ts",
+    "src/main/workflow/evidenceDerivedWorkflowProjector.ts",
+    "src/main/workflow/routedActionService.ts",
+    "src/main/workflow/routedProcessInvocationService.ts",
+  ];
+  const forbiddenPatterns = [
+    /currentRequiredAction/,
+    /WorkflowStateStore/,
+    /workflowStateArtifactPort/,
+    /scripts\/migration/,
+    /evaluateCurrentRequiredAction/,
+  ];
+  for (const file of requiredFiles) {
+    gate.checked += 1;
+    const source = await readText(root, file);
+    if (source === null) {
+      fail(gate, "evidence-authority-source-missing", file);
+      continue;
+    }
+    for (const pattern of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        fail(gate, "prohibited-secondary-authority", file, String(pattern));
+      }
+    }
+  }
+  for (const deletedFile of [
+    "src/shared/workCards/currentRequiredAction.ts",
+    "src/main/workflow/workflowStateStore.ts",
+    "src/main/workflow/workflowStateArtifactPort.ts",
+  ]) {
+    gate.checked += 1;
+    if (await existingFile(root, deletedFile)) {
+      fail(gate, "superseded-authority-file-present", deletedFile);
+    }
+  }
+  const composition = await readText(root, "src/main/canonicalRuntime.ts");
+  gate.checked += 1;
+  if (!composition?.includes("RepositoryRefreshService")) {
+    fail(gate, "runtime-missing-repository-refresh-authority", "src/main/canonicalRuntime.ts");
+  }
+  return finishGate(gate);
+}
+
 function isLegacyScanScope(file) {
   return (
     file === "README.md" ||
@@ -910,6 +958,7 @@ async function main() {
     gates.push(await migrationManifestDurabilityGate(root));
     gates.push(await runtimeBoundaryGate(root, repoFiles));
     gates.push(await routedAuthorityBoundaryGate(root));
+    gates.push(await evidenceProjectionAuthorityGate(root));
     gates.push(await legacyTerminologyGate(root, repoFiles));
     gates.push(await activeArtifactNamingGate(repoFiles));
     gates.push(await secretAssignmentGate(root, changedExisting));

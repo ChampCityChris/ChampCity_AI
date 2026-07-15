@@ -100,10 +100,19 @@ import type {
   CurrentContextPacketExportRequest,
   CurrentContextPacketPreviewRequest,
 } from "../shared/contextPackets/contextPacket";
+import type { AddProjectWorkspaceRequest } from "../shared/projects";
 import {
+  addProjectWorkspace,
   contextPacketService,
   currentContextPacketCompiler,
+  initializeCanonicalRuntime,
+  listProjectWorkspaces,
+  refreshSelectedRepository,
+  refreshSelectedRepositoryOnFocus,
   routedProcessInvocationService,
+  selectProjectWorkspace,
+  shutdownCanonicalRuntime,
+  subscribeToRepositoryProjection,
 } from "./canonicalRuntime";
 
 const appName = "ChampCity A/I";
@@ -154,6 +163,10 @@ function createMainWindow(): void {
 
   registerEditContextMenu(mainWindow);
 
+  mainWindow.on("focus", () => {
+    void refreshSelectedRepositoryOnFocus();
+  });
+
   void mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 }
 
@@ -195,7 +208,16 @@ function buildEditContextMenuTemplate(
   return [];
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  subscribeToRepositoryProjection((snapshot) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send("repository:projectionChanged", snapshot.scanResult);
+    }
+  });
+  await initializeCanonicalRuntime({
+    defaultRepositoryRoot: repositoryRoot,
+    workspaceStoragePath: path.join(app.getPath("userData"), "project-workspaces.json"),
+  });
   registerWorkCardIpc();
   createMainWindow();
 
@@ -212,7 +234,20 @@ app.on("window-all-closed", () => {
   }
 });
 
+app.on("before-quit", () => {
+  void shutdownCanonicalRuntime();
+});
+
 function registerWorkCardIpc(): void {
+  ipcMain.handle("projects:list", () => listProjectWorkspaces());
+  ipcMain.handle(
+    "projects:add",
+    (_event, input: AddProjectWorkspaceRequest) => addProjectWorkspace(input),
+  );
+  ipcMain.handle("projects:select", (_event, projectId: string) =>
+    selectProjectWorkspace(projectId),
+  );
+  ipcMain.handle("projects:refresh", () => refreshSelectedRepository());
   ipcMain.handle("workCards:listAvailablePhases", () =>
     listAvailablePhaseFolders(),
   );

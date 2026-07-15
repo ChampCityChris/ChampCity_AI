@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:e674a60362b1c22b3bcc6e956219052319c47302044ba2ae52321735a9065d18",
+  "payloadHash": "sha256:a650556a30069bf7721d29a40d7d38af8fe3f8c3c0a8c85eb4173e2710c87c7f",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -109,12 +109,15 @@
       "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
       "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
       "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-04/architecture_decision/WC01",
       "champcity-ai/phase-04/diagnostic_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01",
+      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
       "champcity-ai/phase-04/phase_activation/phase-04",
       "champcity-ai/phase-04/phase_planning/Phase_Planning",
       "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
       "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
       "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
@@ -147,16 +150,16 @@
     ],
     "supersedes": []
   },
-  "revision": 34,
+  "revision": 37,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T20:55:00.000Z"
+  "updatedAt": "2026-07-15T22:26:09.741Z"
 }
 -->
 
 # Canonical Artifact Registry
 
-Entries: 129
+Entries: 132
 
 | Artifact ID | Type | Revision | Status | Authority | Synchronized |
 | --- | --- | ---: | --- | --- | --- |
@@ -254,12 +257,15 @@ Entries: 129
 | champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents | work_card_plan | 2 | superseded | no | yes |
 | champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | 2 | active | yes | yes |
 | champcity-ai/phase-04/approval/Operator_Phase_Approval | phase_approval | 1 | active | yes | yes |
+| champcity-ai/phase-04/architecture_decision/WC01 | architecture_decision | 1 | active | yes | yes |
 | champcity-ai/phase-04/diagnostic_report/WC01 | diagnostic_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01 | implementer_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01-REPAIR01 | implementer_report | 2 | blocked | yes | yes |
+| champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority | implementer_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/phase_activation/phase-04 | phase_activation | 1 | active | yes | yes |
 | champcity-ai/phase-04/phase_planning/Phase_Planning | phase_planning | 1 | active | yes | yes |
 | champcity-ai/phase-04/work_card/WC01 | work_card | 1 | active | yes | yes |
+| champcity-ai/phase-04/work_card/WC01-REPAIR01 | work_card | 2 | active | yes | yes |
 | champcity-ai/phase-04/work_card_plan/Work_Card_Plan | work_card_plan | 1 | active | yes | yes |
 | champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |
 | champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |

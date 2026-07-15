@@ -1,0 +1,37 @@
+{
+  "artifactId": "champcity-ai/phase-04/architect_review/WC01",
+  "artifactType": "architect_review",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "active",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-04",
+  "workCardId": "WC01",
+  "createdAt": "2026-07-15T20:00:00.000Z",
+  "updatedAt": "2026-07-15T20:00:00.000Z",
+  "markdownPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+  "jsonPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+  "payloadHash": "sha256:6300a5009c95d4c72cb635b5b24241e9c122fd4ff525345b449356eaf4d0818f",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/work_card/WC01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01"
+    ],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: Phase 04 WC01 Canonical Routed-Screen Cutover and Legacy Projection Retirement",
+    "contentMarkdown": "# Architect Review: Phase 04 WC01 Canonical Routed-Screen Cutover and Legacy Projection Retirement\n\n## Decision\n\nRepair required before Operator validation.\n\n## Confirmed implementation\n\n- Canonical routed-screen adapter exists and resolves target, source, and expected output from RoutedActionContract plus Artifact Registry.\n- Phase 04 authority and WC01 report are registered and synchronized.\n- The feature branch is clean.\n- Legacy Architect Review binding reconstruction was substantially retired.\n\n## Blocking finding\n\nThe canonical WC01 Implementer Report is authoritative and synchronized in the Artifact Registry, but production Workflow State remains at `implementer_execution_required` for `champcity-ai/phase-04/work_card/WC01` and still expects `champcity-ai/phase-04/implementer_report/WC01`.\n\nThe governed transition from Implementer Report registration to `architect_review_of_implementer_report_required` did not occur.\n\nThis violates WC01 acceptance because the application cannot route the registered report to Architect Review.\n\n## Required repair\n\nCreate the single permitted repair, WC01-REPAIR01.\n\nThe repair must make Implementer Report creation/registration and Workflow State transition one governed operation, reconcile the existing registered WC01 report into Architect Review without duplicating it, and prove restart persistence.\n\n## Operator validation\n\nNot authorized.\n",
+    "data": {
+      "decision": "Repair required before Operator validation",
+      "operatorValidationAuthorized": false,
+      "requiredRepairId": "WC01-REPAIR01",
+      "workCardId": "WC01"
+    }
+  }
+}

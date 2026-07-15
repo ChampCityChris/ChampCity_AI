@@ -2,7 +2,7 @@ import {
   lockedWorkflowSteps,
   type CurrentRequiredAction,
   type LockedWorkflowStep,
-} from "./currentRequiredAction";
+} from "./currentActionProjection";
 
 export type WorkflowGuideGroupId =
   | "capture"

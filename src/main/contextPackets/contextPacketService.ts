@@ -52,11 +52,19 @@ export interface ContextPacketExportRequest {
 }
 
 export class ContextPacketService {
+  private readonly defaultProjectId: string;
+  private readonly now: () => string;
+
   constructor(
     private readonly repositoryRoot: string,
     private readonly pairWriter: ContextPacketPairBatchWriter,
-    private readonly now: () => string = () => new Date().toISOString(),
-  ) {}
+    projectIdOrNow: string | (() => string) = "champcity-ai",
+    now: () => string = () => new Date().toISOString(),
+  ) {
+    this.defaultProjectId =
+      typeof projectIdOrNow === "string" ? projectIdOrNow : "champcity-ai";
+    this.now = typeof projectIdOrNow === "function" ? projectIdOrNow : now;
+  }
 
   async exportPacket(
     request: ContextPacketExportRequest,
@@ -97,7 +105,7 @@ export class ContextPacketService {
       artifactId: request.packet.packetId,
       artifactType: "context_packet",
       status: "active",
-      projectId: request.projectId ?? "champcity-ai",
+      projectId: request.projectId ?? this.defaultProjectId,
       phaseId,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -129,7 +137,7 @@ export class ContextPacketService {
       artifactId: manifestArtifactId,
       artifactType: "context_manifest",
       status: "active",
-      projectId: request.projectId ?? "champcity-ai",
+      projectId: request.projectId ?? this.defaultProjectId,
       phaseId,
       createdAt: timestamp,
       updatedAt: timestamp,

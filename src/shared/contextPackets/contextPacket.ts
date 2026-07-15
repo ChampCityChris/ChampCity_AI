@@ -204,6 +204,7 @@ export function compileArchitectContextPacket(
   input: ArchitectContextPacketInput,
 ): ContextPacket {
   const packetId = buildPacketId(
+    input.projectId,
     "architect",
     input.scenario,
     input.relevantPhaseId,
@@ -257,6 +258,7 @@ export function compileImplementerExecutionPacket(
   input: ImplementerExecutionPacketInput,
 ): ContextPacket {
   const packetId = buildPacketId(
+    input.projectId,
     "implementer",
     "work_card_execution",
     input.relevantPhaseId,
@@ -645,12 +647,13 @@ function renderList(items: string[]): string {
 }
 
 function buildPacketId(
+  projectId: string,
   kind: ContextPacketKind,
   scenario: string,
   phaseId?: string,
   workCardId?: string,
 ): string {
-  return ["champcity-ai", phaseId ?? "project", kind, scenario, workCardId]
+  return [projectId, phaseId ?? "project", kind, scenario, workCardId]
     .filter(Boolean)
     .join("/");
 }

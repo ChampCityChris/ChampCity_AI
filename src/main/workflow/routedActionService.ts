@@ -6,20 +6,21 @@ import {
   type RoutedActionContract,
   type WorkflowStateIndex,
 } from "../../shared/workflow";
-import { WorkflowStateStore } from "./workflowStateStore";
 
 export interface WorkflowAuthoritySnapshot {
   state: WorkflowStateIndex;
   routedAction: RoutedActionContract | null;
 }
 
+export interface WorkflowAuthorityProvider {
+  getAuthoritySnapshot(): Promise<WorkflowAuthoritySnapshot>;
+}
+
 export class RoutedActionService {
-  constructor(private readonly workflowStateStore: WorkflowStateStore) {}
+  constructor(private readonly authorityProvider: WorkflowAuthorityProvider) {}
 
   async getAuthoritySnapshot(): Promise<WorkflowAuthoritySnapshot> {
-    const stored = await this.workflowStateStore.load();
-    if (!stored) throw new Error("The canonical workflow-state index is not initialized.");
-    return { state: stored.state, routedAction: stored.state.currentAction };
+    return this.authorityProvider.getAuthoritySnapshot();
   }
 
   /** Reloads authority at the process boundary before authorizing a preview/save. */

@@ -57,6 +57,11 @@ export interface ImplementerReportCapturePreviewResult {
 export interface ImplementerReportCaptureSaveResult
   extends ImplementerReportCapturePreviewResult {
   markdownPath?: string;
+  workflowTransition?: {
+    stateRevision: number;
+    nextActionId: string | null;
+    nextScreenId: string | null;
+  };
 }
 
 const requiredReportSignals = [

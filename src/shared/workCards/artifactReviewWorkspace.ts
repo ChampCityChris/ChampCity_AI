@@ -1,7 +1,7 @@
 import type {
   CurrentActionArtifactReference,
   CurrentRequiredAction,
-} from "./currentRequiredAction";
+} from "./currentActionProjection";
 
 export type ArtifactReviewGroupId =
   | "work_card"

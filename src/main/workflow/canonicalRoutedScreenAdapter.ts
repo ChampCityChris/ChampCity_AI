@@ -24,14 +24,19 @@ export interface CanonicalRoutedScreenResolution {
 }
 
 export class CanonicalRoutedScreenAdapter {
-  constructor(private readonly artifactPairs: ArtifactPairService) {}
+  constructor(
+    private readonly artifactPairs: ArtifactPairService,
+    private readonly registryProvider?: () => Promise<ArtifactRegistry>,
+  ) {}
 
   async resolve(
     state: WorkflowStateIndex,
     action: RoutedActionContract,
   ): Promise<CanonicalRoutedScreenResolution> {
     const blockers: CanonicalRoutedScreenBlocker[] = [];
-    const registry = await this.artifactPairs.loadRegistry();
+    const registry = this.registryProvider
+      ? await this.registryProvider()
+      : await this.artifactPairs.loadRegistry();
     if (!registry) {
       blockers.push({
         code: "missing_registry",
@@ -283,7 +288,7 @@ function canonicalNewOutputLocation(
   }
   const phaseId = target.phaseId ?? state.activePhaseId;
   if (!phaseId || !target.displayTitle) return null;
-  const expectedId = `champcity-ai/${phaseId}/architect_review/${target.workCardId}`;
+  const expectedId = `${target.projectId}/${phaseId}/architect_review/${target.workCardId}`;
   if (action.expectedOutput.artifactId !== expectedId) return null;
   const slug = target.displayTitle
     .trim()

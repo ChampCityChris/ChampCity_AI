@@ -92,6 +92,7 @@ interface WorkflowRouterShellProps {
   onManualScreenChange: (screen: string) => void;
   onPhaseChange: (phase: string) => void;
   onCardChange: (fileName: string) => void;
+  projectWorkspaceBar?: ReactNode;
   children: ReactNode;
 }
 
@@ -282,6 +283,7 @@ export function WorkflowRouterShell({
   onManualScreenChange,
   onPhaseChange,
   onCardChange,
+  projectWorkspaceBar,
   children,
 }: WorkflowRouterShellProps) {
   const [activityOpen, setActivityOpen] = useState(false);
@@ -326,6 +328,7 @@ export function WorkflowRouterShell({
         currentActionLoadState={currentActionLoadState}
         workflowState={workflowState}
       />
+      {projectWorkspaceBar}
       <SupportingToolsBar
         activeScreen={activeScreen}
         activeManualItem={activeManualItem}

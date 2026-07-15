@@ -165,7 +165,7 @@ export class CurrentContextPacketCompiler {
             baseBranch: textValue(targetData.implementerBaseBranch) ?? "approved base branch",
             targetBranch:
               textValue(targetData.implementerTargetBranch) ?? "approved feature branch",
-            remote: "ChampCityChris/ChampCity_AI",
+            remote: "configured project repository",
           },
           validationLaneReferences: ["docs/dev/VALIDATION_COMMAND_LANES.md"],
           expectedImplementerReportPath: `planning/phases/${phaseId ?? "<phase-folder>"}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_<slug>.md`,

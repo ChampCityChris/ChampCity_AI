@@ -43,16 +43,16 @@ Canonical Markdown starts with a machine-readable `champcity-artifact-envelope` 
 
 Changing either body or metadata without regenerating both representations blocks synchronization.
 
-## Registry Authority
+## Registry And Graph Authority
 
 The canonical artifact registry is stored as a synchronized system pair at:
 
 - `planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json`
 - `planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md`
 
-For each logical artifact ID, the registry records one authoritative active revision, its paths, status, relationships, and synchronization result. Active, pending, blocked, superseded, archived, and historical entries are explicit. More than one active authority for the same ID is an error.
+For each logical artifact ID, the registry records one indexed revision, its paths, status, relationships, and synchronization result. Active, pending, blocked, superseded, archived, and historical entries are explicit. More than one controlling authority for the same ID is an error.
 
-Runtime discovery reads the registry. It does not select a file because it is newest, first, last, or suffixed.
+Runtime discovery scans canonical pairs and builds a verified artifact graph plus derived Registry view. A valid external pair does not require an import or prior app registration. The durable Registry remains a cache/index for app writes and audit; it cannot hide newer verified evidence. Runtime never selects a file because it is newest, first, last, or suffixed.
 
 ## Revision Rule
 

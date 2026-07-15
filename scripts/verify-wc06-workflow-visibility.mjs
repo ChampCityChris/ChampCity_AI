@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { getCurrentRequiredAction } from "../dist/main/workCards/workCardFileStore.js";
-import { lockedWorkflowSteps } from "../dist/shared/workCards/currentRequiredAction.js";
+import { lockedWorkflowSteps } from "../dist/shared/workCards/currentActionProjection.js";
 import {
   resolveWorkflowVisibility,
   workflowGuideGroups,

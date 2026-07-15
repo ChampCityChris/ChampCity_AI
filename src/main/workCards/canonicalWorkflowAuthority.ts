@@ -16,7 +16,7 @@ import {
   type CurrentRequiredActionResult,
   type CurrentRequiredActionRole,
   type CurrentRequiredActionStatus,
-} from "../../shared/workCards/currentRequiredAction";
+} from "../../shared/workCards/currentActionProjection";
 import type {
   ArchitectReviewDecision,
   RoutedArchitectReviewBinding,
@@ -29,9 +29,15 @@ import {
   CanonicalRoutedScreenAdapter,
   type CanonicalRoutedScreenResolution,
   RoutedActionService,
-  WorkflowStateArtifactPort,
-  WorkflowStateStore,
+  type WorkflowAuthorityProvider,
 } from "../workflow";
+
+export interface CanonicalWorkflowAuthorityOptions {
+  authorityProvider: WorkflowAuthorityProvider;
+  registryProvider: () => Promise<import("../../shared/artifacts").ArtifactRegistry>;
+  refreshAfterWrite: (reason: string) => Promise<WorkflowStateIndex>;
+  clock?: () => string;
+}
 
 export interface ArchitectReviewAuthority {
   state: WorkflowStateIndex;
@@ -60,21 +66,25 @@ export interface ArchitectReviewCommitInput {
 
 export class CanonicalWorkflowAuthority {
   readonly artifactPairs: ArtifactPairService;
-  readonly workflowStateStore: WorkflowStateStore;
   readonly routedActions: RoutedActionService;
   readonly routedScreens: CanonicalRoutedScreenAdapter;
 
-  constructor(readonly projectRoot: string, clock?: () => string) {
+  constructor(
+    readonly projectRoot: string,
+    private readonly options: CanonicalWorkflowAuthorityOptions,
+  ) {
     if (!path.isAbsolute(projectRoot)) {
       throw new TypeError("Canonical workflow authority requires an absolute project root.");
     }
-    this.artifactPairs = new ArtifactPairService({ projectRoot, clock });
-    this.workflowStateStore = new WorkflowStateStore(
+    this.artifactPairs = new ArtifactPairService({
       projectRoot,
-      new WorkflowStateArtifactPort(this.artifactPairs),
+      clock: options.clock,
+    });
+    this.routedActions = new RoutedActionService(options.authorityProvider);
+    this.routedScreens = new CanonicalRoutedScreenAdapter(
+      this.artifactPairs,
+      options.registryProvider,
     );
-    this.routedActions = new RoutedActionService(this.workflowStateStore);
-    this.routedScreens = new CanonicalRoutedScreenAdapter(this.artifactPairs);
   }
 
   async projectCurrentRequiredAction(): Promise<CurrentRequiredActionResult> {
@@ -120,7 +130,7 @@ export class CanonicalWorkflowAuthority {
       ...(workCardTitle ? { workCardTitle } : {}),
       status: statusFor(action),
       reason:
-        "The canonical workflow-state index and synchronized artifact registry are the sole routed authority.",
+        "The selected project's verified artifact graph and locked process contract are the sole routed authority.",
       sourceArtifacts: sources.map((source) => ({
         path: source.markdownPath,
         role: source.artifactType.replaceAll("_", " "),
@@ -130,7 +140,7 @@ export class CanonicalWorkflowAuthority {
       expectedOutput: {
         ...(expectedPath ? { path: expectedPath } : {}),
         artifactType: action.expectedOutput.artifactType,
-        description: `Create ${action.expectedOutput.artifactId} and advance only after its canonical pair and registry entry are verified.`,
+        description: `Create ${action.expectedOutput.artifactId}; a stable repository refresh advances only after its canonical pair is verified.`,
       },
       successRoute: action.routes.success ?? undefined,
       failureRoute: action.routes.failure ?? undefined,
@@ -248,7 +258,7 @@ export class CanonicalWorkflowAuthority {
         sources: [latest.target.artifactId, latest.source.artifactId],
         expectedOutputs:
           input.decision === "Ready for Operator validation"
-            ? [`champcity-ai/${latest.phaseId}/validation_report/${latest.workCardId}`]
+            ? [`${latest.state.projectId}/${latest.phaseId}/validation_report/${latest.workCardId}`]
             : [],
         supersedes: [],
         children: [],
@@ -264,30 +274,10 @@ export class CanonicalWorkflowAuthority {
       ),
     });
     const route = routeForDecision(input.decision);
-    const transition = await this.workflowStateStore.advanceAfterArtifactCommit(
-      {
-        actionId: latest.routedAction.actionId,
-        stateRevision: latest.state.stateRevision,
-        actorRole: "architect",
-        route,
-        ...(route === "success"
-          ? {
-              authorization: {
-                decision: "authorized" as const,
-                artifactId: pairCommit.artifact.artifactId,
-              },
-            }
-          : {}),
-        occurredAt: new Date().toISOString(),
-      },
-      {
-        artifactId: pairCommit.artifact.artifactId,
-        artifactType: pairCommit.artifact.artifactType,
-        pairVerified: true,
-        registryCommitted: true,
-      },
+    const projectedState = await this.options.refreshAfterWrite(
+      `architect-review-write:${route}`,
     );
-    return { pairCommit, transition, route };
+    return { pairCommit, transition: { state: projectedState }, route };
   }
 
 }

@@ -2,78 +2,45 @@
 
 ## Purpose
 
-ChampCity A/I uses one persisted workflow-state index for the complete `Capture → Frame → Plan → Build → Prove` lifecycle. Screens and process services consume this index; they do not reconstruct authority from directory order, filenames, modification times, suffixes, or whichever artifact the Operator last viewed.
+ChampCity A/I computes one current workflow position from the selected project’s verified repository evidence. Repository artifacts, the locked process contract, repair policy, role gates, and explicit human decisions are authority. A persisted workflow snapshot is not an independent selector.
 
-## Canonical State
+## Runtime authority path
 
-The workflow-state index records:
+Configured Project + Repository Observer / Manual Refresh → Verified Artifact Graph + Explicit Decision Overlay + Locked Process Contract → Evidence-Derived Workflow Projector → Current Required Action → Routed UI.
 
-- project ID, current stage, active phase, and monotonic state revision;
-- current action ID and responsible role;
-- authoritative target artifact ID;
-- required source artifact IDs;
-- expected output artifact ID and type;
-- success, failure, and repair routes;
-- blocking conditions and their owning role;
-- open repair chain;
-- authoritative Work Card Plan identity and synchronization status;
-- ordered candidate execution state, including full Work Card authority and explicit resolution evidence;
-- earliest unresolved candidate, active Work Card, active repair, and closeout eligibility;
-- closeout, roadmap-update, and next-phase state;
-- the complete routed-action contract used by the active workspace.
+Every production entry point uses this path: application startup, focus/reopen, branch change, project switching, manual refresh, watcher refresh, external artifact writes, and routed in-app writes.
 
-The canonical pair is stored at:
+## Selected-project boundary
 
-- `planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json`
-- `planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md`
+Each configured project has its own repository root, planning root, branch behavior, observer state, scan result, artifact graph, and projection. Repository and artifact operations resolve inside the selected project. Switching projects replaces the complete projection context without rebuilding or relaunching the app.
 
-## Transition Rule
+## Repository evidence
 
-A transition is committed only in this order:
+The repository scanner discovers canonical Markdown/JSON pairs whether they were written by ChampCity A/I or by an external Implementer/LLM. A pair is accepted only after identity, metadata, body, path, revision, and payload-hash verification. Incomplete, invalid, duplicate, cross-project, or conflicting authority blocks visibly.
 
-1. Validate the role and routed-action contract.
-2. Validate the typed output payload.
-3. Stage both output representations.
-4. Verify pair identity, metadata, body, and payload hash.
-5. Commit the output pair.
-6. Commit the artifact registry revision.
-7. Commit the next workflow-state revision.
+Historical, archived, and explicitly superseded evidence remains inspectable but cannot control the route. Filesystem timestamps, directory order, suffixes, first/last matches, and report-status strings do not select workflow authority.
 
-Failure at any step blocks the transition and reports a partial-write or authority error. A failed output, registry update, or state update cannot be treated as workflow evidence.
+## Evidence-derived transitions
 
-## Lifecycle Coverage
+The projector recognizes exact expected outputs and recomputes the current step:
 
-The state machine covers these governed transitions:
+1. An exact active Implementer Report satisfies Implementer execution and routes its Work Card to Architect Review.
+2. An exact Architect Review with explicit validation authorization routes to Operator Validation.
+3. A governed Validation Report routes according to its result and Architect-disposition policy.
+4. An explicit repair decision selects only its exact repair identity.
+5. Repair limits block another numbered repair and require governed disposition.
+6. Ambiguity or invalid evidence blocks instead of guessing.
 
-1. Project Intake → Project Interview.
-2. Project Interview → Reconciliation Review.
-3. Reconciliation Review → Project Mapping.
-4. Project Mapping → Operator Project Approval.
-5. Project Approval → Phase Mapping.
-6. Phase Mapping bundle → Operator Phase Approval.
-7. Phase Approval → first unresolved Work Card candidate.
-8. Work Card approval → Implementer handoff.
-9. Implementer Report → Architect Review of that exact report.
-10. Authorized Architect Review → Operator Validation.
-11. Failed or partial validation → Architect disposition and, when authorized, repair creation.
-12. Passing validation → next unresolved candidate.
-13. Final candidate resolution → Phase Closeout.
-14. Operator closeout approval → Architect Roadmap Update.
-15. Architect Roadmap Update → Operator Next Phase Activation.
-16. Next Phase Activation → repeated Phase Mapping and Work Card Loop.
+Repeated scans with unchanged evidence are no-ops. A process restart reconstructs the same action from the repository.
 
-Conflicting, missing, or unsynchronized evidence yields a blocked action. It never yields an inferred transition.
+## Workflow State disposition
 
-Phase intake, Architect interview evidence, phase planning, and the Work Card candidate plan belong to the Phase Mapping bundle. They may be written as subordinate artifacts but are not standalone top-level gates. Phase Closeout remains blocked until every approved candidate has one explicit closeout-eligible resolution: `completed`, `completed_via_repair`, `carried_forward`, `deferred`, or `cancelled`.
+`planning/system/Workflow_State/WORKFLOW_STATE_INDEX.*` is historical input and may be emitted in the future as a derived cache or diagnostic snapshot. Production routing does not read it. If a cache is generated, it may record the last projection, evidence IDs, projection revision, cache timestamp, observer state, and blockers, but it cannot override a newer verified graph.
 
-## Derived Production State and WC08 Regression
+## Artifact Registry disposition
 
-Migration derives the production action from the synchronized Work Card Plan, registry authority, candidate resolution evidence, Architect Review disposition, and the one controlling active repair. It never seeds a named example as permanent production authority. Historical, archived, superseded, or non-controlling repairs remain evidence and do not enter `activeRepairArtifactIds`.
+The synchronized Artifact Registry remains a useful durable index for canonical app writes and auditing. Runtime discovery builds a derived registry view from the verified graph, so prior app registration is not required for visibility. A stale durable Registry cannot hide a valid external pair or override the graph.
 
-WC08-REPAIR04 remains a deterministic regression fixture: its exact Implementer Report must bind to its exact Architect Review, and a successful review advances that fixture to `operator_validation_required`. Reference selection, timestamps, or neighboring repair artifacts cannot retarget either production state or the fixture.
+## Presentation boundary
 
-## Presentation Boundary
-
-Routed screens consume `CanonicalRoutedScreenViewModel`, which is derived only from the current `RoutedActionContract` plus synchronized Artifact Registry authorities. Preview and save reload that authority in the main process. Current Action presentation, legacy status strings, filenames, directory order, and reference navigation are explicitly excluded from routed authorization.
-
-The Current Action panel is a presentation projection of canonical state. The horizontal process map remains `Capture → Frame → Plan → Build → Prove`; the center workspace owns active work; Artifacts remains the artifact browser and preview surface. Support navigation may open reference context but cannot modify authority.
+Current Action and the Current Step inspector format the projector result. They do not reconstruct or authorize a route. Reference navigation is separate and cannot retarget target, sources, expected output, role, or revision.

@@ -104,7 +104,7 @@ import type {
   PhaseCloseoutSaveResult,
   PhaseCloseoutSummaryResult,
 } from "../shared/workCards/phaseCloseoutRecord";
-import type { CurrentRequiredActionResult } from "../shared/workCards/currentRequiredAction";
+import type { CurrentRequiredActionResult } from "../shared/workCards/currentActionProjection";
 import type {
   RouteReviewRequestInput,
   RouteReviewRequestSaveResult,
@@ -125,6 +125,13 @@ import type {
   CurrentContextPacketPreviewResult,
 } from "../shared/contextPackets/contextPacket";
 import type { RoutedActionContract } from "../shared/workflow";
+import type {
+  AddProjectWorkspaceRequest,
+  ProjectScanResult,
+  ProjectWorkspaceListResult,
+  ProjectWorkspaceMutationResult,
+  RefreshRepositoryStateResult,
+} from "../shared/projects";
 
 let currentRoutedActionBinding: RoutedActionContract | null = null;
 
@@ -144,6 +151,24 @@ function invokeProcess<T>(channel: string, input: unknown): Promise<T> {
 }
 
 const api = {
+  listProjects: (): Promise<ProjectWorkspaceListResult> =>
+    ipcRenderer.invoke("projects:list"),
+  addProject: (
+    input: AddProjectWorkspaceRequest,
+  ): Promise<ProjectWorkspaceMutationResult> =>
+    ipcRenderer.invoke("projects:add", input),
+  selectProject: (projectId: string): Promise<ProjectWorkspaceMutationResult> =>
+    ipcRenderer.invoke("projects:select", projectId),
+  refreshRepositoryState: (): Promise<RefreshRepositoryStateResult> =>
+    ipcRenderer.invoke("projects:refresh"),
+  onRepositoryProjectionChanged: (
+    listener: (result: ProjectScanResult) => void,
+  ): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, result: ProjectScanResult) =>
+      listener(result);
+    ipcRenderer.on("repository:projectionChanged", handler);
+    return () => ipcRenderer.removeListener("repository:projectionChanged", handler);
+  },
   getAppInfo: () => ({
     name: "ChampCity A/I",
     stage: "Alpha app development",

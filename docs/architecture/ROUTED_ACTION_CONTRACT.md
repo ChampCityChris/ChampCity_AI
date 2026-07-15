@@ -2,7 +2,7 @@
 
 ## Purpose
 
-One routed-action contract carries workflow authority from the persisted state index through Current Action presentation, workspace selection, form initialization, source selection, preview, save, and post-save transition.
+One routed-action contract carries the selected project’s evidence-derived projection through Current Action presentation, workspace selection, form initialization, source selection, preview, save, and post-save refresh.
 
 ## Contract Fields
 
@@ -16,7 +16,7 @@ The contract includes:
 - authoritative source artifact IDs;
 - expected output artifact ID and type;
 - success, failure, and repair routes;
-- binding source `workflow_state`;
+- binding source `evidence_projection`, selected project, projection revision, and evidence IDs;
 - typed blocking issues with owning role;
 - explicit confirmation that reference navigation is excluded from authority.
 
@@ -24,17 +24,17 @@ Unknown action or screen mappings block. Role-based or “closest screen” fall
 
 ## Main-Process Enforcement
 
-The renderer may submit the action ID, state revision, and form fields. It may not supply trusted target/source/output paths. Before preview or save, the main process reloads the workflow-state index and registry, verifies the state revision, rehydrates the routed contract, resolves exact artifacts by ID, and applies the role gate.
+The renderer may submit the action ID, projection revision, and form fields. It may not supply trusted target/source/output paths. Before preview or save, the main process reloads the selected project’s current evidence projection, verifies the revision, resolves exact verified artifacts by ID, and applies the role gate.
 
 Stale renderer state, a different reference card, a different reference phase, list ordering, cached selector values, or filename-prefix similarity cannot change the contract.
 
 ## Routed-Screen View Model
 
-`CanonicalRoutedScreenAdapter` is the single conversion boundary between a `RoutedActionContract` and routed-screen initialization. It resolves the exact target and ordered sources from the Artifact Registry, verifies each JSON/Markdown pair, reads titles from canonical payloads, and identifies either the existing expected-output authority or its canonical write location. The resulting `CanonicalRoutedScreenViewModel` is read-only and cannot grant write authority.
+`CanonicalRoutedScreenAdapter` is the single conversion boundary between a `RoutedActionContract` and routed-screen initialization. It resolves the exact target and ordered sources from the graph-derived Registry view, verifies each JSON/Markdown pair, reads titles from canonical payloads, and identifies either the existing expected-output authority or its canonical write location. The resulting `CanonicalRoutedScreenViewModel` is read-only and cannot grant write authority.
 
 Every routed preview/save handler is reauthorized in the main process through the same adapter. Architect Review additionally receives a direct `RoutedArchitectReviewBinding` produced from this resolution; the renderer does not reconstruct it from Current Action statuses, filenames, directory order, or first-match searches.
 
-`CurrentRequiredAction` remains a presentation projection for the Current Action panel and workspace guidance. It may display the routed contract and canonical view model, but it cannot initialize, authorize, block, preview, save, or advance a routed process.
+The Current Action presentation may display the routed contract and canonical view model, but it cannot initialize, authorize, block, preview, save, or advance a routed process.
 
 ## Reference Navigation
 
