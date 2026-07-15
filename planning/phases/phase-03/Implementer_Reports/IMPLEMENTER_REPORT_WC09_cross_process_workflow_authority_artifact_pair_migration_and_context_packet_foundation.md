@@ -13,7 +13,9 @@
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
-    "children": [],
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC09"
+    ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC09"
     ],

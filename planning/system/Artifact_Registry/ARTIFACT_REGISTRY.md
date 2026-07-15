@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:62a1438d38676816eeb5a105caafe382de532532d64a719ecd636c90bd8e1652",
+  "payloadHash": "sha256:9da7a23756e339bd47a0cb7037159ff11ae0ce4ca078e00e963a0c1bae68b8d6",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -34,6 +34,7 @@
       "champcity-ai/phase-03/architect_review/WC08",
       "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
       "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+      "champcity-ai/phase-03/architect_review/WC09",
       "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
       "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
       "champcity-ai/phase-03/implementer_report/WC01",
@@ -56,6 +57,7 @@
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
       "champcity-ai/phase-03/implementer_report/WC09",
+      "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
       "champcity-ai/phase-03/migration_manifest/WC09",
       "champcity-ai/phase-03/observation_register/Observation_Register",
       "champcity-ai/phase-03/phase_planning/Phase_Planning",
@@ -100,6 +102,7 @@
       "champcity-ai/phase-03/work_card/WC08-REPAIR05",
       "champcity-ai/phase-03/work_card/WC08-REPAIR06",
       "champcity-ai/phase-03/work_card/WC09",
+      "champcity-ai/phase-03/work_card/WC09-REPAIR01",
       "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
       "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
@@ -131,7 +134,7 @@
     ],
     "supersedes": []
   },
-  "revision": 14,
+  "revision": 18,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-14T00:00:00.000Z"
@@ -140,7 +143,7 @@
 
 # Canonical Artifact Registry
 
-Entries: 113
+Entries: 116
 
 | Artifact ID | Type | Revision | Status | Authority | Synchronized |
 | --- | --- | ---: | --- | --- | --- |
@@ -163,6 +166,7 @@ Entries: 113
 | champcity-ai/phase-03/architect_review/WC08 | architect_review | 1 | historical | no | yes |
 | champcity-ai/phase-03/architect_review/WC08-REPAIR02 | architect_review | 2 | historical | no | yes |
 | champcity-ai/phase-03/architect_review/WC08-REPAIR06 | architect_review | 1 | historical | no | yes |
+| champcity-ai/phase-03/architect_review/WC09 | architect_review | 2 | active | yes | yes |
 | champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG | backlog | 1 | historical | no | yes |
 | champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | implementer_report | 1 | historical | no | yes |
 | champcity-ai/phase-03/implementer_report/WC01 | implementer_report | 2 | historical | no | yes |
@@ -185,7 +189,8 @@ Entries: 113
 | champcity-ai/phase-03/implementer_report/WC08-REPAIR05 | implementer_report | 2 | historical | no | yes |
 | champcity-ai/phase-03/implementer_report/WC08-REPAIR06 | implementer_report | 2 | historical | no | yes |
 | champcity-ai/phase-03/implementer_report/WC09 | implementer_report | 4 | active | yes | yes |
-| champcity-ai/phase-03/migration_manifest/WC09 | migration_manifest | 12 | active | yes | yes |
+| champcity-ai/phase-03/implementer_report/WC09-REPAIR01 | implementer_report | 1 | active | yes | yes |
+| champcity-ai/phase-03/migration_manifest/WC09 | migration_manifest | 16 | active | yes | yes |
 | champcity-ai/phase-03/observation_register/Observation_Register | observation_register | 1 | active | yes | yes |
 | champcity-ai/phase-03/phase_planning/Phase_Planning | phase_planning | 2 | active | yes | yes |
 | champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents | phase_planning | 2 | superseded | no | yes |
@@ -229,6 +234,7 @@ Entries: 113
 | champcity-ai/phase-03/work_card/WC08-REPAIR05 | work_card | 2 | historical | no | yes |
 | champcity-ai/phase-03/work_card/WC08-REPAIR06 | work_card | 1 | historical | no | yes |
 | champcity-ai/phase-03/work_card/WC09 | work_card | 5 | active | yes | yes |
+| champcity-ai/phase-03/work_card/WC09-REPAIR01 | work_card | 2 | active | yes | yes |
 | champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |
 | champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |
 | champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | 2 | pending | yes | yes |
@@ -256,4 +262,4 @@ Entries: 113
 | champcity-ai/project/supporting_document/RISKS | supporting_document | 2 | active | yes | yes |
 | champcity-ai/project/supporting_document/SECURITY_POLICY | supporting_document | 1 | active | yes | yes |
 | champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | 1 | active | yes | yes |
-| champcity-ai/system/workflow_state | workflow_state | 3 | active | yes | yes |
+| champcity-ai/system/workflow_state | workflow_state | 5 | active | yes | yes |

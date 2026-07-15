@@ -19,6 +19,7 @@ import {
   isCanonicalArtifact,
   normalizeMarkdown,
   normalizeRepoPath,
+  normalizeTimestamp,
   parseCanonicalMarkdown,
   renderCanonicalPair,
   resolveInsideRoot,
@@ -147,7 +148,7 @@ export async function inventoryMigration(repositoryRoot) {
 
   for (const file of textFiles) {
     const source = await readFile(resolveInsideRoot(root, file), "utf8");
-    if (replaceLegacyText(source) !== source) {
+    if (containsLegacyRoleTerminology(source)) {
       terminologyConversionsRequired += 1;
     }
   }
@@ -369,26 +370,21 @@ export async function buildMigrationPlan(repositoryRoot) {
     existing: existingManifest,
   });
 
+  const derivedWorkflowState = deriveProductionWorkflowState(
+    drafts.map((draft) => draft.artifact),
+    existingWorkflow?.payload?.data,
+  );
   const workflowArtifact = buildSystemArtifact({
     artifactId: "champcity-ai/system/workflow_state",
     artifactType: "workflow_state",
     stem: workflowStem,
     title: "Canonical Workflow State Index",
-    contentMarkdown: renderWorkflowStateMarkdown(),
-    data: buildInitialWorkflowState(),
-    status: "active",
+    contentMarkdown: renderWorkflowStateMarkdown(derivedWorkflowState),
+    data: derivedWorkflowState,
+    status:
+      derivedWorkflowState.blockingConditions.length === 0 ? "active" : "blocked",
     phaseId: "phase-03",
-    relationships: {
-      sources: [
-        "champcity-ai/phase-03/work_card/WC08-REPAIR04",
-        "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
-      ],
-      expectedOutputs: [
-        "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
-      ],
-      supersedes: [],
-      children: [],
-    },
+    relationships: workflowArtifactRelationships(derivedWorkflowState),
     existing: existingWorkflow,
   });
 
@@ -747,9 +743,11 @@ async function buildArtifactDraft(root, group) {
   if (existingCanonical && group.markdownPath && group.jsonPath) {
     try {
       verifyCanonicalPair({ artifact: existingCanonical, markdown });
-      const convertedPayload = convertCanonicalPayloadTerminology(
-        existingCanonical.payload,
-      );
+      const convertedPayload = containsLegacyRoleTerminology(
+        stableStringify(existingCanonical.payload, 0),
+      )
+        ? convertCanonicalPayloadTerminology(existingCanonical.payload)
+        : existingCanonical.payload;
       if (
         existingCanonical.markdownPath === markdownPath &&
         existingCanonical.jsonPath === jsonPath &&
@@ -952,6 +950,12 @@ function convertCanonicalPayloadTerminology(payload) {
     contentMarkdown: replaceLegacyText(payload.contentMarkdown),
     data: sanitizePayloadData(payload.data),
   };
+}
+
+function containsLegacyRoleTerminology(value) {
+  return /(?:^|[^A-Za-z0-9])(?:Builder|BUILDER|builder)(?=$|[^A-Za-z0-9])/.test(
+    String(value),
+  );
 }
 
 const lifecycleTypeRank = new Map([
@@ -1450,126 +1454,235 @@ function buildSystemArtifact({
   });
 }
 
-function buildInitialWorkflowState() {
-  const createdAt = migrationTimestamp;
+function deriveProductionWorkflowState(artifacts, existingState) {
+  const createdAt = existingState?.createdAt ?? migrationTimestamp;
   const workflowStateArtifactId = "champcity-ai/system/workflow_state";
-  const currentActionId =
-    "architect_review_of_implementer_report_required";
-  const currentTarget =
-    "champcity-ai/phase-03/work_card/WC08-REPAIR04";
-  const currentSource =
-    "champcity-ai/phase-03/implementer_report/WC08-REPAIR04";
-  const currentOutput =
-    "champcity-ai/phase-03/architect_review/WC08-REPAIR04";
-  const bindings = migrationWorkflowBindings();
-  const templates = [
-    ["project_intake_required", "capture", "operator", "project-intake", "project_intake", "project_architect_interview_required", null, null],
-    ["project_architect_interview_required", "frame", "architect", "project-architect-interview", "architect_interview", "project_planning_required", null, null],
-    ["project_planning_required", "plan", "architect", "project-planning", "project_planning", "repository_reconciliation_required", null, null],
-    ["repository_reconciliation_required", "plan", "architect", "repository-reconciliation", "repository_reconciliation", "project_roadmap_required", null, null],
-    ["project_roadmap_required", "plan", "architect", "project-roadmap", "roadmap", "operator_project_approval_required", null, null],
-    ["operator_project_approval_required", "plan", "operator", "operator-project-approval", "project_approval", "phase_mapping_required", "project_planning_required", "project_planning_required"],
-    ["phase_mapping_required", "plan", "architect", "phase-mapping", "phase_map", "phase_intake_required", null, null],
-    ["phase_intake_required", "capture", "operator", "phase-intake", "phase_intake", "phase_architect_interview_required", null, null],
-    ["phase_architect_interview_required", "frame", "architect", "phase-architect-interview", "architect_interview", "phase_planning_required", null, null],
-    ["phase_planning_required", "plan", "architect", "phase-planning", "phase_planning", "work_card_plan_review_required", null, null],
-    ["work_card_plan_review_required", "plan", "architect", "work-card-plan-review", "work_card_plan_review", "operator_phase_approval_required", null, null],
-    ["operator_phase_approval_required", "plan", "operator", "operator-phase-approval", "phase_approval", "work_card_authoring_required", "phase_planning_required", "phase_planning_required"],
-    ["work_card_authoring_required", "plan", "architect", "work-card-authoring", "work_card", "operator_work_card_approval_required", null, null],
-    ["operator_work_card_approval_required", "build", "operator", "operator-work-card-approval", "work_card_approval", "implementer_handoff_required", "work_card_authoring_required", "work_card_authoring_required"],
-    ["implementer_handoff_required", "build", "architect", "implementer-handoff", "implementer_execution_packet", "implementer_execution_required", null, null],
-    ["implementer_execution_required", "build", "implementer", "implementer-execution", "implementer_report", currentActionId, null, null],
-    [currentActionId, "prove", "architect", "architect-review", "architect_review", "operator_validation_required", currentActionId, "architect_disposition_required"],
-    ["operator_validation_required", "prove", "operator", "operator-validation", "validation_report", "phase_closeout_required", "architect_disposition_required", "architect_disposition_required"],
-    ["architect_disposition_required", "prove", "architect", "architect-disposition", "architect_disposition", "phase_closeout_required", "repair_work_card_required", "repair_work_card_required"],
-    ["repair_work_card_required", "plan", "architect", "repair-work-card-authoring", "work_card", "operator_work_card_approval_required", null, null],
-    ["phase_closeout_required", "prove", "architect", "phase-closeout", "phase_closeout", "operator_closeout_approval_required", null, null],
-    ["operator_closeout_approval_required", "prove", "operator", "operator-closeout-approval", "phase_closeout_approval", "roadmap_update_required", "phase_closeout_required", "phase_closeout_required"],
-    ["roadmap_update_required", "prove", "application", "roadmap-update", "roadmap", "next_phase_activation_required", null, null],
-    ["next_phase_activation_required", "capture", "application", "next-phase-activation", "phase_activation", "workflow_complete", null, null],
-    ["route_review_request_required", "prove", "operator", "route-review-request", "route_review_request", null, null, null],
-    ["workflow_complete", "prove", "application", "workflow-complete", "workflow_completion", null, null, null],
-  ];
+  const authorityEligible = artifacts.filter((artifact) =>
+    ["active", "pending", "blocked"].includes(artifact.status),
+  );
+  const workCardPlanAuthorities = authorityEligible.filter(
+    (artifact) =>
+      artifact.artifactId ===
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+  );
+  const workCardPlanAuthority =
+    workCardPlanAuthorities.length === 0
+      ? "missing"
+      : workCardPlanAuthorities.length > 1
+        ? "ambiguous"
+        : "authoritative";
+  const workCardPlan = workCardPlanAuthorities[0] ?? null;
+  const approvedCandidates = parseApprovedWorkCardCandidates(
+    workCardPlan?.payload?.contentMarkdown ?? "",
+  ).map((candidate) => deriveCandidateExecutionState(candidate, artifacts));
+  const earliestUnresolved = approvedCandidates.find(
+    (candidate) => candidate.resolutionStatus === "unresolved",
+  );
+  const repairAuthority = deriveControllingRepairAuthority(
+    earliestUnresolved?.candidateId ?? null,
+    artifacts,
+  );
+  const activeWorkCard = earliestUnresolved
+    ? findWorkCardArtifact(artifacts, earliestUnresolved.candidateId, true) ??
+      findWorkCardArtifact(artifacts, earliestUnresolved.candidateId, false)
+    : null;
+  const activeRepair = repairAuthority.artifact;
+  const phaseExecution = {
+    workCardPlanArtifactId: workCardPlan?.artifactId ?? null,
+    workCardPlanAuthority,
+    approvedCandidates,
+    activeCandidateId: earliestUnresolved?.candidateId ?? null,
+    activeWorkCardArtifactId: activeWorkCard?.artifactId ?? null,
+    activeRepairArtifactId: activeRepair?.artifactId ?? null,
+    earliestUnresolvedCandidateId: earliestUnresolved?.candidateId ?? null,
+    closeoutEligibility: deriveCloseoutEligibility({
+      workCardPlan,
+      workCardPlanAuthority,
+      approvedCandidates,
+      activeRepair,
+      repairAmbiguous: repairAuthority.ambiguous,
+    }),
+  };
+  const fallbackWorkCard =
+    activeRepair ??
+    activeWorkCard ??
+    authorityEligible.find(
+      (artifact) => artifact.artifactType === "work_card" && artifact.workCardId,
+    ) ??
+    null;
+  const obligation = deriveCurrentObligation(
+    fallbackWorkCard,
+    artifacts,
+    phaseExecution,
+  );
+  const bindings = migrationWorkflowBindings({
+    currentWorkCardArtifactId: obligation.targetArtifactId,
+    currentWorkCardId: obligation.workCardId,
+    nextCandidateId: earliestUnresolved?.candidateId ?? "UNRESOLVED_CANDIDATE",
+  });
   const actionCatalog = Object.fromEntries(
-    templates.map(
+    migrationLifecycleTemplates().map(
       ([actionId, stage, role, screenId, outputType, success, failure, repair]) => {
         const binding = bindings[actionId];
         if (!binding) {
           throw new Error(`Migration workflow binding is missing for ${actionId}.`);
         }
-        const record = {
+        return [
           actionId,
-          stage,
-          role,
-          screenId,
-          targetArtifactId: binding.targetArtifactId,
-          sourceArtifactIds: [...binding.sourceArtifactIds],
-          expectedOutput: {
-            artifactId: binding.expectedOutputArtifactId,
-            artifactType: outputType,
+          {
+            actionId,
+            stage,
+            role,
+            screenId,
+            targetArtifactId: binding.targetArtifactId,
+            sourceArtifactIds: [...binding.sourceArtifactIds],
+            expectedOutput: {
+              artifactId: binding.expectedOutputArtifactId,
+              artifactType: outputType,
+            },
+            routes: { success, failure, repair },
           },
-          routes: { success, failure, repair },
-        };
-        return [actionId, record];
+        ];
       },
     ),
   );
-  const currentRecord = actionCatalog[currentActionId];
+  const currentRecord = rebindDerivedCurrentRecord(
+    actionCatalog[obligation.actionId],
+    obligation,
+  );
+  actionCatalog[obligation.actionId] = currentRecord;
+  const blockingConditions = repairAuthority.ambiguous
+    ? [
+        workflowBlocker(
+          "candidate_authority_ambiguous",
+          "Multiple active repair authorities require Architect reconciliation before execution.",
+          "architect",
+          repairAuthority.candidateArtifactIds,
+        ),
+      ]
+    : [];
+  const authoritySnapshot = {
+    currentActionId: obligation.actionId,
+    currentStage: currentRecord.stage,
+    targetArtifactId: currentRecord.targetArtifactId,
+    sourceArtifactIds: currentRecord.sourceArtifactIds,
+    expectedOutput: currentRecord.expectedOutput,
+    phaseExecution,
+    activeRepairArtifactIds: activeRepair ? [activeRepair.artifactId] : [],
+  };
+  const existingSnapshot = existingState
+    ? {
+        currentActionId: existingState.currentActionId,
+        currentStage: existingState.currentStage,
+        targetArtifactId: existingState.authoritativeTargetArtifactId,
+        sourceArtifactIds: existingState.requiredSourceArtifactIds,
+        expectedOutput: existingState.expectedOutput,
+        phaseExecution: existingState.phaseExecution,
+        activeRepairArtifactIds:
+          existingState.openRepairChain?.activeRepairArtifactIds ?? [],
+      }
+    : null;
+  const authorityUnchanged =
+    existingSnapshot &&
+    stableStringify(existingSnapshot, 0) === stableStringify(authoritySnapshot, 0);
+  const stateRevision = authorityUnchanged
+    ? existingState.stateRevision
+    : (existingState?.stateRevision ?? 0) + 1;
+  const updatedAt = authorityUnchanged
+    ? existingState.updatedAt
+    : latestArtifactTimestamp(artifacts, migrationTimestamp);
   const currentAction = {
     schemaVersion: "champcity.routed-action.v1",
     ...currentRecord,
     bindingSource: {
       kind: "workflow_state_index",
       workflowStateArtifactId,
-      stateRevision: 1,
+      stateRevision,
     },
-    authorityStatus: "ready",
-    blockers: [],
-    stateRevision: 1,
+    authorityStatus: blockingConditions.length === 0 ? "ready" : "blocked",
+    blockers: blockingConditions,
+    stateRevision,
   };
   return {
     schemaVersion: "champcity.workflow-state.v1",
     workflowStateArtifactId,
     projectId: "champcity-ai",
-    stateRevision: 1,
+    stateRevision,
     createdAt,
-    updatedAt: createdAt,
-    currentStage: "prove",
+    updatedAt,
+    currentStage: currentRecord.stage,
     activePhaseId: "phase-03",
-    currentActionId,
-    responsibleRole: "architect",
-    authoritativeTargetArtifactId: currentTarget,
-    requiredSourceArtifactIds: [currentSource],
-    expectedOutput: { artifactId: currentOutput, artifactType: "architect_review" },
+    currentActionId: currentRecord.actionId,
+    responsibleRole: currentRecord.role,
+    authoritativeTargetArtifactId: currentRecord.targetArtifactId,
+    requiredSourceArtifactIds: [...currentRecord.sourceArtifactIds],
+    expectedOutput: { ...currentRecord.expectedOutput },
     routes: { ...currentRecord.routes },
-    blockingConditions: [],
+    blockingConditions,
     currentAction,
-    stageStates: {
-      capture: { stage: "capture", progress: "complete", startedAt: createdAt, completedAt: createdAt },
-      frame: { stage: "frame", progress: "complete", startedAt: createdAt, completedAt: createdAt },
-      plan: { stage: "plan", progress: "complete", startedAt: createdAt, completedAt: createdAt },
-      build: { stage: "build", progress: "complete", startedAt: createdAt, completedAt: createdAt },
-      prove: { stage: "prove", progress: "active", startedAt: createdAt, completedAt: null },
-    },
+    stageStates: deriveStageStates(currentRecord.stage, createdAt, updatedAt),
     actionCatalog,
+    phaseExecution,
     openRepairChain: {
-      status: "open",
-      rootWorkCardArtifactId: "champcity-ai/phase-03/work_card/WC08",
-      activeRepairArtifactIds: [
-        "champcity-ai/phase-03/work_card/WC08-REPAIR04",
-        "champcity-ai/phase-03/work_card/WC08-REPAIR05",
-        "champcity-ai/phase-03/work_card/WC08-REPAIR06",
-      ],
-      latestDispositionArtifactId: null,
+      status: activeRepair ? "open" : "none",
+      rootWorkCardArtifactId: activeRepair?.parentArtifactId ?? null,
+      activeRepairArtifactIds: activeRepair ? [activeRepair.artifactId] : [],
+      latestDispositionArtifactId:
+        activeRepair?.relationships?.sources?.find((artifactId) =>
+          artifactId.includes("/architect_disposition/"),
+        ) ?? null,
     },
-    closeout: { status: "blocked", closeoutArtifactId: null, approvalArtifactId: null },
+    closeout: {
+      status: phaseExecution.closeoutEligibility.eligible
+        ? "not_started"
+        : "blocked",
+      closeoutArtifactId: null,
+      approvalArtifactId: null,
+    },
     roadmap: { status: "blocked", roadmapArtifactId: null },
-    nextPhase: { status: "blocked", phaseId: null, activationArtifactId: null },
-    transitionHistory: [],
+    nextPhase: {
+      status: "blocked",
+      phaseId: null,
+      activationArtifactId: null,
+    },
+    transitionHistory: authorityUnchanged
+      ? structuredClone(existingState.transitionHistory ?? [])
+      : structuredClone(existingState?.transitionHistory ?? []),
   };
 }
 
-function migrationWorkflowBindings() {
+function migrationLifecycleTemplates() {
+  return [
+    ["project_intake_required", "capture", "operator", "project-intake", "project_intake", "project_architect_interview_required", null, null],
+    ["project_architect_interview_required", "frame", "architect", "project-architect-interview", "architect_interview", "project_planning_required", null, null],
+    ["project_planning_required", "plan", "architect", "project-planning", "project_planning", "repository_reconciliation_required", null, null],
+    ["repository_reconciliation_required", "plan", "architect", "repository-reconciliation", "repository_reconciliation", "project_roadmap_required", null, null],
+    ["project_roadmap_required", "plan", "architect", "project-roadmap", "roadmap", "operator_project_approval_required", null, null],
+    ["operator_project_approval_required", "plan", "operator", "operator-project-approval", "project_approval", "phase_mapping_required", "project_planning_required", "project_planning_required"],
+    ["phase_mapping_required", "plan", "architect", "phase-mapping", "phase_map", "operator_phase_approval_required", null, null],
+    ["operator_phase_approval_required", "plan", "operator", "operator-phase-approval", "phase_approval", "work_card_authoring_required", "phase_mapping_required", "phase_mapping_required"],
+    ["work_card_authoring_required", "plan", "architect", "work-card-authoring", "work_card", "operator_work_card_approval_required", null, null],
+    ["operator_work_card_approval_required", "build", "operator", "operator-work-card-approval", "work_card_approval", "implementer_handoff_required", "work_card_authoring_required", "work_card_authoring_required"],
+    ["implementer_handoff_required", "build", "architect", "implementer-handoff", "implementer_execution_packet", "implementer_execution_required", null, null],
+    ["implementer_execution_required", "build", "implementer", "implementer-execution", "implementer_report", "architect_review_of_implementer_report_required", null, null],
+    ["architect_review_of_implementer_report_required", "prove", "architect", "architect-review", "architect_review", "operator_validation_required", "architect_review_of_implementer_report_required", "architect_disposition_required"],
+    ["operator_validation_required", "prove", "operator", "operator-validation", "validation_report", "work_card_authoring_required", "architect_disposition_required", "architect_disposition_required"],
+    ["architect_disposition_required", "prove", "architect", "architect-disposition", "architect_disposition", "operator_validation_required", "repair_work_card_required", "repair_work_card_required"],
+    ["repair_work_card_required", "plan", "architect", "repair-work-card-authoring", "work_card", "operator_work_card_approval_required", null, null],
+    ["phase_closeout_required", "prove", "architect", "phase-closeout", "phase_closeout", "operator_closeout_approval_required", null, null],
+    ["operator_closeout_approval_required", "prove", "operator", "operator-closeout-approval", "phase_closeout_approval", "roadmap_update_required", "phase_closeout_required", "phase_closeout_required"],
+    ["roadmap_update_required", "prove", "architect", "roadmap-update", "roadmap", "next_phase_activation_required", null, null],
+    ["next_phase_activation_required", "capture", "operator", "next-phase-activation", "phase_activation", "workflow_complete", null, null],
+    ["route_review_request_required", "prove", "operator", "route-review-request", "route_review_request", null, null, null],
+    ["workflow_complete", "prove", "application", "workflow-complete", "workflow_completion", null, null, null],
+  ];
+}
+
+function migrationWorkflowBindings({
+  currentWorkCardArtifactId,
+  currentWorkCardId,
+  nextCandidateId,
+}) {
   const projectIntake = "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i";
   const projectInterview =
     "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i";
@@ -1581,29 +1694,28 @@ function migrationWorkflowBindings() {
   const projectApproval =
     "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING";
   const phaseMap = "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i";
-  const phaseIntake = "champcity-ai/phase-03/phase_intake/PHASE_INTAKE";
   const phaseInterview = "champcity-ai/phase-03/architect_interview/Phase_Interview";
   const phasePlanning = "champcity-ai/phase-03/phase_planning/Phase_Planning";
   const workCardPlan = "champcity-ai/phase-03/work_card_plan/Work_Card_Plan";
-  const workCardPlanReview =
-    "champcity-ai/phase-03/work_card_plan_review/Work_Card_Plan";
   const phaseApproval = "champcity-ai/phase-03/approval/Operator_Phase_Approval";
-  const workCard = "champcity-ai/phase-03/work_card/WC08-REPAIR04";
+  const workCard = currentWorkCardArtifactId ??
+    `champcity-ai/phase-03/work_card/${nextCandidateId}`;
+  const workCardId = currentWorkCardId ?? nextCandidateId;
   const workCardApproval =
-    "champcity-ai/phase-03/work_card_approval/WC08-REPAIR04";
+    `champcity-ai/phase-03/work_card_approval/${workCardId}`;
   const handoff =
-    "champcity-ai/phase-03/implementer_execution_packet/WC08-REPAIR04";
-  const report = "champcity-ai/phase-03/implementer_report/WC08-REPAIR04";
-  const review = "champcity-ai/phase-03/architect_review/WC08-REPAIR04";
-  const validation = "champcity-ai/phase-03/validation_report/WC08-REPAIR04";
+    `champcity-ai/phase-03/implementer_execution_packet/${workCardId}`;
+  const report = `champcity-ai/phase-03/implementer_report/${workCardId}`;
+  const review = `champcity-ai/phase-03/architect_review/${workCardId}`;
+  const validation = `champcity-ai/phase-03/validation_report/${workCardId}`;
   const disposition =
-    "champcity-ai/phase-03/architect_disposition/WC08-REPAIR04";
+    `champcity-ai/phase-03/architect_disposition/${workCardId}`;
   const closeout = "champcity-ai/phase-03/phase_closeout/phase-03";
   const closeoutApproval =
     "champcity-ai/phase-03/phase_closeout_approval/phase-03";
   const phaseActivation = "champcity-ai/phase-04/phase_activation/phase-04";
   const routeReview =
-    "champcity-ai/phase-03/route_review_request/WC08-REPAIR04";
+    `champcity-ai/phase-03/route_review_request/${workCardId}`;
   const workflowCompletion =
     "champcity-ai/project/workflow_completion/champcity-ai";
   const binding = (targetArtifactId, sourceArtifactIds, expectedOutputArtifactId) => ({
@@ -1619,15 +1731,11 @@ function migrationWorkflowBindings() {
     project_roadmap_required: binding(reconciliation, [reconciliation], roadmap),
     operator_project_approval_required: binding(roadmap, [projectPlanning, reconciliation, roadmap], projectApproval),
     phase_mapping_required: binding(projectApproval, [projectApproval, roadmap], phaseMap),
-    phase_intake_required: binding(phaseMap, [phaseMap], phaseIntake),
-    phase_architect_interview_required: binding(phaseIntake, [phaseIntake], phaseInterview),
-    phase_planning_required: binding(phaseInterview, [phaseInterview], phasePlanning),
-    work_card_plan_review_required: binding(phasePlanning, [phasePlanning, workCardPlan], workCardPlanReview),
-    operator_phase_approval_required: binding(workCardPlanReview, [phasePlanning, workCardPlanReview], phaseApproval),
-    work_card_authoring_required: binding(phaseApproval, [phaseApproval, workCardPlan], workCard),
+    operator_phase_approval_required: binding(phaseMap, [phaseMap, phasePlanning, workCardPlan, phaseInterview], phaseApproval),
+    work_card_authoring_required: binding(workCardPlan, [phaseApproval, workCardPlan], `champcity-ai/phase-03/work_card/${nextCandidateId}`),
     operator_work_card_approval_required: binding(workCard, [workCard], workCardApproval),
     implementer_handoff_required: binding(workCard, [workCard, workCardApproval], handoff),
-    implementer_execution_required: binding(workCard, [handoff], report),
+    implementer_execution_required: binding(workCard, [workCard], report),
     architect_review_of_implementer_report_required: binding(workCard, [report], review),
     operator_validation_required: binding(workCard, [review], validation),
     architect_disposition_required: binding(workCard, [validation], disposition),
@@ -1638,6 +1746,351 @@ function migrationWorkflowBindings() {
     next_phase_activation_required: binding(roadmap, [roadmap], phaseActivation),
     route_review_request_required: binding(workCard, [workCard, report], routeReview),
     workflow_complete: binding(phaseActivation, [phaseActivation], workflowCompletion),
+  };
+}
+
+function parseApprovedWorkCardCandidates(markdown) {
+  const candidates = [];
+  const pattern = /^###\s+(WC\d+)\s+[—-]\s+(.+?)\r?\n([\s\S]*?)(?=^###\s+WC\d+\s+[—-]|(?![\s\S]))/gmu;
+  for (const match of String(markdown ?? "").matchAll(pattern)) {
+    const order = Number(match[3].match(/^Order:\s*(\d+)\s*$/mu)?.[1]);
+    if (!Number.isInteger(order) || order < 1) continue;
+    candidates.push({
+      candidateId: match[1].toUpperCase(),
+      order,
+      title: match[2].trim(),
+    });
+  }
+  return candidates.sort(
+    (left, right) =>
+      left.order - right.order || left.candidateId.localeCompare(right.candidateId),
+  );
+}
+
+function deriveCandidateExecutionState(candidate, artifacts) {
+  const workCard =
+    findWorkCardArtifact(artifacts, candidate.candidateId, true) ??
+    findWorkCardArtifact(artifacts, candidate.candidateId, false);
+  const passingValidation = artifacts.filter(
+    (artifact) =>
+      artifact.artifactType === "validation_report" &&
+      (artifact.workCardId === candidate.candidateId ||
+        artifact.workCardId?.startsWith(`${candidate.candidateId}-REPAIR`)) &&
+      hasExplicitPassingValidation(artifact),
+  );
+  const completedViaRepair = passingValidation.some(
+    (artifact) => artifact.workCardId !== candidate.candidateId,
+  );
+  const resolutionStatus =
+    passingValidation.length === 0
+      ? "unresolved"
+      : completedViaRepair
+        ? "completed_via_repair"
+        : "completed";
+  return {
+    ...candidate,
+    fullWorkCardArtifactId: workCard?.artifactId ?? null,
+    fullWorkCardStatus:
+      resolutionStatus !== "unresolved"
+        ? "resolved"
+        : workCard
+          ? ["active", "pending", "blocked"].includes(workCard.status)
+            ? "active"
+            : "available"
+          : "missing",
+    resolutionStatus,
+    resolutionEvidenceArtifactIds: passingValidation
+      .map((artifact) => artifact.artifactId)
+      .sort(),
+  };
+}
+
+function hasExplicitPassingValidation(artifact) {
+  const data = artifact?.payload?.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  return [
+    data.validationResult,
+    data.status,
+    data.decision,
+    data.operatorDecision,
+    data.result,
+    data.outcome,
+  ].some((value) => /^(?:pass|passed)(?:\s*-\s*proceed)?$/iu.test(String(value ?? "").trim()));
+}
+
+function findWorkCardArtifact(artifacts, workCardId, authorityOnly) {
+  return artifacts.find(
+    (artifact) => {
+      const logicalId = artifact.artifactId?.split("/").slice(3).join("/");
+      return (
+        artifact.artifactType === "work_card" &&
+        (artifact.workCardId === workCardId ||
+          logicalId === workCardId ||
+          logicalId?.startsWith(`${workCardId}_`)) &&
+        (!authorityOnly || ["active", "pending", "blocked"].includes(artifact.status))
+      );
+    },
+  );
+}
+
+function deriveControllingRepairAuthority(candidateId, artifacts) {
+  if (!candidateId) {
+    return { artifact: null, ambiguous: false, candidateArtifactIds: [] };
+  }
+  const candidates = artifacts.filter(
+    (artifact) =>
+      artifact.artifactType === "work_card" &&
+      artifact.workCardId?.startsWith(`${candidateId}-REPAIR`) &&
+      ["active", "pending", "blocked"].includes(artifact.status),
+  );
+  const candidateIds = new Set(candidates.map((artifact) => artifact.artifactId));
+  const explicitlyRequiredIds = new Set();
+  for (const review of artifacts.filter(
+    (artifact) =>
+      artifact.artifactType === "architect_review" &&
+      artifact.workCardId === candidateId &&
+      ["active", "pending", "blocked"].includes(artifact.status),
+  )) {
+    const requiredRepairWorkCardId = review.payload?.data?.requiredRepairWorkCardId;
+    const requiredArtifactId = candidates.find(
+      (artifact) => artifact.workCardId === requiredRepairWorkCardId,
+    )?.artifactId;
+    if (requiredArtifactId) explicitlyRequiredIds.add(requiredArtifactId);
+    for (const artifactId of [
+      ...(review.relationships?.expectedOutputs ?? []),
+      ...(review.relationships?.children ?? []),
+    ]) {
+      if (candidateIds.has(artifactId)) explicitlyRequiredIds.add(artifactId);
+    }
+  }
+  const explicit = candidates.filter((artifact) =>
+    explicitlyRequiredIds.has(artifact.artifactId),
+  );
+  if (explicit.length === 1) {
+    return {
+      artifact: explicit[0],
+      ambiguous: false,
+      candidateArtifactIds: candidates.map((artifact) => artifact.artifactId).sort(),
+    };
+  }
+  if (explicit.length > 1 || (explicit.length === 0 && candidates.length > 1)) {
+    return {
+      artifact: null,
+      ambiguous: true,
+      candidateArtifactIds: candidates.map((artifact) => artifact.artifactId).sort(),
+    };
+  }
+  return {
+    artifact: candidates[0] ?? null,
+    ambiguous: false,
+    candidateArtifactIds: candidates.map((artifact) => artifact.artifactId).sort(),
+  };
+}
+
+function deriveCloseoutEligibility({
+  workCardPlan,
+  workCardPlanAuthority,
+  approvedCandidates,
+  activeRepair,
+  repairAmbiguous,
+}) {
+  const blockers = [];
+  if (!workCardPlan || workCardPlanAuthority === "missing") {
+    blockers.push(
+      workflowBlocker(
+        "work_card_plan_missing",
+        "Phase Closeout requires an authoritative approved Work Card Plan.",
+        "architect",
+        [],
+      ),
+    );
+  } else if (workCardPlanAuthority === "ambiguous") {
+    blockers.push(
+      workflowBlocker(
+        "candidate_authority_ambiguous",
+        "Work Card Plan authority is ambiguous and requires Architect reconciliation.",
+        "architect",
+        [workCardPlan.artifactId],
+      ),
+    );
+  }
+  if (approvedCandidates.length === 0) {
+    blockers.push(
+      workflowBlocker(
+        "candidate_authority_ambiguous",
+        "The approved Work Card Plan contains no ordered candidate authority.",
+        "architect",
+        workCardPlan ? [workCardPlan.artifactId] : [],
+      ),
+    );
+  }
+  for (const candidate of approvedCandidates.filter(
+    (item) => item.resolutionStatus === "unresolved",
+  )) {
+    blockers.push(
+      workflowBlocker(
+        "candidate_unresolved",
+        `Work Card candidate ${candidate.candidateId} requires explicit resolution evidence before Phase Closeout.`,
+        candidate.fullWorkCardStatus === "active" ? "implementer" : "architect",
+        candidate.fullWorkCardArtifactId ? [candidate.fullWorkCardArtifactId] : [],
+      ),
+    );
+  }
+  if (activeRepair) {
+    blockers.push(
+      workflowBlocker(
+        "active_repair_unresolved",
+        "The controlling repair obligation must be resolved before Phase Closeout.",
+        "implementer",
+        [activeRepair.artifactId],
+      ),
+    );
+  }
+  if (repairAmbiguous) {
+    blockers.push(
+      workflowBlocker(
+        "candidate_authority_ambiguous",
+        "Active repair authority is ambiguous and requires Architect reconciliation.",
+        "architect",
+        [],
+      ),
+    );
+  }
+  return { eligible: blockers.length === 0, blockers };
+}
+
+function deriveCurrentObligation(targetWorkCard, artifacts, phaseExecution) {
+  if (!targetWorkCard) {
+    const candidateId = phaseExecution.earliestUnresolvedCandidateId;
+    return {
+      actionId: candidateId ? "work_card_authoring_required" : "phase_closeout_required",
+      targetArtifactId: phaseExecution.workCardPlanArtifactId,
+      sourceArtifactIds: phaseExecution.workCardPlanArtifactId
+        ? [phaseExecution.workCardPlanArtifactId]
+        : [],
+      expectedOutput: {
+        artifactId: candidateId
+          ? `champcity-ai/phase-03/work_card/${candidateId}`
+          : "champcity-ai/phase-03/phase_closeout/phase-03",
+        artifactType: candidateId ? "work_card" : "phase_closeout",
+      },
+      workCardId: candidateId,
+    };
+  }
+  const workCardId = targetWorkCard.workCardId;
+  const targetArtifactId = targetWorkCard.artifactId;
+  const findAuthority = (artifactType) =>
+    artifacts.find(
+      (artifact) =>
+        artifact.artifactType === artifactType &&
+        artifact.workCardId === workCardId &&
+        ["active", "pending", "blocked"].includes(artifact.status),
+    );
+  const report = findAuthority("implementer_report");
+  if (!report) {
+    return {
+      actionId: "implementer_execution_required",
+      targetArtifactId,
+      sourceArtifactIds: [targetArtifactId],
+      expectedOutput: {
+        artifactId: `champcity-ai/phase-03/implementer_report/${workCardId}`,
+        artifactType: "implementer_report",
+      },
+      workCardId,
+    };
+  }
+  const review = findAuthority("architect_review");
+  if (!review) {
+    return {
+      actionId: "architect_review_of_implementer_report_required",
+      targetArtifactId,
+      sourceArtifactIds: [report.artifactId],
+      expectedOutput: {
+        artifactId: `champcity-ai/phase-03/architect_review/${workCardId}`,
+        artifactType: "architect_review",
+      },
+      workCardId,
+    };
+  }
+  const validation = findAuthority("validation_report");
+  return {
+    actionId: "operator_validation_required",
+    targetArtifactId,
+    sourceArtifactIds: [review.artifactId],
+    expectedOutput: {
+      artifactId:
+        validation?.artifactId ??
+        `champcity-ai/phase-03/validation_report/${workCardId}`,
+      artifactType: "validation_report",
+    },
+    workCardId,
+  };
+}
+
+function rebindDerivedCurrentRecord(record, obligation) {
+  if (!record) {
+    throw new Error(`Derived workflow action ${obligation.actionId} is not in the catalog.`);
+  }
+  return {
+    ...record,
+    targetArtifactId: obligation.targetArtifactId,
+    sourceArtifactIds: [...obligation.sourceArtifactIds],
+    expectedOutput: { ...obligation.expectedOutput },
+    routes: { ...record.routes },
+  };
+}
+
+function deriveStageStates(currentStage, createdAt, updatedAt) {
+  const stages = ["capture", "frame", "plan", "build", "prove"];
+  const currentIndex = stages.indexOf(currentStage);
+  return Object.fromEntries(
+    stages.map((stage, index) => [
+      stage,
+      {
+        stage,
+        progress:
+          index < currentIndex
+            ? "complete"
+            : index === currentIndex
+              ? "active"
+              : "not_started",
+        startedAt: index <= currentIndex ? createdAt : null,
+        completedAt: index < currentIndex ? updatedAt : null,
+      },
+    ]),
+  );
+}
+
+function latestArtifactTimestamp(artifacts, fallback) {
+  return artifacts.reduce((latest, artifact) => {
+    const timestamp = normalizeTimestamp(artifact.updatedAt, fallback);
+    return Date.parse(timestamp) > Date.parse(latest) ? timestamp : latest;
+  }, fallback);
+}
+
+function workflowBlocker(code, message, ownerRole, artifactIds) {
+  return {
+    code,
+    message,
+    ownerRole,
+    artifactIds: [...new Set(artifactIds)].sort(),
+    blocking: true,
+  };
+}
+
+function workflowArtifactRelationships(state) {
+  return {
+    sources: [
+      state.authoritativeTargetArtifactId,
+      ...state.requiredSourceArtifactIds,
+      state.phaseExecution.workCardPlanArtifactId,
+    ]
+      .filter(Boolean)
+      .filter((artifactId, index, values) => values.indexOf(artifactId) === index)
+      .sort(),
+    expectedOutputs: state.expectedOutput ? [state.expectedOutput.artifactId] : [],
+    supersedes: [],
+    children: [],
   };
 }
 
@@ -1808,8 +2261,7 @@ function renderMigrationManifestMarkdown(data) {
   ].join("\n");
 }
 
-function renderWorkflowStateMarkdown() {
-  const state = buildInitialWorkflowState();
+function renderWorkflowStateMarkdown(state) {
   return [
     "# Canonical Workflow State Index",
     "",
@@ -1822,6 +2274,10 @@ function renderWorkflowStateMarkdown() {
     `- Required sources: ${state.requiredSourceArtifactIds.join(", ")}`,
     `- Expected output: ${state.expectedOutput.artifactId}`,
     `- Success route: ${state.routes.success}`,
+    `- Approved Work Card candidates: ${state.phaseExecution.approvedCandidates.length}`,
+    `- Earliest unresolved candidate: ${state.phaseExecution.earliestUnresolvedCandidateId ?? "none"}`,
+    `- Active repair: ${state.phaseExecution.activeRepairArtifactId ?? "none"}`,
+    `- Closeout eligible: ${state.phaseExecution.closeoutEligibility.eligible ? "yes" : "no"}`,
     `- Blocking conditions: ${state.blockingConditions.map((item) => item.message).join("; ") || "none"}`,
     "",
     "Reference navigation is excluded from routed authority.",

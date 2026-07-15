@@ -28,6 +28,7 @@ const expectedOutputPath =
 let latestPreviewPayload;
 let latestSavePayload;
 let workflowAdvanced = false;
+let productionProjection = true;
 
 app.disableHardwareAcceleration();
 
@@ -44,6 +45,17 @@ app.setPath("logs", path.join(runtimeRoot, "logs"));
 app.setPath("crashDumps", path.join(runtimeRoot, "crash-dumps"));
 
 const workCards = [
+  {
+    fileName:
+      "WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+    workCardId: "WC09-REPAIR01",
+    title: "Canonical Lifecycle Alignment and Multi-Work-Card Loop Completion",
+    status: "ready_for_implementer",
+    phase,
+    riskLevel: "high",
+    parentWorkCardId: "WC09",
+    kind: "repair",
+  },
   {
     fileName: targetWorkCardFileName,
     workCardId: targetId,
@@ -165,6 +177,69 @@ const operatorValidationAction = {
   },
 };
 
+const productionCurrentAction = {
+  id: "implementer_execution_required",
+  workflowStep: "Work Card Loop",
+  title: "Execute WC09-REPAIR01 and create the Implementer Report",
+  summary: "The canonical active repair is the current implementation obligation.",
+  responsibleRole: "implementer",
+  phaseId: phase,
+  phaseTitle: "Workflow Router Screen Correction",
+  workCardId: "WC09-REPAIR01",
+  workCardTitle: "Canonical Lifecycle Alignment and Multi-Work-Card Loop Completion",
+  status: "implementer_active",
+  reason: "The synchronized Architect Review requires this controlling repair.",
+  sourceArtifacts: [
+    {
+      path:
+        "planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+      role: "Controlling repair Work Card",
+      exists: true,
+    },
+  ],
+  missingArtifacts: [],
+  expectedOutput: {
+    path:
+      "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+    artifactType: "Implementer Report",
+    description: "Implementation evidence for the controlling repair.",
+  },
+  successRoute: "Architect Review",
+  manualFallback: {
+    available: true,
+    instructions: "Create the exact routed Implementer Report pair.",
+    artifactPath:
+      "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+  },
+  warnings: [],
+  routedAction: {
+    schemaVersion: "champcity.routed-action.v1",
+    actionId: "implementer_execution_required",
+    stage: "build",
+    role: "implementer",
+    screenId: "implementer-execution",
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC09-REPAIR01",
+    sourceArtifactIds: ["champcity-ai/phase-03/work_card/WC09-REPAIR01"],
+    expectedOutput: {
+      artifactId: "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+      artifactType: "implementer_report",
+    },
+    routes: {
+      success: "architect_review_of_implementer_report_required",
+      failure: "implementer_execution_required",
+      repair: "architect_disposition_required",
+    },
+    bindingSource: {
+      kind: "workflow_state_index",
+      workflowStateArtifactId: "champcity-ai/system/workflow_state",
+      stateRevision: 2,
+    },
+    authorityStatus: "ready",
+    blockers: [],
+    stateRevision: 2,
+  },
+};
+
 function architectReviewResult(input) {
   return {
     ok: true,
@@ -209,7 +284,11 @@ function registerIpcHandlers() {
         await new Promise((resolve) => setTimeout(resolve, 250));
         return {
           ok: true,
-          currentAction: workflowAdvanced ? operatorValidationAction : currentAction,
+          currentAction: productionProjection
+            ? productionCurrentAction
+            : workflowAdvanced
+              ? operatorValidationAction
+              : currentAction,
           workflowSteps: [],
         };
       },
@@ -341,7 +420,7 @@ function assertRoutedPayload(payload, label) {
 async function run() {
   registerIpcHandlers();
 
-  const window = new BrowserWindow({
+  const createWindow = () => new BrowserWindow({
     show: false,
     width: 1280,
     height: 900,
@@ -351,6 +430,18 @@ async function run() {
       preload: path.join(__dirname, "..", "dist", "preload", "index.js"),
     },
   });
+
+  const productionWindow = createWindow();
+  await productionWindow.loadFile(
+    path.join(__dirname, "..", "dist", "renderer", "index.html"),
+  );
+  await waitFor(
+    productionWindow,
+    `document.body.innerText.includes("WC09-REPAIR01") && document.body.innerText.includes("Implementer Report Capture") && document.body.innerText.includes("Implementer")`,
+    "derived WC09-REPAIR01 Implementer workspace",
+  );
+  productionProjection = false;
+  const window = createWindow();
 
   await window.loadFile(
     path.join(__dirname, "..", "dist", "renderer", "index.html"),
@@ -454,8 +545,9 @@ async function run() {
   assertRoutedPayload(latestSavePayload, "Save payload after state updates");
 
   window.destroy();
+  productionWindow.destroy();
   console.log(
-    "WC09 mounted renderer fixture passed: WC08-REPAIR05 reference context could not retarget WC08-REPAIR04, save succeeded, and the workspace advanced to Operator Validation.",
+    "WC09 mounted renderer fixture passed: the derived WC09-REPAIR01 Implementer workspace mounted, WC08-REPAIR05 reference context could not retarget the WC08-REPAIR04 regression fixture, save succeeded, and the fixture advanced to Operator Validation.",
   );
 }
 
@@ -463,6 +555,6 @@ app.whenReady().then(run).then(
   () => app.exit(0),
   (error) => {
     console.error(error);
-    process.exit(1);
+    app.exit(1);
   },
 );

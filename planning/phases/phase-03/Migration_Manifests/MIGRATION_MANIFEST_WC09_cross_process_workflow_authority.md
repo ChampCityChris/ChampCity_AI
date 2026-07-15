@@ -9,7 +9,7 @@
     "kind": "migration_manifest",
     "title": "WC09 Canonical Artifact Migration Manifest"
   },
-  "payloadHash": "sha256:f744b053c680bd810139b0d803fa35f18a93ef2db0325a32a709d61fb358cff3",
+  "payloadHash": "sha256:8890b37c345691d97a0aeb089c5860046a0e76fd439b9a8c812d878d0ad68d51",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -35,6 +35,7 @@
       "champcity-ai/phase-03/architect_review/WC08",
       "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
       "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+      "champcity-ai/phase-03/architect_review/WC09",
       "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
       "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
       "champcity-ai/phase-03/implementer_report/WC01",
@@ -57,6 +58,7 @@
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
       "champcity-ai/phase-03/implementer_report/WC09",
+      "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
       "champcity-ai/phase-03/observation_register/Observation_Register",
       "champcity-ai/phase-03/phase_planning/Phase_Planning",
       "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
@@ -100,6 +102,7 @@
       "champcity-ai/phase-03/work_card/WC08-REPAIR05",
       "champcity-ai/phase-03/work_card/WC08-REPAIR06",
       "champcity-ai/phase-03/work_card/WC09",
+      "champcity-ai/phase-03/work_card/WC09-REPAIR01",
       "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
       "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
@@ -130,7 +133,7 @@
     ],
     "supersedes": []
   },
-  "revision": 12,
+  "revision": 16,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-14T00:00:00.000Z"
@@ -140,9 +143,9 @@
 # WC09 Canonical Artifact Migration Manifest
 
 - Generated: 2026-07-14T00:00:00.000Z
-- Source artifacts inventoried: 222
-- Canonical pairs before migration: 111
-- Entries: 127
+- Source artifacts inventoried: 228
+- Canonical pairs before migration: 114
+- Entries: 130
 - Durable archive operations: 16
 - Unresolved blockers: 0
 
@@ -472,6 +475,22 @@
 - Revision: 1
 - Status: historical
 - Authority decision: Existing canonical authority retained.
+- Rename: no
+- Archive disposition: Canonicalized or explicitly archived by a curated rule.
+- Archive path(s): none
+- Provenance source: preserved_prior_manifest
+- Unresolved blocker: none
+
+### champcity-ai/phase-03/architect_review/WC09
+
+- Original path: planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json | planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md
+- Original schema/type: champcity.artifact.v1
+- Original terminology: implementer
+- Canonical Markdown: planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md
+- Canonical JSON: planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json
+- Revision: 2
+- Status: active
+- Authority decision: One source stem mapped to one canonical artifact identity.
 - Rename: no
 - Archive disposition: Canonicalized or explicitly archived by a curated rule.
 - Archive path(s): none
@@ -872,6 +891,22 @@
 - Revision: 4
 - Status: active
 - Authority decision: Existing canonical authority retained.
+- Rename: no
+- Archive disposition: Canonicalized or explicitly archived by a curated rule.
+- Archive path(s): none
+- Provenance source: preserved_prior_manifest
+- Unresolved blocker: none
+
+### champcity-ai/phase-03/implementer_report/WC09-REPAIR01
+
+- Original path: planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md
+- Original schema/type: markdown_or_unversioned_json
+- Original terminology: implementer
+- Canonical Markdown: planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md
+- Canonical JSON: planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json
+- Revision: 1
+- Status: active
+- Authority decision: One source stem mapped to one canonical artifact identity.
 - Rename: no
 - Archive disposition: Canonicalized or explicitly archived by a curated rule.
 - Archive path(s): none
@@ -1750,6 +1785,22 @@
 - Canonical Markdown: planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md
 - Canonical JSON: planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json
 - Revision: 5
+- Status: active
+- Authority decision: Existing canonical authority retained.
+- Rename: no
+- Archive disposition: Canonicalized or explicitly archived by a curated rule.
+- Archive path(s): none
+- Provenance source: preserved_prior_manifest
+- Unresolved blocker: none
+
+### champcity-ai/phase-03/work_card/WC09-REPAIR01
+
+- Original path: planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json | planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md
+- Original schema/type: champcity.artifact.v1
+- Original terminology: canonical
+- Canonical Markdown: planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md
+- Canonical JSON: planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json
+- Revision: 2
 - Status: active
 - Authority decision: Existing canonical authority retained.
 - Rename: no

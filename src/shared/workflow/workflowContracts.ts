@@ -6,6 +6,23 @@ export const REFERENCE_NAVIGATION_SCHEMA_VERSION =
 export const workflowStages = ["capture", "frame", "plan", "build", "prove"] as const;
 export type WorkflowStage = (typeof workflowStages)[number];
 
+export const canonicalWorkflowSpine = [
+  "project_intake",
+  "project_interview",
+  "reconciliation_review",
+  "project_mapping",
+  "operator_project_approval",
+  "phase_mapping",
+  "operator_phase_approval",
+  "work_card_loop",
+  "phase_closeout",
+  "operator_phase_closeout_approval",
+  "roadmap_update",
+  "next_phase_activation",
+  "repeat_phase_mapping_and_work_card_loop",
+] as const;
+export type CanonicalWorkflowSpineStep = (typeof canonicalWorkflowSpine)[number];
+
 export const workflowRoles = ["operator", "architect", "implementer", "application"] as const;
 export type WorkflowRole = (typeof workflowRoles)[number];
 
@@ -60,7 +77,12 @@ export type WorkflowBlockerCode =
   | "transition_evidence_missing"
   | "unsupported_transition"
   | "partial_write"
-  | "manual_intervention_required";
+  | "manual_intervention_required"
+  | "work_card_plan_missing"
+  | "work_card_plan_unsynchronized"
+  | "candidate_authority_ambiguous"
+  | "candidate_unresolved"
+  | "active_repair_unresolved";
 
 export interface WorkflowBlocker {
   code: WorkflowBlockerCode;
@@ -119,6 +141,63 @@ export interface OpenRepairChainState {
   latestDispositionArtifactId: string | null;
 }
 
+export const candidateResolutionStatuses = [
+  "unresolved",
+  "completed",
+  "completed_via_repair",
+  "carried_forward",
+  "deferred",
+  "cancelled",
+] as const;
+export type CandidateResolutionStatus =
+  (typeof candidateResolutionStatuses)[number];
+
+export const closeoutEligibleCandidateResolutionStatuses = [
+  "completed",
+  "completed_via_repair",
+  "carried_forward",
+  "deferred",
+  "cancelled",
+] as const satisfies readonly CandidateResolutionStatus[];
+
+export type WorkCardPlanAuthorityStatus =
+  | "authoritative"
+  | "missing"
+  | "unsynchronized"
+  | "ambiguous";
+
+export type FullWorkCardStatus =
+  | "missing"
+  | "available"
+  | "active"
+  | "resolved";
+
+export interface WorkCardCandidateExecutionState {
+  candidateId: string;
+  order: number;
+  title: string;
+  fullWorkCardArtifactId: string | null;
+  fullWorkCardStatus: FullWorkCardStatus;
+  resolutionStatus: CandidateResolutionStatus;
+  resolutionEvidenceArtifactIds: string[];
+}
+
+export interface PhaseCloseoutEligibility {
+  eligible: boolean;
+  blockers: WorkflowBlocker[];
+}
+
+export interface PhaseExecutionState {
+  workCardPlanArtifactId: string | null;
+  workCardPlanAuthority: WorkCardPlanAuthorityStatus;
+  approvedCandidates: WorkCardCandidateExecutionState[];
+  activeCandidateId: string | null;
+  activeWorkCardArtifactId: string | null;
+  activeRepairArtifactId: string | null;
+  earliestUnresolvedCandidateId: string | null;
+  closeoutEligibility: PhaseCloseoutEligibility;
+}
+
 export interface CloseoutWorkflowState {
   status: "not_started" | "in_progress" | "pending_approval" | "approved" | "blocked";
   closeoutArtifactId: string | null;
@@ -169,6 +248,7 @@ export interface WorkflowStateIndex {
   currentAction: RoutedActionContract | null;
   stageStates: Record<WorkflowStage, WorkflowStageState>;
   actionCatalog: Record<string, WorkflowActionRecord>;
+  phaseExecution: PhaseExecutionState;
   openRepairChain: OpenRepairChainState;
   closeout: CloseoutWorkflowState;
   roadmap: RoadmapWorkflowState;

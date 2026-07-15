@@ -6,8 +6,8 @@ ChampCity A/I uses four explicit workflow roles.
 
 | Role | Governed responsibilities |
 | --- | --- |
-| Operator | Capture intent, review and approve project/phase planning, perform validation, approve closeout and over-budget packet export. |
-| Architect | Frame and plan, create Work Cards, review Implementer Reports, determine validation disposition, create repair Work Cards, authorize Operator validation. |
+| Operator | Capture intent, review and approve project/phase planning, perform validation, approve closeout and over-budget packet export, and activate the next phase or record that no next phase exists. |
+| Architect | Frame and plan, create Work Cards, review Implementer Reports, determine validation disposition, create repair Work Cards, authorize Operator validation, and update the roadmap after approved phase closeout. |
 | Implementer | Execute approved Work Cards and create Implementer Reports. |
 | Application | Enforce current state, artifact authority, role gates, evidence requirements, pair consistency, and transitions. |
 
@@ -29,7 +29,9 @@ The active screen must match the contract’s responsible role and expected outp
 - The Implementer does not accept Work Cards, perform Operator validation, approve closeout, or determine validation disposition.
 - The Operator reports validation evidence but does not make the Architect’s repair/continue disposition.
 - The Architect does not claim Operator acceptance.
-- The application does not infer human approval from file presence or prose.
+- Roadmap Update is an Architect decision; Next Phase Activation is an Operator decision.
+- The application validates their evidence and enforces their transitions but does not make either human decision.
+- The application does not infer human approval or candidate completion from file presence or prose.
 
 ## Failure Behavior
 

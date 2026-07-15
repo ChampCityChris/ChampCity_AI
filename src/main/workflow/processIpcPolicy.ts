@@ -89,10 +89,41 @@ const routedPair = (
   },
 ];
 
+const routedSupportingPair = (
+  prefix: string,
+  variant: RoutedProcessVariant,
+  auxiliaryArtifactTypes: readonly string[],
+  options: { previewSuffix?: string; saveSuffix?: string } = {},
+): RoutedProcessIpcPolicy[] => [
+  {
+    kind: "routed",
+    channel: `${prefix}${options.previewSuffix ?? ":preview"}`,
+    operation: "preview",
+    variants: [variant],
+    allowedAuxiliaryArtifactTypes: [],
+    transition: { mode: "none" },
+  },
+  {
+    kind: "routed",
+    channel: `${prefix}${options.saveSuffix ?? ":save"}`,
+    operation: "supporting-write",
+    variants: [variant],
+    allowedAuxiliaryArtifactTypes: auxiliaryArtifactTypes,
+    transition: { mode: "none" },
+  },
+];
+
 const workCardAuthoringVariants = [
   route("work_card_authoring_required", "architect", "work-card-authoring", "work_card"),
   route("repair_work_card_required", "architect", "repair-work-card-authoring", "work_card"),
 ] as const;
+
+const phaseMappingVariant = route(
+  "phase_mapping_required",
+  "architect",
+  "phase-mapping",
+  "phase_map",
+);
 
 /**
  * Complete inventory for IPC operations that preview or write process data.
@@ -118,18 +149,15 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
     route("project_planning_required", "architect", "project-planning", "project_planning"),
     { auxiliary: ["supporting_document"] },
   ),
-  ...routedPair(
+  ...routedSupportingPair(
     "phaseIntake",
-    route("phase_intake_required", "operator", "phase-intake", "phase_intake"),
+    phaseMappingVariant,
+    ["phase_intake"],
   ),
-  ...routedPair(
+  ...routedSupportingPair(
     "phaseArchitectInterview",
-    route(
-      "phase_architect_interview_required",
-      "architect",
-      "phase-architect-interview",
-      "architect_interview",
-    ),
+    phaseMappingVariant,
+    ["architect_interview"],
     { previewSuffix: ":previewPrompt", saveSuffix: ":savePrompt" },
   ),
   {
@@ -165,10 +193,10 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
     "phaseMap",
     route("phase_mapping_required", "architect", "phase-mapping", "phase_map"),
   ),
-  ...routedPair(
+  ...routedSupportingPair(
     "phasePlanning",
-    route("phase_planning_required", "architect", "phase-planning", "phase_planning"),
-    { auxiliary: ["work_card_plan", "backlog"] },
+    phaseMappingVariant,
+    ["phase_planning", "work_card_plan", "backlog"],
   ),
   {
     kind: "routed",

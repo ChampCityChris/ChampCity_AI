@@ -1,6 +1,7 @@
 import {
   ROUTED_ACTION_SCHEMA_VERSION,
   WORKFLOW_STATE_SCHEMA_VERSION,
+  candidateResolutionStatuses,
   workflowRoles,
   workflowStages,
   type RoutedActionContract,
@@ -71,10 +72,102 @@ export function validateWorkflowStateIndex(value: unknown): WorkflowStateValidat
   for (const field of ["requiredSourceArtifactIds", "blockingConditions", "transitionHistory"] as const) {
     if (!Array.isArray(value[field])) errors.push(`${field} must be an array.`);
   }
+  validatePhaseExecution(value.phaseExecution, errors);
   for (const field of ["openRepairChain", "closeout", "roadmap", "nextPhase"] as const) {
     if (!isRecord(value[field])) errors.push(`${field} must be an object.`);
   }
   return { valid: errors.length === 0, errors };
+}
+
+function validatePhaseExecution(value: unknown, errors: string[]): void {
+  if (!isRecord(value)) {
+    errors.push("phaseExecution must be an object.");
+    return;
+  }
+  if (
+    !["authoritative", "missing", "unsynchronized", "ambiguous"].includes(
+      String(value.workCardPlanAuthority),
+    )
+  ) {
+    errors.push("phaseExecution.workCardPlanAuthority is invalid.");
+  }
+  if (value.workCardPlanArtifactId !== null) {
+    requireNonEmptyString(
+      value.workCardPlanArtifactId,
+      "phaseExecution.workCardPlanArtifactId",
+      errors,
+    );
+  }
+  if (!Array.isArray(value.approvedCandidates)) {
+    errors.push("phaseExecution.approvedCandidates must be an array.");
+  } else {
+    const ids = new Set<string>();
+    const orders = new Set<number>();
+    for (const [index, candidate] of value.approvedCandidates.entries()) {
+      const field = `phaseExecution.approvedCandidates[${index}]`;
+      if (!isRecord(candidate)) {
+        errors.push(`${field} must be an object.`);
+        continue;
+      }
+      requireNonEmptyString(candidate.candidateId, `${field}.candidateId`, errors);
+      requirePositiveInteger(candidate.order, `${field}.order`, errors);
+      requireNonEmptyString(candidate.title, `${field}.title`, errors);
+      if (candidate.fullWorkCardArtifactId !== null) {
+        requireNonEmptyString(
+          candidate.fullWorkCardArtifactId,
+          `${field}.fullWorkCardArtifactId`,
+          errors,
+        );
+      }
+      if (
+        !["missing", "available", "active", "resolved"].includes(
+          String(candidate.fullWorkCardStatus),
+        )
+      ) {
+        errors.push(`${field}.fullWorkCardStatus is invalid.`);
+      }
+      if (
+        !candidateResolutionStatuses.includes(
+          candidate.resolutionStatus as (typeof candidateResolutionStatuses)[number],
+        )
+      ) {
+        errors.push(`${field}.resolutionStatus is invalid.`);
+      }
+      requireStringArray(
+        candidate.resolutionEvidenceArtifactIds,
+        `${field}.resolutionEvidenceArtifactIds`,
+        errors,
+      );
+      if (typeof candidate.candidateId === "string") {
+        if (ids.has(candidate.candidateId)) errors.push(`${field}.candidateId must be unique.`);
+        ids.add(candidate.candidateId);
+      }
+      if (typeof candidate.order === "number") {
+        if (orders.has(candidate.order)) errors.push(`${field}.order must be unique.`);
+        orders.add(candidate.order);
+      }
+    }
+  }
+  for (const field of [
+    "activeCandidateId",
+    "activeWorkCardArtifactId",
+    "activeRepairArtifactId",
+    "earliestUnresolvedCandidateId",
+  ] as const) {
+    if (value[field] !== null) {
+      requireNonEmptyString(value[field], `phaseExecution.${field}`, errors);
+    }
+  }
+  if (!isRecord(value.closeoutEligibility)) {
+    errors.push("phaseExecution.closeoutEligibility must be an object.");
+  } else {
+    if (typeof value.closeoutEligibility.eligible !== "boolean") {
+      errors.push("phaseExecution.closeoutEligibility.eligible must be boolean.");
+    }
+    if (!Array.isArray(value.closeoutEligibility.blockers)) {
+      errors.push("phaseExecution.closeoutEligibility.blockers must be an array.");
+    }
+  }
 }
 
 export function assertWorkflowStateIndex(value: unknown): asserts value is WorkflowStateIndex {

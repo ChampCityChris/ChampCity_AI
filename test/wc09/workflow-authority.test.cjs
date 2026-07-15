@@ -23,10 +23,14 @@ const {
 } = mainWorkflow;
 const {
   advanceWorkflowState,
+  canonicalWorkflowSpine,
+  createPhaseExecutionState,
   createWorkflowStateIndex,
   defaultLifecycleActionTemplates,
+  evaluatePhaseCloseoutEligibility,
   evaluateRoleGate,
   materializeActionCatalog,
+  resolvePhaseCandidate,
   validateWorkflowStateIndex,
   withWorkflowBlockers,
 } = sharedWorkflow;
@@ -46,10 +50,6 @@ const SUCCESS_LIFECYCLE = [
   "project_roadmap_required",
   "operator_project_approval_required",
   "phase_mapping_required",
-  "phase_intake_required",
-  "phase_architect_interview_required",
-  "phase_planning_required",
-  "work_card_plan_review_required",
   "operator_phase_approval_required",
   "work_card_authoring_required",
   "operator_work_card_approval_required",
@@ -64,6 +64,92 @@ const SUCCESS_LIFECYCLE = [
   "workflow_complete",
 ];
 
+const LOCKED_WORKFLOW_SPINE = [
+  "project_intake",
+  "project_interview",
+  "reconciliation_review",
+  "project_mapping",
+  "operator_project_approval",
+  "phase_mapping",
+  "operator_phase_approval",
+  "work_card_loop",
+  "phase_closeout",
+  "operator_phase_closeout_approval",
+  "roadmap_update",
+  "next_phase_activation",
+  "repeat_phase_mapping_and_work_card_loop",
+];
+
+function candidate(candidateId, order, overrides = {}) {
+  return {
+    candidateId,
+    order,
+    title: `${candidateId} fixture`,
+    fullWorkCardArtifactId: null,
+    fullWorkCardStatus: "missing",
+    resolutionStatus: "unresolved",
+    resolutionEvidenceArtifactIds: [],
+    ...overrides,
+  };
+}
+
+function phaseExecution(candidates = [candidate("WC10", 1)], overrides = {}) {
+  return createPhaseExecutionState({
+    workCardPlanArtifactId:
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+    workCardPlanAuthority: "authoritative",
+    approvedCandidates: candidates,
+    activeCandidateId:
+      candidates.find((item) => item.resolutionStatus === "unresolved")
+        ?.candidateId ?? null,
+    ...overrides,
+  });
+}
+
+const workCardLoopBindings = {
+  work_card_authoring_required: {
+    targetArtifactId:
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+    sourceArtifactIds: [
+      "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+    ],
+    expectedOutputArtifactId: "champcity-ai/phase-03/work_card/WC10",
+  },
+  operator_work_card_approval_required: {
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
+    sourceArtifactIds: ["champcity-ai/phase-03/work_card/WC10"],
+    expectedOutputArtifactId:
+      "champcity-ai/phase-03/work_card_approval/WC10",
+  },
+  implementer_handoff_required: {
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
+    sourceArtifactIds: ["champcity-ai/phase-03/work_card/WC10"],
+    expectedOutputArtifactId:
+      "champcity-ai/phase-03/implementer_execution_packet/WC10",
+  },
+  implementer_execution_required: {
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
+    sourceArtifactIds: ["champcity-ai/phase-03/work_card/WC10"],
+    expectedOutputArtifactId:
+      "champcity-ai/phase-03/implementer_report/WC10",
+  },
+  architect_review_of_implementer_report_required: {
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
+    sourceArtifactIds: [
+      "champcity-ai/phase-03/implementer_report/WC10",
+    ],
+    expectedOutputArtifactId:
+      "champcity-ai/phase-03/architect_review/WC10",
+  },
+  operator_validation_required: {
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
+    sourceArtifactIds: ["champcity-ai/phase-03/architect_review/WC10"],
+    expectedOutputArtifactId:
+      "champcity-ai/phase-03/validation_report/WC10",
+  },
+};
+
 function lifecycleBindings(overrides = {}) {
   return Object.fromEntries(
     defaultLifecycleActionTemplates.map((template) => {
@@ -77,7 +163,11 @@ function lifecycleBindings(overrides = {}) {
   );
 }
 
-function createState(initialActionId, bindingOverrides = {}) {
+function createState(
+  initialActionId,
+  bindingOverrides = {},
+  candidateState = phaseExecution(),
+) {
   return createWorkflowStateIndex({
     projectId: PROJECT_ID,
     activePhaseId: PHASE_ID,
@@ -85,8 +175,9 @@ function createState(initialActionId, bindingOverrides = {}) {
     initialActionId,
     actions: materializeActionCatalog(
       defaultLifecycleActionTemplates,
-      lifecycleBindings(bindingOverrides),
+      lifecycleBindings({ ...workCardLoopBindings, ...bindingOverrides }),
     ),
+    phaseExecution: candidateState,
   });
 }
 
@@ -194,6 +285,33 @@ test("role gates enforce current action, revision, responsible role, output iden
   );
 });
 
+test("the canonical workflow spine matches the locked process baseline", () => {
+  assert.deepEqual([...canonicalWorkflowSpine], LOCKED_WORKFLOW_SPINE);
+});
+
+test("Phase Mapping routes directly to Operator Phase Approval with interview evidence subordinate", () => {
+  const state = createState("phase_mapping_required");
+  assert.equal(
+    defaultLifecycleActionTemplates.some(
+      (template) => template.actionId === "phase_intake_required",
+    ),
+    false,
+  );
+  assert.equal(
+    defaultLifecycleActionTemplates.some(
+      (template) => template.actionId === "phase_architect_interview_required",
+    ),
+    false,
+  );
+  assert.equal(
+    state.actionCatalog.phase_mapping_required.routes.success,
+    "operator_phase_approval_required",
+  );
+  const advanced = transition(state);
+  assert.equal(advanced.currentActionId, "operator_phase_approval_required");
+  assert.equal(advanced.responsibleRole, "operator");
+});
+
 test("the success route traverses every non-repair lifecycle process category", () => {
   let state = createState("project_intake_required");
   const visited = [];
@@ -214,6 +332,119 @@ test("the success route traverses every non-repair lifecycle process category", 
     new Set(visited.map((actionId) => state.actionCatalog[actionId].role)),
     new Set(["operator", "architect", "implementer", "application"]),
   );
+});
+
+test("passing a non-final candidate resolves it and routes to the earliest unresolved candidate authoring", () => {
+  const candidates = [
+    candidate("WC10", 1, {
+      fullWorkCardArtifactId: "champcity-ai/phase-03/work_card/WC10",
+      fullWorkCardStatus: "active",
+    }),
+    candidate("WC11", 2),
+  ];
+  let state = createState(
+    "operator_validation_required",
+    {},
+    phaseExecution(candidates, {
+      activeCandidateId: "WC10",
+      activeWorkCardArtifactId: "champcity-ai/phase-03/work_card/WC10",
+    }),
+  );
+
+  state = transition(state);
+
+  assert.equal(state.phaseExecution.approvedCandidates[0].resolutionStatus, "completed");
+  assert.deepEqual(
+    state.phaseExecution.approvedCandidates[0].resolutionEvidenceArtifactIds,
+    ["champcity-ai/phase-03/validation_report/WC10"],
+  );
+  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, "WC11");
+  assert.equal(state.currentActionId, "work_card_authoring_required");
+  assert.deepEqual(state.currentAction.expectedOutput, {
+    artifactId: "champcity-ai/phase-03/work_card/WC11",
+    artifactType: "work_card",
+  });
+});
+
+test("passing the final candidate routes to an unblocked Phase Closeout", () => {
+  const state = transition(
+    createState(
+      "operator_validation_required",
+      {},
+      phaseExecution([
+        candidate("WC10", 1, {
+          fullWorkCardArtifactId: "champcity-ai/phase-03/work_card/WC10",
+          fullWorkCardStatus: "active",
+        }),
+      ], {
+        activeCandidateId: "WC10",
+        activeWorkCardArtifactId: "champcity-ai/phase-03/work_card/WC10",
+      }),
+    ),
+  );
+
+  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, null);
+  assert.equal(state.phaseExecution.closeoutEligibility.eligible, true);
+  assert.equal(state.currentActionId, "phase_closeout_required");
+  assert.equal(state.currentAction.authorityStatus, "ready");
+  assert.deepEqual(state.blockingConditions, []);
+});
+
+test("unresolved candidate and active repair authority block Phase Closeout with owners", () => {
+  const eligibility = evaluatePhaseCloseoutEligibility({
+    workCardPlanArtifactId:
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+    workCardPlanAuthority: "authoritative",
+    approvedCandidates: [candidate("WC10", 1)],
+    activeRepairArtifactId:
+      "champcity-ai/phase-03/work_card/WC10-REPAIR01",
+  });
+
+  assert.equal(eligibility.eligible, false);
+  assert.deepEqual(
+    new Set(eligibility.blockers.map((blocker) => blocker.code)),
+    new Set(["candidate_unresolved", "active_repair_unresolved"]),
+  );
+  assert.ok(eligibility.blockers.every((blocker) => blocker.ownerRole));
+});
+
+for (const status of [
+  "completed",
+  "completed_via_repair",
+  "carried_forward",
+  "deferred",
+  "cancelled",
+]) {
+  test(`${status} is an explicit closeout-eligible candidate resolution`, () => {
+    const resolved = resolvePhaseCandidate(phaseExecution(), {
+      candidateId: "WC10",
+      resolutionStatus: status,
+      evidenceArtifactId: `champcity-ai/phase-03/resolution_evidence/WC10-${status}`,
+    });
+
+    assert.equal(resolved.approvedCandidates[0].resolutionStatus, status);
+    assert.equal(resolved.closeoutEligibility.eligible, true);
+  });
+}
+
+test("Roadmap Update is Architect-owned and Next Phase Activation is Operator-owned", () => {
+  const roadmapState = createState("roadmap_update_required");
+  const activationState = createState("next_phase_activation_required");
+  assert.equal(roadmapState.currentAction.role, "architect");
+  assert.equal(activationState.currentAction.role, "operator");
+
+  for (const state of [roadmapState, activationState]) {
+    const action = state.currentAction;
+    const denied = evaluateRoleGate(state, action, {
+      actorRole: "application",
+      actionId: action.actionId,
+      stateRevision: state.stateRevision,
+      outputArtifactId: action.expectedOutput.artifactId,
+      outputArtifactType: action.expectedOutput.artifactType,
+    });
+    assert.equal(denied.allowed, false);
+    assert.equal(denied.code, "role_mismatch");
+  }
 });
 
 test("failed validation routes through Architect disposition and repair creation", () => {
@@ -567,4 +798,64 @@ test("the main-process WC08 route rehydrates authority, defeats reference overri
       "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
     );
   });
+});
+
+test("the persisted production state reloads from canonical WC09-REPAIR01 authority and never resets to the WC08 fixture", async () => {
+  const projectRoot = path.resolve(process.cwd());
+  const artifactPairs = new ArtifactPairService({ projectRoot });
+  const workflowStore = new WorkflowStateStore(
+    projectRoot,
+    new WorkflowStateArtifactPort(artifactPairs),
+  );
+
+  const firstRead = await workflowStore.load();
+  const secondRead = await workflowStore.load();
+  assert.ok(firstRead);
+  assert.ok(secondRead);
+  assert.deepEqual(secondRead.state, firstRead.state);
+
+  const state = firstRead.state;
+  const repairId = "champcity-ai/phase-03/work_card/WC09-REPAIR01";
+  const reportId = "champcity-ai/phase-03/implementer_report/WC09-REPAIR01";
+  assert.equal(state.currentAction.targetArtifactId, repairId);
+  assert.equal(state.phaseExecution.activeRepairArtifactId, repairId);
+  assert.deepEqual(state.openRepairChain.activeRepairArtifactIds, [repairId]);
+  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, "WC09");
+  assert.equal(
+    state.phaseExecution.approvedCandidates.find((item) => item.candidateId === "WC09")
+      ?.fullWorkCardArtifactId,
+    "champcity-ai/phase-03/work_card/WC09",
+  );
+  assert.equal(
+    JSON.stringify({ action: state.currentAction, repairs: state.openRepairChain })
+      .includes("WC08-REPAIR04"),
+    false,
+  );
+
+  if (state.currentActionId === "implementer_execution_required") {
+    assert.equal(state.currentAction.expectedOutput.artifactId, reportId);
+    assert.deepEqual(state.currentAction.sourceArtifactIds, [repairId]);
+  } else {
+    assert.equal(
+      state.currentActionId,
+      "architect_review_of_implementer_report_required",
+    );
+    assert.deepEqual(state.currentAction.sourceArtifactIds, [reportId]);
+    assert.equal(
+      state.currentAction.expectedOutput.artifactId,
+      "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
+    );
+  }
+
+  const registry = await artifactPairs.loadRegistry();
+  assert.ok(registry);
+  for (const artifactId of [
+    "champcity-ai/phase-03/architect_review/WC09",
+    repairId,
+  ]) {
+    const entry = registry.entries.find((item) => item.artifactId === artifactId);
+    assert.ok(entry, `${artifactId} must be registered`);
+    assert.equal(entry.authoritative, true);
+    assert.equal(entry.synchronized, true);
+  }
 });

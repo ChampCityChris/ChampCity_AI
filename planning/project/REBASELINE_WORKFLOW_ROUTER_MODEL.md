@@ -13,6 +13,7 @@
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
+      "champcity-ai/phase-03/architect_review/WC09",
       "champcity-ai/phase-03/implementer_report/WC01"
     ],
     "expectedOutputs": [],

@@ -1,0 +1,71 @@
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC09",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-15T13:50:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+  "payload": {
+    "contentMarkdown": "# Architect Review - WC09 Cross-Process Workflow Authority, Artifact Pair Migration, and Context Packet Foundation\n\n## Architect Review Decision\n\nDecision: Repair required before Operator validation\n\nThe canonical artifact, registry, routed-action, migration, terminology, and context-packet foundations are substantive and appear technically implemented. WC09 is not ready for Operator validation because the canonical lifecycle encoded in the new workflow state does not match the locked ChampCity A/I process authority.\n\n## Work Card Compliance\n\nThe implementation satisfies major infrastructure requirements:\n\n- Canonical Markdown/JSON artifact pairs with shared identity, revision, relationships, and payload hash.\n- Registry-backed single authority and synchronized-pair enforcement.\n- Canonical workflow-state and routed-action contracts.\n- Reference navigation separated from routed authority.\n- Runtime legacy-schema fallback removal and migration-only compatibility parsing.\n- Active Implementer-facing role terminology and `Implementer_Reports/IMPLEMENTER_REPORT_...` paths.\n- Architect and Implementer packet compilation with token estimates, manifests, exclusions, and over-budget acknowledgment.\n- Mounted renderer and main-process proof of the WC08-REPAIR04 Architect Review route.\n\nThe implementation does not satisfy the locked lifecycle and closeout requirements.\n\n## Changed Files Reviewed\n\nReviewed:\n\n- WC09 Implementer Report.\n- `docs/workflow/PROCESS_BASELINE.md`.\n- `planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md`.\n- `planning/phases/phase-03/Phase_Planning.md`.\n- `docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md`.\n- `docs/architecture/ROLE_GATE_CONTRACT.md`.\n- `planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json`.\n- `src/shared/workflow/workflowContracts.ts`.\n- `src/shared/workflow/transitionEngine.ts`.\n- `src/main/workflow/workflowStateArtifactPort.ts`.\n- WC09 artifact-authority, workflow-authority, and cross-process routed-invocation tests.\n- Migration implementation and repository gate claims.\n\n## Acceptance Criteria Assessment\n\n### Pass\n\n- One canonical artifact pair model exists.\n- One artifact registry exists.\n- One routed-action contract exists.\n- Reference navigation cannot authorize or replace routed actions.\n- Runtime migration boundaries and active terminology migration are implemented.\n- WC08-REPAIR04 exact-target preview/save/transition behavior has credible automated coverage.\n- Context-packet token controls are implemented without provider APIs.\n- Repository branch is clean.\n\n### Fail — Canonical lifecycle does not match process authority\n\nThe locked workflow is:\n\n`Project Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop`\n\nThe canonical action catalog instead inserts:\n\n- `phase_intake_required` as an Operator action.\n- `phase_architect_interview_required` as a mandatory standalone routed action.\n\nPhase 03 planning states that Phase Planning is created during Phase Mapping and that Phase Mapping proceeds to Operator Phase Approval. The Operator must not be routed through a separate Phase Intake requirement.\n\n### Fail — Work Card Loop cannot repeat across mapped candidates\n\n`operator_validation_required.success` routes directly to `phase_closeout_required`.\n\n`architect_disposition_required.success` also routes directly to `phase_closeout_required`.\n\nThe transition engine only rebinds the same Work Card identity through one Build/Prove cycle. It does not evaluate the approved Work Card Plan for the next unresolved candidate.\n\nThis violates the locked rule that Phase Closeout may begin only when every mapped candidate is completed, completed via repair, carried forward, deferred, or cancelled.\n\n### Fail — Human decision roles drifted to Application\n\nThe canonical templates assign:\n\n- `roadmap_update_required` to `application`.\n- `next_phase_activation_required` to `application`.\n\nThe Application may enforce evidence and transitions, but it must not make human planning or activation decisions. Roadmap Update is Architect-owned and Next Phase Activation is Operator-owned unless an explicit future decision changes that model.\n\n### Fail — Repair-chain active state is inconsistent with migrated authority\n\nThe persisted `openRepairChain.activeRepairArtifactIds` includes WC08-REPAIR04, WC08-REPAIR05, and WC08-REPAIR06, while migration authority treats later support repairs as historical/non-controlling. Active repair-chain state must be derived from canonical registry status and must not label historical or superseded repairs as active.\n\n## Validation Claims Assessment\n\nThe reported artifact, migration, registry, terminology, context-packet, and WC08 route tests are credible for their tested boundaries.\n\nThe lifecycle tests validate the implementation's own hard-coded sequence rather than the approved process baseline. In particular:\n\n- The success-lifecycle fixture expects one validation to move directly to closeout.\n- No fixture proves multiple mapped Work Card candidates repeat through the Work Card Loop.\n- No fixture proves closeout remains blocked while a later candidate is unresolved.\n- No fixture proves the approved Phase Mapping to Operator Phase Approval boundary without a separate Operator Phase Intake action.\n- No fixture proves Architect Roadmap Update and Operator Next Phase Activation role ownership.\n\nThese omissions are blocking because WC09 establishes the foundation every later route must consume.\n\n## Skipped Checks Assessment\n\nPlaywright omission is acceptable. Mounted Electron coverage is appropriate.\n\nOperator validation should not begin until the canonical lifecycle is corrected. Visual validation cannot cure an incorrect persisted state machine.\n\n## Observation Register Impact\n\nNo new project observation is required. The defect is an immediate mismatch against existing process authority and is assigned to WC09-REPAIR01.\n\nPROJ-OBS-007 remains addressed by WC09's artifact-authority design but should not be closed until WC09 and its repair pass are accepted.\n\n## Operator Validation Steps\n\nNone. Operator validation is not authorized for the current WC09 implementation.\n\n## Required Repair, if any\n\nCreate and implement:\n\n`WC09-REPAIR01 — Canonical Lifecycle Alignment and Multi-Work-Card Loop Completion`\n\nThe repair must preserve the canonical artifact, migration, terminology, routed-action, role-gate enforcement, WC08 route, and context-packet foundations while correcting the lifecycle model, candidate loop, human role ownership, and active repair-chain projection.\n",
+    "data": {
+      "acceptanceCriteria": {
+        "failed": [
+          "approved Phase Mapping boundary",
+          "multi-candidate Work Card Loop",
+          "closeout eligibility",
+          "Roadmap Update and Next Phase Activation role ownership",
+          "active repair-chain projection"
+        ],
+        "passed": [
+          "canonical artifact pairs and registry",
+          "routed-action authority and reference isolation",
+          "legacy-schema/runtime terminology migration",
+          "WC08 exact route automated proof",
+          "context packet budgets and manifests"
+        ]
+      },
+      "changedFilesReviewed": [
+        "docs/workflow/PROCESS_BASELINE.md",
+        "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+        "planning/phases/phase-03/Phase_Planning.md",
+        "docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md",
+        "docs/architecture/ROLE_GATE_CONTRACT.md",
+        "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
+        "src/shared/workflow/workflowContracts.ts",
+        "src/shared/workflow/transitionEngine.ts",
+        "test/wc09/artifact-authority.test.cjs",
+        "test/wc09/workflow-authority.test.cjs",
+        "test/wc09/cross-process-routed-invocation.test.cjs"
+      ],
+      "decision": "Repair required before Operator validation",
+      "operatorValidationAuthorized": false,
+      "requiredRepairWorkCardId": "WC09-REPAIR01",
+      "workCardCompliance": "Major authority infrastructure implemented; canonical lifecycle and role ownership do not match the locked process."
+    },
+    "kind": "architect_review",
+    "title": "Architect Review - WC09 Cross-Process Workflow Authority, Artifact Pair Migration, and Context Packet Foundation"
+  },
+  "payloadHash": "sha256:cb300a0dc273220d850855702de78ded6d007c2de11a25d85cd7e80fff272e3b",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC09-REPAIR01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC09"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC09",
+      "champcity-ai/phase-03/phase_planning/Phase_Planning",
+      "champcity-ai/phase-03/work_card/WC09",
+      "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-15T13:50:00.000Z",
+  "workCardId": "WC09"
+}

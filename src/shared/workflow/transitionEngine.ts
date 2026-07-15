@@ -1,11 +1,17 @@
 import { assertRoleGate } from "./roleGates";
 import {
   WORKFLOW_STATE_SCHEMA_VERSION,
+  closeoutEligibleCandidateResolutionStatuses,
   createEmptyStageStates,
   projectRoutedAction,
+  type CandidateResolutionStatus,
+  type PhaseExecutionState,
   type RoutedActionContract,
   type RoutedActionRoutes,
+  type WorkCardCandidateExecutionState,
+  type WorkCardPlanAuthorityStatus,
   type WorkflowActionRecord,
+  type WorkflowBlocker,
   type WorkflowRole,
   type WorkflowScreenId,
   type WorkflowStage,
@@ -35,6 +41,16 @@ export interface CreateWorkflowStateInput {
   createdAt: string;
   initialActionId: string;
   actions: readonly WorkflowActionRecord[];
+  phaseExecution?: PhaseExecutionState;
+}
+
+export interface CreatePhaseExecutionStateInput {
+  workCardPlanArtifactId: string | null;
+  workCardPlanAuthority: WorkCardPlanAuthorityStatus;
+  approvedCandidates: readonly WorkCardCandidateExecutionState[];
+  activeCandidateId?: string | null;
+  activeWorkCardArtifactId?: string | null;
+  activeRepairArtifactId?: string | null;
 }
 
 export interface VerifiedWorkflowTransitionEvidence {
@@ -53,6 +69,10 @@ export interface AdvanceWorkflowCommand {
   authorization?: {
     decision: "authorized" | "not_authorized";
     artifactId: string;
+  };
+  candidateResolution?: {
+    candidateId: string;
+    status: Exclude<CandidateResolutionStatus, "unresolved">;
   };
   occurredAt: string;
 }
@@ -80,24 +100,20 @@ export const defaultLifecycleActionTemplates: readonly WorkflowActionTemplate[] 
   action("repository_reconciliation_required", "plan", "architect", "repository-reconciliation", "repository_reconciliation", "project_roadmap_required"),
   action("project_roadmap_required", "plan", "architect", "project-roadmap", "roadmap", "operator_project_approval_required"),
   action("operator_project_approval_required", "plan", "operator", "operator-project-approval", "project_approval", "phase_mapping_required", "project_planning_required", "project_planning_required"),
-  action("phase_mapping_required", "plan", "architect", "phase-mapping", "phase_map", "phase_intake_required"),
-  action("phase_intake_required", "capture", "operator", "phase-intake", "phase_intake", "phase_architect_interview_required"),
-  action("phase_architect_interview_required", "frame", "architect", "phase-architect-interview", "architect_interview", "phase_planning_required"),
-  action("phase_planning_required", "plan", "architect", "phase-planning", "phase_planning", "work_card_plan_review_required"),
-  action("work_card_plan_review_required", "plan", "architect", "work-card-plan-review", "work_card_plan_review", "operator_phase_approval_required"),
-  action("operator_phase_approval_required", "plan", "operator", "operator-phase-approval", "phase_approval", "work_card_authoring_required", "phase_planning_required", "phase_planning_required"),
+  action("phase_mapping_required", "plan", "architect", "phase-mapping", "phase_map", "operator_phase_approval_required"),
+  action("operator_phase_approval_required", "plan", "operator", "operator-phase-approval", "phase_approval", "work_card_authoring_required", "phase_mapping_required", "phase_mapping_required"),
   action("work_card_authoring_required", "plan", "architect", "work-card-authoring", "work_card", "operator_work_card_approval_required"),
   action("operator_work_card_approval_required", "build", "operator", "operator-work-card-approval", "work_card_approval", "implementer_handoff_required", "work_card_authoring_required", "work_card_authoring_required"),
   action("implementer_handoff_required", "build", "architect", "implementer-handoff", "implementer_execution_packet", "implementer_execution_required"),
   action("implementer_execution_required", "build", "implementer", "implementer-execution", "implementer_report", "architect_review_of_implementer_report_required"),
   action("architect_review_of_implementer_report_required", "prove", "architect", "architect-review", "architect_review", "operator_validation_required", "architect_review_of_implementer_report_required", "architect_disposition_required"),
-  action("operator_validation_required", "prove", "operator", "operator-validation", "validation_report", "phase_closeout_required", "architect_disposition_required", "architect_disposition_required"),
-  action("architect_disposition_required", "prove", "architect", "architect-disposition", "architect_disposition", "phase_closeout_required", "repair_work_card_required", "repair_work_card_required"),
+  action("operator_validation_required", "prove", "operator", "operator-validation", "validation_report", "work_card_authoring_required", "architect_disposition_required", "architect_disposition_required"),
+  action("architect_disposition_required", "prove", "architect", "architect-disposition", "architect_disposition", "operator_validation_required", "repair_work_card_required", "repair_work_card_required"),
   action("repair_work_card_required", "plan", "architect", "repair-work-card-authoring", "work_card", "operator_work_card_approval_required"),
   action("phase_closeout_required", "prove", "architect", "phase-closeout", "phase_closeout", "operator_closeout_approval_required"),
   action("operator_closeout_approval_required", "prove", "operator", "operator-closeout-approval", "phase_closeout_approval", "roadmap_update_required", "phase_closeout_required", "phase_closeout_required"),
-  action("roadmap_update_required", "prove", "application", "roadmap-update", "roadmap", "next_phase_activation_required"),
-  action("next_phase_activation_required", "capture", "application", "next-phase-activation", "phase_activation", "workflow_complete"),
+  action("roadmap_update_required", "prove", "architect", "roadmap-update", "roadmap", "next_phase_activation_required"),
+  action("next_phase_activation_required", "capture", "operator", "next-phase-activation", "phase_activation", "workflow_complete"),
   action("route_review_request_required", "prove", "operator", "route-review-request", "route_review_request", null),
   action("workflow_complete", "prove", "application", "workflow-complete", "workflow_completion", null),
 ] as const;
@@ -130,6 +146,162 @@ export function materializeActionCatalog(
   });
 }
 
+export function createPhaseExecutionState(
+  input: CreatePhaseExecutionStateInput,
+): PhaseExecutionState {
+  const approvedCandidates = [...input.approvedCandidates]
+    .map(copyCandidate)
+    .sort((left, right) => left.order - right.order || left.candidateId.localeCompare(right.candidateId));
+  assertCandidateOrdering(approvedCandidates);
+  const earliestUnresolvedCandidateId =
+    selectEarliestUnresolvedCandidate(approvedCandidates)?.candidateId ?? null;
+  const activeCandidateId = input.activeCandidateId ?? earliestUnresolvedCandidateId;
+  const closeoutEligibility = evaluatePhaseCloseoutEligibility({
+    workCardPlanArtifactId: input.workCardPlanArtifactId,
+    workCardPlanAuthority: input.workCardPlanAuthority,
+    approvedCandidates,
+    activeRepairArtifactId: input.activeRepairArtifactId ?? null,
+  });
+  return {
+    workCardPlanArtifactId: input.workCardPlanArtifactId,
+    workCardPlanAuthority: input.workCardPlanAuthority,
+    approvedCandidates,
+    activeCandidateId,
+    activeWorkCardArtifactId: input.activeWorkCardArtifactId ?? null,
+    activeRepairArtifactId: input.activeRepairArtifactId ?? null,
+    earliestUnresolvedCandidateId,
+    closeoutEligibility,
+  };
+}
+
+export function createMissingPhaseExecutionState(): PhaseExecutionState {
+  return createPhaseExecutionState({
+    workCardPlanArtifactId: null,
+    workCardPlanAuthority: "missing",
+    approvedCandidates: [],
+  });
+}
+
+export function selectEarliestUnresolvedCandidate(
+  candidates: readonly WorkCardCandidateExecutionState[],
+): WorkCardCandidateExecutionState | null {
+  return (
+    [...candidates]
+      .sort((left, right) => left.order - right.order || left.candidateId.localeCompare(right.candidateId))
+      .find((candidate) => candidate.resolutionStatus === "unresolved") ?? null
+  );
+}
+
+export function evaluatePhaseCloseoutEligibility(input: {
+  workCardPlanArtifactId: string | null;
+  workCardPlanAuthority: WorkCardPlanAuthorityStatus;
+  approvedCandidates: readonly WorkCardCandidateExecutionState[];
+  activeRepairArtifactId: string | null;
+}): PhaseExecutionState["closeoutEligibility"] {
+  const blockers: WorkflowBlocker[] = [];
+  if (input.workCardPlanAuthority === "missing" || !input.workCardPlanArtifactId) {
+    blockers.push(blocker(
+      "work_card_plan_missing",
+      "Phase Closeout requires an authoritative approved Work Card Plan.",
+      "architect",
+      input.workCardPlanArtifactId ? [input.workCardPlanArtifactId] : [],
+    ));
+  } else if (input.workCardPlanAuthority === "unsynchronized") {
+    blockers.push(blocker(
+      "work_card_plan_unsynchronized",
+      "The approved Work Card Plan pair must be synchronized before Phase Closeout.",
+      "application",
+      [input.workCardPlanArtifactId],
+    ));
+  } else if (input.workCardPlanAuthority === "ambiguous") {
+    blockers.push(blocker(
+      "candidate_authority_ambiguous",
+      "Work Card candidate authority is ambiguous and must be reconciled before Phase Closeout.",
+      "architect",
+      [input.workCardPlanArtifactId],
+    ));
+  }
+  if (input.approvedCandidates.length === 0) {
+    blockers.push(blocker(
+      "candidate_authority_ambiguous",
+      "The approved Work Card Plan does not contain an ordered candidate authority.",
+      "architect",
+      input.workCardPlanArtifactId ? [input.workCardPlanArtifactId] : [],
+    ));
+  }
+  for (const candidate of input.approvedCandidates) {
+    if (
+      !closeoutEligibleCandidateResolutionStatuses.includes(
+        candidate.resolutionStatus as (typeof closeoutEligibleCandidateResolutionStatuses)[number],
+      )
+    ) {
+      blockers.push(blocker(
+        "candidate_unresolved",
+        `Work Card candidate ${candidate.candidateId} is unresolved; record explicit resolution evidence before Phase Closeout.`,
+        "architect",
+        candidate.fullWorkCardArtifactId ? [candidate.fullWorkCardArtifactId] : [],
+      ));
+    }
+  }
+  if (input.activeRepairArtifactId) {
+    blockers.push(blocker(
+      "active_repair_unresolved",
+      "The active repair obligation must be resolved before Phase Closeout.",
+      "implementer",
+      [input.activeRepairArtifactId],
+    ));
+  }
+  return { eligible: blockers.length === 0, blockers };
+}
+
+export function resolvePhaseCandidate(
+  phaseExecution: PhaseExecutionState,
+  input: {
+    candidateId: string;
+    resolutionStatus: Exclude<CandidateResolutionStatus, "unresolved">;
+    evidenceArtifactId: string;
+  },
+): PhaseExecutionState {
+  if (!input.evidenceArtifactId.trim()) {
+    throw new WorkflowTransitionError(
+      "unverified_evidence",
+      "Candidate resolution requires an explicit evidence artifact identity.",
+    );
+  }
+  const candidates = phaseExecution.approvedCandidates.map((candidate) =>
+    candidate.candidateId === input.candidateId
+      ? {
+          ...copyCandidate(candidate),
+          fullWorkCardStatus: "resolved" as const,
+          resolutionStatus: input.resolutionStatus,
+          resolutionEvidenceArtifactIds: uniqueArtifactIds([
+            ...candidate.resolutionEvidenceArtifactIds,
+            input.evidenceArtifactId,
+          ]),
+        }
+      : copyCandidate(candidate),
+  );
+  if (!candidates.some((candidate) => candidate.candidateId === input.candidateId)) {
+    throw new WorkflowTransitionError(
+      "invalid_state",
+      `Candidate ${input.candidateId} is not in the approved Work Card Plan.`,
+    );
+  }
+  const earliest = selectEarliestUnresolvedCandidate(candidates);
+  const activeCandidate = earliest ?? null;
+  return createPhaseExecutionState({
+    workCardPlanArtifactId: phaseExecution.workCardPlanArtifactId,
+    workCardPlanAuthority: phaseExecution.workCardPlanAuthority,
+    approvedCandidates: candidates,
+    activeCandidateId: activeCandidate?.candidateId ?? null,
+    activeWorkCardArtifactId: activeCandidate?.fullWorkCardArtifactId ?? null,
+    activeRepairArtifactId:
+      phaseExecution.activeCandidateId === input.candidateId
+        ? null
+        : phaseExecution.activeRepairArtifactId,
+  });
+}
+
 export function createWorkflowStateIndex(input: CreateWorkflowStateInput): WorkflowStateIndex {
   const actionCatalog = Object.fromEntries(
     input.actions.map((item) => [item.actionId, copyActionRecord(item)]),
@@ -154,6 +326,9 @@ export function createWorkflowStateIndex(input: CreateWorkflowStateInput): Workf
     completedAt: null,
   };
   const currentAction = projectRoutedAction(workflowStateArtifactId, 1, initialAction);
+  const phaseExecution = input.phaseExecution
+    ? copyPhaseExecutionState(input.phaseExecution)
+    : createMissingPhaseExecutionState();
   return {
     schemaVersion: WORKFLOW_STATE_SCHEMA_VERSION,
     workflowStateArtifactId,
@@ -173,6 +348,7 @@ export function createWorkflowStateIndex(input: CreateWorkflowStateInput): Workf
     currentAction,
     stageStates,
     actionCatalog,
+    phaseExecution,
     openRepairChain: {
       status: "none",
       rootWorkCardArtifactId: null,
@@ -227,7 +403,12 @@ export function advanceWorkflowState(
       "Architect Review must explicitly authorize Operator Validation before that route can advance.",
     );
   }
-  const nextActionId = current.routes[command.route];
+  const nextPhaseExecution = advancePhaseExecution(state, current, command);
+  const nextActionId = resolveNextActionId(
+    current,
+    command,
+    nextPhaseExecution,
+  );
   if (nextActionId === null && current.actionId !== "workflow_complete") {
     throw new WorkflowTransitionError(
       "unsupported_route",
@@ -244,7 +425,13 @@ export function advanceWorkflowState(
   }
 
   const nextAction = persistedNextAction
-    ? rebindWorkCardLoopAction(state, current, persistedNextAction, command)
+    ? rebindWorkCardLoopAction(
+        state,
+        current,
+        persistedNextAction,
+        command,
+        nextPhaseExecution,
+      )
     : null;
   const nextActionCatalog = copyActionCatalog(state.actionCatalog);
   if (nextAction) nextActionCatalog[nextAction.actionId] = copyActionRecord(nextAction);
@@ -265,8 +452,20 @@ export function advanceWorkflowState(
       completedAt: null,
     };
   }
+  const nextBlockers =
+    nextAction?.actionId === "phase_closeout_required"
+      ? nextPhaseExecution.closeoutEligibility.blockers
+      : [];
+  if (nextAction && nextBlockers.length > 0) {
+    stageStates[nextAction.stage].progress = "blocked";
+  }
   const nextContract = nextAction
-    ? projectRoutedAction(state.workflowStateArtifactId, nextRevision, nextAction)
+    ? projectRoutedAction(
+        state.workflowStateArtifactId,
+        nextRevision,
+        nextAction,
+        nextBlockers,
+      )
     : null;
   return {
     ...state,
@@ -279,12 +478,19 @@ export function advanceWorkflowState(
     requiredSourceArtifactIds: nextAction ? [...nextAction.sourceArtifactIds] : [],
     expectedOutput: nextAction ? { ...nextAction.expectedOutput } : null,
     routes: nextAction ? { ...nextAction.routes } : null,
-    blockingConditions: [],
+    blockingConditions: nextBlockers.map(copyBlocker),
     currentAction: nextContract,
     stageStates,
     actionCatalog: nextActionCatalog,
+    phaseExecution: nextPhaseExecution,
     openRepairChain: updateRepairChain(state, current, nextAction, command),
-    closeout: updateCloseoutState(state, current, command),
+    closeout: updateCloseoutState(
+      state,
+      current,
+      nextAction,
+      nextPhaseExecution,
+      command,
+    ),
     roadmap: updateRoadmapState(state, current, command),
     nextPhase: updateNextPhaseState(state, current, command),
     transitionHistory: [
@@ -309,12 +515,102 @@ export function advanceWorkflowState(
  * output commits. Rebind the next persisted action from that verified
  * evidence instead of carrying a template/placeholder identity forward.
  */
+function advancePhaseExecution(
+  state: WorkflowStateIndex,
+  current: RoutedActionContract,
+  command: AdvanceWorkflowCommand,
+): PhaseExecutionState {
+  if (command.candidateResolution) {
+    if (
+      current.actionId !== "operator_validation_required" &&
+      current.actionId !== "architect_disposition_required"
+    ) {
+      throw new WorkflowTransitionError(
+        "invalid_state",
+        "Candidate resolution can be recorded only from validation or Architect disposition evidence.",
+      );
+    }
+    return resolvePhaseCandidate(state.phaseExecution, {
+      candidateId: command.candidateResolution.candidateId,
+      resolutionStatus: command.candidateResolution.status,
+      evidenceArtifactId: command.evidence.artifactId,
+    });
+  }
+  if (
+    current.actionId !== "operator_validation_required" ||
+    command.route !== "success"
+  ) {
+    return copyPhaseExecutionState(state.phaseExecution);
+  }
+  const target = current.targetArtifactId
+    ? parseCanonicalArtifactId(current.targetArtifactId)
+    : null;
+  const workCardId = target?.artifactType === "work_card" ? target.logicalId : null;
+  const candidateId = workCardId?.match(/^(WC\d+)/i)?.[1]?.toUpperCase() ?? null;
+  if (
+    !candidateId ||
+    !state.phaseExecution.approvedCandidates.some(
+      (candidate) => candidate.candidateId === candidateId,
+    )
+  ) {
+    return copyPhaseExecutionState(state.phaseExecution);
+  }
+  return resolvePhaseCandidate(state.phaseExecution, {
+    candidateId,
+    resolutionStatus: /-REPAIR\d+$/i.test(workCardId ?? "")
+      ? "completed_via_repair"
+      : "completed",
+    evidenceArtifactId: command.evidence.artifactId,
+  });
+}
+
+function resolveNextActionId(
+  current: RoutedActionContract,
+  command: AdvanceWorkflowCommand,
+  phaseExecution: PhaseExecutionState,
+): string | null {
+  const candidateResolutionCompleted =
+    (current.actionId === "operator_validation_required" &&
+      command.route === "success") ||
+    Boolean(command.candidateResolution);
+  if (!candidateResolutionCompleted) return current.routes[command.route];
+  if (phaseExecution.earliestUnresolvedCandidateId) {
+    return "work_card_authoring_required";
+  }
+  return "phase_closeout_required";
+}
+
 function rebindWorkCardLoopAction(
   state: WorkflowStateIndex,
   current: RoutedActionContract,
   next: WorkflowActionRecord,
   command: AdvanceWorkflowCommand,
+  phaseExecution: PhaseExecutionState,
 ): WorkflowActionRecord {
+  if (next.actionId === "work_card_authoring_required") {
+    const candidate = selectEarliestUnresolvedCandidate(
+      phaseExecution.approvedCandidates,
+    );
+    if (candidate && state.activePhaseId) {
+      return {
+        ...next,
+        targetArtifactId: phaseExecution.workCardPlanArtifactId,
+        sourceArtifactIds: uniqueArtifactIds([
+          ...(phaseExecution.workCardPlanArtifactId
+            ? [phaseExecution.workCardPlanArtifactId]
+            : []),
+          ...next.sourceArtifactIds.filter((artifactId) =>
+            artifactId.includes("/approval/"),
+          ),
+        ]),
+        expectedOutput: {
+          artifactId: `champcity-ai/${state.activePhaseId}/work_card/${candidate.candidateId}`,
+          artifactType: "work_card",
+        },
+        routes: { ...next.routes },
+      };
+    }
+  }
   const output = command.evidence.artifactId;
   const evidenceParts = parseCanonicalArtifactId(output);
   const currentTargetParts = current.targetArtifactId
@@ -425,6 +721,72 @@ function action(
   };
 }
 
+function blocker(
+  code: WorkflowBlocker["code"],
+  message: string,
+  ownerRole: WorkflowRole,
+  artifactIds: readonly string[],
+): WorkflowBlocker {
+  return {
+    code,
+    message,
+    ownerRole,
+    artifactIds: uniqueArtifactIds(artifactIds),
+    blocking: true,
+  };
+}
+
+function copyBlocker(item: WorkflowBlocker): WorkflowBlocker {
+  return { ...item, artifactIds: [...item.artifactIds] };
+}
+
+function copyCandidate(
+  candidate: WorkCardCandidateExecutionState,
+): WorkCardCandidateExecutionState {
+  return {
+    ...candidate,
+    resolutionEvidenceArtifactIds: [
+      ...candidate.resolutionEvidenceArtifactIds,
+    ],
+  };
+}
+
+function copyPhaseExecutionState(
+  phaseExecution: PhaseExecutionState,
+): PhaseExecutionState {
+  return {
+    ...phaseExecution,
+    approvedCandidates: phaseExecution.approvedCandidates.map(copyCandidate),
+    closeoutEligibility: {
+      eligible: phaseExecution.closeoutEligibility.eligible,
+      blockers: phaseExecution.closeoutEligibility.blockers.map(copyBlocker),
+    },
+  };
+}
+
+function assertCandidateOrdering(
+  candidates: readonly WorkCardCandidateExecutionState[],
+): void {
+  const ids = new Set<string>();
+  const orders = new Set<number>();
+  for (const candidate of candidates) {
+    if (!candidate.candidateId.trim() || !Number.isInteger(candidate.order) || candidate.order < 1) {
+      throw new WorkflowTransitionError(
+        "invalid_state",
+        "Each approved Work Card candidate requires a non-empty ID and positive integer order.",
+      );
+    }
+    if (ids.has(candidate.candidateId) || orders.has(candidate.order)) {
+      throw new WorkflowTransitionError(
+        "invalid_state",
+        "Approved Work Card candidate IDs and order values must be unique.",
+      );
+    }
+    ids.add(candidate.candidateId);
+    orders.add(candidate.order);
+  }
+}
+
 function copyActionRecord(item: WorkflowActionRecord): WorkflowActionRecord {
   return {
     ...item,
@@ -486,7 +848,7 @@ function updateRepairChain(
     current.actionId === "operator_validation_required" &&
     command.route === "success"
   ) {
-    return { ...chain, status: "resolved" };
+    return { ...chain, status: "resolved", activeRepairArtifactIds: [] };
   }
   return chain;
 }
@@ -494,6 +856,8 @@ function updateRepairChain(
 function updateCloseoutState(
   state: WorkflowStateIndex,
   current: RoutedActionContract,
+  nextAction: WorkflowActionRecord | null,
+  phaseExecution: PhaseExecutionState,
   command: AdvanceWorkflowCommand,
 ): WorkflowStateIndex["closeout"] {
   if (current.actionId === "phase_closeout_required" && command.route === "success") {
@@ -512,8 +876,13 @@ function updateCloseoutState(
         }
       : { ...state.closeout, status: "in_progress" };
   }
-  if (current.routes.success === "phase_closeout_required" && command.route === "success") {
-    return { ...state.closeout, status: "in_progress" };
+  if (nextAction?.actionId === "phase_closeout_required") {
+    return {
+      ...state.closeout,
+      status: phaseExecution.closeoutEligibility.eligible
+        ? "in_progress"
+        : "blocked",
+    };
   }
   return { ...state.closeout };
 }
