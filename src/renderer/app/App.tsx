@@ -44,7 +44,6 @@ import { resolveValidationTargetFileName } from "../../shared/workCards/validati
 import { architectReviewDecisionValues } from "../../shared/workCards/reportReviewProtocol";
 import {
   findCurrentActionArchitectReviewWorkCardFileName,
-  resolveCurrentActionArchitectReviewBinding,
   type ArchitectReviewDecision,
   type ArchitectReviewFormInput,
   type ArchitectReviewPreviewResult,
@@ -475,17 +474,8 @@ export default function App() {
     [phase, availablePhases],
   );
   const routedArchitectReviewBinding = useMemo(() => {
-    const currentAction = currentActionResult?.currentAction;
-
-    if (
-      currentAction?.id !==
-      "architect_review_of_implementer_report_required"
-    ) {
-      return undefined;
-    }
-
-    return resolveCurrentActionArchitectReviewBinding(currentAction).binding;
-  }, [currentActionResult?.currentAction]);
+    return currentActionResult?.routedArchitectReviewBinding;
+  }, [currentActionResult?.routedArchitectReviewBinding]);
   const architectReviewScreenKey = routedArchitectReviewBinding
     ? [
         routedArchitectReviewBinding.bindingSource,

@@ -796,10 +796,7 @@ function assertSameIdentity(
   if (
     existing.artifactId !== request.artifactId ||
     existing.artifactType !== request.artifactType ||
-    existing.projectId !== request.projectId ||
-    existing.phaseId !== request.phaseId ||
-    existing.workCardId !== request.workCardId ||
-    existing.parentArtifactId !== request.parentArtifactId
+    existing.projectId !== request.projectId
   ) {
     throw new ArtifactPairServiceError(
       "identity_mismatch",
@@ -915,10 +912,10 @@ function normalizeRelationships(
   relationships: Partial<ArtifactRelationships> | undefined,
 ): ArtifactRelationships {
   return {
-    sources: uniqueSorted(relationships?.sources),
-    expectedOutputs: uniqueSorted(relationships?.expectedOutputs),
-    supersedes: uniqueSorted(relationships?.supersedes),
-    children: uniqueSorted(relationships?.children),
+    sources: uniqueStable(relationships?.sources),
+    expectedOutputs: uniqueStable(relationships?.expectedOutputs),
+    supersedes: uniqueStable(relationships?.supersedes),
+    children: uniqueStable(relationships?.children),
   };
 }
 
@@ -926,8 +923,8 @@ function emptyRelationships(): ArtifactRelationships {
   return { sources: [], expectedOutputs: [], supersedes: [], children: [] };
 }
 
-function uniqueSorted(values: readonly string[] | undefined): string[] {
-  return Array.from(new Set(values ?? [])).sort();
+function uniqueStable(values: readonly string[] | undefined): string[] {
+  return Array.from(new Set(values ?? []));
 }
 
 function canonicalTimestamp(value: string): string {

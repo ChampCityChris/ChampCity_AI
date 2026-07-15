@@ -1,6 +1,5 @@
 import {
   canonicalStringify,
-  getArtifactAuthority,
   type ArtifactRegistryEntry,
 } from "../../shared/artifacts";
 import {
@@ -18,6 +17,7 @@ import {
   type RoutedProcessVariant,
 } from "./processIpcPolicy";
 import { RoutedActionService } from "./routedActionService";
+import { CanonicalRoutedScreenAdapter } from "./canonicalRoutedScreenAdapter";
 import {
   runInRoutedWriteScope,
   type RoutedWriteAuthority,
@@ -57,12 +57,16 @@ export class RoutedProcessInvocationError extends Error {
 }
 
 export class RoutedProcessInvocationService {
+  private readonly routedScreens: CanonicalRoutedScreenAdapter;
+
   constructor(
     private readonly routedActions: RoutedActionService,
     private readonly workflowStateStore: WorkflowStateStore,
     private readonly artifactPairs: ArtifactPairService,
     private readonly clock: () => string = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.routedScreens = new CanonicalRoutedScreenAdapter(artifactPairs);
+  }
 
   async authorize(
     policy: RoutedProcessIpcPolicy,
@@ -116,22 +120,15 @@ export class RoutedProcessInvocationService {
       outputArtifactType: routedAction.expectedOutput.artifactType,
     });
 
-    const registry = await this.artifactPairs.loadRegistry();
-    if (!registry) {
-      throw new Error("The canonical artifact registry is unavailable.");
-    }
-    const target = routedAction.targetArtifactId
-      ? getArtifactAuthority(registry, routedAction.targetArtifactId)
-      : null;
-    const sources = routedAction.sourceArtifactIds.map((artifactId) =>
-      getArtifactAuthority(registry, artifactId),
-    );
-    for (const entry of [...(target ? [target] : []), ...sources]) {
-      await this.artifactPairs.readArtifactByPaths(
-        entry.jsonPath,
-        entry.markdownPath,
+    const resolved = await this.routedScreens.resolve(state, routedAction);
+    if (!resolved.viewModel.ready || resolved.viewModel.blockers.length > 0) {
+      throw new Error(
+        resolved.viewModel.blockers.map((blocker) => blocker.message).join(" ") ||
+          "Canonical routed-screen authority is blocked.",
       );
     }
+    const target = resolved.targetEntry;
+    const sources = resolved.sourceEntries;
 
     return { state, action: routedAction, policy, variant, target, sources };
   }

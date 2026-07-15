@@ -4,10 +4,6 @@ import {
 } from "./reportReviewProtocol";
 import { buildWorkCardFileStem } from "./workCardFileNames";
 import {
-  authoritativeCurrentActionImplementerReportStatus,
-  type CurrentRequiredAction,
-} from "./currentRequiredAction";
-import {
   validateArchitectReview,
   type ArchitectReviewValidationResult,
 } from "./validateArchitectReview";
@@ -63,7 +59,7 @@ export interface RoutedArchitectReviewBindingBlockingState {
 }
 
 export interface RoutedArchitectReviewBinding {
-  bindingSource: "workflow_state_index";
+  bindingSource: "routed_action_and_artifact_registry";
   currentActionId: "architect_review_of_implementer_report_required";
   workflowStateRevision: number;
   targetArtifactId: string;
@@ -77,11 +73,6 @@ export interface RoutedArchitectReviewBinding {
   expectedOutputPath: string;
   expectedOutputFileName: string;
   blockingState: RoutedArchitectReviewBindingBlockingState;
-}
-
-export interface RoutedArchitectReviewBindingResult {
-  binding?: RoutedArchitectReviewBinding;
-  errors: string[];
 }
 
 export interface ArchitectReviewWorkCardOption {
@@ -152,149 +143,6 @@ export function buildArchitectReviewFileName(
   return `ARCHITECT_REVIEW_${buildWorkCardFileStem(target.workCardId, target.title)}.md`;
 }
 
-export function resolveCurrentActionArchitectReviewBinding(
-  action: CurrentRequiredAction | undefined,
-): RoutedArchitectReviewBindingResult {
-  if (!action) {
-    return { errors: [] };
-  }
-
-  if (action.id !== "architect_review_of_implementer_report_required") {
-    return {
-      errors: [
-        `Current action ${action.id} does not authorize an Implementer Report Architect Review.`,
-      ],
-    };
-  }
-
-  const phaseId = action.phaseId?.trim() ?? "";
-  const workCardId = action.workCardId?.trim() ?? "";
-  const workCardTitle = action.workCardTitle?.trim() ?? "";
-  const issues: RoutedArchitectReviewBindingIssue[] = [];
-  const addIssue = (
-    kind: RoutedArchitectReviewBindingIssueKind,
-    message: string,
-  ) => issues.push({ kind, message });
-
-  const routedAction = action.routedAction;
-  if (!routedAction) {
-    addIssue(
-      "missing",
-      "The current action does not carry the canonical workflow-state routed-action contract.",
-    );
-  } else {
-    if (routedAction.actionId !== action.id) {
-      addIssue("mismatch", "The routed-action ID does not match the current action.");
-    }
-    if (routedAction.authorityStatus !== "ready" || routedAction.blockers.length > 0) {
-      addIssue("ambiguity", "The canonical routed action is blocked by workflow authority.");
-    }
-  }
-
-  if (!phaseId) {
-    addIssue("missing", "The current action does not identify its phase.");
-  }
-
-  if (!workCardId) {
-    addIssue(
-      "missing",
-      "The current action does not identify its Work Card or repair target.",
-    );
-  }
-
-  if (!workCardTitle) {
-    addIssue(
-      "missing",
-      "The current action does not identify its Work Card or repair title.",
-    );
-  }
-
-  const authoritativeImplementerReportPaths = [
-    ...new Set(
-      action.sourceArtifacts
-        .filter(
-          (artifact) =>
-            artifact.status ===
-            authoritativeCurrentActionImplementerReportStatus,
-        )
-        .map((artifact) => artifact.path.trim())
-        .filter(Boolean),
-    ),
-  ];
-
-  if (authoritativeImplementerReportPaths.length === 0) {
-    addIssue(
-      "missing",
-      `Current action ${workCardId || "target"} does not mark an authoritative Implementer Report in source artifacts.`,
-    );
-  } else if (authoritativeImplementerReportPaths.length > 1) {
-    addIssue(
-      "ambiguity",
-      `Current action ${workCardId || "target"} marks multiple authoritative Implementer Reports and requires Architect authority before one can be selected.`,
-    );
-  }
-
-  const implementerReportPath =
-    authoritativeImplementerReportPaths.length === 1
-      ? authoritativeImplementerReportPaths[0]
-      : "";
-  const implementerReportFileName = fileNameFromArtifactPath(implementerReportPath);
-
-  if (
-    implementerReportFileName &&
-    workCardId &&
-    !isExactImplementerReportForWorkCard(implementerReportFileName, workCardId)
-  ) {
-    addIssue(
-      "mismatch",
-      `Current action ${workCardId} marks ${implementerReportFileName} as authoritative, but that report targets a different Work Card or repair ID.`,
-    );
-  }
-
-  const expectedOutputPath = action.expectedOutput?.path?.trim() ?? "";
-  const expectedOutputFileName = fileNameFromArtifactPath(expectedOutputPath);
-
-  if (!expectedOutputFileName) {
-    addIssue(
-      "missing",
-      `Current action ${workCardId || "target"} does not identify its expected output.`,
-    );
-  } else if (
-    workCardId &&
-    !isExactArchitectReviewForWorkCard(expectedOutputFileName, workCardId)
-  ) {
-    addIssue(
-      "mismatch",
-      `Current action ${workCardId} expects ${expectedOutputFileName}, which does not target the same exact Work Card or repair ID.`,
-    );
-  }
-
-  const errors = issues.map((issue) => issue.message);
-  return {
-    binding: {
-      bindingSource: "workflow_state_index",
-      currentActionId: "architect_review_of_implementer_report_required",
-      workflowStateRevision: action.routedAction?.stateRevision ?? 0,
-      targetArtifactId: action.routedAction?.targetArtifactId ?? "",
-      sourceArtifactId: action.routedAction?.sourceArtifactIds[0] ?? "",
-      expectedOutputArtifactId:
-        action.routedAction?.expectedOutput.artifactId ?? "",
-      phaseId,
-      workCardId,
-      workCardTitle,
-      implementerReportPath,
-      implementerReportFileName,
-      expectedOutputPath,
-      expectedOutputFileName,
-      blockingState: {
-        blocked: issues.length > 0,
-        issues,
-      },
-    },
-    errors,
-  };
-}
-
 export function findCurrentActionArchitectReviewWorkCardFileName(
   binding: RoutedArchitectReviewBinding,
   workCards: readonly ArchitectReviewWorkCardOption[],
@@ -336,7 +184,7 @@ export function validateArchitectReviewAssociation(
     return errors;
   }
 
-  if (binding.bindingSource !== "workflow_state_index") {
+  if (binding.bindingSource !== "routed_action_and_artifact_registry") {
     errors.push(
       `Routed-review binding source ${binding.bindingSource} cannot control this Architect Review.`,
     );
@@ -491,13 +339,6 @@ export function isRepairTarget(target: ArchitectReviewTarget): boolean {
 
 function sectionLabel(key: ArchitectReviewSectionKey): string {
   return sectionDefinitions.find((section) => section.key === key)?.heading ?? key;
-}
-
-function isExactArchitectReviewForWorkCard(
-  fileName: string,
-  workCardId: string,
-): boolean {
-  return fileNameTargetsExactWorkCard(fileName, "ARCHITECT_REVIEW_", workCardId);
 }
 
 function fileNameTargetsExactWorkCard(

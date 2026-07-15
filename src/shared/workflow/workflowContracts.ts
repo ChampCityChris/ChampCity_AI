@@ -102,6 +102,56 @@ export interface RoutedActionContract {
   stateRevision: number;
 }
 
+export type CanonicalRoutedScreenBlockerCode =
+  | "missing_registry"
+  | "missing_target"
+  | "missing_source"
+  | "ambiguous_authority"
+  | "unsynchronized_pair"
+  | "artifact_type_mismatch"
+  | "missing_output_location";
+
+export interface CanonicalRoutedScreenBlocker {
+  code: CanonicalRoutedScreenBlockerCode;
+  message: string;
+  artifactIds: string[];
+}
+
+export interface CanonicalRoutedArtifactView {
+  artifactId: string;
+  artifactType: string;
+  revision: number;
+  status: string;
+  title: string;
+  displayTitle: string;
+  projectId: string;
+  phaseId?: string;
+  workCardId?: string;
+  parentArtifactId?: string;
+  jsonPath: string;
+  markdownPath: string;
+  payloadHash: string;
+}
+
+export interface CanonicalRoutedExpectedOutputView {
+  artifactId: string;
+  artifactType: string;
+  jsonPath: string | null;
+  markdownPath: string | null;
+  materialization: "existing_authority" | "canonical_write_location" | "writer_owned";
+}
+
+/** Read-only routed-screen projection. It never grants write authority. */
+export interface CanonicalRoutedScreenViewModel {
+  bindingSource: "routed_action_and_artifact_registry";
+  action: RoutedActionContract;
+  target: CanonicalRoutedArtifactView | null;
+  sources: CanonicalRoutedArtifactView[];
+  expectedOutput: CanonicalRoutedExpectedOutputView;
+  blockers: CanonicalRoutedScreenBlocker[];
+  ready: boolean;
+}
+
 export interface WorkflowActionRecord {
   actionId: string;
   processId: import("./processContract").CanonicalWorkflowSpineStep;

@@ -2,7 +2,11 @@ import {
   buildCurrentStepRouteContext,
   type CurrentStepRouteContext,
 } from "./currentStepContextInspector";
-import type { RoutedActionContract } from "../workflow";
+import type {
+  CanonicalRoutedScreenViewModel,
+  RoutedActionContract,
+} from "../workflow";
+import type { RoutedArchitectReviewBinding } from "./architectReviewRecord";
 
 export const lockedWorkflowSteps = [
   "Project Intake",
@@ -48,9 +52,6 @@ export interface CurrentActionArtifactReference {
   status?: string;
   exists?: boolean;
 }
-
-export const authoritativeCurrentActionImplementerReportStatus =
-  "authoritative_current_action_implementer_report" as const;
 
 export interface CurrentActionMissingArtifact {
   path: string;
@@ -217,6 +218,9 @@ export interface CurrentRequiredActionState {
 export interface CurrentRequiredActionResult {
   ok: boolean;
   currentAction?: CurrentRequiredAction;
+  /** Canonical routed-screen projection; CurrentRequiredAction remains presentation-only. */
+  routedScreen?: CanonicalRoutedScreenViewModel;
+  routedArchitectReviewBinding?: RoutedArchitectReviewBinding;
   routeContext?: CurrentStepRouteContext;
   workflowSteps: readonly LockedWorkflowStep[];
   errorMessages?: string[];
@@ -962,7 +966,7 @@ function evaluateWorkCardState(
     });
   }
 
-  const reportSources = withAuthoritativeCurrentActionImplementerReport(
+  const reportSources = withCurrentActionImplementerReport(
     workCardSources,
     workCard.implementerReport,
   );
@@ -1198,7 +1202,7 @@ function evaluateRepairRoute(
       reason: repairReviewIncomplete
         ? "The repair Architect Review is incomplete and must provide substantive Operator validation steps before validation."
         : "The locked workflow routes repair Implementer Reports to Architect review before Operator validation.",
-      sourceArtifacts: withAuthoritativeCurrentActionImplementerReport(
+      sourceArtifacts: withCurrentActionImplementerReport(
         repairSources,
         repair.implementerReport,
       ),
@@ -1692,7 +1696,7 @@ function uniqueArtifacts(
   return result;
 }
 
-function withAuthoritativeCurrentActionImplementerReport(
+function withCurrentActionImplementerReport(
   artifacts: Array<CurrentActionArtifactReference | undefined>,
   implementerReport: CurrentActionArtifactReference | undefined,
 ): CurrentActionArtifactReference[] {
@@ -1704,10 +1708,7 @@ function withAuthoritativeCurrentActionImplementerReport(
     ...artifacts.filter(
       (artifact) => artifact?.path !== implementerReport.path,
     ),
-    {
-      ...implementerReport,
-      status: authoritativeCurrentActionImplementerReportStatus,
-    },
+    implementerReport,
   ]);
 }
 

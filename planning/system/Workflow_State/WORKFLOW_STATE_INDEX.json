@@ -5,14 +5,14 @@
   "jsonPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
   "markdownPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md",
   "payload": {
-    "contentMarkdown": "# Canonical Workflow State Index\n\n- State revision: 5\n- Current stage: prove\n- Active phase: phase-03\n- Current action: architect_review_of_implementer_report_required\n- Responsible role: architect\n- Authoritative target: champcity-ai/phase-03/work_card/WC09-REPAIR02\n- Required sources: champcity-ai/phase-03/implementer_report/WC09-REPAIR02\n- Expected output: champcity-ai/phase-03/architect_review/WC09-REPAIR02\n- Success route: operator_validation_required\n- Approved Work Card candidates: 16\n- Earliest unresolved candidate: WC08\n- Active repair: champcity-ai/phase-03/work_card/WC09-REPAIR02\n- Closeout eligible: no\n- Blocking conditions: none\n\nReference navigation is excluded from routed authority.\n",
+    "contentMarkdown": "# Canonical Workflow State Index\n\n- State revision: 6\n- Current stage: build\n- Active phase: phase-04\n- Current action: implementer_execution_required\n- Responsible role: implementer\n- Authoritative target: champcity-ai/phase-04/work_card/WC01\n- Required sources: champcity-ai/phase-04/phase_activation/phase-04, champcity-ai/phase-04/approval/Operator_Phase_Approval\n- Expected output: champcity-ai/phase-04/implementer_report/WC01\n- Success route: architect_review_of_implementer_report_required\n- Approved Work Card candidates: 5\n- Earliest unresolved candidate: WC01\n- Active repair: none\n- Closeout eligible: no\n- Blocking conditions: none\n\nReference navigation is excluded from routed authority.\n",
     "data": {
       "actionCatalog": {
         "architect_disposition_required": {
           "actionId": "architect_disposition_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/architect_disposition/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/architect_disposition/WC01",
             "artifactType": "architect_disposition"
           },
           "processClassification": "top_level",
@@ -25,16 +25,16 @@
           },
           "screenId": "architect-disposition",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+            "champcity-ai/phase-04/validation_report/WC01"
           ],
           "stage": "prove",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "architect_review_of_implementer_report_required": {
           "actionId": "architect_review_of_implementer_report_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/architect_review/WC01",
             "artifactType": "architect_review"
           },
           "processClassification": "top_level",
@@ -47,16 +47,16 @@
           },
           "screenId": "architect-review",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/implementer_report/WC09-REPAIR02"
+            "champcity-ai/phase-04/implementer_report/WC01"
           ],
           "stage": "prove",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "candidate_disposition_required": {
           "actionId": "candidate_disposition_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/candidate_disposition/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/candidate_disposition/WC01",
             "artifactType": "candidate_disposition"
           },
           "processClassification": "top_level",
@@ -69,17 +69,16 @@
           },
           "screenId": "candidate-disposition",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/work_card/WC09-REPAIR02",
-            "champcity-ai/phase-03/work_card_approval/WC09-REPAIR02"
+            "champcity-ai/phase-04/work_card/WC01"
           ],
           "stage": "prove",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "implementer_execution_required": {
           "actionId": "implementer_execution_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/implementer_report/WC01",
             "artifactType": "implementer_report"
           },
           "processClassification": "top_level",
@@ -92,11 +91,11 @@
           },
           "screenId": "implementer-execution",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/work_card/WC09-REPAIR02",
-            "champcity-ai/phase-03/work_card_approval/WC09-REPAIR02"
+            "champcity-ai/phase-04/phase_activation/phase-04",
+            "champcity-ai/phase-04/approval/Operator_Phase_Approval"
           ],
           "stage": "build",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "next_phase_activation_required": {
           "actionId": "next_phase_activation_required",
@@ -149,7 +148,7 @@
           "actionId": "operator_phase_closeout_approval_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/phase_closeout_approval/phase-03",
+            "artifactId": "champcity-ai/phase-04/phase_closeout_approval/phase-04",
             "artifactType": "phase_closeout_approval"
           },
           "processClassification": "top_level",
@@ -162,10 +161,10 @@
           },
           "screenId": "operator-closeout-approval",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/phase_closeout/phase-03"
+            "champcity-ai/phase-04/phase_closeout/phase-04"
           ],
           "stage": "prove",
-          "targetArtifactId": "champcity-ai/phase-03/phase_closeout/phase-03"
+          "targetArtifactId": "champcity-ai/phase-04/phase_closeout/phase-04"
         },
         "operator_project_approval_required": {
           "actionId": "operator_project_approval_required",
@@ -195,7 +194,7 @@
           "actionId": "operator_validation_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/validation_report/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/validation_report/WC01",
             "artifactType": "validation_report"
           },
           "processClassification": "top_level",
@@ -208,16 +207,16 @@
           },
           "screenId": "operator-validation",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/architect_review/WC09-REPAIR02"
+            "champcity-ai/phase-04/architect_review/WC01"
           ],
           "stage": "prove",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "operator_work_card_approval_required": {
           "actionId": "operator_work_card_approval_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/work_card_approval/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/work_card_approval/WC01",
             "artifactType": "work_card_approval"
           },
           "processClassification": "top_level",
@@ -230,16 +229,16 @@
           },
           "screenId": "operator-work-card-approval",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+            "champcity-ai/phase-04/work_card/WC01"
           ],
           "stage": "build",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "phase_closeout_required": {
           "actionId": "phase_closeout_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/phase_closeout/phase-03",
+            "artifactId": "champcity-ai/phase-04/phase_closeout/phase-04",
             "artifactType": "phase_closeout"
           },
           "processClassification": "top_level",
@@ -252,11 +251,11 @@
           },
           "screenId": "phase-closeout",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/approval/Operator_Phase_Approval",
-            "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+            "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+            "champcity-ai/phase-04/validation_report/WC01"
           ],
           "stage": "prove",
-          "targetArtifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning"
+          "targetArtifactId": "champcity-ai/phase-04/phase_planning/Phase_Planning"
         },
         "phase_mapping_required": {
           "actionId": "phase_mapping_required",
@@ -374,7 +373,7 @@
           "actionId": "repair_work_card_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02",
+            "artifactId": "champcity-ai/phase-04/work_card/WC01-REPAIR01",
             "artifactType": "work_card"
           },
           "processClassification": "top_level",
@@ -387,10 +386,10 @@
           },
           "screenId": "repair-work-card-authoring",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/architect_disposition/WC09-REPAIR02"
+            "champcity-ai/phase-04/architect_disposition/WC01"
           ],
           "stage": "plan",
-          "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+          "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
         },
         "repeat_phase_mapping_and_work_card_loop_required": {
           "actionId": "repeat_phase_mapping_and_work_card_loop_required",
@@ -463,7 +462,7 @@
           "actionId": "work_card_authoring_required",
           "advancesWorkflowState": true,
           "expectedOutput": {
-            "artifactId": "champcity-ai/phase-03/work_card/WC08",
+            "artifactId": "champcity-ai/phase-04/work_card/WC01",
             "artifactType": "work_card"
           },
           "processClassification": "top_level",
@@ -476,11 +475,11 @@
           },
           "screenId": "work-card-authoring",
           "sourceArtifactIds": [
-            "champcity-ai/phase-03/approval/Operator_Phase_Approval",
-            "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+            "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+            "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
           ],
           "stage": "plan",
-          "targetArtifactId": "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+          "targetArtifactId": "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
         },
         "workflow_complete": {
           "actionId": "workflow_complete",
@@ -505,8 +504,8 @@
           "targetArtifactId": "champcity-ai/phase-04/phase_activation/phase-04"
         }
       },
-      "activePhaseId": "phase-03",
-      "authoritativeTargetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02",
+      "activePhaseId": "phase-04",
+      "authoritativeTargetArtifactId": "champcity-ai/phase-04/work_card/WC01",
       "blockingConditions": [],
       "closeout": {
         "approvalArtifactId": null,
@@ -515,378 +514,222 @@
       },
       "createdAt": "2026-07-14T00:00:00.000Z",
       "currentAction": {
-        "actionId": "architect_review_of_implementer_report_required",
+        "actionId": "implementer_execution_required",
         "advancesWorkflowState": true,
         "authorityStatus": "ready",
         "bindingSource": {
           "kind": "workflow_state_index",
-          "stateRevision": 5,
+          "stateRevision": 6,
           "workflowStateArtifactId": "champcity-ai/system/workflow_state"
         },
         "blockers": [],
         "expectedOutput": {
-          "artifactId": "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
-          "artifactType": "architect_review"
+          "artifactId": "champcity-ai/phase-04/implementer_report/WC01",
+          "artifactType": "implementer_report"
         },
         "processClassification": "top_level",
         "processId": "work_card_loop",
-        "role": "architect",
+        "role": "implementer",
         "routes": {
-          "failure": "architect_review_of_implementer_report_required",
-          "repair": "architect_disposition_required",
-          "success": "operator_validation_required"
+          "failure": null,
+          "repair": null,
+          "success": "architect_review_of_implementer_report_required"
         },
         "schemaVersion": "champcity.routed-action.v1",
-        "screenId": "architect-review",
+        "screenId": "implementer-execution",
         "sourceArtifactIds": [
-          "champcity-ai/phase-03/implementer_report/WC09-REPAIR02"
+          "champcity-ai/phase-04/phase_activation/phase-04",
+          "champcity-ai/phase-04/approval/Operator_Phase_Approval"
         ],
-        "stage": "prove",
-        "stateRevision": 5,
-        "targetArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+        "stage": "build",
+        "stateRevision": 6,
+        "targetArtifactId": "champcity-ai/phase-04/work_card/WC01"
       },
-      "currentActionId": "architect_review_of_implementer_report_required",
-      "currentStage": "prove",
+      "currentActionId": "implementer_execution_required",
+      "currentStage": "build",
       "expectedOutput": {
-        "artifactId": "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
-        "artifactType": "architect_review"
+        "artifactId": "champcity-ai/phase-04/implementer_report/WC01",
+        "artifactType": "implementer_report"
       },
       "nextPhase": {
-        "activationArtifactId": null,
-        "phaseId": null,
-        "status": "blocked"
+        "activationArtifactId": "champcity-ai/phase-04/phase_activation/phase-04",
+        "phaseId": "phase-04",
+        "status": "activated"
       },
       "openRepairChain": {
-        "activeRepairArtifactIds": [
-          "champcity-ai/phase-03/work_card/WC09-REPAIR02"
-        ],
+        "activeRepairArtifactIds": [],
         "latestDispositionArtifactId": null,
-        "rootWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC09",
-        "status": "open"
+        "rootWorkCardArtifactId": null,
+        "status": "none"
       },
       "phaseExecution": {
-        "activeCandidateId": "WC08",
-        "activeRepairArtifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02",
-        "activeWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+        "activeCandidateId": "WC01",
+        "activeRepairArtifactId": null,
+        "activeWorkCardArtifactId": "champcity-ai/phase-04/work_card/WC01",
         "approvedCandidates": [
           {
             "candidateId": "WC01",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
-            "fullWorkCardStatus": "resolved",
+            "fullWorkCardArtifactId": "champcity-ai/phase-04/work_card/WC01",
+            "fullWorkCardStatus": "active",
             "order": 1,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC01"
-            ],
-            "resolutionStatus": "completed",
-            "title": "Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+            "resolutionEvidenceArtifactIds": [],
+            "resolutionStatus": "unresolved",
+            "title": "Canonical Routed-Screen Cutover and Legacy Projection Retirement"
           },
           {
             "candidateId": "WC02",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model",
-            "fullWorkCardStatus": "resolved",
+            "fullWorkCardArtifactId": null,
+            "fullWorkCardStatus": "missing",
             "order": 2,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC02"
-            ],
-            "resolutionStatus": "completed",
-            "title": "Durable Current Required Action Model"
+            "resolutionEvidenceArtifactIds": [],
+            "resolutionStatus": "unresolved",
+            "title": "Governed Operator Recovery and Override"
           },
           {
             "candidateId": "WC03",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
-            "fullWorkCardStatus": "resolved",
+            "fullWorkCardArtifactId": null,
+            "fullWorkCardStatus": "missing",
             "order": 3,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC03"
-            ],
-            "resolutionStatus": "completed",
-            "title": "Figma Workflow Router UI Shell Integration"
+            "resolutionEvidenceArtifactIds": [],
+            "resolutionStatus": "unresolved",
+            "title": "Repair-Chain Limit and Stabilization Escalation Enforcement"
           },
           {
             "candidateId": "WC04",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
-            "fullWorkCardStatus": "resolved",
+            "fullWorkCardArtifactId": null,
+            "fullWorkCardStatus": "missing",
             "order": 4,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC04"
-            ],
-            "resolutionStatus": "completed_via_repair",
-            "title": "Primary Current Action Panel"
+            "resolutionEvidenceArtifactIds": [],
+            "resolutionStatus": "unresolved",
+            "title": "Immutable Correction, Override, and Reconciliation Evidence"
           },
           {
             "candidateId": "WC05",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC05",
-            "fullWorkCardStatus": "resolved",
+            "fullWorkCardArtifactId": null,
+            "fullWorkCardStatus": "missing",
             "order": 5,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC05"
-            ],
-            "resolutionStatus": "completed",
-            "title": "Subordinate Navigation and Manual Fallback Preservation"
-          },
-          {
-            "candidateId": "WC06",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
-            "fullWorkCardStatus": "resolved",
-            "order": 6,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC06"
-            ],
-            "resolutionStatus": "completed_via_repair",
-            "title": "Left-to-Right Workflow Visibility"
-          },
-          {
-            "candidateId": "WC07",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
-            "fullWorkCardStatus": "resolved",
-            "order": 7,
-            "resolutionEvidenceArtifactIds": [
-              "champcity-ai/system/workflow_state/candidate-resolution/WC07"
-            ],
-            "resolutionStatus": "completed_via_repair",
-            "title": "Artifact Review Workspace"
-          },
-          {
-            "candidateId": "WC08",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
-            "fullWorkCardStatus": "available",
-            "order": 8,
             "resolutionEvidenceArtifactIds": [],
             "resolutionStatus": "unresolved",
-            "title": "Current Step Context Inspector"
-          },
-          {
-            "candidateId": "WC09",
-            "fullWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC09",
-            "fullWorkCardStatus": "active",
-            "order": 9,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Cross-Process Workflow Authority, Artifact Pair Migration, and Context Packet Foundation"
-          },
-          {
-            "candidateId": "WC10",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 10,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Phase Mapping and Operator Phase Approval Route Correction"
-          },
-          {
-            "candidateId": "WC11",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 11,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Work Card as Implementer Handoff Route"
-          },
-          {
-            "candidateId": "WC12",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 12,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Implementer Report to Architect Review Route"
-          },
-          {
-            "candidateId": "WC13",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 13,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Operator Validation Record and REPAIR Sub-Card Route"
-          },
-          {
-            "candidateId": "WC14",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 14,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Phase Closeout, Roadmap Update, and Next Phase Activation Route"
-          },
-          {
-            "candidateId": "WC15",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 15,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "MCP/Direct Write Status and Manual Artifact Fallbacks"
-          },
-          {
-            "candidateId": "WC16",
-            "fullWorkCardArtifactId": null,
-            "fullWorkCardStatus": "missing",
-            "order": 16,
-            "resolutionEvidenceArtifactIds": [],
-            "resolutionStatus": "unresolved",
-            "title": "Router UI Fixture Validation and Regression Scenarios"
+            "title": "Integrated Stabilization Validation and Phase Transition Proof"
           }
         ],
         "closeoutEligibility": {
           "blockers": [
             {
-              "artifactIds": [
-                "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
-              ],
+              "artifactIds": [],
               "blocking": true,
               "code": "candidate_unresolved",
-              "message": "Work Card candidate WC08 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
-            },
-            {
-              "artifactIds": [
-                "champcity-ai/phase-03/work_card/WC09"
-              ],
-              "blocking": true,
-              "code": "candidate_unresolved",
-              "message": "Work Card candidate WC09 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "implementer"
+              "message": "WC01 requires an explicit closeout-eligible resolution.",
+              "ownerRole": "operator"
             },
             {
               "artifactIds": [],
               "blocking": true,
               "code": "candidate_unresolved",
-              "message": "Work Card candidate WC10 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
+              "message": "WC02 requires an explicit closeout-eligible resolution.",
+              "ownerRole": "operator"
             },
             {
               "artifactIds": [],
               "blocking": true,
               "code": "candidate_unresolved",
-              "message": "Work Card candidate WC11 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
+              "message": "WC03 requires an explicit closeout-eligible resolution.",
+              "ownerRole": "operator"
             },
             {
               "artifactIds": [],
               "blocking": true,
               "code": "candidate_unresolved",
-              "message": "Work Card candidate WC12 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
+              "message": "WC04 requires an explicit closeout-eligible resolution.",
+              "ownerRole": "operator"
             },
             {
               "artifactIds": [],
               "blocking": true,
               "code": "candidate_unresolved",
-              "message": "Work Card candidate WC13 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
-            },
-            {
-              "artifactIds": [],
-              "blocking": true,
-              "code": "candidate_unresolved",
-              "message": "Work Card candidate WC14 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
-            },
-            {
-              "artifactIds": [],
-              "blocking": true,
-              "code": "candidate_unresolved",
-              "message": "Work Card candidate WC15 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
-            },
-            {
-              "artifactIds": [],
-              "blocking": true,
-              "code": "candidate_unresolved",
-              "message": "Work Card candidate WC16 requires explicit resolution evidence before Phase Closeout.",
-              "ownerRole": "architect"
-            },
-            {
-              "artifactIds": [
-                "champcity-ai/phase-03/work_card/WC09-REPAIR02"
-              ],
-              "blocking": true,
-              "code": "active_repair_unresolved",
-              "message": "The controlling repair obligation must be resolved before Phase Closeout.",
-              "ownerRole": "implementer"
+              "message": "WC05 requires an explicit closeout-eligible resolution.",
+              "ownerRole": "operator"
             }
           ],
           "eligible": false
         },
-        "earliestUnresolvedCandidateId": "WC08",
-        "phaseInterviewArtifactId": "champcity-ai/phase-03/architect_interview/Phase_Interview",
-        "phaseInterviewRequired": true,
-        "workCardPlanArtifactId": "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+        "earliestUnresolvedCandidateId": "WC01",
+        "phaseInterviewArtifactId": null,
+        "phaseInterviewRequired": false,
+        "workCardPlanArtifactId": "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
         "workCardPlanAuthority": "authoritative"
       },
       "projectId": "champcity-ai",
       "requiredSourceArtifactIds": [
-        "champcity-ai/phase-03/implementer_report/WC09-REPAIR02"
+        "champcity-ai/phase-04/phase_activation/phase-04",
+        "champcity-ai/phase-04/approval/Operator_Phase_Approval"
       ],
-      "responsibleRole": "architect",
+      "responsibleRole": "implementer",
       "roadmap": {
         "roadmapArtifactId": null,
         "status": "blocked"
       },
       "routes": {
-        "failure": "architect_review_of_implementer_report_required",
-        "repair": "architect_disposition_required",
-        "success": "operator_validation_required"
+        "failure": null,
+        "repair": null,
+        "success": "architect_review_of_implementer_report_required"
       },
       "schemaVersion": "champcity.workflow-state.v1",
       "stageStates": {
         "build": {
-          "completedAt": "2026-07-15T17:18:21.931Z",
-          "progress": "complete",
+          "completedAt": null,
+          "progress": "active",
           "stage": "build",
-          "startedAt": "2026-07-14T00:00:00.000Z"
+          "startedAt": "2026-07-15T18:00:00.000Z"
         },
         "capture": {
-          "completedAt": "2026-07-15T17:18:21.931Z",
+          "completedAt": "2026-07-15T18:00:00.000Z",
           "progress": "complete",
           "stage": "capture",
           "startedAt": "2026-07-14T00:00:00.000Z"
         },
         "frame": {
-          "completedAt": "2026-07-15T17:18:21.931Z",
+          "completedAt": "2026-07-15T18:00:00.000Z",
           "progress": "complete",
           "stage": "frame",
           "startedAt": "2026-07-14T00:00:00.000Z"
         },
         "plan": {
-          "completedAt": "2026-07-15T17:18:21.931Z",
+          "completedAt": "2026-07-15T18:00:00.000Z",
           "progress": "complete",
           "stage": "plan",
           "startedAt": "2026-07-14T00:00:00.000Z"
         },
         "prove": {
           "completedAt": null,
-          "progress": "active",
+          "progress": "not_started",
           "stage": "prove",
-          "startedAt": "2026-07-14T00:00:00.000Z"
+          "startedAt": null
         }
       },
-      "stateRevision": 5,
+      "stateRevision": 6,
       "transitionHistory": [],
-      "updatedAt": "2026-07-15T17:18:21.931Z",
+      "updatedAt": "2026-07-15T18:00:00.000Z",
       "workflowStateArtifactId": "champcity-ai/system/workflow_state"
     },
     "kind": "workflow_state",
     "title": "Canonical Workflow State Index"
   },
-  "payloadHash": "sha256:5478acd5b4c9f49f04432f4d05a3f8ea8a41474f6db0d344674a392e2d7ad0cb",
-  "phaseId": "phase-03",
+  "payloadHash": "sha256:a7b9991eb0f97d70096ec7b9e5e99026026f55bb3c2a13a5316ea044403c14b0",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-03/architect_review/WC09-REPAIR02"
+      "champcity-ai/phase-04/implementer_report/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
-      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+      "champcity-ai/phase-04/phase_activation/phase-04",
+      "champcity-ai/phase-04/approval/Operator_Phase_Approval"
     ],
     "supersedes": []
   },
-  "revision": 7,
+  "revision": 8,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-15T18:00:00.000Z"
 }

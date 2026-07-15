@@ -1,0 +1,44 @@
+{
+  "artifactId": "champcity-ai/phase-04/phase_planning/Phase_Planning",
+  "artifactType": "phase_planning",
+  "createdAt": "2026-07-15T18:00:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Phase_Planning.json",
+  "markdownPath": "planning/phases/phase-04/Phase_Planning.md",
+  "payload": {
+    "contentMarkdown": "# Phase Planning: phase-04\n\nStatus: Approved / manually activated stabilization authority\nProject: ChampCity A/I\nPhase: phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization\nPhase type: Architecture stabilization and operational recovery\nDate activated: 2026-07-15\n\n## Activation Decision\n\nPhase 03 is blocked after WC09-REPAIR02 Operator validation exposed a split-brain runtime authority defect. The canonical Workflow State identifies the correct action, target, source, and expected output, while the older `CurrentRequiredAction` projection reconstructs conflicting data and prevents the routed Architect Review screen from initializing.\n\nThe Operator has directed the project to begin Phase 04 immediately. Manual activation is required because the application cannot yet process this transition safely. These durable Phase 04 records are the controlling transition evidence. They do not mark Phase 03 successful or erase its failed validation.\n\n## Phase Purpose\n\nStabilize ChampCity A/I so the application can govern its own development workflow without trapping the Operator, mutating authority through background corrections, or permitting endless local repair chains.\n\n## Primary Outcomes\n\n1. Complete runtime cutover to one canonical workflow authority.\n2. Remove or reduce `CurrentRequiredAction` to presentation-only projection.\n3. Make routed screens resolve target, sources, and expected output directly from `RoutedActionContract` and the Artifact Registry.\n4. Implement a governed Operator recovery and override system.\n5. Encode repair-chain limits and escalation into application state.\n6. Prevent hidden mutable corrections from silently changing source-of-truth records.\n7. Prove the current WC09-REPAIR02 Architect Review scenario end to end through the real application.\n\n## Operator Recovery Model\n\n### Level 1 — Safe access recovery\n\nAllows the Operator to open the exact canonical target screen or artifact when navigation is broken. It does not mutate workflow state.\n\n### Level 2 — Route correction request\n\nCreates a canonical correction record describing the current route, expected route, evidence, and requested correction. Architect disposition is required before workflow authority changes.\n\n### Level 3 — Emergency Operator override\n\nAvailable only when the application prevents governed work from continuing and ordinary correction cannot be completed. It must require an explicit reason, show current and proposed authority, prohibit marking work complete or skipping validation, create append-only canonical evidence, preserve the prior state, and require later Architect reconciliation.\n\n## Repair-Chain Governance\n\nEvery Work Card must carry a repair policy containing maximum repair count, current count, escalation threshold, and permitted escalation action. When the limit is reached, the application blocks another numbered repair, marks the parent blocked pending stabilization, and requires an Operator stabilization disposition.\n\n## Source-of-Truth Rules\n\n- Canonical Workflow State and Artifact Registry are the only runtime authority.\n- Presentation projections may not independently infer or override workflow authority.\n- Historical existence is not a compatibility requirement.\n- Corrections must create canonical evidence; background edits must not silently rewrite controlling history.\n- Incorrect runtime paths should be replaced and removed rather than retained as fallback debt.\n- Rollback uses Git and canonical revision history, not permanent duplicate runtime paths.\n\n## In Scope\n\n- Routed-screen authority cutover.\n- Architect Review binding correction.\n- Retirement of legacy workflow reconstruction.\n- Governed Operator access recovery, route correction, and emergency override.\n- Repair-limit enforcement and stabilization escalation records.\n- Immutable correction and override evidence.\n- Production end-to-end validation using the WC09-REPAIR02 failure scenario.\n\n## Out of Scope\n\n- Broad visual redesign.\n- Provider API integration.\n- Multi-project support.\n- Release packaging.\n- General UI polish unrelated to recovery and authority.\n- Reopening the locked process baseline.\n- Treating Phase 03 as successfully completed.\n\n## Acceptance Goals\n\nPhase 04 succeeds when the Architect Review screen initializes from canonical authority; preview, save, and transition work through the real application; no routed screen uses independent inference; Operator recovery is gated and auditable; repair limits are enforced; immutable evidence is retained; and Phase 04 can be validated without background artifact surgery.\n\n## Implementation Strategy\n\nUse bounded Work Cards with architecture checkpoints. First establish authority cutover, then Operator recovery, then repair-limit governance, then immutable evidence, then integrated validation.\n\n## Phase Boundary\n\nThis Phase Planning document and the associated Work Card Plan are Phase Mapping outputs. Full Work Cards are created just in time, one candidate at a time.\n",
+    "data": {
+      "manualActivationReason": "Phase 03 application workflow cannot safely process the transition",
+      "phaseId": "phase-04",
+      "phaseType": "architecture_stabilization",
+      "primaryOutcomes": [
+        "canonical runtime authority cutover",
+        "governed operator recovery and override",
+        "repair-chain limit enforcement",
+        "immutable correction evidence",
+        "end-to-end production validation"
+      ],
+      "status": "approved_manual_activation",
+      "title": "Workflow Authority Cutover and Operator Recovery Stabilization"
+    },
+    "kind": "phase_planning",
+    "title": "Phase Planning: phase-04"
+  },
+  "payloadHash": "sha256:b87ee990357f1a038086e1740ee442c1e5a7676544ba56e7884a933f3489edd7",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-04/approval/Operator_Phase_Approval"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-15T18:00:00.000Z"
+}

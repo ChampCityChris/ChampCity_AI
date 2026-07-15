@@ -16,7 +16,7 @@ import {
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_BASE =
-  "feature/phase-03-wc08-repair06-current-action-architect-review-binding";
+  "feature/phase-03-wc09-repair02-process-contract-evidence-precedence";
 const REGISTRY_STEM = "planning/system/Artifact_Registry/ARTIFACT_REGISTRY";
 const MIGRATION_MANIFEST_STEM =
   "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority";
@@ -27,6 +27,7 @@ const MIGRATION_MANIFEST_PATHS = new Set([
 const ACTIVE_PLANNING_PREFIXES = [
   "planning/project/",
   "planning/phases/phase-03/",
+  "planning/phases/phase-04/",
   "planning/system/",
   "planning/work/",
 ];
@@ -538,6 +539,42 @@ async function runtimeBoundaryGate(root, repoFiles) {
   return finishGate(gate);
 }
 
+async function routedAuthorityBoundaryGate(root) {
+  const gate = makeGate("routed_screen_canonical_authority_boundary");
+  const routedRuntimeFiles = [
+    "src/main/main.ts",
+    "src/main/workCards/canonicalWorkflowAuthority.ts",
+    "src/main/workCards/workCardFileStore.ts",
+    "src/main/workflow/canonicalRoutedScreenAdapter.ts",
+    "src/main/workflow/routedProcessInvocationService.ts",
+    "src/renderer/app/App.tsx",
+  ];
+  const forbidden = [
+    "evaluateCurrentRequiredAction",
+    "resolveCurrentActionArchitectReviewBinding",
+    "authoritativeCurrentActionImplementerReportStatus",
+  ];
+
+  for (const file of routedRuntimeFiles) {
+    gate.checked += 1;
+    try {
+      const source = await readText(root, file);
+      if (source === null) {
+        fail(gate, "routed-runtime-source-missing", file);
+        continue;
+      }
+      for (const symbol of forbidden) {
+        if (source.includes(symbol)) {
+          fail(gate, "legacy-routed-authority-symbol", file, symbol);
+        }
+      }
+    } catch (error) {
+      fail(gate, "routed-runtime-source-read", file, String(error?.message ?? error));
+    }
+  }
+  return finishGate(gate);
+}
+
 function isLegacyScanScope(file) {
   return (
     file === "README.md" ||
@@ -817,6 +854,7 @@ function isAllowedWc09Change(file) {
     "docs/architecture/",
     "planning/archive/wc09/",
     "planning/phases/phase-03/",
+    "planning/phases/phase-04/",
     "planning/project/",
     "planning/system/",
     "planning/work/_template/",
@@ -871,6 +909,7 @@ async function main() {
     gates.push(await canonicalRegistryGate(root));
     gates.push(await migrationManifestDurabilityGate(root));
     gates.push(await runtimeBoundaryGate(root, repoFiles));
+    gates.push(await routedAuthorityBoundaryGate(root));
     gates.push(await legacyTerminologyGate(root, repoFiles));
     gates.push(await activeArtifactNamingGate(repoFiles));
     gates.push(await secretAssignmentGate(root, changedExisting));

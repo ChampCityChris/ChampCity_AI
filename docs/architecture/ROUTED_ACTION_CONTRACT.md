@@ -28,6 +28,14 @@ The renderer may submit the action ID, state revision, and form fields. It may n
 
 Stale renderer state, a different reference card, a different reference phase, list ordering, cached selector values, or filename-prefix similarity cannot change the contract.
 
+## Routed-Screen View Model
+
+`CanonicalRoutedScreenAdapter` is the single conversion boundary between a `RoutedActionContract` and routed-screen initialization. It resolves the exact target and ordered sources from the Artifact Registry, verifies each JSON/Markdown pair, reads titles from canonical payloads, and identifies either the existing expected-output authority or its canonical write location. The resulting `CanonicalRoutedScreenViewModel` is read-only and cannot grant write authority.
+
+Every routed preview/save handler is reauthorized in the main process through the same adapter. Architect Review additionally receives a direct `RoutedArchitectReviewBinding` produced from this resolution; the renderer does not reconstruct it from Current Action statuses, filenames, directory order, or first-match searches.
+
+`CurrentRequiredAction` remains a presentation projection for the Current Action panel and workspace guidance. It may display the routed contract and canonical view model, but it cannot initialize, authorize, block, preview, save, or advance a routed process.
+
 ## Reference Navigation
 
 `ReferenceNavigationState` is a separate type and state path. It may identify an artifact for optional viewing in Artifacts. It is never accepted as:
@@ -52,7 +60,7 @@ The contract blocks preview and save when:
 
 Each blocker identifies the correction owner and next action. The runtime never repairs ambiguity by choosing a candidate.
 
-## WC08 Binding
+## Regression Bindings
 
 For the migrated WC08 action, the contract binds:
 
@@ -62,3 +70,5 @@ For the migrated WC08 action, the contract binds:
 - success route: Operator Validation.
 
 Parent WC08, WC08-REPAIR05, historical Implementer Reports, and reference selections cannot substitute for any field.
+
+The Phase 04 production-path regression binds WC09-REPAIR02 to its exact synchronized Work Card, exact Implementer Report, and exact Architect Review output. Mounted Electron coverage proves preview, save, governed transition to Operator Validation, and reload through the production preload/renderer and shared main-process adapter.

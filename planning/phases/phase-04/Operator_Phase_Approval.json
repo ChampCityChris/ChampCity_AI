@@ -1,0 +1,41 @@
+{
+  "artifactId": "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+  "artifactType": "phase_approval",
+  "createdAt": "2026-07-15T18:00:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Operator_Phase_Approval.json",
+  "markdownPath": "planning/phases/phase-04/Operator_Phase_Approval.md",
+  "payload": {
+    "contentMarkdown": "# Operator Phase Approval: phase-04\n\nDecision: Approved and manually activated\nDate: 2026-07-15\nOperator direction: Begin the stabilization phase.\n\n## Approval Scope\n\nThe Operator approves the Phase 04 planning authority, ordered candidate plan, manual activation because the application cannot safely process the transition, priority treatment of governed Operator recovery/override, application enforcement of repair-chain limits, and preservation of failed Phase 03/WC09 evidence without another WC09 repair.\n\n## Conditions\n\n- Phase 03 remains blocked; it is not retroactively accepted.\n- No WC09-REPAIR03 may be created.\n- Full Phase 04 Work Cards are created just in time.\n- Operator override must be gated and auditable; it may not become a general skip mechanism.\n- The first Work Card must address canonical routed-screen cutover before broader recovery behavior.\n",
+    "data": {
+      "conditions": [
+        "Phase 03 remains blocked",
+        "No WC09-REPAIR03",
+        "Just-in-time Work Cards",
+        "Override is gated and auditable",
+        "WC01 addresses canonical cutover first"
+      ],
+      "date": "2026-07-15",
+      "decision": "approved_and_manually_activated",
+      "operatorDirection": "Begin the stabilization phase",
+      "phaseId": "phase-04"
+    },
+    "kind": "phase_approval",
+    "title": "Operator Phase Approval: phase-04"
+  },
+  "payloadHash": "sha256:4cc5482bd2ef49a7f7dfe9253a6c9c14298abbe844e192b2f73110a6da7d8800",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_planning/Phase_Planning",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-15T18:00:00.000Z"
+}

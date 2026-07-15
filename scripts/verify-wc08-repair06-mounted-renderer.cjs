@@ -24,6 +24,24 @@ const expectedOutputFileName =
   "ARCHITECT_REVIEW_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
 const expectedOutputPath =
   `planning/phases/${phase}/Architect_Reviews/${expectedOutputFileName}`;
+const routedArchitectReviewBinding = {
+  bindingSource: "routed_action_and_artifact_registry",
+  currentActionId: "architect_review_of_implementer_report_required",
+  workflowStateRevision: 1,
+  targetArtifactId: "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+  sourceArtifactId:
+    "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+  expectedOutputArtifactId:
+    "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
+  phaseId: phase,
+  workCardId: targetId,
+  workCardTitle: targetTitle,
+  implementerReportPath: targetImplementerReportPath,
+  implementerReportFileName: targetImplementerReportFileName,
+  expectedOutputPath,
+  expectedOutputFileName,
+  blockingState: { blocked: false, issues: [] },
+};
 
 let latestPreviewPayload;
 let latestSavePayload;
@@ -289,6 +307,9 @@ function registerIpcHandlers() {
             : workflowAdvanced
               ? operatorValidationAction
               : currentAction,
+          ...(!productionProjection && !workflowAdvanced
+            ? { routedArchitectReviewBinding }
+            : {}),
           workflowSteps: [],
         };
       },
@@ -397,24 +418,7 @@ function assertRoutedPayload(payload, label) {
   assert.equal(payload.phase, phase);
   assert.equal(payload.workCardFileName, targetWorkCardFileName);
   assert.equal(payload.implementerReportFileName, targetImplementerReportFileName);
-  assert.deepEqual(payload.routedReviewBinding, {
-    bindingSource: "workflow_state_index",
-    currentActionId: "architect_review_of_implementer_report_required",
-    workflowStateRevision: 1,
-    targetArtifactId: "champcity-ai/phase-03/work_card/WC08-REPAIR04",
-    sourceArtifactId:
-      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
-    expectedOutputArtifactId:
-      "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
-    phaseId: phase,
-    workCardId: targetId,
-    workCardTitle: targetTitle,
-    implementerReportPath: targetImplementerReportPath,
-    implementerReportFileName: targetImplementerReportFileName,
-    expectedOutputPath,
-    expectedOutputFileName,
-    blockingState: { blocked: false, issues: [] },
-  });
+  assert.deepEqual(payload.routedReviewBinding, routedArchitectReviewBinding);
 }
 
 async function run() {
@@ -477,7 +481,7 @@ async function run() {
   );
   await waitFor(
     window,
-    `document.body.innerText.includes(${JSON.stringify(expectedOutputFileName)}) && document.body.innerText.includes("Binding source: workflow_state_index")`,
+    `document.body.innerText.includes(${JSON.stringify(expectedOutputFileName)}) && document.body.innerText.includes("Binding source: routed_action_and_artifact_registry")`,
     "routed preview and visible binding notice",
   );
   await waitFor(

@@ -74,4 +74,6 @@ WC08-REPAIR04 remains a deterministic regression fixture: its exact Implementer 
 
 ## Presentation Boundary
 
+Routed screens consume `CanonicalRoutedScreenViewModel`, which is derived only from the current `RoutedActionContract` plus synchronized Artifact Registry authorities. Preview and save reload that authority in the main process. Current Action presentation, legacy status strings, filenames, directory order, and reference navigation are explicitly excluded from routed authorization.
+
 The Current Action panel is a presentation projection of canonical state. The horizontal process map remains `Capture → Frame → Plan → Build → Prove`; the center workspace owns active work; Artifacts remains the artifact browser and preview surface. Support navigation may open reference context but cannot modify authority.

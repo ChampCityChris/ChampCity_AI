@@ -9,42 +9,40 @@
     "kind": "workflow_state",
     "title": "Canonical Workflow State Index"
   },
-  "payloadHash": "sha256:5478acd5b4c9f49f04432f4d05a3f8ea8a41474f6db0d344674a392e2d7ad0cb",
-  "phaseId": "phase-03",
+  "payloadHash": "sha256:a7b9991eb0f97d70096ec7b9e5e99026026f55bb3c2a13a5316ea044403c14b0",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-03/architect_review/WC09-REPAIR02"
+      "champcity-ai/phase-04/implementer_report/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
-      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+      "champcity-ai/phase-04/phase_activation/phase-04",
+      "champcity-ai/phase-04/approval/Operator_Phase_Approval"
     ],
     "supersedes": []
   },
-  "revision": 7,
+  "revision": 8,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-15T18:00:00.000Z"
 }
 -->
 
 # Canonical Workflow State Index
 
-- State revision: 5
-- Current stage: prove
-- Active phase: phase-03
-- Current action: architect_review_of_implementer_report_required
-- Responsible role: architect
-- Authoritative target: champcity-ai/phase-03/work_card/WC09-REPAIR02
-- Required sources: champcity-ai/phase-03/implementer_report/WC09-REPAIR02
-- Expected output: champcity-ai/phase-03/architect_review/WC09-REPAIR02
-- Success route: operator_validation_required
-- Approved Work Card candidates: 16
-- Earliest unresolved candidate: WC08
-- Active repair: champcity-ai/phase-03/work_card/WC09-REPAIR02
+- State revision: 6
+- Current stage: build
+- Active phase: phase-04
+- Current action: implementer_execution_required
+- Responsible role: implementer
+- Authoritative target: champcity-ai/phase-04/work_card/WC01
+- Required sources: champcity-ai/phase-04/phase_activation/phase-04, champcity-ai/phase-04/approval/Operator_Phase_Approval
+- Expected output: champcity-ai/phase-04/implementer_report/WC01
+- Success route: architect_review_of_implementer_report_required
+- Approved Work Card candidates: 5
+- Earliest unresolved candidate: WC01
+- Active repair: none
 - Closeout eligible: no
 - Blocking conditions: none
 

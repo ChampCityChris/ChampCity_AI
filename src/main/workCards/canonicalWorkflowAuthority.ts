@@ -1,7 +1,6 @@
 import path from "node:path";
 
 import {
-  getArtifactAuthority,
   type ArtifactRegistryEntry,
   type JsonValue,
 } from "../../shared/artifacts";
@@ -12,7 +11,6 @@ import {
   type WorkflowTransitionRoute,
 } from "../../shared/workflow";
 import {
-  authoritativeCurrentActionImplementerReportStatus,
   lockedWorkflowSteps,
   type CurrentRequiredAction,
   type CurrentRequiredActionResult,
@@ -28,6 +26,8 @@ import {
   locationFromPairPaths,
 } from "../artifacts";
 import {
+  CanonicalRoutedScreenAdapter,
+  type CanonicalRoutedScreenResolution,
   RoutedActionService,
   WorkflowStateArtifactPort,
   WorkflowStateStore,
@@ -62,6 +62,7 @@ export class CanonicalWorkflowAuthority {
   readonly artifactPairs: ArtifactPairService;
   readonly workflowStateStore: WorkflowStateStore;
   readonly routedActions: RoutedActionService;
+  readonly routedScreens: CanonicalRoutedScreenAdapter;
 
   constructor(readonly projectRoot: string, clock?: () => string) {
     if (!path.isAbsolute(projectRoot)) {
@@ -73,6 +74,7 @@ export class CanonicalWorkflowAuthority {
       new WorkflowStateArtifactPort(this.artifactPairs),
     );
     this.routedActions = new RoutedActionService(this.workflowStateStore);
+    this.routedScreens = new CanonicalRoutedScreenAdapter(this.artifactPairs);
   }
 
   async projectCurrentRequiredAction(): Promise<CurrentRequiredActionResult> {
@@ -97,26 +99,13 @@ export class CanonicalWorkflowAuthority {
       };
     }
 
-    const registry = await this.requireRegistry();
-    const target = action.targetArtifactId
-      ? getArtifactAuthority(registry, action.targetArtifactId)
-      : undefined;
-    const sources = action.sourceArtifactIds.map((artifactId) =>
-      getArtifactAuthority(registry, artifactId),
-    );
-    const targetArtifact = target
-      ? (await this.artifactPairs.readArtifactByPaths(
-          target.jsonPath,
-          target.markdownPath,
-        )).artifact
-      : undefined;
-    const targetData = asRecord(targetArtifact?.payload.data);
-    const workCardId = textValue(targetData?.workCardId) ?? target?.workCardId;
-    const workCardTitle = textValue(targetData?.title);
-    const expectedPath = target && workCardId && workCardTitle
-      ? expectedOutputPaths(action, target.phaseId, workCardId, workCardTitle)
-          .markdownPath
-      : undefined;
+    const resolution = await this.routedScreens.resolve(snapshot.state, action);
+    const routedScreen = resolution.viewModel;
+    const target = routedScreen.target;
+    const sources = routedScreen.sources;
+    const workCardId = target?.workCardId;
+    const workCardTitle = target?.displayTitle;
+    const expectedPath = routedScreen.expectedOutput.markdownPath ?? undefined;
 
     const currentAction: CurrentRequiredAction = {
       id: action.actionId,
@@ -135,9 +124,6 @@ export class CanonicalWorkflowAuthority {
       sourceArtifacts: sources.map((source) => ({
         path: source.markdownPath,
         role: source.artifactType.replaceAll("_", " "),
-        ...(source.artifactType === "implementer_report"
-          ? { status: authoritativeCurrentActionImplementerReportStatus }
-          : {}),
         exists: true,
       })),
       missingArtifacts: [],
@@ -149,15 +135,33 @@ export class CanonicalWorkflowAuthority {
       successRoute: action.routes.success ?? undefined,
       failureRoute: action.routes.failure ?? undefined,
       repairRoute: action.routes.repair ?? undefined,
-      warnings: action.blockers.map((blocker) => ({
-        code: blocker.code,
-        message: blocker.message,
-        severity: "blocking" as const,
-      })),
+      warnings: [
+        ...action.blockers.map((blocker) => ({
+          code: blocker.code,
+          message: blocker.message,
+          severity: "blocking" as const,
+        })),
+        ...routedScreen.blockers.map((blocker) => ({
+          code: blocker.code,
+          message: blocker.message,
+          severity: "blocking" as const,
+        })),
+      ],
       routedAction: action,
     };
 
-    return { ok: true, currentAction, workflowSteps: lockedWorkflowSteps };
+    return {
+      ok: true,
+      currentAction,
+      routedScreen,
+      ...(action.actionId === "architect_review_of_implementer_report_required"
+        ? {
+            routedArchitectReviewBinding:
+              architectReviewBindingFromResolution(snapshot.state, resolution),
+          }
+        : {}),
+      workflowSteps: lockedWorkflowSteps,
+    };
   }
 
   async authorizeArchitectReview(
@@ -182,46 +186,33 @@ export class CanonicalWorkflowAuthority {
       throw new Error("Architect Review requires exactly one authoritative source artifact.");
     }
 
-    const registry = await this.requireRegistry();
-    const target = getArtifactAuthority(registry, routedAction.targetArtifactId);
-    const source = getArtifactAuthority(registry, routedAction.sourceArtifactIds[0]);
+    const resolution = await this.routedScreens.resolve(state, routedAction);
+    if (!resolution.viewModel.ready || resolution.viewModel.blockers.length > 0) {
+      throw new Error(
+        resolution.viewModel.blockers.map((blocker) => blocker.message).join(" ") ||
+          "Architect Review canonical routed-screen authority is blocked.",
+      );
+    }
+    const target = resolution.targetEntry;
+    const source = resolution.sourceEntries[0];
+    const targetArtifact = resolution.targetArtifact;
+    if (!target || !source || !targetArtifact) {
+      throw new Error("Architect Review canonical target/source authority is incomplete.");
+    }
     if (target.artifactType !== "work_card" || source.artifactType !== "implementer_report") {
       throw new Error("Architect Review target/source artifact types do not match the role gate.");
     }
-    const targetPair = await this.artifactPairs.readArtifactByPaths(
-      target.jsonPath,
-      target.markdownPath,
-    );
-    await this.artifactPairs.readArtifactByPaths(source.jsonPath, source.markdownPath);
-    const workCard = requireRecord(targetPair.artifact.payload.data, "Work Card payload");
+    const workCard = requireRecord(targetArtifact.payload.data, "Work Card payload");
     const phaseId = target.phaseId ?? state.activePhaseId ?? "";
     const workCardId = textValue(workCard.workCardId) ?? target.workCardId ?? "";
-    const workCardTitle = textValue(workCard.title) ?? "";
+    const workCardTitle = resolution.viewModel.target?.displayTitle ?? "";
     if (!phaseId || !workCardId || !workCardTitle) {
       throw new Error("Architect Review target identity is incomplete.");
     }
-    const outputPaths = expectedOutputPaths(
-      routedAction,
-      phaseId,
-      workCardId,
-      workCardTitle,
-    );
-    const binding: RoutedArchitectReviewBinding = {
-      bindingSource: "workflow_state_index",
-      currentActionId: "architect_review_of_implementer_report_required",
-      workflowStateRevision: state.stateRevision,
-      targetArtifactId: target.artifactId,
-      sourceArtifactId: source.artifactId,
-      expectedOutputArtifactId: routedAction.expectedOutput.artifactId,
-      phaseId,
-      workCardId,
-      workCardTitle,
-      implementerReportPath: source.markdownPath,
-      implementerReportFileName: path.posix.basename(source.markdownPath),
-      expectedOutputPath: outputPaths.markdownPath,
-      expectedOutputFileName: path.posix.basename(outputPaths.markdownPath),
-      blockingState: { blocked: false, issues: [] },
-    };
+    const binding = architectReviewBindingFromResolution(state, resolution);
+    if (binding.blockingState.blocked) {
+      throw new Error(binding.blockingState.issues.map((issue) => issue.message).join(" "));
+    }
     if (rendererBinding) assertSameBinding(rendererBinding, binding);
     return {
       state,
@@ -235,9 +226,9 @@ export class CanonicalWorkflowAuthority {
       workCardFileName: path.posix.basename(target.jsonPath),
       implementerReportFileName: path.posix.basename(source.markdownPath),
       expectedOutputArtifactId: routedAction.expectedOutput.artifactId,
-      expectedOutputJsonPath: outputPaths.jsonPath,
-      expectedOutputMarkdownPath: outputPaths.markdownPath,
-      expectedOutputFileName: path.posix.basename(outputPaths.markdownPath),
+      expectedOutputJsonPath: binding.expectedOutputPath.replace(/\.md$/i, ".json"),
+      expectedOutputMarkdownPath: binding.expectedOutputPath,
+      expectedOutputFileName: binding.expectedOutputFileName,
       binding,
     };
   }
@@ -299,35 +290,42 @@ export class CanonicalWorkflowAuthority {
     return { pairCommit, transition, route };
   }
 
-  private async requireRegistry() {
-    const registry = await this.artifactPairs.loadRegistry();
-    if (!registry) throw new Error("The canonical artifact registry is unavailable.");
-    return registry;
-  }
 }
 
-function expectedOutputPaths(
-  action: RoutedActionContract,
-  phaseId: string | undefined,
-  workCardId: string,
-  workCardTitle: string,
-): { jsonPath: string; markdownPath: string } {
-  if (action.expectedOutput.artifactType !== "architect_review" || !phaseId) {
-    throw new Error("The routed action does not define an Architect Review output path.");
+function architectReviewBindingFromResolution(
+  state: WorkflowStateIndex,
+  resolution: CanonicalRoutedScreenResolution,
+): RoutedArchitectReviewBinding {
+  const { viewModel } = resolution;
+  const target = viewModel.target;
+  const source = viewModel.sources[0];
+  const outputPath = viewModel.expectedOutput.markdownPath ?? "";
+  const issues = viewModel.blockers.map((blocker) => ({
+    kind: blocker.code === "ambiguous_authority" ? "ambiguity" as const : "missing" as const,
+    message: blocker.message,
+  }));
+  if (viewModel.sources.length !== 1) {
+    issues.push({
+      kind: "ambiguity",
+      message: "Architect Review requires exactly one canonical Implementer Report source.",
+    });
   }
-  const expectedArtifactId = `champcity-ai/${phaseId}/architect_review/${workCardId}`;
-  if (action.expectedOutput.artifactId !== expectedArtifactId) {
-    throw new Error(
-      `Architect Review output identity ${action.expectedOutput.artifactId} does not match ${expectedArtifactId}.`,
-    );
-  }
-  const slug = workCardTitle
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  const stem = `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${workCardId}_${slug}`;
-  return { jsonPath: `${stem}.json`, markdownPath: `${stem}.md` };
+  return {
+    bindingSource: "routed_action_and_artifact_registry",
+    currentActionId: "architect_review_of_implementer_report_required",
+    workflowStateRevision: state.stateRevision,
+    targetArtifactId: target?.artifactId ?? viewModel.action.targetArtifactId ?? "",
+    sourceArtifactId: source?.artifactId ?? viewModel.action.sourceArtifactIds[0] ?? "",
+    expectedOutputArtifactId: viewModel.expectedOutput.artifactId,
+    phaseId: target?.phaseId ?? state.activePhaseId ?? "",
+    workCardId: target?.workCardId ?? "",
+    workCardTitle: target?.displayTitle ?? "",
+    implementerReportPath: source?.markdownPath ?? "",
+    implementerReportFileName: source ? path.posix.basename(source.markdownPath) : "",
+    expectedOutputPath: outputPath,
+    expectedOutputFileName: outputPath ? path.posix.basename(outputPath) : "",
+    blockingState: { blocked: issues.length > 0 || !viewModel.ready, issues },
+  };
 }
 
 function assertSameBinding(

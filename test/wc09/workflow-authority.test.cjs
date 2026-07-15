@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { mkdtemp, rm } = require("node:fs/promises");
+const { mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
@@ -10,9 +10,6 @@ const sharedWorkflow = require("../../dist/shared/workflow");
 const { CanonicalWorkflowAuthority } = require(
   "../../dist/main/workCards/canonicalWorkflowAuthority",
 );
-const {
-  resolveCurrentActionArchitectReviewBinding,
-} = require("../../dist/shared/workCards/architectReviewRecord");
 
 const { ArtifactPairService } = mainArtifacts;
 const {
@@ -42,6 +39,11 @@ const WC08_TARGET = "champcity-ai/phase-03/work_card/WC08-REPAIR04";
 const WC08_SOURCE = "champcity-ai/phase-03/implementer_report/WC08-REPAIR04";
 const WC08_OUTPUT = "champcity-ai/phase-03/architect_review/WC08-REPAIR04";
 const WC08_VALIDATION = "champcity-ai/phase-03/validation_report/WC08-REPAIR04";
+const WC09_TARGET = "champcity-ai/phase-03/work_card/WC09-REPAIR02";
+const WC09_SOURCE = "champcity-ai/phase-03/implementer_report/WC09-REPAIR02";
+const WC09_OUTPUT = "champcity-ai/phase-03/architect_review/WC09-REPAIR02";
+const WC09_TITLE = "Locked Process Contract and Evidence Precedence Correction";
+const WC09_STEM = "locked_process_contract_and_evidence_precedence_correction";
 
 const SUCCESS_LIFECYCLE = [
   "project_intake_required",
@@ -844,9 +846,7 @@ test("the main-process WC08 route rehydrates authority, defeats reference overri
       projected.currentAction.sourceArtifacts[0].path,
       "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
     );
-    const binding = resolveCurrentActionArchitectReviewBinding(
-      projected.currentAction,
-    ).binding;
+    const binding = projected.routedArchitectReviewBinding;
     assert.ok(binding);
     const authorized = await authority.authorizeArchitectReview(binding);
     assert.equal(authorized.workCardId, "WC08-REPAIR04");
@@ -878,7 +878,134 @@ test("the main-process WC08 route rehydrates authority, defeats reference overri
   });
 });
 
-test("the persisted production state reopens WC08 and targets exact WC09-REPAIR02 authority", async () => {
+test("the canonical routed-screen adapter resolves exact WC09-REPAIR02 authority and blocks missing, ambiguous, or tampered pairs", async () => {
+  await withTemporaryRoot(async (root) => {
+    const artifactPairs = createArtifactService(root);
+    const targetCommit = await artifactPairs.commitArtifact({
+      artifactId: WC09_TARGET,
+      artifactType: "work_card",
+      status: "active",
+      projectId: PROJECT_ID,
+      phaseId: PHASE_ID,
+      workCardId: "WC09-REPAIR02",
+      parentArtifactId: "champcity-ai/phase-03/work_card/WC09",
+      relationships: { sources: [], expectedOutputs: [WC09_OUTPUT], supersedes: [], children: [] },
+      payload: {
+        title: `Repair Work Card: WC09-REPAIR02 ${WC09_TITLE}`,
+        contentMarkdown: `# Repair Work Card: WC09-REPAIR02 - ${WC09_TITLE}\n`,
+        data: { workCardId: "WC09-REPAIR02", parentWorkCardId: "WC09" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-03/Work_Cards",
+        fileStem: `WC09-REPAIR02_${WC09_STEM}`,
+      },
+      expectedRevision: null,
+    });
+    await artifactPairs.commitArtifact({
+      artifactId: "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+      artifactType: "implementer_report",
+      status: "active",
+      projectId: PROJECT_ID,
+      phaseId: PHASE_ID,
+      workCardId: "WC09-REPAIR01",
+      relationships: { sources: [], expectedOutputs: [], supersedes: [], children: [] },
+      payload: { title: "Earlier filename decoy", contentMarkdown: "# Decoy\n", data: {} },
+      location: {
+        directoryPath: "planning/phases/phase-03/Implementer_Reports",
+        fileStem: "IMPLEMENTER_REPORT_AAA_WC09-REPAIR01_decoy",
+      },
+      expectedRevision: null,
+    });
+    await artifactPairs.commitArtifact({
+      artifactId: WC09_SOURCE,
+      artifactType: "implementer_report",
+      status: "pending",
+      projectId: PROJECT_ID,
+      phaseId: PHASE_ID,
+      workCardId: "WC09-REPAIR02",
+      relationships: { sources: [WC09_TARGET], expectedOutputs: [WC09_OUTPUT], supersedes: [], children: [] },
+      payload: {
+        title: "Implementer Report: WC09-REPAIR02",
+        contentMarkdown: "# Implementer Report: WC09-REPAIR02\n",
+        data: { status: "not-a-routing-marker" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-03/Implementer_Reports",
+        fileStem: `IMPLEMENTER_REPORT_WC09-REPAIR02_${WC09_STEM}`,
+      },
+      expectedRevision: null,
+    });
+    const state = createState("architect_review_of_implementer_report_required", {
+      architect_review_of_implementer_report_required: {
+        targetArtifactId: WC09_TARGET,
+        sourceArtifactIds: [WC09_SOURCE],
+        expectedOutputArtifactId: WC09_OUTPUT,
+      },
+      operator_validation_required: {
+        targetArtifactId: WC09_TARGET,
+        sourceArtifactIds: [WC09_OUTPUT],
+        expectedOutputArtifactId: "champcity-ai/phase-03/validation_report/WC09-REPAIR02",
+      },
+    });
+    await new WorkflowStateStore(
+      root,
+      new WorkflowStateArtifactPort(artifactPairs),
+    ).initialize(state);
+
+    const authority = new CanonicalWorkflowAuthority(root, () => "2026-07-15T17:00:00.000Z");
+    const projected = await authority.projectCurrentRequiredAction();
+    assert.equal(projected.routedScreen.ready, true);
+    assert.equal(projected.routedScreen.target.artifactId, WC09_TARGET);
+    assert.equal(projected.routedScreen.target.displayTitle, WC09_TITLE);
+    assert.deepEqual(projected.routedScreen.sources.map((source) => source.artifactId), [WC09_SOURCE]);
+    assert.equal(
+      projected.routedScreen.sources[0].markdownPath,
+      `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_${WC09_STEM}.md`,
+    );
+    assert.equal(projected.routedScreen.expectedOutput.artifactId, WC09_OUTPUT);
+    assert.equal(
+      projected.routedScreen.expectedOutput.markdownPath,
+      `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR02_${WC09_STEM}.md`,
+    );
+    assert.equal(projected.routedArchitectReviewBinding.workCardTitle, WC09_TITLE);
+    assert.equal(projected.routedArchitectReviewBinding.blockingState.blocked, false);
+
+    await assert.rejects(
+      authority.authorizeArchitectReview({
+        ...projected.routedArchitectReviewBinding,
+        targetArtifactId: "champcity-ai/phase-03/work_card/WC09-REPAIR01",
+      }),
+      /stale or mismatched/,
+      "Reference navigation cannot retarget the routed action.",
+    );
+
+    const missingRoot = await mkdtemp(path.join(os.tmpdir(), "champcity-wc01-missing-"));
+    try {
+      const missingPairs = createArtifactService(missingRoot);
+      await new WorkflowStateStore(
+        missingRoot,
+        new WorkflowStateArtifactPort(missingPairs),
+      ).initialize(state);
+      const missing = await new CanonicalWorkflowAuthority(missingRoot).projectCurrentRequiredAction();
+      assert.equal(missing.routedScreen.ready, false);
+      assert.deepEqual(
+        missing.routedScreen.blockers.map((blocker) => blocker.code),
+        ["missing_target", "missing_source", "missing_output_location"],
+      );
+    } finally {
+      await rm(missingRoot, { recursive: true, force: true });
+    }
+
+    const tamperedMarkdownPath = path.join(root, ...targetCommit.artifact.markdownPath.split("/"));
+    const originalMarkdown = await readFile(tamperedMarkdownPath, "utf8");
+    await writeFile(tamperedMarkdownPath, `${originalMarkdown}\nTampered.\n`, "utf8");
+    const tampered = await authority.projectCurrentRequiredAction();
+    assert.equal(tampered.routedScreen.ready, false);
+    assert.ok(tampered.routedScreen.blockers.some((blocker) => blocker.code === "unsynchronized_pair"));
+  });
+});
+
+test("the persisted production state activates Phase 04 WC01 after the blocking WC09-REPAIR02 validation", async () => {
   const projectRoot = path.resolve(process.cwd());
   const artifactPairs = new ArtifactPairService({ projectRoot });
   const workflowStore = new WorkflowStateStore(
@@ -893,46 +1020,28 @@ test("the persisted production state reopens WC08 and targets exact WC09-REPAIR0
   assert.deepEqual(secondRead.state, firstRead.state);
 
   const state = firstRead.state;
-  const repairId = "champcity-ai/phase-03/work_card/WC09-REPAIR02";
-  const reportId = "champcity-ai/phase-03/implementer_report/WC09-REPAIR02";
-  assert.equal(state.currentAction.targetArtifactId, repairId);
-  assert.equal(state.phaseExecution.activeRepairArtifactId, repairId);
-  assert.deepEqual(state.openRepairChain.activeRepairArtifactIds, [repairId]);
-  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, "WC08");
-  assert.equal(
-    state.phaseExecution.approvedCandidates.find((item) => item.candidateId === "WC08")
-      ?.resolutionStatus,
-    "unresolved",
-  );
+  const workCardId = "champcity-ai/phase-04/work_card/WC01";
+  const reportId = "champcity-ai/phase-04/implementer_report/WC01";
+  assert.equal(state.activePhaseId, "phase-04");
+  assert.equal(state.currentActionId, "implementer_execution_required");
+  assert.equal(state.currentAction.targetArtifactId, workCardId);
+  assert.deepEqual(state.currentAction.sourceArtifactIds, [
+    "champcity-ai/phase-04/phase_activation/phase-04",
+    "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+  ]);
+  assert.equal(state.currentAction.expectedOutput.artifactId, reportId);
+  assert.equal(state.phaseExecution.activeRepairArtifactId, null);
+  assert.deepEqual(state.openRepairChain.activeRepairArtifactIds, []);
+  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, "WC01");
   const conformance = validateExecutableProcessConformance(state.actionCatalog);
   assert.equal(conformance.conforms, true, conformance.issues.join("\n"));
-  assert.equal(
-    JSON.stringify({ action: state.currentAction, repairs: state.openRepairChain })
-      .includes("WC08-REPAIR04"),
-    false,
-  );
-
-  if (state.currentActionId === "implementer_execution_required") {
-    assert.equal(state.currentAction.expectedOutput.artifactId, reportId);
-    assert.deepEqual(state.currentAction.sourceArtifactIds, [repairId]);
-  } else {
-    assert.equal(
-      state.currentActionId,
-      "architect_review_of_implementer_report_required",
-    );
-    assert.deepEqual(state.currentAction.sourceArtifactIds, [reportId]);
-    assert.equal(
-      state.currentAction.expectedOutput.artifactId,
-      "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
-    );
-  }
-
   const registry = await artifactPairs.loadRegistry();
   assert.ok(registry);
   for (const artifactId of [
-    "champcity-ai/phase-03/architect_review/WC09",
-    "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
-    repairId,
+    "champcity-ai/phase-03/validation_report/WC09-REPAIR02",
+    "champcity-ai/phase-04/phase_activation/phase-04",
+    workCardId,
+    reportId,
   ]) {
     const entry = registry.entries.find((item) => item.artifactId === artifactId);
     assert.ok(entry, `${artifactId} must be registered`);

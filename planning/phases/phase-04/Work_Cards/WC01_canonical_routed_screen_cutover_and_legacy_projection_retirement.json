@@ -1,0 +1,41 @@
+{
+  "artifactId": "champcity-ai/phase-04/work_card/WC01",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-15T18:00:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+  "markdownPath": "planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+  "payload": {
+    "contentMarkdown": "# Work Card: WC01 — Canonical Routed-Screen Cutover and Legacy Projection Retirement\n\nStatus: ready_for_implementer\nPhase: phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization\nRisk: critical\nChange Strategy: Replace with migration\nRepair policy: Maximum one numbered repair; after that, block and escalate to Phase 04 stabilization disposition.\n\n## Purpose\n\nRemove the split-brain runtime authority that allows canonical Workflow State to select the correct routed screen while the legacy `CurrentRequiredAction` projection supplies incomplete or conflicting binding data.\n\nThe current production failure is the WC09-REPAIR02 Architect Review screen. Canonical state identifies the correct Work Card, Implementer Report, and expected Architect Review, but the screen reports missing title, no associated report, and no expected output.\n\n## Target State\n\n- `RoutedActionContract` is the sole authority for routed-screen action, role, target artifact ID, source artifact IDs, expected output artifact ID/type, blockers, and routes.\n- Artifact paths, titles, Work Card IDs, and filenames are resolved from canonical Artifact Registry entries.\n- Routed screens do not depend on legacy status-string, filename, directory-order, or manually reconstructed workflow state.\n- `CurrentRequiredAction` may remain only as a presentation projection derived from canonical authority. It cannot authorize, initialize, block, preview, save, or advance a routed action.\n- The exact WC09-REPAIR02 Architect Review scenario opens, previews, saves, and transitions to Operator Validation.\n\n## Required Work\n\n1. Inventory every routed screen and service that consumes `CurrentRequiredAction`, route-context reconstruction, or legacy Work Card state.\n2. Define one routed-screen view model derived only from `RoutedActionContract` plus Artifact Registry resolution.\n3. Refactor Architect Review first, then apply the same authority boundary to all routed process screens affected by the shared adapter.\n4. Remove independent workflow reconstruction from routed write/preview paths.\n5. Remove obsolete fallback and compatibility code whose only purpose is preserving the conflicting authority path.\n6. Preserve read-only presentation summaries only when derived from canonical state.\n7. Add explicit blocking when canonical IDs cannot resolve to one synchronized authoritative pair.\n8. Update architecture documentation and repository gates to prevent routed screens from importing legacy authority evaluators.\n\n## Mandatory Checkpoints\n\n### Checkpoint 1 — Authority cutover design\n\nBefore broad edits, document the current split-brain call path, canonical replacement path, legacy code to remove, presentation-only code to preserve, affected screens, and tests for the real production path. Stop if a new product decision is required.\n\n### Checkpoint 2 — Architect Review production path\n\nImplement the canonical binding path for Architect Review and prove the exact WC09-REPAIR02 scenario in mounted Electron coverage. Do not continue to generalized cleanup until this passes.\n\n### Checkpoint 3 — Shared routed-screen cutover\n\nApply the shared canonical adapter to other routed screens that use the same legacy projection boundary. Do not redesign unrelated screens.\n\n### Checkpoint 4 — Legacy authority retirement\n\nDelete or isolate obsolete runtime authority code. Add repository gates preventing routed preview/save handlers from importing or invoking independent workflow reconstruction.\n\n### Checkpoint 5 — Full validation\n\nRun full approved validation lanes and produce the Implementer Report pair.\n\n## Acceptance Criteria\n\n1. WC09-REPAIR02 Architect Review opens with the exact Work Card title.\n2. The exact WC09-REPAIR02 Implementer Report is automatically associated.\n3. The exact expected Architect Review output is identified.\n4. Preview works without manual report selection.\n5. Save creates the canonical Architect Review pair.\n6. Save advances to Operator Validation.\n7. Reference navigation cannot alter the routed binding.\n8. Routed preview/save uses `RoutedActionContract` and Artifact Registry resolution.\n9. `CurrentRequiredAction` is not a routed authority.\n10. No routed screen reconstructs authority from statuses, filenames, directory order, or historical first-match logic.\n11. Missing registry authority blocks clearly instead of falling back.\n12. Obsolete authority/fallback code is removed rather than retained in parallel.\n13. Mounted Electron tests exercise the same adapter used by production.\n14. Existing artifact-pair, registry, role-gate, migration, and context-packet tests remain green.\n15. No more than one repair may be created for this Work Card. A second failure blocks WC01 and requires Phase 04 stabilization disposition.\n\n## Out of Scope\n\n- Operator override UI.\n- Repair-limit application UI.\n- Broad shell redesign.\n- Provider integrations.\n- Multi-project support.\n- General Phase 03 cleanup unrelated to routed authority cutover.\n\n## Required Report\n\nCreate:\n\nplanning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md\n\nand its synchronized JSON pair.\n\n## Branch\n\nBase:\nfeature/phase-03-wc09-repair02-process-contract-evidence-precedence\n\nTarget:\nfeature/phase-04-wc01-canonical-routed-screen-cutover\n\nCommit:\nCut over routed screens to canonical authority\n",
+    "data": {
+      "changeStrategy": "replace_with_migration",
+      "escalationOnLimit": "block_pending_phase_04_stabilization_disposition",
+      "maxRepairCount": 1,
+      "phaseId": "phase-04",
+      "status": "ready_for_implementer",
+      "targetBranch": "feature/phase-04-wc01-canonical-routed-screen-cutover",
+      "workCardId": "WC01"
+    },
+    "kind": "work_card",
+    "title": "Work Card: WC01 Canonical Routed-Screen Cutover and Legacy Projection Retirement"
+  },
+  "payloadHash": "sha256:a9b9dc6baeb5b6a7f22ada7e45b643fdc9d586086f0676f376cfa32b8f50ea0d",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-04/implementer_report/WC01"
+    ],
+    "sources": [
+      "champcity-ai/phase-04/phase_planning/Phase_Planning",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-15T18:00:00.000Z",
+  "workCardId": "WC01"
+}
