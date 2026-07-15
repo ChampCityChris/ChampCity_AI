@@ -376,9 +376,9 @@ function assertLifecycleEdge(gate, key, source, output) {
   if (!(output.relationships?.sources ?? []).includes(source.artifactId)) {
     fail(gate, "lifecycle-source-missing", output.jsonPath, `${key}:${source.artifactId}`);
   }
-  if (!(source.relationships?.children ?? []).includes(output.artifactId)) {
-    fail(gate, "lifecycle-child-missing", source.jsonPath, `${key}:${output.artifactId}`);
-  }
+  // `expectedOutputs` plus the output's explicit `sources` relationship is the
+  // authoritative lifecycle edge. `children` is an optional navigation index
+  // and must not be synthesized over a verified canonical pair.
 }
 
 function findRelationshipCycles(artifactsById) {

@@ -5,7 +5,7 @@
   "jsonPath": "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json",
   "markdownPath": "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md",
   "payload": {
-    "contentMarkdown": "# Canonical Artifact Registry\n\nEntries: 116\n\n| Artifact ID | Type | Revision | Status | Authority | Synchronized |\n| --- | --- | ---: | --- | --- | --- |\n| champcity-ai/phase-03/approval/Operator_Phase_Approval | approval | 2 | historical | no | yes |\n| champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING | approval | 2 | superseded | no | yes |\n| champcity-ai/phase-03/architect_interview/Phase_Interview | architect_interview | 2 | active | yes | yes |\n| champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC01 | architect_review | 2 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC02 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC03 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR02 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR03 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC05 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC06 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC06-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC07 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC07-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08-REPAIR02 | architect_review | 2 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08-REPAIR06 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC09 | architect_review | 2 | active | yes | yes |\n| champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG | backlog | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC01 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC02 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR02 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC05 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC06 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC06-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC07 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC07-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR02 | implementer_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR04 | implementer_report | 1 | active | yes | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR05 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR06 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC09 | implementer_report | 4 | active | yes | yes |\n| champcity-ai/phase-03/implementer_report/WC09-REPAIR01 | implementer_report | 1 | active | yes | yes |\n| champcity-ai/phase-03/migration_manifest/WC09 | migration_manifest | 16 | active | yes | yes |\n| champcity-ai/phase-03/observation_register/Observation_Register | observation_register | 1 | active | yes | yes |\n| champcity-ai/phase-03/phase_planning/Phase_Planning | phase_planning | 2 | active | yes | yes |\n| champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents | phase_planning | 2 | superseded | no | yes |\n| champcity-ai/phase-03/repair_record/WC08 | repair_record | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC01 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC02 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC03 | validation_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR02 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR03 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC05 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC06 | validation_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC06-REPAIR01 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC07 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC07-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR03 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR06 | validation_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | 2 | active | yes | yes |\n| champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents | work_card_plan | 2 | superseded | no | yes |\n| champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | work_card | 3 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04_primary_current_action_panel | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC05 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC06-REPAIR01 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC07_artifact_review_workspace | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08_current_step_context_inspector | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR03 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR04 | work_card | 1 | active | yes | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR05 | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR06 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC09 | work_card | 5 | active | yes | yes |\n| champcity-ai/phase-03/work_card/WC09-REPAIR01 | work_card | 2 | active | yes | yes |\n| champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |\n| champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |\n| champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | 2 | pending | yes | yes |\n| champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | 2 | active | yes | yes |\n| champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN | design_document | 2 | active | yes | yes |\n| champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW | design_document | 2 | active | yes | yes |\n| champcity-ai/project/observation_register/Project_Observation_Register | observation_register | 1 | active | yes | yes |\n| champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i | phase_map | 2 | pending | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i | project_planning | 2 | pending | yes | yes |\n| champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i | repository_reconciliation | 2 | pending | yes | yes |\n| champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i | roadmap | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/CHANGE_LOG | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/DECISIONS | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/ENVIRONMENT | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/GLOSSARY | supporting_document | 3 | active | yes | yes |\n| champcity-ai/project/supporting_document/MVP_SCOPE | supporting_document | 3 | active | yes | yes |\n| champcity-ai/project/supporting_document/OPEN_QUESTIONS | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/PROJECT_PROFILE | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/PROJECT_STATE | supporting_document | 2 | pending | yes | yes |\n| champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL | supporting_document | 2 | pending | yes | yes |\n| champcity-ai/project/supporting_document/RELEASE_POLICY | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/RISKS | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/SECURITY_POLICY | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | 1 | active | yes | yes |\n| champcity-ai/system/workflow_state | workflow_state | 5 | active | yes | yes |\n",
+    "contentMarkdown": "# Canonical Artifact Registry\n\nEntries: 119\n\n| Artifact ID | Type | Revision | Status | Authority | Synchronized |\n| --- | --- | ---: | --- | --- | --- |\n| champcity-ai/phase-03/approval/Operator_Phase_Approval | approval | 2 | historical | no | yes |\n| champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING | approval | 2 | superseded | no | yes |\n| champcity-ai/phase-03/architect_interview/Phase_Interview | architect_interview | 2 | active | yes | yes |\n| champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC01 | architect_review | 2 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC02 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC03 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR02 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR03 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC05 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC06 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC06-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC07 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC07-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08-REPAIR02 | architect_review | 2 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08-REPAIR06 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC09 | architect_review | 2 | active | yes | yes |\n| champcity-ai/phase-03/architect_review/WC09-REPAIR01 | architect_review | 2 | active | yes | yes |\n| champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG | backlog | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC01 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC02 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR02 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC05 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC06 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC06-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC07 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC07-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR02 | implementer_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR04 | implementer_report | 1 | active | yes | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR05 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR06 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC09 | implementer_report | 4 | active | yes | yes |\n| champcity-ai/phase-03/implementer_report/WC09-REPAIR01 | implementer_report | 1 | active | yes | yes |\n| champcity-ai/phase-03/implementer_report/WC09-REPAIR02 | implementer_report | 3 | active | yes | yes |\n| champcity-ai/phase-03/migration_manifest/WC09 | migration_manifest | 20 | active | yes | yes |\n| champcity-ai/phase-03/observation_register/Observation_Register | observation_register | 1 | active | yes | yes |\n| champcity-ai/phase-03/phase_planning/Phase_Planning | phase_planning | 2 | active | yes | yes |\n| champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents | phase_planning | 2 | superseded | no | yes |\n| champcity-ai/phase-03/repair_record/WC08 | repair_record | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC01 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC02 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC03 | validation_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR02 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR03 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC05 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC06 | validation_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC06-REPAIR01 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC07 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC07-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR03 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR06 | validation_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | 2 | active | yes | yes |\n| champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents | work_card_plan | 2 | superseded | no | yes |\n| champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | work_card | 3 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04_primary_current_action_panel | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC05 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC06-REPAIR01 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC07_artifact_review_workspace | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08_current_step_context_inspector | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR03 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR04 | work_card | 1 | active | yes | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR05 | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR06 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC09 | work_card | 5 | active | yes | yes |\n| champcity-ai/phase-03/work_card/WC09-REPAIR01 | work_card | 2 | active | yes | yes |\n| champcity-ai/phase-03/work_card/WC09-REPAIR02 | work_card | 3 | active | yes | yes |\n| champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |\n| champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |\n| champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | 2 | pending | yes | yes |\n| champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | 2 | active | yes | yes |\n| champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN | design_document | 2 | active | yes | yes |\n| champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW | design_document | 2 | active | yes | yes |\n| champcity-ai/project/observation_register/Project_Observation_Register | observation_register | 2 | active | yes | yes |\n| champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i | phase_map | 2 | pending | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i | project_planning | 2 | pending | yes | yes |\n| champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i | repository_reconciliation | 2 | pending | yes | yes |\n| champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i | roadmap | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/CHANGE_LOG | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/DECISIONS | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/ENVIRONMENT | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/GLOSSARY | supporting_document | 3 | active | yes | yes |\n| champcity-ai/project/supporting_document/MVP_SCOPE | supporting_document | 3 | active | yes | yes |\n| champcity-ai/project/supporting_document/OPEN_QUESTIONS | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/PROJECT_PROFILE | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/PROJECT_STATE | supporting_document | 2 | pending | yes | yes |\n| champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL | supporting_document | 2 | pending | yes | yes |\n| champcity-ai/project/supporting_document/RELEASE_POLICY | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/RISKS | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/SECURITY_POLICY | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | 1 | active | yes | yes |\n| champcity-ai/system/workflow_state | workflow_state | 7 | active | yes | yes |\n",
     "data": {
       "entries": [
         {
@@ -548,6 +548,32 @@
           "status": "active",
           "synchronized": true,
           "workCardId": "WC09"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
+          "artifactType": "architect_review",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC09",
+          "payloadHash": "sha256:f2b154d6fc62bcc7d863ac63d103237c48684ca0853123e05da370c9bc369825",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC09-REPAIR01"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC09-REPAIR01"
         },
         {
           "artifactId": "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
@@ -1197,12 +1223,40 @@
           "workCardId": "WC09-REPAIR01"
         },
         {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
+          "artifactType": "implementer_report",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC09",
+          "payloadHash": "sha256:2cfc470c6276edff0be36014814929abcd293e6b9c425d2fcf822619656ae564",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC09-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC09-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC09-REPAIR02"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC09-REPAIR02"
+        },
+        {
           "artifactId": "champcity-ai/phase-03/migration_manifest/WC09",
           "artifactType": "migration_manifest",
           "authoritative": true,
           "jsonPath": "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.json",
           "markdownPath": "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.md",
-          "payloadHash": "sha256:8890b37c345691d97a0aeb089c5860046a0e76fd439b9a8c812d878d0ad68d51",
+          "payloadHash": "sha256:1cbbf2e91f21745acb016aee86c641fe8817aca1239a07915b8f2df8985f147d",
           "phaseId": "phase-03",
           "projectId": "champcity-ai",
           "relationships": {
@@ -1229,6 +1283,7 @@
               "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
               "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
               "champcity-ai/phase-03/architect_review/WC09",
+              "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
               "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
               "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
               "champcity-ai/phase-03/implementer_report/WC01",
@@ -1252,6 +1307,7 @@
               "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
               "champcity-ai/phase-03/implementer_report/WC09",
               "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
               "champcity-ai/phase-03/observation_register/Observation_Register",
               "champcity-ai/phase-03/phase_planning/Phase_Planning",
               "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
@@ -1296,6 +1352,7 @@
               "champcity-ai/phase-03/work_card/WC08-REPAIR06",
               "champcity-ai/phase-03/work_card/WC09",
               "champcity-ai/phase-03/work_card/WC09-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC09-REPAIR02",
               "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
               "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
               "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
@@ -1326,7 +1383,7 @@
             ],
             "supersedes": []
           },
-          "revision": 16,
+          "revision": 20,
           "status": "active",
           "synchronized": true
         },
@@ -2449,6 +2506,33 @@
           "workCardId": "WC09-REPAIR01"
         },
         {
+          "artifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02",
+          "artifactType": "work_card",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC09",
+          "payloadHash": "sha256:08511772b8a798d40119b71750eec3559a021d45377d7d1d374558fc29031d3f",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC09-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC09-REPAIR01"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC09-REPAIR02"
+        },
+        {
           "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
           "artifactType": "approval",
           "authoritative": true,
@@ -2564,7 +2648,7 @@
           "authoritative": true,
           "jsonPath": "planning/project/Project_Observation_Register.json",
           "markdownPath": "planning/project/Project_Observation_Register.md",
-          "payloadHash": "sha256:c001dc35a90bf68ab14f951b80ee410da6bc7d5fbdeca82e9f73f64d21ef0463",
+          "payloadHash": "sha256:dc68096c868de6cb36c4c434c81e6c0cb4d93358a5bbd28b68e2f96a0c7840dc",
           "projectId": "champcity-ai",
           "relationships": {
             "children": [
@@ -2576,7 +2660,7 @@
             "sources": [],
             "supersedes": []
           },
-          "revision": 1,
+          "revision": 2,
           "status": "active",
           "synchronized": true
         },
@@ -2958,22 +3042,22 @@
           "authoritative": true,
           "jsonPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
           "markdownPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md",
-          "payloadHash": "sha256:bb413f8eef8bb8e19d7f01e22def45cb3a314dd1eb1cb7f02d9707ab4c33eeb7",
+          "payloadHash": "sha256:5478acd5b4c9f49f04432f4d05a3f8ea8a41474f6db0d344674a392e2d7ad0cb",
           "phaseId": "phase-03",
           "projectId": "champcity-ai",
           "relationships": {
             "children": [],
             "expectedOutputs": [
-              "champcity-ai/phase-03/architect_review/WC09-REPAIR01"
+              "champcity-ai/phase-03/architect_review/WC09-REPAIR02"
             ],
             "sources": [
-              "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
               "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
-              "champcity-ai/phase-03/work_card/WC09-REPAIR01"
+              "champcity-ai/phase-03/work_card/WC09-REPAIR02"
             ],
             "supersedes": []
           },
-          "revision": 5,
+          "revision": 7,
           "status": "active",
           "synchronized": true
         }
@@ -2984,7 +3068,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:9da7a23756e339bd47a0cb7037159ff11ae0ce4ca078e00e963a0c1bae68b8d6",
+  "payloadHash": "sha256:5a89fb07cdefa167829a67645e6fe9a1d3901c69ad71ebe1ddb562079244044e",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -3010,6 +3094,7 @@
       "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
       "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
       "champcity-ai/phase-03/architect_review/WC09",
+      "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
       "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
       "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
       "champcity-ai/phase-03/implementer_report/WC01",
@@ -3033,6 +3118,7 @@
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
       "champcity-ai/phase-03/implementer_report/WC09",
       "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
       "champcity-ai/phase-03/migration_manifest/WC09",
       "champcity-ai/phase-03/observation_register/Observation_Register",
       "champcity-ai/phase-03/phase_planning/Phase_Planning",
@@ -3078,6 +3164,7 @@
       "champcity-ai/phase-03/work_card/WC08-REPAIR06",
       "champcity-ai/phase-03/work_card/WC09",
       "champcity-ai/phase-03/work_card/WC09-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC09-REPAIR02",
       "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
       "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
@@ -3109,7 +3196,7 @@
     ],
     "supersedes": []
   },
-  "revision": 18,
+  "revision": 25,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-14T00:00:00.000Z"

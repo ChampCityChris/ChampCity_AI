@@ -168,6 +168,16 @@ function validatePhaseExecution(value: unknown, errors: string[]): void {
       errors.push("phaseExecution.closeoutEligibility.blockers must be an array.");
     }
   }
+  if (typeof value.phaseInterviewRequired !== "boolean") {
+    errors.push("phaseExecution.phaseInterviewRequired must be boolean.");
+  }
+  if (value.phaseInterviewArtifactId !== null) {
+    requireNonEmptyString(
+      value.phaseInterviewArtifactId,
+      "phaseExecution.phaseInterviewArtifactId",
+      errors,
+    );
+  }
 }
 
 export function assertWorkflowStateIndex(value: unknown): asserts value is WorkflowStateIndex {
@@ -181,6 +191,13 @@ function validateActionRecord(key: string, value: unknown, errors: string[]): vo
     return;
   }
   requireEqual(value.actionId, key, `actionCatalog.${key}.actionId`, errors);
+  requireNonEmptyString(value.processId, `actionCatalog.${key}.processId`, errors);
+  if (value.processClassification !== "top_level" && value.processClassification !== "subordinate") {
+    errors.push(`actionCatalog.${key}.processClassification is invalid.`);
+  }
+  if (typeof value.advancesWorkflowState !== "boolean") {
+    errors.push(`actionCatalog.${key}.advancesWorkflowState must be boolean.`);
+  }
   if (!workflowStages.includes(value.stage as (typeof workflowStages)[number])) {
     errors.push(`actionCatalog.${key}.stage is invalid.`);
   }

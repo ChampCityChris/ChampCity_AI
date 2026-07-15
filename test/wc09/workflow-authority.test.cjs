@@ -31,6 +31,7 @@ const {
   evaluateRoleGate,
   materializeActionCatalog,
   resolvePhaseCandidate,
+  validateExecutableProcessConformance,
   validateWorkflowStateIndex,
   withWorkflowBlockers,
 } = sharedWorkflow;
@@ -44,23 +45,22 @@ const WC08_VALIDATION = "champcity-ai/phase-03/validation_report/WC08-REPAIR04";
 
 const SUCCESS_LIFECYCLE = [
   "project_intake_required",
-  "project_architect_interview_required",
-  "project_planning_required",
-  "repository_reconciliation_required",
-  "project_roadmap_required",
+  "project_interview_required",
+  "reconciliation_review_required",
+  "project_mapping_required",
   "operator_project_approval_required",
   "phase_mapping_required",
   "operator_phase_approval_required",
   "work_card_authoring_required",
   "operator_work_card_approval_required",
-  "implementer_handoff_required",
   "implementer_execution_required",
   "architect_review_of_implementer_report_required",
   "operator_validation_required",
   "phase_closeout_required",
-  "operator_closeout_approval_required",
+  "operator_phase_closeout_approval_required",
   "roadmap_update_required",
   "next_phase_activation_required",
+  "repeat_phase_mapping_and_work_card_loop_required",
   "workflow_complete",
 ];
 
@@ -121,12 +121,6 @@ const workCardLoopBindings = {
     sourceArtifactIds: ["champcity-ai/phase-03/work_card/WC10"],
     expectedOutputArtifactId:
       "champcity-ai/phase-03/work_card_approval/WC10",
-  },
-  implementer_handoff_required: {
-    targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
-    sourceArtifactIds: ["champcity-ai/phase-03/work_card/WC10"],
-    expectedOutputArtifactId:
-      "champcity-ai/phase-03/implementer_execution_packet/WC10",
   },
   implementer_execution_required: {
     targetArtifactId: "champcity-ai/phase-03/work_card/WC10",
@@ -312,6 +306,48 @@ test("Phase Mapping routes directly to Operator Phase Approval with interview ev
   assert.equal(advanced.responsibleRole, "operator");
 });
 
+test("Phase Interview authority is conditional on an explicit Phase Mapping decision", () => {
+  const phaseInterview =
+    "champcity-ai/phase-03/architect_interview/Phase_Interview";
+  const baseSources = [
+    "champcity-ai/project/phase_map/PHASE_MAP_test",
+    "champcity-ai/phase-03/phase_planning/Phase_Planning",
+    "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+    phaseInterview,
+  ];
+  const notRequired = transition(
+    createState("phase_mapping_required", {
+      operator_phase_approval_required: { sourceArtifactIds: baseSources },
+    }),
+    "success",
+    { phaseMappingDecision: { phaseInterviewRequired: false } },
+  );
+  assert.equal(notRequired.blockingConditions.length, 0);
+  assert.equal(notRequired.currentAction.sourceArtifactIds.includes(phaseInterview), false);
+
+  const required = transition(
+    createState("phase_mapping_required", {
+      operator_phase_approval_required: { sourceArtifactIds: baseSources.slice(0, 3) },
+    }),
+    "success",
+    {
+      phaseMappingDecision: {
+        phaseInterviewRequired: true,
+        phaseInterviewArtifactId: phaseInterview,
+      },
+    },
+  );
+  assert.equal(required.blockingConditions.length, 0);
+  assert.equal(required.currentAction.sourceArtifactIds.includes(phaseInterview), true);
+
+  const missing = transition(createState("phase_mapping_required"), "success", {
+    phaseMappingDecision: { phaseInterviewRequired: true },
+  });
+  assert.equal(missing.currentAction.authorityStatus, "blocked");
+  assert.equal(missing.blockingConditions[0].code, "missing_authority");
+  assert.equal(missing.blockingConditions[0].ownerRole, "architect");
+});
+
 test("the success route traverses every non-repair lifecycle process category", () => {
   let state = createState("project_intake_required");
   const visited = [];
@@ -489,14 +525,11 @@ test("verified Work Card evidence rebinds each noncurrent build/prove action to 
   });
 
   state = transition(state);
-  assert.equal(state.currentActionId, "implementer_handoff_required");
-  assert.deepEqual(state.currentAction.expectedOutput, {
-    artifactId: "champcity-ai/phase-03/implementer_execution_packet/WC10",
-    artifactType: "implementer_execution_packet",
-  });
-
-  state = transition(state);
   assert.equal(state.currentActionId, "implementer_execution_required");
+  assert.deepEqual(state.currentAction.sourceArtifactIds, [
+    "champcity-ai/phase-03/work_card/WC10",
+    "champcity-ai/phase-03/work_card_approval/WC10",
+  ]);
   assert.deepEqual(state.currentAction.expectedOutput, {
     artifactId: "champcity-ai/phase-03/implementer_report/WC10",
     artifactType: "implementer_report",
@@ -520,6 +553,51 @@ test("verified Work Card evidence rebinds each noncurrent build/prove action to 
     false,
   );
 });
+
+for (const status of ["carried_forward", "deferred", "cancelled"]) {
+  test(`${status} uses the governed Operator candidate-disposition route`, () => {
+    let state = createState(
+      "operator_work_card_approval_required",
+      {},
+      phaseExecution([
+        candidate("WC10", 1, {
+          fullWorkCardArtifactId: "champcity-ai/phase-03/work_card/WC10",
+          fullWorkCardStatus: "active",
+        }),
+      ]),
+    );
+    state = transition(state, "failure");
+    assert.equal(state.currentActionId, "candidate_disposition_required");
+    assert.equal(state.responsibleRole, "operator");
+    assert.equal(state.currentAction.expectedOutput.artifactType, "candidate_disposition");
+
+    assert.throws(
+      () =>
+        transition(state, "success", {
+          actorRole: "architect",
+          candidateDisposition: {
+            candidateId: "WC10",
+            status,
+            rationale: "Operator-governed disposition fixture.",
+            sourceAuthorityArtifactIds: [...state.currentAction.sourceArtifactIds],
+          },
+        }),
+      (error) => error?.code === "role_mismatch",
+    );
+
+    state = transition(state, "success", {
+      candidateDisposition: {
+        candidateId: "WC10",
+        status,
+        rationale: "Operator-governed disposition fixture.",
+        sourceAuthorityArtifactIds: [...state.currentAction.sourceArtifactIds],
+      },
+    });
+    assert.equal(state.phaseExecution.approvedCandidates[0].resolutionStatus, status);
+    assert.equal(state.currentActionId, "phase_closeout_required");
+    assert.equal(state.phaseExecution.closeoutEligibility.eligible, true);
+  });
+}
 
 test("workflow validation rejects placeholder expected-output authority", () => {
   const state = createState("project_intake_required");
@@ -800,7 +878,7 @@ test("the main-process WC08 route rehydrates authority, defeats reference overri
   });
 });
 
-test("the persisted production state reloads from canonical WC09-REPAIR01 authority and never resets to the WC08 fixture", async () => {
+test("the persisted production state reopens WC08 and targets exact WC09-REPAIR02 authority", async () => {
   const projectRoot = path.resolve(process.cwd());
   const artifactPairs = new ArtifactPairService({ projectRoot });
   const workflowStore = new WorkflowStateStore(
@@ -815,17 +893,19 @@ test("the persisted production state reloads from canonical WC09-REPAIR01 author
   assert.deepEqual(secondRead.state, firstRead.state);
 
   const state = firstRead.state;
-  const repairId = "champcity-ai/phase-03/work_card/WC09-REPAIR01";
-  const reportId = "champcity-ai/phase-03/implementer_report/WC09-REPAIR01";
+  const repairId = "champcity-ai/phase-03/work_card/WC09-REPAIR02";
+  const reportId = "champcity-ai/phase-03/implementer_report/WC09-REPAIR02";
   assert.equal(state.currentAction.targetArtifactId, repairId);
   assert.equal(state.phaseExecution.activeRepairArtifactId, repairId);
   assert.deepEqual(state.openRepairChain.activeRepairArtifactIds, [repairId]);
-  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, "WC09");
+  assert.equal(state.phaseExecution.earliestUnresolvedCandidateId, "WC08");
   assert.equal(
-    state.phaseExecution.approvedCandidates.find((item) => item.candidateId === "WC09")
-      ?.fullWorkCardArtifactId,
-    "champcity-ai/phase-03/work_card/WC09",
+    state.phaseExecution.approvedCandidates.find((item) => item.candidateId === "WC08")
+      ?.resolutionStatus,
+    "unresolved",
   );
+  const conformance = validateExecutableProcessConformance(state.actionCatalog);
+  assert.equal(conformance.conforms, true, conformance.issues.join("\n"));
   assert.equal(
     JSON.stringify({ action: state.currentAction, repairs: state.openRepairChain })
       .includes("WC08-REPAIR04"),
@@ -843,7 +923,7 @@ test("the persisted production state reloads from canonical WC09-REPAIR01 author
     assert.deepEqual(state.currentAction.sourceArtifactIds, [reportId]);
     assert.equal(
       state.currentAction.expectedOutput.artifactId,
-      "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
+      "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
     );
   }
 
@@ -851,6 +931,7 @@ test("the persisted production state reloads from canonical WC09-REPAIR01 author
   assert.ok(registry);
   for (const artifactId of [
     "champcity-ai/phase-03/architect_review/WC09",
+    "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
     repairId,
   ]) {
     const entry = registry.entries.find((item) => item.artifactId === artifactId);

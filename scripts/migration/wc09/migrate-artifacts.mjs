@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import {
   access,
   copyFile,
@@ -29,6 +30,12 @@ import {
   stableStringify,
   verifyCanonicalPair,
 } from "./canonical-artifact.mjs";
+
+const require = createRequire(import.meta.url);
+const {
+  defaultLifecycleActionTemplates,
+  resolveCandidateEvidencePrecedence,
+} = require("../../../dist/shared/workflow");
 
 const migrationTimestamp = "2026-07-14T00:00:00.000Z";
 const migrationBaselineRef =
@@ -317,9 +324,12 @@ export async function buildMigrationPlan(repositoryRoot) {
   }
 
   const baselineProvenance = await collectGitBaselineProvenance(root);
-  const provenanceRecoveredEntries = manifestEntries.map((entry) =>
-    applyBaselineProvenance(entry, baselineProvenance),
-  );
+  const provenanceRecoveredEntries = manifestEntries.map((entry) => {
+    const recovered = applyBaselineProvenance(entry, baselineProvenance);
+    return recovered.provenanceSource
+      ? recovered
+      : { ...recovered, provenanceSource: "current_migration_input" };
+  });
   const durableArchiveOperations = await collectDurableArchiveOperations(
     root,
     archiveOperations,
@@ -756,6 +766,7 @@ async function buildArtifactDraft(root, group) {
       ) {
         return {
           artifact: existingCanonical,
+          preserveRelationships: true,
           sourcePaths: group.sourcePaths ?? [group.markdownPath, group.jsonPath],
           originalSchema: existingCanonical.schemaVersion,
           originalTerminology: "canonical",
@@ -826,6 +837,7 @@ async function buildArtifactDraft(root, group) {
 
   return {
     artifact,
+    preserveRelationships: Boolean(existingCanonical),
     sourcePaths:
       group.sourcePaths ?? [group.markdownPath, group.jsonPath].filter(Boolean),
     originalSchema:
@@ -981,6 +993,23 @@ function enrichRelationships(drafts, draftByPath) {
   const children = new Map();
   for (const draft of drafts) {
     const artifact = draft.artifact;
+    if (draft.preserveRelationships) {
+      artifact.relationships = sortKeysDeep({
+        children: [...(artifact.relationships.children ?? [])]
+          .filter((artifactId) => artifactId !== artifact.artifactId)
+          .sort(),
+        sources: [...(artifact.relationships.sources ?? [])]
+          .filter((artifactId) => artifactId !== artifact.artifactId)
+          .sort(),
+        expectedOutputs: [...(artifact.relationships.expectedOutputs ?? [])]
+          .filter((artifactId) => artifactId !== artifact.artifactId)
+          .sort(),
+        supersedes: [...(artifact.relationships.supersedes ?? [])]
+          .filter((artifactId) => artifactId !== artifact.artifactId)
+          .sort(),
+      });
+      continue;
+    }
     const sources = new Set();
     for (const [repoPath, referencedDraft] of draftByPath) {
       const referencedArtifact = referencedDraft.artifact;
@@ -1049,6 +1078,7 @@ function enrichRelationships(drafts, draftByPath) {
     }
   }
   for (const draft of drafts) {
+    if (draft.preserveRelationships) continue;
     draft.artifact.relationships.children = [
       ...(children.get(draft.artifact.artifactId) ?? []),
     ].sort();
@@ -1381,7 +1411,10 @@ function mergeDurableManifestEntries(currentEntries, priorEntries) {
       merged.set(prior.canonicalArtifactId, prior);
       continue;
     }
-    if (current.provenanceSource) continue;
+    if (
+      current.provenanceSource &&
+      current.provenanceSource !== "current_migration_input"
+    ) continue;
     merged.set(prior.canonicalArtifactId, {
       ...current,
       originalPath: prior.originalPath,
@@ -1472,16 +1505,32 @@ function deriveProductionWorkflowState(artifacts, existingState) {
         ? "ambiguous"
         : "authoritative";
   const workCardPlan = workCardPlanAuthorities[0] ?? null;
+  const stabilizationAuthority = deriveExplicitStabilizationRepairAuthority(
+    artifacts,
+  );
   const approvedCandidates = parseApprovedWorkCardCandidates(
     workCardPlan?.payload?.contentMarkdown ?? "",
-  ).map((candidate) => deriveCandidateExecutionState(candidate, artifacts));
+  ).map((candidate) =>
+    deriveCandidateExecutionState(
+      candidate,
+      artifacts,
+      existingState,
+      stabilizationAuthority.rootCandidateId === candidate.candidateId
+        ? stabilizationAuthority.artifact
+        : candidate.candidateId === stabilizationAuthority.escalationTargetId
+          ? stabilizationAuthority.artifact
+          : null,
+    ),
+  );
   const earliestUnresolved = approvedCandidates.find(
     (candidate) => candidate.resolutionStatus === "unresolved",
   );
-  const repairAuthority = deriveControllingRepairAuthority(
-    earliestUnresolved?.candidateId ?? null,
-    artifacts,
-  );
+  const repairAuthority = stabilizationAuthority.artifact || stabilizationAuthority.ambiguous
+    ? stabilizationAuthority
+    : deriveControllingRepairAuthority(
+        earliestUnresolved?.candidateId ?? null,
+        artifacts,
+      );
   const activeWorkCard = earliestUnresolved
     ? findWorkCardArtifact(artifacts, earliestUnresolved.candidateId, true) ??
       findWorkCardArtifact(artifacts, earliestUnresolved.candidateId, false)
@@ -1502,6 +1551,7 @@ function deriveProductionWorkflowState(artifacts, existingState) {
       activeRepair,
       repairAmbiguous: repairAuthority.ambiguous,
     }),
+    ...derivePhaseInterviewAuthority(artifacts),
   };
   const fallbackWorkCard =
     activeRepair ??
@@ -1519,28 +1569,32 @@ function deriveProductionWorkflowState(artifacts, existingState) {
     currentWorkCardArtifactId: obligation.targetArtifactId,
     currentWorkCardId: obligation.workCardId,
     nextCandidateId: earliestUnresolved?.candidateId ?? "UNRESOLVED_CANDIDATE",
+    phaseInterviewRequired: phaseExecution.phaseInterviewRequired,
   });
   const actionCatalog = Object.fromEntries(
     migrationLifecycleTemplates().map(
-      ([actionId, stage, role, screenId, outputType, success, failure, repair]) => {
-        const binding = bindings[actionId];
+      (template) => {
+        const binding = bindings[template.actionId];
         if (!binding) {
-          throw new Error(`Migration workflow binding is missing for ${actionId}.`);
+          throw new Error(`Migration workflow binding is missing for ${template.actionId}.`);
         }
         return [
-          actionId,
+          template.actionId,
           {
-            actionId,
-            stage,
-            role,
-            screenId,
+            actionId: template.actionId,
+            processId: template.processId,
+            processClassification: template.processClassification,
+            advancesWorkflowState: template.advancesWorkflowState,
+            stage: template.stage,
+            role: template.role,
+            screenId: template.screenId,
             targetArtifactId: binding.targetArtifactId,
             sourceArtifactIds: [...binding.sourceArtifactIds],
             expectedOutput: {
               artifactId: binding.expectedOutputArtifactId,
-              artifactType: outputType,
+              artifactType: template.expectedOutputArtifactType,
             },
-            routes: { success, failure, repair },
+            routes: { ...template.routes },
           },
         ];
       },
@@ -1652,36 +1706,14 @@ function deriveProductionWorkflowState(artifacts, existingState) {
 }
 
 function migrationLifecycleTemplates() {
-  return [
-    ["project_intake_required", "capture", "operator", "project-intake", "project_intake", "project_architect_interview_required", null, null],
-    ["project_architect_interview_required", "frame", "architect", "project-architect-interview", "architect_interview", "project_planning_required", null, null],
-    ["project_planning_required", "plan", "architect", "project-planning", "project_planning", "repository_reconciliation_required", null, null],
-    ["repository_reconciliation_required", "plan", "architect", "repository-reconciliation", "repository_reconciliation", "project_roadmap_required", null, null],
-    ["project_roadmap_required", "plan", "architect", "project-roadmap", "roadmap", "operator_project_approval_required", null, null],
-    ["operator_project_approval_required", "plan", "operator", "operator-project-approval", "project_approval", "phase_mapping_required", "project_planning_required", "project_planning_required"],
-    ["phase_mapping_required", "plan", "architect", "phase-mapping", "phase_map", "operator_phase_approval_required", null, null],
-    ["operator_phase_approval_required", "plan", "operator", "operator-phase-approval", "phase_approval", "work_card_authoring_required", "phase_mapping_required", "phase_mapping_required"],
-    ["work_card_authoring_required", "plan", "architect", "work-card-authoring", "work_card", "operator_work_card_approval_required", null, null],
-    ["operator_work_card_approval_required", "build", "operator", "operator-work-card-approval", "work_card_approval", "implementer_handoff_required", "work_card_authoring_required", "work_card_authoring_required"],
-    ["implementer_handoff_required", "build", "architect", "implementer-handoff", "implementer_execution_packet", "implementer_execution_required", null, null],
-    ["implementer_execution_required", "build", "implementer", "implementer-execution", "implementer_report", "architect_review_of_implementer_report_required", null, null],
-    ["architect_review_of_implementer_report_required", "prove", "architect", "architect-review", "architect_review", "operator_validation_required", "architect_review_of_implementer_report_required", "architect_disposition_required"],
-    ["operator_validation_required", "prove", "operator", "operator-validation", "validation_report", "work_card_authoring_required", "architect_disposition_required", "architect_disposition_required"],
-    ["architect_disposition_required", "prove", "architect", "architect-disposition", "architect_disposition", "operator_validation_required", "repair_work_card_required", "repair_work_card_required"],
-    ["repair_work_card_required", "plan", "architect", "repair-work-card-authoring", "work_card", "operator_work_card_approval_required", null, null],
-    ["phase_closeout_required", "prove", "architect", "phase-closeout", "phase_closeout", "operator_closeout_approval_required", null, null],
-    ["operator_closeout_approval_required", "prove", "operator", "operator-closeout-approval", "phase_closeout_approval", "roadmap_update_required", "phase_closeout_required", "phase_closeout_required"],
-    ["roadmap_update_required", "prove", "architect", "roadmap-update", "roadmap", "next_phase_activation_required", null, null],
-    ["next_phase_activation_required", "capture", "operator", "next-phase-activation", "phase_activation", "workflow_complete", null, null],
-    ["route_review_request_required", "prove", "operator", "route-review-request", "route_review_request", null, null, null],
-    ["workflow_complete", "prove", "application", "workflow-complete", "workflow_completion", null, null, null],
-  ];
+  return defaultLifecycleActionTemplates;
 }
 
 function migrationWorkflowBindings({
   currentWorkCardArtifactId,
   currentWorkCardId,
   nextCandidateId,
+  phaseInterviewRequired,
 }) {
   const projectIntake = "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i";
   const projectInterview =
@@ -1703,13 +1735,13 @@ function migrationWorkflowBindings({
   const workCardId = currentWorkCardId ?? nextCandidateId;
   const workCardApproval =
     `champcity-ai/phase-03/work_card_approval/${workCardId}`;
-  const handoff =
-    `champcity-ai/phase-03/implementer_execution_packet/${workCardId}`;
   const report = `champcity-ai/phase-03/implementer_report/${workCardId}`;
   const review = `champcity-ai/phase-03/architect_review/${workCardId}`;
   const validation = `champcity-ai/phase-03/validation_report/${workCardId}`;
   const disposition =
     `champcity-ai/phase-03/architect_disposition/${workCardId}`;
+  const candidateDisposition =
+    `champcity-ai/phase-03/candidate_disposition/${workCardId}`;
   const closeout = "champcity-ai/phase-03/phase_closeout/phase-03";
   const closeoutApproval =
     "champcity-ai/phase-03/phase_closeout_approval/phase-03";
@@ -1718,6 +1750,8 @@ function migrationWorkflowBindings({
     `champcity-ai/phase-03/route_review_request/${workCardId}`;
   const workflowCompletion =
     "champcity-ai/project/workflow_completion/champcity-ai";
+  const workflowIteration =
+    "champcity-ai/project/workflow_iteration/champcity-ai";
   const binding = (targetArtifactId, sourceArtifactIds, expectedOutputArtifactId) => ({
     targetArtifactId,
     sourceArtifactIds,
@@ -1725,25 +1759,29 @@ function migrationWorkflowBindings({
   });
   return {
     project_intake_required: binding(null, [], projectIntake),
-    project_architect_interview_required: binding(projectIntake, [projectIntake], projectInterview),
-    project_planning_required: binding(projectInterview, [projectInterview], projectPlanning),
-    repository_reconciliation_required: binding(projectPlanning, [projectPlanning], reconciliation),
-    project_roadmap_required: binding(reconciliation, [reconciliation], roadmap),
+    project_interview_required: binding(projectIntake, [projectIntake], projectInterview),
+    reconciliation_review_required: binding(projectInterview, [projectIntake, projectInterview], reconciliation),
+    project_mapping_required: binding(reconciliation, [projectIntake, projectInterview, reconciliation], roadmap),
     operator_project_approval_required: binding(roadmap, [projectPlanning, reconciliation, roadmap], projectApproval),
     phase_mapping_required: binding(projectApproval, [projectApproval, roadmap], phaseMap),
-    operator_phase_approval_required: binding(phaseMap, [phaseMap, phasePlanning, workCardPlan, phaseInterview], phaseApproval),
+    operator_phase_approval_required: binding(
+      phaseMap,
+      [phaseMap, phasePlanning, workCardPlan, ...(phaseInterviewRequired ? [phaseInterview] : [])],
+      phaseApproval,
+    ),
     work_card_authoring_required: binding(workCardPlan, [phaseApproval, workCardPlan], `champcity-ai/phase-03/work_card/${nextCandidateId}`),
     operator_work_card_approval_required: binding(workCard, [workCard], workCardApproval),
-    implementer_handoff_required: binding(workCard, [workCard, workCardApproval], handoff),
-    implementer_execution_required: binding(workCard, [workCard], report),
+    implementer_execution_required: binding(workCard, [workCard, workCardApproval], report),
     architect_review_of_implementer_report_required: binding(workCard, [report], review),
     operator_validation_required: binding(workCard, [review], validation),
     architect_disposition_required: binding(workCard, [validation], disposition),
     repair_work_card_required: binding(workCard, [disposition], workCard),
+    candidate_disposition_required: binding(workCard, [workCard, workCardApproval], candidateDisposition),
     phase_closeout_required: binding(phasePlanning, [phaseApproval, validation], closeout),
-    operator_closeout_approval_required: binding(closeout, [closeout], closeoutApproval),
+    operator_phase_closeout_approval_required: binding(closeout, [closeout], closeoutApproval),
     roadmap_update_required: binding(closeoutApproval, [closeoutApproval], roadmap),
     next_phase_activation_required: binding(roadmap, [roadmap], phaseActivation),
+    repeat_phase_mapping_and_work_card_loop_required: binding(phaseActivation, [phaseActivation], workflowIteration),
     route_review_request_required: binding(workCard, [workCard, report], routeReview),
     workflow_complete: binding(phaseActivation, [phaseActivation], workflowCompletion),
   };
@@ -1767,26 +1805,88 @@ function parseApprovedWorkCardCandidates(markdown) {
   );
 }
 
-function deriveCandidateExecutionState(candidate, artifacts) {
+function deriveCandidateExecutionState(
+  candidate,
+  artifacts,
+  existingState,
+  controllingRepair,
+) {
   const workCard =
     findWorkCardArtifact(artifacts, candidate.candidateId, true) ??
     findWorkCardArtifact(artifacts, candidate.candidateId, false);
-  const passingValidation = artifacts.filter(
-    (artifact) =>
-      artifact.artifactType === "validation_report" &&
-      (artifact.workCardId === candidate.candidateId ||
-        artifact.workCardId?.startsWith(`${candidate.candidateId}-REPAIR`)) &&
-      hasExplicitPassingValidation(artifact),
+  const existingCandidate = existingState?.phaseExecution?.approvedCandidates?.find(
+    (item) => item.candidateId === candidate.candidateId,
   );
-  const completedViaRepair = passingValidation.some(
-    (artifact) => artifact.workCardId !== candidate.candidateId,
+  const evidence = [];
+  let sequence = 0;
+  if (
+    ["completed", "completed_via_repair"].includes(
+      existingCandidate?.resolutionStatus,
+    )
+  ) {
+    evidence.push({
+      artifactId: `${existingState.workflowStateArtifactId}/candidate-resolution/${candidate.candidateId}`,
+      candidateId: candidate.candidateId,
+      kind:
+        existingCandidate.resolutionStatus === "completed_via_repair"
+          ? "repair_validation_pass"
+          : "candidate_validation_pass",
+      controllingSequence: ++sequence,
+      status: "active",
+    });
+  } else if (
+    ["carried_forward", "deferred", "cancelled"].includes(
+      existingCandidate?.resolutionStatus,
+    )
+  ) {
+    evidence.push({
+      artifactId: `${existingState.workflowStateArtifactId}/candidate-resolution/${candidate.candidateId}`,
+      candidateId: candidate.candidateId,
+      kind: "candidate_disposition",
+      dispositionStatus: existingCandidate.resolutionStatus,
+      controllingSequence: ++sequence,
+      status: "active",
+    });
+  }
+  for (const artifact of artifacts.filter(
+    (item) =>
+      item.artifactType === "validation_report" &&
+      (item.workCardId === candidate.candidateId ||
+        item.payload?.data?.parentWorkCardId === candidate.candidateId) &&
+      ["active", "pending", "blocked"].includes(item.status) &&
+      Number.isInteger(item.payload?.data?.controllingSequence),
+  )) {
+    const passing = hasExplicitPassingValidation(artifact);
+    evidence.push({
+      artifactId: artifact.artifactId,
+      candidateId: candidate.candidateId,
+      kind:
+        artifact.workCardId === candidate.candidateId
+          ? passing
+            ? "candidate_validation_pass"
+            : "candidate_validation_failure"
+          : passing
+            ? "repair_validation_pass"
+            : "repair_validation_failure",
+      controllingSequence: artifact.payload.data.controllingSequence,
+      status: artifact.status,
+    });
+  }
+  if (controllingRepair) {
+    evidence.push({
+      artifactId: controllingRepair.artifactId,
+      candidateId: candidate.candidateId,
+      kind: "repair_work_card_active",
+      repairArtifactId: controllingRepair.artifactId,
+      controllingSequence: ++sequence,
+      status: controllingRepair.status,
+    });
+  }
+  const precedence = resolveCandidateEvidencePrecedence(
+    candidate.candidateId,
+    evidence,
   );
-  const resolutionStatus =
-    passingValidation.length === 0
-      ? "unresolved"
-      : completedViaRepair
-        ? "completed_via_repair"
-        : "completed";
+  const resolutionStatus = precedence.resolutionStatus;
   return {
     ...candidate,
     fullWorkCardArtifactId: workCard?.artifactId ?? null,
@@ -1799,9 +1899,7 @@ function deriveCandidateExecutionState(candidate, artifacts) {
             : "available"
           : "missing",
     resolutionStatus,
-    resolutionEvidenceArtifactIds: passingValidation
-      .map((artifact) => artifact.artifactId)
-      .sort(),
+    resolutionEvidenceArtifactIds: precedence.resolutionEvidenceArtifactIds,
   };
 }
 
@@ -1884,6 +1982,145 @@ function deriveControllingRepairAuthority(candidateId, artifacts) {
     artifact: candidates[0] ?? null,
     ambiguous: false,
     candidateArtifactIds: candidates.map((artifact) => artifact.artifactId).sort(),
+  };
+}
+
+function deriveExplicitStabilizationRepairAuthority(artifacts) {
+  const escalationLinks = artifacts
+    .filter(
+      (artifact) =>
+        artifact.artifactType === "validation_report" &&
+        typeof artifact.payload?.data?.architectDisposition?.assignedTarget ===
+          "string",
+    )
+    .map((artifact) => ({
+      sourceArtifactId: artifact.artifactId,
+      rootCandidateId:
+        artifact.payload?.data?.parentWorkCardId ?? artifact.parentArtifactId?.split("/").at(-1),
+      escalationTargetId:
+        artifact.payload.data.architectDisposition.assignedTarget,
+    }));
+  const uniqueLinks = new Map(
+    escalationLinks.map((item) => [
+      `${item.rootCandidateId}:${item.escalationTargetId}`,
+      item,
+    ]),
+  );
+  if (uniqueLinks.size === 0) {
+    return {
+      artifact: null,
+      ambiguous: false,
+      candidateArtifactIds: [],
+      rootCandidateId: null,
+      escalationTargetId: null,
+    };
+  }
+  if (uniqueLinks.size > 1) {
+    return {
+      artifact: null,
+      ambiguous: true,
+      candidateArtifactIds: escalationLinks.map((item) => item.sourceArtifactId).sort(),
+      rootCandidateId: null,
+      escalationTargetId: null,
+    };
+  }
+
+  const link = [...uniqueLinks.values()][0];
+  let current = findWorkCardArtifact(artifacts, link.escalationTargetId, true);
+  if (!current) {
+    return {
+      artifact: null,
+      ambiguous: true,
+      candidateArtifactIds: [link.sourceArtifactId],
+      rootCandidateId: link.rootCandidateId,
+      escalationTargetId: link.escalationTargetId,
+    };
+  }
+  const authorityChain = [current.artifactId];
+  const visitedWorkCardIds = new Set();
+  while (!visitedWorkCardIds.has(current.workCardId)) {
+    visitedWorkCardIds.add(current.workCardId);
+    const reviews = artifacts.filter(
+      (artifact) =>
+        artifact.artifactType === "architect_review" &&
+        artifact.workCardId === current.workCardId &&
+        ["active", "pending", "blocked"].includes(artifact.status),
+    );
+    const requiredWorkCardIds = new Set();
+    for (const review of reviews) {
+      for (const requiredId of [
+        review.payload?.data?.requiredRepairId,
+        review.payload?.data?.requiredRepairWorkCardId,
+      ]) {
+        if (typeof requiredId === "string" && requiredId.trim()) {
+          requiredWorkCardIds.add(requiredId.trim());
+        }
+      }
+      for (const artifactId of [
+        ...(review.relationships?.expectedOutputs ?? []),
+        ...(review.relationships?.children ?? []),
+      ]) {
+        const related = artifacts.find(
+          (artifact) =>
+            artifact.artifactId === artifactId &&
+            artifact.artifactType === "work_card" &&
+            ["active", "pending", "blocked"].includes(artifact.status),
+        );
+        if (related?.workCardId) requiredWorkCardIds.add(related.workCardId);
+      }
+    }
+    if (requiredWorkCardIds.size === 0) break;
+    if (requiredWorkCardIds.size > 1) {
+      return {
+        artifact: null,
+        ambiguous: true,
+        candidateArtifactIds: authorityChain,
+        rootCandidateId: link.rootCandidateId,
+        escalationTargetId: link.escalationTargetId,
+      };
+    }
+    const requiredWorkCardId = [...requiredWorkCardIds][0];
+    const next = findWorkCardArtifact(artifacts, requiredWorkCardId, true);
+    if (!next) {
+      return {
+        artifact: null,
+        ambiguous: true,
+        candidateArtifactIds: authorityChain,
+        rootCandidateId: link.rootCandidateId,
+        escalationTargetId: link.escalationTargetId,
+      };
+    }
+    current = next;
+    authorityChain.push(current.artifactId);
+  }
+  return {
+    artifact: current,
+    ambiguous: false,
+    candidateArtifactIds: authorityChain,
+    rootCandidateId: link.rootCandidateId,
+    escalationTargetId: link.escalationTargetId,
+  };
+}
+
+function derivePhaseInterviewAuthority(artifacts) {
+  const approval = artifacts.find(
+    (artifact) =>
+      artifact.artifactId ===
+      "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+  );
+  const approvedBundle = Array.isArray(approval?.payload?.data?.approved_bundle)
+    ? approval.payload.data.approved_bundle
+    : [];
+  const phaseInterviewRequired = approvedBundle.some(
+    (item) =>
+      typeof item === "string" &&
+      /(?:^|\/)Phase_Interview\.md$/i.test(item),
+  );
+  return {
+    phaseInterviewRequired,
+    phaseInterviewArtifactId: phaseInterviewRequired
+      ? "champcity-ai/phase-03/architect_interview/Phase_Interview"
+      : null,
   };
 }
 
@@ -1984,7 +2221,10 @@ function deriveCurrentObligation(targetWorkCard, artifacts, phaseExecution) {
       (artifact) =>
         artifact.artifactType === artifactType &&
         artifact.workCardId === workCardId &&
-        ["active", "pending", "blocked"].includes(artifact.status),
+        (artifactType === "implementer_report"
+          ? ["active", "pending"]
+          : ["active", "pending", "blocked"]
+        ).includes(artifact.status),
     );
   const report = findAuthority("implementer_report");
   if (!report) {
@@ -2180,9 +2420,9 @@ function assertLifecycleRelationship(errors, key, source, output) {
   if (!(output.relationships?.sources ?? []).includes(source.artifactId)) {
     errors.push(`Lifecycle source missing for ${key}: ${output.artifactId} <- ${source.artifactId}.`);
   }
-  if (!(source.relationships?.children ?? []).includes(output.artifactId)) {
-    errors.push(`Lifecycle child missing for ${key}: ${source.artifactId} -> ${output.artifactId}.`);
-  }
+  // `expectedOutputs` plus the output's explicit `sources` relationship is the
+  // authoritative lifecycle edge. `children` is an optional navigation index
+  // and must not be synthesized over a verified canonical pair.
 }
 
 function findSourceCycles(artifacts, byId) {

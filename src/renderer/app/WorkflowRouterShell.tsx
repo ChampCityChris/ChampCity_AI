@@ -146,13 +146,15 @@ const actionIdToState: Record<string, WorkflowState> = {
   operator_closeout_approval_required: "phase-closeout",
   roadmap_update_required: "next-phase",
   next_phase_activation_required: "next-phase",
+  repeat_phase_mapping_and_work_card_loop_required: "next-phase",
+  candidate_disposition_required: "work-card-review",
 };
 
 const workflowStateToManualScreen: Record<WorkflowState, string> = {
   "project-intake": "project-intake",
   "project-interview": "project-architect-interview",
   reconciliation: "repository-reconciliation",
-  "project-mapping": "project-planning-documents",
+  "project-mapping": "project-roadmap",
   "phase-mapping": "phase-planning-documents",
   "work-card-review": "work-card-plan-review",
   "implementer-active": "implementer-report-capture",
@@ -171,7 +173,7 @@ const actionIdToManualScreen: Record<string, string> = {
   project_roadmap_required: "project-roadmap",
   project_interview_required: "project-architect-interview",
   reconciliation_review_required: "repository-reconciliation",
-  project_mapping_required: "project-planning-documents",
+  project_mapping_required: "project-roadmap",
   operator_project_approval_required: "project-planning-documents",
   phase_mapping_required: "phase-map",
   phase_intake_required: "phase-intake",
@@ -199,6 +201,8 @@ const actionIdToManualScreen: Record<string, string> = {
   operator_closeout_approval_required: "phase-closeout",
   roadmap_update_required: "project-planning-documents",
   next_phase_activation_required: "phase-map",
+  repeat_phase_mapping_and_work_card_loop_required: "phase-map",
+  candidate_disposition_required: "work-card-plan-review",
 };
 
 function cn(...parts: Array<string | false | null | undefined>): string {

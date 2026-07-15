@@ -9,7 +9,7 @@
     "kind": "observation_register",
     "title": "Project Observation Register"
   },
-  "payloadHash": "sha256:c001dc35a90bf68ab14f951b80ee410da6bc7d5fbdeca82e9f73f64d21ef0463",
+  "payloadHash": "sha256:dc68096c868de6cb36c4c434c81e6c0cb4d93358a5bbd28b68e2f96a0c7840dc",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -21,10 +21,10 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-15T16:45:50.582Z"
 }
 -->
 
@@ -33,7 +33,7 @@
 Status: Active
 Project: ChampCity A/I
 Created: 2026-07-14
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 Purpose: Cross-phase register for unresolved, deferred, future-scope, or product-level observations discovered during phase execution and Operator validation.
 
 ## Governance Rule
@@ -136,6 +136,22 @@ At phase closeout, every phase observation not marked `Resolved` or `No action r
 - Assigned target: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority
 - Status: Assigned
 - Resolution artifact: Pending WC08-REPAIR04 validation
+
+### PROJ-OBS-008 — Existing implementation must not create automatic compatibility debt
+
+- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
+- Source artifact: Architect/Operator discussion during WC09 stabilization and repeated process-regression repairs.
+- Source Work Card: WC09 / WC09-REPAIR01 / WC09-REPAIR02
+- Date captured: 2026-07-15
+- Operator observation: LLM Implementers preserve historical code, schemas, screens, and behaviors merely because they exist, layering fallbacks and compatibility paths over implementations already determined to be wrong. This produces spaghetti code and inherited debt instead of commercial-quality replacement architecture.
+- Architect disposition: Add formal target-state and modernization governance to ChampCity A/I.
+- Disposition rationale: Existing repository behavior is evidence to inspect, not an automatic product requirement. Supported contracts should be preserved; incorrect, prototype, superseded, or dead implementations should be replaced and removed. Compatibility must require a named consumer and explicit approval.
+- Required product capability: Every foundational Work Card must declare a Change Strategy of Preserve, Migrate, or Replace; identify target-state authority; classify the existing implementation; list compatibility requirements and named consumers; define required data migration; define obsolete code/artifact removal; distinguish archive evidence from runtime support; and prohibit new and old authority paths from remaining active together.
+- Required engineering controls: Compatibility budget, deletion plan, debt-retirement checklist, one-runtime-path invariant, migration sunset/removal criteria, automated anti-spaghetti repository gates, and an escalation rule that asks which failed abstraction must be removed after repeated repairs.
+- Default for unreleased Alpha product work: Replace with migration; preserve required durable data; prohibit runtime legacy fallback after migration unless explicitly approved.
+- Assigned target: Future product-engineering governance / Work Card contract phase. Must be reviewed during the next project or phase mapping pass and before additional repository-wide modernization work.
+- Status: Open / Product architecture required
+- Resolution artifact: Pending
 
 ### PROJ-OBS-007 — Artifact authority and revision governance is undefined
 

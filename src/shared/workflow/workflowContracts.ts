@@ -6,23 +6,6 @@ export const REFERENCE_NAVIGATION_SCHEMA_VERSION =
 export const workflowStages = ["capture", "frame", "plan", "build", "prove"] as const;
 export type WorkflowStage = (typeof workflowStages)[number];
 
-export const canonicalWorkflowSpine = [
-  "project_intake",
-  "project_interview",
-  "reconciliation_review",
-  "project_mapping",
-  "operator_project_approval",
-  "phase_mapping",
-  "operator_phase_approval",
-  "work_card_loop",
-  "phase_closeout",
-  "operator_phase_closeout_approval",
-  "roadmap_update",
-  "next_phase_activation",
-  "repeat_phase_mapping_and_work_card_loop",
-] as const;
-export type CanonicalWorkflowSpineStep = (typeof canonicalWorkflowSpine)[number];
-
 export const workflowRoles = ["operator", "architect", "implementer", "application"] as const;
 export type WorkflowRole = (typeof workflowRoles)[number];
 
@@ -30,6 +13,7 @@ export type WorkflowScreenId =
   | "project-intake"
   | "project-architect-interview"
   | "project-planning"
+  | "project-mapping"
   | "repository-reconciliation"
   | "project-roadmap"
   | "operator-project-approval"
@@ -47,6 +31,7 @@ export type WorkflowScreenId =
   | "operator-validation"
   | "architect-disposition"
   | "repair-work-card-authoring"
+  | "candidate-disposition"
   | "phase-closeout"
   | "operator-closeout-approval"
   | "roadmap-update"
@@ -101,6 +86,9 @@ export interface RoutedActionBindingSource {
 export interface RoutedActionContract {
   schemaVersion: typeof ROUTED_ACTION_SCHEMA_VERSION;
   actionId: string;
+  processId: import("./processContract").CanonicalWorkflowSpineStep;
+  processClassification: import("./processContract").ProcessClassification;
+  advancesWorkflowState: boolean;
   stage: WorkflowStage;
   role: WorkflowRole;
   screenId: WorkflowScreenId;
@@ -116,6 +104,9 @@ export interface RoutedActionContract {
 
 export interface WorkflowActionRecord {
   actionId: string;
+  processId: import("./processContract").CanonicalWorkflowSpineStep;
+  processClassification: import("./processContract").ProcessClassification;
+  advancesWorkflowState: boolean;
   stage: WorkflowStage;
   role: WorkflowRole;
   screenId: WorkflowScreenId;
@@ -196,6 +187,8 @@ export interface PhaseExecutionState {
   activeRepairArtifactId: string | null;
   earliestUnresolvedCandidateId: string | null;
   closeoutEligibility: PhaseCloseoutEligibility;
+  phaseInterviewRequired: boolean;
+  phaseInterviewArtifactId: string | null;
 }
 
 export interface CloseoutWorkflowState {
@@ -285,6 +278,9 @@ export function projectRoutedAction(
   return {
     schemaVersion: ROUTED_ACTION_SCHEMA_VERSION,
     actionId: record.actionId,
+    processId: record.processId,
+    processClassification: record.processClassification,
+    advancesWorkflowState: record.advancesWorkflowState,
     stage: record.stage,
     role: record.role,
     screenId: record.screenId,

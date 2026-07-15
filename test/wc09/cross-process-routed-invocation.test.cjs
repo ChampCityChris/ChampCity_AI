@@ -285,6 +285,34 @@ test("every registered process preview/write handler has one explicit authority 
       "route-correction",
       "supporting-preparation",
       "supporting-preparation",
+      "supporting-preparation",
+      "supporting-preparation",
+      "supporting-preparation",
+      "supporting-preparation",
     ],
   );
+});
+
+test("Project Mapping owns planning/roadmap outputs and execution packets are optional context", () => {
+  const policy = (channel) =>
+    processIpcPolicies.find((item) => item.channel === channel);
+  const planning = policy("projectPlanningDocuments:save");
+  const roadmap = policy("projectRoadmap:save");
+  const packet = policy("workCards:saveImplementerExecutionPacket");
+
+  assert.equal(planning.kind, "routed");
+  assert.equal(planning.operation, "supporting-write");
+  assert.equal(planning.variants[0].actionId, "project_mapping_required");
+  assert.equal(planning.transition.mode, "none");
+  assert.ok(planning.allowedAuxiliaryArtifactTypes.includes("project_planning"));
+
+  assert.equal(roadmap.kind, "routed");
+  assert.equal(roadmap.operation, "save");
+  assert.equal(roadmap.variants[0].actionId, "project_mapping_required");
+  assert.equal(roadmap.variants[0].expectedOutputArtifactType, "roadmap");
+  assert.equal(roadmap.transition.mode, "success");
+
+  assert.equal(packet.kind, "non-routed");
+  assert.equal(packet.classification, "supporting-preparation");
+  assert.match(packet.reason, /optional non-authoritative context/i);
 });

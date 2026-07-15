@@ -34,6 +34,8 @@ export interface PhaseMapRequest {
   projectPlanningDocumentFileName?: string;
   repositoryReconciliationFileName?: string;
   projectRoadmapFileName?: string;
+  phaseInterviewRequired?: boolean;
+  phaseInterviewArtifactId?: string;
 }
 
 export interface PhaseMapExistingPhaseArtifact {
@@ -116,6 +118,8 @@ export interface PhaseMapRecord {
   mappedPhases: MappedPhaseRecord[];
   createdAt: string;
   updatedAt: string;
+  phaseInterviewRequired: boolean;
+  phaseInterviewArtifactId?: string;
 }
 
 export interface PhaseMapArtifactFileNames {
@@ -248,6 +252,10 @@ export function buildPhaseMapRecord(
     mappedPhases,
     createdAt: timestamp,
     updatedAt: timestamp,
+    phaseInterviewRequired: input.phaseInterviewRequired === true,
+    ...(input.phaseInterviewRequired === true && input.phaseInterviewArtifactId
+      ? { phaseInterviewArtifactId: input.phaseInterviewArtifactId }
+      : {}),
   };
 }
 
@@ -274,6 +282,8 @@ export function renderPhaseMapMarkdown(record: PhaseMapRecord): string {
         `Source file: ${record.sourceFile}`,
         `Created: ${record.createdAt}`,
         `Updated: ${record.updatedAt}`,
+        `Phase Interview required: ${record.phaseInterviewRequired ? "Yes" : "No"}`,
+        `Phase Interview authority: ${record.phaseInterviewArtifactId ?? "Not required."}`,
       ].join("\n"),
     ),
     section(
@@ -379,6 +389,16 @@ export function validatePhaseMapRecord(candidate: unknown): string[] {
 
   if (!isRecord(candidate.sourceFiles)) {
     errors.push("sourceFiles must be saved as an object.");
+  }
+  if (typeof candidate.phaseInterviewRequired !== "boolean") {
+    errors.push("phaseInterviewRequired must be saved as a boolean.");
+  }
+  if (
+    candidate.phaseInterviewArtifactId !== undefined &&
+    (typeof candidate.phaseInterviewArtifactId !== "string" ||
+      candidate.phaseInterviewArtifactId.trim().length === 0)
+  ) {
+    errors.push("phaseInterviewArtifactId must be non-empty text when provided.");
   }
 
   for (const field of [

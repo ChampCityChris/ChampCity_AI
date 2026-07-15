@@ -189,6 +189,9 @@ export class RoutedProcessInvocationService {
           stateRevision: authority.state.stateRevision,
           actorRole: authority.action.role,
           route,
+          ...(authority.action.actionId === "phase_mapping_required"
+            ? { phaseMappingDecision: phaseMappingDecision(input.payload) }
+            : {}),
           occurredAt: this.clock(),
         },
         {
@@ -226,6 +229,9 @@ function assertRendererBinding(
   const renderer = value as unknown as RoutedActionContract;
   const comparable = (action: RoutedActionContract) => ({
     actionId: action.actionId,
+    processId: action.processId,
+    processClassification: action.processClassification,
+    advancesWorkflowState: action.advancesWorkflowState,
     stage: action.stage,
     role: action.role,
     screenId: action.screenId,
@@ -247,6 +253,20 @@ function assertRendererBinding(
       "The renderer routed-action binding is stale or mismatched; refresh Current Action.",
     );
   }
+}
+
+function phaseMappingDecision(payload: unknown): {
+  phaseInterviewRequired: boolean;
+  phaseInterviewArtifactId?: string | null;
+} {
+  if (!isRecord(payload)) return { phaseInterviewRequired: false };
+  return {
+    phaseInterviewRequired: payload.phaseInterviewRequired === true,
+    ...(typeof payload.phaseInterviewArtifactId === "string" &&
+    payload.phaseInterviewArtifactId.trim()
+      ? { phaseInterviewArtifactId: payload.phaseInterviewArtifactId }
+      : {}),
+  };
 }
 
 function isSuccessfulResult(value: unknown): boolean {

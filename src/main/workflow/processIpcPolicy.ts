@@ -137,17 +137,17 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
   ...routedPair(
     "projectArchitectInterview",
     route(
-      "project_architect_interview_required",
+      "project_interview_required",
       "architect",
       "project-architect-interview",
       "architect_interview",
     ),
     { previewSuffix: ":previewPrompt", saveSuffix: ":savePrompt" },
   ),
-  ...routedPair(
+  ...routedSupportingPair(
     "projectPlanningDocuments",
-    route("project_planning_required", "architect", "project-planning", "project_planning"),
-    { auxiliary: ["supporting_document"] },
+    route("project_mapping_required", "architect", "project-mapping", "roadmap"),
+    ["project_planning", "supporting_document"],
   ),
   ...routedSupportingPair(
     "phaseIntake",
@@ -166,7 +166,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
     operation: "preview",
     variants: [
       route(
-        "repository_reconciliation_required",
+        "reconciliation_review_required",
         "architect",
         "repository-reconciliation",
         "repository_reconciliation",
@@ -178,7 +178,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
   ...routedPair(
     "repositoryReconciliation",
     route(
-      "repository_reconciliation_required",
+      "reconciliation_review_required",
       "architect",
       "repository-reconciliation",
       "repository_reconciliation",
@@ -186,7 +186,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
   ),
   ...routedPair(
     "projectRoadmap",
-    route("project_roadmap_required", "architect", "project-roadmap", "roadmap"),
+    route("project_mapping_required", "architect", "project-mapping", "roadmap"),
     { auxiliary: ["phase_readiness_review", "work_card_plan", "phase_intake"] },
   ),
   ...routedPair(
@@ -214,18 +214,16 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
     allowedAuxiliaryArtifactTypes: [],
     transition: { mode: "success" },
   },
-  ...routedPair(
-    "workCards",
-    route(
-      "implementer_handoff_required",
-      "architect",
-      "implementer-handoff",
-      "implementer_execution_packet",
-    ),
-    {
-      previewSuffix: ":previewImplementerExecutionPacket",
-      saveSuffix: ":saveImplementerExecutionPacket",
-    },
+  ...["workCards:previewImplementerExecutionPacket", "workCards:saveImplementerExecutionPacket"].map(
+    (channel): NonRoutedProcessIpcPolicy => ({
+      kind: "non-routed",
+      channel,
+      operation: channel.includes(":preview") ? "preview" : "supporting-write",
+      classification: "supporting-preparation",
+      allow: true,
+      reason:
+        "The approved Work Card is the Implementer handoff; an execution packet is optional non-authoritative context and cannot advance workflow state.",
+    }),
   ),
   ...routedPair(
     "workCards",
@@ -304,22 +302,14 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
     }),
   ),
   ...["workCards:saveArchitectPrompt", "workCards:saveRiskReview"].map(
-    (channel): RoutedProcessIpcPolicy => ({
-      kind: "routed",
+    (channel): NonRoutedProcessIpcPolicy => ({
+      kind: "non-routed",
       channel,
       operation: "supporting-write",
-      variants: [
-        route(
-          "implementer_handoff_required",
-          "architect",
-          "implementer-handoff",
-          "implementer_execution_packet",
-        ),
-      ],
-      allowedAuxiliaryArtifactTypes: [
-        channel.endsWith("ArchitectPrompt") ? "architect_prompt" : "risk_review",
-      ],
-      transition: { mode: "none" },
+      classification: "supporting-preparation",
+      allow: true,
+      reason:
+        "Architect prompts and risk reviews are optional preparation artifacts; they cannot become a primary Implementer handoff gate.",
     }),
   ),
   {
