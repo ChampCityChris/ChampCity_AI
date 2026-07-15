@@ -51,7 +51,7 @@ function fixtureState() {
   const workCardPath =
     "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md";
   const reportPath =
-    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md";
+    "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md";
   const reviewPath =
     "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md";
   const failedValidationPath =
@@ -59,7 +59,7 @@ function fixtureState() {
   const repairPath =
     "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_current_step_context_inspector.md";
   const repairReportPath =
-    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR01_current_step_context_inspector.md";
+    "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_current_step_context_inspector.md";
 
   return {
     project: {

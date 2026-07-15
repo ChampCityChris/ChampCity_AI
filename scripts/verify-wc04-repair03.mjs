@@ -77,8 +77,8 @@ const preview = await previewHumanValidationRecord({
     "WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
   validationTargetFileName:
     "WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
-  builderReportFileName:
-    "BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+  implementerReportFileName:
+    "IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
   validationResult: "Not tested",
   testedItems: "",
   passedItems: "",

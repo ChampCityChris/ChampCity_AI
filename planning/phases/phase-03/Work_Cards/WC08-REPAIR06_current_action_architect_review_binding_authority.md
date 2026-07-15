@@ -1,3 +1,43 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR06",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR06 — Current Action Architect Review Binding Authority"
+  },
+  "payloadHash": "sha256:cbd520e20f0fa8599aa6b6d25f71ad5448cc8c4085d3294c7f57c8fabed9ceb2",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR06"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08-REPAIR06"
+}
+-->
+
 # Repair Work Card: WC08-REPAIR06 — Current Action Architect Review Binding Authority
 
 Status: ready_for_implementer
@@ -20,7 +60,7 @@ Screenshot evidence supplied by the Operator shows:
 - The right reference-card selector shows `WC08-REPAIR05 — Architect Review Route...`, not the current-action target.
 - The Architect Review form's Saved Work Card JSON selector is bound to `WC08-REPAIR05`, not `WC08-REPAIR04`.
 - The screen reports `The selected Implementer Report does not match the selected Work Card.`
-- The associated Implementer Report displayed is `BUILDER_REPORT_WC08_current_step_context_inspector.md`, not `BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`.
+- The associated Implementer Report displayed is `IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`, not `IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`.
 
 This means WC08-REPAIR05 corrected the broad workspace route but did not establish current-action binding authority inside the Architect Review screen.
 
@@ -32,7 +72,7 @@ The Operator cannot complete the Architect Review in the application because the
 
 1. The current action target: `WC08-REPAIR04`.
 2. The manually selected reference card: `WC08-REPAIR05`.
-3. A stale parent Work Card Implementer Report: `BUILDER_REPORT_WC08_current_step_context_inspector.md`.
+3. A stale parent Work Card Implementer Report: `IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`.
 
 The current action target must control the routed Architect Review workflow. Reference-card selection must not override routed current-action binding.
 
@@ -50,7 +90,7 @@ For this current state, the Architect Review screen must bind to:
 
 ```text
 Current action target: WC08-REPAIR04
-Associated Implementer Report: BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md
+Associated Implementer Report: IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md
 Expected output: ARCHITECT_REVIEW_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md
 ```
 
@@ -58,7 +98,7 @@ It must not bind to:
 
 ```text
 Reference card: WC08-REPAIR05
-Parent report: BUILDER_REPORT_WC08_current_step_context_inspector.md
+Parent report: IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md
 Any manually selected card that conflicts with the routed current action
 ```
 
@@ -107,13 +147,13 @@ The screen must select the Implementer Report from the current action's source a
 For `WC08-REPAIR04`, it must select:
 
 ```text
-BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md
+IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md
 ```
 
 The app must not fall back to:
 
 ```text
-BUILDER_REPORT_WC08_current_step_context_inspector.md
+IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md
 ```
 
 unless the current action actually targets parent `WC08`.
@@ -172,9 +212,9 @@ Do not regress:
 ## Acceptance Criteria
 
 - The routed Architect Review screen binds to `WC08-REPAIR04` when the current action target is `WC08-REPAIR04`.
-- The routed Architect Review screen displays or selects `BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`.
+- The routed Architect Review screen displays or selects `IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`.
 - The routed Architect Review screen does not bind to `WC08-REPAIR05` merely because that repair card is selected as a reference card.
-- The routed Architect Review screen does not bind to `BUILDER_REPORT_WC08_current_step_context_inspector.md` when the current action target is `WC08-REPAIR04`.
+- The routed Architect Review screen does not bind to `IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md` when the current action target is `WC08-REPAIR04`.
 - Reference-card selection remains available as reference/navigation context but does not override routed current-action authority.
 - Manual fallback selectors cannot silently create a mismatched Work Card / Implementer Report pair.
 - If a mismatch exists, the screen explains the mismatch and identifies which role/action owns the correction.
@@ -210,7 +250,7 @@ Do not regress:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md`
 
 The report must include:
 
@@ -281,7 +321,7 @@ Before editing:
 Required repair:
 - Bind Architect Review screen from current action, not reference card.
 - Auto-select WC08-REPAIR04 when current action target is WC08-REPAIR04.
-- Auto-select BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md.
+- Auto-select IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md.
 - Prevent parent WC08 report from being associated to WC08-REPAIR04 review.
 - Prevent WC08-REPAIR05 reference-card selection from overriding WC08-REPAIR04 routed target.
 - Preserve WC08-REPAIR05 route-to-workspace correction.

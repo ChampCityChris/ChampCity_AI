@@ -1,3 +1,33 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/repair_record/WC08",
+  "artifactType": "repair_record",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.json",
+  "markdownPath": "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.md",
+  "payload": {
+    "kind": "repair_record",
+    "title": "REPAIR PROMPT WC08 current step context inspector"
+  },
+  "payloadHash": "sha256:1d51e3981528aab4b33b3d0e34791d6c06574560c37d126291c5c9738bd6d33c",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08"
+}
+-->
+
 You are acting as Implementer for ChampCity A/I.
 
 The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Repair only from the validation evidence below.
@@ -11,7 +41,7 @@ Repository:
 - Selected Work Card ID: WC08
 - Selected Work Card title: Current Step Context Inspector
 - Phase: phase-03
-- Associated Implementer Report: BUILDER_REPORT_WC08_current_step_context_inspector.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md
 - Validation record: VALIDATION_REPORT_WC08_current_step_context_inspector.json
 
 ## Operator Validation Result
@@ -77,7 +107,7 @@ Repair the validated failure and preserve all behavior that already passed manua
 - Run `git remote -v`.
 - Read `AGENTS.md`.
 - Read the selected Work Card from `planning/phases/phase-03/Work_Cards/`.
-- Read the associated Implementer Report `BUILDER_REPORT_WC08_current_step_context_inspector.md`.
+- Read the associated Implementer Report `IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`.
 - Read the validation record `VALIDATION_REPORT_WC08_current_step_context_inspector.json`.
 
 ## Validation Commands
@@ -92,13 +122,13 @@ git status --short
 
 ## Implementer Report Requirement
 
-Create a repair Implementer Report under `planning/phases/phase-03/Builder_Reports/`.
+Create a repair Implementer Report under `planning/phases/phase-03/Implementer_Reports/`.
 
-Compatibility note: the product-facing role is Implementer, but repair reports still use the legacy `Builder_Reports` folder and `BUILDER_REPORT_REPAIR_*` filename pattern.
+Repair reports use the canonical `Implementer_Reports` folder and `IMPLEMENTER_REPORT_REPAIR_*` filename pattern.
 
-Filename pattern: `BUILDER_REPORT_REPAIR_<work_card_id>_<slug>.md`
+Filename pattern: `IMPLEMENTER_REPORT_REPAIR_<work_card_id>_<slug>.md`
 
-Expected report name: `BUILDER_REPORT_REPAIR_WC08_current_step_context_inspector.md`
+Expected report name: `IMPLEMENTER_REPORT_REPAIR_WC08_current_step_context_inspector.md`
 
 ## Git Instructions
 

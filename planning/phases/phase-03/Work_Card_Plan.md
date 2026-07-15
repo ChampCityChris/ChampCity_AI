@@ -1,10 +1,40 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+  "artifactType": "work_card_plan",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Card_Plan.json",
+  "markdownPath": "planning/phases/phase-03/Work_Card_Plan.md",
+  "payload": {
+    "kind": "work_card_plan",
+    "title": "Work Card Plan: phase-03"
+  },
+  "payloadHash": "sha256:f0336d1083bcba35964ea67a9f4a725bb4e50e0499ef626a2f6fdc850428fcad",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card Plan: phase-03
 
 Status: Approved / Current Phase 03 Work Card candidate plan
 Project: ChampCity A/I
 Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 Revision note: Revised after Operator review to explicitly slot Figma source-code UI shell implementation into Phase 03.
-Executable Work Cards: WC01 created just in time; later candidates not created
+Executable Work Cards: WC01 through WC09 created just in time; later candidates not created
 
 ## Boundary
 
@@ -102,80 +132,90 @@ Purpose: Let the Operator see the durable-state evidence behind the routed curre
 
 Summary: Map a context inspector that shows current project/phase state, relevant artifact paths, missing records, stale/superseded artifacts, MCP/write availability, and why the current step is available or blocked.
 
-### WC09 — Phase Mapping and Operator Phase Approval Route Correction
+### WC09 — Cross-Process Workflow Authority, Artifact Pair Migration, and Context Packet Foundation
 
 Order: 9
 
-Dependencies: WC02; WC03; WC04; WC07; WC08.
+Dependencies: WC02; WC03; WC04; WC07; WC08 and its repair chain.
 
-Purpose: Correct the Phase Mapping screen/route so it supports one-phase-at-a-time mapping and phase approval rather than unreliable phase selection or Phase Planning screen drift.
+Purpose: Stabilize the complete Capture → Frame → Plan → Build → Prove lifecycle before additional route-specific screens are implemented.
 
-Summary: Map the corrected route for Phase_Interview.md, Phase_Planning.md, Work_Card_Plan.md, and Operator_Phase_Approval handling inside the workflow-router UI shell.
+Summary: Establish one canonical artifact identity/revision model, synchronized Markdown/JSON pair service, artifact registry, workflow-state index, routed-action contract, role-gate model, repository migration, and bounded Architect/Implementer context-packet foundation across project, phase, Work Card, validation, repair, closeout, and next-phase processes. Migrate existing active documents to the canonical standard and remove runtime legacy-schema fallback behavior.
 
-### WC10 — Work Card as Implementer Handoff Route
+### WC10 — Phase Mapping and Operator Phase Approval Route Correction
 
 Order: 10
 
-Dependencies: WC02; WC03; WC04; WC09.
+Dependencies: WC02; WC03; WC04; WC07; WC08; WC09.
 
-Purpose: Preserve the corrected authority model that the Work Card is the Implementer handoff.
+Purpose: Correct the Phase Mapping screen/route so it supports one-phase-at-a-time mapping and phase approval rather than unreliable phase selection or Phase Planning screen drift.
 
-Summary: Map the Work Card Loop route from mapped Work Card candidate to just-in-time full Work Card creation, Operator Work Card review, Implementer handoff, and Implementer Report expectation without creating a separate primary Implementer Prompt artifact.
+Summary: Map the corrected route for Phase_Interview.md, Phase_Planning.md, Work_Card_Plan.md, and Operator_Phase_Approval handling inside the stabilized workflow-router authority model.
 
-### WC11 — Implementer Report to Architect Review Route
+### WC11 — Work Card as Implementer Handoff Route
 
 Order: 11
 
-Dependencies: WC10.
+Dependencies: WC02; WC03; WC04; WC09; WC10.
+
+Purpose: Preserve the corrected authority model that the Work Card is the Implementer handoff.
+
+Summary: Map the Work Card Loop route from mapped Work Card candidate to just-in-time full Work Card creation, Operator Work Card review, Implementer handoff, and Implementer Report expectation without creating a separate primary Implementer Execution Packet artifact.
+
+### WC12 — Implementer Report to Architect Review Route
+
+Order: 12
+
+Dependencies: WC09; WC11.
 
 Purpose: Route Implementer Reports to Architect review before Operator validation.
 
 Summary: Map the report intake/review path where the Architect reviews the Implementer Report, determines whether repair is needed before validation, and provides validation steps only when the implementation is ready for Operator validation.
 
-### WC12 — Operator Validation Record and REPAIR Sub-Card Route
+### WC13 — Operator Validation Record and REPAIR Sub-Card Route
 
-Order: 12
+Order: 13
 
-Dependencies: WC10; WC11.
+Dependencies: WC09; WC11; WC12.
 
 Purpose: Ensure validation and repair follow the locked Work Card Loop.
 
 Summary: Map the route where Operator validation creates a Validation Record, failed validation routes to `WCxx-REPAIRxx`, and repair sub-cards return to the Implementer path with parent Work Card rollup status.
 
-### WC13 — Phase Closeout, Roadmap Update, and Next Phase Activation Route
+### WC14 — Phase Closeout, Roadmap Update, and Next Phase Activation Route
 
-Order: 13
+Order: 14
 
-Dependencies: WC02; WC03; WC10; WC11; WC12.
+Dependencies: WC02; WC03; WC09; WC11; WC12; WC13.
 
 Purpose: Connect the end of the Work Card Loop to phase closeout and next-phase routing.
 
 Summary: Map closeout eligibility, Operator Phase Closeout Approval, Roadmap Update, Next Phase Activation, and return to Phase Mapping for the first incomplete phase.
 
-### WC14 — MCP/Direct Write Status and Manual Artifact Fallbacks
-
-Order: 14
-
-Dependencies: WC03; WC04; WC07; WC08; WC09; WC10; WC12; WC13.
-
-Purpose: Preserve Alpha usability when MCP or direct file write is unavailable.
-
-Summary: Map visible degraded-mode handling that tells the Operator what write/read action failed, which artifact path is affected, what content must be copied/saved manually, and how to confirm continuation.
-
-### WC15 — Router UI Fixture Validation and Regression Scenarios
+### WC15 — MCP/Direct Write Status and Manual Artifact Fallbacks
 
 Order: 15
 
-Dependencies: WC02 through WC14.
+Dependencies: WC03; WC04; WC07; WC08; WC09; WC10; WC11; WC13; WC14.
+
+Purpose: Preserve Alpha usability when MCP or direct file write is unavailable.
+
+Summary: Map visible degraded-mode handling that tells the Operator what write/read action failed, which canonical artifact pair is affected, what content must be copied/saved manually, and how to confirm continuation. This manual operational fallback must not reintroduce legacy artifact-schema parsing.
+
+### WC16 — Router UI Fixture Validation and Regression Scenarios
+
+Order: 16
+
+Dependencies: WC02 through WC15.
 
 Purpose: Validate that the workflow-router model and visible UI behave correctly across the locked workflow states.
 
-Summary: Map fixture-driven and manual validation scenarios for each major durable-state condition: missing intake, missing interview, missing approvals, pending Work Card, pending report, pending Architect review, pending validation, failed validation/repair, closeout readiness, roadmap update, next phase activation, stale artifacts, MCP fallback, and Figma-shell UI state display without demo-state dependency.
+Summary: Map fixture-driven and manual validation scenarios for each major durable-state condition: missing intake, missing interview, missing approvals, pending Work Card, pending report, pending Architect review, pending validation, failed validation/repair, closeout readiness, roadmap update, next phase activation, conflicting or unsynchronized artifacts, MCP fallback, context-packet budgets, and Figma-shell UI state display without demo-state dependency.
 
 ## Candidate Ordering Rationale
 
-The phase begins with state authority and stale artifact reconciliation because the current repo contains obsolete Phase 03 artifacts. It then establishes the current-action model. The Figma workflow-router UI shell is slotted immediately after that model because the shell needs state to display and the remaining route-specific work should plug into the shell rather than recreate separate screens. Work Card, validation, repair, and closeout routes are mapped after the core router and UI workspace because those loops depend on accurate current-action state and a visible workflow surface.
+The phase begins with state authority and stale artifact reconciliation because the current repo contains obsolete Phase 03 artifacts. It then establishes the current-action model and visible workflow-router shell. WC08 and its repair chain proved that route-specific implementation cannot safely continue while artifact identity, revision authority, routed target binding, and context compilation remain fragmented. WC09 therefore stabilizes those foundations across the complete project lifecycle before Phase Mapping, Work Card, validation, repair, closeout, fallback, and regression routes continue. Later Work Cards must consume the WC09 contracts rather than recreate process-specific authority logic.
 
 ## Not Created In This Plan
 
-No executable Work Cards are created here. No implementation instructions are included. No Implementer prompts are created. No code changes are authorized by this file alone.
+No executable Work Cards are created here. No implementation instructions are included. No Implementer execution packets are created. No code changes are authorized by this file alone.

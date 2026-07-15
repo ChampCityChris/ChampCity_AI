@@ -5,7 +5,7 @@ import { resolveSupportNavigationState } from "../dist/shared/workCards/supportN
 
 const navigationItems = Object.freeze([
   Object.freeze({
-    id: "builder-report-capture",
+    id: "implementer-report-capture",
     label: "Report",
     screenTitle: "Implementer Report Capture",
     shortDesc: "Capture evidence",
@@ -30,17 +30,17 @@ assert.equal(routedState.isViewingSupportingScreen, false);
 const supportState = resolveSupportNavigationState(
   navigationItems,
   "human-validation",
-  "builder-report-capture",
+  "implementer-report-capture",
 );
 assert.equal(supportState.routedScreen?.id, "human-validation");
-assert.equal(supportState.activeScreen?.id, "builder-report-capture");
+assert.equal(supportState.activeScreen?.id, "implementer-report-capture");
 assert.equal(supportState.isViewingRoutedScreen, false);
 assert.equal(supportState.isViewingSupportingScreen, true);
 
 const unresolvedState = resolveSupportNavigationState(
   navigationItems,
   "missing-routed-screen",
-  "builder-report-capture",
+  "implementer-report-capture",
 );
 assert.equal(unresolvedState.routedScreenResolved, false);
 assert.equal(unresolvedState.isViewingSupportingScreen, true);
@@ -48,7 +48,7 @@ assert.equal(unresolvedState.routedScreenId, "missing-routed-screen");
 
 assert.deepEqual(
   navigationItems.map((item) => item.id),
-  ["builder-report-capture", "human-validation"],
+  ["implementer-report-capture", "human-validation"],
   "Resolving support navigation must not mutate the available screens.",
 );
 

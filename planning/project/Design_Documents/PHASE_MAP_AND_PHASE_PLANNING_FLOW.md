@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW",
+  "artifactType": "design_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.json",
+  "markdownPath": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.md",
+  "payload": {
+    "kind": "design_document",
+    "title": "Phase Map and Phase Planning Flow"
+  },
+  "payloadHash": "sha256:08e3b55ed4becb8c53683193615f7e5b10068042c566576b3e5c2d2829d462e0",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Phase Map and Phase Planning Flow
 
 Status: Updated for Phase 02 WC08
@@ -18,12 +44,12 @@ Project Planning Documents + Repository Reconciliation + Project Roadmap
 -> Work Card Plan Review
 -> Architect drafts Formal Work Card
 -> Operator approves Formal Work Card
--> Generate Implementer Prompts only from approved Formal Work Cards
+-> Generate Implementer Execution Packets only from approved Formal Work Cards
 ```
 
 ## Screen Responsibilities
 
-### Phase Map Builder
+### Phase Map Composer
 
 - Consumes saved Project Planning Documents, Repository Reconciliation, and Project Roadmap sources.
 - Derives mapped phase records from the selected Project Roadmap.
@@ -46,7 +72,7 @@ Project Planning Documents + Repository Reconciliation + Project Roadmap
 - Presents planned entries as proposed/planned cards, not executable Formal Work Cards.
 - Labels planned entries as Proposed / Not Executable until Operator approval and materialization support exists.
 - Scaffolds future Operator decisions: Draft this Work Card, skip/defer, rename, reorder, merge, split, mark superseded, or mark already satisfied.
-- Does not write files under `Work_Cards/` in WC08 and does not generate Implementer Prompts.
+- Does not write files under `Work_Cards/` in WC08 and does not generate Implementer Execution Packets.
 
 ### Ad Hoc Work Card Capture
 
@@ -62,8 +88,8 @@ Project Planning Documents + Repository Reconciliation + Project Roadmap
 - Phase Planning Documents = draft or approved plan for a selected phase.
 - Work Card Plan = proposed Work Card count, order, names, and rough intent.
 - Formal Work Cards = approved executable units saved under `Work_Cards/`.
-- Implementer Prompt = build instruction generated from an approved Formal Work Card.
-- Builder Report = Implementer result.
+- Implementer Execution Packet = build instruction generated from an approved Formal Work Card.
+- Implementer Report = Implementer result.
 - Human Validation Report = Operator evidence and decision.
 - Closeout Report = phase-level acceptance and transition authority.
 
@@ -98,6 +124,6 @@ Existing phase folders can provide context, but they are not the authoritative l
 ## Validation Notes
 
 - Automated validation must use the lane documented in `docs/dev/VALIDATION_COMMAND_LANES.md`.
-- Manual Operator validation must confirm that Phase Map Builder has no phase dropdown and that the generator phase selector is populated from mapped phase records.
+- Manual Operator validation must confirm that Phase Map Composer has no phase dropdown and that the generator phase selector is populated from mapped phase records.
 - WC07 does not authorize Phase 03 activation or Phase 02 closeout.
 - WC08 does not close Phase 02, activate Phase 03, or create Phase 03 Formal Work Cards.

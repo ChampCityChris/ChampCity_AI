@@ -58,8 +58,7 @@ switch ($Suite) {
     break
   }
   "full" {
-    Invoke-FirstAvailableScript -Names @("test:unit", "test", "vitest") -Purpose "unit validation"
-    Invoke-FirstAvailableScript -Names @("build", "typecheck", "compile") -Purpose "build validation"
+    Invoke-FirstAvailableScript -Names @("test:full", "test", "vitest") -Purpose "full validation"
     break
   }
 }

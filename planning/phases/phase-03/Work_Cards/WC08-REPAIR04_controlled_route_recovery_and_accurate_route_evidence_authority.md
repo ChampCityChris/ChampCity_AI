@@ -1,3 +1,44 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority"
+  },
+  "payloadHash": "sha256:968063f8b3a253f84d68037b794f46a0838d798c497a47fd7c9c318425f296b1",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08-REPAIR04"
+}
+-->
+
 # Repair Work Card: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority
 
 Status: ready_for_implementer
@@ -234,7 +275,7 @@ Preserve all behavior that passed WC08-REPAIR01 validation:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`
 
 The report must include:
 

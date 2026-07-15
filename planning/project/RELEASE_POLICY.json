@@ -1,0 +1,25 @@
+{
+  "artifactId": "champcity-ai/project/supporting_document/RELEASE_POLICY",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/RELEASE_POLICY.json",
+  "markdownPath": "planning/project/RELEASE_POLICY.md",
+  "payload": {
+    "contentMarkdown": "# Release Policy\n\n## Git Commit Rules\n\n- Use local Git history for meaningful work checkpoints.\n- Commit only files created or modified for the approved pass.\n- Do not include secrets, local `.env` files, dependency folders, build output, logs, or unrelated changes.\n\n## Tag Naming Rules\n\n- Use annotated local tags for approved release milestones.\n- Do not move or recreate an existing tag without explicit operator approval.\n\n## GitHub Push Rules\n\n- Push commits and tags only when a remote is configured and credentials are already available.\n- Do not print, request, or store credentials.\n- Remote repository URL is `https://github.com/ChampCityChris/ChampCity_AI`.\n\n## Historical MVP Release Tag Plan\n\nThe MVP foundation plan is retained here as a historical release record. Current active work is Alpha app development.\n\n- `v0.1.0-foundation`: project memory, planning scaffold, Electron + TypeScript shell, and design document updates.\n- `v0.2.0-work-card-schema`: Work Card schema, Markdown renderer, and file path rules.\n- `v0.3.0-capture-frame-review`: capture form, framing workflow, save, and review.\n- `v0.4.0-implementer-prompt-flow`: risk router, Implementer execution packet generator, and plan capture.\n- `v0.5.0-validation-repair-closeout`: Implementer report capture, validation, repair, closeout, and project-memory update.\n- `v1.0.0-mvp`: complete MVP done definition.\n",
+    "data": {},
+    "kind": "supporting_document",
+    "title": "Release Policy"
+  },
+  "payloadHash": "sha256:1e2d2eb23fb3c0eb0b61142bd796a0e085420662123dcab5c9d850ffd7890404",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}

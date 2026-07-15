@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+  "artifactType": "phase_map",
+  "createdAt": "2026-07-02T18:00:51.311Z",
+  "jsonPath": "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.json",
+  "markdownPath": "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md",
+  "payload": {
+    "kind": "phase_map",
+    "title": "Phase Map: ChampCity A/I"
+  },
+  "payloadHash": "sha256:de771883fb9ea45d062148760b6a2242b15734deafefe9e35490db40cde525a6",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-02T18:00:51.311Z"
+}
+-->
+
 # Phase Map: ChampCity A/I
 
 ## Source Context
@@ -74,8 +103,8 @@ Updated: 2026-07-02T18:00:51.311Z
 - Recommended default: use an app-controlled evidence folder under the project planning structure, with repo-safe filenames and no hidden external dependency.
 - Decisions
 - The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.
-- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Builder Reports, repair prompts, closeout records, and decision history.
-- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Builder Reports, and support the Operator’s decision loop without relying on stale chat context alone.
+- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Implementer Reports, repair prompts, closeout records, and decision history.
+- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Implementer Reports, and support the Operator’s decision loop without relying on stale chat context alone.
 - Fully autonomous software creation without Operator review, validation, and decision authority.
 - The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 - Durable planning artifacts are stored as Markdown and JSON in the repository.
@@ -99,7 +128,7 @@ Updated: 2026-07-02T18:00:51.311Z
 - Source Reconciliation ID: REPOSITORY_RECONCILIATION_champcity_a_i
 - Source Planning Document ID: PROJECT_PLANNING_DOCUMENTS_champcity_a_i
 - Notes: Roadmap confidence: high; MVP foundation decisions.; Phase appears ready for closeout review.
-- Assumptions: phase-01/Work_Cards (10); phase-01/Builder_Reports (20); phase-01/Validation_Reports (22); phase-01/Repair_Prompts (0); phase-01/Closeout_Reports (4); Closeout artifacts are present.; Use the latest closeout report when running future readiness reviews.
+- Assumptions: phase-01/Work_Cards (10); phase-01/Implementer_Reports (20); phase-01/Validation_Reports (22); phase-01/Repair_Prompts (0); phase-01/Closeout_Reports (4); Closeout artifacts are present.; Use the latest closeout report when running future readiness reviews.
 - Risks: Existing Closeout Report artifacts found. Latest filename: CLOSEOUT_REPORT_phase-01_phase_1_closeout.md.
 - Unresolved questions: None.
 
@@ -116,7 +145,7 @@ Updated: 2026-07-02T18:00:51.311Z
 - Source Reconciliation ID: REPOSITORY_RECONCILIATION_champcity_a_i
 - Source Planning Document ID: PROJECT_PLANNING_DOCUMENTS_champcity_a_i
 - Notes: Roadmap confidence: high; Phase 01 core workflow artifacts.; Repair prompts must be resolved or explicitly deferred.; Phase appears ready for closeout review. Phase has repair prompts. Review repairs before closing.
-- Assumptions: phase-02/Work_Cards (6); phase-02/Builder_Reports (14); phase-02/Validation_Reports (36); phase-02/Repair_Prompts (3); phase-02/Closeout_Reports (2); Closeout artifacts are present.; Use the latest closeout report when running future readiness reviews.
+- Assumptions: phase-02/Work_Cards (6); phase-02/Implementer_Reports (14); phase-02/Validation_Reports (36); phase-02/Repair_Prompts (3); phase-02/Closeout_Reports (2); Closeout artifacts are present.; Use the latest closeout report when running future readiness reviews.
 - Risks: Repair Prompt artifacts exist and should be reviewed before closeout.; Existing Closeout Report artifacts found. Latest filename: CLOSEOUT_REPORT_phase-02_phase_2_closeout.md.; Repair prompts exist and should be resolved before closeout.
 - Unresolved questions: None.
 
@@ -162,7 +191,7 @@ Updated: 2026-07-02T18:00:51.311Z
 - Source Reconciliation ID: REPOSITORY_RECONCILIATION_champcity_a_i
 - Source Planning Document ID: PROJECT_PLANNING_DOCUMENTS_champcity_a_i
 - Notes: Roadmap confidence: low; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.
-- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Builder Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
+- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
 - Risks: Later phase details are lower confidence until the previous phase has been closed.
 - Unresolved questions: Confirm scope boundaries during Next Phase Readiness Review.
 
@@ -179,7 +208,7 @@ Updated: 2026-07-02T18:00:51.311Z
 - Source Reconciliation ID: REPOSITORY_RECONCILIATION_champcity_a_i
 - Source Planning Document ID: PROJECT_PLANNING_DOCUMENTS_champcity_a_i
 - Notes: Roadmap confidence: low; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.
-- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Builder Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
+- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
 - Risks: Later phase details are lower confidence until the previous phase has been closed.
 - Unresolved questions: Confirm scope boundaries during Next Phase Readiness Review.
 
@@ -196,7 +225,7 @@ Updated: 2026-07-02T18:00:51.311Z
 - Source Reconciliation ID: REPOSITORY_RECONCILIATION_champcity_a_i
 - Source Planning Document ID: PROJECT_PLANNING_DOCUMENTS_champcity_a_i
 - Notes: Roadmap confidence: low; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.
-- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Builder Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
+- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
 - Risks: Later phase details are lower confidence until the previous phase has been closed.
 - Unresolved questions: Confirm scope boundaries during Next Phase Readiness Review.
 
@@ -213,7 +242,7 @@ Updated: 2026-07-02T18:00:51.311Z
 - Source Reconciliation ID: REPOSITORY_RECONCILIATION_champcity_a_i
 - Source Planning Document ID: PROJECT_PLANNING_DOCUMENTS_champcity_a_i
 - Notes: Roadmap confidence: low; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.
-- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Builder Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
+- Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.
 - Risks: Later phase details are lower confidence until the previous phase has been closed.
 - Unresolved questions: Confirm scope boundaries during Next Phase Readiness Review.
 

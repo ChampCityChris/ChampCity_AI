@@ -1,3 +1,42 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC04-REPAIR03 Validation Target Context and Panel Simplification"
+  },
+  "payloadHash": "sha256:aa0ee19e55e8666e3eb146c94ba2596cfce35218d46b9ae9060df2e947be217c",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04-REPAIR03"
+}
+-->
+
 # Architect Review: WC04-REPAIR03 Validation Target Context and Panel Simplification
 
 Status: Ready for Operator Validation
@@ -18,7 +57,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md`
 
 ## Source Validation Failure
 

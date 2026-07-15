@@ -4,7 +4,7 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
   workCardId: "WC02",
   title: "Add Project Architect Interview prompt generator",
   phase: "phase-02",
-  status: "ready_for_builder",
+  status: "ready_for_implementer",
   createdAt: "2026-06-30T18:00:00.000Z",
   updatedAt: "2026-06-30T18:00:00.000Z",
   problem:
@@ -15,7 +15,7 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "The Operator can choose a saved Project Intake, preview a high-quality Architect interview prompt, copy it into the Architect surface, and save paired JSON/Markdown prompt artifacts for durable planning records.",
   scope: [
     "Create WC02 JSON and Markdown Work Card artifacts under Phase 02.",
-    "Ensure Phase 02 Work_Cards and Builder_Reports folders and project-level Project Intake and Project Architect Interview Prompt folders exist.",
+    "Ensure Phase 02 Work_Cards and Implementer_Reports folders and project-level Project Intake and Project Architect Interview Prompt folders exist.",
     "Add a JSON-compatible Project Architect Interview Prompt shared model.",
     "Add deterministic Architect interview prompt generation from a validated saved Project Intake.",
     "Add deterministic Markdown rendering for saved Project Architect Interview Prompt artifacts with the required headings and Next Step copy.",
@@ -25,7 +25,7 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "Save paired prompt JSON/Markdown artifacts under `planning/project/Project_Architect_Interview_Prompts/` with safe `PROJECT_ARCHITECT_INTERVIEW_PROMPT_<slug>` filenames and suffixing.",
     "Add a Project Architect Interview UI screen or mode with saved intake selection, prompt preview, copy, save, saved-path feedback, and useful error messages.",
     "Extend Work Card validation coverage for the new prompt model, renderer, filename safety, IPC wiring, and UI labels.",
-    "Create the required WC02 Implementer Report under the legacy `Builder_Reports` folder.",
+    "Create the required WC02 Implementer Report under the canonical `Implementer_Reports` folder.",
   ],
   outOfScope: [
     "Do not call an LLM API.",
@@ -41,7 +41,7 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "Do not add browser automation.",
     "Do not add databases, auth, cloud deployment, MCP integration, connector integration, packaging, installers, release tags, or GitHub push behavior.",
     "Do not perform a broad UI redesign or make the known header and validation phase-selector follow-up issues the focus.",
-    "Do not rename legacy `Builder_*` folders or historical artifact prefixes.",
+    "Do not change canonical `Implementer_*` artifact storage or archived historical evidence.",
   ],
   requirements: [
     "Saved Project Intake listing must include only safe JSON filenames from `planning/project/Project_Intake/`.",
@@ -55,7 +55,7 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "The saved Markdown prompt artifact must begin with `# Project Architect Interview Prompt: <projectName>` and include all required WC02 headings.",
     "Saving must create paired JSON/Markdown prompt artifacts without silently overwriting existing files.",
     "Existing WC01 Project Intake capture and existing Phase 1 workflow screens must still open.",
-    "No out-of-scope provider, storage, auth, cloud, MCP, connector, packaging, release, push, broad redesign, or legacy folder rename work may be added.",
+    "No out-of-scope provider, storage, auth, cloud, MCP, connector, packaging, release, push, broad redesign, or canonical artifact-storage change may be added.",
   ],
   acceptanceCriteria: [
     "A Project Architect Interview prompt generator screen, mode, or section exists.",
@@ -74,7 +74,7 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "The saved Markdown includes all required headings and the required Next Step language.",
     "Existing WC01 Project Intake capture still works.",
     "Existing Phase 1 workflow screens still open.",
-    "No LLM API call, provider SDK, database, auth, cloud, MCP, connector, package, installer, release tag, push, broad UI redesign, or legacy Builder path rename is added.",
+    "No LLM API call, provider SDK, database, auth, cloud, MCP, connector, package, installer, release tag, push, broad UI redesign, or unrelated report-path migration is added.",
     "WC02 Work Card JSON/Markdown artifacts are created.",
     "WC02 Implementer Report is created.",
   ],
@@ -93,11 +93,11 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "The generated prompt must be clear that it starts an interview and does not create final planning outputs yet.",
     "Manual Electron validation is needed to prove copy/save behavior in the desktop shell.",
   ],
-  builderInstructions: [
+  implementerInstructions: [
     "Verify the repository path and Git root before editing.",
     "Read `AGENTS.md`, the WC01 Project Intake artifacts and reports, the Project Intake shared model/render/validate files, main/preload IPC, and renderer source before implementation.",
     "Keep this pass limited to Project Architect Interview prompt generation from saved Project Intake artifacts.",
-    "Preserve product-facing Architect / Implementer terminology and legacy `Builder_*` compatibility artifact paths.",
+    "Preserve product-facing Architect / Implementer terminology and canonical `Implementer_*` artifact paths.",
     "Run required validation commands and document results in the WC02 Implementer Report.",
     "Stage only files changed or created for WC02 and commit with `feat: add project architect interview prompt generator`.",
   ],
@@ -105,6 +105,6 @@ export const workCardProjectArchitectInterviewPromptFixture: WorkCard = {
     "ChampCity A/I means Architect / Implementer.",
     "The Operator should not have to write the Architect interview prompt manually.",
     "This Work Card intentionally stops before Project Profile, roadmap, phase planning, and Work Card planning generation.",
-    "Existing legacy Builder artifact names remain compatibility storage names until a dedicated migration Work Card changes them safely.",
+    "Archived pre-WC09 artifact names are historical evidence only; active storage uses canonical Implementer artifact names.",
   ],
 };

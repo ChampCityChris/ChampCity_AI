@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-13T01:04:12.547Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC04-REPAIR01 Validation Flow and Current Action Panel Usability"
+  },
+  "payloadHash": "sha256:083223ebcff8ac72d573b491509118d1a7df91ee8034f7f47feb79ee333ff632",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04-REPAIR01"
+}
+-->
+
 # Human Validation Report - WC04-REPAIR01 Validation Flow and Current Action Panel Usability
 
 ## Validation Target
@@ -6,51 +39,44 @@
 - Validation Target kind: work_card
 - Validation Target title: Validation Flow and Current Action Panel Usability
 - Phase: phase-03
+- Parent Work Card ID: WC04
 - Source JSON file: WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json
 - Source Markdown file: WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md
-- Associated Implementer Report: BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md
 
 ## Validation Result
 
-Partial
+Pass
 
 ## What Was Tested?
 
-1. Routing gate:
-   - deferred WC04 validation does not count as passed
-   - current action does not advance to WC05
-   - current action routes to WC04-REPAIR01 repair validation
-
-2. Preserved WC04-REPAIR01 UI repairs:
-   - validation text survives navigation
-   - warning/info text wraps
-   - checklist uses Architect guidance
-   - prior targets show validation/report context
-   - screenshot paste or fallback works
-   - right context panel is not just a duplicate of the left panel
+1. Current WC04 repair route opens Human Validation with WC04-REPAIR01 selected.
+2. A later manual target choice remains selected and is not overwritten.
+3. Prior targets show effective/raw status, Operator decision, report filename, and timestamp context.
+4. Durable WC04-REPAIR02 Architect guidance is shown for the current target.
+5. Fallback guidance is clearly labeled when durable Architect guidance is absent.
+6. The right context panel is absent or no longer duplicates the left current-action panel.
+7. Screenshot paste/import and concise evidence cards are usable.
+8. More tools, process rail, and the primary action button retain expected screen reachability.
+9. Current-action routing remains on WC04-REPAIR01 repair validation and does not advance to WC05.
+10. WC05-WC15 behavior has not been implemented prematurely.
 
 ## What Passed?
 
-1. Routing gate:
-   - deferred WC04 validation does not count as passed
-   - current action does not advance to WC05
-
-
-2. Preserved WC04-REPAIR01 UI repairs:
-   - validation text survives navigation
-   - warning/info text wraps
-
- 
-   - screenshot paste or fallback works
+1. Current WC04 repair route opens Human Validation with WC04-REPAIR01 selected.
+2. A later manual target choice remains selected and is not overwritten.
+3. Prior targets show effective/raw status, Operator decision, report filename, and timestamp context.
+4. Durable WC04-REPAIR02 Architect guidance is shown for the current target.
+5. Fallback guidance is clearly labeled when durable Architect guidance is absent.
+6. The right context panel is absent or no longer duplicates the left current-action panel.
+7. Screenshot paste/import and concise evidence cards are usable.
+8. More tools, process rail, and the primary action button retain expected screen reachability.
+9. Current-action routing remains on WC04-REPAIR01 repair validation and does not advance to WC05.
+10. WC05-WC15 behavior has not been implemented prematurely.
 
 ## What Failed?
 
-- current action routes to WC04-REPAIR01 repair validation
-   - checklist uses Architect guidance
-
-  - prior targets show validation/report context
-
-  - right context panel is not just a duplicate of the left panel
+None recorded.
 
 ## Evidence References Or Paths
 
@@ -58,9 +84,8 @@ None recorded.
 
 ## Screenshots Or Files Referenced By Path
 
-planning/phases/phase-03/Validation_Evidence/WC04-REPAIR01_validation_flow_and_current_action_panel_usability/image.png
-planning/phases/phase-03/Validation_Evidence/WC04-REPAIR01_validation_flow_and_current_action_panel_usability/image_2.png
-planning/phases/phase-03/Validation_Evidence/WC04-REPAIR01_validation_flow_and_current_action_panel_usability/image_3.png
+planning/phases/phase-03/Validation_Evidence/WC04-REPAIR01_validation_flow_and_current_action_panel_usability/image_5.png
+planning/phases/phase-03/Validation_Evidence/WC04-REPAIR01_validation_flow_and_current_action_panel_usability/image_6.png
 
 ## Manual Commands Run
 
@@ -68,31 +93,25 @@ None recorded.
 
 ## Observed Errors
 
-While screen opens to Repair the validation target in drop down is WC01 not WC04-REPAIR01
-
-Prior work cards all show not validated. 
-
-Right context panel still appears to contain similar information to left panel.  Right context menu can likely be removed.
+None recorded.
 
 ## Additional Operator Observations
 
-Screen shot messaging is verbose and likely not needed.  Pasting screen shot also pastes full file location of screen shot. Preference is for a small pic similar to pasting screenshots on chatgpt.com
+Manual validation checklist should be moved to the top of validation operator record where the What was tested box now lives.  The validation checklist should be editable so it can be the recorded source of what was tested by the operator.  This could also be achieved by converting the numbered checklist into  questions with a pass/fail/skipped selector for the operator to assess.  This will prevent duplication of information in the operator report.
 
-Architect guidance for testing steps is done after implementer report is reviewed.  This likely can't be imported into the validation screen with current functionality as the conversation is not made into a MD artifact. 
-
-Supporting Screens dropdown is redundant to action bar.
+Screenshots still function poorly.  The ability to paste the screenshot directly should be the primary input method with the fallback being the attach button.  The add or edit repor-relative paths still pastes long repo paths in the box.  Once the image.png is created this box should clear.  It also shouldn't be hidden behind a collapsing header.
 
 ## Operator Decision
 
-Failed - repair needed
+Passed - proceed
 
 ## Recommended Next Action
 
-None recorded.
+Deferring next action to Architect to determine if additional observations should be used to create another repair card or if the should be deferred for later UI cleanup.
 
 ## Generated Timestamp
 
-2026-07-13T00:30:49.397Z
+2026-07-13T01:04:12.547Z
 
 ## Non-Mutating Note
 

@@ -1,24 +1,56 @@
 {
-  "validationId": "VALIDATION_WC07_20260714124440",
-  "workCardId": "WC07",
-  "workCardTitle": "Artifact Review Workspace",
-  "validationTargetId": "WC07",
-  "validationTargetKind": "work_card",
-  "validationTargetTitle": "Artifact Review Workspace",
-  "validationTargetSourceJsonFile": "WC07_artifact_review_workspace.json",
-  "validationTargetSourceMarkdownFile": "WC07_artifact_review_workspace.md",
-  "phase": "phase-03",
-  "builderReportFile": "BUILDER_REPORT_WC07_artifact_review_workspace.md",
-  "validationResult": "Not Tested",
-  "testedItems": "1. Current routed workspace shows useful artifact context above the route-specific screen.\n2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.\n3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.\n4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.\n5. Artifact labels are readable and full paths do not dominate.\n6. Planning Markdown preview works inline and stays read-only.\n7. Expected output, source artifacts, and missing evidence are visually distinct.\n8. Previewing artifacts does not save, approve, validate, repair, or advance workflow state.\n9. WC04, WC05, and WC06 behavior remains intact.\n10. WC08-WC15 behavior does not appear prematurely.",
-  "passedItems": "4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.\n8. Previewing artifacts does not save, approve, validate, repair, or advance workflow state.\n9. WC04, WC05, and WC06 behavior remains intact.\n10. WC08-WC15 behavior does not appear prematurely.\n",
-  "failedItems": "1. Current routed workspace shows useful artifact context above the route-specific screen.\n2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.\n3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.\n5. Artifact labels are readable and full paths do not dominate.\n6. Planning Markdown preview works inline and stays read-only.\n7. Expected output, source artifacts, and missing evidence are visually distinct.",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_2.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_3.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_4.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_5.png",
-  "commandsRun": "",
-  "observedErrors": "1. Hard to tell what information is being displayed but I don't believe we are actually pulling in the artifact documents for viewing. \n2. Again I don't think it does see image 3 \n3. Still can't click on Architect Review so I can't validate\n5. Artifact's are now useless as they do not open in Markdown viewer or open externally. \n6. Nothing appears ever in the Markdown preview. It is also far to small to be useable. \n7. Again UI is so much shit I'm uncertain \n",
-  "additionalOperatorObservations": "UI is a jumble of unusable shit.  Not sure why we now have multiple places where the same information is displayed.  I think Architect is giving to much space for the implementer to guess and create horrible UI.  Clicking the Current Work Card Loop on the action bar moves you out of the current screen and you must select return to current screen to complete the current action.  Clicking any of the other action bars doesn't actually bring up any different info or the UI is to jumbled to understand the operator is not certain.  Embedding more and more windows to display things is piss poor UI design which is why implementer can't be trusted for UI.  ",
-  "operatorDecision": "Deferred - not validated yet",
-  "recommendedNextAction": "",
-  "createdAt": "2026-07-14T12:44:40.132Z"
+  "artifactId": "champcity-ai/phase-03/validation_report/WC07",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T12:44:40.132Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
+  "payload": {
+    "contentMarkdown": "# Human Validation Report - WC07 Artifact Review Workspace\n\n## Validation Target\n\n- Validation Target ID: WC07\n- Validation Target kind: work_card\n- Validation Target title: Artifact Review Workspace\n- Phase: phase-03\n- Source JSON file: WC07_artifact_review_workspace.json\n- Source Markdown file: WC07_artifact_review_workspace.md\n- Associated Implementer Report: IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md\n\n## Validation Result\n\nNot Tested\n\n## What Was Tested?\n\n1. Current routed workspace shows useful artifact context above the route-specific screen.\n2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.\n3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.\n4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.\n5. Artifact labels are readable and full paths do not dominate.\n6. Planning Markdown preview works inline and stays read-only.\n7. Expected output, source artifacts, and missing evidence are visually distinct.\n8. Previewing artifacts does not save, approve, validate, repair, or advance workflow state.\n9. WC04, WC05, and WC06 behavior remains intact.\n10. WC08-WC15 behavior does not appear prematurely.\n\n## What Passed?\n\n4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.\n8. Previewing artifacts does not save, approve, validate, repair, or advance workflow state.\n9. WC04, WC05, and WC06 behavior remains intact.\n10. WC08-WC15 behavior does not appear prematurely.\n\n## What Failed?\n\n1. Current routed workspace shows useful artifact context above the route-specific screen.\n2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.\n3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.\n5. Artifact labels are readable and full paths do not dominate.\n6. Planning Markdown preview works inline and stays read-only.\n7. Expected output, source artifacts, and missing evidence are visually distinct.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_2.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_3.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_4.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_5.png\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\n1. Hard to tell what information is being displayed but I don't believe we are actually pulling in the artifact documents for viewing.\n2. Again I don't think it does see image 3\n3. Still can't click on Architect Review so I can't validate\n5. Artifact's are now useless as they do not open in Markdown viewer or open externally.\n6. Nothing appears ever in the Markdown preview. It is also far to small to be useable.\n7. Again UI is so much shit I'm uncertain\n\n## Additional Operator Observations\n\nUI is a jumble of unusable shit.  Not sure why we now have multiple places where the same information is displayed.  I think Architect is giving to much space for the implementer to guess and create horrible UI.  Clicking the Current Work Card Loop on the action bar moves you out of the current screen and you must select return to current screen to complete the current action.  Clicking any of the other action bars doesn't actually bring up any different info or the UI is to jumbled to understand the operator is not certain.  Embedding more and more windows to display things is piss poor UI design which is why implementer can't be trusted for UI.\n\n## Operator Decision\n\nDeferred - not validated yet\n\n## Recommended Next Action\n\nNone recorded.\n\n## Generated Timestamp\n\n2026-07-14T12:44:40.132Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "additionalOperatorObservations": "UI is a jumble of unusable shit.  Not sure why we now have multiple places where the same information is displayed.  I think Architect is giving to much space for the implementer to guess and create horrible UI.  Clicking the Current Work Card Loop on the action bar moves you out of the current screen and you must select return to current screen to complete the current action.  Clicking any of the other action bars doesn't actually bring up any different info or the UI is to jumbled to understand the operator is not certain.  Embedding more and more windows to display things is piss poor UI design which is why implementer can't be trusted for UI.",
+      "commandsRun": "",
+      "createdAt": "2026-07-14T12:44:40.132Z",
+      "evidenceReferences": "",
+      "failedItems": "1. Current routed workspace shows useful artifact context above the route-specific screen.\n2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.\n3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.\n5. Artifact labels are readable and full paths do not dominate.\n6. Planning Markdown preview works inline and stays read-only.\n7. Expected output, source artifacts, and missing evidence are visually distinct.",
+      "implementerReportFile": "IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
+      "observedErrors": "1. Hard to tell what information is being displayed but I don't believe we are actually pulling in the artifact documents for viewing.\n2. Again I don't think it does see image 3\n3. Still can't click on Architect Review so I can't validate\n5. Artifact's are now useless as they do not open in Markdown viewer or open externally.\n6. Nothing appears ever in the Markdown preview. It is also far to small to be useable.\n7. Again UI is so much shit I'm uncertain\n",
+      "operatorDecision": "Deferred - not validated yet",
+      "passedItems": "4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.\n8. Previewing artifacts does not save, approve, validate, repair, or advance workflow state.\n9. WC04, WC05, and WC06 behavior remains intact.\n10. WC08-WC15 behavior does not appear prematurely.\n",
+      "phase": "phase-03",
+      "recommendedNextAction": "",
+      "screenshotOrFileReferences": "planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_2.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_3.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_4.png\nplanning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_5.png",
+      "testedItems": "1. Current routed workspace shows useful artifact context above the route-specific screen.\n2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.\n3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.\n4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.\n5. Artifact labels are readable and full paths do not dominate.\n6. Planning Markdown preview works inline and stays read-only.\n7. Expected output, source artifacts, and missing evidence are visually distinct.\n8. Previewing artifacts does not save, approve, validate, repair, or advance workflow state.\n9. WC04, WC05, and WC06 behavior remains intact.\n10. WC08-WC15 behavior does not appear prematurely.",
+      "validationId": "VALIDATION_WC07_20260714124440",
+      "validationResult": "Not Tested",
+      "validationTargetId": "WC07",
+      "validationTargetKind": "work_card",
+      "validationTargetSourceJsonFile": "WC07_artifact_review_workspace.json",
+      "validationTargetSourceMarkdownFile": "WC07_artifact_review_workspace.md",
+      "validationTargetTitle": "Artifact Review Workspace",
+      "workCardId": "WC07",
+      "workCardTitle": "Artifact Review Workspace"
+    },
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC07 Artifact Review Workspace"
+  },
+  "payloadHash": "sha256:135b46da73d4f8f790917cfbc24844b83f3697da6ae4be9ec971d053a77963af",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01"
+    ],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC07",
+      "champcity-ai/phase-03/implementer_report/WC07",
+      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T12:44:40.132Z",
+  "workCardId": "WC07"
 }

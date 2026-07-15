@@ -73,7 +73,7 @@ const preview = await previewHumanValidationRecord({
   phase: "phase-03",
   workCardFileName: "WC04_primary_current_action_panel.json",
   validationTargetFileName: "WC04_primary_current_action_panel.json",
-  builderReportFileName: "BUILDER_REPORT_WC04_primary_current_action_panel.md",
+  implementerReportFileName: "IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md",
   ...emptyDraft,
 });
 

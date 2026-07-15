@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC06-REPAIR01",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-13T14:48:11.294Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC06-REPAIR01 Current Action Validation Route After Architect Review"
+  },
+  "payloadHash": "sha256:62ed4d99f6e16985ad183e8f77d351c81bc28da3ef6e5639a82d23f6cf73abb3",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC06-REPAIR01"
+}
+-->
+
 # Human Validation Report - WC06-REPAIR01 Current Action Validation Route After Architect Review
 
 ## Validation Target
@@ -9,7 +42,7 @@
 - Parent Work Card ID: WC06
 - Source JSON file: WC06-REPAIR01_current_action_validation_route_after_architect_review.json
 - Source Markdown file: WC06-REPAIR01_current_action_validation_route_after_architect_review.md
-- Associated Implementer Report: BUILDER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
 
 ## Validation Result
 

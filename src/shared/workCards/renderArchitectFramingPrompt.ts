@@ -44,7 +44,7 @@ export interface ArchitectPromptSaveResult
   savedFileName?: string;
 }
 
-export const finalBuilderPromptBoundary =
+export const finalImplementerExecutionPacketBoundary =
   "Do not produce the final Implementer prompt until the Operator confirms or corrects the Architect framing decisions.";
 
 export function renderArchitectFramingPrompt(workCard: WorkCard): string {
@@ -84,7 +84,7 @@ export function renderArchitectFramingPrompt(workCard: WorkCard): string {
     "- A small set of clarifying questions with suggested answers, if clarification is needed.",
     "- A proposed Implementer-ready Work Card, if no clarification is needed.",
     "",
-    finalBuilderPromptBoundary,
+    finalImplementerExecutionPacketBoundary,
     "",
     "## Selected Draft Work Card",
     "",
@@ -115,7 +115,7 @@ function renderStructuredWorkCard(workCard: WorkCard): string {
     section("How This Should Be Validated", formatList(workCard.validationPlan)),
     section("Risk Level", workCard.riskLevel),
     section("Risks and Watch Items", formatList(workCard.risks)),
-    section("Implementer Instructions", formatList(workCard.builderInstructions)),
+    section("Implementer Instructions", formatList(workCard.implementerInstructions)),
     section("Operator Notes", formatList(workCard.operatorNotes)),
   ].join("\n\n");
 }

@@ -1,21 +1,48 @@
 {
-  "artifact_type": "operator_phase_approval",
-  "status": "approved",
-  "project": "ChampCity A/I",
-  "phase_id": "phase-03",
-  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
-  "approved_by": "Operator",
-  "approval_date": "2026-07-03",
-  "approval_statement": "I approve the revised Phase 03 Phase Mapping bundle for phase-03: Workflow Router Screen Correction and Guided Current Action UI, including WC03 — Figma Workflow Router UI Shell Integration. The Architect may begin creating executable Work Cards just in time from Work_Card_Plan.md, starting with WC01 unless I request a different order.",
-  "approved_bundle": [
-    "planning/phases/phase-03/Phase_Interview.md",
-    "planning/phases/phase-03/Phase_Planning.md",
-    "planning/phases/phase-03/Work_Card_Plan.md",
-    "planning/phases/phase-03/Operator_Phase_Approval.md"
-  ],
-  "authorized_next_work_card": "WC01",
-  "just_in_time_work_cards_only": true,
-  "supersedes": [
-    "planning/phases/phase-03/Operator_Phase_Approval_PENDING.md"
-  ]
+  "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+  "artifactType": "approval",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval.json",
+  "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval.md",
+  "payload": {
+    "contentMarkdown": "# Operator Phase Approval: phase-03\n\nStatus: Approved\nProject: ChampCity A/I\nPhase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\nApproved by: Operator\nApproval date: 2026-07-03\nExecutable Work Cards authorized: Yes, just in time only\n\n## Approval Statement\n\n```text\nI approve the revised Phase 03 Phase Mapping bundle for phase-03: Workflow Router Screen Correction and Guided Current Action UI, including WC03 — Figma Workflow Router UI Shell Integration. The Architect may begin creating executable Work Cards just in time from Work_Card_Plan.md, starting with WC01 unless I request a different order.\n```\n\n## Approved Phase Mapping Bundle\n\nThe approved Phase 03 bundle consists of:\n\n- `planning/phases/phase-03/Phase_Interview.md`\n- `planning/phases/phase-03/Phase_Planning.md`\n- `planning/phases/phase-03/Work_Card_Plan.md`\n- `planning/phases/phase-03/Operator_Phase_Approval.md`\n\nHistorical note: `planning/phases/phase-03/Operator_Phase_Approval_PENDING.md` was the pending approval draft and is superseded by this approved record.\n\n## Approval Effect\n\nThis approval authorizes the Architect to create executable Work Cards one at a time from the approved `Work_Card_Plan.md`.\n\nThe first authorized just-in-time Work Card is:\n\n```text\nWC01 — Superseded Phase 03 Artifact and Roadmap State Reconciliation\n```\n\n## Boundaries\n\nThis approval does not authorize:\n\n- creating every full Work Card at once\n- skipping Operator review of full Work Cards\n- treating Figma output as workflow authority\n- blindly replacing the app with the Figma prototype\n- creating a separate Implementer Execution Packet artifact as a primary handoff\n- skipping Architect review of Implementer Reports\n- skipping Operator validation records\n- skipping REPAIR sub-card routing after failed validation\n- performing release packaging or deployment\n\n## Current Next Action\n\nArchitect creates executable WC01 as the next just-in-time Work Card.\n",
+    "data": {
+      "approval_date": "2026-07-03",
+      "approval_statement": "I approve the revised Phase 03 Phase Mapping bundle for phase-03: Workflow Router Screen Correction and Guided Current Action UI, including WC03 — Figma Workflow Router UI Shell Integration. The Architect may begin creating executable Work Cards just in time from Work_Card_Plan.md, starting with WC01 unless I request a different order.",
+      "approved_bundle": [
+        "planning/phases/phase-03/Phase_Interview.md",
+        "planning/phases/phase-03/Phase_Planning.md",
+        "planning/phases/phase-03/Work_Card_Plan.md",
+        "planning/phases/phase-03/Operator_Phase_Approval.md"
+      ],
+      "approved_by": "Operator",
+      "artifact_type": "operator_phase_approval",
+      "authorized_next_work_card": "WC01",
+      "just_in_time_work_cards_only": true,
+      "phase_id": "phase-03",
+      "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+      "project": "ChampCity A/I",
+      "status": "approved",
+      "supersedes": [
+        "planning/phases/phase-03/Operator_Phase_Approval_PENDING.md"
+      ]
+    },
+    "kind": "approval",
+    "title": "Operator Phase Approval: phase-03"
+  },
+  "payloadHash": "sha256:7bea5a12f8d6e94bd9079775b11a64755874fbca02c5a07c1bf13ad6968610ad",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

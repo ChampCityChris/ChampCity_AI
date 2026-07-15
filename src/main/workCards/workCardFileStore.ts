@@ -7,8 +7,25 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { readFileSync, readdirSync, statSync, type Dirent } from "node:fs";
+import { type Dirent } from "node:fs";
 import path from "node:path";
+
+import {
+  assertCanonicalArtifact,
+  type CanonicalArtifact,
+  type ArtifactRelationships,
+  type ArtifactStatus,
+  type JsonValue,
+} from "../../shared/artifacts";
+import {
+  ArtifactPairServiceError,
+  type CanonicalArtifactLocation,
+} from "../artifacts";
+import { canonicalWorkflowAuthority } from "../canonicalRuntime";
+import {
+  bindRoutedArtifactWrite,
+  recordRoutedArtifactCommit,
+} from "../workflow";
 
 import {
   buildDraftWorkCard,
@@ -33,19 +50,19 @@ import {
   type SavedWorkCardSummary,
 } from "../../shared/workCards/renderArchitectFramingPrompt";
 import {
-  buildBuilderPromptFileName,
+  buildImplementerExecutionPacketFileName,
   hasHighRiskReviewContext,
-  type BuilderPromptArtifactListResult,
-  type BuilderPromptArtifactOption,
-  type BuilderPromptArtifactOptions,
-  type BuilderPromptRequest,
-  type BuilderPromptSaveResult,
-  type BuilderPromptSupportingArtifact,
-  type BuilderPromptSupportingArtifactFileNames,
-  type BuilderPromptSupportingArtifacts,
-  type BuilderPromptPreviewResult,
-  renderBuilderPrompt,
-} from "../../shared/workCards/renderBuilderPrompt";
+  type ImplementerExecutionPacketArtifactListResult,
+  type ImplementerExecutionPacketArtifactOption,
+  type ImplementerExecutionPacketArtifactOptions,
+  type ImplementerExecutionPacketRequest,
+  type ImplementerExecutionPacketSaveResult,
+  type ImplementerExecutionPacketSupportingArtifact,
+  type ImplementerExecutionPacketSupportingArtifactFileNames,
+  type ImplementerExecutionPacketSupportingArtifacts,
+  type ImplementerExecutionPacketPreviewResult,
+  renderImplementerExecutionPacket,
+} from "../../shared/workCards/renderImplementerExecutionPacket";
 import {
   buildRiskReviewFileName,
   type RiskReviewPreviewResult,
@@ -54,12 +71,12 @@ import {
   renderRiskReviewMarkdown,
 } from "../../shared/workCards/renderRiskReviewMarkdown";
 import {
-  buildBuilderReportFileName,
-  type BuilderReportCapturePreviewResult,
-  type BuilderReportCaptureRequest,
-  type BuilderReportCaptureSaveResult,
-  validateBuilderReport,
-} from "../../shared/workCards/validateBuilderReport";
+  buildImplementerReportFileName,
+  type ImplementerReportCapturePreviewResult,
+  type ImplementerReportCaptureRequest,
+  type ImplementerReportCaptureSaveResult,
+  validateImplementerReport,
+} from "../../shared/workCards/validateImplementerReport";
 import { buildRepairPromptFileName, renderRepairPrompt } from "../../shared/workCards/renderRepairPrompt";
 import {
   createEmptyPhaseArtifactFiles,
@@ -84,7 +101,6 @@ import { renderValidationRecordMarkdown } from "../../shared/workCards/renderVal
 import { pendingArchitectDisposition } from "../../shared/workCards/reportReviewProtocol";
 import { validateArchitectReview } from "../../shared/workCards/validateArchitectReview";
 import {
-  buildArchitectReviewFileName,
   isRepairTarget,
   renderArchitectReviewRecord,
   validateArchitectReviewAssociation,
@@ -98,18 +114,18 @@ import {
   buildValidationReportJsonFileName,
   buildValidationReportMarkdownFileName,
   type AvailablePhaseFoldersResult,
-  type BuilderReportFileLoadRequest,
-  type BuilderReportFileLoadResult,
+  type ImplementerReportFileLoadRequest,
+  type ImplementerReportFileLoadResult,
   extractManualValidationChecklist,
   extractWorkCardValidationChecklist,
   getDifferentProblemGuidance,
   isHumanValidationOperatorDecision,
   isHumanValidationResult,
-  noBuilderReportSelectedWarning,
+  noImplementerReportSelectedWarning,
   noManualValidationChecklistDetectedMessage,
-  type HumanValidationBuilderReportListRequest,
-  type HumanValidationBuilderReportListResult,
-  type HumanValidationBuilderReportOption,
+  type HumanValidationImplementerReportListRequest,
+  type HumanValidationImplementerReportListResult,
+  type HumanValidationImplementerReportOption,
   type HumanValidationFormInput,
   type HumanValidationOperatorDecision,
   type HumanValidationResult,
@@ -119,7 +135,7 @@ import {
   type HumanValidationSaveResult,
   type HumanValidationStatusListResult,
   type HumanValidationStatusSummary,
-  type InvalidHumanValidationBuilderReportFile,
+  type InvalidHumanValidationImplementerReportFile,
   type InvalidHumanValidationStatusFile,
   shouldGenerateRepairPrompt,
   type ValidationEvidenceFileImportRequest,
@@ -129,7 +145,6 @@ import {
 } from "../../shared/workCards/validationRecord";
 import {
   buildWorkCardValidationTarget,
-  buildValidationTargetFromWorkCardFields,
   formatValidationTargetLabel,
   isValidationTargetKind,
   toValidationTargetRecord,
@@ -140,20 +155,9 @@ import {
   type ValidationTargetSummary,
   type WorkCardValidationTargetFields,
 } from "../../shared/workCards/validationTarget";
-import {
-  buildCurrentRequiredActionResult,
-  type CurrentActionArtifactReference,
-  type CurrentActionArchitectReviewState,
-  type CurrentActionEvidenceClassification,
-  type CurrentActionPhaseState,
-  type CurrentActionPhaseCloseoutState,
-  type CurrentActionRepairState,
-  type CurrentActionValidationState,
-  type CurrentActionWorkCardCandidate,
-  type CurrentActionWorkCardState,
-  type CurrentRequiredActionResult,
-  type CurrentRequiredActionState,
-  type CurrentRequiredActionWarning,
+import type {
+  CurrentActionArtifactReference,
+  CurrentRequiredActionResult,
 } from "../../shared/workCards/currentRequiredAction";
 import {
   buildRouteReviewRequest,
@@ -321,7 +325,7 @@ import {
   type InvalidSavedPhaseMapFile,
   type ListSavedPhaseMapsResult,
   type PhaseMapBuildInput,
-  type PhaseMapBuilderRequest,
+  type PhaseMapRequest,
   type PhaseMapPreviewResult,
   type PhaseMapRecord,
   type PhaseMapSaveResult,
@@ -329,6 +333,7 @@ import {
 } from "../../shared/workCards/phaseMap";
 
 const repositoryRoot = path.resolve(__dirname, "..", "..", "..");
+const artifactPairService = canonicalWorkflowAuthority.artifactPairs;
 const planningPhasesRoot = path.join(repositoryRoot, "planning", "phases");
 const planningProjectRoot = path.join(repositoryRoot, "planning", "project");
 const validationEvidenceAllowedExtensions = new Set([
@@ -344,7 +349,7 @@ type SupportingArtifactFolder =
   | "Work_Cards"
   | "Architect_Prompts"
   | "Risk_Reviews"
-  | "Builder_Reports";
+  | "Implementer_Reports";
 
 interface HumanValidationTargetContext {
   target: ValidationTargetSummary;
@@ -406,9 +411,7 @@ export async function listAvailablePhaseFolders(): Promise<AvailablePhaseFolders
 
 export async function getCurrentRequiredAction(): Promise<CurrentRequiredActionResult> {
   try {
-    const state = await buildCurrentRequiredActionStateFromRepo();
-
-    return buildCurrentRequiredActionResult(state);
+    return await canonicalWorkflowAuthority.projectCurrentRequiredAction();
   } catch (error) {
     return {
       ok: false,
@@ -549,33 +552,28 @@ export async function saveDraftWorkCard(
     const markdown = renderWorkCardMarkdown(workCard);
     const directory = resolveWorkCardsDirectory(workCard.phase);
     const fileStem = buildWorkCardFileStem(workCard.workCardId, workCard.title);
-    const markdownPath = resolveInside(directory, `${fileStem}.md`);
-    const jsonPath = resolveInside(directory, `${fileStem}.json`);
-
-    await failIfExists(
-      markdownPath,
-      "A Work Card file with this ID and title already exists.",
-    );
-    await failIfExists(
-      jsonPath,
-      "A Work Card file with this ID and title already exists.",
-    );
-    await mkdir(directory, { recursive: true });
-    await writeFile(jsonPath, `${JSON.stringify(workCard, null, 2)}\n`, {
-      encoding: "utf8",
-      flag: "wx",
-    });
-    await writeFile(markdownPath, markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: `${fileStem}.json`,
+      markdownFileName: `${fileStem}.md`,
+      artifactType: "work_card",
+      title: workCard.title,
+      contentMarkdown: markdown,
+      data: workCard,
+      phaseId: workCard.phase,
+      workCardId: workCard.workCardId,
+      parentArtifactId: buildParentWorkCardArtifactId(
+        workCard.phase,
+        workCard.workCardId,
+      ),
     });
 
     return {
       ok: true,
       markdown,
       workCard,
-      markdownPath,
-      jsonPath,
+      markdownPath: targets.secondPath,
+      jsonPath: targets.firstPath,
     };
   } catch (error) {
     console.error("Failed to save Work Card draft.", error);
@@ -643,33 +641,27 @@ export async function saveProjectIntake(
     }
 
     const directory = resolveProjectIntakeDirectory();
-    const targets = await resolveAvailableFilePair(
-      directory,
-      preview.suggestedFileNames.jsonFileName,
-      preview.suggestedFileNames.markdownFileName,
-      "A safe Project Intake filename could not be generated.",
-    );
     const targetNameErrors = [
-      ...validateProjectIntakeArtifactFileName(targets.firstFileName),
-      ...validateProjectIntakeArtifactFileName(targets.secondFileName),
+      ...validateProjectIntakeArtifactFileName(
+        preview.suggestedFileNames.jsonFileName,
+      ),
+      ...validateProjectIntakeArtifactFileName(
+        preview.suggestedFileNames.markdownFileName,
+      ),
     ];
 
     if (targetNameErrors.length > 0) {
       throw new Error(targetNameErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(preview.projectIntake, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, preview.markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: preview.suggestedFileNames.jsonFileName,
+      markdownFileName: preview.suggestedFileNames.markdownFileName,
+      artifactType: "project_intake",
+      title: preview.projectIntake.projectName,
+      contentMarkdown: preview.markdown,
+      data: preview.projectIntake,
     });
 
     return {
@@ -809,18 +801,12 @@ export async function saveProjectArchitectInterviewPrompt(
     }
 
     const directory = resolveProjectArchitectInterviewPromptsDirectory();
-    const targets = await resolveAvailableFilePair(
-      directory,
-      preview.suggestedFileNames.jsonFileName,
-      preview.suggestedFileNames.markdownFileName,
-      "A safe Project Architect Interview Prompt filename could not be generated.",
-    );
     const targetNameErrors = [
       ...validateProjectArchitectInterviewPromptArtifactFileName(
-        targets.firstFileName,
+        preview.suggestedFileNames.jsonFileName,
       ),
       ...validateProjectArchitectInterviewPromptArtifactFileName(
-        targets.secondFileName,
+        preview.suggestedFileNames.markdownFileName,
       ),
     ];
 
@@ -828,18 +814,14 @@ export async function saveProjectArchitectInterviewPrompt(
       throw new Error(targetNameErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(preview.promptRecord, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, preview.markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: preview.suggestedFileNames.jsonFileName,
+      markdownFileName: preview.suggestedFileNames.markdownFileName,
+      artifactType: "architect_interview",
+      title: `${preview.promptRecord.projectName} Architect Interview`,
+      contentMarkdown: preview.markdown,
+      data: preview.promptRecord,
     });
 
     return {
@@ -971,18 +953,12 @@ export async function saveProjectPlanningDocuments(
     }
 
     const sidecarDirectory = resolveProjectPlanningDocumentsDirectory();
-    const targets = await resolveAvailableFilePair(
-      sidecarDirectory,
-      preview.suggestedFileNames.jsonFileName,
-      preview.suggestedFileNames.markdownFileName,
-      "A safe Project Planning Documents sidecar filename could not be generated.",
-    );
     const targetNameErrors = [
       ...validateProjectPlanningDocumentsArtifactFileName(
-        targets.firstFileName,
+        preview.suggestedFileNames.jsonFileName,
       ),
       ...validateProjectPlanningDocumentsArtifactFileName(
-        targets.secondFileName,
+        preview.suggestedFileNames.markdownFileName,
       ),
     ];
 
@@ -990,34 +966,34 @@ export async function saveProjectPlanningDocuments(
       throw new Error(targetNameErrors.join(" "));
     }
 
-    await mkdir(planningProjectRoot, { recursive: true });
-    await mkdir(sidecarDirectory, { recursive: true });
-
     const projectMarkdownPaths: string[] = [];
 
     for (const document of preview.documents) {
-      const documentPath = resolveProjectPlanningDocumentPath(document.fileName);
-      await writeFile(documentPath, document.markdown, {
-        encoding: "utf8",
+      const documentTargets = await saveCanonicalPlanningArtifact({
+        directory: planningProjectRoot,
+        markdownFileName: document.fileName,
+        artifactType: "supporting_document",
+        contentMarkdown: document.markdown,
+        data: {
+          projectPlanningRecordId: preview.record.recordId,
+          fileName: document.fileName,
+        },
       });
-      projectMarkdownPaths.push(documentPath);
+      projectMarkdownPaths.push(documentTargets.secondPath);
     }
 
     const sidecarMarkdown = renderProjectPlanningDocumentsRecordMarkdown(
       preview.record,
     );
 
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(preview.record, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, sidecarMarkdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory: sidecarDirectory,
+      jsonFileName: preview.suggestedFileNames.jsonFileName,
+      markdownFileName: preview.suggestedFileNames.markdownFileName,
+      artifactType: "project_planning",
+      title: `${preview.record.projectName} Project Planning Documents`,
+      contentMarkdown: sidecarMarkdown,
+      data: preview.record,
     });
 
     return {
@@ -1170,33 +1146,28 @@ export async function savePhaseIntake(
     }
 
     const directory = resolvePhaseIntakeDirectory(preview.phaseIntake.phaseFolder);
-    const targets = await resolveAvailableFilePair(
-      directory,
-      preview.suggestedFileNames.jsonFileName,
-      preview.suggestedFileNames.markdownFileName,
-      "A safe Phase Intake filename could not be generated.",
-    );
     const targetNameErrors = [
-      ...validatePhaseIntakeArtifactFileName(targets.firstFileName),
-      ...validatePhaseIntakeArtifactFileName(targets.secondFileName),
+      ...validatePhaseIntakeArtifactFileName(
+        preview.suggestedFileNames.jsonFileName,
+      ),
+      ...validatePhaseIntakeArtifactFileName(
+        preview.suggestedFileNames.markdownFileName,
+      ),
     ];
 
     if (targetNameErrors.length > 0) {
       throw new Error(targetNameErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(preview.phaseIntake, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, preview.markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: preview.suggestedFileNames.jsonFileName,
+      markdownFileName: preview.suggestedFileNames.markdownFileName,
+      artifactType: "phase_intake",
+      title: `${preview.phaseIntake.phaseName} Phase Intake`,
+      contentMarkdown: preview.markdown,
+      data: preview.phaseIntake,
+      phaseId: preview.phaseIntake.phaseFolder,
     });
 
     return {
@@ -1346,18 +1317,12 @@ export async function savePhaseArchitectInterviewPrompt(
     const directory = resolvePhaseArchitectInterviewPromptsDirectory(
       preview.promptRecord.phaseFolder,
     );
-    const targets = await resolveAvailableFilePair(
-      directory,
-      preview.suggestedFileNames.jsonFileName,
-      preview.suggestedFileNames.markdownFileName,
-      "A safe Phase Architect Interview Prompt filename could not be generated.",
-    );
     const targetNameErrors = [
       ...validatePhaseArchitectInterviewPromptArtifactFileName(
-        targets.firstFileName,
+        preview.suggestedFileNames.jsonFileName,
       ),
       ...validatePhaseArchitectInterviewPromptArtifactFileName(
-        targets.secondFileName,
+        preview.suggestedFileNames.markdownFileName,
       ),
     ];
 
@@ -1365,18 +1330,15 @@ export async function savePhaseArchitectInterviewPrompt(
       throw new Error(targetNameErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(preview.promptRecord, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, preview.markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: preview.suggestedFileNames.jsonFileName,
+      markdownFileName: preview.suggestedFileNames.markdownFileName,
+      artifactType: "architect_interview",
+      title: `${preview.promptRecord.phaseName} Architect Interview`,
+      contentMarkdown: preview.markdown,
+      data: preview.promptRecord,
+      phaseId: preview.promptRecord.phaseFolder,
     });
 
     return {
@@ -1528,33 +1490,27 @@ export async function saveRepositoryReconciliation(
     }
 
     const directory = resolveRepositoryReconciliationDirectory();
-    const targets = await resolveAvailableFilePair(
-      directory,
-      preview.suggestedFileNames.jsonFileName,
-      preview.suggestedFileNames.markdownFileName,
-      "A safe Repository Reconciliation filename could not be generated.",
-    );
     const targetNameErrors = [
-      ...validateRepositoryReconciliationArtifactFileName(targets.firstFileName),
-      ...validateRepositoryReconciliationArtifactFileName(targets.secondFileName),
+      ...validateRepositoryReconciliationArtifactFileName(
+        preview.suggestedFileNames.jsonFileName,
+      ),
+      ...validateRepositoryReconciliationArtifactFileName(
+        preview.suggestedFileNames.markdownFileName,
+      ),
     ];
 
     if (targetNameErrors.length > 0) {
       throw new Error(targetNameErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(preview.reconciliation, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, preview.markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: preview.suggestedFileNames.jsonFileName,
+      markdownFileName: preview.suggestedFileNames.markdownFileName,
+      artifactType: "repository_reconciliation",
+      title: `${preview.reconciliation.projectName} Repository Reconciliation`,
+      contentMarkdown: preview.markdown,
+      data: preview.reconciliation,
     });
 
     return {
@@ -1677,15 +1633,11 @@ export async function saveProjectRoadmap(
       roadmap.projectName,
     );
     const directory = resolveProjectRoadmapDirectory();
-    const roadmapTargets = await resolveAvailableFilePair(
-      directory,
-      suggestedFileNames.jsonFileName,
-      suggestedFileNames.markdownFileName,
-      "A safe Project Roadmap filename could not be generated.",
-    );
     const roadmapFileNameErrors = [
-      ...validateProjectRoadmapArtifactFileName(roadmapTargets.firstFileName),
-      ...validateProjectRoadmapArtifactFileName(roadmapTargets.secondFileName),
+      ...validateProjectRoadmapArtifactFileName(suggestedFileNames.jsonFileName),
+      ...validateProjectRoadmapArtifactFileName(
+        suggestedFileNames.markdownFileName,
+      ),
     ];
 
     if (roadmapFileNameErrors.length > 0) {
@@ -1698,18 +1650,14 @@ export async function saveProjectRoadmap(
       throw new Error(roadmapValidationErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      roadmapTargets.firstPath,
-      `${JSON.stringify(roadmap, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(roadmapTargets.secondPath, markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const roadmapTargets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: suggestedFileNames.jsonFileName,
+      markdownFileName: suggestedFileNames.markdownFileName,
+      artifactType: "roadmap",
+      title: `${roadmap.projectName} Project Roadmap`,
+      contentMarkdown: markdown,
+      data: roadmap,
     });
 
     const nextPhaseSavePaths =
@@ -1802,7 +1750,7 @@ export async function listSavedProjectRoadmaps(): Promise<ListSavedProjectRoadma
 }
 
 export async function previewPhaseMap(
-  input: PhaseMapBuilderRequest,
+  input: PhaseMapRequest,
 ): Promise<PhaseMapPreviewResult> {
   try {
     const timestamp = new Date().toISOString();
@@ -1826,7 +1774,7 @@ export async function previewPhaseMap(
 }
 
 export async function savePhaseMap(
-  input: PhaseMapBuilderRequest,
+  input: PhaseMapRequest,
 ): Promise<PhaseMapSaveResult> {
   try {
     const timestamp = new Date().toISOString();
@@ -1835,15 +1783,9 @@ export async function savePhaseMap(
     const markdown = renderPhaseMapMarkdown(phaseMap);
     const suggestedFileNames = buildPhaseMapFileNames(phaseMap.projectName);
     const directory = resolvePhaseMapDirectory();
-    const targets = await resolveAvailableFilePair(
-      directory,
-      suggestedFileNames.jsonFileName,
-      suggestedFileNames.markdownFileName,
-      "A safe Phase Map filename could not be generated.",
-    );
     const fileNameErrors = [
-      ...validatePhaseMapArtifactFileName(targets.firstFileName),
-      ...validatePhaseMapArtifactFileName(targets.secondFileName),
+      ...validatePhaseMapArtifactFileName(suggestedFileNames.jsonFileName),
+      ...validatePhaseMapArtifactFileName(suggestedFileNames.markdownFileName),
     ];
 
     if (fileNameErrors.length > 0) {
@@ -1856,18 +1798,14 @@ export async function savePhaseMap(
       throw new Error(validationErrors.join(" "));
     }
 
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(phaseMap, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      jsonFileName: suggestedFileNames.jsonFileName,
+      markdownFileName: suggestedFileNames.markdownFileName,
+      artifactType: "phase_map",
+      title: `${phaseMap.projectName} Phase Map`,
+      contentMarkdown: markdown,
+      data: phaseMap,
     });
 
     return {
@@ -2030,27 +1968,19 @@ export async function savePhasePlanningDocuments(
     const workCardPlanDirectory = resolveWorkCardPlansDirectory(
       preview.phasePlanningDocuments.phaseFolder,
     );
-    const phasePlanningTargets = await resolveAvailableFilePair(
-      phasePlanningDirectory,
-      preview.suggestedPhasePlanningFileNames.jsonFileName,
-      preview.suggestedPhasePlanningFileNames.markdownFileName,
-      "A safe Phase Planning Documents filename could not be generated.",
-    );
-    const workCardPlanTargets = await resolveAvailableFilePair(
-      workCardPlanDirectory,
-      preview.suggestedWorkCardPlanFileNames.jsonFileName,
-      preview.suggestedWorkCardPlanFileNames.markdownFileName,
-      "A safe Work Card Plan filename could not be generated.",
-    );
     const targetNameErrors = [
       ...validatePhasePlanningDocumentsArtifactFileName(
-        phasePlanningTargets.firstFileName,
+        preview.suggestedPhasePlanningFileNames.jsonFileName,
       ),
       ...validatePhasePlanningDocumentsArtifactFileName(
-        phasePlanningTargets.secondFileName,
+        preview.suggestedPhasePlanningFileNames.markdownFileName,
       ),
-      ...validateWorkCardPlanArtifactFileName(workCardPlanTargets.firstFileName),
-      ...validateWorkCardPlanArtifactFileName(workCardPlanTargets.secondFileName),
+      ...validateWorkCardPlanArtifactFileName(
+        preview.suggestedWorkCardPlanFileNames.jsonFileName,
+      ),
+      ...validateWorkCardPlanArtifactFileName(
+        preview.suggestedWorkCardPlanFileNames.markdownFileName,
+      ),
     ];
 
     if (targetNameErrors.length > 0) {
@@ -2060,9 +1990,9 @@ export async function savePhasePlanningDocuments(
     const workCardPlan = {
       ...preview.workCardPlan,
       sourcePhasePlanningDocumentsJsonFileName:
-        phasePlanningTargets.firstFileName,
+        preview.suggestedPhasePlanningFileNames.jsonFileName,
       sourcePhasePlanningDocumentsMarkdownFileName:
-        phasePlanningTargets.secondFileName,
+        preview.suggestedPhasePlanningFileNames.markdownFileName,
     };
     const workCardPlanMarkdown = renderWorkCardPlanMarkdown(workCardPlan);
     const backlogMarkdown = renderPhaseScopedBacklogMarkdown(workCardPlan);
@@ -2071,43 +2001,43 @@ export async function savePhasePlanningDocuments(
       workCardPlanMarkdown,
       backlogMarkdown,
     );
-    const phaseBacklogPath = resolvePhaseScopedBacklogPath(
+    const requestedPhaseBacklogPath = resolvePhaseScopedBacklogPath(
       preview.phasePlanningDocuments.phaseFolder,
     );
 
-    await mkdir(phasePlanningDirectory, { recursive: true });
-    await mkdir(workCardPlanDirectory, { recursive: true });
-    await writeFile(
-      phasePlanningTargets.firstPath,
-      `${JSON.stringify(preview.phasePlanningDocuments, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(
-      phasePlanningTargets.secondPath,
-      preview.phasePlanningMarkdown,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(
-      workCardPlanTargets.firstPath,
-      `${JSON.stringify(workCardPlan, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(workCardPlanTargets.secondPath, workCardPlanMarkdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const phasePlanningTargets = await saveCanonicalPlanningArtifact({
+      directory: phasePlanningDirectory,
+      jsonFileName: preview.suggestedPhasePlanningFileNames.jsonFileName,
+      markdownFileName: preview.suggestedPhasePlanningFileNames.markdownFileName,
+      artifactType: "phase_planning",
+      title: `${preview.phasePlanningDocuments.phaseName} Phase Planning`,
+      contentMarkdown: preview.phasePlanningMarkdown,
+      data: preview.phasePlanningDocuments,
+      phaseId: preview.phasePlanningDocuments.phaseFolder,
     });
-    await writeFile(phaseBacklogPath, backlogMarkdown, {
-      encoding: "utf8",
+    const workCardPlanTargets = await saveCanonicalPlanningArtifact({
+      directory: workCardPlanDirectory,
+      jsonFileName: preview.suggestedWorkCardPlanFileNames.jsonFileName,
+      markdownFileName: preview.suggestedWorkCardPlanFileNames.markdownFileName,
+      artifactType: "work_card_plan",
+      title: `${preview.phasePlanningDocuments.phaseName} Work Card Plan`,
+      contentMarkdown: workCardPlanMarkdown,
+      data: workCardPlan,
+      phaseId: preview.phasePlanningDocuments.phaseFolder,
     });
+    const backlogTargets = await saveCanonicalPlanningArtifact({
+      directory: path.dirname(requestedPhaseBacklogPath),
+      markdownFileName: path.basename(requestedPhaseBacklogPath),
+      artifactType: "backlog",
+      title: `${preview.phasePlanningDocuments.phaseName} Work Card Backlog`,
+      contentMarkdown: backlogMarkdown,
+      data: {
+        phaseFolder: preview.phasePlanningDocuments.phaseFolder,
+        sourceWorkCardPlanJsonFileName: workCardPlanTargets.firstFileName,
+      },
+      phaseId: preview.phasePlanningDocuments.phaseFolder,
+    });
+    const phaseBacklogPath = backlogTargets.secondPath;
 
     return {
       ...preview,
@@ -2369,16 +2299,22 @@ export async function saveArchitectPrompt(
     const prompt = renderArchitectFramingPrompt(workCard);
     const directory = resolveArchitectPromptsDirectory(workCard.phase);
     const savedFileName = buildArchitectPromptFileName(workCard);
-    const markdownPath = resolveInside(directory, savedFileName);
-
-    await failIfExists(
-      markdownPath,
-      "An Architect prompt artifact for this Work Card already exists.",
-    );
-    await mkdir(directory, { recursive: true });
-    await writeFile(markdownPath, `${prompt}\n`, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      markdownFileName: savedFileName,
+      artifactType: "architect_prompt",
+      title: `${workCard.workCardId} Architect Prompt`,
+      contentMarkdown: `${prompt}\n`,
+      data: {
+        workCardId: workCard.workCardId,
+        sourceWorkCardFileName: input.fileName,
+      },
+      phaseId: workCard.phase,
+      workCardId: workCard.workCardId,
+      parentArtifactId: buildParentWorkCardArtifactId(
+        workCard.phase,
+        workCard.workCardId,
+      ),
     });
 
     return {
@@ -2386,7 +2322,7 @@ export async function saveArchitectPrompt(
       prompt,
       workCard,
       sourceFileName: input.fileName,
-      markdownPath,
+      markdownPath: targets.secondPath,
       savedFileName,
     };
   } catch (error) {
@@ -2439,16 +2375,19 @@ export async function saveRiskReview(
     );
     const directory = resolveRiskReviewsDirectory(workCard.phase);
     const savedFileName = buildRiskReviewFileName(workCard);
-    const markdownPath = resolveInside(directory, savedFileName);
-
-    await failIfExists(
-      markdownPath,
-      "A Risk Review artifact for this Work Card already exists.",
-    );
-    await mkdir(directory, { recursive: true });
-    await writeFile(markdownPath, markdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      markdownFileName: savedFileName,
+      artifactType: "risk_review",
+      title: `${workCard.workCardId} Risk Review`,
+      contentMarkdown: markdown,
+      data: review,
+      phaseId: workCard.phase,
+      workCardId: workCard.workCardId,
+      parentArtifactId: buildParentWorkCardArtifactId(
+        workCard.phase,
+        workCard.workCardId,
+      ),
     });
 
     return {
@@ -2457,7 +2396,7 @@ export async function saveRiskReview(
       markdown,
       workCard,
       sourceFileName: input.fileName,
-      markdownPath,
+      markdownPath: targets.secondPath,
       savedFileName,
     };
   } catch (error) {
@@ -2470,14 +2409,14 @@ export async function saveRiskReview(
   }
 }
 
-export async function listBuilderPromptSupportingArtifacts(
-  input: BuilderPromptRequest,
-): Promise<BuilderPromptArtifactListResult> {
+export async function listImplementerExecutionPacketSupportingArtifacts(
+  input: ImplementerExecutionPacketRequest,
+): Promise<ImplementerExecutionPacketArtifactListResult> {
   try {
     const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
     const workCardMarkdownFileName = input.fileName.replace(/\.json$/i, ".md");
-    const invalidFiles: BuilderPromptArtifactListResult["invalidFiles"] = [];
-    const options: BuilderPromptArtifactOptions = {
+    const invalidFiles: ImplementerExecutionPacketArtifactListResult["invalidFiles"] = [];
+    const options: ImplementerExecutionPacketArtifactOptions = {
       workCardMarkdown: await listMarkdownArtifactOptions(
         workCard.phase,
         "Work_Cards",
@@ -2499,20 +2438,20 @@ export async function listBuilderPromptSupportingArtifacts(
         undefined,
         invalidFiles,
       ),
-      priorBuilderReports: await listMarkdownArtifactOptions(
+      priorImplementerReports: await listMarkdownArtifactOptions(
         workCard.phase,
-        "Builder_Reports",
+        "Implementer_Reports",
         workCard.workCardId,
         undefined,
         invalidFiles,
       ),
     };
-    const defaultSelections: BuilderPromptSupportingArtifactFileNames = {
+    const defaultSelections: ImplementerExecutionPacketSupportingArtifactFileNames = {
       workCardMarkdown: pickDefaultArtifactFileName(options.workCardMarkdown),
       architectPrompt: pickDefaultArtifactFileName(options.architectPrompts),
       riskReview: pickDefaultArtifactFileName(options.riskReviews),
-      priorBuilderReport: pickDefaultArtifactFileName(
-        options.priorBuilderReports,
+      priorImplementerReport: pickDefaultArtifactFileName(
+        options.priorImplementerReports,
       ),
     };
 
@@ -2532,16 +2471,16 @@ export async function listBuilderPromptSupportingArtifacts(
   }
 }
 
-export async function previewBuilderPrompt(
-  input: BuilderPromptRequest,
-): Promise<BuilderPromptPreviewResult> {
+export async function previewImplementerExecutionPacket(
+  input: ImplementerExecutionPacketRequest,
+): Promise<ImplementerExecutionPacketPreviewResult> {
   try {
     const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
-    const supportingArtifacts = await readBuilderPromptSupportingArtifacts(
+    const supportingArtifacts = await readImplementerExecutionPacketSupportingArtifacts(
       workCard.phase,
       input.supportingArtifactFileNames,
     );
-    const prompt = renderBuilderPrompt(workCard, supportingArtifacts);
+    const prompt = renderImplementerExecutionPacket(workCard, supportingArtifacts);
 
     return {
       ok: true,
@@ -2550,7 +2489,7 @@ export async function previewBuilderPrompt(
       sourceFileName: input.fileName,
       selectedArtifactFileNames:
         toSelectedSupportingArtifactFileNames(supportingArtifacts),
-      hasHighRiskContext: hasBuilderPromptHighRiskContext(
+      hasHighRiskContext: hasImplementerExecutionPacketHighRiskContext(
         workCard,
         supportingArtifacts,
       ),
@@ -2564,28 +2503,36 @@ export async function previewBuilderPrompt(
   }
 }
 
-export async function saveBuilderPrompt(
-  input: BuilderPromptRequest,
-): Promise<BuilderPromptSaveResult> {
+export async function saveImplementerExecutionPacket(
+  input: ImplementerExecutionPacketRequest,
+): Promise<ImplementerExecutionPacketSaveResult> {
   try {
     const workCard = await readSavedWorkCardFile(input.phase, input.fileName);
-    const supportingArtifacts = await readBuilderPromptSupportingArtifacts(
+    const supportingArtifacts = await readImplementerExecutionPacketSupportingArtifacts(
       workCard.phase,
       input.supportingArtifactFileNames,
     );
-    const prompt = renderBuilderPrompt(workCard, supportingArtifacts);
-    const directory = resolveBuilderPromptsDirectory(workCard.phase);
-    const savedFileName = buildBuilderPromptFileName(workCard);
-    const markdownPath = resolveInside(directory, savedFileName);
-
-    await failIfExists(
-      markdownPath,
-      "An Implementer Prompt artifact for this Work Card already exists.",
-    );
-    await mkdir(directory, { recursive: true });
-    await writeFile(markdownPath, `${prompt}\n`, {
-      encoding: "utf8",
-      flag: "wx",
+    const prompt = renderImplementerExecutionPacket(workCard, supportingArtifacts);
+    const directory = resolveImplementerExecutionPacketsDirectory(workCard.phase);
+    const savedFileName = buildImplementerExecutionPacketFileName(workCard);
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      markdownFileName: savedFileName,
+      artifactType: "implementer_execution_packet",
+      title: `${workCard.workCardId} Implementer Execution Packet`,
+      contentMarkdown: `${prompt}\n`,
+      data: {
+        workCardId: workCard.workCardId,
+        sourceWorkCardFileName: input.fileName,
+        selectedArtifactFileNames:
+          toSelectedSupportingArtifactFileNames(supportingArtifacts),
+      },
+      phaseId: workCard.phase,
+      workCardId: workCard.workCardId,
+      parentArtifactId: buildParentWorkCardArtifactId(
+        workCard.phase,
+        workCard.workCardId,
+      ),
     });
 
     return {
@@ -2595,12 +2542,12 @@ export async function saveBuilderPrompt(
       sourceFileName: input.fileName,
       selectedArtifactFileNames:
         toSelectedSupportingArtifactFileNames(supportingArtifacts),
-      hasHighRiskContext: hasBuilderPromptHighRiskContext(
+      hasHighRiskContext: hasImplementerExecutionPacketHighRiskContext(
         workCard,
         supportingArtifacts,
       ),
       hasRiskReviewSelected: Boolean(supportingArtifacts.riskReview),
-      markdownPath,
+      markdownPath: targets.secondPath,
       savedFileName,
     };
   } catch (error) {
@@ -2613,10 +2560,10 @@ export async function saveBuilderPrompt(
   }
 }
 
-export async function previewBuilderReportCapture(
-  input: BuilderReportCaptureRequest,
-): Promise<BuilderReportCapturePreviewResult> {
-  const validation = validateBuilderReport(input.reportText);
+export async function previewImplementerReportCapture(
+  input: ImplementerReportCaptureRequest,
+): Promise<ImplementerReportCapturePreviewResult> {
+  const validation = validateImplementerReport(input.reportText);
 
   try {
     const workCard = input.workCardFileName
@@ -2625,7 +2572,7 @@ export async function previewBuilderReportCapture(
           input.workCardFileName,
         )
       : undefined;
-    const savedFileName = buildBuilderReportFileName({
+    const savedFileName = buildImplementerReportFileName({
       reportType: input.reportType,
       workCardId: workCard?.workCardId,
       workCardTitle: workCard?.title,
@@ -2646,11 +2593,11 @@ export async function previewBuilderReportCapture(
   }
 }
 
-export async function saveBuilderReportCapture(
-  input: BuilderReportCaptureRequest,
-): Promise<BuilderReportCaptureSaveResult> {
+export async function saveImplementerReportCapture(
+  input: ImplementerReportCaptureRequest,
+): Promise<ImplementerReportCaptureSaveResult> {
   try {
-    const preview = await previewBuilderReportCapture(input);
+    const preview = await previewImplementerReportCapture(input);
 
     if (!preview.ok || !preview.savedFileName || !preview.validation) {
       return preview;
@@ -2660,38 +2607,51 @@ export async function saveBuilderReportCapture(
       throw new Error("Paste or import Implementer Report text before saving.");
     }
 
-    const directory = resolveBuilderReportsDirectory(input.phase);
-    const markdownPath = resolveInside(directory, preview.savedFileName);
-
-    await failIfExists(
-      markdownPath,
-      "An Implementer Report with this generated filename already exists.",
-    );
-    await mkdir(directory, { recursive: true });
-    await writeFile(markdownPath, `${input.reportText.trimEnd()}\n`, {
-      encoding: "utf8",
-      flag: "wx",
+    const directory = resolveImplementerReportsDirectory(input.phase);
+    const workCardId = input.workCardFileName
+      ? (await readSavedWorkCardAssociationFile(input.phase, input.workCardFileName))
+          .workCardId
+      : undefined;
+    const targets = await saveCanonicalPlanningArtifact({
+      directory,
+      markdownFileName: preview.savedFileName,
+      artifactType: "implementer_report",
+      title: workCardId
+        ? `${workCardId} Implementer Report`
+        : `${input.topic ?? "Governance"} Implementer Report`,
+      contentMarkdown: `${input.reportText.trimEnd()}\n`,
+      data: {
+        reportType: input.reportType,
+        workCardId: workCardId ?? null,
+        workCardFileName: input.workCardFileName ?? null,
+        topic: input.topic ?? null,
+      },
+      phaseId: input.phase,
+      workCardId,
+      parentArtifactId: workCardId
+        ? buildParentWorkCardArtifactId(input.phase, workCardId)
+        : undefined,
     });
 
     return {
       ...preview,
       ok: true,
-      markdownPath,
+      markdownPath: targets.secondPath,
     };
   } catch (error) {
     console.error("Failed to save Implementer Report capture.", error);
 
     return {
       ok: false,
-      validation: validateBuilderReport(input.reportText),
+      validation: validateImplementerReport(input.reportText),
       errorMessages: [toPlainSaveError(error)],
     };
   }
 }
 
-export async function loadBuilderReportFile(
-  input: BuilderReportFileLoadRequest,
-): Promise<BuilderReportFileLoadResult> {
+export async function loadImplementerReportFile(
+  input: ImplementerReportFileLoadRequest,
+): Promise<ImplementerReportFileLoadResult> {
   try {
     const value = input.fileName.trim();
 
@@ -2699,16 +2659,16 @@ export async function loadBuilderReportFile(
       throw new Error("Choose an Implementer Report to import.");
     }
 
-    const builderReport = await readOptionalBuilderReport(input.phase, value);
+    const implementerReport = await readOptionalImplementerReport(input.phase, value);
 
-    if (!builderReport) {
+    if (!implementerReport) {
       throw new Error("Choose an Implementer Report to import.");
     }
 
     return {
       ok: true,
-      fileName: builderReport.fileName,
-      content: builderReport.content,
+      fileName: implementerReport.fileName,
+      content: implementerReport.content,
     };
   } catch (error) {
     return {
@@ -2718,13 +2678,13 @@ export async function loadBuilderReportFile(
   }
 }
 
-export async function listHumanValidationBuilderReports(
-  input: HumanValidationBuilderReportListRequest,
-): Promise<HumanValidationBuilderReportListResult> {
+export async function listHumanValidationImplementerReports(
+  input: HumanValidationImplementerReportListRequest,
+): Promise<HumanValidationImplementerReportListResult> {
   try {
     const { target } = await readHumanValidationTargetContext(input);
     const { options, invalidFiles } =
-      await listBuilderReportOptionsForValidationTarget(target);
+      await listImplementerReportOptionsForValidationTarget(target);
 
     return {
       ok: true,
@@ -2778,7 +2738,7 @@ export async function listHumanValidationStatuses(
         const filePath = resolveInside(directory, fileName);
         const fileStats = await stat(filePath);
         const rawJson = await readFile(filePath, "utf8");
-        const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
         const record = toHumanValidationStatusRecord(parsed, phase);
         const target = targets.find((candidate) =>
           validationRecordMatchesTarget(record, candidate),
@@ -2874,24 +2834,20 @@ export async function saveHumanValidationRecord(
     const validationDirectory = resolveValidationReportsDirectory(
       preview.record.phase,
     );
-    const validationTargets = await resolveAvailableFilePair(
-      validationDirectory,
-      buildValidationReportJsonFileName(preview.record),
-      buildValidationReportMarkdownFileName(preview.record),
-    );
-
-    await mkdir(validationDirectory, { recursive: true });
-    await writeFile(
-      validationTargets.firstPath,
-      `${JSON.stringify(preview.record, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(validationTargets.secondPath, preview.validationMarkdown, {
-      encoding: "utf8",
-      flag: "wx",
+    const validationTargets = await saveCanonicalPlanningArtifact({
+      directory: validationDirectory,
+      jsonFileName: buildValidationReportJsonFileName(preview.record),
+      markdownFileName: buildValidationReportMarkdownFileName(preview.record),
+      artifactType: "validation_report",
+      title: `${preview.record.workCardId} Validation Report`,
+      contentMarkdown: preview.validationMarkdown,
+      data: preview.record,
+      phaseId: preview.record.phase,
+      workCardId: preview.record.workCardId,
+      parentArtifactId: buildParentWorkCardArtifactId(
+        preview.record.phase,
+        preview.record.workCardId,
+      ),
     });
 
     let repairPromptPath: string | undefined;
@@ -2900,23 +2856,33 @@ export async function saveHumanValidationRecord(
 
     if (preview.shouldGenerateRepairPrompt) {
       const repairDirectory = resolveRepairPromptsDirectory(preview.record.phase);
-      const repairTarget = await resolveAvailableMarkdownPath(
-        repairDirectory,
-        buildRepairPromptFileName(preview.record),
-      );
+      const repairFileName = buildRepairPromptFileName(preview.record);
 
       repairPrompt = renderRepairPrompt(preview.record, {
         validationRecordFileName: validationTargets.firstFileName,
       });
 
-      await mkdir(repairDirectory, { recursive: true });
-      await writeFile(repairTarget.filePath, `${repairPrompt}\n`, {
-        encoding: "utf8",
-        flag: "wx",
+      const repairTarget = await saveCanonicalPlanningArtifact({
+        directory: repairDirectory,
+        markdownFileName: repairFileName,
+        artifactType: "repair_record",
+        title: `${preview.record.workCardId} Repair Prompt`,
+        contentMarkdown: `${repairPrompt}\n`,
+        data: {
+          validationId: preview.record.validationId,
+          validationRecordFileName: validationTargets.firstFileName,
+          workCardId: preview.record.workCardId,
+        },
+        phaseId: preview.record.phase,
+        workCardId: preview.record.workCardId,
+        parentArtifactId: buildParentWorkCardArtifactId(
+          preview.record.phase,
+          preview.record.workCardId,
+        ),
       });
 
-      repairPromptPath = repairTarget.filePath;
-      savedRepairPromptFileName = repairTarget.fileName;
+      repairPromptPath = repairTarget.secondPath;
+      savedRepairPromptFileName = repairTarget.secondFileName;
     }
 
     return {
@@ -2944,24 +2910,37 @@ export async function previewArchitectReviewRecord(
   input: ArchitectReviewFormInput,
 ): Promise<ArchitectReviewPreviewResult> {
   try {
-    const workCard = await readSavedWorkCardAssociationFile(
-      input.phase,
-      input.workCardFileName,
+    const authority = await canonicalWorkflowAuthority.authorizeArchitectReview(
+      input.routedReviewBinding,
     );
-    const builderReport = await readOptionalBuilderReport(
-      input.phase,
-      input.builderReportFileName,
+    const workCard = {
+      workCardId: authority.workCardId,
+      title: authority.workCardTitle,
+      ...(typeof authority.workCard.parentWorkCardId === "string"
+        ? { parentWorkCardId: authority.workCard.parentWorkCardId }
+        : {}),
+    };
+    const authoritativeInput: ArchitectReviewFormInput = {
+      ...input,
+      phase: authority.phaseId,
+      workCardFileName: authority.workCardFileName,
+      implementerReportFileName: authority.implementerReportFileName,
+      routedReviewBinding: authority.binding,
+    };
+    const implementerReport = await readOptionalImplementerReport(
+      authority.phaseId,
+      authority.implementerReportFileName,
     );
 
-    if (!builderReport) {
+    if (!implementerReport) {
       throw new Error("Choose the existing Implementer Report to review.");
     }
 
     const associationErrors = validateArchitectReviewAssociation(
       {
-        phase: input.phase,
-        builderReportFileName: builderReport.fileName,
-        routedReviewBinding: input.routedReviewBinding,
+        phase: authority.phaseId,
+        implementerReportFileName: implementerReport.fileName,
+        routedReviewBinding: authority.binding,
       },
       workCard,
     );
@@ -2970,17 +2949,20 @@ export async function previewArchitectReviewRecord(
       throw new Error(associationErrors.join(" "));
     }
 
-    const reviewMarkdown = renderArchitectReviewRecord(input, workCard);
-    const validation = validateArchitectReviewForm(input, reviewMarkdown);
+    const reviewMarkdown = renderArchitectReviewRecord(authoritativeInput, workCard);
+    const validation = validateArchitectReviewForm(
+      authoritativeInput,
+      reviewMarkdown,
+    );
 
     return {
       ok: true,
       reviewMarkdown,
-      savedFileName: buildArchitectReviewFileName(workCard),
+      savedFileName: authority.expectedOutputFileName,
       workCardId: workCard.workCardId,
       workCardTitle: workCard.title,
-      workCardFileName: input.workCardFileName,
-      builderReportFileName: builderReport.fileName,
+      workCardFileName: authority.workCardFileName,
+      implementerReportFileName: implementerReport.fileName,
       reviewMode: isRepairTarget(workCard) ? "repair" : "work_card",
       validation,
     };
@@ -3013,23 +2995,46 @@ export async function saveArchitectReviewRecord(
       );
     }
 
-    const directory = resolveArchitectReviewsDirectory(input.phase);
-    const markdownPath = resolveInside(directory, preview.savedFileName);
-
-    await failIfExists(
-      markdownPath,
-      "An Architect Review for this Work Card already exists.",
+    if (!input.decision) {
+      throw new Error("Choose an Architect Review decision before saving.");
+    }
+    const authority = await canonicalWorkflowAuthority.authorizeArchitectReview(
+      input.routedReviewBinding,
     );
-    await mkdir(directory, { recursive: true });
-    await writeFile(markdownPath, `${preview.reviewMarkdown.trimEnd()}\n`, {
-      encoding: "utf8",
-      flag: "wx",
+    const committed = await canonicalWorkflowAuthority.commitArchitectReview({
+      authority,
+      reviewMarkdown: `${preview.reviewMarkdown.trimEnd()}\n`,
+      decision: input.decision,
+      reviewData: toCanonicalJsonValue({
+        phase: authority.phaseId,
+        workCardId: authority.workCardId,
+        workCardTitle: authority.workCardTitle,
+        workCardArtifactId: authority.target.artifactId,
+        implementerReportArtifactId: authority.source.artifactId,
+        decision: input.decision,
+        workCardCompliance: input.workCardCompliance,
+        changedFilesReviewed: input.changedFilesReviewed,
+        acceptanceCriteriaAssessment: input.acceptanceCriteriaAssessment,
+        validationClaimsAssessment: input.validationClaimsAssessment,
+        skippedChecksAssessment: input.skippedChecksAssessment,
+        observationRegisterImpact: input.observationRegisterImpact,
+        operatorValidationSteps: input.operatorValidationSteps,
+        requiredRepair: input.requiredRepair,
+      }) as Record<string, JsonValue>,
     });
+    const nextAction = committed.transition.state.currentAction;
 
     return {
       ...preview,
       ok: true,
-      markdownPath: toRepoRelativePath(markdownPath),
+      markdownPath: committed.pairCommit.artifact.markdownPath,
+      jsonPath: committed.pairCommit.artifact.jsonPath,
+      workflowTransition: {
+        fromActionId: authority.routedAction.actionId,
+        toActionId: nextAction?.actionId ?? null,
+        workflowStateRevision: committed.transition.state.stateRevision,
+        ...(nextAction ? { nextScreenId: nextAction.screenId } : {}),
+      },
     };
   } catch (error) {
     return {
@@ -3047,21 +3052,20 @@ export async function saveRouteReviewRequest(
     const markdown = renderRouteReviewRequestMarkdown(record);
     const fileNames = buildRouteReviewRequestFileNames(record);
     const directory = resolveRouteReviewRequestsDirectory(record.phase);
-    const targets = await resolveAvailableFilePair(
+    const workCardId = record.currentRoute.workCardId;
+    const targets = await saveCanonicalPlanningArtifact({
       directory,
-      fileNames.json,
-      fileNames.markdown,
-      "A safe Route Review Request filename could not be generated.",
-    );
-
-    await mkdir(directory, { recursive: true });
-    await writeFile(targets.firstPath, `${JSON.stringify(record, null, 2)}\n`, {
-      encoding: "utf8",
-      flag: "wx",
-    });
-    await writeFile(targets.secondPath, markdown, {
-      encoding: "utf8",
-      flag: "wx",
+      jsonFileName: fileNames.json,
+      markdownFileName: fileNames.markdown,
+      artifactType: "route_review_request",
+      title: `${record.currentRoute.title} Route Review Request`,
+      contentMarkdown: markdown,
+      data: record,
+      phaseId: record.phase,
+      workCardId,
+      parentArtifactId: workCardId
+        ? buildParentWorkCardArtifactId(record.phase, workCardId)
+        : undefined,
     });
 
     return {
@@ -3174,24 +3178,15 @@ export async function savePhaseCloseoutRecord(
     const record = buildPhaseCloseoutRecord(input, summary, createdAt);
     const markdown = renderPhaseCloseoutMarkdown(record);
     const directory = resolveCloseoutReportsDirectory(record.phase);
-    const targets = await resolveAvailableFilePair(
+    const targets = await saveCanonicalPlanningArtifact({
       directory,
-      buildPhaseCloseoutJsonFileName(record),
-      buildPhaseCloseoutMarkdownFileName(record),
-    );
-
-    await mkdir(directory, { recursive: true });
-    await writeFile(
-      targets.firstPath,
-      `${JSON.stringify(record, null, 2)}\n`,
-      {
-        encoding: "utf8",
-        flag: "wx",
-      },
-    );
-    await writeFile(targets.secondPath, markdown, {
-      encoding: "utf8",
-      flag: "wx",
+      jsonFileName: buildPhaseCloseoutJsonFileName(record),
+      markdownFileName: buildPhaseCloseoutMarkdownFileName(record),
+      artifactType: "phase_closeout",
+      title: `${record.phase} Phase Closeout`,
+      contentMarkdown: markdown,
+      data: record,
+      phaseId: record.phase,
     });
 
     return {
@@ -3244,14 +3239,14 @@ export function resolveRiskReviewsDirectory(phase: string): string {
   return resolveInside(planningPhasesRoot, phase.trim(), "Risk_Reviews");
 }
 
-export function resolveBuilderReportsDirectory(phase: string): string {
+export function resolveImplementerReportsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
   if (phaseErrors.length > 0) {
     throw new Error(phaseErrors.join(" "));
   }
 
-  return resolveInside(planningPhasesRoot, phase.trim(), "Builder_Reports");
+  return resolveInside(planningPhasesRoot, phase.trim(), "Implementer_Reports");
 }
 
 export function resolveArchitectReviewsDirectory(phase: string): string {
@@ -3264,14 +3259,14 @@ export function resolveArchitectReviewsDirectory(phase: string): string {
   return resolveInside(planningPhasesRoot, phase.trim(), "Architect_Reviews");
 }
 
-export function resolveBuilderPromptsDirectory(phase: string): string {
+export function resolveImplementerExecutionPacketsDirectory(phase: string): string {
   const phaseErrors = validateSafePhaseFolder(phase);
 
   if (phaseErrors.length > 0) {
     throw new Error(phaseErrors.join(" "));
   }
 
-  return resolveInside(planningPhasesRoot, phase.trim(), "Builder_Prompts");
+  return resolveInside(planningPhasesRoot, phase.trim(), "Implementer_Execution_Packets");
 }
 
 export function resolveValidationReportsDirectory(phase: string): string {
@@ -3745,21 +3740,21 @@ async function buildHumanValidationPreview(
   createdAt: string,
 ): Promise<HumanValidationPreviewResult> {
   const { target } = await readHumanValidationTargetContext(input);
-  const builderReport = await readOptionalBuilderReport(
+  const implementerReport = await readOptionalImplementerReport(
     target.phase,
-    input.builderReportFileName,
+    input.implementerReportFileName,
   );
-  const matchingBuilderReports = await listBuilderReportOptionsForValidationTarget(
+  const matchingImplementerReports = await listImplementerReportOptionsForValidationTarget(
     target,
   );
-  const bestMatchingBuilderReport = matchingBuilderReports.options.find(
+  const bestMatchingImplementerReport = matchingImplementerReports.options.find(
     (option) => option.isDefaultMatch,
   );
 
   if (
-    builderReport &&
+    implementerReport &&
     target.expectedImplementerReportFile &&
-    builderReport.fileName !== target.expectedImplementerReportFile
+    implementerReport.fileName !== target.expectedImplementerReportFile
   ) {
     throw new Error(
       `Selected Implementer Report does not match ${target.id}. Choose ${target.expectedImplementerReportFile} or clear the association before saving.`,
@@ -3767,13 +3762,13 @@ async function buildHumanValidationPreview(
   }
 
   if (
-    builderReport &&
+    implementerReport &&
     !target.expectedImplementerReportFile &&
-    bestMatchingBuilderReport &&
-    !fileNameMatchesValidationTarget(builderReport.fileName, target)
+    bestMatchingImplementerReport &&
+    !fileNameMatchesValidationTarget(implementerReport.fileName, target)
   ) {
     throw new Error(
-      `Selected Implementer Report does not match ${target.id}. Choose ${bestMatchingBuilderReport.fileName} or clear the association before saving.`,
+      `Selected Implementer Report does not match ${target.id}. Choose ${bestMatchingImplementerReport.fileName} or clear the association before saving.`,
     );
   }
 
@@ -3782,7 +3777,7 @@ async function buildHumanValidationPreview(
     {
       ...input,
       phase: target.phase,
-      builderReportFileName: builderReport?.fileName,
+      implementerReportFileName: implementerReport?.fileName,
     },
     createdAt,
   );
@@ -3801,7 +3796,7 @@ async function buildHumanValidationPreview(
   const repairPrompt = shouldRepair ? renderRepairPrompt(record) : undefined;
   const manualValidationChecklist = await resolveManualValidationChecklist(
     target,
-    builderReport,
+    implementerReport,
   );
 
   return {
@@ -3811,9 +3806,9 @@ async function buildHumanValidationPreview(
     repairPrompt,
     shouldGenerateRepairPrompt: shouldRepair,
     manualValidationChecklist,
-    builderReportWarning: builderReport
+    implementerReportWarning: implementerReport
       ? undefined
-      : noBuilderReportSelectedWarning,
+      : noImplementerReportSelectedWarning,
     differentProblemGuidance: getDifferentProblemGuidance(record),
     savedValidationJsonFileName: buildValidationReportJsonFileName(record),
     savedValidationMarkdownFileName:
@@ -3822,993 +3817,6 @@ async function buildHumanValidationPreview(
       ? buildRepairPromptFileName(record)
       : undefined,
   };
-}
-
-async function buildCurrentRequiredActionStateFromRepo(): Promise<CurrentRequiredActionState> {
-  const warnings: CurrentRequiredActionWarning[] = [];
-  const projectRoadmapJsonPath = resolveInside(
-    resolveProjectRoadmapDirectory(),
-    "PROJECT_ROADMAP_champcity_a_i.json",
-  );
-  const phaseMapJsonPath = resolveInside(
-    resolvePhaseMapDirectory(),
-    "PHASE_MAP_champcity_a_i.json",
-  );
-  const phaseMapRecord = await readJsonRecordIfExists<PhaseMapRecord>(
-    phaseMapJsonPath,
-    warnings,
-    "phase_map_json_invalid",
-  );
-  const roadmapRecord = await readJsonRecordIfExists<ProjectRoadmapRecord>(
-    projectRoadmapJsonPath,
-    warnings,
-    "project_roadmap_json_invalid",
-  );
-  const activePhaseId = getActivePhaseId(roadmapRecord, phaseMapRecord);
-  const activePhaseTitle = getActivePhaseTitle(
-    activePhaseId,
-    roadmapRecord,
-    phaseMapRecord,
-  );
-  const activePhase =
-    activePhaseId.length > 0
-      ? await buildCurrentActionPhaseStateFromRepo(
-          activePhaseId,
-          activePhaseTitle,
-          phaseMapRecord,
-          roadmapRecord,
-          warnings,
-        )
-      : undefined;
-
-  const projectApprovalSatisfiedByPhaseActivation =
-    artifactReferenceExists(activePhase?.operatorPhaseApproval) ||
-    /active|approved|closed/i.test(
-      getRecordString(roadmapRecord, "status") +
-        " " +
-        getRecordString(roadmapRecord, "currentActivePhase"),
-    );
-
-  addProjectStateWarnings(roadmapRecord, activePhase, warnings);
-
-  return {
-    project: {
-      projectName:
-        getRecordString(roadmapRecord, "project") ||
-        getRecordString(roadmapRecord, "projectName") ||
-        "ChampCity A/I",
-      projectIntake: await latestArtifactInDirectory(
-        resolveProjectIntakeDirectory(),
-        "Project Intake",
-        "json",
-      ),
-      projectInterview: await latestArtifactInDirectory(
-        resolveProjectArchitectInterviewPromptsDirectory(),
-        "Project Interview",
-        "json",
-      ),
-      reconciliationReview: await latestArtifactInDirectory(
-        resolveRepositoryReconciliationDirectory(),
-        "Reconciliation Review",
-        "json",
-      ),
-      projectRoadmap: await artifactReferenceForPath(
-        projectRoadmapJsonPath,
-        "Living Roadmap",
-        getRecordString(roadmapRecord, "status"),
-      ),
-      phaseMap: await artifactReferenceForPath(
-        phaseMapJsonPath,
-        "Phase Map",
-        getRecordString(phaseMapRecord, "status"),
-      ),
-      operatorProjectApproval: await artifactReferenceForPath(
-        resolveInside(planningProjectRoot, "OPERATOR_PROJECT_APPROVAL.json"),
-        "Operator Project Approval",
-      ),
-      projectApprovalSatisfiedByPhaseActivation,
-      roadmapCurrentExecutableWorkCardId: extractWorkCardId(
-        getRecordString(roadmapRecord, "currentExecutableWorkCard"),
-      ),
-    },
-    activePhase,
-    warnings,
-  };
-}
-
-async function buildCurrentActionPhaseStateFromRepo(
-  phaseId: string,
-  phaseTitle: string,
-  phaseMapRecord: PhaseMapRecord | undefined,
-  roadmapRecord: ProjectRoadmapRecord | undefined,
-  warnings: CurrentRequiredActionWarning[],
-): Promise<CurrentActionPhaseState> {
-  const phaseDirectory = resolveInside(planningPhasesRoot, phaseId);
-  const phaseMapJsonPath = resolveInside(
-    resolvePhaseMapDirectory(),
-    "PHASE_MAP_champcity_a_i.json",
-  );
-  const phaseSources = [
-    await artifactReferenceForPath(
-      resolveInside(phaseDirectory, "Phase_Interview.md"),
-      "Phase Interview",
-    ),
-    await artifactReferenceForPath(
-      resolveInside(phaseDirectory, "Phase_Planning.md"),
-      "Phase Planning",
-    ),
-    await artifactReferenceForPath(
-      resolveInside(phaseDirectory, "Work_Card_Plan.md"),
-      "Work Card Plan",
-    ),
-    await artifactReferenceForPath(
-      phaseMapJsonPath,
-      "Phase Map",
-      getRecordString(phaseMapRecord, "status"),
-    ),
-  ];
-  const operatorPhaseApproval = await artifactReferenceForPath(
-    resolveInside(phaseDirectory, "Operator_Phase_Approval.json"),
-    "Operator Phase Approval",
-  );
-  const candidates = getMappedWorkCardCandidates(
-    phaseId,
-    phaseMapRecord,
-    phaseMapJsonPath,
-  );
-  const workCards = await readCurrentActionWorkCards(
-    phaseId,
-    candidates,
-    warnings,
-  );
-  const closeout = await readPhaseCloseoutState(phaseId, warnings);
-
-  addSupersededPhaseWarnings(phaseId, warnings);
-  addValidationTargetWarnings(phaseId, warnings);
-
-  return {
-    phaseId,
-    phaseTitle,
-    status: getMappedPhaseStatus(phaseId, phaseMapRecord) ||
-      getRecordString(roadmapRecord, "status"),
-    sourceArtifacts: phaseSources,
-    operatorPhaseApproval,
-    workCardCandidates: candidates,
-    workCards,
-    closeout,
-    roadmapUpdatedAfterCloseout: false,
-    nextPhaseActivated: false,
-  };
-}
-
-async function readCurrentActionWorkCards(
-  phase: string,
-  candidates: CurrentActionWorkCardCandidate[],
-  warnings: CurrentRequiredActionWarning[],
-): Promise<CurrentActionWorkCardState[]> {
-  const directory = resolveWorkCardsDirectory(phase);
-  const entries = await readDirectoryFileNames(directory, ".json");
-  const candidateIds = new Set(
-    candidates.map((candidate) => normalizeCurrentActionId(candidate.workCardId)),
-  );
-  const result: CurrentActionWorkCardState[] = [];
-
-  for (const fileName of entries) {
-    const filePath = resolveInside(directory, fileName);
-
-    try {
-      const rawJson = await readFile(filePath, "utf8");
-      const parsed = JSON.parse(rawJson) as unknown;
-      const fields = coerceWorkCardValidationTargetFields(parsed, phase);
-
-      if (!fields || !candidateIds.has(normalizeCurrentActionId(fields.workCardId))) {
-        continue;
-      }
-
-      const markdownFileName = fileName.replace(/\.json$/i, ".md");
-      const markdownPath = resolveInside(directory, markdownFileName);
-      const sourceArtifacts = [
-        await artifactReferenceForPath(filePath, "Work Card JSON", fields.status),
-        await artifactReferenceForPath(
-          markdownPath,
-          "Work Card Markdown",
-          fields.status,
-        ),
-      ];
-      const implementerReport = await findMatchingMarkdownArtifact(
-        resolveBuilderReportsDirectory(phase),
-        `BUILDER_REPORT_${fields.workCardId}`,
-        "Implementer Report",
-      );
-      const architectReviewArtifact = await findMatchingMarkdownArtifact(
-        resolveInside(planningPhasesRoot, phase, "Architect_Reviews"),
-        `ARCHITECT_REVIEW_${fields.workCardId}`,
-        "Architect Review",
-      );
-      const architectReviewStatus = architectReviewArtifact
-        ? await readArchitectReviewStatus(
-            absoluteFromRepoPath(architectReviewArtifact.path),
-          )
-        : undefined;
-      const validation = await findValidationForWorkCard(
-        phase,
-        fields.workCardId,
-        warnings,
-      );
-      const repair = await findRepairState(phase, fields.workCardId, warnings);
-
-      result.push({
-        workCardId: fields.workCardId,
-        title: fields.title,
-        phaseId: fields.phase,
-        status: fields.status,
-        sourceJsonFile: toRepoRelativePath(filePath),
-        sourceMarkdownFile: toRepoRelativePath(markdownPath),
-        sourceArtifacts,
-        implementerReport,
-        architectReview: architectReviewArtifact
-          ? {
-              status: architectReviewStatus,
-              sourceArtifact: {
-                ...architectReviewArtifact,
-                status: architectReviewStatus ?? architectReviewArtifact.status,
-              },
-            }
-          : undefined,
-        validation,
-        repair,
-      });
-    } catch (error) {
-      warnings.push({
-        code: "work_card_read_warning",
-        message: `Current-action evaluation skipped ${toRepoRelativePath(filePath)}: ${toPlainSaveError(error)}`,
-        severity: "warning",
-        sourceArtifactPath: toRepoRelativePath(filePath),
-      });
-    }
-  }
-
-  return result;
-}
-
-async function findValidationForWorkCard(
-  phase: string,
-  workCardId: string,
-  warnings: CurrentRequiredActionWarning[],
-): Promise<CurrentActionValidationState | undefined> {
-  const directory = resolveValidationReportsDirectory(phase);
-  const entries = await readDirectoryFileNames(directory, ".json");
-  const matching: Array<{
-    validation: CurrentActionValidationState;
-    fileName: string;
-  }> = [];
-
-  for (const fileName of entries) {
-    const filePath = resolveInside(directory, fileName);
-
-    try {
-      const rawJson = await readFile(filePath, "utf8");
-      const parsed = JSON.parse(rawJson) as unknown;
-      const targetId =
-        getRecordString(parsed, "workCardId") ||
-        getRecordString(parsed, "work_card_id") ||
-        getRecordString(parsed, "validationTargetId") ||
-        getRecordString(parsed, "validation_target_id");
-
-      if (normalizeCurrentActionId(targetId) !== normalizeCurrentActionId(workCardId)) {
-        continue;
-      }
-
-      const markdownPath = filePath.replace(/\.json$/i, ".md");
-      const sourceArtifacts = [
-        await artifactReferenceForPath(filePath, "Validation Report JSON"),
-        await artifactReferenceForPath(markdownPath, "Validation Report Markdown"),
-        ...(await Promise.all(
-          getPlanningEvidenceReferences(parsed).map((evidencePath) =>
-            artifactReferenceForPath(
-              absoluteFromRepoPath(evidencePath),
-              "Source Evidence",
-            ),
-          ),
-        )),
-      ];
-      const architectDisposition = getArchitectDisposition(parsed);
-      const legacyOperatorDecision =
-        getRecordString(parsed, "operatorDecision") ||
-        getRecordString(parsed, "operator_decision") ||
-        getRecordString(parsed, "decision");
-
-      matching.push({
-        fileName,
-        validation: {
-          result:
-            getRecordString(parsed, "validationResult") ||
-            getRecordString(parsed, "validation_result") ||
-            getRecordString(parsed, "status"),
-          decision: architectDisposition,
-          architectDispositionPending: isArchitectDispositionPending(parsed),
-          architectDispositionMissing:
-            /_repair\d+$/i.test(normalizeCurrentActionId(workCardId)) &&
-            !architectDisposition &&
-            !legacyOperatorDecision,
-          legacyOperatorDecision,
-          repairRequired: getRecordBoolean(parsed, "repair_required"),
-          routeBlocked: isRouteBlockedValidationRecord(parsed),
-          authority: "single",
-          sourceArtifacts,
-        },
-      });
-    } catch {
-      continue;
-    }
-  }
-
-  if (matching.length === 0) {
-    return undefined;
-  }
-
-  if (matching.length === 1) {
-    return matching[0].validation;
-  }
-
-  const resultValues = uniqueNormalizedValues(
-    matching.map((match) => match.validation.result),
-  );
-  const decisionValues = uniqueNormalizedValues(
-    matching.map((match) => match.validation.decision),
-  );
-  const legacyDecisionValues = uniqueNormalizedValues(
-    matching.map((match) => match.validation.legacyOperatorDecision),
-  );
-  const sourceArtifacts = uniqueCurrentActionArtifacts(
-    matching.flatMap((match) => match.validation.sourceArtifacts),
-  );
-
-  warnings.push({
-    code: "duplicate_validation_evidence",
-    message: `${matching.length} Validation Reports target ${workCardId}. No report is treated as authoritative because revision authority is not explicitly recorded.`,
-    severity: "warning",
-    sourceArtifactPath: sourceArtifacts[0]?.path,
-  });
-
-  return {
-    result:
-      resultValues.length === 1
-        ? matching[0].validation.result
-        : "Conflicting validation results",
-    decision:
-      decisionValues.length === 1
-        ? matching.find((match) => match.validation.decision)?.validation.decision
-        : undefined,
-    architectDispositionPending: matching.every(
-      (match) => match.validation.architectDispositionPending === true,
-    ),
-    architectDispositionMissing: matching.every(
-      (match) => match.validation.architectDispositionMissing === true,
-    ),
-    legacyOperatorDecision:
-      legacyDecisionValues.length === 1
-        ? matching.find((match) => match.validation.legacyOperatorDecision)
-            ?.validation.legacyOperatorDecision
-        : undefined,
-    repairRequired: matching.some(
-      (match) => match.validation.repairRequired === true,
-    ),
-    routeBlocked: matching.some(
-      (match) => match.validation.routeBlocked === true,
-    ),
-    authority: "duplicate_ambiguous",
-    duplicateCount: matching.length,
-    conflictingResults:
-      resultValues.length > 1
-        ? matching
-            .map((match) => match.validation.result)
-            .filter((value): value is string => Boolean(value))
-        : undefined,
-    sourceArtifacts,
-  };
-}
-
-function getPlanningEvidenceReferences(record: unknown): string[] {
-  const values = [
-    getRecordString(record, "evidenceReferences"),
-    getRecordString(record, "evidence_references"),
-    getRecordString(record, "screenshotOrFileReferences"),
-    getRecordString(record, "screenshot_or_file_references"),
-  ];
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    for (const line of value.split(/\r?\n/)) {
-      const normalized = line
-        .trim()
-        .replace(/^[-*]\s+/, "")
-        .replace(/^`|`$/g, "")
-        .replace(/\\/g, "/");
-      const segments = normalized.split("/");
-
-      if (
-        !normalized.startsWith("planning/") ||
-        segments.some(
-          (segment) => segment.length === 0 || segment === "." || segment === "..",
-        ) ||
-        seen.has(normalized)
-      ) {
-        continue;
-      }
-
-      seen.add(normalized);
-      result.push(normalized);
-    }
-  }
-
-  return result;
-}
-
-function getArchitectDisposition(record: unknown): string | undefined {
-  return (
-    getRecordString(record, "architectDisposition") ||
-    getRecordString(record, "architect_disposition")
-  );
-}
-
-function isArchitectDispositionPending(record: unknown): boolean {
-  return (
-    normalizeCurrentActionStatus(getArchitectDisposition(record)) ===
-    normalizeCurrentActionStatus(pendingArchitectDisposition)
-  );
-}
-
-async function findRepairState(
-  phase: string,
-  workCardId: string,
-  warnings: CurrentRequiredActionWarning[],
-): Promise<CurrentActionRepairState | undefined> {
-  const repairPrompt = await findMatchingMarkdownArtifact(
-    resolveRepairPromptsDirectory(phase),
-    `REPAIR_PROMPT_${workCardId}`,
-    "Repair Prompt",
-  );
-  const repairStates = await findRepairWorkCardStates(
-    phase,
-    workCardId,
-    warnings,
-  );
-
-  if (repairStates.length > 0) {
-    const terminalStates = terminalRepairCandidates(repairStates, repairStates);
-    const explicitlyLinked = terminalRepairCandidates(
-      repairStates.filter(
-        (repair) =>
-          (repair.supersedesRepairIds?.length ?? 0) > 0 &&
-          !isRepoPassingValidation(repair.validation),
-      ),
-      repairStates,
-    );
-    const implementationRequired = terminalRepairCandidates(
-      repairStates.filter(
-        (repair) =>
-          artifactReferenceExists(repair.repairWorkCard) &&
-          !artifactReferenceExists(repair.implementerReport) &&
-          isRepairImplementerStatus(repair.status),
-      ),
-      repairStates,
-    );
-    const validationOrDispositionRequired = terminalRepairCandidates(
-      repairStates.filter(
-        (repair) =>
-          isRepoRepairValidationObligationUnresolved(repair) ||
-          repair.validation?.architectDispositionPending === true ||
-          repair.validation?.architectDispositionMissing === true ||
-          repair.validation?.authority === "duplicate_ambiguous",
-      ),
-      repairStates,
-    );
-    const authorityCandidates =
-      explicitlyLinked.length > 0
-        ? explicitlyLinked
-        : implementationRequired.length > 0
-          ? implementationRequired
-          : validationOrDispositionRequired.length > 0
-            ? validationOrDispositionRequired
-            : terminalRepairCandidates(
-                repairStates.filter(
-                  (repair) => !isRepoPassingValidation(repair.validation),
-                ),
-                repairStates,
-              );
-    const selectionCandidates =
-      authorityCandidates.length > 0
-        ? authorityCandidates
-        : terminalStates.filter((repair) =>
-            isRepoPassingValidation(repair.validation),
-          );
-    const stableCandidates = [...selectionCandidates].sort((left, right) =>
-      (left.repairId ?? "").localeCompare(right.repairId ?? ""),
-    );
-    const selected = stableCandidates[0] ?? repairStates[0];
-    const authorityAmbiguous = authorityCandidates.length > 1;
-    const ambiguityReason = authorityAmbiguous
-      ? `Multiple unresolved repairs (${stableCandidates
-          .map((repair) => repair.repairId)
-          .filter(Boolean)
-          .join(", ")}) lack an explicit relationship that identifies one controlling obligation.`
-      : undefined;
-    const evidenceClassifications = buildRepairEvidenceClassifications(
-      repairStates,
-      selected,
-      authorityAmbiguous,
-    );
-    const routeEvidenceArtifacts = uniqueCurrentActionArtifacts(
-      repairStates.flatMap(repairStateArtifacts),
-    );
-
-    if (authorityAmbiguous) {
-      warnings.push({
-        code: "ambiguous_repair_route_authority",
-        message: ambiguityReason ?? "Repair route authority is ambiguous.",
-        severity: "blocking",
-        sourceArtifactPath: selected.repairWorkCard?.path,
-      });
-    }
-
-    return {
-      ...selected,
-      repairPrompt,
-      routeEvidenceArtifacts,
-      evidenceClassifications,
-      authorityAmbiguous,
-      authorityAmbiguityReason: ambiguityReason,
-    };
-  }
-
-  const repairWorkCard = await findRepairWorkCardArtifact(phase, workCardId);
-
-  if (!repairPrompt && !repairWorkCard) {
-    return undefined;
-  }
-
-  // Compatibility fallback for legacy prompt/Markdown-only repair routes.
-  const repairId = `${workCardId}-REPAIR01`;
-  const implementerReport = await findMatchingMarkdownArtifact(
-    resolveBuilderReportsDirectory(phase),
-    `BUILDER_REPORT_${repairId}`,
-    "Repair Implementer Report",
-  );
-  const validation = await findValidationForWorkCard(
-    phase,
-    repairId,
-    warnings,
-  );
-
-  return {
-    repairId,
-    repairPrompt,
-    repairWorkCard,
-    implementerReport,
-    validation,
-  };
-}
-
-async function findRepairWorkCardStates(
-  phase: string,
-  parentWorkCardId: string,
-  warnings: CurrentRequiredActionWarning[],
-): Promise<CurrentActionRepairState[]> {
-  const directory = resolveWorkCardsDirectory(phase);
-  const entries = await readDirectoryFileNames(directory, ".json");
-  const parentId = normalizeCurrentActionId(parentWorkCardId);
-  const repairPrefix = normalizeCurrentActionId(`${parentWorkCardId}-REPAIR`);
-  const repairs: CurrentActionRepairState[] = [];
-
-  for (const fileName of entries) {
-    const filePath = resolveInside(directory, fileName);
-
-    try {
-      const parsed = JSON.parse(await readFile(filePath, "utf8")) as unknown;
-      const fields = coerceWorkCardValidationTargetFields(parsed, phase);
-
-      if (!fields) {
-        continue;
-      }
-
-      const repairId = normalizeCurrentActionId(fields.workCardId);
-      const declaredParentId = normalizeCurrentActionId(
-        fields.parentWorkCardId ?? "",
-      );
-
-      if (
-        !repairId.startsWith(repairPrefix) ||
-        (declaredParentId && declaredParentId !== parentId)
-      ) {
-        continue;
-      }
-
-      const markdownPath = filePath.replace(/\.json$/i, ".md");
-      const implementerReport = await findMatchingMarkdownArtifact(
-        resolveBuilderReportsDirectory(phase),
-        `BUILDER_REPORT_${fields.workCardId}`,
-        "Repair Implementer Report",
-      );
-      const architectReviewArtifact = await findMatchingMarkdownArtifact(
-        resolveInside(planningPhasesRoot, phase, "Architect_Reviews"),
-        `ARCHITECT_REVIEW_${fields.workCardId}`,
-        "Repair Architect Review",
-      );
-      const architectReviewStatus = architectReviewArtifact
-        ? await readArchitectReviewStatus(
-            absoluteFromRepoPath(architectReviewArtifact.path),
-          )
-        : undefined;
-      const triggerReferences = getRepairTriggerValidationReferences(parsed);
-      const triggerArtifacts = await Promise.all(
-        triggerReferences.map((reference) =>
-          artifactReferenceForPath(
-            absoluteFromRepoPath(reference),
-            "Repair trigger validation evidence",
-            "controlling_trigger",
-          ),
-        ),
-      );
-      const supersedesRepairIds = [
-        ...new Set([
-          ...getExplicitParentRepairIds(parsed),
-          ...triggerReferences
-            .map(extractValidationTargetIdFromPath)
-            .filter(
-              (targetId): targetId is string =>
-                Boolean(targetId) &&
-                /_repair\d+$/i.test(normalizeCurrentActionId(targetId)),
-            ),
-        ]),
-      ];
-
-      repairs.push({
-        repairId: fields.workCardId,
-        title: fields.title,
-        status: fields.status,
-        repairWorkCard: await artifactReferenceForPath(
-          markdownPath,
-          "Repair Work Card",
-          fields.status,
-        ),
-        implementerReport,
-        architectReview: architectReviewArtifact
-          ? {
-              status: architectReviewStatus,
-              sourceArtifact: {
-                ...architectReviewArtifact,
-                status: architectReviewStatus ?? architectReviewArtifact.status,
-              },
-            }
-          : undefined,
-        validation: await findValidationForWorkCard(
-          phase,
-          fields.workCardId,
-          warnings,
-        ),
-        triggerArtifacts,
-        supersedesRepairIds,
-      });
-    } catch {
-      continue;
-    }
-  }
-
-  return repairs;
-}
-
-function terminalRepairCandidates(
-  candidates: CurrentActionRepairState[],
-  allRepairs: CurrentActionRepairState[],
-): CurrentActionRepairState[] {
-  const explicitlySupersededIds = new Set(
-    allRepairs.flatMap((repair) =>
-      (repair.supersedesRepairIds ?? []).map((repairId) =>
-        normalizeCurrentActionId(repairId),
-      ),
-    ),
-  );
-
-  return candidates.filter(
-    (candidate) =>
-      !explicitlySupersededIds.has(
-        normalizeCurrentActionId(candidate.repairId),
-      ),
-  );
-}
-
-function isRepairImplementerStatus(status: string | undefined): boolean {
-  return [
-    "approved_for_implementer_handoff",
-    "implementer_handoff_required",
-    "in_implementer_pass",
-    "ready_for_builder",
-    "ready_for_handoff",
-    "ready_for_implementer",
-  ].includes(normalizeCurrentActionStatus(status));
-}
-
-function repairStateArtifacts(
-  repair: CurrentActionRepairState,
-): CurrentActionArtifactReference[] {
-  return [
-    repair.repairWorkCard,
-    repair.implementerReport,
-    repair.architectReview?.sourceArtifact,
-    ...(repair.validation?.sourceArtifacts ?? []),
-    ...(repair.triggerArtifacts ?? []),
-  ].filter(
-    (artifact): artifact is CurrentActionArtifactReference => Boolean(artifact),
-  );
-}
-
-function buildRepairEvidenceClassifications(
-  repairs: CurrentActionRepairState[],
-  selected: CurrentActionRepairState,
-  authorityAmbiguous: boolean,
-): CurrentActionEvidenceClassification[] {
-  const result: CurrentActionEvidenceClassification[] = [];
-  const selectedId = normalizeCurrentActionId(selected.repairId);
-  const selectedSupersedes = new Set(
-    (selected.supersedesRepairIds ?? []).map((repairId) =>
-      normalizeCurrentActionId(repairId),
-    ),
-  );
-
-  result.push({
-    id: `controlling-${selected.repairId ?? "repair"}`,
-    label: `${selected.repairId ?? "Repair"} Work Card`,
-    summary: authorityAmbiguous
-      ? "This repair is shown only as part of an ambiguous set. Architect disposition must identify the controlling obligation."
-      : "This explicitly linked unresolved Repair Work Card controls the current route.",
-    classification: authorityAmbiguous
-      ? "duplicate_ambiguous"
-      : "accepted_controlling",
-    sourceArtifacts: selected.repairWorkCard
-      ? [selected.repairWorkCard]
-      : undefined,
-  });
-
-  if ((selected.triggerArtifacts?.length ?? 0) > 0) {
-    result.push({
-      id: `trigger-${selected.repairId ?? "repair"}`,
-      label: "Controlling repair trigger",
-      summary:
-        "The selected Repair Work Card explicitly cites this validation evidence as its trigger; the evaluator did not infer that relationship from a filename suffix or timestamp.",
-      classification: "accepted_controlling",
-      sourceArtifacts: selected.triggerArtifacts,
-    });
-  }
-
-  for (const repair of repairs) {
-    const repairId = repair.repairId ?? "Repair";
-    const normalizedRepairId = normalizeCurrentActionId(repair.repairId);
-
-    if (normalizedRepairId === selectedId) {
-      if (repair.validation?.authority === "duplicate_ambiguous") {
-        result.push(duplicateValidationClassification(repair));
-      }
-
-      if (
-        repair.validation?.architectDispositionPending ||
-        repair.validation?.architectDispositionMissing
-      ) {
-        result.push(pendingValidationClassification(repair));
-      }
-
-      continue;
-    }
-
-    if (selectedSupersedes.has(normalizedRepairId)) {
-      result.push({
-        id: `superseded-${repairId}`,
-        label: `${repairId} prior repair state`,
-        summary: `${repairId} remains historical evidence, but the selected Repair Work Card explicitly cites its validation and now controls the follow-up obligation.`,
-        classification: "stale_historical_superseded",
-        sourceArtifacts: repairStateArtifacts(repair),
-      });
-      continue;
-    }
-
-    if (repair.validation?.authority === "duplicate_ambiguous") {
-      result.push(duplicateValidationClassification(repair));
-    }
-
-    if (
-      repair.validation?.architectDispositionPending ||
-      repair.validation?.architectDispositionMissing
-    ) {
-      result.push(pendingValidationClassification(repair));
-      continue;
-    }
-
-    if (isRepoPassingValidation(repair.validation)) {
-      result.push({
-        id: `accepted-${repairId}`,
-        label: `${repairId} validated evidence`,
-        summary: `${repairId} has passing validation evidence on record. It remains supporting history and does not replace the selected unresolved repair obligation.`,
-        classification: "accepted_controlling",
-        sourceArtifacts: repairStateArtifacts(repair),
-      });
-      continue;
-    }
-
-    if (
-      artifactReferenceExists(repair.implementerReport) ||
-      repair.validation
-    ) {
-      result.push({
-        id: `non-controlling-${repairId}`,
-        label: `${repairId} non-controlling evidence`,
-        summary: `${repairId} evidence is present but does not have explicit authority over the selected repair route.`,
-        classification: "stale_historical_superseded",
-        sourceArtifacts: repairStateArtifacts(repair),
-      });
-    }
-  }
-
-  return result;
-}
-
-function duplicateValidationClassification(
-  repair: CurrentActionRepairState,
-): CurrentActionEvidenceClassification {
-  return {
-    id: `duplicate-${repair.repairId ?? "repair"}`,
-    label: `${repair.repairId ?? "Repair"} duplicate validation evidence`,
-    summary: `${repair.validation?.duplicateCount ?? 2} Validation Reports target the same repair. None is authoritative without explicit revision authority.`,
-    classification: "duplicate_ambiguous",
-    sourceArtifacts: repair.validation?.sourceArtifacts,
-  };
-}
-
-function pendingValidationClassification(
-  repair: CurrentActionRepairState,
-): CurrentActionEvidenceClassification {
-  return {
-    id: `pending-${repair.repairId ?? "repair"}`,
-    label: `${repair.repairId ?? "Repair"} validation evidence`,
-    summary: repair.validation?.architectDispositionMissing
-      ? "Validation evidence is present, but the required durable Architect disposition is missing."
-      : "Validation evidence is present, but its durable Architect disposition remains pending.",
-    classification: "present_pending_disposition",
-    sourceArtifacts: repair.validation?.sourceArtifacts,
-  };
-}
-
-function getRepairTriggerValidationReferences(record: unknown): string[] {
-  const directReferences = getRecordArray(record, "sourceValidationReports").filter(
-    (value): value is string => typeof value === "string",
-  );
-  const repairTrigger = isCurrentActionRecord(record)
-    ? record.repairTrigger
-    : undefined;
-  const nestedReference = isCurrentActionRecord(repairTrigger)
-    ? getRecordString(repairTrigger, "validationReport") ||
-      getRecordString(repairTrigger, "validation_report")
-    : "";
-  const references = [...directReferences, nestedReference]
-    .map((value) => value.trim().replace(/\\/g, "/"))
-    .filter(Boolean);
-
-  return [
-    ...new Set(
-      references.filter((reference) => {
-        const segments = reference.split("/");
-        return (
-          reference.startsWith("planning/") &&
-          reference.toLowerCase().includes("/validation_reports/") &&
-          !segments.some(
-            (segment) => segment.length === 0 || segment === "." || segment === "..",
-          )
-        );
-      }),
-    ),
-  ];
-}
-
-function getExplicitParentRepairIds(record: unknown): string[] {
-  const directValues = [
-    getRecordString(record, "parentRepairId"),
-    getRecordString(record, "parent_repair_id"),
-  ];
-  const chainValues = [
-    ...getRecordArray(record, "parentRepairChain"),
-    ...getRecordArray(record, "parent_repair_chain"),
-  ].filter((value): value is string => typeof value === "string");
-
-  return [
-    ...new Set(
-      [...directValues, ...chainValues]
-        .map((value) => value.trim())
-        .filter(
-          (value) =>
-            /^[A-Za-z0-9]+-REPAIR\d+$/i.test(value) &&
-            !value.includes(".."),
-        ),
-    ),
-  ];
-}
-
-function extractValidationTargetIdFromPath(pathValue: string): string | undefined {
-  return /VALIDATION_REPORT_([A-Za-z0-9]+(?:-REPAIR\d+)?)(?:_|\.|$)/i.exec(
-    pathValue,
-  )?.[1];
-}
-
-async function findRepairWorkCardArtifact(
-  phase: string,
-  workCardId: string,
-): Promise<CurrentActionArtifactReference | undefined> {
-  const directory = resolveWorkCardsDirectory(phase);
-  const entries = await readDirectoryFileNames(directory, ".md");
-  const repairPrefix = normalizeFileStem(`${workCardId}-REPAIR`);
-  const match = entries.find((entry) =>
-    normalizeFileStem(entry).startsWith(repairPrefix),
-  );
-
-  return match
-    ? artifactReferenceForPath(
-        resolveInside(directory, match),
-        "Repair Work Card",
-      )
-    : undefined;
-}
-
-async function readPhaseCloseoutState(
-  phase: string,
-  warnings: CurrentRequiredActionWarning[],
-): Promise<CurrentActionPhaseCloseoutState | undefined> {
-  const directory = resolveCloseoutReportsDirectory(phase);
-  const entries = await readDirectoryFileNames(directory, ".json");
-  const closeouts: Array<{
-    closeout: CurrentActionPhaseCloseoutState;
-    modifiedMs: number;
-  }> = [];
-
-  for (const fileName of entries) {
-    const filePath = resolveInside(directory, fileName);
-
-    try {
-      const rawJson = await readFile(filePath, "utf8");
-      const parsed = JSON.parse(rawJson) as unknown;
-      const stats = await stat(filePath);
-      const decision = getRecordString(parsed, "decision");
-      const nextPhaseActivationDecision = getRecordString(
-        parsed,
-        "nextPhaseActivationDecision",
-      );
-
-      closeouts.push({
-        modifiedMs: stats.mtimeMs,
-        closeout: {
-          sourceArtifact: await artifactReferenceForPath(
-            filePath,
-            "Phase Closeout",
-            decision,
-          ),
-          decision,
-          nextPhaseActivationDecision,
-          operatorApproved: /close phase|ready|activate|approve/i.test(
-            `${decision} ${nextPhaseActivationDecision}`,
-          ),
-        },
-      });
-    } catch (error) {
-      warnings.push({
-        code: "phase_closeout_read_warning",
-        message: `Current-action evaluation skipped ${toRepoRelativePath(filePath)}: ${toPlainSaveError(error)}`,
-        severity: "warning",
-        sourceArtifactPath: toRepoRelativePath(filePath),
-      });
-    }
-  }
-
-  closeouts.sort((left, right) => right.modifiedMs - left.modifiedMs);
-
-  return closeouts[0]?.closeout;
 }
 
 async function findMatchingMarkdownArtifact(
@@ -4837,27 +3845,6 @@ async function findMatchingMarkdownArtifact(
         resolveInside(directory, matches[0].fileName),
         role,
       )
-    : undefined;
-}
-
-async function latestArtifactInDirectory(
-  directory: string,
-  role: string,
-  extension: "json" | "md",
-): Promise<CurrentActionArtifactReference | undefined> {
-  const entries = await readDirectoryFileNames(directory, `.${extension}`);
-  const artifacts: Array<{ fileName: string; modifiedMs: number }> = [];
-
-  for (const fileName of entries) {
-    const filePath = resolveInside(directory, fileName);
-    const stats = await stat(filePath);
-    artifacts.push({ fileName, modifiedMs: stats.mtimeMs });
-  }
-
-  artifacts.sort((left, right) => right.modifiedMs - left.modifiedMs);
-
-  return artifacts[0]
-    ? artifactReferenceForPath(resolveInside(directory, artifacts[0].fileName), role)
     : undefined;
 }
 
@@ -4893,12 +3880,6 @@ async function artifactReferenceForPath(
   };
 }
 
-function artifactReferenceExists(
-  artifactRef: CurrentActionArtifactReference | undefined,
-): boolean {
-  return artifactRef?.exists !== false && !!artifactRef?.path;
-}
-
 async function readFirstStatusLine(filePath: string): Promise<string | undefined> {
   try {
     const content = await readFile(filePath, "utf8");
@@ -4910,554 +3891,6 @@ async function readFirstStatusLine(filePath: string): Promise<string | undefined
   } catch {
     return undefined;
   }
-}
-
-async function readArchitectReviewStatus(
-  filePath: string,
-): Promise<string | undefined> {
-  try {
-    const content = await readFile(filePath, "utf8");
-    const standardReview = validateArchitectReview(content);
-
-    if (standardReview.usesStandardShape) {
-      if (!standardReview.valid) {
-        return `Architect review incomplete - ${standardReview.errors.join(" ")}`;
-      }
-
-      return standardReview.decision;
-    }
-
-    const explicitStatus = content
-      .split(/\r?\n/)
-      .find((candidate) => /^Status\s*:/i.test(candidate.trim()))
-      ?.replace(/^Status\s*:\s*/i, "")
-      .trim();
-
-    if (explicitStatus) {
-      return explicitStatus;
-    }
-
-    const repairRequired = content.match(
-      /^Repair(?: is)? required before Operator(?: visual)? validation\.?$/im,
-    );
-
-    if (repairRequired) {
-      return repairRequired[0].replace(/\.$/, "");
-    }
-
-    const ready = content.match(
-      /^Ready for Operator(?: visual)? validation\.?$/im,
-    );
-
-    return ready?.[0].replace(/\.$/, "");
-  } catch {
-    return undefined;
-  }
-}
-
-async function readJsonRecordIfExists<T>(
-  filePath: string,
-  warnings: CurrentRequiredActionWarning[],
-  warningCode: string,
-): Promise<T | undefined> {
-  if (!(await pathExists(filePath))) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(await readFile(filePath, "utf8")) as T;
-  } catch (error) {
-    warnings.push({
-      code: warningCode,
-      message: `${toRepoRelativePath(filePath)} could not be parsed: ${toPlainSaveError(error)}`,
-      severity: "warning",
-      sourceArtifactPath: toRepoRelativePath(filePath),
-    });
-
-    return undefined;
-  }
-}
-
-function getMappedWorkCardCandidates(
-  phaseId: string,
-  phaseMapRecord: PhaseMapRecord | undefined,
-  phaseMapJsonPath: string,
-): CurrentActionWorkCardCandidate[] {
-  const phase = phaseMapRecord?.mappedPhases?.find(
-    (candidate) => candidate.phaseId === phaseId,
-  );
-
-  return (phase?.plannedWorkCards ?? [])
-    .map((item, index) => ({
-      workCardId: item.workCardIdProposal,
-      title: item.title,
-      order: item.suggestedOrdering || index + 1,
-      status: item.reconciliationStatus || item.planStatus,
-      sourceArtifact: {
-        path: toRepoRelativePath(phaseMapJsonPath),
-        role: "Mapped Work Card candidate",
-        status: item.reconciliationStatus || item.planStatus,
-        exists: true,
-      },
-    }))
-    .filter((item) => item.workCardId.trim().length > 0);
-}
-
-function getActivePhaseId(
-  roadmapRecord: ProjectRoadmapRecord | undefined,
-  phaseMapRecord: PhaseMapRecord | undefined,
-): string {
-  return (
-    getRecordString(roadmapRecord, "currentActivePhase") ||
-    getRecordString(roadmapRecord, "currentFirstIncompletePhase") ||
-    getRecordString(phaseMapRecord, "currentOrNextPhase")
-  );
-}
-
-function getActivePhaseTitle(
-  phaseId: string,
-  roadmapRecord: ProjectRoadmapRecord | undefined,
-  phaseMapRecord: PhaseMapRecord | undefined,
-): string {
-  const mappedPhase = phaseMapRecord?.mappedPhases?.find(
-    (phase) => phase.phaseId === phaseId,
-  );
-  const roadmapPhase = getRecordArray(roadmapRecord, "phases").find(
-    (phase) => getRecordString(phase, "id") === phaseId,
-  );
-
-  return (
-    mappedPhase?.phaseTitle ||
-    getRecordString(roadmapPhase, "title") ||
-    getRecordString(phaseMapRecord, "nextPhaseTitle") ||
-    phaseId
-  );
-}
-
-function getMappedPhaseStatus(
-  phaseId: string,
-  phaseMapRecord: PhaseMapRecord | undefined,
-): string | undefined {
-  return phaseMapRecord?.mappedPhases?.find((phase) => phase.phaseId === phaseId)
-    ?.status;
-}
-
-function addProjectStateWarnings(
-  roadmapRecord: ProjectRoadmapRecord | undefined,
-  activePhase: CurrentActionPhaseState | undefined,
-  warnings: CurrentRequiredActionWarning[],
-): void {
-  const roadmapCurrentWorkCardId = extractWorkCardId(
-    getRecordString(roadmapRecord, "currentExecutableWorkCard"),
-  );
-
-  if (!roadmapCurrentWorkCardId || !activePhase) {
-    return;
-  }
-
-  const nextUnresolved = findNextUnresolvedWorkCardId(activePhase);
-
-  if (
-    nextUnresolved &&
-    normalizeCurrentActionId(nextUnresolved) !==
-      normalizeCurrentActionId(roadmapCurrentWorkCardId)
-  ) {
-    warnings.push({
-      code: "stale_current_executable_work_card",
-      message: `Roadmap still names ${roadmapCurrentWorkCardId} as current, but durable Work Card evidence routes to ${nextUnresolved}.`,
-      severity: "warning",
-      sourceArtifactPath:
-        "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
-    });
-  }
-}
-
-function findNextUnresolvedWorkCardId(
-  phase: CurrentActionPhaseState,
-): string | undefined {
-  const workCardsById = new Map(
-    phase.workCards.map((workCard) => [
-      normalizeCurrentActionId(workCard.workCardId),
-      workCard,
-    ]),
-  );
-
-  for (const candidate of phase.workCardCandidates) {
-    const workCard = workCardsById.get(normalizeCurrentActionId(candidate.workCardId));
-
-    if (!workCard) {
-      return candidate.workCardId;
-    }
-
-    if (!isRepoWorkCardResolved(candidate.status, workCard)) {
-      return workCard.workCardId;
-    }
-  }
-
-  return undefined;
-}
-
-function isRepoWorkCardResolved(
-  candidateStatus: string | undefined,
-  workCard: CurrentActionWorkCardState,
-): boolean {
-  if (isRepoRepairObligationUnresolved(workCard.repair)) {
-    return false;
-  }
-
-  if (
-    isRepoPassingValidation(workCard.validation) ||
-    isRepoPassingValidation(workCard.repair?.validation)
-  ) {
-    return true;
-  }
-
-  if (workCard.validation || workCard.repair) {
-    return false;
-  }
-
-  const status = normalizeCurrentActionStatus(candidateStatus || workCard.status);
-
-  if (
-    [
-      "already_satisfied",
-      "cancelled",
-      "carried_forward",
-      "closed",
-      "complete",
-      "completed",
-      "completed_via_repair",
-      "deferred",
-      "superseded",
-      "validated",
-    ].includes(status)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function isRepoRepairObligationUnresolved(
-  repair: CurrentActionRepairState | undefined,
-): boolean {
-  return Boolean(
-    repair &&
-      artifactReferenceExists(repair.repairWorkCard) &&
-      !isRepoPassingValidation(repair.validation),
-  );
-}
-
-function isRepoRepairValidationObligationUnresolved(
-  repair: CurrentActionRepairState | undefined,
-): boolean {
-  if (
-    !repair ||
-    !artifactReferenceExists(repair.repairWorkCard) ||
-    !artifactReferenceExists(repair.implementerReport)
-  ) {
-    return false;
-  }
-
-  const reviewStatus = normalizeCurrentActionStatus(
-    repair.architectReview?.status,
-  );
-
-  if (!/ready_for_operator_(?:visual_)?validation/.test(reviewStatus)) {
-    return false;
-  }
-
-  return !isRepoPassingValidation(repair.validation);
-}
-
-function isRepoPassingValidation(
-  validation: CurrentActionValidationState | undefined,
-): boolean {
-  if (validation?.authority === "duplicate_ambiguous") {
-    return false;
-  }
-
-  if (!validation?.result && !validation?.decision) {
-    return false;
-  }
-
-  const result = normalizeCurrentActionStatus(validation.result);
-  const decision = normalizeCurrentActionStatus(validation.decision);
-
-  if (validation.repairRequired) {
-    return false;
-  }
-
-  if (validation.architectDispositionPending) {
-    return false;
-  }
-
-  if (validation.architectDispositionMissing) {
-    return false;
-  }
-
-  if (decision.length > 0) {
-    return [
-      "passed_proceed",
-      "passed",
-      "mergeable",
-      "ready_to_merge",
-      "no_action_required",
-      "pass_with_observation",
-      "pass_with_observations",
-      "carry_forward_observation",
-      "future_scope_product_backlog",
-    ].includes(decision);
-  }
-
-  return ["pass", "passed", "pass_with_concerns"].includes(result);
-}
-
-function addSupersededPhaseWarnings(
-  phase: string,
-  warnings: CurrentRequiredActionWarning[],
-): void {
-  const knownSupersededPaths = [
-    `planning/phases/${phase}/Operator_Phase_Approval_PENDING.md`,
-    `planning/phases/${phase}/WORK_CARD_BACKLOG.md`,
-    `planning/phases/${phase}/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md`,
-    `planning/phases/${phase}/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json`,
-    `planning/phases/${phase}/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.md`,
-    `planning/phases/${phase}/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json`,
-  ];
-
-  for (const repoPath of knownSupersededPaths) {
-    const absolutePath = absoluteFromRepoPath(repoPath);
-
-    if (!pathExistsSync(absolutePath)) {
-      continue;
-    }
-
-    warnings.push({
-      code: "superseded_phase_artifact",
-      message: `${repoPath} is superseded historical context and must not be treated as active Phase 03 authority.`,
-      severity: "info",
-      sourceArtifactPath: repoPath,
-    });
-  }
-}
-
-function addValidationTargetWarnings(
-  phase: string,
-  warnings: CurrentRequiredActionWarning[],
-): void {
-  const validationReportDirectory = resolveValidationReportsDirectory(phase);
-  const validationReports = readDirectoryFileNamesSync(
-    validationReportDirectory,
-    [".json", ".md"],
-  );
-
-  for (const fileName of validationReports) {
-    const filePath = resolveInside(validationReportDirectory, fileName);
-    let content = "";
-
-    try {
-      content = readFileSyncUtf8(filePath);
-    } catch {
-      continue;
-    }
-
-    for (const reference of extractValidationTargetReferences(content, phase)) {
-      const absoluteReferencePath = absoluteFromRepoPath(reference);
-
-      if (pathExistsSync(absoluteReferencePath)) {
-        continue;
-      }
-
-      warnings.push({
-        code: "missing_stale_validation_target",
-        message: `${reference} is referenced by validation evidence but is missing; current-action routing treats it as stale context, not current authority.`,
-        severity: "warning",
-        sourceArtifactPath: toRepoRelativePath(filePath),
-      });
-    }
-  }
-}
-
-function extractValidationTargetReferences(
-  content: string,
-  phase: string,
-): string[] {
-  const references = new Set<string>();
-  const fullPathPattern =
-    /planning\/phases\/[A-Za-z0-9_-]+\/Validation_Targets\/[A-Za-z0-9_-]+\.json/g;
-  const shortPathPattern =
-    /Validation_Targets\/[A-Za-z0-9_-]+\.json/g;
-
-  for (const match of content.matchAll(fullPathPattern)) {
-    references.add(match[0]);
-  }
-
-  for (const match of content.matchAll(shortPathPattern)) {
-    references.add(`planning/phases/${phase}/${match[0]}`);
-  }
-
-  return [...references];
-}
-
-export function coerceWorkCardValidationTargetFields(
-  candidate: unknown,
-  selectedPhase: string,
-): WorkCardValidationTargetFields | undefined {
-  if (!isCurrentActionRecord(candidate)) {
-    return undefined;
-  }
-
-  const workCardId =
-    getRecordString(candidate, "workCardId") ||
-    getRecordString(candidate, "work_card_id") ||
-    getRecordString(candidate, "repairId") ||
-    getRecordString(candidate, "repair_id") ||
-    getRecordString(candidate, "id");
-  const title = getRecordString(candidate, "title");
-  const phase =
-    getRecordString(candidate, "phase") ||
-    getRecordString(candidate, "phase_id") ||
-    getRecordString(candidate, "phaseId");
-  const status = getRecordString(candidate, "status") || "ready_for_implementer";
-  const riskLevel =
-    getRecordString(candidate, "riskLevel") ||
-    getRecordString(candidate, "risk_level") ||
-    undefined;
-  const parentWorkCardId =
-    getRecordString(candidate, "parentWorkCardId") ||
-    getRecordString(candidate, "parent_work_card_id") ||
-    undefined;
-
-  if (!workCardId || !title || !phase) {
-    return undefined;
-  }
-
-  if (phase !== selectedPhase.trim()) {
-    return undefined;
-  }
-
-  return {
-    workCardId,
-    title,
-    phase,
-    status,
-    riskLevel,
-    parentWorkCardId,
-  };
-}
-
-function isRouteBlockedValidationRecord(candidate: unknown): boolean {
-  const result = normalizeCurrentActionStatus(
-    getRecordString(candidate, "validationResult") ||
-      getRecordString(candidate, "validation_result") ||
-      getRecordString(candidate, "status"),
-  );
-
-  if (!["fail", "failed", "blocked", "partial", "not_tested"].includes(result)) {
-    return false;
-  }
-
-  const detail = [
-    getRecordString(candidate, "failedItems"),
-    getRecordString(candidate, "failed_items"),
-    getRecordString(candidate, "observedErrors"),
-    getRecordString(candidate, "observed_errors"),
-    getRecordString(candidate, "additionalOperatorObservations"),
-    getRecordString(candidate, "additional_operator_observations"),
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return (
-    /\bvalidation\b.{0,100}\b(?:cannot|could not|can't)\b.{0,100}\b(?:reach|open|access)/is.test(
-      detail,
-    ) ||
-    /\bad[\s-]*hoc work card capture\b.{0,160}\b(?:instead of|rather than)\b.{0,100}\bvalidation\b/is.test(
-      detail,
-    )
-  );
-}
-
-function getRecordString(candidate: unknown, key: string): string {
-  if (!isCurrentActionRecord(candidate)) {
-    return "";
-  }
-
-  const value = candidate[key];
-
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function getRecordBoolean(candidate: unknown, key: string): boolean | undefined {
-  if (!isCurrentActionRecord(candidate)) {
-    return undefined;
-  }
-
-  const value = candidate[key];
-
-  return typeof value === "boolean" ? value : undefined;
-}
-
-function getRecordArray(candidate: unknown, key: string): unknown[] {
-  if (!isCurrentActionRecord(candidate)) {
-    return [];
-  }
-
-  const value = candidate[key];
-
-  return Array.isArray(value) ? value : [];
-}
-
-function extractWorkCardId(value: string): string | undefined {
-  return /\b(WC\d+(?:-[A-Za-z0-9]+)?)/.exec(value)?.[1];
-}
-
-function normalizeCurrentActionId(value: string | undefined): string {
-  return (value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function normalizeCurrentActionStatus(value: string | undefined): string {
-  return normalizeCurrentActionId(value);
-}
-
-function uniqueNormalizedValues(values: Array<string | undefined>): string[] {
-  return [
-    ...new Set(
-      values
-        .map((value) => normalizeCurrentActionStatus(value))
-        .filter(Boolean),
-    ),
-  ];
-}
-
-function uniqueCurrentActionArtifacts(
-  artifacts: CurrentActionArtifactReference[],
-): CurrentActionArtifactReference[] {
-  const seen = new Set<string>();
-
-  return artifacts.filter((artifact) => {
-    const key = `${artifact.path}|${artifact.role}`;
-
-    if (!artifact.path || seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-function normalizeFileStem(value: string): string {
-  return path
-    .basename(value, path.extname(value))
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
 }
 
 function toRepoRelativePath(filePath: string): string {
@@ -5474,36 +3907,10 @@ function absoluteFromRepoPath(repoPath: string): string {
   return resolveInside(repositoryRoot, ...repoPath.split("/"));
 }
 
-function pathExistsSync(filePath: string): boolean {
-  try {
-    statSync(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function readDirectoryFileNamesSync(
-  directory: string,
-  extensions: string[],
-): string[] {
-  try {
-    return readdirSync(directory)
-      .filter((entry) =>
-        extensions.some((extension) => entry.toLowerCase().endsWith(extension)),
-      )
-      .sort((left, right) => left.localeCompare(right));
-  } catch {
-    return [];
-  }
-}
-
-function readFileSyncUtf8(filePath: string): string {
-  return readFileSync(filePath, "utf8");
-}
-
-function isCurrentActionRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function parseCanonicalArtifactData(rawJson: string): unknown {
+  const parsed = JSON.parse(rawJson) as unknown;
+  assertCanonicalArtifact(parsed);
+  return (parsed as CanonicalArtifact).payload.data;
 }
 
 async function readSavedProjectIntakeFile(
@@ -5518,7 +3925,7 @@ async function readSavedProjectIntakeFile(
   const directory = resolveProjectIntakeDirectory();
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validateProjectIntake(parsed);
 
   if (!validation.valid) {
@@ -5543,7 +3950,7 @@ async function readSavedProjectPlanningDocumentsRecord(
   const directory = resolveProjectPlanningDocumentsDirectory();
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
 
   if (!isPlainRecord(parsed)) {
     throw new Error("Saved Project Planning Documents JSON must be an object.");
@@ -5574,7 +3981,7 @@ async function readSavedRepositoryReconciliationRecord(
   const directory = resolveRepositoryReconciliationDirectory();
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validationErrors = validateRepositoryReconciliationRecord(parsed);
 
   if (validationErrors.length > 0) {
@@ -5598,7 +4005,7 @@ async function readSavedProjectRoadmapRecord(
   const directory = resolveProjectRoadmapDirectory();
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validationErrors = validateProjectRoadmapRecord(parsed);
 
   if (validationErrors.length > 0) {
@@ -5620,7 +4027,7 @@ async function readSavedPhaseMapRecord(fileName: string): Promise<PhaseMapRecord
   const directory = resolvePhaseMapDirectory();
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validationErrors = validatePhaseMapRecord(parsed);
 
   if (validationErrors.length > 0) {
@@ -5651,7 +4058,7 @@ async function readSavedWorkCardPlanRecord(
   const directory = resolveWorkCardPlansDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validationErrors = validateWorkCardPlanRecord(parsed);
 
   if (validationErrors.length > 0) {
@@ -5769,7 +4176,7 @@ async function readSavedProjectArchitectInterviewPromptFile(
   const directory = resolveProjectArchitectInterviewPromptsDirectory();
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validateProjectArchitectInterviewPrompt(parsed);
 
   if (!validation.valid) {
@@ -5941,7 +4348,7 @@ async function readSavedPhaseIntakeFile(
   const directory = resolvePhaseIntakeDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validatePhaseIntake(parsed);
 
   if (!validation.valid) {
@@ -5992,7 +4399,7 @@ async function readSavedPhaseArchitectInterviewPromptFile(
   const directory = resolvePhaseArchitectInterviewPromptsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validatePhaseArchitectInterviewPrompt(parsed);
 
   if (!validation.valid) {
@@ -6097,7 +4504,7 @@ async function readRepositoryReconciliationPromptContext(
 }
 
 async function readPhaseMapContext(
-  input: PhaseMapBuilderRequest,
+  input: PhaseMapRequest,
 ): Promise<PhaseMapBuildInput> {
   const projectPlanningDocumentFileName =
     input.projectPlanningDocumentFileName?.trim() ?? "";
@@ -6221,7 +4628,7 @@ async function readPhasePlanningDocumentsContext(
     phaseIntakeFileName.length === 0
   ) {
     throw new Error(
-      "Run Phase Map Builder first, then select a mapped phase for planning.",
+      "Run Phase Map Composer first, then select a mapped phase for planning.",
     );
   }
 
@@ -6482,18 +4889,12 @@ async function saveProjectRoadmapNextPhaseArtifacts(
     renderPhaseReadinessReviewMarkdown(readinessReview);
   const readinessDirectory = resolvePhaseReadinessReviewsDirectory(phaseFolder);
   const readinessFileNames = buildPhaseReadinessReviewFileNames(phaseFolder);
-  const readinessTargets = await resolveAvailableFilePair(
-    readinessDirectory,
-    readinessFileNames.jsonFileName,
-    readinessFileNames.markdownFileName,
-    "A safe Phase Readiness Review filename could not be generated.",
-  );
   const readinessNameErrors = [
     ...validatePhaseReadinessReviewArtifactFileName(
-      readinessTargets.firstFileName,
+      readinessFileNames.jsonFileName,
     ),
     ...validatePhaseReadinessReviewArtifactFileName(
-      readinessTargets.secondFileName,
+      readinessFileNames.markdownFileName,
     ),
   ];
 
@@ -6507,46 +4908,36 @@ async function saveProjectRoadmapNextPhaseArtifacts(
   const workCardPlanFileNames = buildRoadmapWorkCardPlanFileNames(
     roadmap.nextExecutablePhase.phaseTitle || phaseFolder,
   );
-  const workCardPlanTargets = await resolveAvailableFilePair(
-    workCardPlanDirectory,
-    workCardPlanFileNames.jsonFileName,
-    workCardPlanFileNames.markdownFileName,
-    "A safe Work Card Plan filename could not be generated.",
-  );
   const workCardPlanNameErrors = [
-    ...validateWorkCardPlanArtifactFileName(workCardPlanTargets.firstFileName),
-    ...validateWorkCardPlanArtifactFileName(workCardPlanTargets.secondFileName),
+    ...validateWorkCardPlanArtifactFileName(workCardPlanFileNames.jsonFileName),
+    ...validateWorkCardPlanArtifactFileName(
+      workCardPlanFileNames.markdownFileName,
+    ),
   ];
 
   if (workCardPlanNameErrors.length > 0) {
     throw new Error(workCardPlanNameErrors.join(" "));
   }
 
-  await mkdir(readinessDirectory, { recursive: true });
-  await mkdir(workCardPlanDirectory, { recursive: true });
-  await writeFile(
-    readinessTargets.firstPath,
-    `${JSON.stringify(readinessReview, null, 2)}\n`,
-    {
-      encoding: "utf8",
-      flag: "wx",
-    },
-  );
-  await writeFile(readinessTargets.secondPath, readinessMarkdown, {
-    encoding: "utf8",
-    flag: "wx",
+  const readinessTargets = await saveCanonicalPlanningArtifact({
+    directory: readinessDirectory,
+    jsonFileName: readinessFileNames.jsonFileName,
+    markdownFileName: readinessFileNames.markdownFileName,
+    artifactType: "phase_readiness_review",
+    title: `${phaseFolder} Phase Readiness Review`,
+    contentMarkdown: readinessMarkdown,
+    data: readinessReview,
+    phaseId: phaseFolder,
   });
-  await writeFile(
-    workCardPlanTargets.firstPath,
-    `${JSON.stringify(workCardPlan, null, 2)}\n`,
-    {
-      encoding: "utf8",
-      flag: "wx",
-    },
-  );
-  await writeFile(workCardPlanTargets.secondPath, workCardPlanMarkdown, {
-    encoding: "utf8",
-    flag: "wx",
+  const workCardPlanTargets = await saveCanonicalPlanningArtifact({
+    directory: workCardPlanDirectory,
+    jsonFileName: workCardPlanFileNames.jsonFileName,
+    markdownFileName: workCardPlanFileNames.markdownFileName,
+    artifactType: "work_card_plan",
+    title: `${phaseFolder} Work Card Plan`,
+    contentMarkdown: workCardPlanMarkdown,
+    data: workCardPlan,
+    phaseId: phaseFolder,
   });
 
   const compatibilityPhaseIntakePaths =
@@ -6580,15 +4971,9 @@ async function saveRoadmapCompatibilityPhaseIntake(
   const markdown = renderPhaseIntakeMarkdown(phaseIntake);
   const directory = resolvePhaseIntakeDirectory(phaseIntake.phaseFolder);
   const fileNames = buildPhaseIntakeFileNames(phaseIntake.phaseName);
-  const targets = await resolveAvailableFilePair(
-    directory,
-    fileNames.jsonFileName,
-    fileNames.markdownFileName,
-    "A safe compatibility Phase Intake filename could not be generated.",
-  );
   const targetNameErrors = [
-    ...validatePhaseIntakeArtifactFileName(targets.firstFileName),
-    ...validatePhaseIntakeArtifactFileName(targets.secondFileName),
+    ...validatePhaseIntakeArtifactFileName(fileNames.jsonFileName),
+    ...validatePhaseIntakeArtifactFileName(fileNames.markdownFileName),
   ];
   const validation = validatePhaseIntake(phaseIntake);
 
@@ -6600,18 +4985,15 @@ async function saveRoadmapCompatibilityPhaseIntake(
     throw new Error(validation.errors.join(" "));
   }
 
-  await mkdir(directory, { recursive: true });
-  await writeFile(
-    targets.firstPath,
-    `${JSON.stringify(phaseIntake, null, 2)}\n`,
-    {
-      encoding: "utf8",
-      flag: "wx",
-    },
-  );
-  await writeFile(targets.secondPath, markdown, {
-    encoding: "utf8",
-    flag: "wx",
+  const targets = await saveCanonicalPlanningArtifact({
+    directory,
+    jsonFileName: fileNames.jsonFileName,
+    markdownFileName: fileNames.markdownFileName,
+    artifactType: "phase_intake",
+    title: `${phaseIntake.phaseName} Phase Intake`,
+    contentMarkdown: markdown,
+    data: phaseIntake,
+    phaseId: phaseIntake.phaseFolder,
   });
 
   return {
@@ -6634,8 +5016,8 @@ async function readProjectRoadmapPhaseContexts(): Promise<
         resolveWorkCardsDirectory(phase),
         [".json", ".md"],
       ),
-      builderReportFileNames: await readPlanningFolderFileNames(
-        resolveBuilderReportsDirectory(phase),
+      implementerReportFileNames: await readPlanningFolderFileNames(
+        resolveImplementerReportsDirectory(phase),
         [".md"],
       ),
       validationReportFileNames: await readPlanningFolderFileNames(
@@ -6721,7 +5103,7 @@ async function buildProjectRoadmapSourceArtifacts(input: {
       status: "found",
       notes: [
         `${context.summary.workCardCount} Work Card(s)`,
-        `${context.summary.builderReportCount} Builder Report(s)`,
+        `${context.summary.implementerReportCount} Implementer Report(s)`,
         `${context.summary.validationReportCount} Validation Report(s)`,
         `${context.summary.repairPromptCount} Repair Prompt(s)`,
         `${context.summary.closeoutReportCount} Closeout Report(s)`,
@@ -6983,7 +5365,7 @@ function formatPhaseArtifactSummaryForPrompt(
     `### ${summary.phase}`,
     `Work Cards: ${summary.workCardCount}`,
     `Work Cards with JSON and Markdown: ${summary.workCardsWithBothJsonAndMarkdown.length}`,
-    `Builder_Reports compatibility reports: ${summary.builderReportCount}`,
+    `Canonical Implementer Reports: ${summary.implementerReportCount}`,
     `Validation reports: ${summary.validationReportCount}`,
     `Repair prompts: ${summary.repairPromptCount}`,
     `Closeout reports: ${summary.closeoutReportCount}`,
@@ -7061,7 +5443,7 @@ async function readSavedWorkCardFile(
   const directory = resolveWorkCardsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validateWorkCard(parsed);
 
   if (!validation.valid) {
@@ -7092,39 +5474,26 @@ async function readSavedWorkCardAssociationFile(
   const directory = resolveWorkCardsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validateWorkCard(parsed);
 
-  if (validation.valid) {
-    const workCard = parsed as WorkCard;
-
-    if (workCard.phase !== phase.trim()) {
-      throw new Error(
-        "Saved Work Card phase must match the selected phase folder.",
-      );
-    }
-
-    return {
-      workCardId: workCard.workCardId,
-      title: workCard.title,
-      phase: workCard.phase,
-      status: workCard.status,
-      riskLevel: workCard.riskLevel,
-    };
-  }
-
-  const compatibleWorkCard = coerceWorkCardValidationTargetFields(
-    parsed,
-    phase,
-  );
-
-  if (!compatibleWorkCard) {
+  if (!validation.valid) {
     throw new Error(
-      `Saved Work Card JSON is not usable for association: ${validation.errors.join(" ")}`,
+      `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
     );
   }
 
-  return compatibleWorkCard;
+  const workCard = parsed as WorkCard;
+  if (workCard.phase !== phase.trim()) {
+    throw new Error("Saved Work Card phase must match the selected phase folder.");
+  }
+  return {
+    workCardId: workCard.workCardId,
+    title: workCard.title,
+    phase: workCard.phase,
+    status: workCard.status,
+    riskLevel: workCard.riskLevel,
+  };
 }
 
 async function readWorkCardValidationTargetFile(
@@ -7140,41 +5509,27 @@ async function readWorkCardValidationTargetFile(
   const directory = resolveWorkCardsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const validation = validateWorkCard(parsed);
 
-  if (validation.valid) {
-    const workCard = parsed as WorkCard;
-
-    return buildWorkCardValidationTarget(
-      workCard,
-      fileName,
-      expectedBuilderReportFileName(workCard),
-    );
-  }
-
-  const compatibleWorkCard = coerceWorkCardValidationTargetFields(
-    parsed,
-    phase,
-  );
-
-  if (!compatibleWorkCard) {
+  if (!validation.valid) {
     throw new Error(
       `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
     );
   }
 
-  return buildValidationTargetFromWorkCardFields(
-    compatibleWorkCard,
+  const workCard = parsed as WorkCard;
+  return buildWorkCardValidationTarget(
+    workCard,
     fileName,
-    expectedBuilderReportFileName(compatibleWorkCard),
+    expectedImplementerReportFileName(workCard),
   );
 }
 
-function expectedBuilderReportFileName(
+function expectedImplementerReportFileName(
   workCard: Pick<WorkCardValidationTargetFields, "workCardId" | "title">,
 ): string {
-  return `BUILDER_REPORT_${buildWorkCardFileStem(workCard.workCardId, workCard.title)}.md`;
+  return `IMPLEMENTER_REPORT_${buildWorkCardFileStem(workCard.workCardId, workCard.title)}.md`;
 }
 
 async function readHumanValidationTargetContext(input: {
@@ -7221,7 +5576,7 @@ async function readSavedValidationTargetFile(
   const directory = resolveValidationTargetsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = JSON.parse(rawJson) as unknown;
+  const parsed = parseCanonicalArtifactData(rawJson);
   const target = toValidationTargetRecord(parsed);
 
   if (target.phase !== phase.trim()) {
@@ -7237,7 +5592,7 @@ async function readSavedValidationTargetFile(
   };
 }
 
-async function readOptionalBuilderReport(
+async function readOptionalImplementerReport(
   phase: string,
   fileName: string | undefined,
 ): Promise<{ fileName: string; content: string } | undefined> {
@@ -7253,7 +5608,7 @@ async function readOptionalBuilderReport(
     throw new Error(fileNameErrors.join(" "));
   }
 
-  const directory = resolveBuilderReportsDirectory(phase);
+  const directory = resolveImplementerReportsDirectory(phase);
   const filePath = resolveInside(directory, value);
 
   return {
@@ -7264,7 +5619,7 @@ async function readOptionalBuilderReport(
 
 async function resolveManualValidationChecklist(
   target: ValidationTargetSummary,
-  builderReport: { fileName: string; content: string } | undefined,
+  implementerReport: { fileName: string; content: string } | undefined,
 ): Promise<ManualValidationChecklistExtraction | undefined> {
   const architectChecklist = await findArchitectValidationChecklist(target);
 
@@ -7325,7 +5680,7 @@ async function resolveManualValidationChecklist(
     }
   }
 
-  if (!builderReport) {
+  if (!implementerReport) {
     return {
       detected: false,
       text: noManualValidationChecklistDetectedMessage,
@@ -7334,9 +5689,9 @@ async function resolveManualValidationChecklist(
   }
 
   return {
-    ...extractManualValidationChecklist(builderReport.content),
+    ...extractManualValidationChecklist(implementerReport.content),
     sourceLabel: "Implementer Report",
-    sourceFileName: builderReport.fileName,
+    sourceFileName: implementerReport.fileName,
     isFallback: true,
   };
 }
@@ -7392,13 +5747,13 @@ async function findArchitectValidationChecklist(
   return undefined;
 }
 
-async function listBuilderReportOptionsForWorkCard(
+async function listImplementerReportOptionsForWorkCard(
   workCard: WorkCard,
 ): Promise<{
-  options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }>;
-  invalidFiles: InvalidHumanValidationBuilderReportFile[];
+  options: Array<HumanValidationImplementerReportOption & { modifiedMs: number }>;
+  invalidFiles: InvalidHumanValidationImplementerReportFile[];
 }> {
-  return listBuilderReportOptionsForValidationTarget(
+  return listImplementerReportOptionsForValidationTarget(
     buildWorkCardValidationTarget(
       workCard,
       `${buildWorkCardFileStem(workCard.workCardId, workCard.title)}.json`,
@@ -7406,13 +5761,13 @@ async function listBuilderReportOptionsForWorkCard(
   );
 }
 
-async function listBuilderReportOptionsForValidationTarget(
+async function listImplementerReportOptionsForValidationTarget(
   target: ValidationTargetRecord,
 ): Promise<{
-  options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }>;
-  invalidFiles: InvalidHumanValidationBuilderReportFile[];
+  options: Array<HumanValidationImplementerReportOption & { modifiedMs: number }>;
+  invalidFiles: InvalidHumanValidationImplementerReportFile[];
 }> {
-  const directory = resolveBuilderReportsDirectory(target.phase);
+  const directory = resolveImplementerReportsDirectory(target.phase);
   let entries: string[] = [];
 
   try {
@@ -7423,9 +5778,9 @@ async function listBuilderReportOptionsForValidationTarget(
     }
   }
 
-  const options: Array<HumanValidationBuilderReportOption & { modifiedMs: number }> =
+  const options: Array<HumanValidationImplementerReportOption & { modifiedMs: number }> =
     [];
-  const invalidFiles: InvalidHumanValidationBuilderReportFile[] = [];
+  const invalidFiles: InvalidHumanValidationImplementerReportFile[] = [];
 
   for (const fileName of entries.filter((entry) =>
     entry.toLowerCase().endsWith(".md"),
@@ -7478,8 +5833,8 @@ async function listMarkdownArtifactOptions(
   folder: SupportingArtifactFolder,
   workCardId: string,
   preferredFileName: string | undefined,
-  invalidFiles: NonNullable<BuilderPromptArtifactListResult["invalidFiles"]>,
-): Promise<BuilderPromptArtifactOption[]> {
+  invalidFiles: NonNullable<ImplementerExecutionPacketArtifactListResult["invalidFiles"]>,
+): Promise<ImplementerExecutionPacketArtifactOption[]> {
   const directory = resolveSupportingArtifactDirectory(phase, folder);
   let entries: string[] = [];
 
@@ -7491,7 +5846,7 @@ async function listMarkdownArtifactOptions(
     }
   }
 
-  const options: BuilderPromptArtifactOption[] = [];
+  const options: ImplementerExecutionPacketArtifactOption[] = [];
 
   for (const fileName of entries.filter((entry) =>
     entry.toLowerCase().endsWith(".md"),
@@ -7533,10 +5888,10 @@ async function listMarkdownArtifactOptions(
   });
 }
 
-async function readBuilderPromptSupportingArtifacts(
+async function readImplementerExecutionPacketSupportingArtifacts(
   phase: string,
-  fileNames: BuilderPromptSupportingArtifactFileNames | undefined,
-): Promise<BuilderPromptSupportingArtifacts> {
+  fileNames: ImplementerExecutionPacketSupportingArtifactFileNames | undefined,
+): Promise<ImplementerExecutionPacketSupportingArtifacts> {
   const selected = fileNames ?? {};
 
   return {
@@ -7555,10 +5910,10 @@ async function readBuilderPromptSupportingArtifacts(
       "Risk_Reviews",
       selected.riskReview,
     ),
-    priorBuilderReport: await readOptionalMarkdownArtifact(
+    priorImplementerReport: await readOptionalMarkdownArtifact(
       phase,
-      "Builder_Reports",
-      selected.priorBuilderReport,
+      "Implementer_Reports",
+      selected.priorImplementerReport,
     ),
   };
 }
@@ -7567,7 +5922,7 @@ async function readOptionalMarkdownArtifact(
   phase: string,
   folder: SupportingArtifactFolder,
   fileName: string | undefined,
-): Promise<BuilderPromptSupportingArtifact | undefined> {
+): Promise<ImplementerExecutionPacketSupportingArtifact | undefined> {
   const value = fileName?.trim() ?? "";
 
   if (value.length === 0) {
@@ -7606,7 +5961,7 @@ function resolveSupportingArtifactDirectory(
     return resolveRiskReviewsDirectory(phase);
   }
 
-  return resolveBuilderReportsDirectory(phase);
+  return resolveImplementerReportsDirectory(phase);
 }
 
 async function readPhaseArtifactSummary(phase: string) {
@@ -7674,12 +6029,12 @@ function resolvePhaseArtifactDirectory(
     return resolveRiskReviewsDirectory(phase);
   }
 
-  if (folder === "Builder_Prompts") {
-    return resolveBuilderPromptsDirectory(phase);
+  if (folder === "Implementer_Execution_Packets") {
+    return resolveImplementerExecutionPacketsDirectory(phase);
   }
 
-  if (folder === "Builder_Reports") {
-    return resolveBuilderReportsDirectory(phase);
+  if (folder === "Implementer_Reports") {
+    return resolveImplementerReportsDirectory(phase);
   }
 
   if (folder === "Validation_Reports") {
@@ -7694,13 +6049,13 @@ function resolvePhaseArtifactDirectory(
 }
 
 function pickDefaultArtifactFileName(
-  options: BuilderPromptArtifactOption[],
+  options: ImplementerExecutionPacketArtifactOption[],
 ): string | undefined {
   return options.find((option) => option.isDefaultMatch)?.fileName;
 }
 
 function buildMissingArtifactNotes(
-  defaultSelections: BuilderPromptSupportingArtifactFileNames,
+  defaultSelections: ImplementerExecutionPacketSupportingArtifactFileNames,
 ): string[] {
   const notes: string[] = [];
 
@@ -7722,7 +6077,7 @@ function buildMissingArtifactNotes(
     );
   }
 
-  if (!defaultSelections.priorBuilderReport) {
+  if (!defaultSelections.priorImplementerReport) {
     notes.push(
       "No matching prior Implementer Report artifact was found. Implementation-history context will be omitted unless selected.",
     );
@@ -7740,7 +6095,7 @@ function toHumanValidationStatusRecord(
   }
 
   const recordPhase = requireStatusText(
-    candidate.phase ?? candidate.phase_id,
+    candidate.phase,
     "Phase",
   );
 
@@ -7752,14 +6107,13 @@ function toHumanValidationStatusRecord(
     candidate.validationResult ?? candidate.status,
   );
   const architectDisposition = normalizeOptionalText(
-    candidate.architectDisposition ?? candidate.architect_disposition,
+    candidate.architectDisposition,
   );
-  const legacyOperatorDecisionValue =
-    candidate.operatorDecision ?? candidate.operator_decision ?? candidate.decision;
+  const operatorDecisionValue = candidate.operatorDecision;
   const operatorDecision =
-    legacyOperatorDecisionValue === undefined
+    operatorDecisionValue === undefined
       ? undefined
-      : normalizeHumanValidationOperatorDecision(legacyOperatorDecisionValue);
+      : normalizeHumanValidationOperatorDecision(operatorDecisionValue);
 
   if (!isHumanValidationResult(validationResult)) {
     throw new Error("Validation result is not a supported value.");
@@ -7769,11 +6123,11 @@ function toHumanValidationStatusRecord(
     operatorDecision !== undefined &&
     !isHumanValidationOperatorDecision(operatorDecision)
   ) {
-    throw new Error("Legacy Operator decision is not a supported advisory value.");
+    throw new Error("Operator decision is not a supported advisory value.");
   }
 
   const validationTargetKindValue =
-    candidate.validationTargetKind ?? candidate.validation_target_kind;
+    candidate.validationTargetKind;
   const validationTargetKind =
     typeof validationTargetKindValue === "string" &&
     isValidationTargetKind(validationTargetKindValue)
@@ -7785,25 +6139,16 @@ function toHumanValidationStatusRecord(
     validationResult,
     architectDisposition,
     operatorDecision,
-    workCardId: normalizeOptionalText(
-      candidate.workCardId ?? candidate.work_card_id,
-    ),
-    workCardTitle: normalizeOptionalText(
-      candidate.workCardTitle ?? candidate.work_card_title,
-    ),
-    validationTargetId: normalizeOptionalText(
-      candidate.validationTargetId ?? candidate.validation_target_id,
-    ),
+    workCardId: normalizeOptionalText(candidate.workCardId),
+    workCardTitle: normalizeOptionalText(candidate.workCardTitle),
+    validationTargetId: normalizeOptionalText(candidate.validationTargetId),
     validationTargetKind,
-    validationTargetTitle: normalizeOptionalText(
-      candidate.validationTargetTitle ?? candidate.validation_target_title,
-    ),
+    validationTargetTitle: normalizeOptionalText(candidate.validationTargetTitle),
     validationTargetSourceJsonFile: normalizeOptionalText(
-      candidate.validationTargetSourceJsonFile ??
-        candidate.validation_target_source_json_file,
+      candidate.validationTargetSourceJsonFile,
     ),
     createdAt: normalizeOptionalText(
-      candidate.createdAt ?? candidate.validation_date,
+      candidate.createdAt,
     ),
   };
 
@@ -7967,19 +6312,19 @@ function fileNameMatchesValidationTarget(
 }
 
 function toSelectedSupportingArtifactFileNames(
-  supportingArtifacts: BuilderPromptSupportingArtifacts,
-): BuilderPromptSupportingArtifactFileNames {
+  supportingArtifacts: ImplementerExecutionPacketSupportingArtifacts,
+): ImplementerExecutionPacketSupportingArtifactFileNames {
   return {
     workCardMarkdown: supportingArtifacts.workCardMarkdown?.fileName,
     architectPrompt: supportingArtifacts.architectPrompt?.fileName,
     riskReview: supportingArtifacts.riskReview?.fileName,
-    priorBuilderReport: supportingArtifacts.priorBuilderReport?.fileName,
+    priorImplementerReport: supportingArtifacts.priorImplementerReport?.fileName,
   };
 }
 
-function hasBuilderPromptHighRiskContext(
+function hasImplementerExecutionPacketHighRiskContext(
   workCard: WorkCard,
-  supportingArtifacts: BuilderPromptSupportingArtifacts,
+  supportingArtifacts: ImplementerExecutionPacketSupportingArtifacts,
 ): boolean {
   return (
     workCard.riskLevel === "high" ||
@@ -8130,62 +6475,159 @@ function compareSavedPhaseIntakeSummaries(
   );
 }
 
-async function failIfExists(
-  filePath: string,
-  message: string,
-): Promise<void> {
-  try {
-    await access(filePath);
-  } catch (error) {
-    if (isNodeErrorWithCode(error, "ENOENT")) {
-      return;
-    }
-
-    throw error;
-  }
-
-  throw new Error(message);
+interface CanonicalPlanningArtifactSaveInput {
+  directory: string;
+  jsonFileName?: string;
+  markdownFileName: string;
+  artifactType: string;
+  title?: string;
+  contentMarkdown: string;
+  data: unknown;
+  phaseId?: string;
+  workCardId?: string;
+  parentArtifactId?: string;
+  status?: ArtifactStatus;
+  relationships?: Partial<ArtifactRelationships>;
 }
 
-async function resolveAvailableFilePair(
-  directory: string,
-  firstFileName: string,
-  secondFileName: string,
-  failureMessage = "A safe paired artifact filename could not be generated.",
-): Promise<{
+interface CanonicalPlanningArtifactSaveResult {
   firstPath: string;
   secondPath: string;
   firstFileName: string;
   secondFileName: string;
-}> {
-  for (let suffix = 1; suffix <= 99; suffix += 1) {
-    const nextFirstFileName = appendFileNameSuffix(firstFileName, suffix);
-    const nextSecondFileName = appendFileNameSuffix(secondFileName, suffix);
-    const firstPath = resolveInside(directory, nextFirstFileName);
-    const secondPath = resolveInside(directory, nextSecondFileName);
+}
 
-    if (!(await pathExists(firstPath)) && !(await pathExists(secondPath))) {
-      return {
-        firstPath,
-        secondPath,
-        firstFileName: nextFirstFileName,
-        secondFileName: nextSecondFileName,
-      };
+/**
+ * The only planning-artifact write boundary in this store. A logical artifact
+ * keeps one fixed JSON/Markdown filename pair; subsequent saves create a new
+ * canonical revision and synchronously update the registry.
+ */
+async function saveCanonicalPlanningArtifact(
+  input: CanonicalPlanningArtifactSaveInput,
+): Promise<CanonicalPlanningArtifactSaveResult> {
+  const markdownFileName = input.markdownFileName.trim();
+  const jsonFileName =
+    input.jsonFileName?.trim() ?? markdownFileName.replace(/\.md$/i, ".json");
+  const markdownStem = markdownFileName.replace(/\.md$/i, "");
+  const jsonStem = jsonFileName.replace(/\.json$/i, "");
+
+  if (
+    !/\.md$/i.test(markdownFileName) ||
+    !/\.json$/i.test(jsonFileName) ||
+    markdownStem !== jsonStem
+  ) {
+    throw new Error("Canonical artifact filenames must be one matching JSON/Markdown pair.");
+  }
+
+  const relativeDirectory = toRepositoryRelativePath(input.directory);
+  const location: CanonicalArtifactLocation = {
+    directoryPath: relativeDirectory,
+    fileStem: markdownStem,
+  };
+  let existing: CanonicalArtifact | undefined;
+
+  try {
+    existing = (await artifactPairService.readArtifact(location)).artifact;
+  } catch (error) {
+    if (!(error instanceof ArtifactPairServiceError && error.code === "not_found")) {
+      throw error;
     }
   }
 
-  throw new Error(failureMessage);
+  const phaseId = existing?.phaseId ?? input.phaseId;
+  const workCardId = existing?.workCardId ?? input.workCardId?.trim();
+  const artifactType = existing?.artifactType ?? input.artifactType;
+  const artifactId =
+    existing?.artifactId ??
+    buildCanonicalArtifactId(phaseId, artifactType, workCardId ?? markdownStem);
+  const relationships = mergeArtifactRelationships(
+    existing?.relationships,
+    input.relationships,
+  );
+  const title =
+    input.title?.trim() ||
+    /^#\s+(.+)$/m.exec(input.contentMarkdown)?.[1]?.trim() ||
+    markdownStem.replaceAll("_", " ");
+  const routedWrite = bindRoutedArtifactWrite({
+    artifactId,
+    artifactType,
+    ...(phaseId ? { phaseId } : {}),
+    ...(workCardId ? { workCardId } : {}),
+    relationships,
+    data: toCanonicalJsonValue(input.data),
+  });
+  const result = await artifactPairService.commitArtifact({
+    artifactId: routedWrite.artifactId,
+    artifactType,
+    status: existing?.status ?? input.status ?? "active",
+    projectId: existing?.projectId ?? "champcity-ai",
+    ...(phaseId ? { phaseId } : {}),
+    ...(workCardId ? { workCardId } : {}),
+    ...((existing?.parentArtifactId ?? input.parentArtifactId)
+      ? { parentArtifactId: existing?.parentArtifactId ?? input.parentArtifactId }
+      : {}),
+    relationships: routedWrite.relationships,
+    payload: {
+      title,
+      contentMarkdown: input.contentMarkdown,
+      data: routedWrite.data,
+    },
+    location,
+    expectedRevision: existing?.revision ?? null,
+  });
+  recordRoutedArtifactCommit(result.artifact);
+
+  return {
+    firstPath: resolveInside(repositoryRoot, result.artifact.jsonPath),
+    secondPath: resolveInside(repositoryRoot, result.artifact.markdownPath),
+    firstFileName: jsonFileName,
+    secondFileName: markdownFileName,
+  };
 }
 
-async function resolveAvailableMarkdownPath(
-  directory: string,
-  fileName: string,
-): Promise<{ filePath: string; fileName: string }> {
-  return resolveAvailableFilePath(
-    directory,
-    fileName,
-    "A safe repair prompt filename could not be generated.",
-  );
+function buildCanonicalArtifactId(
+  phaseId: string | undefined,
+  artifactType: string,
+  logicalSuffix: string,
+): string {
+  const suffix = logicalSuffix
+    .trim()
+    .replace(/\.(?:json|md)$/i, "")
+    .replace(/[^A-Za-z0-9-]+/g, "_");
+  return `champcity-ai/${phaseId ?? "project"}/${artifactType}/${suffix}`;
+}
+
+function buildParentWorkCardArtifactId(
+  phaseId: string,
+  workCardId: string,
+): string | undefined {
+  const parentWorkCardId = /^(WC\d+)-REPAIR\d+$/i.exec(workCardId.trim())?.[1];
+  return parentWorkCardId
+    ? `champcity-ai/${phaseId}/work_card/${parentWorkCardId.toUpperCase()}`
+    : undefined;
+}
+
+function mergeArtifactRelationships(
+  existing: ArtifactRelationships | undefined,
+  additional: Partial<ArtifactRelationships> | undefined,
+): ArtifactRelationships {
+  const merge = (left: readonly string[] | undefined, right: readonly string[] | undefined) =>
+    Array.from(new Set([...(left ?? []), ...(right ?? [])])).sort();
+
+  return {
+    sources: merge(existing?.sources, additional?.sources),
+    expectedOutputs: merge(existing?.expectedOutputs, additional?.expectedOutputs),
+    supersedes: merge(existing?.supersedes, additional?.supersedes),
+    children: merge(existing?.children, additional?.children),
+  };
+}
+
+function toCanonicalJsonValue(value: unknown): JsonValue {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new TypeError("Canonical artifact data must be JSON serializable.");
+  }
+  return JSON.parse(serialized) as JsonValue;
 }
 
 async function resolveAvailableFilePath(

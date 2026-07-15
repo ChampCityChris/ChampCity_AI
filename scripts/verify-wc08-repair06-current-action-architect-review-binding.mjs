@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import {
   getCurrentRequiredAction,
-  listHumanValidationBuilderReports,
+  listHumanValidationImplementerReports,
   listSavedWorkCards,
   previewArchitectReviewRecord,
 } from "../dist/main/workCards/workCardFileStore.js";
@@ -19,14 +19,14 @@ const targetTitle =
   "Controlled Route Recovery and Accurate Route Evidence Authority";
 const targetWorkCardFileName =
   "WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json";
-const targetBuilderReportFileName =
-  "BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
-const parentBuilderReportFileName =
-  "BUILDER_REPORT_WC08_current_step_context_inspector.md";
+const targetImplementerReportFileName =
+  "IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
+const parentImplementerReportFileName =
+  "IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md";
 const referenceWorkCardFileName =
   "WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json";
-const referenceBuilderReportFileName =
-  "BUILDER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md";
+const referenceImplementerReportFileName =
+  "IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md";
 const expectedOutputFileName =
   "ARCHITECT_REVIEW_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
 
@@ -44,17 +44,17 @@ const syntheticAction = {
   reason: "The current action controls the Architect Review target.",
   sourceArtifacts: [
     {
-      path: `planning/phases/${phase}/Builder_Reports/${parentBuilderReportFileName}`,
+      path: `planning/phases/${phase}/Implementer_Reports/${parentImplementerReportFileName}`,
       role: "Historical parent Implementer Report",
       exists: true,
     },
     {
-      path: `planning/phases/${phase}/Builder_Reports/${referenceBuilderReportFileName}`,
+      path: `planning/phases/${phase}/Implementer_Reports/${referenceImplementerReportFileName}`,
       role: "Reference-card Implementer Report",
       exists: true,
     },
     {
-      path: `planning/phases/${phase}/Builder_Reports/${targetBuilderReportFileName}`,
+      path: `planning/phases/${phase}/Implementer_Reports/${targetImplementerReportFileName}`,
       role: "Repair Implementer Report",
       status: authoritativeCurrentActionImplementerReportStatus,
       exists: true,
@@ -80,12 +80,12 @@ assert.equal(
 assert.equal(syntheticResolution.binding?.phaseId, phase);
 assert.equal(syntheticResolution.binding?.workCardId, targetId);
 assert.equal(
-  syntheticResolution.binding?.builderReportPath,
-  `planning/phases/${phase}/Builder_Reports/${targetBuilderReportFileName}`,
+  syntheticResolution.binding?.implementerReportPath,
+  `planning/phases/${phase}/Implementer_Reports/${targetImplementerReportFileName}`,
 );
 assert.equal(
-  syntheticResolution.binding?.builderReportFileName,
-  targetBuilderReportFileName,
+  syntheticResolution.binding?.implementerReportFileName,
+  targetImplementerReportFileName,
   "The exact REPAIR04 report must win over stale parent and REPAIR05 reports.",
 );
 assert.equal(
@@ -120,7 +120,7 @@ const mismatchedResolution = resolveCurrentActionArchitectReviewBinding({
   ...syntheticAction,
   sourceArtifacts: [
     {
-      path: `planning/phases/${phase}/Builder_Reports/${referenceBuilderReportFileName}`,
+      path: `planning/phases/${phase}/Implementer_Reports/${referenceImplementerReportFileName}`,
       role: "Incorrect authoritative report",
       status: authoritativeCurrentActionImplementerReportStatus,
       exists: true,
@@ -165,8 +165,8 @@ assert.equal(liveResolution.binding?.bindingSource, "current_action");
 assert.equal(liveResolution.binding?.phaseId, phase);
 assert.equal(liveResolution.binding?.workCardId, targetId);
 assert.equal(
-  liveResolution.binding?.builderReportFileName,
-  targetBuilderReportFileName,
+  liveResolution.binding?.implementerReportFileName,
+  targetImplementerReportFileName,
 );
 assert.equal(
   liveResolution.binding?.expectedOutputFileName,
@@ -181,16 +181,16 @@ const liveBoundWorkCard = findCurrentActionArchitectReviewWorkCardFileName(
 );
 assert.equal(liveBoundWorkCard, targetWorkCardFileName);
 
-const reportList = await listHumanValidationBuilderReports({
+const reportList = await listHumanValidationImplementerReports({
   phase,
   workCardFileName: liveBoundWorkCard,
 });
 assert.equal(reportList.ok, true, reportList.errorMessages?.join(" "));
-assert.equal(reportList.defaultFileName, targetBuilderReportFileName);
+assert.equal(reportList.defaultFileName, targetImplementerReportFileName);
 assert.ok(
   reportList.options?.some(
     (option) =>
-      option.fileName === targetBuilderReportFileName && option.isDefaultMatch,
+      option.fileName === targetImplementerReportFileName && option.isDefaultMatch,
   ),
   "The exact REPAIR04 Implementer Report must be the default association.",
 );
@@ -198,7 +198,7 @@ assert.ok(
 const completeReviewInput = {
   phase,
   workCardFileName: targetWorkCardFileName,
-  builderReportFileName: targetBuilderReportFileName,
+  implementerReportFileName: targetImplementerReportFileName,
   routedReviewBinding: liveResolution.binding,
   decision: "Ready for Operator validation",
   workCardCompliance: "The implementation remains within WC08-REPAIR04 scope.",
@@ -215,17 +215,17 @@ const preview = await previewArchitectReviewRecord(completeReviewInput);
 assert.equal(preview.ok, true, preview.errorMessages?.join(" "));
 assert.equal(preview.workCardId, targetId);
 assert.equal(preview.workCardFileName, targetWorkCardFileName);
-assert.equal(preview.builderReportFileName, targetBuilderReportFileName);
+assert.equal(preview.implementerReportFileName, targetImplementerReportFileName);
 assert.equal(preview.savedFileName, expectedOutputFileName);
 assert.equal(preview.validation?.valid, true, preview.validation?.errors.join(" "));
 
 for (const mismatchedReport of [
-  parentBuilderReportFileName,
-  referenceBuilderReportFileName,
+  parentImplementerReportFileName,
+  referenceImplementerReportFileName,
 ]) {
   const mismatch = await previewArchitectReviewRecord({
     ...completeReviewInput,
-    builderReportFileName: mismatchedReport,
+    implementerReportFileName: mismatchedReport,
   });
   assert.equal(mismatch.ok, false);
   assert.match(mismatch.errorMessages?.join(" ") ?? "", /WC08-REPAIR04/);
@@ -238,7 +238,7 @@ for (const mismatchedReport of [
 const referencePairMismatch = await previewArchitectReviewRecord({
   ...completeReviewInput,
   workCardFileName: referenceWorkCardFileName,
-  builderReportFileName: referenceBuilderReportFileName,
+  implementerReportFileName: referenceImplementerReportFileName,
 });
 assert.equal(referencePairMismatch.ok, false);
 assert.match(
@@ -272,7 +272,7 @@ assert.match(
   /disabled=\{Boolean\(routedReviewBinding\)\}/,
 );
 assert.match(architectReviewScreenSource, /routedReviewBinding\?\.blockingState\.blocked/);
-assert.match(architectReviewScreenSource, /routedReviewBinding\.builderReportPath/);
+assert.match(architectReviewScreenSource, /routedReviewBinding\.implementerReportPath/);
 assert.match(architectReviewScreenSource, /routedReviewBinding\.expectedOutputPath/);
 assert.doesNotMatch(
   architectReviewScreenSource.slice(
@@ -304,7 +304,7 @@ assert.match(
 );
 assert.doesNotMatch(
   routerSource,
-  /architect_review_of_implementer_report_required:\s*"builder-report-capture"/,
+  /architect_review_of_implementer_report_required:\s*"implementer-report-capture"/,
 );
 
 console.log(

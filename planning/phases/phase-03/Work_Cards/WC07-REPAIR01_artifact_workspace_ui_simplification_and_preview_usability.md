@@ -1,3 +1,34 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability"
+  },
+  "payloadHash": "sha256:352561fcf0ad64578c4109f9395754db30fb61af26266d97e16f9c36ff86a597",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Repair Work Card: WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability
 
 Status: ready_for_implementer
@@ -24,7 +55,7 @@ Supporting sources:
 - `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_4.png`
 - `planning/phases/phase-03/Validation_Evidence/WC07_artifact_review_workspace/image_5.png`
 - `planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md`
 - `planning/phases/phase-03/Observation_Register.md`
 
@@ -330,7 +361,7 @@ The repair validation route must visibly expose:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md`
 
 The report must include:
 

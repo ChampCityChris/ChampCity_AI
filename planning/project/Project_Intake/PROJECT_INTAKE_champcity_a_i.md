@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
+  "artifactType": "project_intake",
+  "createdAt": "2026-06-30T15:56:46.541Z",
+  "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.json",
+  "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.md",
+  "payload": {
+    "kind": "project_intake",
+    "title": "Project Intake: ChampCity A/I"
+  },
+  "payloadHash": "sha256:873cac3c3366a54276c216b26a1275403e918833b4b82023db9b6408edf5bc5c",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T15:56:46.541Z"
+}
+-->
+
 # Project Intake: ChampCity A/I
 
 ## Project Name
@@ -10,7 +36,7 @@ Not provided.
 
 ## What Are You Trying To Build?
 
-We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt builder but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
+We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt implementer but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
 
 ## Who Is This For?
 

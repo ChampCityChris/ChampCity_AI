@@ -9,17 +9,17 @@ const targetTitle =
   "Controlled Route Recovery and Accurate Route Evidence Authority";
 const targetWorkCardFileName =
   "WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json";
-const targetBuilderReportFileName =
-  "BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
-const targetBuilderReportPath =
-  `planning/phases/${phase}/Builder_Reports/${targetBuilderReportFileName}`;
+const targetImplementerReportFileName =
+  "IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
+const targetImplementerReportPath =
+  `planning/phases/${phase}/Implementer_Reports/${targetImplementerReportFileName}`;
 const referenceId = "WC08-REPAIR05";
 const referenceTitle =
   "Architect Review Route and Repair Work Card Association";
 const referenceWorkCardFileName =
   "WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json";
-const referenceBuilderReportFileName =
-  "BUILDER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md";
+const referenceImplementerReportFileName =
+  "IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md";
 const expectedOutputFileName =
   "ARCHITECT_REVIEW_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
 const expectedOutputPath =
@@ -27,6 +27,7 @@ const expectedOutputPath =
 
 let latestPreviewPayload;
 let latestSavePayload;
+let workflowAdvanced = false;
 
 app.disableHardwareAcceleration();
 
@@ -79,12 +80,12 @@ const currentAction = {
   reason: "The current action is authoritative for the review target.",
   sourceArtifacts: [
     {
-      path: `planning/phases/${phase}/Builder_Reports/${referenceBuilderReportFileName}`,
+      path: `planning/phases/${phase}/Implementer_Reports/${referenceImplementerReportFileName}`,
       role: "Reference repair Implementer Report",
       exists: true,
     },
     {
-      path: targetBuilderReportPath,
+      path: targetImplementerReportPath,
       role: "Repair Implementer Report",
       status: "authoritative_current_action_implementer_report",
       exists: true,
@@ -103,6 +104,65 @@ const currentAction = {
     artifactPath: expectedOutputPath,
   },
   warnings: [],
+  routedAction: {
+    schemaVersion: "champcity.routed-action.v1",
+    actionId: "architect_review_of_implementer_report_required",
+    stage: "prove",
+    role: "architect",
+    screenId: "architect-review",
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+    sourceArtifactIds: [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+    ],
+    expectedOutput: {
+      artifactId: "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
+      artifactType: "architect_review",
+    },
+    routes: {
+      success: "operator_validation_required",
+      failure: "architect_review_of_implementer_report_required",
+      repair: "architect_disposition_required",
+    },
+    bindingSource: {
+      kind: "workflow_state_index",
+      workflowStateArtifactId: "champcity-ai/system/workflow_state",
+      stateRevision: 1,
+    },
+    authorityStatus: "ready",
+    blockers: [],
+    stateRevision: 1,
+  },
+};
+
+const operatorValidationAction = {
+  ...currentAction,
+  id: "operator_validation_required",
+  title: "Operator Validation required",
+  summary: "Validate the routed WC08-REPAIR04 Architect Review.",
+  responsibleRole: "operator",
+  status: "needs_validation",
+  sourceArtifacts: [
+    { path: expectedOutputPath, role: "Architect Review", exists: true },
+  ],
+  routedAction: {
+    ...currentAction.routedAction,
+    actionId: "operator_validation_required",
+    role: "operator",
+    screenId: "operator-validation",
+    sourceArtifactIds: [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
+    ],
+    expectedOutput: {
+      artifactId: "champcity-ai/phase-03/validation_report/WC08-REPAIR04",
+      artifactType: "validation_report",
+    },
+    stateRevision: 2,
+    bindingSource: {
+      kind: "workflow_state_index",
+      workflowStateArtifactId: "champcity-ai/system/workflow_state",
+      stateRevision: 2,
+    },
+  },
 };
 
 function architectReviewResult(input) {
@@ -112,13 +172,13 @@ function architectReviewResult(input) {
       `# Architect Review of Repair Implementer Report - ${targetId} ${targetTitle}`,
       "",
       `- Source Work Card JSON: ${input.workCardFileName}`,
-      `- Associated Implementer Report: ${input.builderReportFileName}`,
+      `- Associated Implementer Report: ${input.implementerReportFileName}`,
     ].join("\n"),
     savedFileName: expectedOutputFileName,
     workCardId: targetId,
     workCardTitle: targetTitle,
     workCardFileName: input.workCardFileName,
-    builderReportFileName: input.builderReportFileName,
+    implementerReportFileName: input.implementerReportFileName,
     reviewMode: "repair",
     validation: { valid: true, errors: [] },
   };
@@ -130,9 +190,11 @@ function registerIpcHandlers() {
     "utf8",
   );
   const channels = new Set(
-    [...preloadSource.matchAll(/ipcRenderer\.invoke\(\s*"([^"]+)"/g)].map(
-      (match) => match[1],
-    ),
+    [
+      ...preloadSource.matchAll(
+        /(?:ipcRenderer\.invoke|invokeProcess)\(\s*"([^"]+)"/g,
+      ),
+    ].map((match) => match[1]),
   );
 
   const specificHandlers = new Map([
@@ -147,35 +209,35 @@ function registerIpcHandlers() {
         await new Promise((resolve) => setTimeout(resolve, 250));
         return {
           ok: true,
-          currentAction,
+          currentAction: workflowAdvanced ? operatorValidationAction : currentAction,
           workflowSteps: [],
         };
       },
     ],
     [
-      "workCards:listHumanValidationBuilderReports",
+      "workCards:listHumanValidationImplementerReports",
       () => ({
         ok: true,
         options: [
           {
-            fileName: targetBuilderReportFileName,
-            label: targetBuilderReportFileName,
+            fileName: targetImplementerReportFileName,
+            label: targetImplementerReportFileName,
             isDefaultMatch: true,
             modifiedAt: "2026-07-14T00:00:00.000Z",
           },
           {
-            fileName: referenceBuilderReportFileName,
-            label: referenceBuilderReportFileName,
+            fileName: referenceImplementerReportFileName,
+            label: referenceImplementerReportFileName,
             isDefaultMatch: false,
             modifiedAt: "2026-07-14T00:00:00.000Z",
           },
         ],
         invalidFiles: [],
-        defaultFileName: targetBuilderReportFileName,
+        defaultFileName: targetImplementerReportFileName,
       }),
     ],
     [
-      "workCards:loadBuilderReportFile",
+      "workCards:loadImplementerReportFile",
       (_event, input) => ({
         ok: true,
         fileName: input.fileName,
@@ -193,9 +255,17 @@ function registerIpcHandlers() {
       "workCards:saveArchitectReviewRecord",
       (_event, input) => {
         latestSavePayload = structuredClone(input);
+        workflowAdvanced = true;
         return {
           ...architectReviewResult(input),
           markdownPath: expectedOutputPath,
+          jsonPath: expectedOutputPath.replace(/\.md$/, ".json"),
+          workflowTransition: {
+            fromActionId: "architect_review_of_implementer_report_required",
+            toActionId: "operator_validation_required",
+            workflowStateRevision: 2,
+            nextScreenId: "operator-validation",
+          },
         };
       },
     ],
@@ -247,15 +317,21 @@ function assertRoutedPayload(payload, label) {
   assert.ok(payload, `${label} must be captured.`);
   assert.equal(payload.phase, phase);
   assert.equal(payload.workCardFileName, targetWorkCardFileName);
-  assert.equal(payload.builderReportFileName, targetBuilderReportFileName);
+  assert.equal(payload.implementerReportFileName, targetImplementerReportFileName);
   assert.deepEqual(payload.routedReviewBinding, {
-    bindingSource: "current_action",
+    bindingSource: "workflow_state_index",
     currentActionId: "architect_review_of_implementer_report_required",
+    workflowStateRevision: 1,
+    targetArtifactId: "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+    sourceArtifactId:
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+    expectedOutputArtifactId:
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
     phaseId: phase,
     workCardId: targetId,
     workCardTitle: targetTitle,
-    builderReportPath: targetBuilderReportPath,
-    builderReportFileName: targetBuilderReportFileName,
+    implementerReportPath: targetImplementerReportPath,
+    implementerReportFileName: targetImplementerReportFileName,
     expectedOutputPath,
     expectedOutputFileName,
     blockingState: { blocked: false, issues: [] },
@@ -305,12 +381,12 @@ async function run() {
   );
   await waitFor(
     window,
-    `${readSelectValueExpression("Routed current-action Work Card", true)} === ${JSON.stringify(targetWorkCardFileName)} && ${readSelectValueExpression("Associated Implementer Report", true)} === ${JSON.stringify(targetBuilderReportFileName)}`,
+    `${readSelectValueExpression("Routed current-action Work Card", true)} === ${JSON.stringify(targetWorkCardFileName)} && ${readSelectValueExpression("Associated Implementer Report", true)} === ${JSON.stringify(targetImplementerReportFileName)}`,
     "routed Work Card and report selection",
   );
   await waitFor(
     window,
-    `document.body.innerText.includes(${JSON.stringify(expectedOutputFileName)}) && document.body.innerText.includes("Binding source: current_action")`,
+    `document.body.innerText.includes(${JSON.stringify(expectedOutputFileName)}) && document.body.innerText.includes("Binding source: workflow_state_index")`,
     "routed preview and visible binding notice",
   );
   await waitFor(
@@ -355,7 +431,7 @@ async function run() {
       readSelectValueExpression("Associated Implementer Report", true),
       true,
     ),
-    targetBuilderReportFileName,
+    targetImplementerReportFileName,
   );
   assertRoutedPayload(latestPreviewPayload, "Preview payload after state updates");
 
@@ -372,14 +448,14 @@ async function run() {
   assert.equal(clickedSave, true, "The mounted routed review must be saveable.");
   await waitFor(
     window,
-    `document.body.innerText.includes("Architect Review saved.")`,
-    "Architect Review save completion",
+    `document.body.innerText.includes("Human Validation") || document.body.innerText.includes("Operator Validation")`,
+    "workflow transition to Operator Validation",
   );
   assertRoutedPayload(latestSavePayload, "Save payload after state updates");
 
   window.destroy();
   console.log(
-    "WC08-REPAIR06 mounted renderer fixture passed: WC08-REPAIR05 reference context could not retarget the rendered form, selected report, preview, or save payload away from WC08-REPAIR04.",
+    "WC09 mounted renderer fixture passed: WC08-REPAIR05 reference context could not retarget WC08-REPAIR04, save succeeded, and the workspace advanced to Operator Validation.",
   );
 }
 
@@ -387,6 +463,6 @@ app.whenReady().then(run).then(
   () => app.exit(0),
   (error) => {
     console.error(error);
-    app.exit(1);
+    process.exit(1);
   },
 );

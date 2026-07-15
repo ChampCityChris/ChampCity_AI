@@ -1,10 +1,45 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC05",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC05 Subordinate Navigation and Manual Fallback Preservation"
+  },
+  "payloadHash": "sha256:0aa99676b4cb995d8f89cb744093185a5d8dde1cd74885cd04fbca015936f167",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC05"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC05"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC05",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC05"
+}
+-->
+
 # Architect Review: WC05 Subordinate Navigation and Manual Fallback Preservation
 
 ## Review Target
 
 - Work Card: WC05 — Subordinate Navigation and Manual Fallback Preservation
 - Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
-- Implementer Report: `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md`
+- Implementer Report: `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md`
 - Implementation Branch: `feature/phase-03-wc05-subordinate-navigation-fallback`
 
 ## Architect Decision

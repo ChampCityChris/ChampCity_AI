@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T18:35:39.308Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement"
+  },
+  "payloadHash": "sha256:a2450ea4b970e5e4521334ac50fe7dbeaa3a1db8c46387649735ca4c4a62cde7",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T18:35:39.308Z",
+  "workCardId": "WC08-REPAIR03"
+}
+-->
+
 # Human Validation Report - WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement
 
 ## Validation Target
@@ -9,7 +41,7 @@
 - Parent Work Card ID: WC08
 - Source JSON file: WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json
 - Source Markdown file: WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md
-- Associated Implementer Report: BUILDER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md
 
 ## Validation Result
 

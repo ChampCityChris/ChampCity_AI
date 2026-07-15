@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+  "artifactType": "work_card_plan",
+  "createdAt": "2026-07-02T18:05:46.022Z",
+  "jsonPath": "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json",
+  "markdownPath": "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.md",
+  "payload": {
+    "kind": "work_card_plan",
+    "title": "Pending Review Work Card Plan: Repository Reconciliation and Phase Planning Documents"
+  },
+  "payloadHash": "sha256:5b048c439337d45f75ab6e77cb3dfa922abdfeb63ec76e2a861f351c6c283318",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "superseded",
+  "updatedAt": "2026-07-02T18:05:46.022Z"
+}
+-->
+
 # Pending Review Work Card Plan: Repository Reconciliation and Phase Planning Documents
 
 > Superseded historical artifact. This 2026-07-02 phase-03 Work Card Plan proposal has been superseded by the approved Phase 03 `Work_Card_Plan.md` for `Workflow Router Screen Correction and Guided Current Action UI`. Do not use this file as active Phase 03 Work Card planning authority.
@@ -52,7 +81,7 @@ These are superseded planning proposals retained for history. They must not be c
 - Risk level: high
 - Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.
 - Suggested ordering: 1
-- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.
+- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.
 
 ### WC02: Consolidate validation evidence and stale-state warnings
 
@@ -67,7 +96,7 @@ These are superseded planning proposals retained for history. They must not be c
 - Risk level: high
 - Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.
 - Suggested ordering: 2
-- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.
+- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.
 
 ### WC03: Create Next Phase Readiness Review workflow
 
@@ -82,7 +111,7 @@ These are superseded planning proposals retained for history. They must not be c
 - Risk level: high
 - Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.
 - Suggested ordering: 3
-- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.
+- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.
 
 ### WC04: Produce roadmap-driven Work Card plans
 
@@ -97,7 +126,7 @@ These are superseded planning proposals retained for history. They must not be c
 - Risk level: high
 - Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.
 - Suggested ordering: 4
-- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.
+- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.
 
 ### WC05: Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme
 
@@ -112,7 +141,7 @@ These are superseded planning proposals retained for history. They must not be c
 - Risk level: high
 - Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.
 - Suggested ordering: 5
-- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.
+- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.
 
 ### WC06: Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali
 
@@ -127,7 +156,7 @@ These are superseded planning proposals retained for history. They must not be c
 - Risk level: high
 - Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.
 - Suggested ordering: 6
-- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology.
+- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.
 
 ## Important Boundary
 

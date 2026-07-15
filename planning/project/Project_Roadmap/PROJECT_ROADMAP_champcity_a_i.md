@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+  "artifactType": "roadmap",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
+  "markdownPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md",
+  "payload": {
+    "kind": "roadmap",
+    "title": "Project Roadmap: ChampCity A/I"
+  },
+  "payloadHash": "sha256:b833ed51ce47d5abbf5a5f7dd210715ed02e45cbe22f936ab6ebcf7cd7f6d172",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Project Roadmap: ChampCity A/I
 
 Status: Living master roadmap
@@ -48,7 +77,7 @@ Phase 02 correction:
 
 - Phase Mapping survives as the phase-level planning concept.
 - Phase Planning is an artifact inside Phase Mapping, not a separate top-level workflow screen.
-- Work Card is also the Implementer prompt.
+- Work Card is also the Implementer execution packet.
 - Implementer Reports are reviewed by the Architect.
 - Operator validation creates Validation Records.
 - Closeout approval authorizes Roadmap update and Next Phase Activation.
@@ -85,7 +114,7 @@ Required outcomes:
 4. Project Intake, Project Interview, Reconciliation Review, Project Mapping, Phase Mapping, Work Card Loop, Phase Closeout, Roadmap Update, and Next Phase Activation are represented as one coherent process.
 5. Phase Mapping is presented as the phase-level planning workflow.
 6. Phase Planning is presented as an artifact created during Phase Mapping, not a separate primary workflow screen.
-7. Work Card is presented as the Implementer handoff; do not make Implementer Prompt a separate primary artifact.
+7. Work Card is presented as the Implementer handoff; do not make Implementer Execution Packet a separate primary artifact.
 8. Implementer Report review routes to the Architect.
 9. Operator validation creates Validation Records.
 10. Failed validation routes to REPAIR sub-card creation.
@@ -136,7 +165,7 @@ phase-03: Workflow Router Screen Correction and Guided Current Action UI
 
 - app as screen picker
 - Phase Planning as separate top-level workflow concept
-- Implementer Prompt as separate primary artifact from Work Card
+- Implementer Execution Packet as separate primary artifact from Work Card
 - Operator manually selecting among many workflow screens as the main path
 - generic UI polish before workflow-router correction
 - Phase 03 as `Repository Reconciliation and Phase Planning Documents`

@@ -1,10 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/MVP_SCOPE",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/MVP_SCOPE.json",
+  "markdownPath": "planning/project/MVP_SCOPE.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Historical MVP Scope"
+  },
+  "payloadHash": "sha256:3c38e1b274070a75b1709d62db561ba32586ab1320ed3ad5b2891cfde23438d2",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Historical MVP Scope
 
 This file is retained as a historical MVP scope record. The MVP foundation is complete; active work is now Alpha app development. See `planning/project/PROJECT_STATE.md` for current state.
 
 ## Product Thesis
 
-Non-technical users can usually identify what is wrong, but they often cannot describe the issue in a form an AI Builder will interpret correctly. The product acts as the translation layer: the user supplies behavior and evidence, and the application creates structure.
+Non-technical users can usually identify what is wrong, but they often cannot describe the issue in a form an AI Implementer will interpret correctly. The product acts as the translation layer: the user supplies behavior and evidence, and the application creates structure.
 
 ## MVP Scope
 
@@ -13,7 +39,7 @@ Non-technical users can usually identify what is wrong, but they often cannot de
 - Architect framing action.
 - Work Card review screen.
 - Risk router.
-- Builder prompt generator.
+- Implementer execution packet generator.
 - Optional no-edit plan capture.
 - Build report capture.
 - Human validation screen.
@@ -39,8 +65,8 @@ Git/GitHub source-control hygiene is in scope for the MVP foundation; production
 - Project Setup.
 - New Work Card.
 - Work Card Review.
-- Builder Plan Review.
-- Builder Report.
+- Implementer Plan Review.
+- Implementer Report.
 - Human Validation.
 - Repair / Close.
 - Work Card Index.
@@ -52,8 +78,8 @@ Git/GitHub source-control hygiene is in scope for the MVP foundation; production
 - WorkCard.
 - AcceptanceCriterion.
 - EvidenceItem.
-- BuilderPlan.
-- BuilderRun.
+- ImplementerPlan.
+- ImplementerRun.
 - ValidationRecord.
 - RepairRecord.
 - Decision.
@@ -66,7 +92,7 @@ Git/GitHub source-control hygiene is in scope for the MVP foundation; production
 - WorkCardFramer.
 - PromptComposer.
 - ArtifactWriter.
-- BuilderReportIngestor.
+- ImplementerReportIngestor.
 - ValidationChecklistGenerator.
 - RepairTriageService.
 - ProjectMemoryUpdater.
@@ -76,13 +102,13 @@ Git/GitHub source-control hygiene is in scope for the MVP foundation; production
 - `v0.1.0-foundation`: project memory, planning scaffold, Electron + TypeScript shell, and design document updates.
 - `v0.2.0-work-card-schema`: Work Card schema, Markdown renderer, and file path rules.
 - `v0.3.0-capture-frame-review`: capture form, framing workflow, save, and review.
-- `v0.4.0-builder-prompt-flow`: risk router, Builder prompt generator, and plan capture.
-- `v0.5.0-validation-repair-closeout`: Builder report capture, validation, repair, closeout, and project-memory update.
+- `v0.4.0-implementer-prompt-flow`: risk router, Implementer execution packet generator, and plan capture.
+- `v0.5.0-validation-repair-closeout`: Implementer report capture, validation, repair, closeout, and project-memory update.
 - `v1.0.0-mvp`: complete MVP done definition.
 
 ## Done Definition
 
-The MVP is done when a non-technical user can report a bug, review the framed Work Card, approve the plan or direct build, paste Builder result, validate the result, repair if needed, and close the card.
+The MVP is done when a non-technical user can report a bug, review the framed Work Card, approve the plan or direct build, paste Implementer result, validate the result, repair if needed, and close the card.
 
 ## Approved Technical Implementation Decisions
 
@@ -94,6 +120,6 @@ The MVP is done when a non-technical user can report a bug, review the framed Wo
 - Evidence path: `planning/work/[slug]/evidence/`.
 - Git policy: initialize Git if absent, use commits for meaningful work checkpoints, and use tags for MVP release milestones.
 - GitHub policy: use GitHub for remote commits and release tags when a remote is configured and credentials are available; do not print or request credentials.
-- LLM strategy: manual copy/paste for Architect framing and Builder prompt workflows in MVP.
+- LLM strategy: manual copy/paste for Architect framing and Implementer execution packet workflows in MVP.
 - MVP integration limit: MCP, connector, and external automation integrations remain non-goals.
 - Deployment limit: production deployment pipeline remains a non-goal.

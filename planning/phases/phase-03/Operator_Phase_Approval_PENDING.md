@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
+  "artifactType": "approval",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval_PENDING.json",
+  "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval_PENDING.md",
+  "payload": {
+    "kind": "approval",
+    "title": "Operator Phase Approval Pending: phase-03"
+  },
+  "payloadHash": "sha256:c8c7e43bb4c16af372fda6ebf9b5e62b702ba7a91517fc4ca1613391135d0b02",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "superseded",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Operator Phase Approval Pending: phase-03
 
 > Superseded historical draft. The Operator approved Phase 03 in `planning/phases/phase-03/Operator_Phase_Approval.md` on 2026-07-03. Do not use this pending draft as the current approval state.
@@ -86,7 +115,7 @@ Approval would not authorize:
 - Skipping Operator review of full Work Cards.
 - Treating Figma output as workflow authority.
 - Blindly replacing the current app with the Figma prototype.
-- Creating a separate Implementer Prompt artifact as a primary handoff.
+- Creating a separate Implementer Execution Packet artifact as a primary handoff.
 - Skipping Architect review of Implementer Reports.
 - Skipping Operator validation records.
 - Skipping repair sub-card routing after failed validation.

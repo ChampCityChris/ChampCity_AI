@@ -4,8 +4,8 @@ export const phaseArtifactFolderNames = [
   "Work_Cards",
   "Architect_Prompts",
   "Risk_Reviews",
-  "Builder_Prompts",
-  "Builder_Reports",
+  "Implementer_Execution_Packets",
+  "Implementer_Reports",
   "Validation_Reports",
   "Repair_Prompts",
   "Closeout_Reports",
@@ -40,8 +40,8 @@ export interface PhaseArtifactSummary {
   workCardsWithBothJsonAndMarkdown: PhaseWorkCardArtifactPair[];
   workCardsMissingJson: PhaseWorkCardArtifactPair[];
   workCardsMissingMarkdown: PhaseWorkCardArtifactPair[];
-  builderReportCount: number;
-  builderPromptCount: number;
+  implementerReportCount: number;
+  implementerExecutionPacketCount: number;
   architectPromptCount: number;
   riskReviewCount: number;
   validationReportCount: number;
@@ -101,7 +101,7 @@ export function summarizePhaseArtifacts(
     buildMissingExpectedArtifactObservations({
       phase,
       workCardPairs,
-      builderReportFileNames: filesByFolder.Builder_Reports,
+      implementerReportFileNames: filesByFolder.Implementer_Reports,
       validationReportCount: filesByFolder.Validation_Reports.length,
       repairPromptCount: filesByFolder.Repair_Prompts.length,
       closeoutReportFileNames: filesByFolder.Closeout_Reports,
@@ -118,8 +118,8 @@ export function summarizePhaseArtifacts(
     workCardsWithBothJsonAndMarkdown,
     workCardsMissingJson,
     workCardsMissingMarkdown,
-    builderReportCount: filesByFolder.Builder_Reports.length,
-    builderPromptCount: filesByFolder.Builder_Prompts.length,
+    implementerReportCount: filesByFolder.Implementer_Reports.length,
+    implementerExecutionPacketCount: filesByFolder.Implementer_Execution_Packets.length,
     architectPromptCount: filesByFolder.Architect_Prompts.length,
     riskReviewCount: filesByFolder.Risk_Reviews.length,
     validationReportCount: filesByFolder.Validation_Reports.length,
@@ -305,7 +305,7 @@ function pairWorkCardArtifacts(
 function buildMissingExpectedArtifactObservations(input: {
   phase: string;
   workCardPairs: PhaseWorkCardArtifactPair[];
-  builderReportFileNames: string[];
+  implementerReportFileNames: string[];
   validationReportCount: number;
   repairPromptCount: number;
   closeoutReportFileNames: string[];
@@ -337,9 +337,9 @@ function buildMissingExpectedArtifactObservations(input: {
       );
     }
 
-    if (!hasMatchingBuilderReport(input.builderReportFileNames, expectedWorkCardId)) {
+    if (!hasMatchingImplementerReport(input.implementerReportFileNames, expectedWorkCardId)) {
       observations.push(
-        `Expected Work Card ${expectedWorkCardId} does not have a matching Implementer Report filename in the legacy Builder_Reports folder.`,
+        `Expected Work Card ${expectedWorkCardId} does not have a matching Implementer Report filename in the canonical Implementer_Reports folder.`,
       );
     }
   }
@@ -379,7 +379,7 @@ function buildMissingExpectedArtifactObservations(input: {
   return observations;
 }
 
-function hasMatchingBuilderReport(
+function hasMatchingImplementerReport(
   fileNames: string[],
   workCardId: string,
 ): boolean {
@@ -390,7 +390,7 @@ function hasMatchingBuilderReport(
 
     return (
       normalizedFileName.startsWith(
-        `builder_report_${normalizedWorkCardId}_`,
+        `implementer_report_${normalizedWorkCardId}_`,
       ) || normalizedFileName.includes(`_${normalizedWorkCardId}_`)
     );
   });

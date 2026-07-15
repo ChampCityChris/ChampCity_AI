@@ -1,9 +1,9 @@
 export const workCardStatuses = [
   "draft",
   "ready_for_architect",
-  "ready_for_builder",
-  "in_builder_pass",
-  "builder_report_received",
+  "ready_for_implementer",
+  "in_implementer_pass",
+  "implementer_report_received",
   "needs_repair",
   "validated",
   "closed",
@@ -32,6 +32,6 @@ export interface WorkCard {
   validationPlan: string[];
   riskLevel: WorkCardRiskLevel;
   risks: string[];
-  builderInstructions: string[];
+  implementerInstructions: string[];
   operatorNotes: string[];
 }

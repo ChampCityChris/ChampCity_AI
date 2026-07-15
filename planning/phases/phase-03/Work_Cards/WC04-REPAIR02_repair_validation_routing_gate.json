@@ -1,54 +1,86 @@
 {
-  "work_card_id": "WC04-REPAIR02",
-  "phase_id": "phase-03",
-  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
-  "parent_work_card_id": "WC04",
-  "parent_repair_id": "WC04-REPAIR01",
-  "title": "Repair Validation Routing Gate",
-  "status": "ready_for_implementer",
-  "created": "2026-07-12",
-  "risk_level": "high",
-  "repair_trigger": "WC04-REPAIR01 Architect review found that live current-action routing advances to WC05 even though WC04 is deferred and WC04-REPAIR01 has not received Operator repair validation.",
-  "base_branch": "feature/phase-03-wc04-repair01-validation-flow",
-  "implementation_branch": "feature/phase-03-wc04-repair02-routing-gate",
-  "must_not_push_to": [
-    "dev",
-    "master"
-  ],
-  "must_not_merge_to_dev": true,
-  "primary_sources": [
-    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
-    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
-    "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
-    "src/shared/workCards/currentRequiredAction.ts",
-    "scripts/verify-work-card-fixture.mjs"
-  ],
-  "included_scope": [
-    "Treat deferred/not-validated Operator decisions as unresolved even when raw validation result says Pass.",
-    "Make Operator decision override raw validation result when they conflict.",
-    "Route repair Work Card plus repair Implementer Report but no repair validation to repair validation required.",
-    "Prevent WC05 routing until WC04 or its active repair route has a passing Operator validation decision.",
-    "Add targeted current-action routing fixture coverage."
-  ],
-  "out_of_scope": [
-    "Do not implement WC05.",
-    "Do not create Operator validation records.",
-    "Do not perform Operator validation.",
-    "Do not merge to dev.",
-    "Do not push to master.",
-    "Do not redesign the UI.",
-    "Do not broaden renderer filesystem access."
-  ],
-  "acceptance_criteria": [
-    "Raw Pass plus Deferred Operator decision is not treated as passing.",
-    "Deferred, failed, blocked, partial, rejected, and repair-required outcomes keep the Work Card unresolved.",
-    "Router does not advance WC04 to WC05 while WC04-REPAIR01 lacks passing repair validation.",
-    "Current durable repo state routes to WC04-REPAIR01 repair validation or equivalent repair-validation-required state, not WC05.",
-    "WC04-REPAIR01 UI changes remain intact.",
-    "Targeted fixture coverage exists for deferred/raw-pass conflict and unresolved repair validation routing.",
-    "Validation/build commands pass or skipped checks are documented.",
-    "WC04-REPAIR02 Implementer Report exists."
-  ],
-  "required_report": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
-  "next_action_after_completion": "Architect review of WC04-REPAIR02 Implementer Report"
+  "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-12T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.md",
+  "payload": {
+    "contentMarkdown": "# Repair Work Card: WC04-REPAIR02 — Repair Validation Routing Gate\n\nStatus: ready_for_implementer\nPhase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\nParent Work Card: WC04 — Primary Current Action Panel\nParent Repair: WC04-REPAIR01 — Validation Flow and Current Action Panel Usability\nRepair ID: WC04-REPAIR02\nCreated: 2026-07-12\n\n## Repair Trigger\n\nArchitect review of WC04-REPAIR01 found a blocking durable-routing defect before Operator validation.\n\nThe WC04-REPAIR01 Implementer Report states that the live repo-backed current-action diagnostic returns:\n\n- `phase-03`\n- `WC05`\n- `full_work_card_creation_required`\n\nThat route is incorrect while WC04 has a deferred Operator decision and WC04-REPAIR01 has not received Operator repair validation.\n\nPrimary source:\n\n- `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`\n\nSupporting sources:\n\n- `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md`\n- `planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`\n- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`\n- `src/shared/workCards/currentRequiredAction.ts`\n- `scripts/verify-work-card-fixture.mjs`\n\n## Problem\n\nThe durable workflow router is advancing to WC05 even though WC04 is not durably resolved.\n\nThe WC04 validation report is contradictory at the raw field level:\n\n- validation result says `Pass`\n- Operator decision says `Deferred - not validated yet`\n\nThe Operator decision must control the durable route. A deferred validation is not a passing validation. It must keep the parent Work Card unresolved and route to repair/repair validation as appropriate.\n\nOnce a repair Work Card and repair Implementer Report exist, but no repair validation record exists, the current action must route to repair validation rather than the next Work Card candidate.\n\n## Goal\n\nFix current-action routing so unresolved Work Cards and unresolved repair routes cannot be skipped.\n\nAfter WC04-REPAIR02, the live current action for the current durable repo state must not advance to WC05 until WC04 or the active repair route has a passing Operator validation decision.\n\n## Branch And Review Rule\n\nBase branch for this repair:\n\n- `feature/phase-03-wc04-repair01-validation-flow`\n\nRepair implementation branch:\n\n- `feature/phase-03-wc04-repair02-routing-gate`\n\nThe Implementer must create the repair branch from the current WC04-REPAIR01 feature branch. Do not merge to `dev`. Do not push to `master`. Architect review happens after the pushed repair branch and Implementer Report are available.\n\n## Included Scope\n\n### 1. Treat deferred validation as unresolved\n\nUpdate current-action validation interpretation so `Deferred`, `Deferred - not validated yet`, or equivalent Operator decisions do not count as passing validation even if the raw validation result says `Pass`.\n\nThe following decisions/results must keep the Work Card unresolved unless a later passing validation supersedes them:\n\n- deferred\n- not validated yet\n- failed\n- fail\n- blocked\n- partial\n- repair required\n- rejected\n\n### 2. Operator decision must take precedence over raw result\n\nWhen validation result and Operator decision conflict, use the Operator decision for routing.\n\nExample:\n\n- raw result: `Pass`\n- Operator decision: `Deferred - not validated yet`\n- effective route result: unresolved / not passed\n\n### 3. Route unresolved repair implementation to repair validation\n\nIf a repair Work Card exists and a repair Implementer Report exists, but no repair validation record exists, the current action should be repair validation required.\n\nFor the current WC04-REPAIR01 durable state, the expected current action after this repair is a repair-validation route for WC04-REPAIR01 or an equivalent unresolved repair validation state. It must not be WC05.\n\n### 4. Preserve WC04-REPAIR01 UI fixes\n\nDo not revert or bypass WC04-REPAIR01 implementation work. This Work Card fixes routing gate logic and related fixture coverage only.\n\n### 5. Add fixture coverage\n\nAdd or update targeted fixture coverage proving:\n\n- deferred Operator decision does not pass;\n- raw Pass plus deferred Operator decision does not pass;\n- failed/blocked/partial decisions do not pass;\n- repair Work Card plus repair Implementer Report without repair validation routes to repair validation;\n- next Work Card candidate is not selected until parent Work Card or repair route has a passing validation decision.\n\n## Out Of Scope\n\n- Do not implement WC05.\n- Do not create WC05 Work Card behavior.\n- Do not perform Operator validation.\n- Do not create Operator validation records.\n- Do not merge to `dev`.\n- Do not push to `master`.\n- Do not redesign the UI.\n- Do not broaden renderer filesystem access.\n- Do not add dependencies, provider SDKs, cloud services, browser automation, auth, database, connector, or LLM API integrations.\n\n## Acceptance Criteria\n\n- A validation report with raw `Pass` but Operator decision `Deferred - not validated yet` is not treated as passing.\n- Deferred, failed, blocked, partial, rejected, and repair-required outcomes keep the Work Card unresolved.\n- The router does not advance WC04 to WC05 while WC04-REPAIR01 lacks passing repair validation.\n- The current durable repo state routes to WC04-REPAIR01 repair validation or an equivalent repair-validation-required state, not WC05.\n- WC04-REPAIR01 UI changes remain intact.\n- Targeted fixture coverage exists for the deferred/raw-pass conflict.\n- Targeted fixture coverage exists for repair-report-without-repair-validation routing.\n- Existing validation and build commands pass or skipped checks are documented.\n- WC04-REPAIR02 Implementer Report exists.\n\n## Validation Expectations\n\n- Read `AGENTS.md` and `docs/dev/VALIDATION_COMMAND_LANES.md` before validation.\n- Run the normal Windows validation lane.\n- Run TypeScript/type validation and build validation.\n- Run current-action fixture validation.\n- Run any new targeted WC04-REPAIR02 fixture script.\n- Run local safety scans before staging.\n- Do not perform Operator validation.\n\n## Required Implementer Report\n\nCreate:\n\n`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`\n\nThe report must include:\n\n- repair branch name;\n- implementation summary;\n- files changed;\n- how deferred validation is interpreted;\n- how Operator decision precedence is enforced;\n- how repair validation routing is determined;\n- live current-action result after the repair;\n- fixture/test coverage added or updated;\n- confirmation WC05 was not implemented;\n- confirmation WC04-REPAIR01 UI fixes were preserved;\n- validation commands and results;\n- skipped checks and reasons;\n- safety scan results;\n- remaining dirty/untracked files;\n- final recommended next action.\n\n## Implementer Handoff Prompt\n\nYou are acting as Implementer for ChampCity A/I.\n\nRepair Work Card:\nWC04-REPAIR02 — Repair Validation Routing Gate\n\nBase branch:\nfeature/phase-03-wc04-repair01-validation-flow\n\nTarget repair branch:\nfeature/phase-03-wc04-repair02-routing-gate\n\nExpected remote:\nChampCityChris/ChampCity_AI\n\nUse this Repair Work Card as the source of truth:\nplanning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.md\n\nImplement only WC04-REPAIR02.\n\nDo not implement WC05.\nDo not merge to dev.\nDo not push to master.\nDo not perform Operator validation.\n\nPrimary objective:\nFix durable current-action routing so deferred parent validation and unresolved repair validation cannot be skipped. The current repo state must not route to WC05 while WC04-REPAIR01 lacks passing repair validation.\n\nBefore editing:\n1. Confirm current repo and remote.\n2. Confirm the base branch is available: feature/phase-03-wc04-repair01-validation-flow.\n3. Create and switch to: feature/phase-03-wc04-repair02-routing-gate.\n4. Read AGENTS.md.\n5. Read docs/dev/VALIDATION_COMMAND_LANES.md.\n6. Read the WC04 deferred validation report.\n7. Read the WC04-REPAIR01 Implementer Report and Architect Review.\n8. Inspect current-action routing code and fixture validation code.\n\nRequired repairs:\n1. Treat deferred/not-validated Operator decisions as unresolved, even if raw validation result says Pass.\n2. Make Operator decision override raw result when they conflict.\n3. Route repair Work Card plus repair Implementer Report but no repair validation to repair validation required.\n4. Prevent WC05 routing until WC04 or its active repair route has a passing Operator validation decision.\n5. Add targeted fixture coverage for these routing gates.\n\nWhen complete:\n- run required validation;\n- stage only WC04-REPAIR02-scoped files;\n- commit to the repair branch;\n- push the repair branch to origin;\n- create the required Implementer Report;\n- include commit hash, push status, validation results, skipped checks, remaining dirty files, and confirmation that dev/master were not touched in the final response.\n",
+    "data": {
+      "acceptance_criteria": [
+        "Raw Pass plus Deferred Operator decision is not treated as passing.",
+        "Deferred, failed, blocked, partial, rejected, and repair-required outcomes keep the Work Card unresolved.",
+        "Router does not advance WC04 to WC05 while WC04-REPAIR01 lacks passing repair validation.",
+        "Current durable repo state routes to WC04-REPAIR01 repair validation or equivalent repair-validation-required state, not WC05.",
+        "WC04-REPAIR01 UI changes remain intact.",
+        "Targeted fixture coverage exists for deferred/raw-pass conflict and unresolved repair validation routing.",
+        "Validation/build commands pass or skipped checks are documented.",
+        "WC04-REPAIR02 Implementer Report exists."
+      ],
+      "base_branch": "feature/phase-03-wc04-repair01-validation-flow",
+      "created": "2026-07-12",
+      "implementation_branch": "feature/phase-03-wc04-repair02-routing-gate",
+      "included_scope": [
+        "Treat deferred/not-validated Operator decisions as unresolved even when raw validation result says Pass.",
+        "Make Operator decision override raw validation result when they conflict.",
+        "Route repair Work Card plus repair Implementer Report but no repair validation to repair validation required.",
+        "Prevent WC05 routing until WC04 or its active repair route has a passing Operator validation decision.",
+        "Add targeted current-action routing fixture coverage."
+      ],
+      "must_not_merge_to_dev": true,
+      "must_not_push_to": [
+        "dev",
+        "master"
+      ],
+      "next_action_after_completion": "Architect review of WC04-REPAIR02 Implementer Report",
+      "out_of_scope": [
+        "Do not implement WC05.",
+        "Do not create Operator validation records.",
+        "Do not perform Operator validation.",
+        "Do not merge to dev.",
+        "Do not push to master.",
+        "Do not redesign the UI.",
+        "Do not broaden renderer filesystem access."
+      ],
+      "parent_repair_id": "WC04-REPAIR01",
+      "parent_work_card_id": "WC04",
+      "phase_id": "phase-03",
+      "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+      "primary_sources": [
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+        "src/shared/workCards/currentRequiredAction.ts",
+        "scripts/verify-work-card-fixture.mjs"
+      ],
+      "repair_trigger": "WC04-REPAIR01 Architect review found that live current-action routing advances to WC05 even though WC04 is deferred and WC04-REPAIR01 has not received Operator repair validation.",
+      "required_report": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+      "risk_level": "high",
+      "status": "ready_for_implementer",
+      "title": "Repair Validation Routing Gate",
+      "work_card_id": "WC04-REPAIR02"
+    },
+    "kind": "work_card",
+    "title": "Repair Work Card: WC04-REPAIR02 — Repair Validation Routing Gate"
+  },
+  "payloadHash": "sha256:462cda69f0edcd6ceb4323899d10f5ae95bffdecff80759c9f756f054485bac4",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

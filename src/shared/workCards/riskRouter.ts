@@ -48,7 +48,7 @@ const searchableFields = [
   "acceptanceCriteria",
   "validationPlan",
   "risks",
-  "builderInstructions",
+  "implementerInstructions",
   "operatorNotes",
 ] as const satisfies readonly (keyof WorkCard)[];
 
@@ -363,7 +363,7 @@ const lowRiskTerms = [
   word("documentation"),
   word("docs"),
   word("markdown"),
-  phrase("builder report"),
+  phrase("implementer report"),
   phrase("implementer report"),
   phrase("prompt wording"),
   phrase("planning note"),

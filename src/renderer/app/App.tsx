@@ -61,7 +61,8 @@ type AppScreen =
   | "project-intake"
   | "project-architect-interview"
   | "project-planning-documents"
-  | "phase-map-builder"
+  | "project-roadmap"
+  | "phase-map"
   | "phase-intake"
   | "phase-architect-interview"
   | "repository-reconciliation"
@@ -70,8 +71,8 @@ type AppScreen =
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
-  | "builder-prompt-generator"
-  | "builder-report-capture"
+  | "implementer-execution-packet"
+  | "implementer-report-capture"
   | "architect-review"
   | "human-validation"
   | "phase-closeout";
@@ -164,14 +165,41 @@ const workflowSteps: WorkflowStep[] = [
     Icon: GitBranch,
   },
   {
-    id: "phase-map-builder",
+    id: "project-roadmap",
+    label: "Project Roadmap",
+    mode: "architect",
+    shortDesc: "Sequence phases",
+    screenTitle: "Project Roadmap",
+    nextAction: "Propose the reviewed project progression before phase mapping.",
+    Icon: MapIcon,
+  },
+  {
+    id: "phase-map",
     label: "Phase Map",
     mode: "architect",
     shortDesc: "Mapped phases",
-    screenTitle: "Phase Map Builder",
+    screenTitle: "Phase Map Composer",
     nextAction:
       "Generate or update mapped phase records from the reviewed Roadmap.",
     Icon: MapIcon,
+  },
+  {
+    id: "phase-intake",
+    label: "Phase Intake",
+    mode: "architect",
+    shortDesc: "Capture phase intent",
+    screenTitle: "Phase Intake",
+    nextAction: "Capture the exact intent and constraints for the mapped phase.",
+    Icon: ClipboardList,
+  },
+  {
+    id: "phase-architect-interview",
+    label: "Phase Architect Interview",
+    mode: "architect",
+    shortDesc: "Frame phase",
+    screenTitle: "Phase Architect Interview",
+    nextAction: "Generate the phase-specific Architect framing prompt.",
+    Icon: MessageSquareText,
   },
   {
     id: "phase-planning-documents",
@@ -222,7 +250,7 @@ const workflowSteps: WorkflowStep[] = [
     Icon: ShieldAlert,
   },
   {
-    id: "builder-prompt-generator",
+    id: "implementer-execution-packet",
     label: "Implement",
     mode: "implementer",
     shortDesc: "Implementer handoff",
@@ -231,7 +259,7 @@ const workflowSteps: WorkflowStep[] = [
     Icon: Zap,
   },
   {
-    id: "builder-report-capture",
+    id: "implementer-report-capture",
     label: "Report",
     mode: "implementer",
     shortDesc: "Capture evidence",
@@ -397,7 +425,7 @@ const initialProjectRoadmapForm: ChampCityProjectRoadmapRequest = {
   generateCompatibilityPhaseIntake: true,
 };
 
-const initialPhaseMapForm: ChampCityPhaseMapBuilderRequest = {
+const initialPhaseMapForm: ChampCityPhaseMapRequest = {
   projectPlanningDocumentFileName: "",
   repositoryReconciliationFileName: "",
   projectRoadmapFileName: "",
@@ -464,7 +492,7 @@ export default function App() {
         routedArchitectReviewBinding.currentActionId,
         routedArchitectReviewBinding.phaseId,
         routedArchitectReviewBinding.workCardId,
-        routedArchitectReviewBinding.builderReportPath,
+        routedArchitectReviewBinding.implementerReportPath,
         routedArchitectReviewBinding.expectedOutputPath,
         ...routedArchitectReviewBinding.blockingState.issues.map(
           (issue) => `${issue.kind}:${issue.message}`,
@@ -574,14 +602,23 @@ export default function App() {
         onNavigate={setActiveScreen}
       />
     ),
-    "phase-map-builder": (
-      <PhaseMapBuilderScreen
+    "project-roadmap": (
+      <ProjectRoadmapScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        onNavigate={setActiveScreen}
+      />
+    ),
+    "phase-map": (
+      <PhaseMapScreen
         onActiveCardChange={setActiveCard}
         onNavigate={setActiveScreen}
       />
     ),
     "phase-intake": (
-      <ProjectRoadmapScreen
+      <PhaseIntakeScreen
         phase={phase}
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
@@ -649,16 +686,16 @@ export default function App() {
         onActiveCardChange={setActiveCard}
       />
     ),
-    "builder-prompt-generator": (
-      <BuilderPromptGeneratorScreen
+    "implementer-execution-packet": (
+      <ImplementerExecutionPacketGeneratorScreen
         phase={phase}
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
       />
     ),
-    "builder-report-capture": (
-      <BuilderReportCaptureScreen
+    "implementer-report-capture": (
+      <ImplementerReportCaptureScreen
         phase={phase}
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
@@ -672,6 +709,12 @@ export default function App() {
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         routedReviewBinding={routedArchitectReviewBinding}
+        onWorkflowAdvanced={async (nextScreenId) => {
+          await loadCurrentRequiredAction();
+          if (nextScreenId === "operator-validation") {
+            setActiveScreen("human-validation");
+          }
+        }}
       />
     ),
     "human-validation": (
@@ -770,13 +813,13 @@ function AppHeader({
   onCardChange: (fileName: string) => void;
 }) {
   const showHeaderPhaseSelector = ![
-    "phase-map-builder",
+    "phase-map",
     "phase-planning-documents",
     "work-card-plan-review",
     "new-work-card",
   ].includes(activeScreen);
   const showHeaderWorkCardSelector = ![
-    "phase-map-builder",
+    "phase-map",
     "phase-planning-documents",
     "work-card-plan-review",
     "new-work-card",
@@ -906,7 +949,7 @@ function PipelineStepper({
 
   const architectSteps = workflowSteps.filter((step) => step.mode === "architect");
   const implementerSteps = workflowSteps.filter((step) =>
-    ["builder-prompt-generator", "builder-report-capture"].includes(step.id),
+    ["implementer-execution-packet", "implementer-report-capture"].includes(step.id),
   );
   const finalSteps = workflowSteps.filter((step) =>
     ["human-validation", "phase-closeout"].includes(step.id),
@@ -1867,7 +1910,7 @@ function ProjectPlanningDocumentsScreen({
   );
 }
 
-function PhaseMapBuilderScreen({
+function PhaseMapScreen({
   onActiveCardChange,
   onNavigate,
 }: {
@@ -1892,7 +1935,7 @@ function PhaseMapBuilderScreen({
     errors: roadmapErrors,
     isLoading: isRoadmapsLoading,
   } = useProjectRoadmaps();
-  const [form, setForm] = useState<ChampCityPhaseMapBuilderRequest>(
+  const [form, setForm] = useState<ChampCityPhaseMapRequest>(
     initialPhaseMapForm,
   );
   const [previewResult, setPreviewResult] =
@@ -1960,7 +2003,7 @@ function PhaseMapBuilderScreen({
   }, [roadmaps, form.projectRoadmapFileName]);
 
   function setFirstAvailablePhaseMapSource(
-    field: keyof ChampCityPhaseMapBuilderRequest,
+    field: keyof ChampCityPhaseMapRequest,
     firstFileName: string | undefined,
     currentFileName: string | undefined,
     availableFileNames: string[],
@@ -1979,9 +2022,9 @@ function PhaseMapBuilderScreen({
     }));
   }
 
-  function updateField<Field extends keyof ChampCityPhaseMapBuilderRequest>(
+  function updateField<Field extends keyof ChampCityPhaseMapRequest>(
     field: Field,
-    value: ChampCityPhaseMapBuilderRequest[Field],
+    value: ChampCityPhaseMapRequest[Field],
   ) {
     setForm((previous) => ({
       ...previous,
@@ -2078,7 +2121,7 @@ function PhaseMapBuilderScreen({
       left={
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
-            title="Phase Map Builder"
+            title="Phase Map Composer"
             description="Generate mapped phase records from durable project planning, reconciliation, and roadmap sources."
             badge="phase map"
           />
@@ -2463,7 +2506,7 @@ function ProjectRoadmapScreen({
             badge="roadmap"
           />
           <Notice type="info">
-            The Roadmap proposes phases. Phase Map Builder creates selectable
+            The Roadmap proposes phases. Phase Map Composer creates selectable
             mapped phase records. Saving draft next-phase artifacts does not
             activate a phase or create Formal Work Cards.
           </Notice>
@@ -2710,7 +2753,7 @@ function ProjectRoadmapScreen({
                 <span>{roadmap.nextExecutablePhase.rationale}</span>
                 <button
                   type="button"
-                  onClick={() => onNavigate("phase-map-builder")}
+                  onClick={() => onNavigate("phase-map")}
                   className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
                 >
                   Open Phase Map
@@ -4030,7 +4073,7 @@ function RepositoryReconciliationScreen({
     setPreviewMarkdown(result.markdown);
     setSaveResult(result);
     setActivePreviewLabel("Repository Reconciliation Markdown");
-    setStatusMessage("Repository Reconciliation saved for Phase Map Builder.");
+    setStatusMessage("Repository Reconciliation saved for Phase Map Composer.");
   }
 
   return (
@@ -4143,7 +4186,7 @@ function RepositoryReconciliationScreen({
                 </code>
                 <button
                   type="button"
-                  onClick={() => onNavigate("phase-map-builder")}
+                  onClick={() => onNavigate("phase-map")}
                   className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
                 >
                   Open Phase Map
@@ -4443,7 +4486,7 @@ function PhasePlanningDocumentsScreen({
     const errors: string[] = [];
 
     if (phaseMaps.length === 0) {
-      errors.push("Run Phase Map Builder first, then return to select a mapped phase.");
+      errors.push("Run Phase Map Composer first, then return to select a mapped phase.");
       return errors;
     }
 
@@ -4547,15 +4590,15 @@ function PhasePlanningDocumentsScreen({
           </Notice>
           {phaseMaps.length === 0 && !isPhaseMapsLoading ? (
             <Notice type="warning">
-              No saved Phase Map was found. Run Phase Map Builder first so the
+              No saved Phase Map was found. Run Phase Map Composer first so the
               generator can use mapped phase records instead of generated phase
               artifact folders.
               <button
                 type="button"
-                onClick={() => onNavigate("phase-map-builder")}
+                onClick={() => onNavigate("phase-map")}
                 className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-400/25 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-400/15"
               >
-                Open Phase Map Builder
+                Open Phase Map Composer
                 <ChevronRight size={14} aria-hidden="true" />
               </button>
             </Notice>
@@ -5632,7 +5675,7 @@ function RiskRouterScreen({
   );
 }
 
-function BuilderPromptGeneratorScreen({
+function ImplementerExecutionPacketGeneratorScreen({
   phase,
   phaseOptions,
   onPhaseChange,
@@ -5642,24 +5685,24 @@ function BuilderPromptGeneratorScreen({
     useWorkCards(phase);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [artifactOptions, setArtifactOptions] =
-    useState<ChampCityBuilderPromptArtifactOptions>(
-      emptyBuilderPromptArtifactOptions(),
+    useState<ChampCityImplementerExecutionPacketArtifactOptions>(
+      emptyImplementerExecutionPacketArtifactOptions(),
     );
   const [artifactSelections, setArtifactSelections] =
-    useState<ChampCityBuilderPromptSupportingArtifactFileNames>({});
+    useState<ChampCityImplementerExecutionPacketSupportingArtifactFileNames>({});
   const [artifactNotes, setArtifactNotes] = useState<string[]>([]);
   const [invalidArtifactFiles, setInvalidArtifactFiles] = useState<
-    ChampCityInvalidBuilderPromptArtifactFile[]
+    ChampCityInvalidImplementerExecutionPacketArtifactFile[]
   >([]);
   const [prompt, setPrompt] = useState("");
   const [previewResult, setPreviewResult] =
-    useState<ChampCityBuilderPromptPreviewResult | null>(null);
+    useState<ChampCityImplementerExecutionPacketPreviewResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState("Loading saved Work Cards.");
   const [copyMessage, setCopyMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
-    useState<ChampCityBuilderPromptSaveResult | null>(null);
+    useState<ChampCityImplementerExecutionPacketSaveResult | null>(null);
 
   const selectedWorkCard = useSelectedWorkCard(
     workCards,
@@ -5671,7 +5714,7 @@ function BuilderPromptGeneratorScreen({
 
   useEffect(() => {
     if (selectedFileName.trim().length === 0) {
-      setArtifactOptions(emptyBuilderPromptArtifactOptions());
+      setArtifactOptions(emptyImplementerExecutionPacketArtifactOptions());
       setArtifactSelections({});
       setArtifactNotes([]);
       setInvalidArtifactFiles([]);
@@ -5689,7 +5732,7 @@ function BuilderPromptGeneratorScreen({
     setSaveResult(null);
 
     window.champCity
-      .listBuilderPromptSupportingArtifacts({
+      .listImplementerExecutionPacketSupportingArtifacts({
         phase,
         fileName: selectedFileName,
       })
@@ -5699,7 +5742,7 @@ function BuilderPromptGeneratorScreen({
         }
 
         if (!result.ok) {
-          setArtifactOptions(emptyBuilderPromptArtifactOptions());
+          setArtifactOptions(emptyImplementerExecutionPacketArtifactOptions());
           setArtifactSelections({});
           setArtifactNotes([]);
           setInvalidArtifactFiles([]);
@@ -5709,7 +5752,7 @@ function BuilderPromptGeneratorScreen({
           return;
         }
 
-        setArtifactOptions(result.options ?? emptyBuilderPromptArtifactOptions());
+        setArtifactOptions(result.options ?? emptyImplementerExecutionPacketArtifactOptions());
         setArtifactSelections(result.defaultSelections ?? {});
         setArtifactNotes(result.notes ?? []);
         setInvalidArtifactFiles(result.invalidFiles ?? []);
@@ -5720,7 +5763,7 @@ function BuilderPromptGeneratorScreen({
           return;
         }
 
-        setArtifactOptions(emptyBuilderPromptArtifactOptions());
+        setArtifactOptions(emptyImplementerExecutionPacketArtifactOptions());
         setArtifactSelections({});
         setArtifactNotes([]);
         setInvalidArtifactFiles([]);
@@ -5747,11 +5790,11 @@ function BuilderPromptGeneratorScreen({
     setSaveResult(null);
 
     window.champCity
-      .previewBuilderPrompt({
+      .previewImplementerExecutionPacket({
         phase,
         fileName: selectedFileName,
         supportingArtifactFileNames:
-          cleanBuilderPromptSelections(artifactSelections),
+          cleanImplementerExecutionPacketSelections(artifactSelections),
       })
       .then((result) => {
         if (!active) {
@@ -5790,7 +5833,7 @@ function BuilderPromptGeneratorScreen({
   }, [phase, selectedFileName, artifactSelections]);
 
   function updateArtifactSelection(
-    field: keyof ChampCityBuilderPromptSupportingArtifactFileNames,
+    field: keyof ChampCityImplementerExecutionPacketSupportingArtifactFileNames,
     value: string,
   ) {
     setArtifactSelections((previous) => ({
@@ -5813,11 +5856,11 @@ function BuilderPromptGeneratorScreen({
     setErrors([]);
     setCopyMessage("");
 
-    const result = await window.champCity.saveBuilderPrompt({
+    const result = await window.champCity.saveImplementerExecutionPacket({
       phase,
       fileName: selectedFileName,
       supportingArtifactFileNames:
-        cleanBuilderPromptSelections(artifactSelections),
+        cleanImplementerExecutionPacketSelections(artifactSelections),
     });
 
     setIsBusy(false);
@@ -5887,10 +5930,10 @@ function BuilderPromptGeneratorScreen({
             />
             <OptionalArtifactSelect
               label="Prior Implementer Report"
-              value={artifactSelections.priorBuilderReport ?? ""}
-              options={artifactOptions.priorBuilderReports}
+              value={artifactSelections.priorImplementerReport ?? ""}
+              options={artifactOptions.priorImplementerReports}
               onChange={(value) =>
-                updateArtifactSelection("priorBuilderReport", value)
+                updateArtifactSelection("priorImplementerReport", value)
               }
               emptyMessage="No matching prior Implementer Report found."
             />
@@ -5903,7 +5946,7 @@ function BuilderPromptGeneratorScreen({
                 </ul>
               </Notice>
             ) : null}
-            <InvalidBuilderPromptFiles files={invalidArtifactFiles} />
+            <InvalidImplementerExecutionPacketFiles files={invalidArtifactFiles} />
           </FieldGroup>
           {saveResult?.markdownPath ? (
             <Notice type="success">
@@ -5960,7 +6003,7 @@ function BuilderPromptGeneratorScreen({
   );
 }
 
-function BuilderReportCaptureScreen({
+function ImplementerReportCaptureScreen({
   phase,
   phaseOptions,
   onPhaseChange,
@@ -5970,18 +6013,18 @@ function BuilderReportCaptureScreen({
     useWorkCards(phase);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [reportType, setReportType] =
-    useState<ChampCityBuilderReportType>("Work Card");
+    useState<ChampCityImplementerReportType>("Work Card");
   const [topic, setTopic] = useState("");
   const [reportText, setReportText] = useState("");
   const [previewResult, setPreviewResult] =
-    useState<ChampCityBuilderReportCapturePreviewResult | null>(null);
+    useState<ChampCityImplementerReportCapturePreviewResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState("Paste or import an Implementer Report.");
   const [isBusy, setIsBusy] = useState(false);
   const [saveResult, setSaveResult] =
-    useState<ChampCityBuilderReportCaptureSaveResult | null>(null);
+    useState<ChampCityImplementerReportCaptureSaveResult | null>(null);
   const [importableReports, setImportableReports] = useState<
-    ChampCityHumanValidationBuilderReportOption[]
+    ChampCityHumanValidationImplementerReportOption[]
   >([]);
   const [selectedImportReportFileName, setSelectedImportReportFileName] =
     useState("");
@@ -6012,7 +6055,7 @@ function BuilderReportCaptureScreen({
     let active = true;
 
     window.champCity
-      .listHumanValidationBuilderReports({
+      .listHumanValidationImplementerReports({
         phase,
         workCardFileName: selectedFileName,
       })
@@ -6059,7 +6102,7 @@ function BuilderReportCaptureScreen({
     setSaveResult(null);
 
     window.champCity
-      .previewBuilderReportCapture({
+      .previewImplementerReportCapture({
         phase,
         reportType,
         workCardFileName:
@@ -6135,7 +6178,7 @@ function BuilderReportCaptureScreen({
     setErrors([]);
 
     try {
-      const result = await window.champCity.loadBuilderReportFile({
+      const result = await window.champCity.loadImplementerReportFile({
         phase,
         fileName,
       });
@@ -6180,7 +6223,7 @@ function BuilderReportCaptureScreen({
     setIsBusy(true);
     setErrors([]);
 
-    const result = await window.champCity.saveBuilderReportCapture({
+    const result = await window.champCity.saveImplementerReportCapture({
       phase,
       reportType,
       workCardFileName:
@@ -6208,7 +6251,7 @@ function BuilderReportCaptureScreen({
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
             title="Implementer Report Capture"
-            description="Paste or import implementation evidence, then save it in the compatibility Builder_Reports folder."
+            description="Paste or import implementation evidence, then save it in the canonical Implementer_Reports folder."
             badge={phase}
           />
           <ErrorList errors={[...listErrors, ...errors]} />
@@ -6223,7 +6266,7 @@ function BuilderReportCaptureScreen({
                 className={selectCls}
                 value={reportType}
                 onChange={(event) =>
-                  setReportType(event.target.value as ChampCityBuilderReportType)
+                  setReportType(event.target.value as ChampCityImplementerReportType)
                 }
               >
                 {["Work Card", "Fix", "Repair", "Other"].map((option) => (
@@ -6318,7 +6361,7 @@ function BuilderReportCaptureScreen({
             {previewResult?.validation ? (
               <>
                 <DetectionGrid validation={previewResult.validation} />
-                <BuilderReportWarnings validation={previewResult.validation} />
+                <ImplementerReportWarnings validation={previewResult.validation} />
               </>
             ) : (
               <EmptyState
@@ -6337,7 +6380,7 @@ type ArchitectReviewDraft = Omit<
   ArchitectReviewFormInput,
   | "phase"
   | "workCardFileName"
-  | "builderReportFileName"
+  | "implementerReportFileName"
   | "routedReviewBinding"
 >;
 
@@ -6358,19 +6401,21 @@ function ArchitectReviewScreen({
   phaseOptions,
   onPhaseChange,
   routedReviewBinding,
+  onWorkflowAdvanced,
 }: Pick<ScreenProps, "phase" | "phaseOptions" | "onPhaseChange"> & {
   routedReviewBinding?: RoutedArchitectReviewBinding;
+  onWorkflowAdvanced?: (nextScreenId?: string) => void | Promise<void>;
 }) {
   const reviewPhase = routedReviewBinding?.phaseId ?? phase;
   const { workCards, invalidFiles, errors: listErrors, isLoading } =
     useWorkCards(reviewPhase);
   const [selectedFileName, setSelectedFileName] = useState("");
-  const [builderReports, setBuilderReports] = useState<
-    ChampCityHumanValidationBuilderReportOption[]
+  const [implementerReports, setImplementerReports] = useState<
+    ChampCityHumanValidationImplementerReportOption[]
   >([]);
-  const [selectedBuilderReportFileName, setSelectedBuilderReportFileName] =
+  const [selectedImplementerReportFileName, setSelectedImplementerReportFileName] =
     useState("");
-  const [builderReportText, setBuilderReportText] = useState("");
+  const [implementerReportText, setImplementerReportText] = useState("");
   const [draft, setDraft] = useState<ArchitectReviewDraft>({
     ...initialArchitectReviewDraft,
   });
@@ -6394,7 +6439,7 @@ function ArchitectReviewScreen({
     ? toUiWorkCardSummary(selectedWorkCardRecord)
     : null;
   const routedReportFileName =
-    routedReviewBinding?.builderReportFileName ?? "";
+    routedReviewBinding?.implementerReportFileName ?? "";
   const bindingErrors =
     routedReviewBinding?.blockingState.issues.map((issue) => issue.message) ??
     [];
@@ -6410,7 +6455,7 @@ function ArchitectReviewScreen({
       !routedReviewBinding.blockingState.blocked &&
       selectedWorkCard?.workCardId.toLowerCase() ===
         routedReviewBinding.workCardId.toLowerCase() &&
-      selectedBuilderReportFileName === routedReportFileName,
+      selectedImplementerReportFileName === routedReportFileName,
   );
 
   useEffect(() => {
@@ -6438,9 +6483,9 @@ function ArchitectReviewScreen({
 
   useEffect(() => {
     if (!selectedFileName) {
-      setBuilderReports([]);
-      setSelectedBuilderReportFileName("");
-      setBuilderReportText("");
+      setImplementerReports([]);
+      setSelectedImplementerReportFileName("");
+      setImplementerReportText("");
       return;
     }
 
@@ -6449,7 +6494,7 @@ function ArchitectReviewScreen({
     setErrors([]);
 
     window.champCity
-      .listHumanValidationBuilderReports({
+      .listHumanValidationImplementerReports({
         phase: reviewPhase,
         workCardFileName: selectedFileName,
       })
@@ -6461,8 +6506,8 @@ function ArchitectReviewScreen({
         setIsBusy(false);
 
         if (!result.ok) {
-          setBuilderReports([]);
-          setSelectedBuilderReportFileName("");
+          setImplementerReports([]);
+          setSelectedImplementerReportFileName("");
           setErrors(
             result.errorMessages ?? ["Implementer Reports could not be loaded."],
           );
@@ -6480,8 +6525,8 @@ function ArchitectReviewScreen({
           ? routedMatch?.fileName ?? ""
           : result.defaultFileName || options[0]?.fileName || "";
 
-        setBuilderReports(options);
-        setSelectedBuilderReportFileName(nextReportFileName);
+        setImplementerReports(options);
+        setSelectedImplementerReportFileName(nextReportFileName);
         setStatusMessage(
           routedMatch
             ? "Current-action target and Implementer Report are bound for Architect review."
@@ -6492,7 +6537,7 @@ function ArchitectReviewScreen({
 
         if (routedReviewBinding && !routedMatch) {
           setErrors([
-            `Current action ${routedReviewBinding.workCardId} requires ${routedReviewBinding.builderReportFileName}, but that report is not available for the routed target. The Architect owns correction of the current-action source binding before preview or save.`,
+            `Current action ${routedReviewBinding.workCardId} requires ${routedReviewBinding.implementerReportFileName}, but that report is not available for the routed target. The Architect owns correction of the current-action source binding before preview or save.`,
           ]);
         }
       })
@@ -6502,8 +6547,8 @@ function ArchitectReviewScreen({
         }
 
         setIsBusy(false);
-        setBuilderReports([]);
-        setSelectedBuilderReportFileName("");
+        setImplementerReports([]);
+        setSelectedImplementerReportFileName("");
         setErrors(["Implementer Reports could not be loaded."]);
         setStatusMessage("Implementer Report association needs attention.");
       });
@@ -6519,17 +6564,17 @@ function ArchitectReviewScreen({
   ]);
 
   useEffect(() => {
-    if (!selectedBuilderReportFileName) {
-      setBuilderReportText("");
+    if (!selectedImplementerReportFileName) {
+      setImplementerReportText("");
       return;
     }
 
     let active = true;
 
     window.champCity
-      .loadBuilderReportFile({
+      .loadImplementerReportFile({
         phase: reviewPhase,
-        fileName: selectedBuilderReportFileName,
+        fileName: selectedImplementerReportFileName,
       })
       .then((result) => {
         if (!active) {
@@ -6537,18 +6582,18 @@ function ArchitectReviewScreen({
         }
 
         if (!result.ok || !result.content) {
-          setBuilderReportText("");
+          setImplementerReportText("");
           setErrors(
             result.errorMessages ?? ["The Implementer Report could not be loaded."],
           );
           return;
         }
 
-        setBuilderReportText(result.content);
+        setImplementerReportText(result.content);
       })
       .catch(() => {
         if (active) {
-          setBuilderReportText("");
+          setImplementerReportText("");
           setErrors(["The Implementer Report could not be loaded."]);
         }
       });
@@ -6556,12 +6601,12 @@ function ArchitectReviewScreen({
     return () => {
       active = false;
     };
-  }, [reviewPhase, selectedBuilderReportFileName]);
+  }, [reviewPhase, selectedImplementerReportFileName]);
 
   const previewInput = useMemo<ArchitectReviewFormInput | null>(() => {
     if (
       !selectedFileName ||
-      !selectedBuilderReportFileName ||
+      !selectedImplementerReportFileName ||
       routedReviewBinding?.blockingState.blocked
     ) {
       return null;
@@ -6570,7 +6615,7 @@ function ArchitectReviewScreen({
     return {
       phase: reviewPhase,
       workCardFileName: selectedFileName,
-      builderReportFileName: selectedBuilderReportFileName,
+      implementerReportFileName: selectedImplementerReportFileName,
       ...draft,
       routedReviewBinding,
     };
@@ -6578,7 +6623,7 @@ function ArchitectReviewScreen({
     draft,
     reviewPhase,
     routedReviewBinding,
-    selectedBuilderReportFileName,
+    selectedImplementerReportFileName,
     selectedFileName,
   ]);
 
@@ -6660,7 +6705,12 @@ function ArchitectReviewScreen({
     }
 
     setSaveResult(result);
-    setStatusMessage("Architect Review saved.");
+    setStatusMessage(
+      result.workflowTransition?.toActionId === "operator_validation_required"
+        ? "Architect Review saved. Workflow advanced to Operator Validation."
+        : "Architect Review saved.",
+    );
+    await onWorkflowAdvanced?.(result.workflowTransition?.nextScreenId);
   }
 
   return (
@@ -6695,7 +6745,7 @@ function ArchitectReviewScreen({
                     : ""}
                 </span>
                 <code className="break-anywhere">
-                  {routedReviewBinding.builderReportPath ||
+                  {routedReviewBinding.implementerReportPath ||
                     "Exact Implementer Report binding unavailable"}
                 </code>
                 <span>
@@ -6750,14 +6800,14 @@ function ArchitectReviewScreen({
             <Field label="Associated Implementer Report">
               <select
                 className={selectCls}
-                value={selectedBuilderReportFileName}
+                value={selectedImplementerReportFileName}
                 disabled={Boolean(routedReviewBinding)}
                 onChange={(event) =>
-                  setSelectedBuilderReportFileName(event.target.value)
+                  setSelectedImplementerReportFileName(event.target.value)
                 }
               >
                 <option value="">Select Implementer Report fallback</option>
-                {builderReports.map((option) => (
+                {implementerReports.map((option) => (
                   <option key={option.fileName} value={option.fileName}>
                     {option.fileName === routedReportFileName
                       ? `${option.label} (current action)`
@@ -6893,10 +6943,10 @@ function ArchitectReviewScreen({
             </MonoBlock>
             <details className="rounded-md border border-border bg-white/[0.02] p-3">
               <summary className="cursor-pointer text-sm font-semibold text-foreground">
-                Associated Implementer Report: {selectedBuilderReportFileName || "none"}
+                Associated Implementer Report: {selectedImplementerReportFileName || "none"}
               </summary>
               <MonoBlock className="mt-3 max-h-[420px]">
-                {builderReportText || "No Implementer Report content loaded."}
+                {implementerReportText || "No Implementer Report content loaded."}
               </MonoBlock>
             </details>
           </div>
@@ -6963,13 +7013,13 @@ function HumanValidationScreen({
     selectedTargetFileName ||
     (activeCard?.phase === phase ? activeCard.fileName ?? "" : "");
   const lastAlignedRouteKey = useRef("");
-  const [builderReports, setBuilderReports] = useState<
-    ChampCityHumanValidationBuilderReportOption[]
+  const [implementerReports, setImplementerReports] = useState<
+    ChampCityHumanValidationImplementerReportOption[]
   >([]);
-  const [invalidBuilderReports, setInvalidBuilderReports] = useState<
-    ChampCityInvalidHumanValidationBuilderReportFile[]
+  const [invalidImplementerReports, setInvalidImplementerReports] = useState<
+    ChampCityInvalidHumanValidationImplementerReportFile[]
   >([]);
-  const [selectedBuilderReportFileName, setSelectedBuilderReportFileName] =
+  const [selectedImplementerReportFileName, setSelectedImplementerReportFileName] =
     useState("");
   const form = readHumanValidationDraft(
     drafts,
@@ -7074,9 +7124,9 @@ function HumanValidationScreen({
 
   useEffect(() => {
     if (selectedFileName.trim().length === 0) {
-      setBuilderReports([]);
-      setInvalidBuilderReports([]);
-      setSelectedBuilderReportFileName("");
+      setImplementerReports([]);
+      setInvalidImplementerReports([]);
+      setSelectedImplementerReportFileName("");
       return;
     }
 
@@ -7086,7 +7136,7 @@ function HumanValidationScreen({
     setErrors([]);
 
     window.champCity
-      .listHumanValidationBuilderReports({
+      .listHumanValidationImplementerReports({
         phase,
         workCardFileName:
           selectedValidationTarget?.sourceJsonFile ?? selectedFileName,
@@ -7100,18 +7150,18 @@ function HumanValidationScreen({
         setIsBusy(false);
 
         if (!result.ok) {
-          setBuilderReports([]);
-          setInvalidBuilderReports([]);
-          setSelectedBuilderReportFileName("");
+          setImplementerReports([]);
+          setInvalidImplementerReports([]);
+          setSelectedImplementerReportFileName("");
           setErrors(result.errorMessages ?? ["Implementer Reports could not be loaded."]);
           setStatusMessage("Implementer Reports need attention.");
           return;
         }
 
         const options = result.options ?? [];
-        setBuilderReports(options);
-        setInvalidBuilderReports(result.invalidFiles ?? []);
-        setSelectedBuilderReportFileName(result.defaultFileName ?? "");
+        setImplementerReports(options);
+        setInvalidImplementerReports(result.invalidFiles ?? []);
+        setSelectedImplementerReportFileName(result.defaultFileName ?? "");
         setStatusMessage("Validation source loaded.");
       })
       .catch(() => {
@@ -7120,9 +7170,9 @@ function HumanValidationScreen({
         }
 
         setIsBusy(false);
-        setBuilderReports([]);
-        setInvalidBuilderReports([]);
-        setSelectedBuilderReportFileName("");
+        setImplementerReports([]);
+        setInvalidImplementerReports([]);
+        setSelectedImplementerReportFileName("");
         setErrors(["Implementer Reports could not be loaded."]);
         setStatusMessage("Implementer Reports need attention.");
       });
@@ -7141,9 +7191,9 @@ function HumanValidationScreen({
       phase,
       workCardFileName: selectedValidationTarget.sourceJsonFile,
       validationTargetFileName: selectedFileName,
-      builderReportFileName:
-        selectedBuilderReportFileName.trim().length > 0
-          ? selectedBuilderReportFileName
+      implementerReportFileName:
+        selectedImplementerReportFileName.trim().length > 0
+          ? selectedImplementerReportFileName
           : undefined,
       ...form,
     };
@@ -7151,7 +7201,7 @@ function HumanValidationScreen({
     phase,
     selectedFileName,
     selectedValidationTarget,
-    selectedBuilderReportFileName,
+    selectedImplementerReportFileName,
     form,
   ]);
 
@@ -7377,13 +7427,13 @@ function HumanValidationScreen({
             <Field label="Associated Implementer Report">
               <select
                 className={selectCls}
-                value={selectedBuilderReportFileName}
+                value={selectedImplementerReportFileName}
                 onChange={(event) =>
-                  setSelectedBuilderReportFileName(event.target.value)
+                  setSelectedImplementerReportFileName(event.target.value)
                 }
               >
                 <option value="">No Implementer Report selected</option>
-                {builderReports.map((option) => (
+                {implementerReports.map((option) => (
                   <option key={option.fileName} value={option.fileName}>
                     {option.isDefaultMatch
                       ? `${option.label} (match)`
@@ -7392,10 +7442,10 @@ function HumanValidationScreen({
                 ))}
               </select>
             </Field>
-            {invalidBuilderReports.length > 0 ? (
+            {invalidImplementerReports.length > 0 ? (
               <Notice type="warning">
                 <ul className="grid gap-1">
-                  {invalidBuilderReports.map((file) => (
+                  {invalidImplementerReports.map((file) => (
                     <li key={file.fileName}>
                       {file.fileName}: {file.errorMessages.join(" ")}
                     </li>
@@ -7403,8 +7453,8 @@ function HumanValidationScreen({
                 </ul>
               </Notice>
             ) : null}
-            {previewResult?.builderReportWarning ? (
-              <Notice type="warning">{previewResult.builderReportWarning}</Notice>
+            {previewResult?.implementerReportWarning ? (
+              <Notice type="warning">{previewResult.implementerReportWarning}</Notice>
             ) : null}
           </FieldGroup>
           {saveResult?.validationJsonPath ? (
@@ -9426,10 +9476,10 @@ function InvalidRepositoryReconciliationFiles({
   );
 }
 
-function InvalidBuilderPromptFiles({
+function InvalidImplementerExecutionPacketFiles({
   files,
 }: {
-  files: ChampCityInvalidBuilderPromptArtifactFile[];
+  files: ChampCityInvalidImplementerExecutionPacketArtifactFile[];
 }) {
   if (files.length === 0) {
     return null;
@@ -9460,7 +9510,7 @@ function OptionalArtifactSelect({
 }: {
   label: string;
   value: string;
-  options: ChampCityBuilderPromptArtifactOption[];
+  options: ChampCityImplementerExecutionPacketArtifactOption[];
   onChange: (value: string) => void;
   emptyMessage: string;
 }) {
@@ -9591,7 +9641,7 @@ function SimpleList({
 function DetectionGrid({
   validation,
 }: {
-  validation: ChampCityBuilderReportValidationResult;
+  validation: ChampCityImplementerReportValidationResult;
 }) {
   const items = [
     ["Repository path", validation.detected.hasRepositoryPath],
@@ -9626,10 +9676,10 @@ function DetectionGrid({
   );
 }
 
-function BuilderReportWarnings({
+function ImplementerReportWarnings({
   validation,
 }: {
-  validation: ChampCityBuilderReportValidationResult;
+  validation: ChampCityImplementerReportValidationResult;
 }) {
   if (validation.warnings.length === 0) {
     return <Notice type="success">No required-section warnings detected.</Notice>;
@@ -10832,23 +10882,23 @@ async function copyText(
   }
 }
 
-function emptyBuilderPromptArtifactOptions(): ChampCityBuilderPromptArtifactOptions {
+function emptyImplementerExecutionPacketArtifactOptions(): ChampCityImplementerExecutionPacketArtifactOptions {
   return {
     workCardMarkdown: [],
     architectPrompts: [],
     riskReviews: [],
-    priorBuilderReports: [],
+    priorImplementerReports: [],
   };
 }
 
-function cleanBuilderPromptSelections(
-  selections: ChampCityBuilderPromptSupportingArtifactFileNames,
-): ChampCityBuilderPromptSupportingArtifactFileNames {
+function cleanImplementerExecutionPacketSelections(
+  selections: ChampCityImplementerExecutionPacketSupportingArtifactFileNames,
+): ChampCityImplementerExecutionPacketSupportingArtifactFileNames {
   return {
     workCardMarkdown: nonBlankSelection(selections.workCardMarkdown),
     architectPrompt: nonBlankSelection(selections.architectPrompt),
     riskReview: nonBlankSelection(selections.riskReview),
-    priorBuilderReport: nonBlankSelection(selections.priorBuilderReport),
+    priorImplementerReport: nonBlankSelection(selections.priorImplementerReport),
   };
 }
 
@@ -10905,7 +10955,7 @@ function statusColor(status: string): string {
     return "border-blue-400/20 bg-blue-400/10 text-blue-400";
   }
 
-  if (status === "ready_for_builder") {
+  if (status === "ready_for_implementer") {
     return "border-primary/20 bg-primary/10 text-primary";
   }
 

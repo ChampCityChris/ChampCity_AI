@@ -1,3 +1,38 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC02",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC02 Durable Current Required Action Model"
+  },
+  "payloadHash": "sha256:5a1ee641227a8f020a5bd633b8a5e11e71c3847051caa0c1154e914498fd53c2",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC02"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC02"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC02",
+      "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC02"
+}
+-->
+
 # Architect Review: WC02 Durable Current Required Action Model
 
 Status: Ready for Operator Validation
@@ -9,7 +44,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02_durable_current_required_action_model.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md`
 
 ## Source Work Card
 
@@ -40,7 +75,7 @@ This confirms the WC02 implementation/report state is committed locally. MCP doe
 Created:
 
 - `src/shared/workCards/currentRequiredAction.ts`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02_durable_current_required_action_model.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md`
 
 Modified:
 

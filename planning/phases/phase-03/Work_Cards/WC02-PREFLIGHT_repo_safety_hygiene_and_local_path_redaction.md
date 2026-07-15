@@ -1,3 +1,30 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Repo Safety Hygiene and Local Path Redaction"
+  },
+  "payloadHash": "sha256:c2a2303170a6e0016482d9ff684952941fdc2d5eea7c0c8e30322540f58166ab",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: Repo Safety Hygiene and Local Path Redaction
 
 ## Work Card ID
@@ -40,7 +67,7 @@ The MCP git safety gate blocked broad staging because multiple changed files con
 
 ## Problem
 
-The repo contains changed text artifacts with local-path patterns. This prevents safe staging/committing through the MCP git workflow and creates a repeatable leak risk in Work Cards, Builder/Implementer Reports, validation records, closeout records, and handoff prompts.
+The repo contains changed text artifacts with local-path patterns. This prevents safe staging/committing through the MCP git workflow and creates a repeatable leak risk in Work Cards, Implementer Reports, validation records, closeout records, and handoff prompts.
 
 The project needs a durable rule and a cleanup pass before WC02 implementation starts.
 
@@ -77,7 +104,7 @@ planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.m
 - Do not implement the Figma workflow-router UI shell.
 - Do not perform broad UI redesign.
 - Do not change workflow-router product scope.
-- Do not rename historical `Builder_*` folders.
+- Do not rename historical `Implementer_*` folders.
 - Do not delete historical artifacts unless explicitly necessary and approved by the Operator.
 - Do not push to remote unless the Operator explicitly requests it.
 - Do not alter secrets, credentials, provider configuration, package credentials, or environment files.
@@ -89,7 +116,7 @@ Add or update `AGENTS.md` with a rule equivalent to:
 ```text
 ## Local Path Redaction
 
-Do not write concrete local machine paths into committed artifacts, Work Cards, Builder/Implementer Reports, validation records, closeout records, planning documents, or handoff prompts.
+Do not write concrete local machine paths into committed artifacts, Work Cards, Implementer Reports, validation records, closeout records, planning documents, or handoff prompts.
 
 Use `<PROJECT_REPO>` to refer to the local repository root.
 
@@ -191,7 +218,7 @@ Before editing:
 Deliverable report path:
 
 ```text
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md
 ```
 
 The report must include:
@@ -205,7 +232,7 @@ The report must include:
 - Remaining dirty files after commit.
 - Whether WC02 is safe to hand off.
 
-## Builder Handoff Prompt
+## Implementer Handoff Prompt
 
 ```text
 You are acting as Implementer for ChampCity A/I.

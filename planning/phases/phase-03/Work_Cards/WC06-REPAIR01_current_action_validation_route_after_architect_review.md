@@ -1,3 +1,41 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC06-REPAIR01",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC06-REPAIR01 — Current Action Validation Route After Architect Review"
+  },
+  "payloadHash": "sha256:2ffba47f4c2812d3b07d0377e0d82e803a6d7f64640c163597f3f7acb6111843",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC06-REPAIR01"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/validation_report/WC06",
+      "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC06-REPAIR01"
+}
+-->
+
 # Repair Work Card: WC06-REPAIR01 — Current Action Validation Route After Architect Review
 
 Status: ready_for_implementer
@@ -172,7 +210,7 @@ The fixture should catch the defect shown in the Operator screenshot.
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md`
 
 The report must include:
 
@@ -255,7 +293,7 @@ Validation:
 
 Required Implementer Report:
 Create:
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
 
 Final response must include:
 - pushed repair branch;

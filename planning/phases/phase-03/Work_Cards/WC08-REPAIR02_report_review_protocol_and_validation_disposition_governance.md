@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance"
+  },
+  "payloadHash": "sha256:ebd1af71546e2c0d792efdc03c55d5bcfca98ae24190d804622fc66025724dbc",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Repair Work Card: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance
 
 Status: ready_for_implementer
@@ -303,7 +336,7 @@ After this report-governance repair is validated, the Architect should re-review
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
 
 The report must include:
 

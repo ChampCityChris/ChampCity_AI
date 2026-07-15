@@ -1,3 +1,39 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC06-REPAIR01 Current Action Validation Route After Architect Review"
+  },
+  "payloadHash": "sha256:b53b99b7c62b8844673f20f6bbfab4165c32f6aef3eb9d381a6460406f924686",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC06-REPAIR01"
+}
+-->
+
 # Architect Review: WC06-REPAIR01 Current Action Validation Route After Architect Review
 
 ## Review Target
@@ -5,7 +41,7 @@
 - Repair Work Card: WC06-REPAIR01 — Current Action Validation Route After Architect Review
 - Parent Work Card: WC06 — Left-to-Right Workflow Visibility
 - Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
-- Implementer Report: `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md`
+- Implementer Report: `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md`
 - Review branch: `feature/phase-03-wc06-repair01-validation-route`
 
 ## Outcome

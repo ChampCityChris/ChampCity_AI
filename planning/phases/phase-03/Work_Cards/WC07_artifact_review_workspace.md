@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-13T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC07 — Artifact Review Workspace"
+  },
+  "payloadHash": "sha256:562fbfe16ee2a31692fac553fcd2845fbd82c2cbe3fa74c9f0b7db8fa608f9fb",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC07",
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC07",
+      "champcity-ai/phase-03/validation_report/WC07"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: WC07 — Artifact Review Workspace
 
 Status: ready_for_implementer
@@ -235,7 +267,7 @@ The Operator should validate that:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md`
 
 The report must include:
 
@@ -326,7 +358,7 @@ Validation:
 
 Required Implementer Report:
 Create:
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md
 
 Final response must include:
 - pushed branch;

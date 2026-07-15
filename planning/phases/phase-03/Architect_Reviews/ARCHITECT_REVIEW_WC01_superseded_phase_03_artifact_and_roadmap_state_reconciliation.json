@@ -1,0 +1,38 @@
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC01",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+  "payload": {
+    "contentMarkdown": "# Architect Review: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation\n\nStatus: Ready for Operator Validation\nProject: ChampCity A/I\nPhase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\nWork Card: WC01 — Superseded Phase 03 Artifact and Roadmap State Reconciliation\nReview date: 2026-07-03\nReviewed by: Architect\n\n## Reviewed Implementer Report\n\n- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`\n\n## Source Work Card\n\n- `planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`\n- `planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json`\n\n## Review Outcome\n\nWC01 is ready for Operator validation.\n\nNo repair sub-card is required before Operator validation.\n\n## Scope Review\n\nThe Implementer Report describes work that stayed within the approved WC01 boundary:\n\n- reconciled durable project and phase state\n- updated Project State, Roadmap, and Phase Map to identify Phase 03 as the active approved workflow-router phase\n- preserved obsolete Phase 03 artifacts while marking them superseded\n- kept WC02 and WC03 work out of scope\n- did not create later Phase 03 executable Work Cards\n- did not create a separate Implementer Execution Packet artifact\n- did not perform Operator validation or closeout\n- did not stage, commit, push, tag, package, deploy, or open a PR\n\n## Evidence Checked By Architect\n\nThe Architect reviewed the following artifacts through ChampCity MCP:\n\n- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`\n- `planning/project/PROJECT_STATE.md`\n- `planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md`\n- `planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md`\n- `planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md`\n- `planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`\n\n## Findings\n\n### Pass: Phase 03 state is now active and approved\n\n`PROJECT_STATE.md` now identifies Phase 03 as active and approved for just-in-time Work Card execution, with WC01 as the current executable Work Card.\n\n### Pass: Roadmap now reflects the active Phase 03\n\nThe living Roadmap now identifies Phase 02 as closed and Phase 03 as active / approved for just-in-time Work Card execution.\n\n### Pass: Phase Map now reflects the approved Phase 03 work-card plan\n\nThe Phase Map now identifies Phase 03 as `Workflow Router Screen Correction and Guided Current Action UI` and maps WC01 through WC15 according to the approved revised Work Card Plan.\n\n### Pass: Superseded Phase 03 artifacts are marked\n\nThe obsolete `Repository Reconciliation and Phase Planning Documents` artifact now has a clear supersession notice and points to the current Phase 03 authority bundle.\n\n### Pass: Validation was reported\n\nThe Implementer reported:\n\n- JSON validity checks passed for changed JSON artifacts.\n- `node --check scripts/verify-work-card-fixture.mjs` passed.\n- `npm run validate:codex` passed in the normal Windows execution lane.\n- `node scripts/verify-work-card-fixture.mjs` passed.\n\n## Non-Blocking Observations\n\n### Observation 1: Historical artifact bodies still contain old text\n\nThe superseded Phase 03 artifacts still contain their original old-title body text after the supersession banner. This is acceptable for historical artifacts, provided future router logic respects the superseded status and current authority pointer.\n\n### Observation 2: Project State still describes WC01 as the current executable Work Card\n\nThat is accurate until Operator validation is recorded. After Operator validation, state should advance to either WC02 creation or WC01 repair routing depending on validation outcome.\n\n### Observation 3: Worktree remains dirty\n\nThe repo was dirty before WC01 and remains dirty. This is not a WC01 failure, but it remains a release hygiene risk and should not be treated as release-clean.\n\n## Operator Manual Validation Steps\n\nThe Operator should manually inspect the app/repo-facing state and confirm:\n\n1. `PROJECT_STATE.md` says Phase 02 is closed.\n2. `PROJECT_STATE.md` says Phase 03 is active and approved for just-in-time Work Card execution.\n3. The active Phase 03 title is exactly `Workflow Router Screen Correction and Guided Current Action UI`.\n4. `PROJECT_STATE.md`, the Roadmap, and the Phase Map point to the approved Phase 03 authority bundle.\n5. WC01 is the only current executable Phase 03 Work Card.\n6. Older Phase 03 `Repository Reconciliation and Phase Planning Documents` artifacts are visibly marked superseded and not current authority.\n7. No WC02 or later executable Work Cards were created.\n8. No separate Implementer Execution Packet artifact was created.\n9. No Operator validation or closeout artifact was created by the Implementer.\n\n## Validation Record Guidance\n\nIf the Operator passes WC01, create an Operator Validation Record for WC01 with result `Pass` and decision `Proceed to WC02 creation`.\n\nIf the Operator finds stale or confusing active-state routing, create a WC01 repair sub-card instead of proceeding to WC02.\n\n## Recommended Next Action\n\nOperator validates WC01 manually. If passed, the Architect should create the next just-in-time Phase 03 Work Card:\n\n```text\nWC02 — Durable Current Required Action Model\n```\n",
+    "data": {},
+    "kind": "architect_review",
+    "title": "Architect Review: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+  },
+  "payloadHash": "sha256:508c4425543e585b9b2291ffa958018c8ccad8b677e825bc73e09099ad68651e",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC01"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+      "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC01"
+}

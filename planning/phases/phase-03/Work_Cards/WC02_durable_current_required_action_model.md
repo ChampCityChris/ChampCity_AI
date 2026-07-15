@@ -1,3 +1,34 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Durable Current Required Action Model"
+  },
+  "payloadHash": "sha256:c0603719bb9bb0d606d0275984b8d1c83b2464138326cb14fa9a25ac2d18682c",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC02",
+      "champcity-ai/phase-03/implementer_report/WC02",
+      "champcity-ai/phase-03/validation_report/WC02"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: Durable Current Required Action Model
 
 ## Work Card ID
@@ -140,7 +171,7 @@ The screen also reports that the current WC01 JSON does not satisfy an older val
 - Do not perform broad visual redesign.
 - Do not replace the renderer with the Figma prototype.
 - Do not create WC03 or later Work Cards.
-- Do not create a separate Implementer Prompt artifact.
+- Do not create a separate Implementer Execution Packet artifact.
 - Do not perform Operator validation or create validation records.
 - Do not close Phase 03.
 - Do not stage, commit, push, tag, package, deploy, or open a PR.
@@ -187,7 +218,7 @@ Likely source folders:
 - Renderer code must not directly read or write local files.
 - Any new reads/writes must go through constrained Electron main/preload IPC.
 - Any path handling must reject unsafe filenames, traversal, arbitrary absolute paths, and unsupported folders.
-- Preserve Operator / Architect / Implementer terminology.
+- Preserve Operator / Architect / Implementer-facing role terminology.
 - Preserve the corrected product model: ChampCity A/I is a workflow router, not a screen picker.
 - Treat Roadmap as the living master record.
 - Treat Work Card as the Implementer handoff.
@@ -207,7 +238,7 @@ Likely source folders:
 - Superseded Phase 03 artifacts are warnings/context, not active authority.
 - Fixture/static tests cover major workflow states.
 - Validation passes or environment limitations are documented.
-- WC02 Implementer Report is created under `planning/phases/phase-03/Builder_Reports/`.
+- WC02 Implementer Report is created under `planning/phases/phase-03/Implementer_Reports/`.
 
 ## Validation
 
@@ -227,12 +258,12 @@ high
 Create a WC02 Implementer Report at:
 
 ```text
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02_durable_current_required_action_model.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md
 ```
 
 The report must include summary of changes, files changed, current-action model shape, workflow states covered, validation target/schema issue disposition, validation commands and results, skipped commands and reasons, git status summary, risks/follow-up items, and recommended next action.
 
-## Builder Handoff Prompt
+## Implementer Handoff Prompt
 
 ```text
 You are acting as Implementer for ChampCity A/I.

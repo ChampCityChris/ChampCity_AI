@@ -1,3 +1,38 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T20:06:06.385Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC08-REPAIR01 Route Context Explanation and Correction Affordance"
+  },
+  "payloadHash": "sha256:b17f619bd0e2441f86092cb17184ee782330e2b03af85906266cf5a381eb31c1",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+    ],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T20:06:06.385Z",
+  "workCardId": "WC08-REPAIR01"
+}
+-->
+
 # Human Validation Report - WC08-REPAIR01 Route Context Explanation and Correction Affordance
 
 ## Validation Target
@@ -9,7 +44,7 @@
 - Parent Work Card ID: WC08
 - Source JSON file: WC08-REPAIR01_route_context_explanation_and_correction_affordance.json
 - Source Markdown file: WC08-REPAIR01_route_context_explanation_and_correction_affordance.md
-- Associated Implementer Report: BUILDER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md
 
 ## Validation Result
 

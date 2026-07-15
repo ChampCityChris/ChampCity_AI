@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC04",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-12T20:21:56.149Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC04 Primary Current Action Panel"
+  },
+  "payloadHash": "sha256:de1e4fb42b8ff47eafb14ad8d8daf6bc5f23f21a4ca374551fd7523785c0beb4",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC04",
+      "champcity-ai/phase-03/implementer_report/WC04",
+      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04"
+}
+-->
+
 # Human Validation Report - WC04 Primary Current Action Panel
 
 ## Validation Target
@@ -8,7 +40,7 @@
 - Phase: phase-03
 - Source JSON file: WC04_primary_current_action_panel.json
 - Source Markdown file: WC04_primary_current_action_panel.md
-- Associated Implementer Report: BUILDER_REPORT_WC04_primary_current_action_panel.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md
 
 ## Validation Result
 

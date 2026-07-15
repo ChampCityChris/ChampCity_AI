@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
+  "artifactType": "backlog",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/WORK_CARD_BACKLOG.json",
+  "markdownPath": "planning/phases/phase-03/WORK_CARD_BACKLOG.md",
+  "payload": {
+    "kind": "backlog",
+    "title": "Work Card Backlog: Repository Reconciliation and Phase Planning Documents"
+  },
+  "payloadHash": "sha256:425dedda1a07ceb365e772f63f75d3a9d8d6463c652abb81ce0beb2cba3ac6bb",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card Backlog: Repository Reconciliation and Phase Planning Documents
 
 > Superseded historical artifact. This backlog belongs to the obsolete Phase 03 `Repository Reconciliation and Phase Planning Documents` proposal. The active approved Phase 03 is `Workflow Router Screen Correction and Guided Current Action UI`, with current authority in `Phase_Interview.md`, `Phase_Planning.md`, `Work_Card_Plan.md`, and `Operator_Phase_Approval.md`.

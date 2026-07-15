@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+  "artifactType": "design_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.json",
+  "markdownPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.md",
+  "payload": {
+    "kind": "design_document",
+    "title": "Artifact Authority Model"
+  },
+  "payloadHash": "sha256:02824df5fe818ba66ec6ecfc60865c9b6549a7398735a76a60c8f29145e221b5",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Artifact Authority Model
 
 Status: Accepted for Phase 02 WC08
@@ -17,8 +43,8 @@ Project Plan / Roadmap
 -> Work Card Plan
 -> Work Card Plan Review
 -> Formal Work Cards
--> Implementer Prompt
--> Builder Report
+-> Implementer Execution Packet
+-> Implementer Report
 -> Human Validation Report
 -> Closeout Report
 -> Next Phase Activation decision
@@ -32,8 +58,8 @@ Project Plan / Roadmap
 - Work Card Plan = proposed Work Card count, order, names, and rough intent.
 - Work Card Plan Review = Operator review surface for proposed Work Card entries; it does not create executable work until a separate approved materialization step exists.
 - Formal Work Cards = approved executable units saved under `Work_Cards/`.
-- Implementer Prompt = build instruction generated from an approved Formal Work Card.
-- Builder Report = Implementer result.
+- Implementer Execution Packet = build instruction generated from an approved Formal Work Card.
+- Implementer Report = Implementer result.
 - Human Validation Report = Operator evidence and decision.
 - Closeout Report = phase-level acceptance and transition authority.
 
@@ -45,7 +71,7 @@ Project Plan / Roadmap
 - Work Card Plans remain proposals until selected items are approved as Formal Work Cards.
 - Planned Work Card entries may be Proposed, Deferred, Superseded, Already Satisfied, Implemented But Not Validated, or Validated But Not Closed without becoming executable Formal Work Cards.
 - Formal Work Cards require a separate Operator approval step.
-- Implementer Prompts are generated only after a Formal Work Card exists.
+- Implementer Execution Packets are generated only after a Formal Work Card exists.
 - Phase Closeout must record a Next Phase Activation decision.
 - Next Phase Activation decisions include Activate next phase, Defer next phase, Revise roadmap first, Carry unresolved current-phase items forward, and Close current phase without activation.
 
@@ -60,9 +86,9 @@ Project Intake
 -> Work Card Plan Review
 -> Architect drafts Formal Work Card
 -> Operator approves Formal Work Card
--> Implementer Prompt
+-> Implementer Execution Packet
 -> Build
--> Builder Report
+-> Implementer Report
 -> Human Validation
 -> Repair or Accept
 -> Phase Closeout
@@ -71,7 +97,7 @@ Project Intake
 
 ## Phase 03 Draft Rule
 
-Phase 03 draft artifacts may live under `planning/phases/phase-03/`, but they must be labeled Draft / Pending Review / Not Active until closeout or activation. They are not executable Formal Work Cards and must not trigger Implementer Prompt generation.
+Phase 03 draft artifacts may live under `planning/phases/phase-03/`, but they must be labeled Draft / Pending Review / Not Active until closeout or activation. They are not executable Formal Work Cards and must not trigger Implementer Execution Packet generation.
 
 ## Ad Hoc Work Rule
 

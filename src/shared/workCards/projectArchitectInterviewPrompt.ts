@@ -256,7 +256,7 @@ export function renderProjectArchitectInterviewPromptText(
     "6. For every question you ask, provide suggested answers in plain language.",
     "7. Remember the Operator may be tech savvy but is not expected to think like a software architect or developer.",
     "8. Preserve the Architect / Implementer mental model.",
-    "9. Treat the source-of-truth location and Builder/Implementer tooling as durable project constraints.",
+    "9. Treat the source-of-truth location and Implementer tooling as durable project constraints.",
     "",
     "Required project-profile areas to complete:",
     "- Project name",

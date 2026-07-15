@@ -12,8 +12,8 @@ const phase = "phase-03";
 const targetId = "WC08-REPAIR04";
 const workCardFileName =
   "WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json";
-const builderReportFileName =
-  "BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
+const implementerReportFileName =
+  "IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
 const architectReviewFileName =
   "ARCHITECT_REVIEW_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md";
 
@@ -31,7 +31,7 @@ assert.equal(
 );
 assert.ok(
   currentActionResult.currentAction?.sourceArtifacts.some((artifact) =>
-    artifact.path.endsWith(builderReportFileName),
+    artifact.path.endsWith(implementerReportFileName),
   ),
   "The current action must expose the associated REPAIR04 Implementer Report.",
 );
@@ -92,7 +92,7 @@ assert.equal(
 const preview = await previewArchitectReviewRecord({
   phase,
   workCardFileName,
-  builderReportFileName,
+  implementerReportFileName,
   decision: "Ready for Operator validation",
   workCardCompliance: "The implementation remains within WC08-REPAIR04 scope.",
   changedFilesReviewed: "Reviewed the reported source and focused fixture changes.",
@@ -107,14 +107,14 @@ const preview = await previewArchitectReviewRecord({
 assert.equal(preview.ok, true, preview.errorMessages?.join(" "));
 assert.equal(preview.reviewMode, "repair");
 assert.equal(preview.workCardId, targetId);
-assert.equal(preview.builderReportFileName, builderReportFileName);
+assert.equal(preview.implementerReportFileName, implementerReportFileName);
 assert.equal(preview.savedFileName, architectReviewFileName);
 assert.equal(preview.validation?.valid, true, preview.validation?.errors.join(" "));
 assert.match(
   preview.reviewMarkdown ?? "",
   /Architect Review of Repair Implementer Report/,
 );
-assert.match(preview.reviewMarkdown ?? "", new RegExp(builderReportFileName));
+assert.match(preview.reviewMarkdown ?? "", new RegExp(implementerReportFileName));
 
 const routerSource = await readFile(
   new URL("../src/renderer/app/WorkflowRouterShell.tsx", import.meta.url),
@@ -127,7 +127,7 @@ assert.match(
 );
 assert.doesNotMatch(
   routerSource,
-  /architect_review_of_implementer_report_required:\s*"builder-report-capture"/,
+  /architect_review_of_implementer_report_required:\s*"implementer-report-capture"/,
 );
 
 const appSource = await readFile(
@@ -138,7 +138,7 @@ assert.match(appSource, /"architect-review":\s*\(\s*<ArchitectReviewScreen/);
 assert.match(appSource, /Architect Review of Repair Implementer Report/);
 assert.match(appSource, /const routedArchitectReviewBinding = useMemo/);
 assert.match(appSource, /routedReviewBinding\.workCardId/);
-assert.match(appSource, /routedReviewBinding\.builderReportPath/);
+assert.match(appSource, /routedReviewBinding\.implementerReportPath/);
 assert.match(appSource, /routedReportFileName/);
 assert.match(appSource, /This workflow does not create or replace an/);
 assert.match(appSource, /Compatibility diagnostics:/);

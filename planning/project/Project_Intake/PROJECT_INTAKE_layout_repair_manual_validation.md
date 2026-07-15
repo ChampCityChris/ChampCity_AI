@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation",
+  "artifactType": "project_intake",
+  "createdAt": "2026-06-30T16:07:13.404Z",
+  "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.json",
+  "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.md",
+  "payload": {
+    "kind": "project_intake",
+    "title": "Project Intake: Layout Repair Manual Validation"
+  },
+  "payloadHash": "sha256:76ed06dd924d360c2e6654a92b3d0145c23ed86164bf6be0a319a051e5ba37db",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T16:07:13.404Z"
+}
+-->
+
 # Project Intake: Layout Repair Manual Validation
 
 ## Project Name

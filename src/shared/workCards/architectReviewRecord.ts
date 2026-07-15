@@ -28,7 +28,7 @@ export type ArchitectReviewSectionKey =
 export interface ArchitectReviewFormInput {
   phase: string;
   workCardFileName: string;
-  builderReportFileName: string;
+  implementerReportFileName: string;
   routedReviewBinding?: RoutedArchitectReviewBinding;
   decision?: ArchitectReviewDecision;
   workCardCompliance: string;
@@ -63,13 +63,17 @@ export interface RoutedArchitectReviewBindingBlockingState {
 }
 
 export interface RoutedArchitectReviewBinding {
-  bindingSource: "current_action";
+  bindingSource: "workflow_state_index";
   currentActionId: "architect_review_of_implementer_report_required";
+  workflowStateRevision: number;
+  targetArtifactId: string;
+  sourceArtifactId: string;
+  expectedOutputArtifactId: string;
   phaseId: string;
   workCardId: string;
   workCardTitle: string;
-  builderReportPath: string;
-  builderReportFileName: string;
+  implementerReportPath: string;
+  implementerReportFileName: string;
   expectedOutputPath: string;
   expectedOutputFileName: string;
   blockingState: RoutedArchitectReviewBindingBlockingState;
@@ -92,7 +96,7 @@ export interface ArchitectReviewPreviewResult {
   workCardId?: string;
   workCardTitle?: string;
   workCardFileName?: string;
-  builderReportFileName?: string;
+  implementerReportFileName?: string;
   reviewMode?: "repair" | "work_card";
   validation?: ArchitectReviewValidationResult;
   errorMessages?: string[];
@@ -101,6 +105,13 @@ export interface ArchitectReviewPreviewResult {
 export interface ArchitectReviewSaveResult
   extends ArchitectReviewPreviewResult {
   markdownPath?: string;
+  jsonPath?: string;
+  workflowTransition?: {
+    fromActionId: string;
+    toActionId: string | null;
+    workflowStateRevision: number;
+    nextScreenId?: string;
+  };
 }
 
 const sectionDefinitions: ReadonlyArray<{
@@ -165,6 +176,21 @@ export function resolveCurrentActionArchitectReviewBinding(
     message: string,
   ) => issues.push({ kind, message });
 
+  const routedAction = action.routedAction;
+  if (!routedAction) {
+    addIssue(
+      "missing",
+      "The current action does not carry the canonical workflow-state routed-action contract.",
+    );
+  } else {
+    if (routedAction.actionId !== action.id) {
+      addIssue("mismatch", "The routed-action ID does not match the current action.");
+    }
+    if (routedAction.authorityStatus !== "ready" || routedAction.blockers.length > 0) {
+      addIssue("ambiguity", "The canonical routed action is blocked by workflow authority.");
+    }
+  }
+
   if (!phaseId) {
     addIssue("missing", "The current action does not identify its phase.");
   }
@@ -183,7 +209,7 @@ export function resolveCurrentActionArchitectReviewBinding(
     );
   }
 
-  const authoritativeBuilderReportPaths = [
+  const authoritativeImplementerReportPaths = [
     ...new Set(
       action.sourceArtifacts
         .filter(
@@ -196,32 +222,32 @@ export function resolveCurrentActionArchitectReviewBinding(
     ),
   ];
 
-  if (authoritativeBuilderReportPaths.length === 0) {
+  if (authoritativeImplementerReportPaths.length === 0) {
     addIssue(
       "missing",
       `Current action ${workCardId || "target"} does not mark an authoritative Implementer Report in source artifacts.`,
     );
-  } else if (authoritativeBuilderReportPaths.length > 1) {
+  } else if (authoritativeImplementerReportPaths.length > 1) {
     addIssue(
       "ambiguity",
       `Current action ${workCardId || "target"} marks multiple authoritative Implementer Reports and requires Architect authority before one can be selected.`,
     );
   }
 
-  const builderReportPath =
-    authoritativeBuilderReportPaths.length === 1
-      ? authoritativeBuilderReportPaths[0]
+  const implementerReportPath =
+    authoritativeImplementerReportPaths.length === 1
+      ? authoritativeImplementerReportPaths[0]
       : "";
-  const builderReportFileName = fileNameFromArtifactPath(builderReportPath);
+  const implementerReportFileName = fileNameFromArtifactPath(implementerReportPath);
 
   if (
-    builderReportFileName &&
+    implementerReportFileName &&
     workCardId &&
-    !isExactImplementerReportForWorkCard(builderReportFileName, workCardId)
+    !isExactImplementerReportForWorkCard(implementerReportFileName, workCardId)
   ) {
     addIssue(
       "mismatch",
-      `Current action ${workCardId} marks ${builderReportFileName} as authoritative, but that report targets a different Work Card or repair ID.`,
+      `Current action ${workCardId} marks ${implementerReportFileName} as authoritative, but that report targets a different Work Card or repair ID.`,
     );
   }
 
@@ -246,13 +272,18 @@ export function resolveCurrentActionArchitectReviewBinding(
   const errors = issues.map((issue) => issue.message);
   return {
     binding: {
-      bindingSource: "current_action",
+      bindingSource: "workflow_state_index",
       currentActionId: "architect_review_of_implementer_report_required",
+      workflowStateRevision: action.routedAction?.stateRevision ?? 0,
+      targetArtifactId: action.routedAction?.targetArtifactId ?? "",
+      sourceArtifactId: action.routedAction?.sourceArtifactIds[0] ?? "",
+      expectedOutputArtifactId:
+        action.routedAction?.expectedOutput.artifactId ?? "",
       phaseId,
       workCardId,
       workCardTitle,
-      builderReportPath,
-      builderReportFileName,
+      implementerReportPath,
+      implementerReportFileName,
       expectedOutputPath,
       expectedOutputFileName,
       blockingState: {
@@ -279,18 +310,18 @@ export function isExactImplementerReportForWorkCard(
   fileName: string,
   workCardId: string,
 ): boolean {
-  return fileNameTargetsExactWorkCard(fileName, "BUILDER_REPORT_", workCardId);
+  return fileNameTargetsExactWorkCard(fileName, "IMPLEMENTER_REPORT_", workCardId);
 }
 
 export function validateArchitectReviewAssociation(
   input: Pick<
     ArchitectReviewFormInput,
-    "phase" | "builderReportFileName" | "routedReviewBinding"
+    "phase" | "implementerReportFileName" | "routedReviewBinding"
   >,
   target: ArchitectReviewTarget,
 ): string[] {
   const errors: string[] = [];
-  const selectedReport = input.builderReportFileName.trim();
+  const selectedReport = input.implementerReportFileName.trim();
   const binding = input.routedReviewBinding;
 
   if (!binding) {
@@ -305,7 +336,7 @@ export function validateArchitectReviewAssociation(
     return errors;
   }
 
-  if (binding.bindingSource !== "current_action") {
+  if (binding.bindingSource !== "workflow_state_index") {
     errors.push(
       `Routed-review binding source ${binding.bindingSource} cannot control this Architect Review.`,
     );
@@ -349,17 +380,17 @@ export function validateArchitectReviewAssociation(
     );
   }
 
-  if (!sameFileName(selectedReport, binding.builderReportFileName)) {
+  if (!sameFileName(selectedReport, binding.implementerReportFileName)) {
     errors.push(
-      `Current action ${binding.workCardId} requires ${binding.builderReportFileName}, but ${selectedReport || "no Implementer Report"} is selected.`,
+      `Current action ${binding.workCardId} requires ${binding.implementerReportFileName}, but ${selectedReport || "no Implementer Report"} is selected.`,
     );
   }
 
-  const selectedReportPath = `planning/phases/${input.phase.trim()}/Builder_Reports/${selectedReport}`;
+  const selectedReportPath = `planning/phases/${input.phase.trim()}/Implementer_Reports/${selectedReport}`;
 
-  if (!sameArtifactPath(selectedReportPath, binding.builderReportPath)) {
+  if (!sameArtifactPath(selectedReportPath, binding.implementerReportPath)) {
     errors.push(
-      `Current action ${binding.workCardId} requires report path ${binding.builderReportPath || "not identified"}, but the selected report resolves to ${selectedReportPath}.`,
+      `Current action ${binding.workCardId} requires report path ${binding.implementerReportPath || "not identified"}, but the selected report resolves to ${selectedReportPath}.`,
     );
   }
 
@@ -402,7 +433,7 @@ export function renderArchitectReviewRecord(
     `- Phase: ${input.phase}`,
     `- Review mode: ${reviewMode}`,
     `- Source Work Card JSON: ${input.workCardFileName}`,
-    `- Associated Implementer Report: ${input.builderReportFileName}`,
+    `- Associated Implementer Report: ${input.implementerReportFileName}`,
     ...(target.parentWorkCardId
       ? [`- Parent Work Card: ${target.parentWorkCardId}`]
       : []),

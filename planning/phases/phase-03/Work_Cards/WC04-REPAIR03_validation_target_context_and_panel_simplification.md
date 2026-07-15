@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-13T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC04-REPAIR03 — Validation Target Context and Panel Simplification"
+  },
+  "payloadHash": "sha256:fa4c7180dcefe4868d682dac7c0de39099d7f73e5af590fced6e3fcd768efc3b",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Repair Work Card: WC04-REPAIR03 — Validation Target Context and Panel Simplification
 
 Status: ready_for_implementer
@@ -18,9 +50,9 @@ Primary validation source:
 Supporting sources:
 
 - `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md`
 
 ## Validation Result Being Repaired
@@ -209,7 +241,7 @@ Do not remove the ability to reach existing support screens.
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md`
 
 The report must include:
 

@@ -18,9 +18,9 @@ export const workCardMarkdownHeadings = [
   "## How This Should Be Validated",
   "## Risk Level",
   "## Risks and Watch Items",
-  "## Builder Instructions",
+  "## Implementer Instructions",
   "## Operator Notes",
-  "## Builder Handoff Prompt",
+  "## Implementer Handoff Prompt",
 ] as const;
 
 export function renderWorkCardMarkdown(workCard: WorkCard): string {
@@ -55,55 +55,17 @@ export function renderWorkCardMarkdown(workCard: WorkCard): string {
     section("How This Should Be Validated", formatList(workCard.validationPlan)),
     section("Risk Level", workCard.riskLevel),
     section("Risks and Watch Items", formatList(workCard.risks)),
-    section("Builder Instructions", formatList(workCard.builderInstructions)),
+    section("Implementer Instructions", formatList(workCard.implementerInstructions)),
     section("Operator Notes", formatList(workCard.operatorNotes)),
-    section("Builder Handoff Prompt", renderBuilderHandoffPrompt(workCard)),
+    section("Implementer Handoff Prompt", renderImplementerHandoffPrompt(workCard)),
   ];
 
   return `${sections.join("\n\n")}\n`;
 }
 
-export function renderBuilderHandoffPrompt(workCard: WorkCard): string {
-  if (usesImplementerTerminology(workCard)) {
-    return renderImplementerHandoffPrompt(workCard);
-  }
-
+export function renderImplementerHandoffPrompt(workCard: WorkCard): string {
   return [
-    "Use this as the starting Builder prompt:",
-    "",
-    "You are acting as Builder for ChampCity A/I.",
-    "",
-    "Before editing:",
-    `- ${repositoryPathInstruction}`,
-    "- Read `AGENTS.md` and relevant planning files.",
-    "",
-    `Work Card: ${workCard.workCardId} - ${workCard.title}`,
-    "",
-    `Goal: ${workCard.goal}`,
-    "",
-    "Scope:",
-    formatList(workCard.scope),
-    "",
-    "Out of scope:",
-    formatList(workCard.outOfScope),
-    "",
-    "Requirements:",
-    formatList(workCard.requirements),
-    "",
-    "Acceptance criteria:",
-    formatList(workCard.acceptanceCriteria),
-    "",
-    "Validation plan:",
-    formatList(workCard.validationPlan),
-    "",
-    "Builder Report:",
-    `- Create a Builder Report under \`planning/phases/${workCard.phase}/Builder_Reports/\` and include commands run, validation results, security notes, git actions, and the recommended next Builder task.`,
-  ].join("\n");
-}
-
-function renderImplementerHandoffPrompt(workCard: WorkCard): string {
-  return [
-    "Use this as the starting Implementer prompt. The section heading remains a legacy Builder handoff heading for artifact compatibility.",
+    "Use this as the starting Implementer prompt.",
     "",
     "You are acting as Implementer for ChampCity A/I.",
     "",
@@ -133,14 +95,8 @@ function renderImplementerHandoffPrompt(workCard: WorkCard): string {
     formatList(workCard.validationPlan),
     "",
     "Implementer Report:",
-    `- Create an Implementer Report under the legacy \`planning/phases/${workCard.phase}/Builder_Reports/\` folder and include commands run, validation results, security notes, git actions, and the recommended next Implementer task.`,
+    `- Create an Implementer Report under \`planning/phases/${workCard.phase}/Implementer_Reports/\` and include commands run, validation results, security notes, git actions, and the recommended next Implementer task.`,
   ].join("\n");
-}
-
-function usesImplementerTerminology(workCard: WorkCard): boolean {
-  return workCard.builderInstructions.some((value) =>
-    /\bImplementer\b/.test(value),
-  );
 }
 
 function section(title: string, body: string): string {

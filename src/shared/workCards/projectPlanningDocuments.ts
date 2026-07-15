@@ -578,7 +578,7 @@ function renderDecisions(context: {
     section("Current Decisions", formatListOrFallback(decisions, "No decisions captured yet.")),
     section(
       "Decision Notes",
-      "Historical Builder artifact paths remain compatibility storage names until a dedicated migration Work Card changes them safely.",
+      "Active Implementer artifacts use canonical storage names; historical archived paths remain evidence only.",
     ),
   ].join("\n\n") + "\n";
 }

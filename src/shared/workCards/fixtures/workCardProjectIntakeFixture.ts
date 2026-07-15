@@ -4,7 +4,7 @@ export const workCardProjectIntakeFixture: WorkCard = {
   workCardId: "WC01",
   title: "Add Project Intake capture",
   phase: "phase-02",
-  status: "ready_for_builder",
+  status: "ready_for_implementer",
   createdAt: "2026-06-30T15:00:00.000Z",
   updatedAt: "2026-06-30T15:00:00.000Z",
   problem:
@@ -14,7 +14,7 @@ export const workCardProjectIntakeFixture: WorkCard = {
   userOutcome:
     "The Operator can open a Project Intake screen, fill in plain-language project fields, preview the generated Markdown, and save paired Project Intake artifacts under project-level planning storage.",
   scope: [
-    "Create Phase 02 scaffold folders for Work Cards and Builder Reports.",
+    "Create Phase 02 scaffold folders for Work Cards and Implementer Reports.",
     "Create WC01 JSON and Markdown Work Card artifacts for Phase 02.",
     "Add a simple JSON-compatible Project Intake shared model.",
     "Add lightweight Project Intake validation with blocking errors and non-blocking warnings.",
@@ -24,7 +24,7 @@ export const workCardProjectIntakeFixture: WorkCard = {
     "Generate safe `PROJECT_INTAKE_<slug>.json` and `PROJECT_INTAKE_<slug>.md` filenames without silently overwriting existing artifacts.",
     "Show a Markdown preview that states the next step is a Project Architect Interview prompt.",
     "Extend lightweight validation coverage for Phase 02 WC01 artifacts, existing Phase 01 Work Cards, Project Intake validation, rendering, warnings, and filename safety.",
-    "Create the required WC01 Implementer Report under the legacy `Builder_Reports` folder.",
+    "Create the required WC01 Implementer Report under the canonical `Implementer_Reports` folder.",
   ],
   outOfScope: [
     "Do not generate Project Architect Interview prompts.",
@@ -38,7 +38,7 @@ export const workCardProjectIntakeFixture: WorkCard = {
     "Do not package the app or create installers.",
     "Do not create release tags.",
     "Do not push to GitHub.",
-    "Do not redesign the app shell or rename legacy `Builder_*` artifact folders.",
+    "Do not redesign the app shell or change canonical `Implementer_*` artifact storage outside this Work Card.",
   ],
   requirements: [
     "The Project Intake model must stay simple and JSON-compatible.",
@@ -81,12 +81,12 @@ export const workCardProjectIntakeFixture: WorkCard = {
     "Path safety is important because Project Intake saves project-level artifacts rather than phase-level artifacts.",
     "Manual Electron validation is still required to confirm the new screen and save flow in the desktop app.",
   ],
-  builderInstructions: [
+  implementerInstructions: [
     "Verify the repository path and Git root before editing.",
     "Read `AGENTS.md`, Phase 1 closeout artifacts, latest WC10 UI repair reports, renderer source, main/preload IPC, and shared Work Card files before implementation.",
     "Keep this pass limited to Project Intake capture and durable Project Intake artifacts.",
-    "Preserve legacy `Builder_*` folder names for compatibility while using Implementer in product-facing copy.",
-    "Run required validation commands and document results in the Builder Report.",
+    "Preserve canonical `Implementer_*` artifact storage and Implementer product-facing terminology.",
+    "Run required validation commands and document results in the Implementer Report.",
     "Stage only files changed or created for Phase 02 WC01 and commit with `feat: add project intake capture`.",
   ],
   operatorNotes: [

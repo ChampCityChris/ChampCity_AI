@@ -1,3 +1,39 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC08-REPAIR02 Report Review Protocol and Validation Disposition Governance"
+  },
+  "payloadHash": "sha256:7bf32db04e109192d942b936aa68239cc82b04489c9a7c7568bf97631b1ce2a0",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR02"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08-REPAIR02"
+}
+-->
+
 # Architect Review: WC08-REPAIR02 Report Review Protocol and Validation Disposition Governance
 
 ## Architect Review Decision
@@ -20,7 +56,7 @@ The implementation appears compliant with the repair scope:
 - Legacy `operatorDecision` remains readable only as advisory context.
 - Repair prompt generation is gated by final Architect disposition rather than raw Validation Result or legacy Operator Decision.
 - Validation reports embed Field Semantics, Architect Review Instructions, and Architect Disposition sections.
-- Implementer prompts and repair prompts require the resulting Implementer Report to include durable Architect Review Instructions.
+- Implementer execution packets and repair prompts require the resulting Implementer Report to include durable Architect Review Instructions.
 - Architect Review output is standardized.
 - Ready-for-Operator-validation Architect Reviews must include substantive Operator validation steps.
 
@@ -30,7 +66,7 @@ The implementation does not modify WC08-REPAIR01, WC09-WC15, historical validati
 
 I reviewed the Implementer Report:
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
 
 I inspected the following implementation files:
 
@@ -112,7 +148,7 @@ Validate the following:
 10. Confirm generated Markdown includes `Architect Disposition` with pending status.
 11. Confirm saving `Pass with concerns`, `Partial`, or `Fail` evidence does not automatically generate a repair prompt before Architect disposition.
 12. Confirm legacy validation reports that already contain Operator Decision still render the legacy decision only as deprecated/advisory context.
-13. Confirm an Implementer prompt or repair prompt instructs the Implementer to include Architect Review Instructions in the resulting Implementer Report.
+13. Confirm an Implementer execution packet or repair prompt instructs the Implementer to include Architect Review Instructions in the resulting Implementer Report.
 14. Confirm an Architect Review marked `Ready for Operator validation` without substantive Operator Validation Steps is rejected or flagged as incomplete by the relevant validation path.
 15. Confirm no WC08-REPAIR01, WC09-WC15, or unrelated workflow behavior appears as newly implemented by this repair.
 

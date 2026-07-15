@@ -1,3 +1,39 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR05 — Architect Review Route and Repair Work Card Association"
+  },
+  "payloadHash": "sha256:53fa2ccdc2afbfd75e805a4b5910c5b73b4035f051588915c5b17bfabd708eaa",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR05"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR05"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08-REPAIR05"
+}
+-->
+
 # Repair Work Card: WC08-REPAIR05 — Architect Review Route and Repair Work Card Association
 
 Status: ready_for_implementer
@@ -32,7 +68,7 @@ No Work Card association.
 Report preview needs attention.
 ```
 
-The Work Card file list was also polluted by large visible schema-validation warnings for historical/superseded Work Card JSON files, including repeated messages that saved Work Card JSON was not valid because fields such as `workCardId`, `phase`, `createdAt`, `updatedAt`, `problem`, `goal`, `userOutcome`, `riskLevel`, `scope`, `outOfScope`, `requirements`, `acceptanceCriteria`, `validationPlan`, `risks`, `builderInstructions`, and `operatorNotes` were missing or not the expected type.
+The Work Card file list was also polluted by large visible schema-validation warnings for historical/superseded Work Card JSON files, including repeated messages that saved Work Card JSON was not valid because fields such as `workCardId`, `phase`, `createdAt`, `updatedAt`, `problem`, `goal`, `userOutcome`, `riskLevel`, `scope`, `outOfScope`, `requirements`, `acceptanceCriteria`, `validationPlan`, `risks`, `implementerInstructions`, and `operatorNotes` were missing or not the expected type.
 
 ## Primary Validation Source
 
@@ -88,7 +124,7 @@ The routed workspace must use current-action state to auto-select:
 
 - phase: `phase-03`;
 - target Work Card / repair: `WC08-REPAIR04`;
-- associated Implementer Report: `BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`;
+- associated Implementer Report: `IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`;
 - report/review mode: Architect review of repair Implementer Report.
 
 The Operator should not be required to manually select a Work Card association when the current action already identifies the Work Card.
@@ -196,7 +232,7 @@ Do not remove or regress:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md`
 
 The report must include:
 

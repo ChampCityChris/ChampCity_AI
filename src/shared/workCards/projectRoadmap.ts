@@ -64,7 +64,7 @@ export interface ProjectRoadmapPhaseArtifactContext {
   phase: string;
   summary: PhaseArtifactSummary;
   workCardFileNames: string[];
-  builderReportFileNames: string[];
+  implementerReportFileNames: string[];
   validationReportFileNames: string[];
   repairPromptFileNames: string[];
   closeoutReportFileNames: string[];
@@ -313,7 +313,7 @@ export function buildProjectRoadmap(
     ),
     artifactPolicy: [
       "Project Roadmap artifacts propose the end-to-end project progression; they do not activate phases.",
-      "Roadmap phases remain Proposed until the Phase Map Builder creates mapped phase records.",
+      "Roadmap phases remain Proposed until the Phase Map Composer creates mapped phase records.",
       "Mapped phases, draft Phase Planning Documents, and Work Card Plans remain Not Active until an explicit Operator activation decision.",
       "Roadmap artifacts are paired JSON and Markdown under planning/project/Project_Roadmap/.",
       "Next-phase artifacts require Operator approval before phase folders are created or updated.",
@@ -334,7 +334,7 @@ export function buildProjectRoadmap(
       "Work Card Plan = proposed Work Card count, order, names, and rough intent.",
       "Formal Work Cards = approved executable units saved under Work_Cards/.",
       "Implementer Prompt = build instruction generated from an approved Formal Work Card.",
-      "Builder Report = Implementer result.",
+      "Implementer Report = Implementer result.",
       "Human Validation Report = Operator evidence and decision.",
       "Closeout Report = phase-level acceptance and transition authority.",
     ],
@@ -871,10 +871,10 @@ function buildFuturePhaseEntry(phase: {
     ],
     validationExpectations: [
       "Define phase-specific automated checks before implementation.",
-      "List remaining Operator manual validation steps in Builder Reports.",
+      "List remaining Operator manual validation steps in Implementer Reports.",
     ],
     closeoutCriteria: [
-      "All approved Formal Work Cards have Builder Reports.",
+      "All approved Formal Work Cards have Implementer Reports.",
       "Validation Reports and repair decisions are reconciled.",
       "Phase Closeout includes a Next Phase Activation decision.",
     ],
@@ -1042,9 +1042,9 @@ function buildStaleStateWarnings(
     }
 
     for (const pair of context.summary.workCardsWithBothJsonAndMarkdown) {
-      if (!hasMatchingBuilderReport(context.builderReportFileNames, pair.workCardId)) {
+      if (!hasMatchingImplementerReport(context.implementerReportFileNames, pair.workCardId)) {
         warnings.push(
-          `${context.phase} ${pair.workCardId} does not have a matching Implementer Report filename in Builder_Reports.`,
+          `${context.phase} ${pair.workCardId} does not have a matching Implementer Report filename in Implementer_Reports.`,
         );
       }
     }
@@ -1222,7 +1222,7 @@ function buildExistingPhaseSourceArtifacts(
 ): string[] {
   return uniqueNonEmpty([
     `${context.phase}/Work_Cards (${context.summary.workCardCount})`,
-    `${context.phase}/Builder_Reports (${context.summary.builderReportCount})`,
+    `${context.phase}/Implementer_Reports (${context.summary.implementerReportCount})`,
     `${context.phase}/Validation_Reports (${context.summary.validationReportCount})`,
     `${context.phase}/Repair_Prompts (${context.summary.repairPromptCount})`,
     `${context.phase}/Closeout_Reports (${context.summary.closeoutReportCount})`,
@@ -1245,8 +1245,8 @@ function buildExistingPhaseDeliverables(
     context.summary.workCardCount > 0
       ? `${context.summary.workCardCount} Work Card artifact set(s)`
       : "",
-    context.summary.builderReportCount > 0
-      ? `${context.summary.builderReportCount} Implementer Report artifact(s)`
+    context.summary.implementerReportCount > 0
+      ? `${context.summary.implementerReportCount} Implementer Report artifact(s)`
       : "",
     context.summary.validationReportCount > 0
       ? `${context.summary.validationReportCount} Validation Report artifact(s)`
@@ -1337,7 +1337,7 @@ function buildExistingPhaseCloseoutCriteria(
 
   return [
     "Required Work Cards have paired JSON and Markdown where applicable.",
-    "Relevant Implementer Reports are saved in Builder_Reports compatibility storage.",
+    "Relevant Implementer Reports are saved in canonical Implementer_Reports storage.",
     "Validation Reports are present or intentionally deferred by the Operator.",
     "Repair Prompts are resolved, superseded, or explicitly carried forward.",
     "Phase Closeout includes a Next Phase Activation decision.",
@@ -1428,7 +1428,7 @@ function buildProposedWorkCardsForPhase(input: {
     dependencies:
       isProposedPhaseStatus(input.status)
         ? "Prior phase closeout, Next Phase Readiness Review, and explicit activation decision."
-        : "Current phase artifacts, Builder Reports, Validation Reports, Repair Prompts, and Operator direction.",
+        : "Current phase artifacts, Implementer Reports, Validation Reports, Repair Prompts, and Operator direction.",
     riskLevel,
     validationItems: [
       "Run available automated checks.",
@@ -1618,7 +1618,7 @@ function phaseSortNumber(phaseFolder: string): number {
   return match ? Number.parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
 }
 
-function hasMatchingBuilderReport(
+function hasMatchingImplementerReport(
   fileNames: string[],
   workCardId: string,
 ): boolean {
@@ -1628,7 +1628,7 @@ function hasMatchingBuilderReport(
     const normalizedFileName = fileName.toLowerCase();
 
     return (
-      normalizedFileName.startsWith(`builder_report_${normalizedWorkCardId}_`) ||
+      normalizedFileName.startsWith(`implementer_report_${normalizedWorkCardId}_`) ||
       normalizedFileName.includes(`_${normalizedWorkCardId}_`) ||
       normalizedFileName.includes(`_${normalizedWorkCardId}.`)
     );

@@ -40,7 +40,7 @@ Quick Fix / Standard Change / High Risk
 
 - Evidence folder: `evidence/`
 
-## Builder Plan
+## Implementer Plan
 
 Not started.
 
@@ -48,7 +48,7 @@ Not started.
 
 Not started.
 
-## Build Report
+## Implementer Report
 
 Not started.
 

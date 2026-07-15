@@ -1,0 +1,25 @@
+{
+  "artifactId": "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+  "artifactType": "design_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.json",
+  "markdownPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.md",
+  "payload": {
+    "contentMarkdown": "# Artifact Authority Model\n\nStatus: Accepted for Phase 02 WC08\nPrepared: 2026-07-02\nProject: ChampCity A/I\n\n## Purpose\n\nThis document defines which artifacts propose, select, approve, execute, report, validate, and activate work. It prevents draft planning artifacts from being mistaken for approved executable work.\n\n## Authority Chain\n\n```text\nProject Plan / Roadmap\n-> Phase Map\n-> Phase Planning Documents\n-> Work Card Plan\n-> Work Card Plan Review\n-> Formal Work Cards\n-> Implementer Execution Packet\n-> Implementer Report\n-> Human Validation Report\n-> Closeout Report\n-> Next Phase Activation decision\n```\n\n## Artifact Authority\n\n- Project Plan / Roadmap = proposed end-to-end project progression.\n- Phase Map = structured phase status and phase-selection authority.\n- Phase Planning Documents = draft or approved plan for a selected phase.\n- Work Card Plan = proposed Work Card count, order, names, and rough intent.\n- Work Card Plan Review = Operator review surface for proposed Work Card entries; it does not create executable work until a separate approved materialization step exists.\n- Formal Work Cards = approved executable units saved under `Work_Cards/`.\n- Implementer Execution Packet = build instruction generated from an approved Formal Work Card.\n- Implementer Report = Implementer result.\n- Human Validation Report = Operator evidence and decision.\n- Closeout Report = phase-level acceptance and transition authority.\n\n## Status Rules\n\n- Until a roadmap phase is mapped, it is Proposed.\n- Once a roadmap phase is mapped, it becomes a mapped phase record, but it is still not active.\n- Phase Planning Documents created before prior-phase closeout are Pending Review.\n- Work Card Plans remain proposals until selected items are approved as Formal Work Cards.\n- Planned Work Card entries may be Proposed, Deferred, Superseded, Already Satisfied, Implemented But Not Validated, or Validated But Not Closed without becoming executable Formal Work Cards.\n- Formal Work Cards require a separate Operator approval step.\n- Implementer Execution Packets are generated only after a Formal Work Card exists.\n- Phase Closeout must record a Next Phase Activation decision.\n- Next Phase Activation decisions include Activate next phase, Defer next phase, Revise roadmap first, Carry unresolved current-phase items forward, and Close current phase without activation.\n\n## Normal Planned Workflow\n\n```text\nProject Intake\n-> Project Plan / Roadmap\n-> Phase Map\n-> Phase Planning Documents\n-> Work Card Plan\n-> Work Card Plan Review\n-> Architect drafts Formal Work Card\n-> Operator approves Formal Work Card\n-> Implementer Execution Packet\n-> Build\n-> Implementer Report\n-> Human Validation\n-> Repair or Accept\n-> Phase Closeout\n-> Next Phase Activation\n```\n\n## Phase 03 Draft Rule\n\nPhase 03 draft artifacts may live under `planning/phases/phase-03/`, but they must be labeled Draft / Pending Review / Not Active until closeout or activation. They are not executable Formal Work Cards and must not trigger Implementer Execution Packet generation.\n\n## Ad Hoc Work Rule\n\nAd Hoc Work Card Capture is not the normal next step after phase planning. It is for out-of-cycle, one-off, repair, emergency, or operator-discovered work.\n\nThe Ad Hoc Work Card Capture screen uses manual/ad hoc mode: its local Work Card ID, title, and phase fields are authoritative for the new draft. It must not imply linkage to an existing planned card unless a future Operator-approved linking workflow is added.\n\n## Non-Goals\n\n- This model does not close Phase 02.\n- This model does not activate Phase 03.\n- This model does not create Phase 03 Formal Work Cards.\n- This model does not replace Operator manual validation or acceptance.\n",
+    "data": {},
+    "kind": "design_document",
+    "title": "Artifact Authority Model"
+  },
+  "payloadHash": "sha256:02824df5fe818ba66ec6ecfc60865c9b6549a7398735a76a60c8f29145e221b5",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}

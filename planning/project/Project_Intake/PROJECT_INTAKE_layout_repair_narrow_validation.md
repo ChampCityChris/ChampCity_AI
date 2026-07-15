@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation",
+  "artifactType": "project_intake",
+  "createdAt": "2026-06-30T16:08:48.648Z",
+  "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.json",
+  "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.md",
+  "payload": {
+    "kind": "project_intake",
+    "title": "Project Intake: Layout Repair Narrow Validation"
+  },
+  "payloadHash": "sha256:8c85bdd1aa10bbebdbce5b9e96769fff07e806e120c5487cc09ab431a7a34734",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T16:08:48.648Z"
+}
+-->
+
 # Project Intake: Layout Repair Narrow Validation
 
 ## Project Name

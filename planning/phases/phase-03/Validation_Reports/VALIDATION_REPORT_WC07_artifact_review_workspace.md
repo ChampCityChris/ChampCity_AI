@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC07",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T12:44:40.132Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC07 Artifact Review Workspace"
+  },
+  "payloadHash": "sha256:135b46da73d4f8f790917cfbc24844b83f3697da6ae4be9ec971d053a77963af",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01"
+    ],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC07",
+      "champcity-ai/phase-03/implementer_report/WC07",
+      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T12:44:40.132Z",
+  "workCardId": "WC07"
+}
+-->
+
 # Human Validation Report - WC07 Artifact Review Workspace
 
 ## Validation Target
@@ -8,7 +42,7 @@
 - Phase: phase-03
 - Source JSON file: WC07_artifact_review_workspace.json
 - Source Markdown file: WC07_artifact_review_workspace.md
-- Associated Implementer Report: BUILDER_REPORT_WC07_artifact_review_workspace.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md
 
 ## Validation Result
 
@@ -61,11 +95,11 @@ None recorded.
 
 ## Observed Errors
 
-1. Hard to tell what information is being displayed but I don't believe we are actually pulling in the artifact documents for viewing. 
-2. Again I don't think it does see image 3 
+1. Hard to tell what information is being displayed but I don't believe we are actually pulling in the artifact documents for viewing.
+2. Again I don't think it does see image 3
 3. Still can't click on Architect Review so I can't validate
-5. Artifact's are now useless as they do not open in Markdown viewer or open externally. 
-6. Nothing appears ever in the Markdown preview. It is also far to small to be useable. 
+5. Artifact's are now useless as they do not open in Markdown viewer or open externally.
+6. Nothing appears ever in the Markdown preview. It is also far to small to be useable.
 7. Again UI is so much shit I'm uncertain
 
 ## Additional Operator Observations

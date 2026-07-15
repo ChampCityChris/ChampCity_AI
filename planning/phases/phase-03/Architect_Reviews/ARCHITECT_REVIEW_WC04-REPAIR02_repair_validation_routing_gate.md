@@ -1,3 +1,41 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC04-REPAIR02 Repair Validation Routing Gate"
+  },
+  "payloadHash": "sha256:197df2b11d9b515cda186adb1a98cbc852085eb2426d309b49a3867de7d4b1a4",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04-REPAIR02"
+}
+-->
+
 # Architect Review: WC04-REPAIR02 Repair Validation Routing Gate
 
 Status: Ready for Operator Validation
@@ -18,7 +56,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`
 
 ## Review Outcome
 

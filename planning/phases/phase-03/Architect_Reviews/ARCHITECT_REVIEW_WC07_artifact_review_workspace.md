@@ -1,10 +1,45 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC07",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC07 Artifact Review Workspace"
+  },
+  "payloadHash": "sha256:b51f024ac6920126b5d04e1a2f1b67870075b8c2fb2d7d4dc35cae81346c6c55",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC07"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC07"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC07",
+      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC07"
+}
+-->
+
 # Architect Review: WC07 Artifact Review Workspace
 
 ## Review Target
 
 - Work Card: WC07 — Artifact Review Workspace
 - Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
-- Implementer Report: `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md`
+- Implementer Report: `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md`
 - Review type: Architect review of Implementer Report before Operator validation
 
 ## Outcome
@@ -74,7 +109,7 @@ The Implementer Report states that WC07 created:
 
 - `src/shared/workCards/artifactReviewWorkspace.ts`
 - `scripts/verify-wc07-artifact-workspace.mjs`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md`
 
 and modified:
 

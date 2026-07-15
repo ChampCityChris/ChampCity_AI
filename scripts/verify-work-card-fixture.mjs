@@ -56,8 +56,8 @@ const currentUiScreens = [
   "Ad Hoc Work Card Capture",
   "Architect Prompt Composer",
   "Risk Router",
-  "Builder Prompt Generator",
-  "Builder Report Capture",
+  "Implementer Execution Packet Generator",
+  "Implementer Report Capture",
   "Human Validation",
   "Phase Closeout",
 ];
@@ -81,11 +81,11 @@ const {
   workCardRiskRouterFixture,
 } = require("../dist/shared/workCards/fixtures/workCardRiskRouterFixture.js");
 const {
-  workCardBuilderPromptFixture,
-} = require("../dist/shared/workCards/fixtures/workCardBuilderPromptFixture.js");
+  workCardImplementerExecutionPacketFixture,
+} = require("../dist/shared/workCards/fixtures/workCardImplementerExecutionPacketFixture.js");
 const {
-  workCardBuilderReportFixture,
-} = require("../dist/shared/workCards/fixtures/workCardBuilderReportFixture.js");
+  workCardImplementerReportFixture,
+} = require("../dist/shared/workCards/fixtures/workCardImplementerReportFixture.js");
 const {
   workCardHumanValidationFixture,
 } = require("../dist/shared/workCards/fixtures/workCardHumanValidationFixture.js");
@@ -215,7 +215,7 @@ const {
   validateWorkCardPlanArtifactFileName,
 } = require("../dist/shared/workCards/workCardPlan.js");
 const {
-  finalBuilderPromptBoundary,
+  finalImplementerExecutionPacketBoundary,
   renderArchitectFramingPrompt,
 } = require("../dist/shared/workCards/renderArchitectFramingPrompt.js");
 const {
@@ -228,18 +228,18 @@ const {
   riskReviewNoApprovalNote,
 } = require("../dist/shared/workCards/renderRiskReviewMarkdown.js");
 const {
-  buildBuilderPromptFileName,
-  builderPromptHighRiskWarning,
-  builderPromptNoRiskReviewWarning,
-  renderBuilderPrompt,
-  standardBuilderValidationCommands,
-} = require("../dist/shared/workCards/renderBuilderPrompt.js");
+  buildImplementerExecutionPacketFileName,
+  implementerExecutionPacketHighRiskWarning,
+  implementerExecutionPacketNoRiskReviewWarning,
+  renderImplementerExecutionPacket,
+  standardImplementerValidationCommands,
+} = require("../dist/shared/workCards/renderImplementerExecutionPacket.js");
 const {
-  buildBuilderReportFileName,
-  validateBuilderReport,
-  validateBuilderReportMarkdownFileName,
-  validateBuilderReportTopic,
-} = require("../dist/shared/workCards/validateBuilderReport.js");
+  buildImplementerReportFileName,
+  validateImplementerReport,
+  validateImplementerReportMarkdownFileName,
+  validateImplementerReportTopic,
+} = require("../dist/shared/workCards/validateImplementerReport.js");
 const {
   buildRepairPromptFileName,
   repairPromptScopeGuard,
@@ -273,7 +273,7 @@ const {
   buildValidationReportJsonFileName,
   buildValidationReportMarkdownFileName,
   extractManualValidationChecklist,
-  noBuilderReportSelectedWarning,
+  noImplementerReportSelectedWarning,
   shouldGenerateRepairPrompt,
   validateHumanValidationRecord,
   validateValidationReportFileName,
@@ -299,18 +299,18 @@ const {
 const {
   listAvailablePhaseFolders,
   getCurrentRequiredAction,
-  listHumanValidationBuilderReports,
+  listHumanValidationImplementerReports,
   listHumanValidationTargets,
   listSavedProjectPlanningDocuments,
   listSavedProjectArchitectInterviewPrompts,
   listSavedWorkCards,
-  loadBuilderReportFile,
+  loadImplementerReportFile,
   previewHumanValidationRecord,
   resolvePhaseArchitectInterviewPromptsDirectory,
   resolvePhaseMapDirectory,
   resolvePhasePlanningDocumentsDirectory,
-  resolveBuilderPromptsDirectory,
-  resolveBuilderReportsDirectory,
+  resolveImplementerExecutionPacketsDirectory,
+  resolveImplementerReportsDirectory,
   resolveCloseoutReportsDirectory,
   resolvePhaseIntakeDirectory,
   resolvePhaseScopedBacklogPath,
@@ -348,8 +348,8 @@ if (process.argv.includes("--current-action-only")) {
 }
 
 if (process.argv.includes("--report-protocol-only")) {
-  assertBuilderPrompt();
-  await assertBuilderReportCapture();
+  assertImplementerExecutionPacket();
+  await assertImplementerReportCapture();
   await assertHumanValidationAndRepair();
   await assertCurrentRequiredActionModel(true);
   console.log("Report review protocol fixture validation passed.");
@@ -386,17 +386,17 @@ const renderedArtifacts = [
     ),
   },
   {
-    fixture: workCardBuilderPromptFixture,
+    fixture: workCardImplementerExecutionPacketFixture,
     path: resolve(
       repositoryRoot,
-      "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+      "planning/phases/phase-01/Work_Cards/WC05_generate_implementer_prompt.md",
     ),
   },
   {
-    fixture: workCardBuilderReportFixture,
+    fixture: workCardImplementerReportFixture,
     path: resolve(
       repositoryRoot,
-      "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+      "planning/phases/phase-01/Work_Cards/WC06_capture_implementer_report.md",
     ),
   },
   {
@@ -446,14 +446,14 @@ const draft = buildDraftWorkCard(
     title: "Capture a draft Work Card",
     phase: "phase-01",
     riskLevel: "medium",
-    problem: "The Operator needs to capture an idea without writing Builder instructions.",
+    problem: "The Operator needs to capture an idea without writing Implementer instructions.",
     importance: "The Architect needs structured source material.",
     userOutcome: "The Operator can save a draft that waits for Architect review.",
     scope: "Capture intent\nPreview Markdown",
     outOfScope: "Architect automation",
     knownSystems: "New Work Card screen",
     evidence: "Example report text",
-    risks: "Draft could be mistaken for Builder-ready work",
+    risks: "Draft could be mistaken for Implementer-ready work",
     operatorNotes: "Keep the workflow human-reviewed",
   },
   "2026-06-28T00:00:00.000Z",
@@ -466,8 +466,8 @@ if (draft.status !== "ready_for_architect") {
 
 const draftMarkdown = renderWorkCardMarkdown(draft);
 
-if (!draftMarkdown.includes("## Builder Handoff Prompt")) {
-  console.error("Draft Work Card Markdown is missing the Builder Handoff Prompt heading.");
+if (!draftMarkdown.includes("## Implementer Handoff Prompt")) {
+  console.error("Draft Work Card Markdown is missing the Implementer Handoff Prompt heading.");
   process.exit(1);
 }
 
@@ -508,16 +508,16 @@ try {
 }
 
 try {
-  resolveBuilderPromptsDirectory("../bad");
-  console.error("Builder Prompt directory sanitizer failed to reject traversal input.");
+  resolveImplementerExecutionPacketsDirectory("../bad");
+  console.error("Implementer Execution Packet directory sanitizer failed to reject traversal input.");
   process.exit(1);
 } catch {
   // Expected.
 }
 
 try {
-  resolveBuilderReportsDirectory("../bad");
-  console.error("Builder Report directory sanitizer failed to reject traversal input.");
+  resolveImplementerReportsDirectory("../bad");
+  console.error("Implementer Report directory sanitizer failed to reject traversal input.");
   process.exit(1);
 } catch {
   // Expected.
@@ -558,8 +558,8 @@ try {
 assertArchitectPrompt(workCardArchitectPromptFixture);
 assertRiskRouter();
 assertRiskReviewMarkdown();
-assertBuilderPrompt();
-await assertBuilderReportCapture();
+assertImplementerExecutionPacket();
+await assertImplementerReportCapture();
 await assertHumanValidationAndRepair();
 assertPhaseCloseout();
 await assertSavedWorkCardListing();
@@ -639,7 +639,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
         workCards: [
           workCard({
             status: "ready_for_implementer",
-            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01_test.md", "Implementer Report"),
           }),
         ],
       },
@@ -649,7 +649,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
         workCards: [
           workCard({
             status: "ready_for_implementer",
-            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01_test.md", "Implementer Report"),
             architectReview: {
               status: "Ready for Operator Validation",
               sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
@@ -662,7 +662,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
       activePhase: {
         workCards: [
           workCard({
-            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01_test.md", "Implementer Report"),
             architectReview: {
               status: "Ready for Operator Validation",
               sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
@@ -679,7 +679,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
       activePhase: {
         workCards: [
           workCard({
-            implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+            implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01_test.md", "Implementer Report"),
             architectReview: {
               status: "Ready for Operator Validation",
               sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
@@ -724,7 +724,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
             repair: {
               repairId: "WC01-REPAIR01",
               repairPrompt: artifact("planning/phases/phase-99/Repair_Prompts/REPAIR_PROMPT_WC01_test.md", "Repair Prompt"),
-              implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01-REPAIR01_test.md", "Repair Implementer Report"),
+              implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_test.md", "Repair Implementer Report"),
             },
           }),
         ],
@@ -805,7 +805,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
           workCards: [
             workCard({
               status: "completed",
-              implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01_test.md", "Implementer Report"),
+              implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01_test.md", "Implementer Report"),
               architectReview: {
                 status: "Ready for Operator Validation",
                 sourceArtifact: artifact("planning/phases/phase-99/Architect_Reviews/ARCHITECT_REVIEW_WC01_test.md", "Architect Review"),
@@ -814,7 +814,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
               repair: {
                 repairId: "WC01-REPAIR01",
                 repairWorkCard: artifact("planning/phases/phase-99/Work_Cards/WC01-REPAIR01_test.md", "Repair Work Card"),
-                implementerReport: artifact("planning/phases/phase-99/Builder_Reports/BUILDER_REPORT_WC01-REPAIR01_test.md", "Repair Implementer Report"),
+                implementerReport: artifact("planning/phases/phase-99/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_test.md", "Repair Implementer Report"),
               },
             }),
           ],
@@ -876,7 +876,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
             phaseId: "phase-03",
             status: "completed",
             implementerReport: artifact(
-              "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md",
+              "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md",
               "Implementer Report",
             ),
             architectReview: {
@@ -898,7 +898,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
                 "Repair Work Card",
               ),
               implementerReport: artifact(
-                "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
                 "Repair Implementer Report",
               ),
               architectReview: {
@@ -976,7 +976,7 @@ async function assertCurrentRequiredActionModel(skipLiveRepositoryCheck = false)
                   "Repair Work Card",
                 ),
                 implementerReport: artifact(
-                  "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+                  "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
                   "Repair Implementer Report",
                 ),
                 architectReview: {
@@ -1401,7 +1401,7 @@ function assertArchitectPrompt(fixture) {
     fixture.title,
     "Ask only clarifying questions that are necessary",
     "Provide recommended defaults",
-    finalBuilderPromptBoundary,
+    finalImplementerExecutionPacketBoundary,
   ];
   const missingText = requiredText.filter((text) => !prompt.includes(text));
 
@@ -1523,7 +1523,7 @@ function assertRiskRouter() {
       acceptanceCriteria: ["The Markdown note is easier to read."],
       validationPlan: ["Read the Markdown note."],
       risks: ["Wording could still need Architect review."],
-      builderInstructions: ["Keep the update documentation-only."],
+      implementerInstructions: ["Keep the update documentation-only."],
       operatorNotes: ["Documentation-only note."],
     }),
   );
@@ -1546,7 +1546,7 @@ function assertRiskRouter() {
       acceptanceCriteria: ["The Markdown note is easier to read."],
       validationPlan: ["Read the Markdown note."],
       risks: ["Wording could still need Architect review."],
-      builderInstructions: ["Keep the update documentation-only."],
+      implementerInstructions: ["Keep the update documentation-only."],
       operatorNotes: ["Documentation-only note."],
     }),
     lowRiskReview,
@@ -1558,7 +1558,7 @@ function assertRiskRouter() {
     process.exit(1);
   }
 
-  if (/auto-approve|automatically approved|approved for (Builder|Implementer)/i.test(lowRiskMarkdown)) {
+  if (/auto-approve|automatically approved|approved for (Implementer|Implementer)/i.test(lowRiskMarkdown)) {
     console.error("Low-risk Markdown implies automatic approval.");
     process.exit(1);
   }
@@ -1600,16 +1600,16 @@ function assertRiskReviewMarkdown() {
   const expectedFileName = "RISK_REVIEW_WC04_add_risk_router.md";
 
   if (buildRiskReviewFileName(workCardRiskRouterFixture) !== expectedFileName) {
-    console.error("Risk Review filename builder returned the wrong filename.");
+    console.error("Risk Review filename implementer returned the wrong filename.");
     process.exit(1);
   }
 }
 
-function assertBuilderPrompt() {
-  const noRiskReviewPrompt = renderBuilderPrompt(workCardBuilderPromptFixture);
+function assertImplementerExecutionPacket() {
+  const noRiskReviewPrompt = renderImplementerExecutionPacket(workCardImplementerExecutionPacketFixture);
   const requiredNoRiskText = [
-    workCardBuilderPromptFixture.workCardId,
-    workCardBuilderPromptFixture.title,
+    workCardImplementerExecutionPacketFixture.workCardId,
+    workCardImplementerExecutionPacketFixture.title,
     "<PROJECT_REPO>",
     "You are acting as Implementer for ChampCity A/I.",
     "The Implementer may be Codex, Claude Code, Cursor, or another coding agent.",
@@ -1620,13 +1620,13 @@ function assertBuilderPrompt() {
     "## Architect Review Decision",
     "## Observation Register Impact",
     "## Operator Validation Steps",
-    "BUILDER_REPORT_WC05_generate_builder_prompt.md",
+    "IMPLEMENTER_REPORT_WC05_generate_implementer_prompt.md",
     "Do not push unless explicitly instructed.",
     "Do not create a release tag unless explicitly instructed.",
     "Do not call an LLM API unless explicitly in scope.",
     "Do not broaden scope.",
-    builderPromptNoRiskReviewWarning,
-    ...standardBuilderValidationCommands,
+    implementerExecutionPacketNoRiskReviewWarning,
+    ...standardImplementerValidationCommands,
   ];
   const missingNoRiskText = requiredNoRiskText.filter(
     (text) => !noRiskReviewPrompt.includes(text),
@@ -1640,17 +1640,17 @@ function assertBuilderPrompt() {
     process.exit(1);
   }
 
-  const highRiskPrompt = renderBuilderPrompt(workCardBuilderPromptFixture, {
+  const highRiskPrompt = renderImplementerExecutionPacket(workCardImplementerExecutionPacketFixture, {
     riskReview: {
-      fileName: "RISK_REVIEW_WC05_generate_builder_prompt.md",
+      fileName: "RISK_REVIEW_WC05_generate_implementer_prompt.md",
       content:
         "- Assessed risk level: high\nThis Work Card appears high risk and needs Architect review.",
     },
   });
   const requiredHighRiskText = [
-    builderPromptHighRiskWarning,
+    implementerExecutionPacketHighRiskWarning,
     "Selected Risk Review Context",
-    "RISK_REVIEW_WC05_generate_builder_prompt.md",
+    "RISK_REVIEW_WC05_generate_implementer_prompt.md",
   ];
   const missingHighRiskText = requiredHighRiskText.filter(
     (text) => !highRiskPrompt.includes(text),
@@ -1664,17 +1664,17 @@ function assertBuilderPrompt() {
     process.exit(1);
   }
 
-  const expectedFileName = "BUILDER_PROMPT_WC05_generate_builder_prompt.md";
+  const expectedFileName = "IMPLEMENTER_EXECUTION_PACKET_WC05_generate_implementer_prompt.md";
 
-  if (buildBuilderPromptFileName(workCardBuilderPromptFixture) !== expectedFileName) {
-    console.error("Builder Prompt filename builder returned the wrong filename.");
+  if (buildImplementerExecutionPacketFileName(workCardImplementerExecutionPacketFixture) !== expectedFileName) {
+    console.error("Implementer Execution Packet filename implementer returned the wrong filename.");
     process.exit(1);
   }
 }
 
-async function assertBuilderReportCapture() {
+async function assertImplementerReportCapture() {
   const completeReport = [
-    "# Builder Report - WC06 Capture Builder Report",
+    "# Implementer Report - WC06 Capture Implementer Report",
     "",
     "## Repository Path Inspected",
     "Current working directory inspected: verified approved repo root",
@@ -1683,7 +1683,7 @@ async function assertBuilderReportCapture() {
     "Current branch: master. git remote -v confirmed origin.",
     "",
     "## Files Created",
-    "- planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+    "- planning/phases/phase-01/Work_Cards/WC06_capture_implementer_report.json",
     "",
     "## Files Modified",
     "- src/renderer/app/App.tsx",
@@ -1709,7 +1709,7 @@ async function assertBuilderReportCapture() {
     "## Blocking Questions",
     "None.",
     "",
-    "## Recommended Next Builder Task",
+    "## Recommended Next Implementer Task",
     "Operator should manually validate the screen.",
     "",
     "## Architect Review Instructions",
@@ -1717,10 +1717,10 @@ async function assertBuilderReportCapture() {
     "Ready for Operator validation requires Operator Validation Steps.",
     "Observation Register impact must be assessed.",
   ].join("\n");
-  const completeValidation = validateBuilderReport(completeReport);
+  const completeValidation = validateImplementerReport(completeReport);
 
   if (!completeValidation.validEnoughToSave) {
-    console.error("Complete Builder Report was not valid enough to save.");
+    console.error("Complete Implementer Report was not valid enough to save.");
     process.exit(1);
   }
 
@@ -1730,62 +1730,62 @@ async function assertBuilderReportCapture() {
 
   if (completeMissingSignals.length > 0) {
     console.error(
-      `Complete Builder Report did not detect expected signals: ${completeMissingSignals.join(", ")}.`,
+      `Complete Implementer Report did not detect expected signals: ${completeMissingSignals.join(", ")}.`,
     );
     process.exit(1);
   }
 
   const imperfectReport = [
-    "# Builder Report - quick note",
+    "# Implementer Report - quick note",
     "",
     "## Repository Path Inspected",
     "Checked verified approved repo root.",
   ].join("\n");
-  const imperfectValidation = validateBuilderReport(imperfectReport);
+  const imperfectValidation = validateImplementerReport(imperfectReport);
 
   if (!imperfectValidation.validEnoughToSave) {
-    console.error("Imperfect non-empty Builder Report should still be valid enough to save.");
+    console.error("Imperfect non-empty Implementer Report should still be valid enough to save.");
     process.exit(1);
   }
 
   if (imperfectValidation.warnings.length === 0) {
-    console.error("Imperfect Builder Report did not return warnings.");
+    console.error("Imperfect Implementer Report did not return warnings.");
     process.exit(1);
   }
 
-  if (validateBuilderReport("").validEnoughToSave) {
-    console.error("Empty Builder Report text should not be valid enough to save.");
+  if (validateImplementerReport("").validEnoughToSave) {
+    console.error("Empty Implementer Report text should not be valid enough to save.");
     process.exit(1);
   }
 
   const detectionReport = [
-    "# Builder Report",
+    "# Implementer Report",
     "Commit hash: 1a2b3c4d",
     "npm run test:work-cards - passed",
     "## Blocking Questions",
     "No blockers.",
-    "## Recommended Next Builder Task",
+    "## Recommended Next Implementer Task",
     "Manual validation.",
   ].join("\n");
-  const detectionValidation = validateBuilderReport(detectionReport);
+  const detectionValidation = validateImplementerReport(detectionReport);
 
   if (!detectionValidation.detected.hasCommitHash) {
-    console.error("Builder Report commit hash detection failed.");
+    console.error("Implementer Report commit hash detection failed.");
     process.exit(1);
   }
 
   if (!detectionValidation.detected.hasValidationResults) {
-    console.error("Builder Report validation results detection failed.");
+    console.error("Implementer Report validation results detection failed.");
     process.exit(1);
   }
 
   if (!detectionValidation.detected.hasBlockingQuestions) {
-    console.error("Builder Report blocking question detection failed.");
+    console.error("Implementer Report blocking question detection failed.");
     process.exit(1);
   }
 
   if (!detectionValidation.detected.hasRecommendedNextTask) {
-    console.error("Builder Report recommended next task detection failed.");
+    console.error("Implementer Report recommended next task detection failed.");
     process.exit(1);
   }
 
@@ -1794,99 +1794,99 @@ async function assertBuilderReportCapture() {
       input: {
         reportType: "Work Card",
         workCardId: "WC06",
-        workCardTitle: "Capture Builder Report",
-        topic: "Capture Builder Report",
+        workCardTitle: "Capture Implementer Report",
+        topic: "Capture Implementer Report",
       },
-      fileName: "BUILDER_REPORT_WC06_capture_builder_report.md",
+      fileName: "IMPLEMENTER_REPORT_WC06_capture_implementer_report.md",
     },
     {
       input: {
         reportType: "Fix",
         topic: "FIX07 save button issue",
       },
-      fileName: "BUILDER_REPORT_FIX07_save_button_issue.md",
+      fileName: "IMPLEMENTER_REPORT_FIX07_save_button_issue.md",
     },
     {
       input: {
         reportType: "Fix",
         topic: "config issue",
       },
-      fileName: "BUILDER_REPORT_FIX_config_issue.md",
+      fileName: "IMPLEMENTER_REPORT_FIX_config_issue.md",
     },
     {
       input: {
         reportType: "Repair",
         workCardId: "WC06",
-        topic: "capture builder report save issue",
+        topic: "capture implementer report save issue",
       },
-      fileName: "BUILDER_REPORT_REPAIR_WC06_capture_builder_report_save_issue.md",
+      fileName: "IMPLEMENTER_REPORT_REPAIR_WC06_capture_implementer_report_save_issue.md",
     },
     {
       input: {
         reportType: "Repair",
         topic: "artifact backfill",
       },
-      fileName: "BUILDER_REPORT_REPAIR_artifact_backfill.md",
+      fileName: "IMPLEMENTER_REPORT_REPAIR_artifact_backfill.md",
     },
     {
       input: {
         reportType: "Other",
         topic: "planning note",
       },
-      fileName: "BUILDER_REPORT_OTHER_planning_note.md",
+      fileName: "IMPLEMENTER_REPORT_OTHER_planning_note.md",
     },
   ];
 
   for (const expected of expectedFileNames) {
-    const actual = buildBuilderReportFileName(expected.input);
+    const actual = buildImplementerReportFileName(expected.input);
 
     if (actual !== expected.fileName) {
       console.error(
-        `Builder Report filename generation returned ${actual}; expected ${expected.fileName}.`,
+        `Implementer Report filename generation returned ${actual}; expected ${expected.fileName}.`,
       );
       process.exit(1);
     }
   }
 
-  if (validateBuilderReportTopic("../bad").length === 0) {
-    console.error("Builder Report topic sanitizer failed to reject traversal input.");
+  if (validateImplementerReportTopic("../bad").length === 0) {
+    console.error("Implementer Report topic sanitizer failed to reject traversal input.");
     process.exit(1);
   }
 
   try {
-    buildBuilderReportFileName({
+    buildImplementerReportFileName({
       reportType: "Other",
       topic: "../bad",
     });
-    console.error("Builder Report filename builder failed to reject traversal input.");
+    console.error("Implementer Report filename implementer failed to reject traversal input.");
     process.exit(1);
   } catch {
     // Expected.
   }
 
   try {
-    buildBuilderReportFileName({
+    buildImplementerReportFileName({
       reportType: "Work Card",
       workCardId: "WC06",
       topic: "../bad",
     });
-    console.error("Work Card Builder Report filename builder failed to reject traversal input.");
+    console.error("Work Card Implementer Report filename implementer failed to reject traversal input.");
     process.exit(1);
   } catch {
     // Expected.
   }
 
   try {
-    validateBuilderReportMarkdownFileName("../bad.md");
-    console.error("Builder Report filename sanitizer failed to reject traversal input.");
+    validateImplementerReportMarkdownFileName("../bad.md");
+    console.error("Implementer Report filename sanitizer failed to reject traversal input.");
     process.exit(1);
   } catch {
     // Expected.
   }
 
-  const loadedReport = await loadBuilderReportFile({
+  const loadedReport = await loadImplementerReportFile({
     phase: "phase-02",
-    fileName: "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+    fileName: "IMPLEMENTER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
   });
 
   if (!loadedReport.ok || !loadedReport.content?.includes("WC02")) {
@@ -1900,10 +1900,10 @@ async function assertBuilderReportCapture() {
     readFileSync(mainWorkCardFileStorePath, "utf8"),
   ].join("\n");
   const requiredReportImportSource = [
-    "loadBuilderReportFile",
+    "loadImplementerReportFile",
     "Saved Implementer Report",
     "Implementer Report text imported.",
-    "workCards:loadBuilderReportFile",
+    "workCards:loadImplementerReportFile",
   ];
   const missingReportImportSource = requiredReportImportSource.filter(
     (text) => !reportSource.includes(text),
@@ -1927,8 +1927,8 @@ function assertPhaseCloseout() {
     "WC02_build_new_work_card_capture_form.json",
     "WC03_add_architect_framing_prompt_composer.md",
   ];
-  filesByFolder.Builder_Reports = [
-    "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+  filesByFolder.Implementer_Reports = [
+    "IMPLEMENTER_REPORT_WC01_work_card_schema_renderer.md",
   ];
   filesByFolder.Repair_Prompts = [
     "REPAIR_PROMPT_WC02_build_new_work_card_capture_form.md",
@@ -1995,8 +1995,8 @@ function assertPhaseCloseout() {
     const workCardId = `WC${String(index).padStart(2, "0")}`;
     completeFilesByFolder.Work_Cards.push(`${workCardId}_sample.json`);
     completeFilesByFolder.Work_Cards.push(`${workCardId}_sample.md`);
-    completeFilesByFolder.Builder_Reports.push(
-      `BUILDER_REPORT_${workCardId}_sample.md`,
+    completeFilesByFolder.Implementer_Reports.push(
+      `IMPLEMENTER_REPORT_${workCardId}_sample.md`,
     );
   }
 
@@ -2215,7 +2215,7 @@ async function assertHumanValidationAndRepair() {
   }
 
   const checklistReport = [
-    "# Builder Report - sample",
+    "# Implementer Report - sample",
     "",
     "## Manual Validation Required",
     "",
@@ -2242,12 +2242,12 @@ async function assertHumanValidationAndRepair() {
   const noReportPreview = await previewHumanValidationRecord(baseInput);
 
   if (!noReportPreview.ok) {
-    console.error("Human Validation preview without Builder Report failed.");
+    console.error("Human Validation preview without Implementer Report failed.");
     process.exit(1);
   }
 
-  if (noReportPreview.builderReportWarning !== noBuilderReportSelectedWarning) {
-    console.error("Missing Builder Report warning was not returned.");
+  if (noReportPreview.implementerReportWarning !== noImplementerReportSelectedWarning) {
+    console.error("Missing Implementer Report warning was not returned.");
     process.exit(1);
   }
 
@@ -2258,16 +2258,16 @@ async function assertHumanValidationAndRepair() {
     process.exit(1);
   }
 
-  const wc02BuilderReports = await listHumanValidationBuilderReports({
+  const wc02ImplementerReports = await listHumanValidationImplementerReports({
     phase: "phase-02",
     workCardFileName:
       "WC02_add_project_architect_interview_prompt_generator.json",
   });
 
   if (
-    !wc02BuilderReports.ok ||
-    wc02BuilderReports.defaultFileName !==
-      "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md"
+    !wc02ImplementerReports.ok ||
+    wc02ImplementerReports.defaultFileName !==
+      "IMPLEMENTER_REPORT_WC02_add_project_architect_interview_prompt_generator.md"
   ) {
     console.error("WC02 validation did not default to the matching WC02 Implementer Report.");
     process.exit(1);
@@ -2284,17 +2284,17 @@ async function assertHumanValidationAndRepair() {
     {
       id: "WC03_REPAIR_validation_and_evidence_ui",
       fileName: "VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
-      reportFile: "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+      reportFile: "IMPLEMENTER_REPORT_WC03_repair_validation_and_evidence_ui.md",
     },
     {
       id: "WC03_REPAIR_header_layout_regression",
       fileName: "VALIDATION_TARGET_WC03_repair_header_layout_regression.json",
-      reportFile: "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+      reportFile: "IMPLEMENTER_REPORT_WC03_repair_header_layout_regression.md",
     },
     {
       id: "FIX_context_menu_copy_paste",
       fileName: "VALIDATION_TARGET_FIX_context_menu_copy_paste.json",
-      reportFile: "BUILDER_REPORT_FIX_context_menu_copy_paste.md",
+      reportFile: "IMPLEMENTER_REPORT_FIX_context_menu_copy_paste.md",
     },
   ];
 
@@ -2328,7 +2328,7 @@ async function assertHumanValidationAndRepair() {
       process.exit(1);
     }
 
-    const targetReports = await listHumanValidationBuilderReports({
+    const targetReports = await listHumanValidationImplementerReports({
       phase: "phase-02",
       workCardFileName: target.sourceJsonFile,
       validationTargetFileName: target.fileName,
@@ -2349,8 +2349,8 @@ async function assertHumanValidationAndRepair() {
     phase: "phase-02",
     workCardFileName: repairValidationTarget?.sourceJsonFile ?? "",
     validationTargetFileName: repairValidationTarget?.fileName,
-    builderReportFileName:
-      "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+    implementerReportFileName:
+      "IMPLEMENTER_REPORT_WC03_repair_validation_and_evidence_ui.md",
     validationResult: "Not tested",
   });
 
@@ -2369,8 +2369,8 @@ async function assertHumanValidationAndRepair() {
     phase: "phase-02",
     workCardFileName: repairValidationTarget?.sourceJsonFile ?? "",
     validationTargetFileName: repairValidationTarget?.fileName,
-    builderReportFileName:
-      "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+    implementerReportFileName:
+      "IMPLEMENTER_REPORT_WC03_repair_header_layout_regression.md",
     validationResult: "Not tested",
   });
 
@@ -2448,7 +2448,7 @@ async function assertHumanValidationAndRepair() {
     "## Architect Review Instructions",
     "## Architect Review Decision",
     "## Operator Validation Steps",
-    "BUILDER_REPORT_REPAIR_WC07_human_validation_and_repair_loop.md",
+    "IMPLEMENTER_REPORT_REPAIR_WC07_human_validation_and_repair_loop.md",
     "Do not create a release tag.",
     "Do not push unless explicitly instructed.",
   ];
@@ -2732,7 +2732,7 @@ function assertWc10UiAndTerminology() {
     "champcity_ai_ui_branding.png",
     "window.champCity",
     "listSavedWorkCards",
-    "previewBuilderPrompt",
+    "previewImplementerExecutionPacket",
     "saveHumanValidationRecord",
     "PipelineStepper",
     "ArtifactPanel",
@@ -2752,8 +2752,8 @@ function assertWc10UiAndTerminology() {
 
   const forbiddenRendererText = [
     'label: "Build"',
-    '"Builder Prompt Generator"',
-    '"Builder Report Capture"',
+    '"Implementer Execution Packet Generator"',
+    '"Implementer Report Capture"',
     "champcity_ai_icon_clean_no_shadow_TRANSPARENT.png",
     'className: "brand-mark"',
     'h("p", { className: "eyebrow" }, "Architect / Implementer")',
@@ -2876,7 +2876,7 @@ function assertWc10UiAndTerminology() {
     "## Recommended Next Implementer Task",
     "Manual validation.",
   ].join("\n");
-  const reportValidation = validateBuilderReport(implementerReport);
+  const reportValidation = validateImplementerReport(implementerReport);
 
   if (!reportValidation.validEnoughToSave) {
     console.error("Implementer Report heading was not accepted by the report validator.");
@@ -2978,7 +2978,7 @@ function assertProjectIntake() {
   );
 
   if (builtProjectIntake.projectIntakeId !== "PROJECT_INTAKE_champcity_a_i") {
-    console.error("Project Intake builder did not create the expected intake ID.");
+    console.error("Project Intake implementer did not create the expected intake ID.");
     process.exit(1);
   }
 
@@ -3087,7 +3087,7 @@ function assertProjectArchitectInterviewPrompt() {
     "When a reasonable default is available, propose the default and mark it as an assumption",
     "For every question you ask, provide suggested answers in plain language.",
     "Preserve the Architect / Implementer mental model.",
-    "Builder/Implementer tooling",
+    "Implementer tooling",
     "Required project-profile areas to complete:",
     "Source-of-truth location",
     "Initial phase candidates",
@@ -3884,7 +3884,7 @@ async function assertPhaseIntakeAndInterviewPrompt() {
     'label: "Phase Plan"',
     'label: "Reconcile"',
     "Reconcile / Project State Review",
-    "Phase Map Builder",
+    "Phase Map Composer",
     "Phase Planning Documents Generator",
     "Project Roadmap",
     "Advanced / Legacy Phase Intake",
@@ -3937,7 +3937,7 @@ function assertProjectRoadmapAndPhaseMap() {
 
     phase01Files.Work_Cards.push(`${workCardId}_sample.json`);
     phase01Files.Work_Cards.push(`${workCardId}_sample.md`);
-    phase01Files.Builder_Reports.push(`BUILDER_REPORT_${workCardId}_sample.md`);
+    phase01Files.Implementer_Reports.push(`IMPLEMENTER_REPORT_${workCardId}_sample.md`);
   }
 
   phase01Files.Validation_Reports = [
@@ -3955,8 +3955,8 @@ function assertProjectRoadmapAndPhaseMap() {
     phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.md`);
 
     if (index < 6) {
-      phase02Files.Builder_Reports.push(
-        `BUILDER_REPORT_${workCardId}_phase_02_upstream_planning.md`,
+      phase02Files.Implementer_Reports.push(
+        `IMPLEMENTER_REPORT_${workCardId}_phase_02_upstream_planning.md`,
       );
     }
   }
@@ -4007,7 +4007,7 @@ function assertProjectRoadmapAndPhaseMap() {
           phase: "phase-01",
           summary: phase01Summary,
           workCardFileNames: phase01Files.Work_Cards,
-          builderReportFileNames: phase01Files.Builder_Reports,
+          implementerReportFileNames: phase01Files.Implementer_Reports,
           validationReportFileNames: phase01Files.Validation_Reports,
           repairPromptFileNames: phase01Files.Repair_Prompts,
           closeoutReportFileNames: phase01Files.Closeout_Reports,
@@ -4023,7 +4023,7 @@ function assertProjectRoadmapAndPhaseMap() {
           phase: "phase-02",
           summary: phase02Summary,
           workCardFileNames: phase02Files.Work_Cards,
-          builderReportFileNames: phase02Files.Builder_Reports,
+          implementerReportFileNames: phase02Files.Implementer_Reports,
           validationReportFileNames: phase02Files.Validation_Reports,
           repairPromptFileNames: phase02Files.Repair_Prompts,
           closeoutReportFileNames: phase02Files.Closeout_Reports,
@@ -4356,7 +4356,7 @@ function assertProjectRoadmapAndPhaseMap() {
   ].join("\n");
   const requiredSourceText = [
     'label: "Phase Map"',
-    "Phase Map Builder",
+    "Phase Map Composer",
     "Project Roadmap",
     "Generate Roadmap",
     "Save Roadmap",
@@ -4420,7 +4420,7 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     selectedProjectPlanningDocumentsSummary:
       "Selected sidecar JSON: PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
     phaseArtifactSummary:
-      "phase-02 has Work Cards, Builder_Reports, and Validation_Reports.",
+      "phase-02 has Work Cards, Implementer_Reports, and Validation_Reports.",
     repositoryStructureSummary:
       "Repository root contains src, planning, scripts, and package.json.",
     appWorkflowSummary:
@@ -4568,8 +4568,8 @@ function assertRepositoryReconciliationAndPhasePlanning() {
 
     phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.json`);
     phase02Files.Work_Cards.push(`${workCardId}_phase_02_upstream_planning.md`);
-    phase02Files.Builder_Reports.push(
-      `BUILDER_REPORT_${workCardId}_phase_02_upstream_planning.md`,
+    phase02Files.Implementer_Reports.push(
+      `IMPLEMENTER_REPORT_${workCardId}_phase_02_upstream_planning.md`,
     );
   }
 
@@ -4599,7 +4599,7 @@ function assertRepositoryReconciliationAndPhasePlanning() {
           phase: "phase-02",
           summary: phase02Summary,
           workCardFileNames: phase02Files.Work_Cards,
-          builderReportFileNames: phase02Files.Builder_Reports,
+          implementerReportFileNames: phase02Files.Implementer_Reports,
           validationReportFileNames: phase02Files.Validation_Reports,
           repairPromptFileNames: phase02Files.Repair_Prompts,
           closeoutReportFileNames: phase02Files.Closeout_Reports,
@@ -4805,7 +4805,7 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     'label: "Reconcile"',
     'label: "Phase Map"',
     "Repository Reconciliation",
-    "Phase Map Builder",
+    "Phase Map Composer",
     "Phase Planning Documents Generator",
     "Work Card Plan Review",
     "Draft / Pending Review / Not Active",
@@ -4821,9 +4821,9 @@ function assertRepositoryReconciliationAndPhasePlanning() {
     "Open Reconcile",
     "Open Phase Map",
     "Open Phase Planning Generator",
-    "Open Phase Map Builder",
+    "Open Phase Map Composer",
     "No saved Phase Map was found",
-    "Run Phase Map Builder first",
+    "Run Phase Map Composer first",
     "Project Roadmap source",
     "Mapped Phase Source",
     "Phase-Specific Clarification",
@@ -4883,7 +4883,7 @@ function makeWorkCard(overrides = {}) {
     validationPlan: ["Run the lightweight validation script."],
     riskLevel: "medium",
     risks: ["Manual review is still required."],
-    builderInstructions: ["Keep the Builder task narrow."],
+    implementerInstructions: ["Keep the Implementer task narrow."],
     operatorNotes: ["This is a deterministic test card."],
     ...overrides,
   };

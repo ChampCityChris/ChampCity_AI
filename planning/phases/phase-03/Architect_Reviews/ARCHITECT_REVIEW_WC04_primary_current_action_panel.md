@@ -1,3 +1,39 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC04",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC04 Primary Current Action Panel"
+  },
+  "payloadHash": "sha256:ca8e76e0145a919ec00ddd3f7708fb8f2b164ed5f60555b6f6a914d027bc8813",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC04"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC04"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC04",
+      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04"
+}
+-->
+
 # Architect Review: WC04 Primary Current Action Panel
 
 Status: Ready for Operator Validation
@@ -16,7 +52,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04_primary_current_action_panel.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md`
 
 ## Source Work Card
 
@@ -38,7 +74,7 @@ The Implementer Report confirms the following files were changed:
 - `src/renderer/app/WorkflowRouterShell.tsx`
 - `src/renderer/app/App.tsx`
 - `scripts/verify-work-card-fixture.mjs`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04_primary_current_action_panel.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md`
 
 The reported changes remain within the WC04 scope.
 

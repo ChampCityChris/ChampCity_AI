@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-12T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC04 — Primary Current Action Panel"
+  },
+  "payloadHash": "sha256:b78b79100d36a01cc864ecd0594a5fe265789e0b39f4a7972826ac7b3751d2e9",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC04",
+      "champcity-ai/phase-03/implementer_report/WC04",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC04",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: WC04 — Primary Current Action Panel
 
 Status: ready_for_implementer
@@ -218,7 +251,7 @@ Validate:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04_primary_current_action_panel.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md`
 
 The report must include:
 

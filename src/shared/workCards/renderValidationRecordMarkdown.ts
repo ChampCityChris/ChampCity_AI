@@ -54,7 +54,7 @@ export function renderValidationRecordMarkdown(
   }
 
   targetLines.push(
-    `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
+    `- Associated Implementer Report: ${record.implementerReportFile ?? "None selected."}`,
   );
 
   const legacyOperatorDecisionLines = record.operatorDecision

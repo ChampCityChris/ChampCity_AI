@@ -1,3 +1,34 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+  },
+  "payloadHash": "sha256:54566209676104c9140419e3e0c0729af05357b17f94a451820aeae85763cf89",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/validation_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: Superseded Phase 03 Artifact and Roadmap State Reconciliation
 
 ## Work Card ID
@@ -69,7 +100,7 @@ The Operator should be able to inspect the repo/app state and see that:
   - `planning/phases/phase-03/Phase_Planning.md`
   - `planning/phases/phase-03/Work_Card_Plan.md`
   - `planning/phases/phase-03/Operator_Phase_Approval.md`
-- Create a WC01 Implementer Report under the legacy `Builder_Reports` folder when complete.
+- Create a WC01 Implementer Report under the canonical `Implementer_Reports` storage when complete.
 
 ## Likely Artifacts To Review
 
@@ -103,7 +134,7 @@ Also inspect app source only if necessary to identify static labels or default s
 - Do not implement the Figma workflow-router UI shell. That is WC03.
 - Do not perform route-specific UI correction. That belongs to later Phase 03 Work Cards.
 - Do not create additional Phase 03 executable Work Cards.
-- Do not create Implementer prompts separate from Work Cards.
+- Do not create Implementer execution packets separate from Work Cards.
 - Do not delete historical artifacts.
 - Do not rewrite Phase 01 or Phase 02 history beyond necessary status summaries.
 - Do not perform broad UI polish.
@@ -116,7 +147,7 @@ Also inspect app source only if necessary to identify static labels or default s
 - Verify Git root and remote before editing.
 - Read `AGENTS.md` before implementation.
 - Read `docs/dev/VALIDATION_COMMAND_LANES.md` before running child-process-heavy validation.
-- Preserve Operator / Architect / Implementer terminology.
+- Preserve Operator / Architect / Implementer-facing role terminology.
 - Preserve the locked workflow-router correction: ChampCity A/I is a workflow router, not a screen picker.
 - Preserve the approved Phase 03 title exactly:
   - `Workflow Router Screen Correction and Guided Current Action UI`
@@ -148,7 +179,7 @@ The reconciled state should communicate:
 - The approved Phase 03 bundle remains intact.
 - The app-visible state, if static labels/defaults exist, no longer routes Phase 03 to the old repository-reconciliation phase.
 - WC01 Markdown and JSON artifacts exist under `planning/phases/phase-03/Work_Cards/`.
-- A WC01 Implementer Report exists under `planning/phases/phase-03/Builder_Reports/` after implementation.
+- A WC01 Implementer Report exists under `planning/phases/phase-03/Implementer_Reports/` after implementation.
 - Validation commands pass or any environment/sandbox limitation is clearly documented.
 
 ## How This Should Be Validated
@@ -202,7 +233,7 @@ Deliverable:
 Create a WC01 Implementer Report at:
 
 ```text
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md
 ```
 
 The report must include:
@@ -217,9 +248,9 @@ The report must include:
 - Risks or follow-up items.
 - Recommended next action.
 
-## Builder Handoff Prompt
+## Implementer Handoff Prompt
 
-Use this as the starting Implementer prompt. The section heading remains a legacy Builder handoff heading for artifact compatibility.
+Use this as the starting Implementer execution packet. The section heading remains a historical execution handoff heading for artifact compatibility.
 
 ```text
 You are acting as Implementer for ChampCity A/I.
@@ -249,13 +280,13 @@ Scope:
 - Mark obsolete Phase 03 artifacts as superseded without deleting them.
 - Keep Markdown/JSON pairs semantically consistent where the app uses paired artifacts.
 - Correct only narrow static app labels/defaults if they still route Phase 03 to the old phase title.
-- Create a WC01 Implementer Report under planning/phases/phase-03/Builder_Reports/.
+- Create a WC01 Implementer Report under planning/phases/phase-03/Implementer_Reports/.
 
 Out of scope:
 - Do not implement WC02 durable current required action model.
 - Do not implement WC03 Figma workflow-router UI shell.
 - Do not create later Work Cards.
-- Do not create a separate Implementer Prompt artifact.
+- Do not create a separate Implementer Execution Packet artifact.
 - Do not delete historical artifacts.
 - Do not perform broad UI redesign.
 - Do not stage, commit, push, tag, package, deploy, or open a PR.

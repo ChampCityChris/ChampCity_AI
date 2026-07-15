@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-13T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC06 — Left-to-Right Workflow Visibility"
+  },
+  "payloadHash": "sha256:dff7320c95d519c2b1763dda9ed1c8d657854c69d9451fb1cf6ab620394929ef",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC06",
+      "champcity-ai/phase-03/implementer_report/WC06",
+      "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC06",
+      "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: WC06 — Left-to-Right Workflow Visibility
 
 Status: ready_for_implementer
@@ -188,7 +221,7 @@ Do not perform Operator validation.
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md`
 
 The report must include:
 
@@ -288,7 +321,7 @@ Validation:
 
 Required Implementer Report:
 Create:
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md
 
 Final response must include:
 - pushed branch;

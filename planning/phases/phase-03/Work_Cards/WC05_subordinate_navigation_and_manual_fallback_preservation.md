@@ -1,3 +1,45 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC05",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-12T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC05 — Subordinate Navigation and Manual Fallback Preservation"
+  },
+  "payloadHash": "sha256:42937c3ebc2dbb6a00b5f951c1c32ce2bca7404b0646af91e1bf0c1c3e120e55",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC05",
+      "champcity-ai/phase-03/implementer_report/WC05",
+      "champcity-ai/phase-03/validation_report/WC05"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC05"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC05"
+}
+-->
+
 # Work Card: WC05 — Subordinate Navigation and Manual Fallback Preservation
 
 Status: ready_for_implementer
@@ -221,7 +263,7 @@ Do not perform Operator validation.
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md`
 
 The report must include:
 
@@ -326,7 +368,7 @@ Validation:
 
 Required Implementer Report:
 Create:
-planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
+planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
 
 Final response must include:
 - pushed branch;

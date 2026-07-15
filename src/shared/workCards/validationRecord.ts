@@ -44,7 +44,7 @@ export interface HumanValidationRecord {
   validationTargetExpectedImplementerReportFile?: string;
   parentWorkCardId?: string;
   phase: string;
-  builderReportFile?: string;
+  implementerReportFile?: string;
   validationResult: HumanValidationResult;
   testedItems: string;
   passedItems: string;
@@ -65,7 +65,7 @@ export interface HumanValidationFormInput {
   phase: string;
   workCardFileName: string;
   validationTargetFileName?: string;
-  builderReportFileName?: string;
+  implementerReportFileName?: string;
   validationResult: HumanValidationResult;
   testedItems: string;
   passedItems: string;
@@ -78,31 +78,31 @@ export interface HumanValidationFormInput {
   recommendedNextAction: string;
 }
 
-export interface HumanValidationBuilderReportOption {
+export interface HumanValidationImplementerReportOption {
   fileName: string;
   label: string;
   isDefaultMatch: boolean;
   modifiedAt?: string;
 }
 
-export interface InvalidHumanValidationBuilderReportFile {
+export interface InvalidHumanValidationImplementerReportFile {
   fileName: string;
   errorMessages: string[];
 }
 
-export interface HumanValidationBuilderReportListRequest {
+export interface HumanValidationImplementerReportListRequest {
   phase: string;
   workCardFileName: string;
   validationTargetFileName?: string;
 }
 
-export interface HumanValidationBuilderReportListResult {
+export interface HumanValidationImplementerReportListResult {
   ok: boolean;
   workCard?: WorkCard;
   validationTarget?: ValidationTargetSummary;
-  options?: HumanValidationBuilderReportOption[];
+  options?: HumanValidationImplementerReportOption[];
   defaultFileName?: string;
-  invalidFiles?: InvalidHumanValidationBuilderReportFile[];
+  invalidFiles?: InvalidHumanValidationImplementerReportFile[];
   errorMessages?: string[];
 }
 
@@ -152,7 +152,7 @@ export interface HumanValidationPreviewResult {
   repairPrompt?: string;
   shouldGenerateRepairPrompt?: boolean;
   manualValidationChecklist?: ManualValidationChecklistExtraction;
-  builderReportWarning?: string;
+  implementerReportWarning?: string;
   differentProblemGuidance?: string;
   savedValidationJsonFileName?: string;
   savedValidationMarkdownFileName?: string;
@@ -173,12 +173,12 @@ export interface AvailablePhaseFoldersResult {
   errorMessages?: string[];
 }
 
-export interface BuilderReportFileLoadRequest {
+export interface ImplementerReportFileLoadRequest {
   phase: string;
   fileName: string;
 }
 
-export interface BuilderReportFileLoadResult {
+export interface ImplementerReportFileLoadResult {
   ok: boolean;
   fileName?: string;
   content?: string;
@@ -205,7 +205,7 @@ export interface HumanValidationRecordValidationResult {
   errors: string[];
 }
 
-export const noBuilderReportSelectedWarning =
+export const noImplementerReportSelectedWarning =
   "No Implementer Report is selected. You can still save validation, but the evidence chain is incomplete.";
 
 export const noManualValidationChecklistDetectedMessage =
@@ -245,7 +245,7 @@ export function buildHumanValidationRecord(
     throw new Error("Choose a valid validation result.");
   }
 
-  const builderReportFile = input.builderReportFileName?.trim();
+  const implementerReportFile = input.implementerReportFileName?.trim();
 
   return {
     validationId: buildValidationId(target.id, createdAt),
@@ -260,9 +260,9 @@ export function buildHumanValidationRecord(
       target.expectedImplementerReportFile,
     parentWorkCardId: target.parentWorkCardId,
     phase: target.phase,
-    builderReportFile:
-      builderReportFile && builderReportFile.length > 0
-        ? builderReportFile
+    implementerReportFile:
+      implementerReportFile && implementerReportFile.length > 0
+        ? implementerReportFile
         : undefined,
     validationResult: input.validationResult,
     testedItems: input.testedItems,

@@ -4,6 +4,7 @@ import {
   ipcMain,
   Menu,
   type ContextMenuParams,
+  type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
 } from "electron";
 import { mkdirSync } from "node:fs";
@@ -14,9 +15,9 @@ import {
   getCurrentRequiredAction,
   getNextWorkCardId,
   getPhaseCloseoutSummary,
-  listBuilderPromptSupportingArtifacts,
+  listImplementerExecutionPacketSupportingArtifacts,
   listAvailablePhaseFolders,
-  listHumanValidationBuilderReports,
+  listHumanValidationImplementerReports,
   listHumanValidationStatuses,
   listHumanValidationTargets,
   listSavedPhaseIntakes,
@@ -31,8 +32,8 @@ import {
   listSavedWorkCards,
   previewArchitectReviewRecord,
   previewArchitectPrompt,
-  previewBuilderPrompt,
-  previewBuilderReportCapture,
+  previewImplementerExecutionPacket,
+  previewImplementerReportCapture,
   previewDraftWorkCard,
   previewHumanValidationRecord,
   previewPhaseArchitectInterviewPrompt,
@@ -48,11 +49,11 @@ import {
   previewRepositoryReconciliation,
   previewRepositoryReconciliationPrompt,
   previewRiskReview,
-  loadBuilderReportFile,
+  loadImplementerReportFile,
   saveArchitectPrompt,
   saveArchitectReviewRecord,
-  saveBuilderPrompt,
-  saveBuilderReportCapture,
+  saveImplementerExecutionPacket,
+  saveImplementerReportCapture,
   saveDraftWorkCard,
   saveHumanValidationRecord,
   savePhaseArchitectInterviewPrompt,
@@ -80,14 +81,14 @@ import type {
 } from "../shared/workCards/repositoryReconciliation";
 import type { PhasePlanningDocumentsRequest } from "../shared/workCards/phasePlanningDocuments";
 import type { ProjectRoadmapRequest } from "../shared/workCards/projectRoadmap";
-import type { PhaseMapBuilderRequest } from "../shared/workCards/phaseMap";
+import type { PhaseMapRequest } from "../shared/workCards/phaseMap";
 import type { ArchitectPromptRequest } from "../shared/workCards/renderArchitectFramingPrompt";
-import type { BuilderPromptRequest } from "../shared/workCards/renderBuilderPrompt";
-import type { BuilderReportCaptureRequest } from "../shared/workCards/validateBuilderReport";
+import type { ImplementerExecutionPacketRequest } from "../shared/workCards/renderImplementerExecutionPacket";
+import type { ImplementerReportCaptureRequest } from "../shared/workCards/validateImplementerReport";
 import type { RiskReviewRequest } from "../shared/workCards/renderRiskReviewMarkdown";
 import type {
-  BuilderReportFileLoadRequest,
-  HumanValidationBuilderReportListRequest,
+  ImplementerReportFileLoadRequest,
+  HumanValidationImplementerReportListRequest,
   HumanValidationFormInput,
   ValidationEvidenceFileImportRequest,
 } from "../shared/workCards/validationRecord";
@@ -95,6 +96,15 @@ import type { PhaseCloseoutFormInput } from "../shared/workCards/phaseCloseoutRe
 import type { PlanningArtifactPreviewRequest } from "../shared/workCards/artifactReviewWorkspace";
 import type { RouteReviewRequestInput } from "../shared/workCards/routeReviewRequest";
 import type { ArchitectReviewFormInput } from "../shared/workCards/architectReviewRecord";
+import type {
+  CurrentContextPacketExportRequest,
+  CurrentContextPacketPreviewRequest,
+} from "../shared/contextPackets/contextPacket";
+import {
+  contextPacketService,
+  currentContextPacketCompiler,
+  routedProcessInvocationService,
+} from "./canonicalRuntime";
 
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
@@ -206,23 +216,23 @@ function registerWorkCardIpc(): void {
   ipcMain.handle("workCards:listAvailablePhases", () =>
     listAvailablePhaseFolders(),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectIntake:preview",
     (_event, input: ProjectIntakeInput) => previewProjectIntake(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectIntake:save",
     (_event, input: ProjectIntakeInput) => saveProjectIntake(input),
   );
   ipcMain.handle("projectArchitectInterview:listProjectIntakes", () =>
     listSavedProjectIntakes(),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectArchitectInterview:previewPrompt",
     (_event, input: ProjectArchitectInterviewPromptRequest) =>
       previewProjectArchitectInterviewPrompt(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectArchitectInterview:savePrompt",
     (_event, input: ProjectArchitectInterviewPromptRequest) =>
       saveProjectArchitectInterviewPrompt(input),
@@ -233,12 +243,12 @@ function registerWorkCardIpc(): void {
   ipcMain.handle("projectPlanningDocuments:listArchitectPrompts", () =>
     listSavedProjectArchitectInterviewPrompts(),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectPlanningDocuments:preview",
     (_event, input: ProjectPlanningDocumentsRequest) =>
       previewProjectPlanningDocuments(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectPlanningDocuments:save",
     (_event, input: ProjectPlanningDocumentsRequest) =>
       saveProjectPlanningDocuments(input),
@@ -246,23 +256,23 @@ function registerWorkCardIpc(): void {
   ipcMain.handle("phaseIntake:listProjectPlanningDocuments", () =>
     listSavedProjectPlanningDocuments(),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phaseIntake:preview",
     (_event, input: PhaseIntakeInput) => previewPhaseIntake(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phaseIntake:save",
     (_event, input: PhaseIntakeInput) => savePhaseIntake(input),
   );
   ipcMain.handle("phaseArchitectInterview:listPhaseIntakes", (_event, phase: string) =>
     listSavedPhaseIntakes(phase),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phaseArchitectInterview:previewPrompt",
     (_event, input: PhaseArchitectInterviewPromptRequest) =>
       previewPhaseArchitectInterviewPrompt(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phaseArchitectInterview:savePrompt",
     (_event, input: PhaseArchitectInterviewPromptRequest) =>
       savePhaseArchitectInterviewPrompt(input),
@@ -271,37 +281,37 @@ function registerWorkCardIpc(): void {
     "repositoryReconciliation:listProjectPlanningDocuments",
     () => listSavedProjectPlanningDocuments(),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "repositoryReconciliation:previewPrompt",
     (_event, input: RepositoryReconciliationPromptRequest) =>
       previewRepositoryReconciliationPrompt(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "repositoryReconciliation:preview",
     (_event, input: RepositoryReconciliationRequest) =>
       previewRepositoryReconciliation(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "repositoryReconciliation:save",
     (_event, input: RepositoryReconciliationRequest) =>
       saveRepositoryReconciliation(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectRoadmap:preview",
     (_event, input: ProjectRoadmapRequest) => previewProjectRoadmap(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "projectRoadmap:save",
     (_event, input: ProjectRoadmapRequest) => saveProjectRoadmap(input),
   );
   ipcMain.handle("projectRoadmap:listSaved", () => listSavedProjectRoadmaps());
-  ipcMain.handle(
+  registerProcessIpc(
     "phaseMap:preview",
-    (_event, input: PhaseMapBuilderRequest) => previewPhaseMap(input),
+    (_event, input: PhaseMapRequest) => previewPhaseMap(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phaseMap:save",
-    (_event, input: PhaseMapBuilderRequest) => savePhaseMap(input),
+    (_event, input: PhaseMapRequest) => savePhaseMap(input),
   );
   ipcMain.handle("phaseMap:listSaved", () => listSavedPhaseMaps());
   ipcMain.handle("phasePlanning:listProjectPlanningDocuments", () =>
@@ -317,12 +327,12 @@ function registerWorkCardIpc(): void {
     "phasePlanning:listPhaseArchitectInterviewPrompts",
     (_event, phase: string) => listSavedPhaseArchitectInterviewPrompts(phase),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phasePlanning:preview",
     (_event, input: PhasePlanningDocumentsRequest) =>
       previewPhasePlanningDocuments(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "phasePlanning:save",
     (_event, input: PhasePlanningDocumentsRequest) =>
       savePhasePlanningDocuments(input),
@@ -333,73 +343,73 @@ function registerWorkCardIpc(): void {
   ipcMain.handle("workCards:getNextId", (_event, phase: string) =>
     getNextWorkCardId(phase),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewDraft",
     (_event, input: WorkCardDraftInput) => previewDraftWorkCard(input),
   );
-  ipcMain.handle("workCards:saveDraft", (_event, input: WorkCardDraftInput) =>
+  registerProcessIpc("workCards:saveDraft", (_event, input: WorkCardDraftInput) =>
     saveDraftWorkCard(input),
   );
   ipcMain.handle("workCards:listSaved", (_event, phase: string) =>
     listSavedWorkCards(phase),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewArchitectPrompt",
     (_event, input: ArchitectPromptRequest) => previewArchitectPrompt(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:saveArchitectPrompt",
     (_event, input: ArchitectPromptRequest) => saveArchitectPrompt(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewRiskReview",
     (_event, input: RiskReviewRequest) => previewRiskReview(input),
   );
-  ipcMain.handle("workCards:saveRiskReview", (_event, input: RiskReviewRequest) =>
+  registerProcessIpc("workCards:saveRiskReview", (_event, input: RiskReviewRequest) =>
     saveRiskReview(input),
   );
   ipcMain.handle(
-    "workCards:listBuilderPromptSupportingArtifacts",
-    (_event, input: BuilderPromptRequest) =>
-      listBuilderPromptSupportingArtifacts(input),
+    "workCards:listImplementerExecutionPacketSupportingArtifacts",
+    (_event, input: ImplementerExecutionPacketRequest) =>
+      listImplementerExecutionPacketSupportingArtifacts(input),
   );
-  ipcMain.handle(
-    "workCards:previewBuilderPrompt",
-    (_event, input: BuilderPromptRequest) => previewBuilderPrompt(input),
+  registerProcessIpc(
+    "workCards:previewImplementerExecutionPacket",
+    (_event, input: ImplementerExecutionPacketRequest) => previewImplementerExecutionPacket(input),
   );
-  ipcMain.handle(
-    "workCards:saveBuilderPrompt",
-    (_event, input: BuilderPromptRequest) => saveBuilderPrompt(input),
+  registerProcessIpc(
+    "workCards:saveImplementerExecutionPacket",
+    (_event, input: ImplementerExecutionPacketRequest) => saveImplementerExecutionPacket(input),
   );
-  ipcMain.handle(
-    "workCards:previewBuilderReportCapture",
-    (_event, input: BuilderReportCaptureRequest) =>
-      previewBuilderReportCapture(input),
+  registerProcessIpc(
+    "workCards:previewImplementerReportCapture",
+    (_event, input: ImplementerReportCaptureRequest) =>
+      previewImplementerReportCapture(input),
   );
-  ipcMain.handle(
-    "workCards:saveBuilderReportCapture",
-    (_event, input: BuilderReportCaptureRequest) =>
-      saveBuilderReportCapture(input),
+  registerProcessIpc(
+    "workCards:saveImplementerReportCapture",
+    (_event, input: ImplementerReportCaptureRequest) =>
+      saveImplementerReportCapture(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewArchitectReviewRecord",
     (_event, input: ArchitectReviewFormInput) =>
       previewArchitectReviewRecord(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:saveArchitectReviewRecord",
     (_event, input: ArchitectReviewFormInput) =>
       saveArchitectReviewRecord(input),
   );
   ipcMain.handle(
-    "workCards:loadBuilderReportFile",
-    (_event, input: BuilderReportFileLoadRequest) =>
-      loadBuilderReportFile(input),
+    "workCards:loadImplementerReportFile",
+    (_event, input: ImplementerReportFileLoadRequest) =>
+      loadImplementerReportFile(input),
   );
   ipcMain.handle(
-    "workCards:listHumanValidationBuilderReports",
-    (_event, input: HumanValidationBuilderReportListRequest) =>
-      listHumanValidationBuilderReports(input),
+    "workCards:listHumanValidationImplementerReports",
+    (_event, input: HumanValidationImplementerReportListRequest) =>
+      listHumanValidationImplementerReports(input),
   );
   ipcMain.handle("workCards:listHumanValidationTargets", (_event, phase: string) =>
     listHumanValidationTargets(phase),
@@ -407,17 +417,17 @@ function registerWorkCardIpc(): void {
   ipcMain.handle("workCards:listHumanValidationStatuses", (_event, phase: string) =>
     listHumanValidationStatuses(phase),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewHumanValidationRecord",
     (_event, input: HumanValidationFormInput) =>
       previewHumanValidationRecord(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:saveHumanValidationRecord",
     (_event, input: HumanValidationFormInput) =>
       saveHumanValidationRecord(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:attachValidationEvidenceFile",
     (_event, input: ValidationEvidenceFileImportRequest) =>
       attachValidationEvidenceFile(input),
@@ -428,23 +438,64 @@ function registerWorkCardIpc(): void {
   ipcMain.handle("workCards:getCurrentRequiredAction", () =>
     getCurrentRequiredAction(),
   );
-  ipcMain.handle(
+  registerProcessIpc(
+    "contextPackets:previewCurrent",
+    (_event, input: CurrentContextPacketPreviewRequest) =>
+      currentContextPacketCompiler.preview(input),
+  );
+  registerProcessIpc(
+    "contextPackets:exportCurrent",
+    async (_event, input: CurrentContextPacketExportRequest) => {
+      const preview = await currentContextPacketCompiler.preview(input);
+      if (!preview.ok || !preview.packet) {
+        return {
+          ok: false,
+          blocked: true,
+          acknowledgementRequired: false,
+          errorMessages: preview.errorMessages ?? ["Context packet compilation failed."],
+        };
+      }
+      return contextPacketService.exportPacket({
+        packet: preview.packet,
+        operatorAcknowledgedOverBudget:
+          input.operatorAcknowledgedOverBudget,
+      });
+    },
+  );
+  registerProcessIpc(
     "workCards:saveRouteReviewRequest",
     (_event, input: RouteReviewRequestInput) => saveRouteReviewRequest(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewPlanningArtifact",
     (_event, input: PlanningArtifactPreviewRequest) =>
       previewPlanningArtifact(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:previewPhaseCloseoutRecord",
     (_event, input: PhaseCloseoutFormInput) =>
       previewPhaseCloseoutRecord(input),
   );
-  ipcMain.handle(
+  registerProcessIpc(
     "workCards:savePhaseCloseoutRecord",
     (_event, input: PhaseCloseoutFormInput) =>
       savePhaseCloseoutRecord(input),
+  );
+}
+
+function registerProcessIpc(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, input: any) => unknown,
+): void {
+  // Fail startup if a preview/write handler has not made an explicit routed,
+  // reference, corrective, or context-utility classification.
+  routedProcessInvocationService.policyFor(channel);
+  ipcMain.handle(channel, (event, payload, rendererBinding) =>
+    routedProcessInvocationService.invoke({
+      channel,
+      rendererBinding,
+      payload,
+      operation: () => handler(event, payload),
+    }),
   );
 }

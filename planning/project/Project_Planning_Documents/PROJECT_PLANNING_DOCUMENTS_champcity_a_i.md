@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+  "artifactType": "project_planning",
+  "createdAt": "2026-07-01T21:15:57.623Z",
+  "jsonPath": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+  "markdownPath": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+  "payload": {
+    "kind": "project_planning",
+    "title": "Project Planning Documents Generation: ChampCity A/I"
+  },
+  "payloadHash": "sha256:9204af3c95e8fe13f39c4e3b1187e005a4599089a42ec6f29a348f023eaab115",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-01T21:15:57.623Z"
+}
+-->
+
 # Project Planning Documents Generation: ChampCity A/I
 
 ## Source Context
@@ -70,7 +96,7 @@ The intended loop is:
 2. ChatGPT uses ChampCity MCP to inspect and update the local repository.
 3. Architect prompts, project artifacts, work-card records, validation summaries, and repair prompts are saved directly into the repo.
 4. Codex / Implementer reads those repo artifacts and performs scoped implementation work.
-5. Codex writes Builder Reports and changed artifacts back to the repo.
+5. Codex writes Implementer Reports and changed artifacts back to the repo.
 6. ChatGPT uses ChampCity MCP to review those reports and decide whether the work card is complete, needs repair, or needs escalation.
 
 The subscription integration strategy is not merely clipboard automation. The practical integration model is:
@@ -89,13 +115,13 @@ Expected validation evidence is primarily **plain-language notes and screenshots
 
 Durable project artifacts should include:
 
-Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Builder Reports, repair prompts, closeout records, and decision history.
+Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Implementer Reports, repair prompts, closeout records, and decision history.
 
-The existing ChampCity MCP Builder Report index shows that the project already has substantial completed work.
+The existing ChampCity MCP Implementer Report index shows that the project already has substantial completed work.
 
-Phase 1 includes Builder Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Builder prompt generation, Builder Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
+Phase 1 includes Implementer Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Implementer execution packet generation, Implementer Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
 
-Phase 2 includes Builder Reports for project intake capture, Project Architect Interview prompt generation, validation/evidence UI, validation status/target selector, and project planning document generation, plus repair passes.
+Phase 2 includes Implementer Reports for project intake capture, Project Architect Interview prompt generation, validation/evidence UI, validation status/target selector, and project planning document generation, plus repair passes.
 
 The next planning documents must not start from a blank roadmap. They must account for existing Phase 1 and Phase 2 work before recommending new phases or work cards.
 
@@ -180,7 +206,7 @@ ChatGPT subscription interface connected to the local project repository through
 
 Implementer mode:
 
-Codex reads structured repo artifacts and writes Builder Reports, implementation notes, and changed files back to the repo.
+Codex reads structured repo artifacts and writes Implementer Reports, implementation notes, and changed files back to the repo.
 
 Fallback mode:
 
@@ -192,7 +218,7 @@ API-backed Architect or Implementer routing for users who supply API keys.
 
 MCP role:
 
-ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Builder Reports, and support the Operator’s decision loop without relying on stale chat context alone.
+ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Implementer Reports, and support the Operator’s decision loop without relying on stale chat context alone.
 
 Non-goal:
 
@@ -230,7 +256,7 @@ ChatGPT can use ChampCity MCP to inspect and update the local repository.
 
 Codex can consume repo-saved handoffs.
 
-Builder Reports can be captured and reviewed.
+Implementer Reports can be captured and reviewed.
 
 Validation evidence can be attached or summarized.
 
@@ -276,7 +302,7 @@ This interview contributes to this area. The next planning documents should cons
 
 Status: substantially started or completed in Phase 1.
 
-Existing Builder Reports show work-card schema/rendering, work-card capture, status handling, phase closeout, JSON/Markdown artifacts, and related structure.
+Existing Implementer Reports show work-card schema/rendering, work-card capture, status handling, phase closeout, JSON/Markdown artifacts, and related structure.
 
 The next planning step should inventory the existing data model before creating additional work cards.
 
@@ -296,7 +322,7 @@ Phase 1 includes Architect framing prompt composer work. Phase 2 includes Projec
 
 Status: partially complete.
 
-Phase 1 includes Builder prompt generation and Builder Report capture.
+Phase 1 includes Implementer execution packet generation and Implementer Report capture.
 
 ### F. Validation / Evidence Capture Flow
 
@@ -326,13 +352,13 @@ Subscription integration risk should be reframed. The primary concern is not whe
 
 The project should guard against treating MCP as invisible magic. The user needs simple status indicators and plain-language explanations of what is connected, what files are being touched, and what action comes next.
 
-The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Builder Reports, validation reports, and closeout records.
+The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Implementer Reports, validation reports, and closeout records.
 
 The project must avoid scope drift into autonomy. The app should help the Operator drive the AI workflow; it should not silently become an autonomous coding agent.
 
 The workflow must avoid developer-first language where possible. “Capture,” “Frame,” “Plan,” “Build,” and “Prove” are better user-facing concepts than “requirements elicitation,” “architecture decomposition,” “implementation orchestration,” and “acceptance validation.”
 
-The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Builder Reports before proposing new work. Otherwise it will create redundant phase plans.
+The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Implementer Reports before proposing new work. Otherwise it will create redundant phase plans.
 
 The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 
@@ -342,7 +368,7 @@ Architect / Implementer role separation must remain clear. The Architect frames,
 
 ## 8. Suggested Next Step
 
-Generate the **Project Planning Documents** using this interview completion summary plus the existing ChampCity MCP Builder Report evidence.
+Generate the **Project Planning Documents** using this interview completion summary plus the existing ChampCity MCP Implementer Report evidence.
 
 The planning generator should not start from a blank roadmap. It should explicitly account for completed Phase 1 and Phase 2 work before recommending the next Alpha phase.
 
@@ -356,7 +382,7 @@ ChampCity A/I
 
 ## Product Thesis
 
-We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt builder but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
+We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt implementer but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
 
 ## User Type
 
@@ -505,14 +531,14 @@ The Operator owns final answers. The Architect may help frame options before imp
 - The largest technical/product risk is MCP boundary design. Because ChampCity MCP is integral, the project must be precise about what ChatGPT can read, what it can write, where files are saved, and how the Operator sees or approves those changes.
 - Subscription integration risk should be reframed. The primary concern is not whether ChatGPT can use an API. The intended Alpha path is ChatGPT subscription plus MCP-mediated repo access. The risk is whether this can be made understandable, safe, reliable, and repeatable for non-developer users.
 - The project should guard against treating MCP as invisible magic. The user needs simple status indicators and plain-language explanations of what is connected, what files are being touched, and what action comes next.
-- The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Builder Reports, validation reports, and closeout records.
+- The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Implementer Reports, validation reports, and closeout records.
 - The project must avoid scope drift into autonomy. The app should help the Operator drive the AI workflow; it should not silently become an autonomous coding agent.
 - The workflow must avoid developer-first language where possible. “Capture,” “Frame,” “Plan,” “Build,” and “Prove” are better user-facing concepts than “requirements elicitation,” “architecture decomposition,” “implementation orchestration,” and “acceptance validation.”
-- The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Builder Reports before proposing new work. Otherwise it will create redundant phase plans.
+- The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Implementer Reports before proposing new work. Otherwise it will create redundant phase plans.
 - The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 - Security boundaries must remain explicit. API keys, subscription sessions, local repo access, MCP permissions, generated prompts, and build artifacts need separate treatment. The documents should not collapse those into one generic “AI integration” bucket.
 - Architect / Implementer role separation must remain clear. The Architect frames, evaluates, decides repair/complete, and generates handoffs. The Implementer executes scoped build work and reports results. The Operator approves, validates, and controls movement between states.
-- Phase 1 includes Builder Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Builder prompt generation, Builder Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
+- Phase 1 includes Implementer Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Implementer execution packet generation, Implementer Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
 - Security concerns:
 - Basic security safeguards for local repo access and API-key handling.
 - ### G. MCP Integration, Repo-Bridge Workflow, and Security Boundary Design
@@ -534,8 +560,8 @@ The Operator owns final answers. The Architect may help frame options before imp
 ## Current Decisions
 
 - The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.
-- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Builder Reports, repair prompts, closeout records, and decision history.
-- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Builder Reports, and support the Operator’s decision loop without relying on stale chat context alone.
+- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Implementer Reports, repair prompts, closeout records, and decision history.
+- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Implementer Reports, and support the Operator’s decision loop without relying on stale chat context alone.
 - Fully autonomous software creation without Operator review, validation, and decision authority.
 - The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 - Durable planning artifacts are stored as Markdown and JSON in the repository.
@@ -546,4 +572,4 @@ The Operator owns final answers. The Architect may help frame options before imp
 
 ## Decision Notes
 
-Historical Builder artifact paths remain compatibility storage names until a dedicated migration Work Card changes them safely.
+Active Implementer artifacts use canonical storage names; historical archived paths remain evidence only.

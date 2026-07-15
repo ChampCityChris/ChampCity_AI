@@ -112,24 +112,38 @@ const workflowStepToState: Record<string, WorkflowState> = {
 
 const actionIdToState: Record<string, WorkflowState> = {
   project_intake_required: "project-intake",
+  project_architect_interview_required: "project-interview",
+  project_planning_required: "project-mapping",
+  repository_reconciliation_required: "reconciliation",
+  project_roadmap_required: "project-mapping",
   project_interview_required: "project-interview",
   reconciliation_review_required: "reconciliation",
   project_mapping_required: "project-mapping",
   operator_project_approval_required: "project-mapping",
   phase_mapping_required: "phase-mapping",
+  phase_intake_required: "phase-mapping",
+  phase_architect_interview_required: "phase-mapping",
+  phase_planning_required: "phase-mapping",
+  work_card_plan_review_required: "work-card-review",
   operator_phase_approval_required: "phase-mapping",
   full_work_card_creation_required: "work-card-review",
+  work_card_authoring_required: "work-card-review",
+  operator_work_card_approval_required: "work-card-review",
   operator_work_card_review_required: "work-card-review",
   implementer_handoff_required: "work-card-review",
   implementer_report_required: "implementer-active",
+  implementer_execution_required: "implementer-active",
   architect_review_of_implementer_report_required: "architect-review",
   architect_review_of_validation_report_required: "architect-review",
   operator_validation_required: "operator-validation",
   repair_sub_card_creation_required: "repair-subcard",
+  architect_disposition_required: "architect-review",
+  repair_work_card_required: "repair-subcard",
   repair_implementer_handoff_required: "repair-subcard",
   repair_validation_required: "repair-subcard",
   phase_closeout_required: "phase-closeout",
   operator_phase_closeout_approval_required: "phase-closeout",
+  operator_closeout_approval_required: "phase-closeout",
   roadmap_update_required: "next-phase",
   next_phase_activation_required: "next-phase",
 };
@@ -141,36 +155,50 @@ const workflowStateToManualScreen: Record<WorkflowState, string> = {
   "project-mapping": "project-planning-documents",
   "phase-mapping": "phase-planning-documents",
   "work-card-review": "work-card-plan-review",
-  "implementer-active": "builder-report-capture",
+  "implementer-active": "implementer-report-capture",
   "architect-review": "architect-review",
   "operator-validation": "human-validation",
   "repair-subcard": "architect-prompt-composer",
   "phase-closeout": "phase-closeout",
-  "next-phase": "phase-map-builder",
+  "next-phase": "phase-map",
 };
 
 const actionIdToManualScreen: Record<string, string> = {
   project_intake_required: "project-intake",
+  project_architect_interview_required: "project-architect-interview",
+  project_planning_required: "project-planning-documents",
+  repository_reconciliation_required: "repository-reconciliation",
+  project_roadmap_required: "project-roadmap",
   project_interview_required: "project-architect-interview",
   reconciliation_review_required: "repository-reconciliation",
   project_mapping_required: "project-planning-documents",
   operator_project_approval_required: "project-planning-documents",
-  phase_mapping_required: "phase-planning-documents",
+  phase_mapping_required: "phase-map",
+  phase_intake_required: "phase-intake",
+  phase_architect_interview_required: "phase-architect-interview",
+  phase_planning_required: "phase-planning-documents",
+  work_card_plan_review_required: "work-card-plan-review",
   operator_phase_approval_required: "phase-planning-documents",
   full_work_card_creation_required: "new-work-card",
+  work_card_authoring_required: "new-work-card",
+  operator_work_card_approval_required: "work-card-plan-review",
   operator_work_card_review_required: "work-card-plan-review",
-  implementer_handoff_required: "builder-prompt-generator",
-  implementer_report_required: "builder-report-capture",
+  implementer_handoff_required: "implementer-execution-packet",
+  implementer_report_required: "implementer-report-capture",
+  implementer_execution_required: "implementer-report-capture",
   architect_review_of_implementer_report_required: "architect-review",
   architect_review_of_validation_report_required: "human-validation",
   operator_validation_required: "human-validation",
   repair_sub_card_creation_required: "architect-prompt-composer",
-  repair_implementer_handoff_required: "builder-prompt-generator",
+  architect_disposition_required: "human-validation",
+  repair_work_card_required: "new-work-card",
+  repair_implementer_handoff_required: "implementer-execution-packet",
   repair_validation_required: "human-validation",
   phase_closeout_required: "phase-closeout",
   operator_phase_closeout_approval_required: "phase-closeout",
+  operator_closeout_approval_required: "phase-closeout",
   roadmap_update_required: "project-planning-documents",
-  next_phase_activation_required: "phase-map-builder",
+  next_phase_activation_required: "phase-map",
 };
 
 function cn(...parts: Array<string | false | null | undefined>): string {
@@ -1565,7 +1593,10 @@ function ArtifactWorkspace({
           role="tabpanel"
           aria-label="Why this step? Route context"
         >
-          <CurrentStepContextInspector model={contextModel} />
+          <div className="h-full overflow-y-auto">
+            <CurrentStepContextInspector model={contextModel} />
+            <CurrentContextPacketControls />
+          </div>
         </div>
       ) : null}
 
@@ -1582,6 +1613,192 @@ function ArtifactWorkspace({
         {children}
       </div>
     </div>
+  );
+}
+
+function CurrentContextPacketControls() {
+  const [packetKind, setPacketKind] = useState<"architect" | "implementer">(
+    "architect",
+  );
+  const [scenario, setScenario] = useState<
+    "work_card_creation" | "implementer_report_review" | "validation_disposition_and_repair" | "phase_closeout"
+  >("implementer_report_review");
+  const [budgetTokens, setBudgetTokens] = useState(12_000);
+  const [result, setResult] =
+    useState<ChampCityCurrentContextPacketPreviewResult | null>(null);
+  const [operatorAcknowledged, setOperatorAcknowledged] = useState(false);
+  const [status, setStatus] = useState(
+    "Generate a bounded packet from canonical workflow authority.",
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function generatePacket() {
+    setBusy(true);
+    setOperatorAcknowledged(false);
+    const next = await window.champCity.previewCurrentContextPacket({
+      packetKind,
+      architectScenario: scenario,
+      budgetTokens,
+    });
+    setBusy(false);
+    setResult(next);
+    setStatus(
+      next.ok
+        ? next.packet?.manifest.overBudget
+          ? "Packet exceeds its budget. Operator acknowledgment is required before copy or export."
+          : "Packet is within budget and ready for manual copy/paste."
+        : next.errorMessages?.join(" ") ?? "Packet generation failed.",
+    );
+  }
+
+  async function copyPacket() {
+    const packet = result?.packet;
+    if (!packet) return;
+    if (packet.manifest.overBudget && !operatorAcknowledged) {
+      setStatus("Explicit Operator acknowledgment is required before over-budget copy.");
+      return;
+    }
+    await navigator.clipboard.writeText(packet.markdown);
+    setStatus("Packet copied for manual paste. Its included/excluded manifest remains visible below.");
+  }
+
+  async function exportPacket() {
+    if (!packet) return;
+    setBusy(true);
+    const exported = await window.champCity.exportCurrentContextPacket({
+      packetKind,
+      architectScenario: scenario,
+      budgetTokens,
+      operatorAcknowledgedOverBudget: operatorAcknowledged,
+    });
+    setBusy(false);
+    setStatus(
+      exported.ok
+        ? `Packet and adjacent manifest saved as synchronized pairs: ${exported.packetMarkdownPath} · ${exported.manifestMarkdownPath}`
+        : exported.errorMessages?.join(" ") ?? "Packet export failed.",
+    );
+  }
+
+  const packet = result?.packet;
+  return (
+    <section className="mx-5 mb-5 rounded-lg border border-border bg-card/35 p-4">
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
+        Context packet and token budget
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground/75">
+        Bounded manual copy/paste packets use the current routed target. Resolved and unrelated history is excluded by default.
+      </p>
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <label className="grid gap-1 text-[11px] text-muted-foreground">
+          Packet role
+          <select
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+            value={packetKind}
+            onChange={(event) => {
+              const next = event.target.value as "architect" | "implementer";
+              setPacketKind(next);
+              setBudgetTokens(next === "architect" ? 12_000 : 16_000);
+            }}
+          >
+            <option value="architect">Architect</option>
+            <option value="implementer">Implementer</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-[11px] text-muted-foreground">
+          Architect scenario
+          <select
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground disabled:opacity-50"
+            value={scenario}
+            disabled={packetKind !== "architect"}
+            onChange={(event) => setScenario(event.target.value as typeof scenario)}
+          >
+            <option value="work_card_creation">Work Card creation</option>
+            <option value="implementer_report_review">Implementer Report review</option>
+            <option value="validation_disposition_and_repair">Validation disposition / repair</option>
+            <option value="phase_closeout">Phase closeout</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-[11px] text-muted-foreground">
+          Token budget
+          <input
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+            type="number"
+            min={1}
+            value={budgetTokens}
+            onChange={(event) =>
+              setBudgetTokens(Math.max(1, Number(event.target.value) || 1))
+            }
+          />
+        </label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="rounded-md bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+          disabled={busy}
+          onClick={() => void generatePacket()}
+        >
+          {busy ? "Compiling…" : "Generate packet"}
+        </button>
+        <button
+          type="button"
+          className="rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+          disabled={
+            !packet ||
+            (packet.manifest.overBudget && !operatorAcknowledged)
+          }
+          onClick={() => void copyPacket()}
+        >
+          Copy packet
+        </button>
+        <button
+          type="button"
+          className="rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+          disabled={
+            busy ||
+            !packet ||
+            (packet.manifest.overBudget && !operatorAcknowledged)
+          }
+          onClick={() => void exportPacket()}
+        >
+          Export packet + manifest
+        </button>
+        <span className="text-[11px] text-muted-foreground/75">{status}</span>
+      </div>
+      {packet ? (
+        <div className="mt-3 grid gap-3">
+          <div className="rounded-md border border-border bg-background/60 p-3 text-[11px] text-muted-foreground">
+            <div>
+              Estimated tokens: <strong className="text-foreground">{packet.manifest.estimatedTokens}</strong>
+              {" · "}Budget: <strong className="text-foreground">{packet.manifest.budgetTokens}</strong>
+              {" · "}Included: {packet.manifest.included.length}
+              {" · "}Excluded: {packet.manifest.excluded.length}
+            </div>
+            <div className="mt-1">
+              Largest contributors: {packet.manifest.largestContributors.map((item) => `${item.title} (${item.estimatedTokens})`).join(", ") || "none"}
+            </div>
+          </div>
+          {packet.manifest.overBudget ? (
+            <label className="flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-400/[0.06] p-3 text-[11px] text-amber-100/80">
+              <input
+                type="checkbox"
+                checked={operatorAcknowledged}
+                onChange={(event) => setOperatorAcknowledged(event.target.checked)}
+              />
+              I acknowledge this packet exceeds the configured budget and authorize manual copy/export.
+            </label>
+          ) : null}
+          <details className="rounded-md border border-border bg-background/45 p-3">
+            <summary className="cursor-pointer text-[11px] font-semibold text-foreground">
+              Preview packet and context manifest
+            </summary>
+            <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-[10px] leading-relaxed text-muted-foreground">
+              {packet.markdown}
+            </pre>
+          </details>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

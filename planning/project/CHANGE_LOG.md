@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/CHANGE_LOG",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/CHANGE_LOG.json",
+  "markdownPath": "planning/project/CHANGE_LOG.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Change Log"
+  },
+  "payloadHash": "sha256:4651e051c3427f478e40721f8b545aa7e2a08f2c7d425d4da77148751389a31b",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Change Log
 
 ## 2026-06-28
@@ -15,10 +41,10 @@
 
 ## 2026-07-02
 
-- Added Phase 02 WC07 as a corrective Work Card for splitting Phase Map Builder from Phase Planning Documents Generator.
+- Added Phase 02 WC07 as a corrective Work Card for splitting Phase Map Composer from Phase Planning Documents Generator.
 - Documented the corrected flow: Project Planning Documents + Repository Reconciliation + Project Roadmap -> Generate Phase Map -> Select mapped phase -> Generate Phase Planning Documents.
 - Recorded that Phase Intake is compatibility-only for this flow and Phase Architect Interview is optional downstream clarification, not a required upstream source.
 - Added Phase 02 WC08 as a corrective Work Card for phase transition, Work Card Plan review, and artifact authority boundaries.
-- Documented the authority model separating Project Roadmap, Phase Map, Phase Planning Documents, Work Card Plans, Formal Work Cards, Implementer Prompts, reports, validation, closeout, and next-phase activation.
+- Documented the authority model separating Project Roadmap, Phase Map, Phase Planning Documents, Work Card Plans, Formal Work Cards, Implementer Execution Packets, reports, validation, closeout, and next-phase activation.
 - Recorded that Phase 03 draft artifacts may exist under `planning/phases/phase-03/` only as Draft / Pending Review / Not Active records until an explicit Operator activation decision.
 - Repaired the partial WC08 pass by adding a distinct Work Card Plan Review screen, read-only Work Card Plan listing, disabled future materialization actions, planned-entry reconciliation statuses, Ad Hoc Work Card Capture authority guardrails, and explicit next-phase activation decision options.

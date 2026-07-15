@@ -1,91 +1,130 @@
 {
-  "workCardId": "WC08-REPAIR04",
-  "title": "Controlled Route Recovery and Accurate Route Evidence Authority",
-  "phase": "phase-03",
-  "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
-  "parentWorkCardId": "WC08",
-  "status": "ready_for_implementer",
-  "riskLevel": "high",
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+  "artifactType": "work_card",
   "createdAt": "2026-07-14T00:00:00.000Z",
-  "problem": "WC08-REPAIR01 validation was Partial. The app opened to stale Phase 03 WC01 instead of the controlling unresolved WC08 repair obligation, route evidence was inaccurately classified, and the route-correction affordance relied on prompt-style handoff rather than a useful in-application recovery path.",
-  "goal": "Fix current-action routing and Route Context recovery so the app selects the actual controlling unresolved WC08 repair-chain obligation, accurately explains route evidence, and provides a controlled in-app route review/recovery path without creating an unrestricted Operator override.",
-  "userOutcome": "The Operator can see the correct current repair obligation, understand why it is selected, and request route review inside the application when the route appears wrong without skipping evidence or leaving the app workflow.",
-  "sourceValidationReports": [
-    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
-    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json"
-  ],
-  "sourceEvidence": [
-    "planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image.png",
-    "planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image_2.png",
-    "planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image_3.png"
-  ],
-  "scope": [
-    "Correct stale WC01 current-action route selection.",
-    "Keep WC09 blocked while WC08 repair-chain obligations remain unresolved.",
-    "Reconcile accepted WC08-REPAIR02 and WC08-REPAIR03 validation/disposition state.",
-    "Classify accepted, pending, missing, stale, superseded, duplicate, and ambiguous evidence accurately.",
-    "Fix Route Context explanation accuracy for evidence already on record and missing/pending evidence.",
-    "Replace prompt-style route correction with controlled in-app route review/recovery.",
-    "Add route ambiguity warnings for duplicate or unresolved authority states.",
-    "Preserve WC08-REPAIR01 passed layout and anti-clutter behavior.",
-    "Preserve WC08-REPAIR02 governance and WC08-REPAIR03 routing behavior.",
-    "Add focused deterministic fixture coverage."
-  ],
-  "outOfScope": [
-    "Do not implement WC09-WC15.",
-    "Do not create WC09.",
-    "Do not create a general unrestricted route override system.",
-    "Do not implement the full project-wide artifact authority/revision governance model from PH03-OBS-010 / PROJ-OBS-007.",
-    "Do not redesign the whole workflow rail or Supporting Tools menu.",
-    "Do not add another artifact browser.",
-    "Do not add a permanent left-panel inspector.",
-    "Do not mark any Work Card, repair, validation report, or Architect disposition as accepted.",
-    "Do not perform Operator validation.",
-    "Do not merge to dev.",
-    "Do not push to master."
-  ],
-  "acceptanceCriteria": [
-    "The app opens to the actual controlling unresolved WC08 repair-chain obligation and does not open to stale Phase 03 WC01.",
-    "WC09 remains blocked while WC08 repair-chain obligations are unresolved.",
-    "The current-action evaluator correctly interprets accepted, pending, missing, stale, superseded, and duplicate repair-chain evidence.",
-    "WC08-REPAIR02 and WC08-REPAIR03 accepted/validated state is not regressed.",
-    "The Route Context explanation accurately identifies evidence already on record.",
-    "The Route Context explanation accurately identifies missing or pending evidence/disposition.",
-    "Present-but-pending evidence is not incorrectly described as missing.",
-    "Duplicate or ambiguous validation evidence is surfaced as an ambiguity warning rather than silently treated as authoritative.",
-    "This route looks wrong or equivalent provides a controlled in-app route review/recovery path.",
-    "The recovery path is useful to an end user and does not rely primarily on copying a prompt to an Architect or LLM.",
-    "The recovery path does not mutate durable workflow state unless creating an explicit route-review request artifact or routing to an existing app-owned recovery action.",
-    "The recovery path does not approve, validate, skip, complete, or advance workflow state.",
-    "WC08-REPAIR01 passed layout and anti-clutter behavior is preserved.",
-    "Artifacts remains the only artifact list/preview surface.",
-    "Supporting/reference screens do not show the full Route Context inspector.",
-    "Focused fixture coverage exists for stale-WC01 routing regression and controlled route-recovery affordance.",
-    "WC08-REPAIR04 Implementer Report exists."
-  ],
-  "carriedForwardObservations": [
-    {
-      "id": "PH03-OBS-009 / PROJ-OBS-006",
-      "title": "Controlled route recovery is needed when current-action routing is wrong or blocks validation",
-      "status": "repair_now"
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "contentMarkdown": "# Repair Work Card: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority\n\nStatus: ready_for_implementer\nPhase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\nParent Work Card: WC08 — Current Step Context Inspector\nRepair ID: WC08-REPAIR04\nCreated: 2026-07-14\n\n## Repair Trigger\n\nWC08-REPAIR01 received a Partial Human Validation result.\n\nPrimary validation source:\n\n- `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md`\n- `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json`\n\nReferenced validation evidence:\n\n- `planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image.png`\n- `planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image_2.png`\n- `planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image_3.png`\n\nThe Operator confirmed that the WC08-REPAIR01 implementation improved the Route Context layout, tab order, plain-language hierarchy, and diagnostic placement, but failed on route authority, evidence accuracy, and usable in-app recovery.\n\n## Operator Validation Result\n\nValidation Result: `Partial`\n\nFailed items:\n\n1. The app did not open to the current unresolved WC08 repair obligation and instead opened to Phase 03 WC01. The Operator could manually move to WC08-REPAIR01 for validation, but the routed current action was wrong.\n2. The explanation did not accurately identify evidence already on record.\n3. The explanation did not accurately identify missing or pending evidence/disposition.\n4. `This route looks wrong` guidance was confusing and not useful.\n5. The copyable Architect/LLM handoff model is not an adequate product workflow for an end user.\n6. The route-correction affordance did not provide a usable in-app path to move toward the correct next action.\n\n## Human Problem\n\nThe Operator must be able to trust the app's current-action route and recover from a wrong route without leaving the application or relying on a prompt to an Architect/LLM.\n\nWC08-REPAIR01 made the explanation more readable, but the app still selected the wrong route after the accepted WC08-REPAIR02 and WC08-REPAIR03 validation/disposition sequence. It also showed incorrect or ambiguous evidence state and provided guidance that is not useful outside the development cycle.\n\nA production end user cannot be expected to copy a prompt to an Architect or LLM to repair routing. The application needs a controlled in-app recovery path that captures the routing concern as durable workflow evidence and routes that concern to the correct Architect disposition process.\n\n## Repair Goal\n\nRepair WC08 route context and recovery behavior so the app:\n\n1. Opens to the actual controlling unresolved WC08 repair obligation.\n2. Correctly distinguishes accepted evidence, pending Architect disposition, missing evidence, stale evidence, superseded evidence, and non-controlling duplicate evidence.\n3. Provides an in-application controlled route recovery path when the Operator believes the route is wrong.\n4. Preserves WC08-REPAIR01's passed layout improvements.\n5. Does not create an unrestricted Operator override.\n6. Does not advance to WC09 while WC08 repair-chain obligations remain unresolved.\n\n## Current Expected Route State\n\nGiven the current Phase 03 state after WC08-REPAIR02 and WC08-REPAIR03 were reviewed and validated, the application must not open to Phase 03 WC01 and must not open to WC09.\n\nThe current action must resolve to the earliest controlling unresolved WC08 repair-chain obligation. Based on the current known workflow, this should be WC08-REPAIR01 validation/disposition or the next Architect-controlled repair action created from its failed validation, depending on whether the app is evaluating before or after this WC08-REPAIR04 Work Card is introduced.\n\nThe implementer must not hard-code this specific state. The route must be derived from durable evidence and current-action evaluation rules.\n\n## Required Repair\n\n### 1. Correct route authority and current-action selection\n\nFix current-action evaluation so the application opens to the actual controlling unresolved WC08 repair obligation.\n\nThe app must not route to:\n\n- stale Phase 03 WC01 state;\n- a superseded or historical route;\n- WC09 creation; or\n- any later Work Card while WC08 repair-chain obligations remain unresolved.\n\nThe evaluator must use durable evidence authority, not filename order or broad file existence alone.\n\n### 2. Reconcile accepted WC08-REPAIR02 and WC08-REPAIR03 state\n\nThe evaluator must correctly interpret:\n\n- WC08-REPAIR02 Implementer Report;\n- WC08-REPAIR02 Architect Review;\n- WC08-REPAIR02 validation reports, including the amended `_2` validation report;\n- WC08-REPAIR03 Implementer Report;\n- WC08-REPAIR03 validation report;\n- Architect dispositions already provided in Architect review output; and\n- any pending or missing durable disposition record.\n\nIf the application lacks a durable place to store final Architect acceptance after reviewing a validation report, the route model must expose that as the missing/pending evidence instead of selecting an unrelated stale route.\n\nDo not implement the full artifact authority/revision governance model from PH03-OBS-010 / PROJ-OBS-007 in this pass unless the minimum route fix requires a narrow authoritative-selection adapter for current-action evaluation. If a narrow adapter is needed, document its limitations and leave the broader architecture observation open.\n\n### 3. Fix route evidence explanation accuracy\n\nThe `Why this is the current action` explanation must accurately classify evidence into these groups:\n\n- Evidence already accepted / controlling.\n- Evidence present but pending Architect disposition.\n- Evidence missing and required next.\n- Evidence stale, historical, superseded, or non-controlling.\n- Duplicate evidence that cannot be treated as authoritative without explicit authority.\n\nThe explanation must not tell the Operator that evidence is missing when it exists but is pending disposition, duplicated, superseded, or not yet authoritatively selected.\n\nThe explanation must not imply a route is correct when the evaluator is relying on stale or ambiguous records.\n\n### 4. Replace prompt-style route correction with controlled in-app recovery\n\nReplace or materially revise `This route looks wrong` so it provides an in-app recovery path.\n\nThe recovery path may be non-mutating until submission, but it must provide an actionable in-app workflow, not merely a copyable prompt.\n\nMinimum acceptable behavior:\n\n- The Operator can open a `This route looks wrong` / `Request route review` affordance.\n- The app displays the currently selected route, expected controlling evidence, missing/pending evidence, and any ambiguity warnings.\n- The Operator can prepare or submit a route review request inside the application.\n- If writing durable recovery records is not yet available in this screen, the app must route the Operator to the correct existing in-app screen that can create the needed review/repair record.\n- The recovery path must create or guide creation of a durable route-review request artifact, or explicitly identify the existing artifact/action that must be created next.\n\nThe recovery path must not:\n\n- mark work complete;\n- skip validation;\n- approve Architect disposition;\n- silently change the current route;\n- create fake validation/acceptance evidence;\n- advance to WC09; or\n- provide unrestricted Operator override.\n\n### 5. Add route ambiguity warnings\n\nIf duplicate validation reports, competing repair states, or missing durable Architect disposition records create ambiguity, the app must state this clearly in Route Context and route recovery guidance.\n\nThe warning must be understandable to the Operator and must identify what role owns resolution. For example:\n\n- Operator reports route concern.\n- Architect reviews and decides controlling evidence/disposition.\n- Implementer repairs evaluator or artifact model if needed.\n\n### 6. Preserve WC08-REPAIR01 passed behavior\n\nPreserve all behavior that passed WC08-REPAIR01 validation:\n\n- Default tab is `Complete current action`.\n- Tab order is `Complete current action`, `Artifacts`, `Why this step?`.\n- `Why this is the current action` is the first major section.\n- Explanation remains plain-language.\n- It explains why the action comes before later work.\n- It explains why the app has not advanced.\n- `What happens next` remains visible.\n- `What would change this route` remains visible.\n- `Detailed route diagnostics` remains secondary/collapsed.\n- Raw paths, IDs, warnings, and capability details remain secondary.\n- Artifacts remains the only artifact list/preview surface.\n- Left Current Action panel remains compact.\n- Supporting/reference screens suppress the full Route Context inspector.\n- WC08-REPAIR02 governance remains intact.\n- WC08-REPAIR03 routing still prevents premature WC09 advancement.\n\n## Carried-Forward Observations Included\n\n### PH03-OBS-009 / PROJ-OBS-006 — Controlled route recovery is needed when current-action routing is wrong or blocks validation\n\n- Included because WC08-REPAIR01 validation proved the existing prompt-style route guidance is not enough.\n- Acceptance impact: This pass must provide a controlled in-application recovery path or route to an existing in-app recovery artifact/action.\n\n### PH03-OBS-010 / PROJ-OBS-007 — Artifact authority and revision governance is undefined\n\n- Included as a constraint, not full implementation scope.\n- Acceptance impact: This pass must not rely on filename suffixes, filesystem ordering, or timestamps as implicit authority. If duplicate artifacts affect route selection, the app must warn or use a narrow, documented current-action authority rule. Broader artifact revision governance remains open.\n\n### PH03-OBS-001 / PROJ-OBS-001 — Validation checklist should become editable / structured\n\n- Included as a validation-output quality constraint.\n- Acceptance impact: The Implementer Report must provide concrete Operator validation steps that test observable behavior and item-level acceptance criteria, not broad setup/navigation instructions.\n\n## Out of Scope\n\n- Do not implement WC09-WC15.\n- Do not create WC09.\n- Do not create a general unrestricted route override system.\n- Do not implement the full project-wide artifact revision governance model from PH03-OBS-010 / PROJ-OBS-007.\n- Do not redesign the whole workflow rail or Supporting Tools menu.\n- Do not add another artifact browser.\n- Do not add a permanent left-panel inspector.\n- Do not mark any Work Card, repair, validation report, or Architect disposition as accepted.\n- Do not perform Operator validation.\n- Do not merge to `dev`.\n- Do not push to `master`.\n\n## Acceptance Criteria\n\n- The app opens to the actual controlling unresolved WC08 repair-chain obligation and does not open to stale Phase 03 WC01.\n- WC09 remains blocked while WC08 repair-chain obligations are unresolved.\n- The current-action evaluator correctly interprets accepted, pending, missing, stale, superseded, and duplicate repair-chain evidence.\n- WC08-REPAIR02 and WC08-REPAIR03 accepted/validated state is not regressed.\n- The Route Context explanation accurately identifies evidence already on record.\n- The Route Context explanation accurately identifies missing or pending evidence/disposition.\n- Present-but-pending evidence is not incorrectly described as missing.\n- Duplicate or ambiguous validation evidence is surfaced as an ambiguity warning rather than silently treated as authoritative.\n- `This route looks wrong` or equivalent provides a controlled in-app route review/recovery path.\n- The recovery path is useful to an end user and does not rely primarily on copying a prompt to an Architect or LLM.\n- The recovery path does not mutate durable workflow state unless creating an explicit route-review request artifact or routing to an existing app-owned recovery action.\n- The recovery path does not approve, validate, skip, complete, or advance workflow state.\n- WC08-REPAIR01's passed layout and anti-clutter behavior is preserved.\n- Artifacts remains the only artifact list/preview surface.\n- Supporting/reference screens do not show the full Route Context inspector.\n- Focused fixture coverage exists for the stale-WC01 routing regression and the controlled route-recovery affordance.\n- WC08-REPAIR04 Implementer Report exists.\n\n## Validation Expectations\n\n- Read `AGENTS.md` and `docs/dev/VALIDATION_COMMAND_LANES.md` before validation.\n- Run approved normal Windows validation lanes.\n- Run TypeScript/type validation and production build validation.\n- Run current-action-only fixture validation.\n- Add focused fixture coverage for the exact regression: the app must not open stale Phase 03 WC01 when a later WC08 repair-chain obligation controls.\n- Add focused fixture coverage for route evidence classification accuracy.\n- Add focused fixture coverage for the route-recovery affordance proving it is useful, in-app, and governed.\n- Run WC08-REPAIR01 route-context explanation fixture if maintained or updated.\n- Run WC08-REPAIR02 report-protocol fixture.\n- Run WC08-REPAIR03 pending-repair routing fixture.\n- Run WC07 artifact workspace fixture if affected.\n- Run WC04/WC05/WC06 preservation fixtures if affected.\n- Run local safety scans before staging.\n- Do not perform Operator validation.\n\n## Required Implementer Report\n\nCreate:\n\n`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`\n\nThe report must include:\n\n- repair branch name;\n- implementation summary;\n- files changed;\n- root cause of stale WC01 route selection;\n- how current-action authority now selects the correct unresolved WC08 repair-chain obligation;\n- how accepted, pending, missing, stale, superseded, duplicate, and ambiguous evidence are classified;\n- how route explanation accuracy was repaired;\n- how controlled route recovery works inside the application;\n- what durable artifact/action the recovery path creates or routes to;\n- how unrestricted Operator override is prevented;\n- how WC08-REPAIR01 passed layout behavior was preserved;\n- how WC08-REPAIR02 and WC08-REPAIR03 behavior was preserved;\n- confirmation WC09-WC15 were not implemented;\n- validation commands and results;\n- skipped checks and reasons;\n- safety scan results;\n- remaining dirty/untracked files;\n- final recommended next action using role-owned language.\n\n## Next Action Ownership\n\nThe Architect creates this repair Work Card and reviews the Implementer Report after implementation.\n\nThe Implementer implements WC08-REPAIR04 and produces the required Implementer Report.\n\nThe Operator validates WC08-REPAIR04 only after Architect review authorizes Operator validation.\n\n## Implementer Handoff Prompt\n\nYou are acting as Implementer for ChampCity A/I.\n\nRepair Work Card:\nWC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority\n\nBase branch:\nfeature/phase-03-wc08-repair01-route-context-explanation\n\nTarget repair branch:\nfeature/phase-03-wc08-repair04-controlled-route-recovery\n\nExpected remote:\nChampCityChris/ChampCity_AI\n\nUse this Repair Work Card as the source of truth:\nplanning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md\n\nImplement only WC08-REPAIR04.\n\nDo not implement WC09-WC15.\nDo not implement full artifact revision governance.\nDo not merge to dev.\nDo not push to master.\nDo not perform Operator validation.\n\nPrimary objective:\nFix current-action routing and Route Context recovery so the app selects the actual controlling unresolved WC08 repair-chain obligation, accurately explains route evidence, and gives the Operator a controlled in-application route review/recovery path when the route is wrong.\n\nBefore editing:\n1. Confirm current repo and remote.\n2. Confirm the base branch is available: feature/phase-03-wc08-repair01-route-context-explanation.\n3. Create and switch to: feature/phase-03-wc08-repair04-controlled-route-recovery.\n4. Read AGENTS.md.\n5. Read docs/dev/VALIDATION_COMMAND_LANES.md.\n6. Read this WC08-REPAIR04 Work Card.\n7. Read the WC08-REPAIR01 validation report and evidence paths.\n8. Read WC08, WC08-REPAIR01, WC08-REPAIR02, and WC08-REPAIR03 Work Cards, Implementer Reports, Architect Reviews, and Validation Reports.\n9. Read the Phase and Project Observation Registers.\n10. Inspect current-action evaluation, repair-chain discovery, validation/disposition parsing, duplicate validation handling, route context generation, and WorkflowRouterShell route recovery UI.\n\nRequired repair:\n- Fix stale WC01 route selection.\n- Keep WC09 blocked while WC08 repair-chain obligations remain unresolved.\n- Accurately classify accepted, pending, missing, stale, superseded, duplicate, and ambiguous evidence.\n- Fix Route Context explanation accuracy.\n- Replace prompt-style route correction with controlled in-app route review/recovery.\n- Preserve WC08-REPAIR01 layout improvements.\n- Preserve WC08-REPAIR02 governance and WC08-REPAIR03 routing behavior.\n- Add focused deterministic fixture coverage for the exact regressions.\n\nFinal response must include:\n- pushed repair branch;\n- commit hash;\n- validation results;\n- skipped checks;\n- remaining dirty/untracked files;\n- confirmation that dev and master were not touched.\n",
+    "data": {
+      "acceptanceCriteria": [
+        "The app opens to the actual controlling unresolved WC08 repair-chain obligation and does not open to stale Phase 03 WC01.",
+        "WC09 remains blocked while WC08 repair-chain obligations are unresolved.",
+        "The current-action evaluator correctly interprets accepted, pending, missing, stale, superseded, and duplicate repair-chain evidence.",
+        "WC08-REPAIR02 and WC08-REPAIR03 accepted/validated state is not regressed.",
+        "The Route Context explanation accurately identifies evidence already on record.",
+        "The Route Context explanation accurately identifies missing or pending evidence/disposition.",
+        "Present-but-pending evidence is not incorrectly described as missing.",
+        "Duplicate or ambiguous validation evidence is surfaced as an ambiguity warning rather than silently treated as authoritative.",
+        "This route looks wrong or equivalent provides a controlled in-app route review/recovery path.",
+        "The recovery path is useful to an end user and does not rely primarily on copying a prompt to an Architect or LLM.",
+        "The recovery path does not mutate durable workflow state unless creating an explicit route-review request artifact or routing to an existing app-owned recovery action.",
+        "The recovery path does not approve, validate, skip, complete, or advance workflow state.",
+        "WC08-REPAIR01 passed layout and anti-clutter behavior is preserved.",
+        "Artifacts remains the only artifact list/preview surface.",
+        "Supporting/reference screens do not show the full Route Context inspector.",
+        "Focused fixture coverage exists for stale-WC01 routing regression and controlled route-recovery affordance.",
+        "WC08-REPAIR04 Implementer Report exists."
+      ],
+      "carriedForwardObservations": [
+        {
+          "id": "PH03-OBS-009 / PROJ-OBS-006",
+          "status": "repair_now",
+          "title": "Controlled route recovery is needed when current-action routing is wrong or blocks validation"
+        },
+        {
+          "id": "PH03-OBS-010 / PROJ-OBS-007",
+          "status": "constraint_only",
+          "title": "Artifact authority and revision governance is undefined"
+        },
+        {
+          "id": "PH03-OBS-001 / PROJ-OBS-001",
+          "status": "validation_output_constraint",
+          "title": "Validation checklist should become editable / structured"
+        }
+      ],
+      "createdAt": "2026-07-14T00:00:00.000Z",
+      "goal": "Fix current-action routing and Route Context recovery so the app selects the actual controlling unresolved WC08 repair-chain obligation, accurately explains route evidence, and provides a controlled in-app route review/recovery path without creating an unrestricted Operator override.",
+      "implementerBaseBranch": "feature/phase-03-wc08-repair01-route-context-explanation",
+      "implementerTargetBranch": "feature/phase-03-wc08-repair04-controlled-route-recovery",
+      "nextActionOwnership": {
+        "architect": "Create and review this repair Work Card and review the Implementer Report after implementation.",
+        "implementer": "Implement WC08-REPAIR04 and produce the required Implementer Report.",
+        "operator": "Validate WC08-REPAIR04 only after Architect review authorizes Operator validation."
+      },
+      "outOfScope": [
+        "Do not implement WC09-WC15.",
+        "Do not create WC09.",
+        "Do not create a general unrestricted route override system.",
+        "Do not implement the full project-wide artifact authority/revision governance model from PH03-OBS-010 / PROJ-OBS-007.",
+        "Do not redesign the whole workflow rail or Supporting Tools menu.",
+        "Do not add another artifact browser.",
+        "Do not add a permanent left-panel inspector.",
+        "Do not mark any Work Card, repair, validation report, or Architect disposition as accepted.",
+        "Do not perform Operator validation.",
+        "Do not merge to dev.",
+        "Do not push to master."
+      ],
+      "parentWorkCardId": "WC08",
+      "phase": "phase-03",
+      "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+      "problem": "WC08-REPAIR01 validation was Partial. The app opened to stale Phase 03 WC01 instead of the controlling unresolved WC08 repair obligation, route evidence was inaccurately classified, and the route-correction affordance relied on prompt-style handoff rather than a useful in-application recovery path.",
+      "requiredImplementerReport": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+      "riskLevel": "high",
+      "scope": [
+        "Correct stale WC01 current-action route selection.",
+        "Keep WC09 blocked while WC08 repair-chain obligations remain unresolved.",
+        "Reconcile accepted WC08-REPAIR02 and WC08-REPAIR03 validation/disposition state.",
+        "Classify accepted, pending, missing, stale, superseded, duplicate, and ambiguous evidence accurately.",
+        "Fix Route Context explanation accuracy for evidence already on record and missing/pending evidence.",
+        "Replace prompt-style route correction with controlled in-app route review/recovery.",
+        "Add route ambiguity warnings for duplicate or unresolved authority states.",
+        "Preserve WC08-REPAIR01 passed layout and anti-clutter behavior.",
+        "Preserve WC08-REPAIR02 governance and WC08-REPAIR03 routing behavior.",
+        "Add focused deterministic fixture coverage."
+      ],
+      "sourceEvidence": [
+        "planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image.png",
+        "planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image_2.png",
+        "planning/phases/phase-03/Validation_Evidence/WC08-REPAIR01_route_context_explanation_and_correction_affordance/image_3.png"
+      ],
+      "sourceValidationReports": [
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json"
+      ],
+      "status": "ready_for_implementer",
+      "title": "Controlled Route Recovery and Accurate Route Evidence Authority",
+      "userOutcome": "The Operator can see the correct current repair obligation, understand why it is selected, and request route review inside the application when the route appears wrong without skipping evidence or leaving the app workflow.",
+      "workCardId": "WC08-REPAIR04"
     },
-    {
-      "id": "PH03-OBS-010 / PROJ-OBS-007",
-      "title": "Artifact authority and revision governance is undefined",
-      "status": "constraint_only"
-    },
-    {
-      "id": "PH03-OBS-001 / PROJ-OBS-001",
-      "title": "Validation checklist should become editable / structured",
-      "status": "validation_output_constraint"
-    }
-  ],
-  "requiredImplementerReport": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
-  "implementerBaseBranch": "feature/phase-03-wc08-repair01-route-context-explanation",
-  "implementerTargetBranch": "feature/phase-03-wc08-repair04-controlled-route-recovery",
-  "nextActionOwnership": {
-    "architect": "Create and review this repair Work Card and review the Implementer Report after implementation.",
-    "implementer": "Implement WC08-REPAIR04 and produce the required Implementer Report.",
-    "operator": "Validate WC08-REPAIR04 only after Architect review authorizes Operator validation."
-  }
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority"
+  },
+  "payloadHash": "sha256:968063f8b3a253f84d68037b794f46a0838d798c497a47fd7c9c318425f296b1",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08-REPAIR04"
 }

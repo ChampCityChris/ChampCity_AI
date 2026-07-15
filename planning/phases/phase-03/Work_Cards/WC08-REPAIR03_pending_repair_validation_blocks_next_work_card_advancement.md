@@ -1,3 +1,44 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR03 — Pending Repair Validation Blocks Next Work Card Advancement"
+  },
+  "payloadHash": "sha256:509ba0a71921c9ca2e7e985ff3193f76a5f4048323014628792da7d7b0f2f58b",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR03"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR03"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+      "champcity-ai/phase-03/validation_report/WC08",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08-REPAIR03"
+}
+-->
+
 # Repair Work Card: WC08-REPAIR03 — Pending Repair Validation Blocks Next Work Card Advancement
 
 Status: ready_for_implementer
@@ -32,7 +73,7 @@ This is the same class of routing defect previously seen when a Work Card or rep
 Relevant artifacts:
 
 - `planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md`
 - `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md`
 - `planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.md`
@@ -174,7 +215,7 @@ The only goal of this pass is to make the application route correctly so WC08-RE
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md`
 
 The report must include:
 

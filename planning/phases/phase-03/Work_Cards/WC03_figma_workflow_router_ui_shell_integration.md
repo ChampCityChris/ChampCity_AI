@@ -1,3 +1,34 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC03 — Figma Workflow Router UI Shell Integration"
+  },
+  "payloadHash": "sha256:06a0199fc1463aeb7c9a47527e1bd4014c5582d4e6bddc0a7e48cf8cffc132ba",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC03",
+      "champcity-ai/phase-03/implementer_report/WC03",
+      "champcity-ai/phase-03/validation_report/WC03"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: WC03 — Figma Workflow Router UI Shell Integration
 
 Status: ready_for_implementer
@@ -112,7 +143,7 @@ Operator validation for WC03 should be visual and behavioral. Validate that the 
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`
 
 The report must include:
 

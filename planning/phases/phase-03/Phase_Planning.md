@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning",
+  "artifactType": "phase_planning",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Phase_Planning.json",
+  "markdownPath": "planning/phases/phase-03/Phase_Planning.md",
+  "payload": {
+    "kind": "phase_planning",
+    "title": "Phase Planning: phase-03"
+  },
+  "payloadHash": "sha256:47943a29d406a39d7a1c64bbf96942d68ffc0f7a2140269eacf4c635f0257c85",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Phase Planning: phase-03
 
 Status: Approved / Current Phase 03 planning authority
@@ -48,7 +77,7 @@ Specific adaptation requirements:
 - Replace demo `workflowState` switching with the durable current required action model.
 - Replace static `CRA`, `ARTIFACTS`, `PROJECT`, and activity data with repo-derived project state where available.
 - Remove or rename demo-only controls such as “Demo States.”
-- Correct stale example labels such as old Phase 02 / WC02 examples and any “Builder Prompt” phrasing that conflicts with the corrected Work Card-as-Implementer-handoff model.
+- Correct stale example labels such as old Phase 02 / WC02 examples and any “Implementer Execution Packet” phrasing that conflicts with the corrected Work Card-as-Implementer-handoff model.
 - Preserve the Figma shell pattern: top status strip, left-to-right process rail, current required action panel, artifact workspace, context inspector, and activity log.
 - Treat the Figma component and style structure as a reference. The Implementer must adapt it to the existing Electron/React app structure rather than blindly replacing the app.
 - Do not add unnecessary dependency sprawl unless the existing app already supports the dependency pattern or the Work Card explicitly approves it.
@@ -253,7 +282,7 @@ Phase 03 must preserve the corrected Work Card authority model:
 - `Work_Card_Plan.md` contains mapped candidate Work Cards only.
 - The Architect creates each full Work Card just in time after Operator Phase Approval.
 - The Work Card is also the Implementer handoff.
-- Do not route the Operator to a separate primary “Implementer Prompt” artifact.
+- Do not route the Operator to a separate primary “Implementer Execution Packet” artifact.
 - Implementer Reports route to Architect review.
 - Architect review either creates validation steps or routes to a repair sub-card.
 - Operator validation creates a Validation Record.

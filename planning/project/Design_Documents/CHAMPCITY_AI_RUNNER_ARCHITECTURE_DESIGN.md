@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN",
+  "artifactType": "design_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.json",
+  "markdownPath": "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.md",
+  "payload": {
+    "kind": "design_document",
+    "title": "ChampCity A/I Runner Architecture Design"
+  },
+  "payloadHash": "sha256:0e387088194e48b972abb38776cd7bbeedaa2ba5a67796037d1b802c1bb00402",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # ChampCity A/I Runner Architecture Design
 
 Status: Proposed
@@ -47,13 +73,13 @@ The stable product contract is not the runner. The stable product contract is:
 - run status;
 - Markdown result files;
 - JSON sidecar metadata;
-- Builder Reports, Validation Reports, Repair Prompts, and Closeout artifacts;
+- Implementer Reports, Validation Reports, Repair Prompts, and Closeout artifacts;
 - repo-safe MCP read/write operations;
 - run logging and cost estimates.
 
 ## 3. Problem Statement
 
-ChampCity A/I is designed around an Architect / Implementer workflow. The Operator creates or approves scoped work. An Architect, often ChatGPT, frames the work and creates durable planning or handoff artifacts. An Implementer, often Codex, performs implementation work and creates Builder Reports. The application must then ingest these artifacts, display progress, and guide validation or repair.
+ChampCity A/I is designed around an Architect / Implementer workflow. The Operator creates or approves scoped work. An Architect, often ChatGPT, frames the work and creates durable planning or handoff artifacts. An Implementer, often Codex, performs implementation work and creates Implementer Reports. The application must then ingest these artifacts, display progress, and guide validation or repair.
 
 The Operator wants a button-click workflow inside ChampCity A/I, such as:
 
@@ -177,7 +203,7 @@ ChampCity A/I invokes Codex CLI in the selected repo
 Codex performs scoped implementation
         |
         v
-Codex writes or is instructed to write Builder Report / result artifact
+Codex writes or is instructed to write Implementer Report / result artifact
         |
         v
 ChampCity A/I watches repo and ingests result
@@ -287,7 +313,7 @@ get_queued_prompt
 mark_prompt_in_progress
 save_prompt_result
 record_prompt_run_event
-save_codex_builder_report
+save_codex_implementer_report
 ```
 
 ### 7.1 queue_prompt
@@ -334,9 +360,9 @@ This tool must enforce:
 
 Records run lifecycle events, including started, tool-called, artifact-written, failed, completed, and manually-recovered.
 
-### 7.7 save_codex_builder_report
+### 7.7 save_codex_implementer_report
 
-Writes Codex Builder Reports into the expected phase folder and records validation commands, changed files, and remaining manual validation.
+Writes Codex Implementer Reports into the expected phase folder and records validation commands, changed files, and remaining manual validation.
 
 ## 8. Recommended Repo Folders
 
@@ -356,7 +382,7 @@ Final outputs should be routed to their phase-specific destinations where approp
 
 ```text
 planning/phases/phase-XX/Architect_Outputs/
-planning/phases/phase-XX/Builder_Reports/
+planning/phases/phase-XX/Implementer_Reports/
 planning/phases/phase-XX/Validation_Reports/
 planning/phases/phase-XX/Repair_Prompts/
 planning/phases/phase-XX/Closeout_Reports/
@@ -441,7 +467,7 @@ Fully automated and supported, but token-metered. ChampCity will estimate cost b
 Example explanation for Codex mode:
 
 ```text
-Uses your local Codex CLI setup for implementation work. Best for scoped Work Cards and Builder Reports.
+Uses your local Codex CLI setup for implementation work. Best for scoped Work Cards and Implementer Reports.
 ```
 
 ## 11. Browser Runner Guardrails
@@ -540,7 +566,7 @@ Deliverables:
 
 - run Codex against saved prompt;
 - capture output;
-- require Builder Report artifact;
+- require Implementer Report artifact;
 - repo watcher detects result;
 - status panel in ChampCity A/I.
 

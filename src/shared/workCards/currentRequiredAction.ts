@@ -2,6 +2,7 @@ import {
   buildCurrentStepRouteContext,
   type CurrentStepRouteContext,
 } from "./currentStepContextInspector";
+import type { RoutedActionContract } from "../workflow";
 
 export const lockedWorkflowSteps = [
   "Project Intake",
@@ -111,6 +112,8 @@ export interface CurrentRequiredAction {
   manualFallback?: CurrentActionManualFallback;
   evidenceClassifications?: CurrentActionEvidenceClassification[];
   warnings: CurrentRequiredActionWarning[];
+  /** Canonical authority contract; reference navigation cannot mutate it. */
+  routedAction?: RoutedActionContract;
 }
 
 export interface CurrentActionProjectState {
@@ -255,14 +258,14 @@ const implementerHandoffStatuses = new Set([
 ]);
 
 const implementerReportStatuses = new Set([
-  "in_builder_pass",
   "in_implementer_pass",
-  "ready_for_builder",
+  "in_implementer_pass",
+  "ready_for_implementer",
   "ready_for_implementer",
 ]);
 
 const reportReceivedStatuses = new Set([
-  "builder_report_received",
+  "implementer_report_received",
   "implementer_report_received",
   "ready_for_architect_review",
 ]);
@@ -923,7 +926,7 @@ function evaluateWorkCardState(
   }
 
   if (!artifactExists(workCard.implementerReport)) {
-    const expectedPath = `planning/phases/${phase.phaseId}/Builder_Reports/BUILDER_REPORT_${workCard.workCardId}_${slugifyForPath(workCard.title)}.md`;
+    const expectedPath = `planning/phases/${phase.phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCard.workCardId}_${slugifyForPath(workCard.title)}.md`;
 
     return action(warnings, {
       id: "implementer_report_required",
@@ -1133,7 +1136,7 @@ function evaluateRepairRoute(
   const repairEvidenceClassifications = repair.evidenceClassifications;
 
   if (!artifactExists(repair.implementerReport)) {
-    const expectedPath = `planning/phases/${phase.phaseId}/Builder_Reports/BUILDER_REPORT_${repairId}_${slugifyForPath(repairTitle)}.md`;
+    const expectedPath = `planning/phases/${phase.phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${repairId}_${slugifyForPath(repairTitle)}.md`;
 
     return action(warnings, {
       id: "repair_implementer_handoff_required",

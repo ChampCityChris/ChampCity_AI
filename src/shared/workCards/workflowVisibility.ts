@@ -149,13 +149,13 @@ const proveSteps: readonly WorkflowGuideStepDefinition[] = [
     id: "next-phase-activation",
     label: "Next Phase Activation",
     groupId: "prove",
-    supportScreenId: "phase-map-builder",
+    supportScreenId: "phase-map",
   },
   {
     id: "repeat-phase-mapping-work-card-loop",
     label: "Repeat Phase Mapping / Work Card Loop",
     groupId: "prove",
-    supportScreenId: "phase-map-builder",
+    supportScreenId: "phase-map",
   },
 ];
 

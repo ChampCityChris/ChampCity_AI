@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
+  "artifactType": "architect_interview",
+  "createdAt": "2026-06-30T19:15:05.723Z",
+  "jsonPath": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+  "markdownPath": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+  "payload": {
+    "kind": "architect_interview",
+    "title": "Project Architect Interview Prompt: ChampCity A/I"
+  },
+  "payloadHash": "sha256:dc92989309e857353236e400dc1c406b2ed9fd24c7f67a72d454f0c9364d3e79",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T19:15:05.723Z"
+}
+-->
+
 # Project Architect Interview Prompt: ChampCity A/I
 
 ## Source Project Intake
@@ -27,7 +53,7 @@ Project Intake:
 - Project Intake ID: PROJECT_INTAKE_champcity_a_i
 - Project name: ChampCity A/I
 - Working title: Not provided.
-- Product/problem summary: We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt builder but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
+- Product/problem summary: We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt implementer but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
 - Primary users/operators: Non-developer end users. They may be tech savvy but  have limited knowledge in coding languages, tech stacks, or development planning.
 - User/operator problem being solved: This allows an end user to achieve consistent results from utilizing a standardized workflow for agentic ai application creation
 - Desired user/operator outcome: Plan, Design, Implement, and Track a complex application's creation from start to finish.
@@ -66,7 +92,7 @@ Before asking questions:
 6. For every question you ask, provide suggested answers in plain language.
 7. Remember the Operator may be tech savvy but is not expected to think like a software architect or developer.
 8. Preserve the Architect / Implementer mental model.
-9. Treat the source-of-truth location and Builder/Implementer tooling as durable project constraints.
+9. Treat the source-of-truth location and Implementer tooling as durable project constraints.
 
 Required project-profile areas to complete:
 - Project name
@@ -115,8 +141,8 @@ Do not generate the Project Planning Documents yet.
 ## Generated Timestamp
 
 Prompt ID: PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i
-Created: 2026-06-30T18:39:54.597Z
-Updated: 2026-06-30T18:39:54.597Z
+Created: 2026-06-30T19:15:05.723Z
+Updated: 2026-06-30T19:15:05.723Z
 
 ## Next Step
 

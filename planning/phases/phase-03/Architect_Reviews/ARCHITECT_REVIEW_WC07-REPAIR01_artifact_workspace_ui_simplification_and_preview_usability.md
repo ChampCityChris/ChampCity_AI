@@ -1,3 +1,42 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC07",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC07-REPAIR01 Artifact Workspace UI Simplification and Preview Usability"
+  },
+  "payloadHash": "sha256:4d439a9b08ca663c696fd258d0699f3ed54408ddb2eb8adf36fcfcfec77222d6",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+      "champcity-ai/phase-03/observation_register/Observation_Register",
+      "champcity-ai/phase-03/validation_report/WC07",
+      "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC07-REPAIR01"
+}
+-->
+
 # Architect Review: WC07-REPAIR01 Artifact Workspace UI Simplification and Preview Usability
 
 Status: Ready for Operator validation
@@ -30,7 +69,7 @@ This review does not perform Operator validation and does not accept the repair 
 ## Sources Reviewed
 
 - `planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md`
 - `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md`
 - `planning/phases/phase-03/Observation_Register.md`
 - `src/shared/workCards/artifactReviewWorkspace.ts`

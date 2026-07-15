@@ -159,7 +159,7 @@ export function buildPhasePlanningDocuments(
     !input.sourceProjectRoadmap
   ) {
     throw new Error(
-      "Run Phase Map Builder first, then select a mapped phase for planning.",
+      "Run Phase Map Composer first, then select a mapped phase for planning.",
     );
   }
 

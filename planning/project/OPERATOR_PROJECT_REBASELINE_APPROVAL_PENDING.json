@@ -1,10 +1,34 @@
 {
-  "id": "OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
-  "status": "pending_operator_approval",
-  "project": "ChampCity A/I",
-  "rebaselineArtifact": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
-  "rebaselineJson": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
-  "approvalScope": "Approve Project Mapping Rebaseline to supersede screen-picker assumptions and adopt workflow-router model.",
-  "approved": false,
-  "approvalStatement": "Pending. Do not treat as approved until Operator explicitly approves."
+  "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+  "artifactType": "approval",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
+  "markdownPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
+  "payload": {
+    "contentMarkdown": "# Operator Project Rebaseline Approval\n\nStatus: Pending Operator Approval\nProject: ChampCity A/I\nRebaseline artifact: planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md\nProcess baseline: docs/workflow/PROCESS_BASELINE.md\n\n## Approval Scope\n\nThis approval covers the Project Mapping Rebaseline that supersedes the prior screen-picker mental model and adopts the workflow-router model.\n\nIf approved, the durable project model is:\n\n```text\nProject Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop\n```\n\n## Pending Decision\n\nThe Operator must explicitly approve or request revision.\n\n## Approval Statement\n\nPending. Do not treat this artifact as approved until the Operator records approval.\n",
+    "data": {
+      "approvalScope": "Approve Project Mapping Rebaseline to supersede screen-picker assumptions and adopt workflow-router model.",
+      "approvalStatement": "Pending. Do not treat as approved until Operator explicitly approves.",
+      "approved": false,
+      "id": "OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+      "project": "ChampCity A/I",
+      "rebaselineArtifact": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+      "rebaselineJson": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
+      "status": "pending_operator_approval"
+    },
+    "kind": "approval",
+    "title": "Operator Project Rebaseline Approval"
+  },
+  "payloadHash": "sha256:8de0bbd422a2aa5e7bd371db256854316e626bb9fc6783cf2cdda115947ed4cf",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

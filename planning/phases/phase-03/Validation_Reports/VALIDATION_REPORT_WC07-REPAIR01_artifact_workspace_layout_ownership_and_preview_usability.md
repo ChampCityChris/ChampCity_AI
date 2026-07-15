@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T14:47:01.454Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC07",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC07-REPAIR01 Artifact Workspace Layout Ownership and Preview Usability"
+  },
+  "payloadHash": "sha256:ec8f8808fa112016caa5415ac3c8cc4247e6fafe564be5736f73b8b32c573d05",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T14:47:01.454Z",
+  "workCardId": "WC07-REPAIR01"
+}
+-->
+
 # Human Validation Report - WC07-REPAIR01 Artifact Workspace Layout Ownership and Preview Usability
 
 ## Validation Target
@@ -9,7 +42,7 @@
 - Parent Work Card ID: WC07
 - Source JSON file: WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json
 - Source Markdown file: WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md
-- Associated Implementer Report: BUILDER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md
 
 ## Validation Result
 

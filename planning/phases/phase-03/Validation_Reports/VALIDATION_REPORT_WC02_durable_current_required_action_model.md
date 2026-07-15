@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC02",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-03T20:14:12.188Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC02 Durable Current Required Action Model"
+  },
+  "payloadHash": "sha256:fae28cb1b1335a2a3a9953a667e34c2305134f9271974277c395d57d3cf899ba",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC02",
+      "champcity-ai/phase-03/implementer_report/WC02",
+      "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC02"
+}
+-->
+
 # Human Validation Report - WC02 Durable Current Required Action Model
 
 ## Validation Target
@@ -8,7 +40,7 @@
 - Phase: phase-03
 - Source JSON file: WC02_durable_current_required_action_model.json
 - Source Markdown file: WC02_durable_current_required_action_model.md
-- Associated Implementer Report: BUILDER_REPORT_WC02_durable_current_required_action_model.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md
 
 ## Validation Result
 

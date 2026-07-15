@@ -1,7 +1,7 @@
 import {
   champCityRepositoryPath,
-  standardBuilderValidationCommands,
-} from "./renderBuilderPrompt";
+  standardImplementerValidationCommands,
+} from "./renderImplementerExecutionPacket";
 import type { HumanValidationRecord } from "./validationRecord";
 import { buildWorkCardFileStem } from "./workCardFileNames";
 import { implementerReportArchitectReviewInstructionLines } from "./reportReviewProtocol";
@@ -17,7 +17,7 @@ export function renderRepairPrompt(
   record: HumanValidationRecord,
   options: RepairPromptRenderOptions = {},
 ): string {
-  const repairReportFileName = buildRepairBuilderReportFileName(record);
+  const repairReportFileName = buildRepairImplementerReportFileName(record);
 
   return [
     "You are acting as Implementer for ChampCity A/I.",
@@ -33,7 +33,7 @@ export function renderRepairPrompt(
     `- Selected Work Card ID: ${record.workCardId}`,
     `- Selected Work Card title: ${record.workCardTitle}`,
     `- Phase: ${record.phase}`,
-    `- Associated Implementer Report: ${record.builderReportFile ?? "None selected."}`,
+    `- Associated Implementer Report: ${record.implementerReportFile ?? "None selected."}`,
     `- Validation record: ${options.validationRecordFileName ?? "Use the saved validation record created with this prompt."}`,
     "",
     "## Validation Evidence And Architect Disposition",
@@ -99,8 +99,8 @@ export function renderRepairPrompt(
       "Run `git remote -v`.",
       "Read `AGENTS.md`.",
       `Read the selected Work Card from \`planning/phases/${record.phase}/Work_Cards/\`.`,
-      record.builderReportFile
-        ? `Read the associated Implementer Report \`${record.builderReportFile}\`.`
+      record.implementerReportFile
+        ? `Read the associated Implementer Report \`${record.implementerReportFile}\`.`
         : "No Implementer Report was selected; note that the evidence chain is incomplete.",
       options.validationRecordFileName
         ? `Read the validation record \`${options.validationRecordFileName}\`.`
@@ -110,16 +110,16 @@ export function renderRepairPrompt(
     "## Validation Commands",
     "",
     "```bash",
-    ...standardBuilderValidationCommands,
+    ...standardImplementerValidationCommands,
     "```",
     "",
     "## Implementer Report Requirement",
     "",
-    `Create a repair Implementer Report under \`planning/phases/${record.phase}/Builder_Reports/\`.`,
+    `Create a repair Implementer Report under \`planning/phases/${record.phase}/Implementer_Reports/\`.`,
     "",
-    "Compatibility note: the product-facing role is Implementer, but repair reports still use the legacy `Builder_Reports` folder and `BUILDER_REPORT_REPAIR_*` filename pattern.",
+    "Canonical storage: repair Implementer Reports use the `Implementer_Reports` folder and `IMPLEMENTER_REPORT_REPAIR_*` filename pattern.",
     "",
-    "Filename pattern: `BUILDER_REPORT_REPAIR_<work_card_id>_<slug>.md`",
+    "Filename pattern: `IMPLEMENTER_REPORT_REPAIR_<work_card_id>_<slug>.md`",
     "",
     `Expected report name: \`${repairReportFileName}\``,
     "",
@@ -149,10 +149,10 @@ export function buildRepairPromptFileName(
   );
 }
 
-export function buildRepairBuilderReportFileName(
+export function buildRepairImplementerReportFileName(
   record: Pick<HumanValidationRecord, "workCardId" | "workCardTitle">,
 ): string {
-  return `BUILDER_REPORT_REPAIR_${buildWorkCardFileStem(
+  return `IMPLEMENTER_REPORT_REPAIR_${buildWorkCardFileStem(
     record.workCardId,
     record.workCardTitle,
   )}.md`;

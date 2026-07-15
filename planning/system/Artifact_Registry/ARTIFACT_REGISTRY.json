@@ -1,0 +1,3017 @@
+{
+  "artifactId": "champcity-ai/system/artifact_registry",
+  "artifactType": "artifact_registry",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json",
+  "markdownPath": "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md",
+  "payload": {
+    "contentMarkdown": "# Canonical Artifact Registry\n\nEntries: 113\n\n| Artifact ID | Type | Revision | Status | Authority | Synchronized |\n| --- | --- | ---: | --- | --- | --- |\n| champcity-ai/phase-03/approval/Operator_Phase_Approval | approval | 2 | historical | no | yes |\n| champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING | approval | 2 | superseded | no | yes |\n| champcity-ai/phase-03/architect_interview/Phase_Interview | architect_interview | 2 | active | yes | yes |\n| champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC01 | architect_review | 2 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC02 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC03 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR02 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC04-REPAIR03 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC05 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC06 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC06-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC07 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC07-REPAIR01 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08-REPAIR02 | architect_review | 2 | historical | no | yes |\n| champcity-ai/phase-03/architect_review/WC08-REPAIR06 | architect_review | 1 | historical | no | yes |\n| champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG | backlog | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC01 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC02 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR02 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC04-REPAIR03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC05 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC06 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC06-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC07 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC07-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR01 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR02 | implementer_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR03 | implementer_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR04 | implementer_report | 1 | active | yes | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR05 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC08-REPAIR06 | implementer_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/implementer_report/WC09 | implementer_report | 4 | active | yes | yes |\n| champcity-ai/phase-03/migration_manifest/WC09 | migration_manifest | 12 | active | yes | yes |\n| champcity-ai/phase-03/observation_register/Observation_Register | observation_register | 1 | active | yes | yes |\n| champcity-ai/phase-03/phase_planning/Phase_Planning | phase_planning | 2 | active | yes | yes |\n| champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents | phase_planning | 2 | superseded | no | yes |\n| champcity-ai/phase-03/repair_record/WC08 | repair_record | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC01 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC02 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC03 | validation_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR02 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC04-REPAIR03 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC05 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC06 | validation_report | 2 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC06-REPAIR01 | validation_report | 3 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC07 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC07-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR01 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR03 | validation_report | 4 | historical | no | yes |\n| champcity-ai/phase-03/validation_report/WC08-REPAIR06 | validation_report | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | 2 | active | yes | yes |\n| champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents | work_card_plan | 2 | superseded | no | yes |\n| champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | work_card | 3 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04_primary_current_action_panel | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC05 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC06-REPAIR01 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC07_artifact_review_workspace | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08_current_step_context_inspector | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR03 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR04 | work_card | 1 | active | yes | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR05 | work_card | 2 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC08-REPAIR06 | work_card | 1 | historical | no | yes |\n| champcity-ai/phase-03/work_card/WC09 | work_card | 5 | active | yes | yes |\n| champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |\n| champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |\n| champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | 2 | pending | yes | yes |\n| champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | 2 | active | yes | yes |\n| champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN | design_document | 2 | active | yes | yes |\n| champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW | design_document | 2 | active | yes | yes |\n| champcity-ai/project/observation_register/Project_Observation_Register | observation_register | 1 | active | yes | yes |\n| champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i | phase_map | 2 | pending | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation | project_intake | 1 | active | yes | yes |\n| champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i | project_planning | 2 | pending | yes | yes |\n| champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i | repository_reconciliation | 2 | pending | yes | yes |\n| champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i | roadmap | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/CHANGE_LOG | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/DECISIONS | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/ENVIRONMENT | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/GLOSSARY | supporting_document | 3 | active | yes | yes |\n| champcity-ai/project/supporting_document/MVP_SCOPE | supporting_document | 3 | active | yes | yes |\n| champcity-ai/project/supporting_document/OPEN_QUESTIONS | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/PROJECT_PROFILE | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/PROJECT_STATE | supporting_document | 2 | pending | yes | yes |\n| champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL | supporting_document | 2 | pending | yes | yes |\n| champcity-ai/project/supporting_document/RELEASE_POLICY | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/RISKS | supporting_document | 2 | active | yes | yes |\n| champcity-ai/project/supporting_document/SECURITY_POLICY | supporting_document | 1 | active | yes | yes |\n| champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | 1 | active | yes | yes |\n| champcity-ai/system/workflow_state | workflow_state | 3 | active | yes | yes |\n",
+    "data": {
+      "entries": [
+        {
+          "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+          "artifactType": "approval",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval.json",
+          "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval.md",
+          "payloadHash": "sha256:7bea5a12f8d6e94bd9079775b11a64755874fbca02c5a07c1bf13ad6968610ad",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
+          "artifactType": "approval",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval_PENDING.json",
+          "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval_PENDING.md",
+          "payloadHash": "sha256:c8c7e43bb4c16af372fda6ebf9b5e62b702ba7a91517fc4ca1613391135d0b02",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "superseded",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_interview/Phase_Interview",
+          "artifactType": "architect_interview",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Phase_Interview.json",
+          "markdownPath": "planning/phases/phase-03/Phase_Interview.md",
+          "payloadHash": "sha256:8e83ba8d2761f2893ae6a365a6a1f25241b3f1e119bd0aeb03b0fbcff33c8448",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+          "payloadHash": "sha256:0bef255498fd43aca2ee2efa778a08e8810308677df20e46b43df0ac1fce3218",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC01",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "payloadHash": "sha256:508c4425543e585b9b2291ffa958018c8ccad8b677e825bc73e09099ad68651e",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC01",
+              "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+              "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+              "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+              "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+              "champcity-ai/project/supporting_document/PROJECT_STATE"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC02",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md",
+          "payloadHash": "sha256:5a1ee641227a8f020a5bd633b8a5e11e71c3847051caa0c1154e914498fd53c2",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC02"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC02",
+              "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC03",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.md",
+          "payloadHash": "sha256:dbab6d4f6442c049c13f90d6fa111e588cdc5844434486b7cc4a2848aa769162",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC03"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC03",
+              "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.md",
+          "payloadHash": "sha256:ca8e76e0145a919ec00ddd3f7708fb8f2b164ed5f60555b6f6a914d027bc8813",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC04"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC04"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC04",
+              "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:a8090971a94de22bf073c9ebcadf4f369a452d90bb505e3dd13a735a37a6ef92",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:197df2b11d9b515cda186adb1a98cbc852085eb2426d309b49a3867de7d4b1a4",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:aa0ee19e55e8666e3eb146c94ba2596cfce35218d46b9ae9060df2e947be217c",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC05",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "payloadHash": "sha256:0aa99676b4cb995d8f89cb744093185a5d8dde1cd74885cd04fbca015936f167",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC05"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC05"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC05",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC05"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC06",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
+          "payloadHash": "sha256:862d9b13a7d36143dbca9d022c9c1aa552d17e5c249073f213ec695947a7a1b4",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC06"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC06",
+              "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+          "payloadHash": "sha256:b53b99b7c62b8844673f20f6bbfab4165c32f6aef3eb9d381a6460406f924686",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC07",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md",
+          "payloadHash": "sha256:b51f024ac6920126b5d04e1a2f1b67870075b8c2fb2d7d4dc35cae81346c6c55",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC07"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC07"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC07",
+              "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC07"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC07",
+          "payloadHash": "sha256:4d439a9b08ca663c696fd258d0699f3ed54408ddb2eb8adf36fcfcfec77222d6",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+              "champcity-ai/phase-03/observation_register/Observation_Register",
+              "champcity-ai/phase-03/validation_report/WC07",
+              "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+              "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC07-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md",
+          "payloadHash": "sha256:f1d17815044d3b6bbf72b13a98ce071f4248431894a78eb412190bc35a1a5c7d",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC08"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC08"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08",
+              "champcity-ai/phase-03/observation_register/Observation_Register",
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+              "champcity-ai/project/observation_register/Project_Observation_Register"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:7bf32db04e109192d942b936aa68239cc82b04489c9a7c7568bf97631b1ce2a0",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+          "artifactType": "architect_review",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:3491e3d7a41f814182b30cd7319fe15246839b88590330c33e4f8d76c7b181d0",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
+          "artifactType": "backlog",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/WORK_CARD_BACKLOG.json",
+          "markdownPath": "planning/phases/phase-03/WORK_CARD_BACKLOG.md",
+          "payloadHash": "sha256:425dedda1a07ceb365e772f63f75d3a9d8d6463c652abb81ce0beb2cba3ac6bb",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+          "payloadHash": "sha256:92ae6d456dda6dd5419470d48690da3007bbd5c37d280c93a8a77fe807708759",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC01",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "payloadHash": "sha256:16fd1ef0989c489acc40bd47f0980305680484ff2c81cbdd5b9c9749cf5aabbe",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/validation_report/WC01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+              "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
+              "champcity-ai/phase-03/architect_interview/Phase_Interview",
+              "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
+              "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+              "champcity-ai/phase-03/phase_planning/Phase_Planning",
+              "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+              "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+              "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+              "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
+              "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+              "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+              "champcity-ai/project/supporting_document/PROJECT_STATE",
+              "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC02",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md",
+          "payloadHash": "sha256:7bdcd6f31c88babd593da91bf523ca33588e4c37d6e7a495b3fd348353c7cf9e",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC02",
+              "champcity-ai/phase-03/validation_report/WC02"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC03",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+          "payloadHash": "sha256:38efc48a3bfc240a414f2444b462bdccd6f7c454fc0cda6c5476e800c1628016",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC03",
+              "champcity-ai/phase-03/validation_report/WC03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC03"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md",
+          "payloadHash": "sha256:433e1dab28a5bfe3316fe5f1705cdcd9fb39ec6ac272a3c3304d81b2a3350be8",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04",
+              "champcity-ai/phase-03/validation_report/WC04"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC04"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:4cb2a62f79b22ec83ae265f4f7e0308eea2d8f9b8d47590a0ac22ade1b43cfba",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+              "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:ce3e2326968595df66d9b713b3d3b1d230129e7208ec44528beeec5b63896c98",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:c8677dbf05573948a144c965fcdfdec72ef070d810718591a88e9334a87eaf89",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC05",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "payloadHash": "sha256:9f4327abb5ac0de42c05ec9dab46c9ade3cf03e5cc6b9087185b14813386f702",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC05",
+              "champcity-ai/phase-03/validation_report/WC05"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC05"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC05"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC06",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md",
+          "payloadHash": "sha256:165fffcd1ccb0841e6f4e6cb8729ec9d648960a82ab3e1a29c6bb4e0da1a7184",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC06",
+              "champcity-ai/phase-03/validation_report/WC06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC06"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+          "payloadHash": "sha256:1ff7b21afa8bd59380ddaa56b8e5f755f09dc0a562c996498df1063842eee4fb",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC06-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC06-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC07",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
+          "payloadHash": "sha256:f80689ffcc00cba7ec0ebf4fc243b0c2853ab255506cb81166ee7537b5fcf5b5",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC07",
+              "champcity-ai/phase-03/validation_report/WC07"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC07"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC07"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC07",
+          "payloadHash": "sha256:190f3afca83debcc61a2f10be00e14545d5950a185f04231ecb052025a556e54",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC07-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md",
+          "payloadHash": "sha256:2a5c90c6fc811bb45c14b53bfb980989c162ba203998d14e3348cbe3f992ac33",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08",
+              "champcity-ai/phase-03/validation_report/WC08",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:b231b68bfcfc112ebfcecdd0f4c6de9ed560a7241d4f835c8f77375496756ee4",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/observation_register/Observation_Register",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+              "champcity-ai/project/observation_register/Project_Observation_Register"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:198778fb3af58ec6591bc983ea7158adf7977dc8f0487d724d4aa19516f877df",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR02"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:06c5b6ec8be1000b796f02256dd9d35c35f230a27ebc3c72fa8c78c61a3cbf5a",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR03"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+          "artifactType": "implementer_report",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:e56072bcf1c190b261bb3d6a7d8fd3baa2cacda232e38292f4a491b20351f6ae",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR04"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/observation_register/Observation_Register",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+              "champcity-ai/project/observation_register/Project_Observation_Register"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR04"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:c532e988fbab3edaf009134a908fd3da450068262819151b98c4c714c142727d",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR05"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR05"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR05"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+          "artifactType": "implementer_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:76d1eee155ea82757e9359068f2e787799d1ffe5acbd2ed9192d4ea3a72cc880",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC09",
+          "artifactType": "implementer_report",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+          "payloadHash": "sha256:3efe21bfcf404a0415b945b63fb235e8f48241cddef739ed8944b3eb1ee3b5c0",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC09"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC09"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC09"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/migration_manifest/WC09",
+          "artifactType": "migration_manifest",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.json",
+          "markdownPath": "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.md",
+          "payloadHash": "sha256:f744b053c680bd810139b0d803fa35f18a93ef2db0325a32a709d61fb358cff3",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+              "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
+              "champcity-ai/phase-03/architect_interview/Phase_Interview",
+              "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/architect_review/WC02",
+              "champcity-ai/phase-03/architect_review/WC03",
+              "champcity-ai/phase-03/architect_review/WC04",
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/architect_review/WC05",
+              "champcity-ai/phase-03/architect_review/WC06",
+              "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+              "champcity-ai/phase-03/architect_review/WC07",
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+              "champcity-ai/phase-03/architect_review/WC08",
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+              "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
+              "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+              "champcity-ai/phase-03/implementer_report/WC01",
+              "champcity-ai/phase-03/implementer_report/WC02",
+              "champcity-ai/phase-03/implementer_report/WC03",
+              "champcity-ai/phase-03/implementer_report/WC04",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC05",
+              "champcity-ai/phase-03/implementer_report/WC06",
+              "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC07",
+              "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC08",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/implementer_report/WC09",
+              "champcity-ai/phase-03/observation_register/Observation_Register",
+              "champcity-ai/phase-03/phase_planning/Phase_Planning",
+              "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+              "champcity-ai/phase-03/repair_record/WC08",
+              "champcity-ai/phase-03/validation_report/WC01",
+              "champcity-ai/phase-03/validation_report/WC02",
+              "champcity-ai/phase-03/validation_report/WC03",
+              "champcity-ai/phase-03/validation_report/WC04",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC05",
+              "champcity-ai/phase-03/validation_report/WC06",
+              "champcity-ai/phase-03/validation_report/WC06-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC07",
+              "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC08",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+              "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+              "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+              "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model",
+              "champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+              "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
+              "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+              "champcity-ai/phase-03/work_card/WC05",
+              "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
+              "champcity-ai/phase-03/work_card/WC06-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
+              "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06",
+              "champcity-ai/phase-03/work_card/WC09",
+              "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+              "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
+              "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
+              "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+              "champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN",
+              "champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW",
+              "champcity-ai/project/observation_register/Project_Observation_Register",
+              "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+              "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
+              "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation",
+              "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation",
+              "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+              "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+              "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+              "champcity-ai/project/supporting_document/CHANGE_LOG",
+              "champcity-ai/project/supporting_document/DECISIONS",
+              "champcity-ai/project/supporting_document/ENVIRONMENT",
+              "champcity-ai/project/supporting_document/GLOSSARY",
+              "champcity-ai/project/supporting_document/MVP_SCOPE",
+              "champcity-ai/project/supporting_document/OPEN_QUESTIONS",
+              "champcity-ai/project/supporting_document/PROJECT_PROFILE",
+              "champcity-ai/project/supporting_document/PROJECT_STATE",
+              "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+              "champcity-ai/project/supporting_document/RELEASE_POLICY",
+              "champcity-ai/project/supporting_document/RISKS",
+              "champcity-ai/project/supporting_document/SECURITY_POLICY",
+              "champcity-ai/project/supporting_document/VALIDATION_POLICY"
+            ],
+            "supersedes": []
+          },
+          "revision": 12,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/observation_register/Observation_Register",
+          "artifactType": "observation_register",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Observation_Register.json",
+          "markdownPath": "planning/phases/phase-03/Observation_Register.md",
+          "payloadHash": "sha256:24a4cafb0d5b4ee313e4fac1b2b96160a4e64f332e0a8cb627d177400a5157a9",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+              "champcity-ai/phase-03/architect_review/WC08",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning",
+          "artifactType": "phase_planning",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Phase_Planning.json",
+          "markdownPath": "planning/phases/phase-03/Phase_Planning.md",
+          "payloadHash": "sha256:47943a29d406a39d7a1c64bbf96942d68ffc0f7a2140269eacf4c635f0257c85",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+          "artifactType": "phase_planning",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json",
+          "markdownPath": "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md",
+          "payloadHash": "sha256:ff51281d31c4e0a97ecb43d21af2452546039de82372884dc95d8fc5b8f563a9",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "superseded",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/repair_record/WC08",
+          "artifactType": "repair_record",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.md",
+          "payloadHash": "sha256:1d51e3981528aab4b33b3d0e34791d6c06574560c37d126291c5c9738bd6d33c",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC01",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "payloadHash": "sha256:3f08dc366b5963e2cc5d556bfaa824ebe528cd15c3e8f2a909a343d5d77526ee",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/implementer_report/WC01",
+              "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC02",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
+          "payloadHash": "sha256:fae28cb1b1335a2a3a9953a667e34c2305134f9271974277c395d57d3cf899ba",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC02",
+              "champcity-ai/phase-03/implementer_report/WC02",
+              "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC03",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+          "payloadHash": "sha256:e4bb4dbcf97fc64dc0d6eddcc318e4ca00735519e143e98f59610dd96ec95165",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC03",
+              "champcity-ai/phase-03/implementer_report/WC03",
+              "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
+          "payloadHash": "sha256:de1e4fb42b8ff47eafb14ad8d8daf6bc5f23f21a4ca374551fd7523785c0beb4",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04",
+              "champcity-ai/phase-03/implementer_report/WC04",
+              "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:083223ebcff8ac72d573b491509118d1a7df91ee8034f7f47feb79ee333ff632",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:df07ae860b7a6b82835c42a815ed49c8da800567d80ba390f3d98db0248c6fc5",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR02"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+          "payloadHash": "sha256:4a80dbe83c3a4ebf021be29f6881c87940b89667cfb3f7483c8c0be9c48008bc",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC04-REPAIR03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC05",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "payloadHash": "sha256:1cdf9bb45939a6e22a4019ebc608f456a10a7b074515e6ed11bf68b4b5668122",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC05",
+              "champcity-ai/phase-03/implementer_report/WC05",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC05"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC06",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md",
+          "payloadHash": "sha256:4f3b2977ec8e8cde4dc408f5dd62de45ec7d546cd7d4a0e21dae91322beffe6a",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+            ],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC06",
+              "champcity-ai/phase-03/implementer_report/WC06",
+              "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC06-REPAIR01",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+          "payloadHash": "sha256:62ed4d99f6e16985ad183e8f77d351c81bc28da3ef6e5639a82d23f6cf73abb3",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC07",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
+          "payloadHash": "sha256:135b46da73d4f8f790917cfbc24844b83f3697da6ae4be9ec971d053a77963af",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01"
+            ],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC07",
+              "champcity-ai/phase-03/implementer_report/WC07",
+              "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC07"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC07",
+          "payloadHash": "sha256:ec8f8808fa112016caa5415ac3c8cc4247e6fafe564be5736f73b8b32c573d05",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC07-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+          "payloadHash": "sha256:0ca9b089da74bcbdef42808aa853aaf3da613972e06a6f7ab6b5a01295ec440d",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+            ],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC08",
+              "champcity-ai/phase-03/implementer_report/WC08",
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:b17f619bd0e2441f86092cb17184ee782330e2b03af85906266cf5a381eb31c1",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+            ],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:a2450ea4b970e5e4521334ac50fe7dbeaa3a1db8c46387649735ca4c4a62cde7",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+            ],
+            "supersedes": []
+          },
+          "revision": 4,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
+          "artifactType": "validation_report",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:e2d95ca1336b276f52cf1840f0b7133301df83fe0211e66db2eecbcd69063ba8",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+          "artifactType": "work_card_plan",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Work_Card_Plan.json",
+          "markdownPath": "planning/phases/phase-03/Work_Card_Plan.md",
+          "payloadHash": "sha256:f0336d1083bcba35964ea67a9f4a725bb4e50e0499ef626a2f6fdc850428fcad",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+          "artifactType": "work_card_plan",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json",
+          "markdownPath": "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.md",
+          "payloadHash": "sha256:5b048c439337d45f75ab6e77cb3dfa922abdfeb63ec76e2a861f351c6c283318",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "superseded",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "payloadHash": "sha256:54566209676104c9140419e3e0c0729af05357b17f94a451820aeae85763cf89",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/implementer_report/WC01",
+              "champcity-ai/phase-03/validation_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md",
+          "payloadHash": "sha256:c0603719bb9bb0d606d0275984b8d1c83b2464138326cb14fa9a25ac2d18682c",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC02",
+              "champcity-ai/phase-03/implementer_report/WC02",
+              "champcity-ai/phase-03/validation_report/WC02"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+          "payloadHash": "sha256:c2a2303170a6e0016482d9ff684952941fdc2d5eea7c0c8e30322540f58166ab",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.md",
+          "payloadHash": "sha256:06a0199fc1463aeb7c9a47527e1bd4014c5582d4e6bddc0a7e48cf8cffc132ba",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC03",
+              "champcity-ai/phase-03/implementer_report/WC03",
+              "champcity-ai/phase-03/validation_report/WC03"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.md",
+          "payloadHash": "sha256:b78b79100d36a01cc864ecd0594a5fe265789e0b39f4a7972826ac7b3751d2e9",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04",
+              "champcity-ai/phase-03/implementer_report/WC04",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC04",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "payloadHash": "sha256:9ee0fc7f87557a06d2fbf7dfb87bdd0150d61776261130991ce19604282e5abd",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.md",
+          "payloadHash": "sha256:462cda69f0edcd6ceb4323899d10f5ae95bffdecff80759c9f756f054485bac4",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "payloadHash": "sha256:fa4c7180dcefe4868d682dac7c0de39099d7f73e5af590fced6e3fcd768efc3b",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+              "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC05"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC05",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "payloadHash": "sha256:42937c3ebc2dbb6a00b5f951c1c32ce2bca7404b0646af91e1bf0c1c3e120e55",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC05",
+              "champcity-ai/phase-03/implementer_report/WC05",
+              "champcity-ai/phase-03/validation_report/WC05"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC05"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+              "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+              "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+              "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+              "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC05"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
+          "payloadHash": "sha256:dff7320c95d519c2b1763dda9ed1c8d657854c69d9451fb1cf6ab620394929ef",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC06",
+              "champcity-ai/phase-03/implementer_report/WC06",
+              "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC06",
+              "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC06-REPAIR01",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC06",
+          "payloadHash": "sha256:2ffba47f4c2812d3b07d0377e0d82e803a6d7f64640c163597f3f7acb6111843",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC06-REPAIR01"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/validation_report/WC06",
+              "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC06-REPAIR01"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md",
+          "payloadHash": "sha256:562fbfe16ee2a31692fac553fcd2845fbd82c2cbe3fa74c9f0b7db8fa608f9fb",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC07",
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC07",
+              "champcity-ai/phase-03/validation_report/WC07"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+          "payloadHash": "sha256:352561fcf0ad64578c4109f9395754db30fb61af26266d97e16f9c36ff86a597",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+              "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md",
+          "payloadHash": "sha256:9802afc39ee597146aa3376ec5dc10a4ae9e49ba3bedfac1d645311c141eccd3",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08",
+              "champcity-ai/phase-03/implementer_report/WC08",
+              "champcity-ai/phase-03/repair_record/WC08",
+              "champcity-ai/phase-03/validation_report/WC08",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+          "payloadHash": "sha256:dcc23f14de4001bb898b32779214a54227f9860ddfbbf5b66de4f3baba56427b",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+          "payloadHash": "sha256:ebd1af71546e2c0d792efdc03c55d5bcfca98ae24190d804622fc66025724dbc",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:509ba0a71921c9ca2e7e985ff3193f76a5f4048323014628792da7d7b0f2f58b",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR03"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR03"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+              "champcity-ai/phase-03/validation_report/WC08",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR03"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+          "artifactType": "work_card",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:968063f8b3a253f84d68037b794f46a0838d798c497a47fd7c9c318425f296b1",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR04"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:53fa2ccdc2afbfd75e805a4b5910c5b73b4035f051588915c5b17bfabd708eaa",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR05"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR05"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+            ],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR05"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR06",
+          "artifactType": "work_card",
+          "authoritative": false,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
+          "payloadHash": "sha256:cbd520e20f0fa8599aa6b6d25f71ad5448cc8c4085d3294c7f57c8fabed9ceb2",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+              "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR06"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+            ],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "historical",
+          "synchronized": true,
+          "workCardId": "WC08-REPAIR06"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC09",
+          "artifactType": "work_card",
+          "authoritative": true,
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+          "payloadHash": "sha256:65ce5fd46cd292a0eb4df58f559e18fbf0197672d914b13fb1576f1a63c3d44b",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC09"
+            ],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/implementer_report/WC09"
+            ],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 5,
+          "status": "active",
+          "synchronized": true,
+          "workCardId": "WC09"
+        },
+        {
+          "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+          "artifactType": "approval",
+          "authoritative": true,
+          "jsonPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
+          "markdownPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
+          "payloadHash": "sha256:8de0bbd422a2aa5e7bd371db256854316e626bb9fc6783cf2cdda115947ed4cf",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
+          "artifactType": "architect_interview",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+          "payloadHash": "sha256:dc92989309e857353236e400dc1c406b2ed9fd24c7f67a72d454f0c9364d3e79",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
+          "artifactType": "backlog",
+          "authoritative": true,
+          "jsonPath": "planning/project/WORK_CARD_BACKLOG.json",
+          "markdownPath": "planning/project/WORK_CARD_BACKLOG.md",
+          "payloadHash": "sha256:70974238d9924c4477e5a683bc39daa054fc33f7a5aed131e061238ebd46d1d2",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+          "artifactType": "design_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.json",
+          "markdownPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.md",
+          "payloadHash": "sha256:02824df5fe818ba66ec6ecfc60865c9b6549a7398735a76a60c8f29145e221b5",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN",
+          "artifactType": "design_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.json",
+          "markdownPath": "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.md",
+          "payloadHash": "sha256:0e387088194e48b972abb38776cd7bbeedaa2ba5a67796037d1b802c1bb00402",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW",
+          "artifactType": "design_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.json",
+          "markdownPath": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.md",
+          "payloadHash": "sha256:08e3b55ed4becb8c53683193615f7e5b10068042c566576b3e5c2d2829d462e0",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/observation_register/Project_Observation_Register",
+          "artifactType": "observation_register",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Observation_Register.json",
+          "markdownPath": "planning/project/Project_Observation_Register.md",
+          "payloadHash": "sha256:c001dc35a90bf68ab14f951b80ee410da6bc7d5fbdeca82e9f73f64d21ef0463",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC08",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+          "artifactType": "phase_map",
+          "authoritative": true,
+          "jsonPath": "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.json",
+          "markdownPath": "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md",
+          "payloadHash": "sha256:de771883fb9ea45d062148760b6a2242b15734deafefe9e35490db40cde525a6",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
+          "artifactType": "project_intake",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.md",
+          "payloadHash": "sha256:873cac3c3366a54276c216b26a1275403e918833b4b82023db9b6408edf5bc5c",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation",
+          "artifactType": "project_intake",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.json",
+          "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.md",
+          "payloadHash": "sha256:76ed06dd924d360c2e6654a92b3d0145c23ed86164bf6be0a319a051e5ba37db",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation",
+          "artifactType": "project_intake",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.json",
+          "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.md",
+          "payloadHash": "sha256:8c85bdd1aa10bbebdbce5b9e96769fff07e806e120c5487cc09ab431a7a34734",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+          "artifactType": "project_planning",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+          "payloadHash": "sha256:9204af3c95e8fe13f39c4e3b1187e005a4599089a42ec6f29a348f023eaab115",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+          "artifactType": "repository_reconciliation",
+          "authoritative": true,
+          "jsonPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json",
+          "markdownPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
+          "payloadHash": "sha256:53f293227f1947fc2d94f740c91d6eb54fd7c6b65ae2a4699cf9f60801637351",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+          "artifactType": "roadmap",
+          "authoritative": true,
+          "jsonPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md",
+          "payloadHash": "sha256:b833ed51ce47d5abbf5a5f7dd210715ed02e45cbe22f936ab6ebcf7cd7f6d172",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/CHANGE_LOG",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/CHANGE_LOG.json",
+          "markdownPath": "planning/project/CHANGE_LOG.md",
+          "payloadHash": "sha256:4651e051c3427f478e40721f8b545aa7e2a08f2c7d425d4da77148751389a31b",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/DECISIONS",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/DECISIONS.json",
+          "markdownPath": "planning/project/DECISIONS.md",
+          "payloadHash": "sha256:109bb1f54adfb5aa1bc4d0dc232660006bf2963995acc3757a6e01500aec78f7",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/ENVIRONMENT",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/ENVIRONMENT.json",
+          "markdownPath": "planning/project/ENVIRONMENT.md",
+          "payloadHash": "sha256:415d88452dd3b0e8320b905d1b1cdf3777236cff74c2d54bbc2f2bfc3398d7d3",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/GLOSSARY",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/GLOSSARY.json",
+          "markdownPath": "planning/project/GLOSSARY.md",
+          "payloadHash": "sha256:1a3d9e26dd7e20c905df679b229fafd1bb81330345b50901b0d4ac7ea4518ba7",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/MVP_SCOPE",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/MVP_SCOPE.json",
+          "markdownPath": "planning/project/MVP_SCOPE.md",
+          "payloadHash": "sha256:3c38e1b274070a75b1709d62db561ba32586ab1320ed3ad5b2891cfde23438d2",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/OPEN_QUESTIONS",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/OPEN_QUESTIONS.json",
+          "markdownPath": "planning/project/OPEN_QUESTIONS.md",
+          "payloadHash": "sha256:2e67a4052e8b3eaacee79f8a77210ff65f80188a1083e7a5b39755a4e7339047",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/PROJECT_PROFILE",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/PROJECT_PROFILE.json",
+          "markdownPath": "planning/project/PROJECT_PROFILE.md",
+          "payloadHash": "sha256:9d449c220bc26fc7743cab7e096855b46d185ab65952dae361cf5dc04e1ea02b",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/PROJECT_STATE",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/PROJECT_STATE.json",
+          "markdownPath": "planning/project/PROJECT_STATE.md",
+          "payloadHash": "sha256:3908af0c902d03959383e442213d0febc050e88e26140fdc9ae18e0df3ab840c",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/architect_review/WC01",
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
+          "markdownPath": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+          "payloadHash": "sha256:bdc18bf426632a2c32e2bb8e3a88ef83ca7ae40e888b8fe9d7fa66b4c9dc4d28",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [
+              "champcity-ai/phase-03/implementer_report/WC01"
+            ],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "pending",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/RELEASE_POLICY",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/RELEASE_POLICY.json",
+          "markdownPath": "planning/project/RELEASE_POLICY.md",
+          "payloadHash": "sha256:1e2d2eb23fb3c0eb0b61142bd796a0e085420662123dcab5c9d850ffd7890404",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/RISKS",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/RISKS.json",
+          "markdownPath": "planning/project/RISKS.md",
+          "payloadHash": "sha256:8d32ce3f67a0d9ce6a583a614b46e099bd8930e74745c67a36414b4510c80463",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 2,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/SECURITY_POLICY",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/SECURITY_POLICY.json",
+          "markdownPath": "planning/project/SECURITY_POLICY.md",
+          "payloadHash": "sha256:b96a903c21f593e2b786dfc9038b1ca7f5c2b4db1f93abc5528c5cf64361e73c",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/VALIDATION_POLICY",
+          "artifactType": "supporting_document",
+          "authoritative": true,
+          "jsonPath": "planning/project/VALIDATION_POLICY.json",
+          "markdownPath": "planning/project/VALIDATION_POLICY.md",
+          "payloadHash": "sha256:ce0b33a8318443a65badcf498dfdb10302442c1a4463945ad8442fccd51fae06",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [],
+            "sources": [],
+            "supersedes": []
+          },
+          "revision": 1,
+          "status": "active",
+          "synchronized": true
+        },
+        {
+          "artifactId": "champcity-ai/system/workflow_state",
+          "artifactType": "workflow_state",
+          "authoritative": true,
+          "jsonPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
+          "markdownPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md",
+          "payloadHash": "sha256:61c5c6a96a392465b8293518a1d97597a54348b7cde0494a92715f40c4aa11d6",
+          "phaseId": "phase-03",
+          "projectId": "champcity-ai",
+          "relationships": {
+            "children": [],
+            "expectedOutputs": [
+              "champcity-ai/phase-03/architect_review/WC08-REPAIR04"
+            ],
+            "sources": [
+              "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+              "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+            ],
+            "supersedes": []
+          },
+          "revision": 3,
+          "status": "active",
+          "synchronized": true
+        }
+      ],
+      "registryVersion": 1,
+      "updatedAt": "2026-07-14T00:00:00.000Z"
+    },
+    "kind": "artifact_registry",
+    "title": "Canonical Artifact Registry"
+  },
+  "payloadHash": "sha256:62a1438d38676816eeb5a105caafe382de532532d64a719ecd636c90bd8e1652",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
+      "champcity-ai/phase-03/architect_interview/Phase_Interview",
+      "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/architect_review/WC02",
+      "champcity-ai/phase-03/architect_review/WC03",
+      "champcity-ai/phase-03/architect_review/WC04",
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+      "champcity-ai/phase-03/architect_review/WC05",
+      "champcity-ai/phase-03/architect_review/WC06",
+      "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+      "champcity-ai/phase-03/architect_review/WC07",
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+      "champcity-ai/phase-03/architect_review/WC08",
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+      "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
+      "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/implementer_report/WC02",
+      "champcity-ai/phase-03/implementer_report/WC03",
+      "champcity-ai/phase-03/implementer_report/WC04",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC05",
+      "champcity-ai/phase-03/implementer_report/WC06",
+      "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC07",
+      "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC08",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+      "champcity-ai/phase-03/implementer_report/WC09",
+      "champcity-ai/phase-03/migration_manifest/WC09",
+      "champcity-ai/phase-03/observation_register/Observation_Register",
+      "champcity-ai/phase-03/phase_planning/Phase_Planning",
+      "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/repair_record/WC08",
+      "champcity-ai/phase-03/validation_report/WC01",
+      "champcity-ai/phase-03/validation_report/WC02",
+      "champcity-ai/phase-03/validation_report/WC03",
+      "champcity-ai/phase-03/validation_report/WC04",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC05",
+      "champcity-ai/phase-03/validation_report/WC06",
+      "champcity-ai/phase-03/validation_report/WC06-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC07",
+      "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC08",
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+      "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model",
+      "champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+      "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
+      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+      "champcity-ai/phase-03/work_card/WC05",
+      "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
+      "champcity-ai/phase-03/work_card/WC06-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
+      "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR06",
+      "champcity-ai/phase-03/work_card/WC09",
+      "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+      "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
+      "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
+      "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+      "champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN",
+      "champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW",
+      "champcity-ai/project/observation_register/Project_Observation_Register",
+      "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+      "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
+      "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation",
+      "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation",
+      "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+      "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/CHANGE_LOG",
+      "champcity-ai/project/supporting_document/DECISIONS",
+      "champcity-ai/project/supporting_document/ENVIRONMENT",
+      "champcity-ai/project/supporting_document/GLOSSARY",
+      "champcity-ai/project/supporting_document/MVP_SCOPE",
+      "champcity-ai/project/supporting_document/OPEN_QUESTIONS",
+      "champcity-ai/project/supporting_document/PROJECT_PROFILE",
+      "champcity-ai/project/supporting_document/PROJECT_STATE",
+      "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+      "champcity-ai/project/supporting_document/RELEASE_POLICY",
+      "champcity-ai/project/supporting_document/RISKS",
+      "champcity-ai/project/supporting_document/SECURITY_POLICY",
+      "champcity-ai/project/supporting_document/VALIDATION_POLICY",
+      "champcity-ai/system/workflow_state"
+    ],
+    "supersedes": []
+  },
+  "revision": 14,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}

@@ -1,14 +1,40 @@
 {
-  "id": "PROJECT_MAPPING_REBASELINE_workflow_router_model",
-  "status": "phase_03_source_context",
-  "project": "ChampCity A/I",
-  "productCorrection": "The app is a workflow router, not a screen picker.",
-  "recommendedNextPhase": {
-    "phaseId": "phase-03",
-    "title": "Workflow Router Screen Correction and Guided Current Action UI",
-    "status": "active_approved_for_jit_work_card_execution",
-    "purpose": "Correct application screens and UI behavior to adhere to the newly mapped workflow process. The UI must compute and display the current actionable step and make generic screen navigation secondary."
+  "artifactId": "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
+  "markdownPath": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+  "payload": {
+    "contentMarkdown": "# Project Mapping Rebaseline: Workflow Router Model\n\nStatus: Current source context for approved Phase 03 workflow-router correction.\n\n## Reason\n\nThe prior Roadmap and UI direction overemphasized separate screens and planning surfaces. The corrected product model is that ChampCity A/I is a workflow router, not a screen picker.\n\n## Corrected workflow\n\nProject Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop.\n\n## Required product corrections\n\n- Roadmap.md is the living master record.\n- Phase Mapping is the phase-level planning process.\n- Phase Planning is an artifact created during Phase Mapping, not a separate top-level workflow concept.\n- Work_Card_Plan.md contains Work Card candidates only.\n- The Architect creates full Work Cards just in time.\n- The Work Card is also the Implementer execution packet.\n- Implementer Reports are reviewed by the Architect.\n- Operator validation creates Validation Records.\n- Repair sub-cards use WCxx-REPAIRxx naming.\n- Closeout approval authorizes Roadmap update and Next Phase Activation.\n\n## Conflicts identified\n\nPROJECT_PROFILE.md still uses Capture -> Frame -> Plan -> Build -> Prove as if it were the core workflow. That phrase should remain only as a mental model.\n\nThe current Roadmap still describes Implementer Execution Packet as separate from Formal Work Card and treats Phase Planning Documents as a separate authority surface. Those assumptions are superseded.\n\n## Phase assessment\n\nPhase 01 remains closed.\n\nPhase 02 is closed by Operator closeout.\n\nPrior draft Phase 03 is superseded by the approved workflow-router Phase 03 bundle.\n\n## Recommended next phase\n\nApproved phase-03 title: Workflow Router Screen Correction and Guided Current Action UI.\n\nPurpose: implement the corrected workflow-router model in artifacts and UI behavior. The app should compute the current actionable step and show it as the primary Operator path.\n\n## Operator action\n\nUse this rebaseline as source context for Phase 03 implementation. The separate project-level approval artifact remains pending unless the Operator records that approval.\n",
+    "data": {
+      "id": "PROJECT_MAPPING_REBASELINE_workflow_router_model",
+      "operatorApprovalRequired": true,
+      "phase03ApprovalSource": "planning/phases/phase-03/Operator_Phase_Approval.md",
+      "productCorrection": "The app is a workflow router, not a screen picker.",
+      "project": "ChampCity A/I",
+      "recommendedNextPhase": {
+        "phaseId": "phase-03",
+        "purpose": "Correct application screens and UI behavior to adhere to the newly mapped workflow process. The UI must compute and display the current actionable step and make generic screen navigation secondary.",
+        "status": "active_approved_for_jit_work_card_execution",
+        "title": "Workflow Router Screen Correction and Guided Current Action UI"
+      },
+      "status": "phase_03_source_context"
+    },
+    "kind": "supporting_document",
+    "title": "Project Mapping Rebaseline: Workflow Router Model"
   },
-  "operatorApprovalRequired": true,
-  "phase03ApprovalSource": "planning/phases/phase-03/Operator_Phase_Approval.md"
+  "payloadHash": "sha256:bdc18bf426632a2c32e2bb8e3a88ef83ca7ae40e888b8fe9d7fa66b4c9dc4d28",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

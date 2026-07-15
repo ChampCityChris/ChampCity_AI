@@ -83,7 +83,7 @@ import type {
 import type {
   InvalidSavedPhaseMapFile,
   ListSavedPhaseMapsResult,
-  PhaseMapBuilderRequest,
+  PhaseMapRequest,
   PhaseMapPreviewResult,
   PhaseMapRecord,
   PhaseMapSaveResult,
@@ -106,22 +106,22 @@ import type {
   SavedWorkCardSummary,
 } from "../shared/workCards/renderArchitectFramingPrompt";
 import type {
-  BuilderPromptArtifactListResult,
-  BuilderPromptArtifactOption,
-  BuilderPromptArtifactOptions,
-  BuilderPromptPreviewResult,
-  BuilderPromptRequest,
-  BuilderPromptSaveResult,
-  BuilderPromptSupportingArtifactFileNames,
-  InvalidBuilderPromptArtifactFile,
-} from "../shared/workCards/renderBuilderPrompt";
+  ImplementerExecutionPacketArtifactListResult,
+  ImplementerExecutionPacketArtifactOption,
+  ImplementerExecutionPacketArtifactOptions,
+  ImplementerExecutionPacketPreviewResult,
+  ImplementerExecutionPacketRequest,
+  ImplementerExecutionPacketSaveResult,
+  ImplementerExecutionPacketSupportingArtifactFileNames,
+  InvalidImplementerExecutionPacketArtifactFile,
+} from "../shared/workCards/renderImplementerExecutionPacket";
 import type {
-  BuilderReportCapturePreviewResult,
-  BuilderReportCaptureRequest,
-  BuilderReportCaptureSaveResult,
-  BuilderReportType,
-  BuilderReportValidationResult,
-} from "../shared/workCards/validateBuilderReport";
+  ImplementerReportCapturePreviewResult,
+  ImplementerReportCaptureRequest,
+  ImplementerReportCaptureSaveResult,
+  ImplementerReportType,
+  ImplementerReportValidationResult,
+} from "../shared/workCards/validateImplementerReport";
 import type {
   RiskReviewPreviewResult,
   RiskReviewRequest,
@@ -130,11 +130,11 @@ import type {
 import type { WorkCardRiskReview } from "../shared/workCards/riskRouter";
 import type {
   AvailablePhaseFoldersResult,
-  BuilderReportFileLoadRequest,
-  BuilderReportFileLoadResult,
-  HumanValidationBuilderReportListRequest,
-  HumanValidationBuilderReportListResult,
-  HumanValidationBuilderReportOption,
+  ImplementerReportFileLoadRequest,
+  ImplementerReportFileLoadResult,
+  HumanValidationImplementerReportListRequest,
+  HumanValidationImplementerReportListResult,
+  HumanValidationImplementerReportOption,
   HumanValidationFormInput,
   HumanValidationOperatorDecision,
   HumanValidationPreviewResult,
@@ -142,7 +142,7 @@ import type {
   HumanValidationSaveResult,
   HumanValidationStatusListResult,
   HumanValidationStatusSummary,
-  InvalidHumanValidationBuilderReportFile,
+  InvalidHumanValidationImplementerReportFile,
   ManualValidationChecklistExtraction,
   ValidationEvidenceFileImportRequest,
   ValidationEvidenceFileImportResult,
@@ -190,6 +190,12 @@ import type {
   PlanningArtifactPreviewRequest,
   PlanningArtifactPreviewResult,
 } from "../shared/workCards/artifactReviewWorkspace";
+import type {
+  ContextPacketExportResult,
+  CurrentContextPacketExportRequest,
+  CurrentContextPacketPreviewRequest,
+  CurrentContextPacketPreviewResult,
+} from "../shared/contextPackets/contextPacket";
 
 declare global {
   type ChampCityWorkCardDraftInput = WorkCardDraftInput;
@@ -296,7 +302,7 @@ declare global {
   type ChampCityInvalidSavedProjectRoadmapFile =
     InvalidSavedProjectRoadmapFile;
   type ChampCityListSavedProjectRoadmapsResult = ListSavedProjectRoadmapsResult;
-  type ChampCityPhaseMapBuilderRequest = PhaseMapBuilderRequest;
+  type ChampCityPhaseMapRequest = PhaseMapRequest;
   type ChampCityPhaseMapRecord = PhaseMapRecord;
   type ChampCityPhaseMapPreviewResult = PhaseMapPreviewResult;
   type ChampCityPhaseMapSaveResult = PhaseMapSaveResult;
@@ -322,38 +328,38 @@ declare global {
   type ChampCityRiskReviewPreviewResult = RiskReviewPreviewResult;
   type ChampCityRiskReviewSaveResult = RiskReviewSaveResult;
   type ChampCityWorkCardRiskReview = WorkCardRiskReview;
-  type ChampCityBuilderPromptRequest = BuilderPromptRequest;
-  type ChampCityBuilderPromptArtifactListResult =
-    BuilderPromptArtifactListResult;
-  type ChampCityBuilderPromptArtifactOptions = BuilderPromptArtifactOptions;
-  type ChampCityBuilderPromptArtifactOption = BuilderPromptArtifactOption;
-  type ChampCityInvalidBuilderPromptArtifactFile =
-    InvalidBuilderPromptArtifactFile;
-  type ChampCityBuilderPromptSupportingArtifactFileNames =
-    BuilderPromptSupportingArtifactFileNames;
-  type ChampCityBuilderPromptPreviewResult = BuilderPromptPreviewResult;
-  type ChampCityBuilderPromptSaveResult = BuilderPromptSaveResult;
-  type ChampCityBuilderReportType = BuilderReportType;
-  type ChampCityBuilderReportValidationResult = BuilderReportValidationResult;
-  type ChampCityBuilderReportCaptureRequest = BuilderReportCaptureRequest;
-  type ChampCityBuilderReportCapturePreviewResult =
-    BuilderReportCapturePreviewResult;
-  type ChampCityBuilderReportCaptureSaveResult =
-    BuilderReportCaptureSaveResult;
+  type ChampCityImplementerExecutionPacketRequest = ImplementerExecutionPacketRequest;
+  type ChampCityImplementerExecutionPacketArtifactListResult =
+    ImplementerExecutionPacketArtifactListResult;
+  type ChampCityImplementerExecutionPacketArtifactOptions = ImplementerExecutionPacketArtifactOptions;
+  type ChampCityImplementerExecutionPacketArtifactOption = ImplementerExecutionPacketArtifactOption;
+  type ChampCityInvalidImplementerExecutionPacketArtifactFile =
+    InvalidImplementerExecutionPacketArtifactFile;
+  type ChampCityImplementerExecutionPacketSupportingArtifactFileNames =
+    ImplementerExecutionPacketSupportingArtifactFileNames;
+  type ChampCityImplementerExecutionPacketPreviewResult = ImplementerExecutionPacketPreviewResult;
+  type ChampCityImplementerExecutionPacketSaveResult = ImplementerExecutionPacketSaveResult;
+  type ChampCityImplementerReportType = ImplementerReportType;
+  type ChampCityImplementerReportValidationResult = ImplementerReportValidationResult;
+  type ChampCityImplementerReportCaptureRequest = ImplementerReportCaptureRequest;
+  type ChampCityImplementerReportCapturePreviewResult =
+    ImplementerReportCapturePreviewResult;
+  type ChampCityImplementerReportCaptureSaveResult =
+    ImplementerReportCaptureSaveResult;
   type ChampCityHumanValidationResult = HumanValidationResult;
   type ChampCityHumanValidationOperatorDecision =
     HumanValidationOperatorDecision;
   type ChampCityHumanValidationFormInput = HumanValidationFormInput;
-  type ChampCityHumanValidationBuilderReportOption =
-    HumanValidationBuilderReportOption;
-  type ChampCityInvalidHumanValidationBuilderReportFile =
-    InvalidHumanValidationBuilderReportFile;
+  type ChampCityHumanValidationImplementerReportOption =
+    HumanValidationImplementerReportOption;
+  type ChampCityInvalidHumanValidationImplementerReportFile =
+    InvalidHumanValidationImplementerReportFile;
   type ChampCityManualValidationChecklistExtraction =
     ManualValidationChecklistExtraction;
-  type ChampCityHumanValidationBuilderReportListRequest =
-    HumanValidationBuilderReportListRequest;
-  type ChampCityHumanValidationBuilderReportListResult =
-    HumanValidationBuilderReportListResult;
+  type ChampCityHumanValidationImplementerReportListRequest =
+    HumanValidationImplementerReportListRequest;
+  type ChampCityHumanValidationImplementerReportListResult =
+    HumanValidationImplementerReportListResult;
   type ChampCityHumanValidationPreviewResult = HumanValidationPreviewResult;
   type ChampCityHumanValidationSaveResult = HumanValidationSaveResult;
   type ChampCityHumanValidationStatusSummary = HumanValidationStatusSummary;
@@ -373,9 +379,9 @@ declare global {
   type ChampCityPhaseCloseoutPreviewResult = PhaseCloseoutPreviewResult;
   type ChampCityPhaseCloseoutSaveResult = PhaseCloseoutSaveResult;
   type ChampCityAvailablePhaseFoldersResult = AvailablePhaseFoldersResult;
-  type ChampCityBuilderReportFileLoadRequest =
-    BuilderReportFileLoadRequest;
-  type ChampCityBuilderReportFileLoadResult = BuilderReportFileLoadResult;
+  type ChampCityImplementerReportFileLoadRequest =
+    ImplementerReportFileLoadRequest;
+  type ChampCityImplementerReportFileLoadResult = ImplementerReportFileLoadResult;
   type ChampCityValidationEvidenceFileImportRequest =
     ValidationEvidenceFileImportRequest;
   type ChampCityValidationEvidenceFileImportResult =
@@ -396,6 +402,11 @@ declare global {
   type ChampCityPlanningArtifactPreviewRequest =
     PlanningArtifactPreviewRequest;
   type ChampCityPlanningArtifactPreviewResult = PlanningArtifactPreviewResult;
+  type ChampCityCurrentContextPacketPreviewRequest =
+    CurrentContextPacketPreviewRequest;
+  type ChampCityCurrentContextPacketPreviewResult =
+    CurrentContextPacketPreviewResult;
+  type ChampCityContextPacketExportResult = ContextPacketExportResult;
 
   interface Window {
     champCity: {
@@ -460,9 +471,9 @@ declare global {
       ) => Promise<ProjectRoadmapSaveResult>;
       listSavedProjectRoadmaps: () => Promise<ListSavedProjectRoadmapsResult>;
       previewPhaseMap: (
-        input: PhaseMapBuilderRequest,
+        input: PhaseMapRequest,
       ) => Promise<PhaseMapPreviewResult>;
-      savePhaseMap: (input: PhaseMapBuilderRequest) => Promise<PhaseMapSaveResult>;
+      savePhaseMap: (input: PhaseMapRequest) => Promise<PhaseMapSaveResult>;
       listSavedPhaseMaps: () => Promise<ListSavedPhaseMapsResult>;
       listPhasePlanningProjectPlanningDocuments: () => Promise<ListSavedProjectPlanningDocumentsResult>;
       listPhasePlanningRepositoryReconciliations: () => Promise<ListSavedRepositoryReconciliationsResult>;
@@ -503,33 +514,33 @@ declare global {
       saveRiskReview: (
         input: RiskReviewRequest,
       ) => Promise<RiskReviewSaveResult>;
-      listBuilderPromptSupportingArtifacts: (
-        input: BuilderPromptRequest,
-      ) => Promise<BuilderPromptArtifactListResult>;
-      previewBuilderPrompt: (
-        input: BuilderPromptRequest,
-      ) => Promise<BuilderPromptPreviewResult>;
-      saveBuilderPrompt: (
-        input: BuilderPromptRequest,
-      ) => Promise<BuilderPromptSaveResult>;
-      previewBuilderReportCapture: (
-        input: BuilderReportCaptureRequest,
-      ) => Promise<BuilderReportCapturePreviewResult>;
-      saveBuilderReportCapture: (
-        input: BuilderReportCaptureRequest,
-      ) => Promise<BuilderReportCaptureSaveResult>;
+      listImplementerExecutionPacketSupportingArtifacts: (
+        input: ImplementerExecutionPacketRequest,
+      ) => Promise<ImplementerExecutionPacketArtifactListResult>;
+      previewImplementerExecutionPacket: (
+        input: ImplementerExecutionPacketRequest,
+      ) => Promise<ImplementerExecutionPacketPreviewResult>;
+      saveImplementerExecutionPacket: (
+        input: ImplementerExecutionPacketRequest,
+      ) => Promise<ImplementerExecutionPacketSaveResult>;
+      previewImplementerReportCapture: (
+        input: ImplementerReportCaptureRequest,
+      ) => Promise<ImplementerReportCapturePreviewResult>;
+      saveImplementerReportCapture: (
+        input: ImplementerReportCaptureRequest,
+      ) => Promise<ImplementerReportCaptureSaveResult>;
       previewArchitectReviewRecord: (
         input: ArchitectReviewFormInput,
       ) => Promise<ArchitectReviewPreviewResult>;
       saveArchitectReviewRecord: (
         input: ArchitectReviewFormInput,
       ) => Promise<ArchitectReviewSaveResult>;
-      loadBuilderReportFile: (
-        input: BuilderReportFileLoadRequest,
-      ) => Promise<BuilderReportFileLoadResult>;
-      listHumanValidationBuilderReports: (
-        input: HumanValidationBuilderReportListRequest,
-      ) => Promise<HumanValidationBuilderReportListResult>;
+      loadImplementerReportFile: (
+        input: ImplementerReportFileLoadRequest,
+      ) => Promise<ImplementerReportFileLoadResult>;
+      listHumanValidationImplementerReports: (
+        input: HumanValidationImplementerReportListRequest,
+      ) => Promise<HumanValidationImplementerReportListResult>;
       listHumanValidationTargets: (
         phase: string,
       ) => Promise<ListValidationTargetsResult>;
@@ -549,6 +560,12 @@ declare global {
         phase: string,
       ) => Promise<PhaseCloseoutSummaryResult>;
       getCurrentRequiredAction: () => Promise<CurrentRequiredActionResult>;
+      previewCurrentContextPacket: (
+        input: CurrentContextPacketPreviewRequest,
+      ) => Promise<CurrentContextPacketPreviewResult>;
+      exportCurrentContextPacket: (
+        input: CurrentContextPacketExportRequest,
+      ) => Promise<ContextPacketExportResult>;
       saveRouteReviewRequest: (
         input: RouteReviewRequestInput,
       ) => Promise<RouteReviewRequestSaveResult>;

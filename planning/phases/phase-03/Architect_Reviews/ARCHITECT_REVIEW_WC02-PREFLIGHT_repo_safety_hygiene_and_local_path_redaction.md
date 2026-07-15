@@ -1,3 +1,30 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC02-PREFLIGHT Repo Safety Hygiene and Local Path Redaction"
+  },
+  "payloadHash": "sha256:0bef255498fd43aca2ee2efa778a08e8810308677df20e46b43df0ac1fce3218",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Architect Review: WC02-PREFLIGHT Repo Safety Hygiene and Local Path Redaction
 
 Status: Ready for Operator Validation
@@ -9,7 +36,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
 
 ## Source Work Card
 
@@ -43,7 +70,7 @@ Committed files:
 - `AGENTS.md`
 - `Generic Docs/example_project_profile_champcity_v11.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`
 
 MCP staged safety scan result:
 

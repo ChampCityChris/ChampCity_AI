@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-12T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC04-REPAIR02 — Repair Validation Routing Gate"
+  },
+  "payloadHash": "sha256:462cda69f0edcd6ceb4323899d10f5ae95bffdecff80759c9f756f054485bac4",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Repair Work Card: WC04-REPAIR02 — Repair Validation Routing Gate
 
 Status: ready_for_implementer
@@ -27,7 +61,7 @@ Supporting sources:
 
 - `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md`
 - `planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
 - `src/shared/workCards/currentRequiredAction.ts`
 - `scripts/verify-work-card-fixture.mjs`
 
@@ -147,7 +181,7 @@ Add or update targeted fixture coverage proving:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md`
 
 The report must include:
 

@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/PROJECT_PROFILE",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/PROJECT_PROFILE.json",
+  "markdownPath": "planning/project/PROJECT_PROFILE.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Project Profile"
+  },
+  "payloadHash": "sha256:9d449c220bc26fc7743cab7e096855b46d185ab65952dae361cf5dc04e1ea02b",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Project Profile
 
 ## Project Name
@@ -65,7 +91,7 @@ The source of truth is the local project repo and its durable Markdown/JSON arti
 - Phase Mapping creates `Phase_Interview.md`, `Phase_Planning.md`, and `Work_Card_Plan.md`.
 - `Work_Card_Plan.md` contains mapped Work Card candidates only: IDs, titles, summaries, order, dependencies, and purpose.
 - The Architect creates each full Work Card just in time.
-- The Work Card is also the Implementer prompt.
+- The Work Card is also the Implementer execution packet.
 - Implementer Reports are reviewed by the Architect, not by the Operator for validation design.
 - The Architect provides manual validation steps.
 - Operator validation creates Validation Records.
@@ -110,5 +136,5 @@ The following assumptions are superseded by the workflow-router rebaseline:
 
 - The app is mainly a screen picker.
 - Phase Planning is a separate top-level workflow concept from Phase Mapping.
-- Implementer Prompt is a separate primary artifact from the Work Card.
+- Implementer Execution Packet is a separate primary artifact from the Work Card.
 - The Operator should manually select among many workflow screens to determine what to do next.

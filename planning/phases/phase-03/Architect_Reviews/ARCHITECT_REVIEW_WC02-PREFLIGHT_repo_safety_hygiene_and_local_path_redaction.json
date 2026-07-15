@@ -1,0 +1,26 @@
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+  "payload": {
+    "contentMarkdown": "# Architect Review: WC02-PREFLIGHT Repo Safety Hygiene and Local Path Redaction\n\nStatus: Ready for Operator Validation\nProject: ChampCity A/I\nPhase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\nWork Card: WC02-PREFLIGHT — Repo Safety Hygiene and Local Path Redaction\nReview date: 2026-07-03\nReviewed by: Architect\n\n## Reviewed Implementer Report\n\n- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`\n\n## Source Work Card\n\n- `planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`\n- `planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json`\n\n## Review Outcome\n\nWC02-PREFLIGHT is ready for Operator validation.\n\nNo additional repair is required before WC02 handoff from a local-path hygiene perspective.\n\n## Final MCP Safety / Commit Checkpoint\n\nArchitect performed the final ChampCity MCP safety-stage and commit checkpoint after reviewing the Codex narrow repair report.\n\nPreflight repair commit:\n\n```text\ne920edb793de9b7723a5606685799637d3b6cf05\n```\n\nCommit message:\n\n```text\nWC02 preflight repair\n```\n\nCommitted files:\n\n- `AGENTS.md`\n- `Generic Docs/example_project_profile_champcity_v11.md`\n- `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`\n- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md`\n\nMCP staged safety scan result:\n\n- mode: staged\n- scanned files: 4\n- skipped files: none\n- blocking findings: none\n- warnings: none\n- safe: true\n\nNo push was performed.\n\n## Findings\n\n### Pass: Implementer Report exists and is corrected\n\nThe required preflight Implementer Report exists and now correctly states that Codex did not perform MCP actions. It says Codex performed local scan/readiness work and that final MCP safety-stage/commit was Architect/Operator-owned.\n\n### Pass: AGENTS.md includes the intended Local Path Redaction rule\n\n`AGENTS.md` includes a Local Path Redaction section that applies to both Architect and Implementer outputs and requires `<PROJECT_REPO>` or repo-relative paths in durable committed artifacts.\n\n### Pass: Current handoff convention is safe\n\nCurrent Phase 03 handoff language uses `<PROJECT_REPO>` or repo-relative paths rather than concrete local machine paths.\n\n### Pass: MCP safety gate accepted the staged repair set\n\nThe MCP commit operation ran the staged safety scan and reported no blocking findings or warnings.\n\n### Non-blocking: Broad dirty state remains\n\nThe repo still has broad dirty state from earlier Phase 01 / Phase 02 / project / UI work. This was already known and was outside the narrow preflight scope. The preflight Work Card allowed reporting unrelated remaining dirty files rather than cleaning the entire repo.\n\n## Operator Validation Guidance\n\nOperator validation for WC02-PREFLIGHT should confirm:\n\n1. `AGENTS.md` contains the Local Path Redaction rule.\n2. The rule applies to both Architect and Implementer outputs.\n3. The rule requires `<PROJECT_REPO>` or repo-relative paths in durable artifacts.\n4. The WC02-PREFLIGHT Implementer Report does not claim Codex performed MCP actions.\n5. The preflight commit hash is recorded in this Architect Review.\n6. No push was performed.\n7. WC02 was not implemented as part of this preflight.\n\n## Recommended Next Action\n\nAfter Operator validation, WC02 may be handed off to the Implementer:\n\n```text\nWC02 is ready for implementation.\n\nRepository root placeholder: <PROJECT_REPO>\nExpected remote: ChampCityChris/ChampCity_AI\n\nUse this Work Card as the source of truth:\nplanning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md\n\nDo not rely on chat context beyond this instruction. Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before editing. Do not write concrete local machine paths into committed artifacts. Use <PROJECT_REPO> and repo-relative paths in all reports. Create the required Implementer Report when complete.\n```\n",
+    "data": {},
+    "kind": "architect_review",
+    "title": "Architect Review: WC02-PREFLIGHT Repo Safety Hygiene and Local Path Redaction"
+  },
+  "payloadHash": "sha256:0bef255498fd43aca2ee2efa778a08e8810308677df20e46b43df0ac1fce3218",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}

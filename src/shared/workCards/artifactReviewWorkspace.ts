@@ -124,13 +124,13 @@ const groupDefinitions: Array<
 ];
 
 const knownPrefixes = [
-  "BUILDER_REPORT_",
+  "IMPLEMENTER_REPORT_",
   "IMPLEMENTER_REPORT_",
   "ARCHITECT_REVIEW_",
   "VALIDATION_REPORT_",
   "REPAIR_PROMPT_",
   "ARCHITECT_PROMPT_",
-  "BUILDER_PROMPT_",
+  "IMPLEMENTER_EXECUTION_PACKET_",
   "IMPLEMENTER_PROMPT_",
 ];
 
@@ -278,7 +278,7 @@ export function getArtifactSupportScreen(
   }
 
   if (normalized.includes("/phase_map/")) {
-    return "phase-map-builder";
+    return "phase-map";
   }
 
   if (
@@ -307,8 +307,8 @@ export function inferArtifactGroup(
 
   if (
     role.includes("implementer report") ||
-    role.includes("builder report") ||
-    artifactPath.includes("/builder_reports/")
+    role.includes("implementer report") ||
+    artifactPath.includes("/implementer_reports/")
   ) {
     return "implementer_report";
   }
@@ -403,7 +403,7 @@ function buildExpectedOutput(
 function inferArtifactRole(artifactPath: string): string {
   const normalized = normalizeRepoPath(artifactPath).toLowerCase();
 
-  if (normalized.includes("/builder_reports/")) {
+  if (normalized.includes("/implementer_reports/")) {
     return normalized.includes("repair") ? "Repair Implementer Report" : "Implementer Report";
   }
 

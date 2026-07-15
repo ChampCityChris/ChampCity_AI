@@ -1,71 +1,100 @@
 {
-  "work_card_id": "WC03",
-  "phase_id": "phase-03",
-  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
-  "title": "Figma Workflow Router UI Shell Integration",
-  "status": "ready_for_implementer",
-  "created": "2026-07-03",
-  "updated": "2026-07-03",
-  "risk_level": "high",
-  "purpose": "Integrate the Figma-inspired workflow-router UI shell into the real Electron/React application so the durable current required action model from WC02 becomes visible and usable.",
-  "dependencies": [
-    "WC02",
-    "docs/workflow/PROCESS_BASELINE.md",
-    "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
-    "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md"
-  ],
-  "included_scope": [
-    "Import or adapt the provided source-code UI shell into the existing Electron/React renderer",
-    "Use the WC02 current required action model as live state input",
-    "Add top status strip, horizontal process rail, current required action area, artifact workspace, context inspector, subordinate navigation, and bottom activity/evidence log area",
-    "Replace Figma demo/static state with live durable-state routing",
-    "Preserve existing screens as subordinate/manual fallback navigation",
-    "Confirm or update AGENTS.md with corrected Implementer feature-branch review rule if missing",
-    "Create the required WC03 Implementer Report"
-  ],
-  "out_of_scope": [
-    "Do not implement WC04-WC15 route-specific work",
-    "Do not create WC04 or later Work Cards",
-    "Do not create Operator validation records",
-    "Do not close Phase 03",
-    "Do not merge the feature branch into dev",
-    "Do not push to master",
-    "Do not add provider SDKs, cloud services, browser automation, auth, database, or LLM API calls",
-    "Do not commit large local design archives or zip files"
-  ],
-  "corrected_agent_review_rule": {
-    "feature_branch": "feature/phase-03-wc03-router-ui-shell",
-    "base_branch": "dev",
-    "must_not_push_to": [
-      "master",
-      "dev"
-    ],
-    "merge_rule": "Only Architect/Operator-approved work may be merged into dev. Implementers must not merge their own feature branch into dev unless explicitly authorized."
+  "artifactId": "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.md",
+  "payload": {
+    "contentMarkdown": "# Work Card: WC03 — Figma Workflow Router UI Shell Integration\n\nStatus: ready_for_implementer\nPhase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\nRevision: 2 — source-code-first rewrite\n\n## Operator Correction\n\nThe previous WC03 version is superseded. WC03 is not a prose-based design interpretation task.\n\nThe Implementer must use the checked-in phase source package as the UI authority:\n\n`planning/phases/phase-03/Figma_Source/Design Dark UI for ChampCity.zip`\n\nThe Implementer must not recreate, approximate, reinterpret, or redesign the Figma UI from written descriptions, screenshots, or memory. If the source package is missing, unreadable, or does not contain the expected React source files, the Implementer must stop as blocked and report that the mandatory source package is unavailable.\n\n## Purpose\n\nImport the provided dark workflow-router UI source design into the real ChampCity A/I Electron/React application with maximum visual fidelity, then connect the shell to the WC02 current required action model only where needed to replace demo/static workflow state.\n\n## Source Authority\n\nUse these project artifacts as process authority:\n\n- `planning/phases/phase-03/Work_Card_Plan.md`\n- `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md`\n- `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md`\n- `docs/workflow/PROCESS_BASELINE.md`\n\nUse this package as visual/source-code authority:\n\n- `planning/phases/phase-03/Figma_Source/Design Dark UI for ChampCity.zip`\n\n## Mandatory Source Package Handling\n\nThe source package is implementation input for WC03. Do not commit a second copy of the archive. Do not move it unless required by the existing repo structure. Do not treat screenshots or prose as a substitute for the package.\n\nKnown expected package contents include a Vite/React export with `src/app/App.tsx`, `src/main.tsx`, `src/app/components`, `src/styles`, and `src/imports` assets. The Implementer must inspect the actual package before editing application code and must report the files inspected.\n\n## 1:1 Import Standard\n\nFor WC03, 1:1 import means:\n\n- use the provided source code as the starting implementation;\n- preserve source layout hierarchy, dark theme, typography intent, spacing, cards, panels, borders, icons, density, and relative placement as closely as the current app stack allows;\n- import/adapt source components, styles, and assets rather than rebuilding the UI from prose;\n- replace demo/static workflow state only where it would misrepresent the real application state;\n- document every unavoidable visual or technical deviation in the Implementer Report.\n\n## Included Scope\n\n- Import or adapt the source-code UI shell into the existing Electron/React renderer.\n- Preserve the source design’s major shell regions: top status strip, left-to-right workflow rail, current action area, artifact workspace, context/evidence region, subordinate navigation/manual fallback, and bottom evidence/activity area.\n- Use WC02 current required action IPC/preload wiring as live data input after the visual shell is imported.\n- Preserve existing application screens as subordinate/manual fallback navigation.\n- Ensure stale validation-target references do not crash the shell.\n- Ensure superseded Phase 03 artifacts appear only as warning/context, not active authority.\n- Update or confirm `AGENTS.md` includes the feature-branch review rule below.\n- Create the required WC03 Implementer Report.\n\n## Out of Scope\n\n- Do not implement WC04-WC15 route-specific behavior except narrow live-state wiring needed to prevent static/demo authority.\n- Do not create a prose-based UI approximation.\n- Do not proceed if the source package is unavailable.\n- Do not create Operator validation records.\n- Do not close Phase 03.\n- Do not merge the feature branch into `dev`.\n- Do not push to `master`.\n- Do not add provider SDKs, cloud services, browser automation, auth, database, or LLM API calls.\n\n## Branch and Review Rule\n\nBase branch: `dev`\n\nImplementation branch: `feature/phase-03-wc03-router-ui-shell`\n\nThe Implementer must create the feature branch from `dev`, commit WC03 work to that feature branch, and push the feature branch to origin. The Implementer must not push WC03 directly to `dev` or `master`, and must not merge the feature branch into `dev`. Architect review happens after the pushed feature branch and Implementer Report are available.\n\nIf the Implementer Report is committed in the same commit as the work, it must say `Commit hash: pending until commit is created`. The final Implementer response must provide the actual commit hash and pushed branch.\n\n## Acceptance Criteria\n\n- The source package was opened and inspected before implementation.\n- The implementation imports/adapts the source UI rather than reconstructing the design from prose.\n- The app displays a workflow-router shell visually faithful to the provided source design.\n- Major shell areas from the source design are preserved.\n- WC02 current required action data appears in the shell where needed to avoid demo/static authority.\n- Existing screens remain reachable through subordinate/manual fallback navigation.\n- Renderer filesystem access is not broadened.\n- Stale validation-target warnings do not crash the shell.\n- Superseded Phase 03 artifacts remain warning/context only.\n- Work is committed and pushed only to `feature/phase-03-wc03-router-ui-shell`.\n- WC03 Implementer Report exists.\n- Validation results, skipped checks, safety scan results, and visual deviations are documented.\n\n## Validation Expectations\n\n- Read `AGENTS.md` and `docs/dev/VALIDATION_COMMAND_LANES.md` before editing.\n- Run the appropriate normal Windows validation lane.\n- Run TypeScript/type validation and build validation.\n- Run tests relevant to renderer/current-action wiring if available.\n- Run local safety scans before staging.\n- Confirm no duplicate design archive, secrets, environment files, build outputs, or unrelated files were staged.\n- Do not perform Operator validation.\n\n## Operator Validation Focus\n\nOperator validation for WC03 should be visual and behavioral. Validate that the result visibly matches the provided source-code design closely enough to count as a source-code import/adaptation, not a prose-based approximation. Also validate that the app starts, existing screens remain reachable, current-action data appears, manual fallback navigation remains available, no demo/static labels act as workflow authority, and WC04-WC15 behavior was not prematurely implemented.\n\n## Required Implementer Report\n\nCreate:\n\n`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`\n\nThe report must include:\n\n- feature branch name;\n- confirmation the source package was available;\n- exact source files inspected;\n- source-code import/adaptation summary;\n- files changed;\n- how WC02 current-action data is loaded;\n- mapping of imported styles, components, and assets;\n- unavoidable visual or technical deviations from the source package;\n- confirmation WC04-WC15 were not implemented;\n- validation commands and results;\n- skipped checks and reasons;\n- safety scan results;\n- remaining dirty/untracked files;\n- final recommended next action.\n\n## Implementer Handoff\n\nYou are acting as Implementer for ChampCity A/I.\n\nWork Card: WC03 — Figma Workflow Router UI Shell Integration\nRevision: 2 — source-code-first rewrite\n\nBase branch: `dev`\nTarget branch: `feature/phase-03-wc03-router-ui-shell`\nExpected remote: `ChampCityChris/ChampCity_AI`\n\nUse this Work Card as the source of truth:\n`planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.md`\n\nMandatory source package:\n`planning/phases/phase-03/Figma_Source/Design Dark UI for ChampCity.zip`\n\nThis is a source-code-first 1:1 UI import task. Do not interpret the Figma design from words. Inspect the source package before editing. If the package is missing or unreadable, stop as blocked.\n\nImplement only WC03. Do not implement WC04-WC15. Do not merge to `dev`. Do not push to `master`. Create and push the WC03 feature branch. Create the required Implementer Report when complete.\n",
+    "data": {
+      "acceptance_criteria": [
+        "The app has a workflow-router shell layout rather than only a screen picker",
+        "The shell displays live WC02 current required action data",
+        "The locked workflow appears left-to-right in the process rail",
+        "The current required action area displays action title, reason, role, status, expected output, routes, fallback, and warnings",
+        "Existing screens remain reachable through subordinate/manual navigation",
+        "Figma demo/static state is removed or replaced by live app state",
+        "Renderer filesystem access is not broadened",
+        "Stale validation-target warnings do not crash the shell",
+        "Superseded Phase 03 artifacts remain warnings/context only",
+        "AGENTS.md contains the corrected Implementer feature-branch review rule, or the report confirms it was already present",
+        "Work is committed and pushed only to the WC03 feature branch",
+        "WC03 Implementer Report exists"
+      ],
+      "corrected_agent_review_rule": {
+        "base_branch": "dev",
+        "feature_branch": "feature/phase-03-wc03-router-ui-shell",
+        "merge_rule": "Only Architect/Operator-approved work may be merged into dev. Implementers must not merge their own feature branch into dev unless explicitly authorized.",
+        "must_not_push_to": [
+          "master",
+          "dev"
+        ]
+      },
+      "created": "2026-07-03",
+      "dependencies": [
+        "WC02",
+        "docs/workflow/PROCESS_BASELINE.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md"
+      ],
+      "included_scope": [
+        "Import or adapt the provided source-code UI shell into the existing Electron/React renderer",
+        "Use the WC02 current required action model as live state input",
+        "Add top status strip, horizontal process rail, current required action area, artifact workspace, context inspector, subordinate navigation, and bottom activity/evidence log area",
+        "Replace Figma demo/static state with live durable-state routing",
+        "Preserve existing screens as subordinate/manual fallback navigation",
+        "Confirm or update AGENTS.md with corrected Implementer feature-branch review rule if missing",
+        "Create the required WC03 Implementer Report"
+      ],
+      "next_action_after_completion": "Architect review of WC03 Implementer Report",
+      "out_of_scope": [
+        "Do not implement WC04-WC15 route-specific work",
+        "Do not create WC04 or later Work Cards",
+        "Do not create Operator validation records",
+        "Do not close Phase 03",
+        "Do not merge the feature branch into dev",
+        "Do not push to master",
+        "Do not add provider SDKs, cloud services, browser automation, auth, database, or LLM API calls",
+        "Do not commit large local design archives or zip files"
+      ],
+      "phase_id": "phase-03",
+      "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+      "purpose": "Integrate the Figma-inspired workflow-router UI shell into the real Electron/React application so the durable current required action model from WC02 becomes visible and usable.",
+      "report_required": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+      "risk_level": "high",
+      "status": "ready_for_implementer",
+      "title": "Figma Workflow Router UI Shell Integration",
+      "updated": "2026-07-03",
+      "validation_expectations": [
+        "Read docs/dev/VALIDATION_COMMAND_LANES.md before validation",
+        "Run the appropriate normal Windows validation lane",
+        "Run TypeScript/type validation",
+        "Run build validation",
+        "Run tests relevant to renderer/state wiring if available",
+        "Run or update fixture/static validation for current-action shell labels/state wiring if feasible",
+        "Run local path/secrets/large-file safety scan before staging",
+        "Do not perform Operator validation"
+      ],
+      "work_card_id": "WC03"
+    },
+    "kind": "work_card",
+    "title": "Work Card: WC03 — Figma Workflow Router UI Shell Integration"
   },
-  "acceptance_criteria": [
-    "The app has a workflow-router shell layout rather than only a screen picker",
-    "The shell displays live WC02 current required action data",
-    "The locked workflow appears left-to-right in the process rail",
-    "The current required action area displays action title, reason, role, status, expected output, routes, fallback, and warnings",
-    "Existing screens remain reachable through subordinate/manual navigation",
-    "Figma demo/static state is removed or replaced by live app state",
-    "Renderer filesystem access is not broadened",
-    "Stale validation-target warnings do not crash the shell",
-    "Superseded Phase 03 artifacts remain warnings/context only",
-    "AGENTS.md contains the corrected Implementer feature-branch review rule, or the report confirms it was already present",
-    "Work is committed and pushed only to the WC03 feature branch",
-    "WC03 Implementer Report exists"
-  ],
-  "validation_expectations": [
-    "Read docs/dev/VALIDATION_COMMAND_LANES.md before validation",
-    "Run the appropriate normal Windows validation lane",
-    "Run TypeScript/type validation",
-    "Run build validation",
-    "Run tests relevant to renderer/state wiring if available",
-    "Run or update fixture/static validation for current-action shell labels/state wiring if feasible",
-    "Run local path/secrets/large-file safety scan before staging",
-    "Do not perform Operator validation"
-  ],
-  "report_required": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
-  "next_action_after_completion": "Architect review of WC03 Implementer Report"
+  "payloadHash": "sha256:06a0199fc1463aeb7c9a47527e1bd4014c5582d4e6bddc0a7e48cf8cffc132ba",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC03",
+      "champcity-ai/phase-03/implementer_report/WC03",
+      "champcity-ai/phase-03/validation_report/WC03"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

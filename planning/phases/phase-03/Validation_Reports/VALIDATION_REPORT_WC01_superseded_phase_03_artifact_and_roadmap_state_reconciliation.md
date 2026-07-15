@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC01",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Validation Report: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+  },
+  "payloadHash": "sha256:3f08dc366b5963e2cc5d556bfaa824ebe528cd15c3e8f2a909a343d5d77526ee",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC01"
+}
+-->
+
 # Validation Report: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation
 
 Status: Pass
@@ -17,7 +49,7 @@ The Operator considers PH03 WC01 testing complete and marked as passed.
 ## Source Artifacts
 
 - Work Card: `planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
-- Implementer Report: `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
+- Implementer Report: `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
 - Architect Review: `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
 
 ## Operator Validation Results
@@ -29,7 +61,7 @@ The Operator considers PH03 WC01 testing complete and marked as passed.
 5. WC01 confirmed as the only current executable Phase 03 Work Card.
 6. Older `Repository Reconciliation and Phase Planning Documents` Phase 03 artifacts confirmed as superseded.
 7. Confirmed no WC02 or later executable Work Cards were created during WC01 implementation.
-8. Confirmed no separate Implementer Prompt artifact was created.
+8. Confirmed no separate Implementer Execution Packet artifact was created.
 9. Confirmed no Operator validation or closeout artifact was created by the Implementer.
 
 ## Operator Observations
@@ -48,7 +80,7 @@ The validation screen currently gives an error when attempting to load Phase 03 
 ENOENT: no such file or directory, open '<PROJECT_REPO>/planning/phases/phase-03/Validation_Targets/WC01_define_work_card_schema_and_markdown_renderer.json'
 ```
 
-The validation screen also reports that the saved WC01 JSON is not valid for the current validation target schema because required fields such as `workCardId`, `phase`, `createdAt`, `updatedAt`, `userOutcome`, `riskLevel`, `scope`, `outOfScope`, `requirements`, `acceptanceCriteria`, `validationPlan`, `risks`, `builderInstructions`, `operatorNotes`, and allowed status values do not match the older schema expectations.
+The validation screen also reports that the saved WC01 JSON is not valid for the current validation target schema because required fields such as `workCardId`, `phase`, `createdAt`, `updatedAt`, `userOutcome`, `riskLevel`, `scope`, `outOfScope`, `requirements`, `acceptanceCriteria`, `validationPlan`, `risks`, `implementerInstructions`, `operatorNotes`, and allowed status values do not match the older schema expectations.
 
 Disposition: Non-blocking for WC01. The error appears to reflect stale validation target/schema assumptions and is aligned with the planned Phase 03 workflow-router/state-model work. It should be captured as follow-up input for WC02 and/or a later validation-screen repair if the state model does not naturally resolve it.
 

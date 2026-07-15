@@ -1,10 +1,45 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC06",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC06 Left-to-Right Workflow Visibility"
+  },
+  "payloadHash": "sha256:862d9b13a7d36143dbca9d022c9c1aa552d17e5c249073f213ec695947a7a1b4",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC06"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC06"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC06",
+      "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC06"
+}
+-->
+
 # Architect Review: WC06 Left-to-Right Workflow Visibility
 
 ## Review Target
 
 - Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 - Work Card: WC06 — Left-to-Right Workflow Visibility
-- Implementer Report: `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md`
+- Implementer Report: `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md`
 - Implementation Branch: `feature/phase-03-wc06-left-to-right-workflow-visibility`
 - Review Date: 2026-07-13
 
@@ -26,7 +61,7 @@ The implementation also preserves the core Phase 03 authority model: the current
 
 Reviewed the WC06 Implementer Report and inspected the shared workflow visibility model and focused fixture:
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md`
 - `src/shared/workCards/workflowVisibility.ts`
 - `scripts/verify-wc06-workflow-visibility.mjs`
 

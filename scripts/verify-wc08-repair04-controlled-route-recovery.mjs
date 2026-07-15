@@ -270,7 +270,7 @@ assert.match(rendererSource, /saveRouteReviewRequest/);
 assert.doesNotMatch(rendererSource, /Handoff summary|select and copy/);
 assert.doesNotMatch(
   rendererSource,
-  /window\.champCity\.(?:saveHumanValidationRecord|saveArchitectPrompt|saveBuilderReportCapture)[\s\S]{0,500}Route Review Request/,
+  /window\.champCity\.(?:saveHumanValidationRecord|saveArchitectPrompt|saveImplementerReportCapture)[\s\S]{0,500}Route Review Request/,
   "The recovery control must not invoke approval, validation, or report mutation APIs.",
 );
 

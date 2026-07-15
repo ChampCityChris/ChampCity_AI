@@ -53,7 +53,7 @@ const currentAction = evaluateCurrentRequiredAction({
           ),
         ],
         implementerReport: artifact(
-          "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md",
+          "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md",
           "Implementer Report",
         ),
         architectReview: {
@@ -81,7 +81,7 @@ const currentAction = evaluateCurrentRequiredAction({
             "Repair Work Card",
           ),
           implementerReport: artifact(
-            "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+            "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
             "Repair Implementer Report",
           ),
           architectReview: {

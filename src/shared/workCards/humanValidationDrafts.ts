@@ -5,7 +5,7 @@ export type HumanValidationDraft = Omit<
   | "phase"
   | "workCardFileName"
   | "validationTargetFileName"
-  | "builderReportFileName"
+  | "implementerReportFileName"
 >;
 
 export type HumanValidationDraftCache = Record<string, HumanValidationDraft>;

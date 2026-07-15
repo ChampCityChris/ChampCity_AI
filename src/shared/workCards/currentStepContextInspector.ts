@@ -1306,7 +1306,7 @@ function expectedTypeIncludes(
 function inferRecordType(path: string): string {
   const normalized = normalizePath(path).toLowerCase();
 
-  if (normalized.includes("/builder_reports/")) {
+  if (normalized.includes("/implementer_reports/")) {
     return normalized.includes("repair")
       ? "Repair Implementer Report"
       : "Implementer Report";

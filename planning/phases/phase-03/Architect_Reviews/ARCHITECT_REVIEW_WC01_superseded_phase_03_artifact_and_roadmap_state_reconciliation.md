@@ -1,3 +1,42 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC01",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+  },
+  "payloadHash": "sha256:508c4425543e585b9b2291ffa958018c8ccad8b677e825bc73e09099ad68651e",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC01"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+      "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC01"
+}
+-->
+
 # Architect Review: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation
 
 Status: Ready for Operator Validation
@@ -9,7 +48,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
 
 ## Source Work Card
 
@@ -31,7 +70,7 @@ The Implementer Report describes work that stayed within the approved WC01 bound
 - preserved obsolete Phase 03 artifacts while marking them superseded
 - kept WC02 and WC03 work out of scope
 - did not create later Phase 03 executable Work Cards
-- did not create a separate Implementer Prompt artifact
+- did not create a separate Implementer Execution Packet artifact
 - did not perform Operator validation or closeout
 - did not stage, commit, push, tag, package, deploy, or open a PR
 
@@ -39,7 +78,7 @@ The Implementer Report describes work that stayed within the approved WC01 bound
 
 The Architect reviewed the following artifacts through ChampCity MCP:
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md`
 - `planning/project/PROJECT_STATE.md`
 - `planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md`
 - `planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md`
@@ -98,7 +137,7 @@ The Operator should manually inspect the app/repo-facing state and confirm:
 5. WC01 is the only current executable Phase 03 Work Card.
 6. Older Phase 03 `Repository Reconciliation and Phase Planning Documents` artifacts are visibly marked superseded and not current authority.
 7. No WC02 or later executable Work Cards were created.
-8. No separate Implementer Prompt artifact was created.
+8. No separate Implementer Execution Packet artifact was created.
 9. No Operator validation or closeout artifact was created by the Implementer.
 
 ## Validation Record Guidance

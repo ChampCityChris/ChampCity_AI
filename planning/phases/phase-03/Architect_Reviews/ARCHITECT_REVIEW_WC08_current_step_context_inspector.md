@@ -1,10 +1,47 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC08",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC08 Current Step Context Inspector"
+  },
+  "payloadHash": "sha256:f1d17815044d3b6bbf72b13a98ce071f4248431894a78eb412190bc35a1a5c7d",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC08"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC08"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08",
+      "champcity-ai/phase-03/observation_register/Observation_Register",
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+      "champcity-ai/project/observation_register/Project_Observation_Register"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC08"
+}
+-->
+
 # Architect Review: WC08 Current Step Context Inspector
 
 Status: Ready for Operator validation
 Project: ChampCity A/I
 Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
 Work Card: WC08 — Current Step Context Inspector
-Implementer Report: `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md`
+Implementer Report: `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`
 Review date: 2026-07-14
 
 ## Review Decision
@@ -22,7 +59,7 @@ The key architectural question was not whether the Implementer could display mor
 ## Sources Reviewed
 
 - `planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`
 - `planning/project/Project_Observation_Register.md`
 - `planning/phases/phase-03/Observation_Register.md`
 - `src/shared/workCards/currentStepContextInspector.ts`

@@ -1,53 +1,78 @@
 {
-  "work_card_id": "WC02-PREFLIGHT",
-  "phase_id": "phase-03",
-  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
-  "title": "Repo Safety Hygiene and Local Path Redaction",
-  "status": "ready_for_implementer",
-  "created": "2026-07-03",
-  "updated": "2026-07-03",
-  "risk_level": "medium",
-  "purpose": "Make the repo safe to stage and commit before WC02 implementation begins, and update project rules so future Architect and Implementer artifacts do not write concrete local machine paths into durable repo artifacts.",
-  "source_context": [
-    "planning/phases/phase-03/Operator_Phase_Approval.md",
-    "planning/phases/phase-03/Work_Card_Plan.md",
-    "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md",
-    "commit 8405e906b244070599dbb1f211ba51397e399fdb"
-  ],
-  "included_scope": [
-    "Scan changed and relevant tracked text artifacts for concrete local path patterns",
-    "Redact concrete local repository paths to <PROJECT_REPO>",
-    "Prefer repo-relative paths for files inside the project",
-    "Update AGENTS.md with a Local Path Redaction rule applying to both Architect and Implementer artifacts",
-    "Update current Phase 03 handoff text that still encourages concrete local path output",
-    "Confirm WC02 handoff uses <PROJECT_REPO> and repo-relative paths only",
-    "Stage and commit safety-hygiene changes after the MCP pre-commit safety scan passes",
-    "Create the required preflight Implementer Report"
-  ],
-  "out_of_scope": [
-    "Do not implement WC02 durable current required action model",
-    "Do not implement the Figma workflow-router UI shell",
-    "Do not perform broad UI redesign",
-    "Do not change workflow-router product scope",
-    "Do not rename historical Builder_* folders",
-    "Do not delete historical artifacts unless explicitly necessary and approved by the Operator",
-    "Do not push to remote unless the Operator explicitly requests it"
-  ],
-  "acceptance_criteria": [
-    "AGENTS.md contains a clear Local Path Redaction rule binding Architects and Implementers",
-    "Current WC02 handoff and related Phase 03 artifacts use <PROJECT_REPO> or repo-relative paths instead of concrete local machine paths",
-    "The MCP pre-commit safety scan passes for the staged preflight commit",
-    "A focused preflight commit is created locally",
-    "No push is performed unless separately requested",
-    "A preflight Implementer Report exists at the required path",
-    "The report lists files changed, redaction strategy, safety scan result, commit hash, remaining unstaged/dirty files, and recommended next action"
-  ],
-  "validation_expectations": [
-    "Run the MCP or local equivalent of a pre-commit safety scan on staged files",
-    "Confirm no staged file contains concrete local machine path patterns",
-    "Run git status --short and report remaining dirty files after commit",
-    "If source code is changed only for redaction of strings/comments, run the lightweight validation lane appropriate for changed files"
-  ],
-  "report_required": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
-  "next_work_card_after_preflight": "WC02 — Durable Current Required Action Model"
+  "artifactId": "champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+  "payload": {
+    "contentMarkdown": "# Work Card: Repo Safety Hygiene and Local Path Redaction\n\n## Work Card ID\n\nWC02-PREFLIGHT\n\nCreated: 2026-07-03\nUpdated: 2026-07-03\n\n## Phase\n\nphase-03 — Workflow Router Screen Correction and Guided Current Action UI\n\n## Status\n\nready_for_implementer\n\n## Purpose\n\nMake the repo safe to stage and commit before WC02 implementation begins, and update project rules so future Architect and Implementer artifacts do not write concrete local machine paths into durable repo artifacts.\n\nThis Work Card is a preflight safety Work Card. It does not replace WC02. WC02 should not be handed to the Implementer until this preflight pass is complete, reviewed, and committed or explicitly waived by the Operator.\n\n## Source Context\n\nPhase 03 approval and current Work Card sequence:\n\n- `planning/phases/phase-03/Operator_Phase_Approval.md`\n- `planning/phases/phase-03/Work_Card_Plan.md`\n- `planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md`\n\nRecent commit checkpoint:\n\n- `8405e906b244070599dbb1f211ba51397e399fdb`\n- Commit message: `Phase 03 WC01 validation and WC02 handoff`\n\nKnown issue:\n\nThe MCP git safety gate blocked broad staging because multiple changed files contained concrete local path patterns. The Architect also needs to follow the same rule as the Implementer: durable committed artifacts must not contain concrete local machine paths.\n\n## Problem\n\nThe repo contains changed text artifacts with local-path patterns. This prevents safe staging/committing through the MCP git workflow and creates a repeatable leak risk in Work Cards, Implementer Reports, validation records, closeout records, and handoff prompts.\n\nThe project needs a durable rule and a cleanup pass before WC02 implementation starts.\n\n## Goal\n\nPerform a complete safety repo hygiene pass for local-path leakage and update `AGENTS.md` so both Architect and Implementer outputs use safe placeholders and repo-relative paths.\n\nThe standard placeholder is:\n\n```text\n<PROJECT_REPO>\n```\n\nThe standard way to reference files inside the repo is repo-relative path notation, for example:\n\n```text\nplanning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md\n```\n\n## Included Scope\n\n- Scan changed and relevant tracked text artifacts for concrete local path patterns.\n- Redact concrete local repository paths to `<PROJECT_REPO>`.\n- Prefer repo-relative paths for files inside the project.\n- Update `AGENTS.md` with a Local Path Redaction rule applying to both Architect and Implementer artifacts.\n- Update any current Phase 03 handoff text that still encourages concrete local path output.\n- Confirm WC02 handoff uses `<PROJECT_REPO>` and repo-relative paths only.\n- Stage and commit the safety-hygiene changes after the MCP pre-commit safety scan passes.\n- Create a required Implementer Report for this preflight Work Card.\n\n## Out Of Scope\n\n- Do not implement WC02 durable current required action model.\n- Do not implement the Figma workflow-router UI shell.\n- Do not perform broad UI redesign.\n- Do not change workflow-router product scope.\n- Do not rename historical `Implementer_*` folders.\n- Do not delete historical artifacts unless explicitly necessary and approved by the Operator.\n- Do not push to remote unless the Operator explicitly requests it.\n- Do not alter secrets, credentials, provider configuration, package credentials, or environment files.\n\n## Required Redaction Policy\n\nAdd or update `AGENTS.md` with a rule equivalent to:\n\n```text\n## Local Path Redaction\n\nDo not write concrete local machine paths into committed artifacts, Work Cards, Implementer Reports, validation records, closeout records, planning documents, or handoff prompts.\n\nUse `<PROJECT_REPO>` to refer to the local repository root.\n\nUse repo-relative paths for files inside the project, for example:\n`planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md`.\n\nImplementers and Architects may verify the actual local path during execution, but reports must record that as “verified approved repo root” rather than printing the concrete local path.\n\nDo not use concrete Windows, macOS, Linux, or home-directory paths in durable committed artifacts. Use `<PROJECT_REPO>` or repo-relative paths instead.\n```\n\nThe wording may be refined, but the rule must clearly bind both Architect and Implementer outputs.\n\n## Search Targets\n\nScan at minimum:\n\n- `AGENTS.md`\n- `docs/`\n- `planning/`\n- `scripts/`\n- `src/`\n\nFocus on text files that may be committed. Skip binary files unless the MCP safety scan reports them as text or the Operator explicitly asks to inspect them.\n\n## Redaction Examples\n\nUse:\n\n```text\n<PROJECT_REPO>\n```\n\nInstead of concrete local repo roots.\n\nUse:\n\n```text\n<PROJECT_REPO>/planning/phases/phase-03/Validation_Targets/example.json\n```\n\nOr, preferably:\n\n```text\nplanning/phases/phase-03/Validation_Targets/example.json\n```\n\nDo not preserve concrete local user or home-directory paths in committed artifacts.\n\n## Commit Scope\n\nThis Work Card should create a focused safety-hygiene commit. The commit may include:\n\n- `AGENTS.md`\n- redacted planning/report/validation artifacts\n- redacted work cards or handoff prompts\n- a preflight Implementer Report\n\nDo not commit unrelated code changes unless the safety scan requires a specific text redaction in those files.\n\nIf broad dirty state remains after the preflight commit, report it clearly without attempting a full unrelated cleanup.\n\n## Acceptance Criteria\n\n- `AGENTS.md` contains a clear Local Path Redaction rule binding Architects and Implementers.\n- Current WC02 handoff and related Phase 03 artifacts use `<PROJECT_REPO>` or repo-relative paths instead of concrete local machine paths.\n- The MCP pre-commit safety scan passes for the staged preflight commit.\n- A focused preflight commit is created locally.\n- No push is performed unless separately requested.\n- A preflight Implementer Report exists at the required path.\n- The report lists files changed, redaction strategy, safety scan result, commit hash, remaining unstaged/dirty files, and recommended next action.\n\n## Validation\n\n- Run the MCP or local equivalent of a pre-commit safety scan on staged files.\n- Confirm no staged file contains concrete local machine path patterns.\n- Run `git status --short` and report remaining dirty files after commit.\n- If source code is changed only for redaction of strings/comments, run the lightweight validation lane appropriate for changed files. Do not broaden this into WC02 implementation validation.\n\n## Risk Level\n\nmedium\n\n## Implementer Instructions\n\nYou are acting as Implementer for ChampCity A/I.\n\nRepository root placeholder: `<PROJECT_REPO>`\nExpected remote: `ChampCityChris/ChampCity_AI`\n\nBefore editing:\n\n1. Verify repo root and remote, but do not print the concrete local repo path in committed artifacts.\n2. Read `AGENTS.md`.\n3. Review the current git status.\n4. Review the MCP safety-gate findings if available.\n5. Keep this pass limited to local-path redaction and safety-rule documentation.\n\nDeliverable report path:\n\n```text\nplanning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md\n```\n\nThe report must include:\n\n- Summary of changes.\n- Files changed.\n- Redaction policy used.\n- Whether `AGENTS.md` was updated.\n- Safety scan results.\n- Commit hash if a commit was created.\n- Remaining dirty files after commit.\n- Whether WC02 is safe to hand off.\n\n## Implementer Handoff Prompt\n\n```text\nYou are acting as Implementer for ChampCity A/I.\n\nWork Card: WC02-PREFLIGHT — Repo Safety Hygiene and Local Path Redaction\n\nRepository root placeholder: <PROJECT_REPO>\nExpected remote: ChampCityChris/ChampCity_AI\n\nGoal:\nMake the repo safe to stage/commit before WC02 implementation begins and update AGENTS.md so both Architect and Implementer artifacts avoid concrete local machine paths.\n\nUse this Work Card as the source of truth:\nplanning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md\n\nDo not rely on chat context beyond this instruction. Use <PROJECT_REPO> and repo-relative paths in all committed artifacts. Create the required Implementer Report when complete.\n```\n",
+    "data": {
+      "acceptance_criteria": [
+        "AGENTS.md contains a clear Local Path Redaction rule binding Architects and Implementers",
+        "Current WC02 handoff and related Phase 03 artifacts use <PROJECT_REPO> or repo-relative paths instead of concrete local machine paths",
+        "The MCP pre-commit safety scan passes for the staged preflight commit",
+        "A focused preflight commit is created locally",
+        "No push is performed unless separately requested",
+        "A preflight Implementer Report exists at the required path",
+        "The report lists files changed, redaction strategy, safety scan result, commit hash, remaining unstaged/dirty files, and recommended next action"
+      ],
+      "created": "2026-07-03",
+      "included_scope": [
+        "Scan changed and relevant tracked text artifacts for concrete local path patterns",
+        "Redact concrete local repository paths to <PROJECT_REPO>",
+        "Prefer repo-relative paths for files inside the project",
+        "Update AGENTS.md with a Local Path Redaction rule applying to both Architect and Implementer artifacts",
+        "Update current Phase 03 handoff text that still encourages concrete local path output",
+        "Confirm WC02 handoff uses <PROJECT_REPO> and repo-relative paths only",
+        "Stage and commit safety-hygiene changes after the MCP pre-commit safety scan passes",
+        "Create the required preflight Implementer Report"
+      ],
+      "next_work_card_after_preflight": "WC02 — Durable Current Required Action Model",
+      "out_of_scope": [
+        "Do not implement WC02 durable current required action model",
+        "Do not implement the Figma workflow-router UI shell",
+        "Do not perform broad UI redesign",
+        "Do not change workflow-router product scope",
+        "Do not rename historical Implementer_* folders",
+        "Do not delete historical artifacts unless explicitly necessary and approved by the Operator",
+        "Do not push to remote unless the Operator explicitly requests it"
+      ],
+      "phase_id": "phase-03",
+      "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+      "purpose": "Make the repo safe to stage and commit before WC02 implementation begins, and update project rules so future Architect and Implementer artifacts do not write concrete local machine paths into durable repo artifacts.",
+      "report_required": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+      "risk_level": "medium",
+      "source_context": [
+        "planning/phases/phase-03/Operator_Phase_Approval.md",
+        "planning/phases/phase-03/Work_Card_Plan.md",
+        "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md",
+        "commit 8405e906b244070599dbb1f211ba51397e399fdb"
+      ],
+      "status": "ready_for_implementer",
+      "title": "Repo Safety Hygiene and Local Path Redaction",
+      "updated": "2026-07-03",
+      "validation_expectations": [
+        "Run the MCP or local equivalent of a pre-commit safety scan on staged files",
+        "Confirm no staged file contains concrete local machine path patterns",
+        "Run git status --short and report remaining dirty files after commit",
+        "If source code is changed only for redaction of strings/comments, run the lightweight validation lane appropriate for changed files"
+      ],
+      "work_card_id": "WC02-PREFLIGHT"
+    },
+    "kind": "work_card",
+    "title": "Work Card: Repo Safety Hygiene and Local Path Redaction"
+  },
+  "payloadHash": "sha256:c2a2303170a6e0016482d9ff684952941fdc2d5eea7c0c8e30322540f58166ab",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

@@ -50,7 +50,7 @@ async function main() {
           "Work Card Markdown",
         ),
         artifact(
-          "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md",
+          "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
           "Implementer Report",
         ),
         artifact(
@@ -98,7 +98,7 @@ async function main() {
           "Work Card Markdown",
         ),
         artifact(
-          "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md",
+          "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
           "Implementer Report",
         ),
       ],
@@ -149,7 +149,7 @@ async function main() {
           "Repair Work Card",
         ),
         artifact(
-          "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
           "Repair Implementer Report",
         ),
         artifact(
@@ -229,7 +229,7 @@ async function main() {
 
   assert.equal(
     getArtifactDisplayName(
-      "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC07_artifact_review_workspace.md",
+      "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
     ),
     "WC07 - Artifact Review Workspace",
   );

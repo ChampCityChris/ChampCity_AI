@@ -7,7 +7,7 @@ Planned services:
 - `riskRouter.ts`
 - `workCardFramer.ts`
 - `promptComposer.ts`
-- `builderReportIngestor.ts`
+- `implementerReportIngestor.ts`
 - `validationCapture.ts`
 - `repairTriage.ts`
 - `projectMemoryUpdater.ts`

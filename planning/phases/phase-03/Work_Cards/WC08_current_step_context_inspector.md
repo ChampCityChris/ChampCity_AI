@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC08 — Current Step Context Inspector"
+  },
+  "payloadHash": "sha256:9802afc39ee597146aa3376ec5dc10a4ae9e49ba3bedfac1d645311c141eccd3",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC08",
+      "champcity-ai/phase-03/implementer_report/WC08",
+      "champcity-ai/phase-03/repair_record/WC08",
+      "champcity-ai/phase-03/validation_report/WC08",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Work Card: WC08 — Current Step Context Inspector
 
 Status: ready_for_implementer
@@ -237,7 +271,7 @@ The inspector must not make the WC07 repaired workspace worse. The `Artifacts` a
 - `Artifacts` and `Complete current action` remain easy to reach.
 - WC04, WC05, WC06, and WC07-REPAIR01 behavior remains preserved.
 - WC09-WC15 behavior is not implemented.
-- `BUILDER_REPORT_WC08_current_step_context_inspector.md` is created.
+- `IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md` is created.
 
 ## Validation Expectations
 
@@ -263,7 +297,7 @@ Likely files, subject to actual implementation needs:
 - `src/shared/workCards/artifactReviewWorkspace.ts`, only if integration with existing artifact rows is needed without duplicating artifact browsing
 - `scripts/verify-wc08-current-step-context-inspector.mjs`
 - existing WC04/WC05/WC06/WC07 focused fixture scripts if live-state expectations must be aligned
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`
 
 Do not add dependencies unless separately justified and explicitly approved in the Implementer Report.
 
@@ -286,7 +320,7 @@ Do not add dependencies unless separately justified and explicitly approved in t
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`
 
 The report must include:
 

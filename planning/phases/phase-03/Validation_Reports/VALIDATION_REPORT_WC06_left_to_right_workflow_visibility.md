@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC06",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-13T13:35:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC06 Left-to-Right Workflow Visibility"
+  },
+  "payloadHash": "sha256:4f3b2977ec8e8cde4dc408f5dd62de45ec7d546cd7d4a0e21dae91322beffe6a",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/work_card/WC06-REPAIR01"
+    ],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC06",
+      "champcity-ai/phase-03/implementer_report/WC06",
+      "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC06"
+}
+-->
+
 # Human Validation Report - WC06 Left-to-Right Workflow Visibility
 
 ## Validation Target
@@ -8,7 +42,7 @@
 - Phase: phase-03
 - Source JSON file: WC06_left_to_right_workflow_visibility.json
 - Source Markdown file: WC06_left_to_right_workflow_visibility.md
-- Associated Implementer Report: BUILDER_REPORT_WC06_left_to_right_workflow_visibility.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md
 - Associated Architect Review: ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md
 
 ## Validation Result

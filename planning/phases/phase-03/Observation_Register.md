@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/observation_register/Observation_Register",
+  "artifactType": "observation_register",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Observation_Register.json",
+  "markdownPath": "planning/phases/phase-03/Observation_Register.md",
+  "payload": {
+    "kind": "observation_register",
+    "title": "Phase 03 Observation Register"
+  },
+  "payloadHash": "sha256:24a4cafb0d5b4ee313e4fac1b2b96160a4e64f332e0a8cb627d177400a5157a9",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+      "champcity-ai/phase-03/architect_review/WC08",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Phase 03 Observation Register
 
 Status: Active
@@ -108,7 +140,7 @@ Each future Work Card creation pass must review both the project-level and phase
 - Architect observation: The application currently creates a new suffixed validation artifact when an existing validation report is amended instead of updating, superseding, or otherwise identifying one authoritative revision. This leaves multiple durable reports for the same workflow event and forces routing or review logic to infer authority from filenames, timestamps, or filesystem order.
 - Architect disposition: Promote to project-level architectural governance and require explicit design before implementation.
 - Disposition rationale: Artifact identity and artifact revision are separate concepts. At any point in time, every workflow artifact must have exactly one authoritative revision. Historical revisions may exist, but authority must never be inferred from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration. The workflow model must represent authority explicitly.
-- Architectural determination: ChampCity A/I shall distinguish artifact identity from artifact revision. One artifact represents one durable workflow event; revisions represent edits to that artifact. The application shall resolve exactly one authoritative revision for Work Cards, Builder Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.
+- Architectural determination: ChampCity A/I shall distinguish artifact identity from artifact revision. One artifact represents one durable workflow event; revisions represent edits to that artifact. The application shall resolve exactly one authoritative revision for Work Cards, Implementer Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.
 - Candidate implementation models: Single authoritative artifact with overwrite semantics and Git history; explicitly versioned artifacts with superseded metadata; or immutable artifacts with a separate authoritative index. Filename suffixes alone are not an authority model.
 - Assigned target: Future artifact authority and revision governance Work Card, to be planned before workflow automation depends on duplicate or revised artifacts.
 - Status: Open / Architectural design required

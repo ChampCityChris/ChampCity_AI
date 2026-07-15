@@ -1,202 +1,230 @@
 {
-  "phasePlanningDocumentsId": "PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
-  "projectName": "ChampCity A/I",
-  "phaseFolder": "phase-03",
-  "phaseName": "Repository Reconciliation and Phase Planning Documents",
-  "sourceProjectPlanningDocument": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
-  "sourceProjectPlanningSidecarJsonFileName": "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
-  "sourceProjectPlanningSidecarMarkdownFileName": "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
-  "sourceRepositoryReconciliationJsonFileName": "REPOSITORY_RECONCILIATION_champcity_a_i.json",
-  "sourceRepositoryReconciliationMarkdownFileName": "REPOSITORY_RECONCILIATION_champcity_a_i.md",
-  "sourcePhaseMapJsonFileName": "PHASE_MAP_champcity_a_i.json",
-  "sourcePhaseMapMarkdownFileName": "PHASE_MAP_champcity_a_i.md",
-  "sourceMappedPhaseId": "phase-03",
-  "sourceProjectRoadmapJsonFileName": "PROJECT_ROADMAP_champcity_a_i.json",
-  "sourceProjectRoadmapMarkdownFileName": "PROJECT_ROADMAP_champcity_a_i.md",
-  "reviewStatus": "superseded",
-  "phaseActivationStatus": "superseded_not_active",
-  "artifactAuthority": "Superseded historical Phase 03 planning output. Do not use this artifact as active Phase 03 planning authority.",
-  "formalWorkCardCreationPolicy": "Do not convert this superseded planning proposal into active Phase 03 Formal Work Cards.",
-  "phaseBrief": "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-  "phaseGoal": "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-  "phaseUserOperatorOutcome": "The Operator can generate phase planning documents for Repository Reconciliation and Phase Planning Documents from mapped roadmap context.",
-  "phaseScope": "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-  "explicitOutOfScopeItems": [],
-  "affectedAppScreensWorkflows": "Not provided.",
-  "sourceProjectPlanningContext": "Project Planning Documents record: PROJECT_PLANNING_DOCUMENTS_champcity_a_i\nProject: ChampCity A/I\nConfirmed facts: Project name: **ChampCity A/I**; Public/company/site brand: **ChampCity AI**; Current stage: **Alpha development**; The project is no longer in MVP. The MVP is closed and proved the work-card loop model. The current effort is Alpha development, using ChampCity A/I itself as dogfood for the larger project-planning workflow.; ChampCity A/I is an end-to-end platform for using the **Architect / Implementer** model workflow for agentic AI application development.; The application should help a non-developer or semi-technical Operator communicate with an AI Architect, plan a software project, create durable project artifacts, hand scoped work to an Implementer, validate results, manage repair loops, and track progress visually from project start through release readiness.; The primary users/operators are non-developer end users. They may be technically comfortable, but they should not be expected to know coding languages, software architecture, tech-stack design, implementation planning, or formal validation practices.; The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.; The project’s source-of-truth location is:; `<PROJECT_REPO>`; The source of truth is an existing local repository with durable planning files.; The preferred Implementer tool is **Codex**.\nInitial phase candidates: Not provided.",
-  "repositoryReconciliationSummary": "Repository Reconciliation: REPOSITORY_RECONCILIATION_champcity_a_i\nImplemented state: Not provided.\nRecommended next phase: Not provided.\nCurrent risks: The current app workflow surface is broader than a prompt builder. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer prompt generator, Implementer report capture, human validation, and phase closeo; MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.; A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.; RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.; Design Drift Notes; The product thesis has expanded from prompt generation into a guided operating system for Architect / Implementer software work. That drift is probably correct, but the documents must stop describing the app as if the next step is still basic planning-document generation.; The core risk is no longer whether ChampCity A/I can generate planning artifacts. It can. The current risk is whether it can safely coordinate repo-grounded state, MCP-mediated access, Operator approvals, Implementer handoffs, validation evidence, and phase progression without confusing a non-developer.; The largest current risk is MCP boundary design. The user must know what is connected, what files are being read, what files may be written, and when approval is required.; The second-largest risk is stale state. The contradiction between Phase 02 closure and the backlog’s Phase 02 WC05 recommendation is exactly the kind of drift the product is supposed to prevent.; The third risk is subscription integration ambiguity. The documents correctly avoid treating API integration as the only path, but browser/clipboard/desktop-helper/subscription-surface automation remains unresolved and should not be mixed into the immediate MCP repo-bridge phase.; The fourth risk is release confusion. The app has planning features, but public release requires packaging, onboarding, safe defaults, docs, validation lanes, and regression discipline.; The fifth risk is developer-language leakage. The project is intended for non-developers, so labels like validation, closeout, repair prompt, and phase artifact may need user-facing translations while preserving the underlying Architect / Implementer precision.; Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design; The recommended next phase is Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design.; This should come before subscription automation, broad UI polish, or public release work. MCP is the foundation of the intended Alpha workflow, and the project’s own risk register identifies it as the largest product and security boundary risk.",
-  "architectInterviewSummary": "Mapped phase: phase-03 - Repository Reconciliation and Phase Planning Documents\nPurpose: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\nStatus: pending review / not active\nNotes: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\nAssumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Builder Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.\nRisks: Later phase details are lower confidence until the previous phase has been closed.",
-  "phaseAssumptions": [
-    "Project Planning Documents",
-    "Repository Reconciliation",
-    "2026-07-01 Architect Alignment Amendment",
-    "All approved Work Cards have Builder Reports.",
-    "Validation Reports and repair decisions are reconciled.",
-    "Phase Closeout and Next Phase Readiness Review artifacts are saved.",
-    "The formal Phase Map is the selectable phase authority for this planning pass.",
-    "Project Roadmap and Phase Map are planning authorities; compatibility Phase Intake is generated only if needed internally."
-  ],
-  "phaseRisks": [
-    "Later phase details are lower confidence until the previous phase has been closed.",
-    "The current app workflow surface is broader than a prompt builder. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer prompt generator, Implementer report capture, human validation, and phase closeo",
-    "MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.",
-    "A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.",
-    "RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.",
-    "Design Drift Notes",
-    "The product thesis has expanded from prompt generation into a guided operating system for Architect / Implementer software work. That drift is probably correct, but the documents must stop describing the app as if the next step is still basic planning-document generation.",
-    "The core risk is no longer whether ChampCity A/I can generate planning artifacts. It can. The current risk is whether it can safely coordinate repo-grounded state, MCP-mediated access, Operator approvals, Implementer handoffs, validation evidence, and phase progression without confusing a non-developer.",
-    "The largest current risk is MCP boundary design. The user must know what is connected, what files are being read, what files may be written, and when approval is required.",
-    "The second-largest risk is stale state. The contradiction between Phase 02 closure and the backlog’s Phase 02 WC05 recommendation is exactly the kind of drift the product is supposed to prevent.",
-    "The third risk is subscription integration ambiguity. The documents correctly avoid treating API integration as the only path, but browser/clipboard/desktop-helper/subscription-surface automation remains unresolved and should not be mixed into the immediate MCP repo-bridge phase.",
-    "The fourth risk is release confusion. The app has planning features, but public release requires packaging, onboarding, safe defaults, docs, validation lanes, and regression discipline.",
-    "The fifth risk is developer-language leakage. The project is intended for non-developers, so labels like validation, closeout, repair prompt, and phase artifact may need user-facing translations while preserving the underlying Architect / Implementer precision.",
-    "Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design",
-    "The recommended next phase is Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design.",
-    "This should come before subscription automation, broad UI polish, or public release work. MCP is the foundation of the intended Alpha workflow, and the project’s own risk register identifies it as the largest product and security boundary risk."
-  ],
-  "phaseDependencies": [
-    "Roadmap confidence: medium",
-    "Prior phase must be repaired, validated, and closed or explicitly carried forward.",
-    "Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.",
-    "Operator must approve the phase before formal Work Cards are created."
-  ],
-  "validationExpectations": [
-    "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-  ],
-  "recommendedImplementationSequence": [
-    "WC01: Generate durable Project Roadmap and Phase Map",
-    "WC02: Consolidate validation evidence and stale-state warnings",
-    "WC03: Create Next Phase Readiness Review workflow",
-    "WC04: Produce roadmap-driven Work Card plans"
-  ],
-  "initialWorkCardPlan": [
-    {
-      "workCardIdProposal": "WC01",
-      "title": "Generate durable Project Roadmap and Phase Map",
-      "planStatus": "proposed",
-      "reconciliationStatus": "planned",
-      "executableStatus": "not_executable",
-      "problem": "Generate durable Project Roadmap and Phase Map is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "userOutcome": "The Operator can review generate durable project roadmap and phase map as part of Repository Reconciliation and Phase Planning Documents progress.",
-      "includedScope": "Generate durable Project Roadmap and Phase Map. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
-      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
-      "riskLevel": "high",
-      "validationItems": [
-        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-      ],
-      "suggestedOrdering": 1,
-      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
-    },
-    {
-      "workCardIdProposal": "WC02",
-      "title": "Consolidate validation evidence and stale-state warnings",
-      "planStatus": "proposed",
-      "reconciliationStatus": "planned",
-      "executableStatus": "not_executable",
-      "problem": "Consolidate validation evidence and stale-state warnings is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "userOutcome": "The Operator can review consolidate validation evidence and stale-state warnings as part of Repository Reconciliation and Phase Planning Documents progress.",
-      "includedScope": "Consolidate validation evidence and stale-state warnings. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
-      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
-      "riskLevel": "high",
-      "validationItems": [
-        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-      ],
-      "suggestedOrdering": 2,
-      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
-    },
-    {
-      "workCardIdProposal": "WC03",
-      "title": "Create Next Phase Readiness Review workflow",
-      "planStatus": "proposed",
-      "reconciliationStatus": "planned",
-      "executableStatus": "not_executable",
-      "problem": "Create Next Phase Readiness Review workflow is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "userOutcome": "The Operator can review create next phase readiness review workflow as part of Repository Reconciliation and Phase Planning Documents progress.",
-      "includedScope": "Create Next Phase Readiness Review workflow. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
-      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
-      "riskLevel": "high",
-      "validationItems": [
-        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-      ],
-      "suggestedOrdering": 3,
-      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
-    },
-    {
-      "workCardIdProposal": "WC04",
-      "title": "Produce roadmap-driven Work Card plans",
-      "planStatus": "proposed",
-      "reconciliationStatus": "planned",
-      "executableStatus": "not_executable",
-      "problem": "Produce roadmap-driven Work Card plans is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "userOutcome": "The Operator can review produce roadmap-driven work card plans as part of Repository Reconciliation and Phase Planning Documents progress.",
-      "includedScope": "Produce roadmap-driven Work Card plans. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
-      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
-      "riskLevel": "high",
-      "validationItems": [
-        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-      ],
-      "suggestedOrdering": 4,
-      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
-    },
-    {
-      "workCardIdProposal": "WC05",
-      "title": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme",
-      "planStatus": "proposed",
-      "reconciliationStatus": "planned",
-      "executableStatus": "not_executable",
-      "problem": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "userOutcome": "The Operator can review assumptions: project planning documents; repository reconciliation; 2026-07-01 architect alignme as part of Repository Reconciliation and Phase Planning Documents progress.",
-      "includedScope": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
-      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
-      "riskLevel": "high",
-      "validationItems": [
-        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-      ],
-      "suggestedOrdering": 5,
-      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
-    },
-    {
-      "workCardIdProposal": "WC06",
-      "title": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali",
-      "planStatus": "proposed",
-      "reconciliationStatus": "planned",
-      "executableStatus": "not_executable",
-      "problem": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "userOutcome": "The Operator can review planned work cards: wc01: generate durable project roadmap and phase map; wc02: consolidate vali as part of Repository Reconciliation and Phase Planning Documents progress.",
-      "includedScope": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
-      "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
-      "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
-      "riskLevel": "high",
-      "validationItems": [
-        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
-      ],
-      "suggestedOrdering": 6,
-      "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer terminology."
-    }
-  ],
-  "openQuestions": [
-    "Confirm scope boundaries during Next Phase Readiness Review."
-  ],
-  "nextRecommendedAction": "Use the approved Phase 03 workflow-router bundle instead. Preserve this file only as historical evidence of the superseded repository-reconciliation planning path.",
-  "phaseClarificationAnswers": "",
-  "phaseArchitectInterviewOutput": "Mapped phase: phase-03 - Repository Reconciliation and Phase Planning Documents\nPurpose: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\nStatus: pending review / not active\nNotes: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\nAssumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Builder Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.\nRisks: Later phase details are lower confidence until the previous phase has been closed.\nUnresolved questions: Confirm scope boundaries during Next Phase Readiness Review.\nPlanned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate validation evidence and stale-state warnings; WC03: Create Next Phase Readiness Review workflow; WC04: Produce roadmap-driven Work Card plans",
-  "operatorPlanAdjustments": "",
+  "artifactId": "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+  "artifactType": "phase_planning",
   "createdAt": "2026-07-02T18:05:46.022Z",
-  "updatedAt": "2026-07-02T18:05:46.022Z",
-  "supersededBy": {
-    "phaseId": "phase-03",
-    "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
-    "authorityArtifacts": [
-      "planning/phases/phase-03/Phase_Interview.md",
-      "planning/phases/phase-03/Phase_Planning.md",
-      "planning/phases/phase-03/Work_Card_Plan.md",
-      "planning/phases/phase-03/Operator_Phase_Approval.md"
+  "jsonPath": "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json",
+  "markdownPath": "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md",
+  "payload": {
+    "contentMarkdown": "# Phase Planning Documents: Repository Reconciliation and Phase Planning Documents\n\n> Superseded historical artifact. This 2026-07-02 phase-03 proposal has been superseded by the approved Phase 03 bundle for `Workflow Router Screen Correction and Guided Current Action UI`. Do not use this file as active Phase 03 planning authority.\n\nCurrent Phase 03 authority:\n\n- `planning/phases/phase-03/Phase_Interview.md`\n- `planning/phases/phase-03/Phase_Planning.md`\n- `planning/phases/phase-03/Work_Card_Plan.md`\n- `planning/phases/phase-03/Operator_Phase_Approval.md`\n\n## Source Context\n\nPhase Planning Documents ID: PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents\nProject: ChampCity A/I\nPhase folder: phase-03\nPhase name: Repository Reconciliation and Phase Planning Documents\nProject Planning Documents JSON: PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json\nProject Planning Documents Markdown: PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md\nRepository Reconciliation JSON: REPOSITORY_RECONCILIATION_champcity_a_i.json\nRepository Reconciliation Markdown: REPOSITORY_RECONCILIATION_champcity_a_i.md\nPhase Map JSON: PHASE_MAP_champcity_a_i.json\nPhase Map Markdown: PHASE_MAP_champcity_a_i.md\nMapped phase ID: phase-03\nProject Roadmap JSON: PROJECT_ROADMAP_champcity_a_i.json\nProject Roadmap Markdown: PROJECT_ROADMAP_champcity_a_i.md\nPhase Intake JSON: Not selected.\nPhase Intake Markdown: Not found.\nPhase Architect Interview Prompt JSON: Not selected.\nPhase Architect Interview Prompt Markdown: Not found.\nReview status: Superseded\nPhase activation status: Superseded / Not Active\nCreated: 2026-07-02T18:05:46.022Z\nUpdated: 2026-07-02T18:05:46.022Z\n\n## Artifact Authority\n\nPhase Planning Documents = draft or approved plan for a selected phase. This specific artifact is superseded historical output for the obsolete Phase 03 title `Repository Reconciliation and Phase Planning Documents`; the active Phase 03 authority is the approved workflow-router bundle listed above.\n\n## Formal Work Card Boundary\n\nThis document and its Work Card Plan are superseded planning proposals only. They must not be converted into active Formal Work Cards for Phase 03.\n\n## Phase Brief\n\nStabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n\n## Phase Goal\n\nStabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n\n## Phase User/Operator Outcome\n\nThe Operator can generate phase planning documents for Repository Reconciliation and Phase Planning Documents from mapped roadmap context.\n\n## Phase Scope\n\nStabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n\n## Explicit Out-Of-Scope Items\n\n- Not provided.\n\n## Affected App Screens/Workflows\n\nNot provided.\n\n## Source Project Planning Context\n\nProject Planning Documents record: PROJECT_PLANNING_DOCUMENTS_champcity_a_i\nProject: ChampCity A/I\nConfirmed facts: Project name: **ChampCity A/I**; Public/company/site brand: **ChampCity AI**; Current stage: **Alpha development**; The project is no longer in MVP. The MVP is closed and proved the work-card loop model. The current effort is Alpha development, using ChampCity A/I itself as dogfood for the larger project-planning workflow.; ChampCity A/I is an end-to-end platform for using the **Architect / Implementer** model workflow for agentic AI application development.; The application should help a non-developer or semi-technical Operator communicate with an AI Architect, plan a software project, create durable project artifacts, hand scoped work to an Implementer, validate results, manage repair loops, and track progress visually from project start through release readiness.; The primary users/operators are non-developer end users. They may be technically comfortable, but they should not be expected to know coding languages, software architecture, tech-stack design, implementation planning, or formal validation practices.; The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.; The project’s source-of-truth location is:; `<PROJECT_REPO>`; The source of truth is an existing local repository with durable planning files.; The preferred Implementer tool is **Codex**.\nInitial phase candidates: Not provided.\n\n## Repository Reconciliation Summary\n\nRepository Reconciliation: REPOSITORY_RECONCILIATION_champcity_a_i\nImplemented state: Not provided.\nRecommended next phase: Not provided.\nCurrent risks: The current app workflow surface is broader than a prompt implementer. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer execution packet generator, Implementer report capture, human validation, and phase closeo; MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.; A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.; RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.; Design Drift Notes; The product thesis has expanded from prompt generation into a guided operating system for Architect / Implementer software work. That drift is probably correct, but the documents must stop describing the app as if the next step is still basic planning-document generation.; The core risk is no longer whether ChampCity A/I can generate planning artifacts. It can. The current risk is whether it can safely coordinate repo-grounded state, MCP-mediated access, Operator approvals, Implementer handoffs, validation evidence, and phase progression without confusing a non-developer.; The largest current risk is MCP boundary design. The user must know what is connected, what files are being read, what files may be written, and when approval is required.; The second-largest risk is stale state. The contradiction between Phase 02 closure and the backlog’s Phase 02 WC05 recommendation is exactly the kind of drift the product is supposed to prevent.; The third risk is subscription integration ambiguity. The documents correctly avoid treating API integration as the only path, but browser/clipboard/desktop-helper/subscription-surface automation remains unresolved and should not be mixed into the immediate MCP repo-bridge phase.; The fourth risk is release confusion. The app has planning features, but public release requires packaging, onboarding, safe defaults, docs, validation lanes, and regression discipline.; The fifth risk is developer-language leakage. The project is intended for non-developers, so labels like validation, closeout, repair prompt, and phase artifact may need user-facing translations while preserving the underlying Architect / Implementer precision.; Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design; The recommended next phase is Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design.; This should come before subscription automation, broad UI polish, or public release work. MCP is the foundation of the intended Alpha workflow, and the project’s own risk register identifies it as the largest product and security boundary risk.\n\n## Clarification / Legacy Interview Summary\n\nMapped phase: phase-03 - Repository Reconciliation and Phase Planning Documents\nPurpose: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\nStatus: pending review / not active\nNotes: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\nAssumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.\nRisks: Later phase details are lower confidence until the previous phase has been closed.\n\n## Phase Assumptions\n\n- Project Planning Documents\n- Repository Reconciliation\n- 2026-07-01 Architect Alignment Amendment\n- All approved Work Cards have Implementer Reports.\n- Validation Reports and repair decisions are reconciled.\n- Phase Closeout and Next Phase Readiness Review artifacts are saved.\n- The formal Phase Map is the selectable phase authority for this planning pass.\n- Project Roadmap / Phase Map is the planning authority; compatibility Phase Intake is generated only if needed internally.\n\n## Phase Risks\n\n- Later phase details are lower confidence until the previous phase has been closed.\n- The current app workflow surface is broader than a prompt implementer. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer execution packet generator, Implementer report capture, human validation, and phase closeo\n- MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.\n- A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.\n- RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.\n- Design Drift Notes\n- The product thesis has expanded from prompt generation into a guided operating system for Architect / Implementer software work. That drift is probably correct, but the documents must stop describing the app as if the next step is still basic planning-document generation.\n- The core risk is no longer whether ChampCity A/I can generate planning artifacts. It can. The current risk is whether it can safely coordinate repo-grounded state, MCP-mediated access, Operator approvals, Implementer handoffs, validation evidence, and phase progression without confusing a non-developer.\n- The largest current risk is MCP boundary design. The user must know what is connected, what files are being read, what files may be written, and when approval is required.\n- The second-largest risk is stale state. The contradiction between Phase 02 closure and the backlog’s Phase 02 WC05 recommendation is exactly the kind of drift the product is supposed to prevent.\n- The third risk is subscription integration ambiguity. The documents correctly avoid treating API integration as the only path, but browser/clipboard/desktop-helper/subscription-surface automation remains unresolved and should not be mixed into the immediate MCP repo-bridge phase.\n- The fourth risk is release confusion. The app has planning features, but public release requires packaging, onboarding, safe defaults, docs, validation lanes, and regression discipline.\n- The fifth risk is developer-language leakage. The project is intended for non-developers, so labels like validation, closeout, repair prompt, and phase artifact may need user-facing translations while preserving the underlying Architect / Implementer precision.\n- Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design\n- The recommended next phase is Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design.\n- This should come before subscription automation, broad UI polish, or public release work. MCP is the foundation of the intended Alpha workflow, and the project’s own risk register identifies it as the largest product and security boundary risk.\n\n## Phase Dependencies\n\n- Roadmap confidence: medium\n- Prior phase must be repaired, validated, and closed or explicitly carried forward.\n- Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.\n- Operator must approve the phase before formal Work Cards are created.\n\n## Validation Expectations\n\n- Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n\n## Recommended Implementation Sequence\n\n1. WC01: Generate durable Project Roadmap and Phase Map\n2. WC02: Consolidate validation evidence and stale-state warnings\n3. WC03: Create Next Phase Readiness Review workflow\n4. WC04: Produce roadmap-driven Work Card plans\n\n## Proposed Work Card Plan\n\n### WC01: Generate durable Project Roadmap and Phase Map\n\n- Plan status: Proposed\n- Reconciliation status: Planned\n- Executable status: Not Executable\n- Problem: Generate durable Project Roadmap and Phase Map is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- User outcome: The Operator can review generate durable project roadmap and phase map as part of Repository Reconciliation and Phase Planning Documents progress.\n- Included scope: Generate durable Project Roadmap and Phase Map. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- Out of scope: Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.\n- Dependencies: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\n- Risk level: high\n- Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n- Suggested ordering: 1\n- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.\n\n### WC02: Consolidate validation evidence and stale-state warnings\n\n- Plan status: Proposed\n- Reconciliation status: Planned\n- Executable status: Not Executable\n- Problem: Consolidate validation evidence and stale-state warnings is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- User outcome: The Operator can review consolidate validation evidence and stale-state warnings as part of Repository Reconciliation and Phase Planning Documents progress.\n- Included scope: Consolidate validation evidence and stale-state warnings. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- Out of scope: Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.\n- Dependencies: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\n- Risk level: high\n- Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n- Suggested ordering: 2\n- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.\n\n### WC03: Create Next Phase Readiness Review workflow\n\n- Plan status: Proposed\n- Reconciliation status: Planned\n- Executable status: Not Executable\n- Problem: Create Next Phase Readiness Review workflow is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- User outcome: The Operator can review create next phase readiness review workflow as part of Repository Reconciliation and Phase Planning Documents progress.\n- Included scope: Create Next Phase Readiness Review workflow. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- Out of scope: Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.\n- Dependencies: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\n- Risk level: high\n- Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n- Suggested ordering: 3\n- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.\n\n### WC04: Produce roadmap-driven Work Card plans\n\n- Plan status: Proposed\n- Reconciliation status: Planned\n- Executable status: Not Executable\n- Problem: Produce roadmap-driven Work Card plans is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- User outcome: The Operator can review produce roadmap-driven work card plans as part of Repository Reconciliation and Phase Planning Documents progress.\n- Included scope: Produce roadmap-driven Work Card plans. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- Out of scope: Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.\n- Dependencies: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\n- Risk level: high\n- Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n- Suggested ordering: 4\n- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.\n\n### WC05: Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme\n\n- Plan status: Proposed\n- Reconciliation status: Planned\n- Executable status: Not Executable\n- Problem: Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- User outcome: The Operator can review assumptions: project planning documents; repository reconciliation; 2026-07-01 architect alignme as part of Repository Reconciliation and Phase Planning Documents progress.\n- Included scope: Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- Out of scope: Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.\n- Dependencies: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\n- Risk level: high\n- Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n- Suggested ordering: 5\n- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.\n\n### WC06: Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali\n\n- Plan status: Proposed\n- Reconciliation status: Planned\n- Executable status: Not Executable\n- Problem: Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- User outcome: The Operator can review planned work cards: wc01: generate durable project roadmap and phase map; wc02: consolidate vali as part of Repository Reconciliation and Phase Planning Documents progress.\n- Included scope: Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\n- Out of scope: Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.\n- Dependencies: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\n- Risk level: high\n- Validation items: Validate mapped phase phase-03 planning artifacts before Operator acceptance.\n- Suggested ordering: 6\n- Notes for Architect/Implementer: Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.\n\n## Open Questions\n\n- Confirm scope boundaries during Next Phase Readiness Review.\n\n## Next Recommended Action\n\nUse the approved Phase 03 workflow-router bundle instead. Preserve this file only as historical evidence of the superseded repository-reconciliation planning path.\n\n## Phase-Specific Clarification Answers\n\nNot provided.\n\n## Clarification / Legacy Interview Context\n\nMapped phase: phase-03 - Repository Reconciliation and Phase Planning Documents\nPurpose: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\nStatus: pending review / not active\nNotes: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\nAssumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.\nRisks: Later phase details are lower confidence until the previous phase has been closed.\nUnresolved questions: Confirm scope boundaries during Next Phase Readiness Review.\nPlanned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate validation evidence and stale-state warnings; WC03: Create Next Phase Readiness Review workflow; WC04: Produce roadmap-driven Work Card plans\n",
+    "data": {
+      "affectedAppScreensWorkflows": "Not provided.",
+      "architectInterviewSummary": "Mapped phase: phase-03 - Repository Reconciliation and Phase Planning Documents\nPurpose: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\nStatus: pending review / not active\nNotes: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\nAssumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.\nRisks: Later phase details are lower confidence until the previous phase has been closed.",
+      "artifactAuthority": "Superseded historical Phase 03 planning output. Do not use this artifact as active Phase 03 planning authority.",
+      "createdAt": "2026-07-02T18:05:46.022Z",
+      "explicitOutOfScopeItems": [],
+      "formalWorkCardCreationPolicy": "Do not convert this superseded planning proposal into active Phase 03 Formal Work Cards.",
+      "initialWorkCardPlan": [
+        {
+          "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+          "executableStatus": "not_executable",
+          "includedScope": "Generate durable Project Roadmap and Phase Map. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.",
+          "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+          "planStatus": "proposed",
+          "problem": "Generate durable Project Roadmap and Phase Map is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "reconciliationStatus": "planned",
+          "riskLevel": "high",
+          "suggestedOrdering": 1,
+          "title": "Generate durable Project Roadmap and Phase Map",
+          "userOutcome": "The Operator can review generate durable project roadmap and phase map as part of Repository Reconciliation and Phase Planning Documents progress.",
+          "validationItems": [
+            "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+          ],
+          "workCardIdProposal": "WC01"
+        },
+        {
+          "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+          "executableStatus": "not_executable",
+          "includedScope": "Consolidate validation evidence and stale-state warnings. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.",
+          "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+          "planStatus": "proposed",
+          "problem": "Consolidate validation evidence and stale-state warnings is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "reconciliationStatus": "planned",
+          "riskLevel": "high",
+          "suggestedOrdering": 2,
+          "title": "Consolidate validation evidence and stale-state warnings",
+          "userOutcome": "The Operator can review consolidate validation evidence and stale-state warnings as part of Repository Reconciliation and Phase Planning Documents progress.",
+          "validationItems": [
+            "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+          ],
+          "workCardIdProposal": "WC02"
+        },
+        {
+          "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+          "executableStatus": "not_executable",
+          "includedScope": "Create Next Phase Readiness Review workflow. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.",
+          "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+          "planStatus": "proposed",
+          "problem": "Create Next Phase Readiness Review workflow is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "reconciliationStatus": "planned",
+          "riskLevel": "high",
+          "suggestedOrdering": 3,
+          "title": "Create Next Phase Readiness Review workflow",
+          "userOutcome": "The Operator can review create next phase readiness review workflow as part of Repository Reconciliation and Phase Planning Documents progress.",
+          "validationItems": [
+            "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+          ],
+          "workCardIdProposal": "WC03"
+        },
+        {
+          "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+          "executableStatus": "not_executable",
+          "includedScope": "Produce roadmap-driven Work Card plans. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.",
+          "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+          "planStatus": "proposed",
+          "problem": "Produce roadmap-driven Work Card plans is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "reconciliationStatus": "planned",
+          "riskLevel": "high",
+          "suggestedOrdering": 4,
+          "title": "Produce roadmap-driven Work Card plans",
+          "userOutcome": "The Operator can review produce roadmap-driven work card plans as part of Repository Reconciliation and Phase Planning Documents progress.",
+          "validationItems": [
+            "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+          ],
+          "workCardIdProposal": "WC04"
+        },
+        {
+          "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+          "executableStatus": "not_executable",
+          "includedScope": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.",
+          "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+          "planStatus": "proposed",
+          "problem": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "reconciliationStatus": "planned",
+          "riskLevel": "high",
+          "suggestedOrdering": 5,
+          "title": "Assumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignme",
+          "userOutcome": "The Operator can review assumptions: project planning documents; repository reconciliation; 2026-07-01 architect alignme as part of Repository Reconciliation and Phase Planning Documents progress.",
+          "validationItems": [
+            "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+          ],
+          "workCardIdProposal": "WC05"
+        },
+        {
+          "dependencies": "Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.",
+          "executableStatus": "not_executable",
+          "includedScope": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali. Phase scope context: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "notesForArchitectImplementer": "Review before conversion into a formal Work Card. Preserve Operator / Architect / Implementer-facing role terminology.",
+          "outOfScope": "Do not perform Operator acceptance, phase closeout, release work, provider SDK integration, database/auth/cloud work, MCP work, connector work, or automatic formal Work Card creation.",
+          "planStatus": "proposed",
+          "problem": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali is needed to advance Repository Reconciliation and Phase Planning Documents toward: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+          "reconciliationStatus": "planned",
+          "riskLevel": "high",
+          "suggestedOrdering": 6,
+          "title": "Planned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate vali",
+          "userOutcome": "The Operator can review planned work cards: wc01: generate durable project roadmap and phase map; wc02: consolidate vali as part of Repository Reconciliation and Phase Planning Documents progress.",
+          "validationItems": [
+            "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+          ],
+          "workCardIdProposal": "WC06"
+        }
+      ],
+      "nextRecommendedAction": "Use the approved Phase 03 workflow-router bundle instead. Preserve this file only as historical evidence of the superseded repository-reconciliation planning path.",
+      "openQuestions": [
+        "Confirm scope boundaries during Next Phase Readiness Review."
+      ],
+      "operatorPlanAdjustments": "",
+      "phaseActivationStatus": "superseded_not_active",
+      "phaseArchitectInterviewOutput": "Mapped phase: phase-03 - Repository Reconciliation and Phase Planning Documents\nPurpose: Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.\nStatus: pending review / not active\nNotes: Roadmap confidence: medium; Prior phase must be repaired, validated, and closed or explicitly carried forward.; Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.; Operator must approve the phase before formal Work Cards are created.\nAssumptions: Project Planning Documents; Repository Reconciliation; 2026-07-01 Architect Alignment Amendment; All approved Work Cards have Implementer Reports.; Validation Reports and repair decisions are reconciled.; Phase Closeout and Next Phase Readiness Review artifacts are saved.\nRisks: Later phase details are lower confidence until the previous phase has been closed.\nUnresolved questions: Confirm scope boundaries during Next Phase Readiness Review.\nPlanned Work Cards: WC01: Generate durable Project Roadmap and Phase Map; WC02: Consolidate validation evidence and stale-state warnings; WC03: Create Next Phase Readiness Review workflow; WC04: Produce roadmap-driven Work Card plans",
+      "phaseAssumptions": [
+        "Project Planning Documents",
+        "Repository Reconciliation",
+        "2026-07-01 Architect Alignment Amendment",
+        "All approved Work Cards have Implementer Reports.",
+        "Validation Reports and repair decisions are reconciled.",
+        "Phase Closeout and Next Phase Readiness Review artifacts are saved.",
+        "The formal Phase Map is the selectable phase authority for this planning pass.",
+        "Project Roadmap and Phase Map are planning authorities; compatibility Phase Intake is generated only if needed internally."
+      ],
+      "phaseBrief": "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "phaseClarificationAnswers": "",
+      "phaseDependencies": [
+        "Roadmap confidence: medium",
+        "Prior phase must be repaired, validated, and closed or explicitly carried forward.",
+        "Roadmap / Phase Map should be reviewed at phase closeout before this phase starts.",
+        "Operator must approve the phase before formal Work Cards are created."
+      ],
+      "phaseFolder": "phase-03",
+      "phaseGoal": "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "phaseName": "Repository Reconciliation and Phase Planning Documents",
+      "phasePlanningDocumentsId": "PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+      "phaseRisks": [
+        "Later phase details are lower confidence until the previous phase has been closed.",
+        "The current app workflow surface is broader than a prompt implementer. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer execution packet generator, Implementer report capture, human validation, and phase closeo",
+        "MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.",
+        "A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.",
+        "RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.",
+        "Design Drift Notes",
+        "The product thesis has expanded from prompt generation into a guided operating system for Architect / Implementer software work. That drift is probably correct, but the documents must stop describing the app as if the next step is still basic planning-document generation.",
+        "The core risk is no longer whether ChampCity A/I can generate planning artifacts. It can. The current risk is whether it can safely coordinate repo-grounded state, MCP-mediated access, Operator approvals, Implementer handoffs, validation evidence, and phase progression without confusing a non-developer.",
+        "The largest current risk is MCP boundary design. The user must know what is connected, what files are being read, what files may be written, and when approval is required.",
+        "The second-largest risk is stale state. The contradiction between Phase 02 closure and the backlog’s Phase 02 WC05 recommendation is exactly the kind of drift the product is supposed to prevent.",
+        "The third risk is subscription integration ambiguity. The documents correctly avoid treating API integration as the only path, but browser/clipboard/desktop-helper/subscription-surface automation remains unresolved and should not be mixed into the immediate MCP repo-bridge phase.",
+        "The fourth risk is release confusion. The app has planning features, but public release requires packaging, onboarding, safe defaults, docs, validation lanes, and regression discipline.",
+        "The fifth risk is developer-language leakage. The project is intended for non-developers, so labels like validation, closeout, repair prompt, and phase artifact may need user-facing translations while preserving the underlying Architect / Implementer precision.",
+        "Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design",
+        "The recommended next phase is Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design.",
+        "This should come before subscription automation, broad UI polish, or public release work. MCP is the foundation of the intended Alpha workflow, and the project’s own risk register identifies it as the largest product and security boundary risk."
+      ],
+      "phaseScope": "Stabilize project state authority, validation summaries, stale-state detection, and next-phase recommendation.",
+      "phaseUserOperatorOutcome": "The Operator can generate phase planning documents for Repository Reconciliation and Phase Planning Documents from mapped roadmap context.",
+      "projectName": "ChampCity A/I",
+      "recommendedImplementationSequence": [
+        "WC01: Generate durable Project Roadmap and Phase Map",
+        "WC02: Consolidate validation evidence and stale-state warnings",
+        "WC03: Create Next Phase Readiness Review workflow",
+        "WC04: Produce roadmap-driven Work Card plans"
+      ],
+      "repositoryReconciliationSummary": "Repository Reconciliation: REPOSITORY_RECONCILIATION_champcity_a_i\nImplemented state: Not provided.\nRecommended next phase: Not provided.\nCurrent risks: The current app workflow surface is broader than a prompt implementer. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer execution packet generator, Implementer report capture, human validation, and phase closeo; MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.; A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.; RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.; Design Drift Notes; The product thesis has expanded from prompt generation into a guided operating system for Architect / Implementer software work. That drift is probably correct, but the documents must stop describing the app as if the next step is still basic planning-document generation.; The core risk is no longer whether ChampCity A/I can generate planning artifacts. It can. The current risk is whether it can safely coordinate repo-grounded state, MCP-mediated access, Operator approvals, Implementer handoffs, validation evidence, and phase progression without confusing a non-developer.; The largest current risk is MCP boundary design. The user must know what is connected, what files are being read, what files may be written, and when approval is required.; The second-largest risk is stale state. The contradiction between Phase 02 closure and the backlog’s Phase 02 WC05 recommendation is exactly the kind of drift the product is supposed to prevent.; The third risk is subscription integration ambiguity. The documents correctly avoid treating API integration as the only path, but browser/clipboard/desktop-helper/subscription-surface automation remains unresolved and should not be mixed into the immediate MCP repo-bridge phase.; The fourth risk is release confusion. The app has planning features, but public release requires packaging, onboarding, safe defaults, docs, validation lanes, and regression discipline.; The fifth risk is developer-language leakage. The project is intended for non-developers, so labels like validation, closeout, repair prompt, and phase artifact may need user-facing translations while preserving the underlying Architect / Implementer precision.; Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design; The recommended next phase is Phase 03: MCP Integration, Repo-Bridge Workflow, and Security Boundary Design.; This should come before subscription automation, broad UI polish, or public release work. MCP is the foundation of the intended Alpha workflow, and the project’s own risk register identifies it as the largest product and security boundary risk.",
+      "reviewStatus": "superseded",
+      "sourceMappedPhaseId": "phase-03",
+      "sourcePhaseMapJsonFileName": "PHASE_MAP_champcity_a_i.json",
+      "sourcePhaseMapMarkdownFileName": "PHASE_MAP_champcity_a_i.md",
+      "sourceProjectPlanningContext": "Project Planning Documents record: PROJECT_PLANNING_DOCUMENTS_champcity_a_i\nProject: ChampCity A/I\nConfirmed facts: Project name: **ChampCity A/I**; Public/company/site brand: **ChampCity AI**; Current stage: **Alpha development**; The project is no longer in MVP. The MVP is closed and proved the work-card loop model. The current effort is Alpha development, using ChampCity A/I itself as dogfood for the larger project-planning workflow.; ChampCity A/I is an end-to-end platform for using the **Architect / Implementer** model workflow for agentic AI application development.; The application should help a non-developer or semi-technical Operator communicate with an AI Architect, plan a software project, create durable project artifacts, hand scoped work to an Implementer, validate results, manage repair loops, and track progress visually from project start through release readiness.; The primary users/operators are non-developer end users. They may be technically comfortable, but they should not be expected to know coding languages, software architecture, tech-stack design, implementation planning, or formal validation practices.; The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.; The project’s source-of-truth location is:; `<PROJECT_REPO>`; The source of truth is an existing local repository with durable planning files.; The preferred Implementer tool is **Codex**.\nInitial phase candidates: Not provided.",
+      "sourceProjectPlanningDocument": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      "sourceProjectPlanningSidecarJsonFileName": "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+      "sourceProjectPlanningSidecarMarkdownFileName": "PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+      "sourceProjectRoadmapJsonFileName": "PROJECT_ROADMAP_champcity_a_i.json",
+      "sourceProjectRoadmapMarkdownFileName": "PROJECT_ROADMAP_champcity_a_i.md",
+      "sourceRepositoryReconciliationJsonFileName": "REPOSITORY_RECONCILIATION_champcity_a_i.json",
+      "sourceRepositoryReconciliationMarkdownFileName": "REPOSITORY_RECONCILIATION_champcity_a_i.md",
+      "supersededBy": {
+        "authorityArtifacts": [
+          "planning/phases/phase-03/Phase_Interview.md",
+          "planning/phases/phase-03/Phase_Planning.md",
+          "planning/phases/phase-03/Work_Card_Plan.md",
+          "planning/phases/phase-03/Operator_Phase_Approval.md"
+        ],
+        "phaseId": "phase-03",
+        "phaseTitle": "Workflow Router Screen Correction and Guided Current Action UI",
+        "reason": "Operator approved the workflow-router Phase 03 bundle on 2026-07-03."
+      },
+      "updatedAt": "2026-07-02T18:05:46.022Z",
+      "validationExpectations": [
+        "Validate mapped phase phase-03 planning artifacts before Operator acceptance."
+      ]
+    },
+    "kind": "phase_planning",
+    "title": "Phase Planning Documents: Repository Reconciliation and Phase Planning Documents"
+  },
+  "payloadHash": "sha256:ff51281d31c4e0a97ecb43d21af2452546039de82372884dc95d8fc5b8f563a9",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01"
     ],
-    "reason": "Operator approved the workflow-router Phase 03 bundle on 2026-07-03."
-  }
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "superseded",
+  "updatedAt": "2026-07-02T18:05:46.022Z"
 }

@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/ENVIRONMENT",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/ENVIRONMENT.json",
+  "markdownPath": "planning/project/ENVIRONMENT.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Environment"
+  },
+  "payloadHash": "sha256:415d88452dd3b0e8320b905d1b1cdf3777236cff74c2d54bbc2f2bfc3398d7d3",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Environment
 
 ## Workspace

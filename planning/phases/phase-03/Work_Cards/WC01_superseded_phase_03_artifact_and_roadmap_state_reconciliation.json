@@ -1,54 +1,83 @@
 {
-  "work_card_id": "WC01",
-  "phase_id": "phase-03",
-  "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
-  "title": "Superseded Phase 03 Artifact and Roadmap State Reconciliation",
-  "status": "ready_for_implementer",
-  "created": "2026-07-03",
-  "updated": "2026-07-03",
-  "risk_level": "medium",
-  "operator_approval_sources": [
-    "planning/phases/phase-03/Operator_Phase_Approval.md",
-    "planning/phases/phase-03/Operator_Phase_Approval.json"
-  ],
-  "problem": "The repository contains stale and superseded Phase 03 records created before the workflow-router rebaseline. Some durable artifacts still describe Phase 03 as Repository Reconciliation and Phase Planning Documents or still present Phase 02 corrective work as active.",
-  "goal": "Reconcile durable project and phase state so Phase 03 is clearly recognized as the active approved phase: Workflow Router Screen Correction and Guided Current Action UI.",
-  "included_scope": [
-    "Review approved Phase 03 mapping bundle",
-    "Review Phase 02 closeout record",
-    "Update durable project-state artifacts so Phase 02 is not described as the current active milestone",
-    "Update living Roadmap and related project/phase state records so Phase 03 is active/approved for execution",
-    "Update Phase Map or phase-status artifacts that still identify Phase 03 as Repository Reconciliation and Phase Planning Documents",
-    "Mark older Phase 03 planning artifacts as superseded historical artifacts without deleting them",
-    "Update matching JSON pairs where the app reads paired JSON records",
-    "Create WC01 Implementer Report under planning/phases/phase-03/Builder_Reports/"
-  ],
-  "out_of_scope": [
-    "Do not implement WC02 durable current required action model",
-    "Do not implement WC03 Figma workflow-router UI shell",
-    "Do not perform route-specific UI correction",
-    "Do not create additional Phase 03 executable Work Cards",
-    "Do not create Implementer prompts separate from Work Cards",
-    "Do not delete historical artifacts",
-    "Do not perform broad UI polish",
-    "Do not package, tag, release, deploy, push, or create a PR"
-  ],
-  "acceptance_criteria": [
-    "PROJECT_STATE.md no longer describes Phase 02 WC08 corrective work as the current active milestone",
-    "The living Roadmap identifies Phase 03 as active or approved for execution, not merely proposed/pending review",
-    "Phase Map/project-state records no longer identify the active Phase 03 as Repository Reconciliation and Phase Planning Documents",
-    "Obsolete Phase 03 planning artifacts are clearly marked superseded without being deleted",
-    "The approved Phase 03 bundle remains intact",
-    "WC01 Markdown and JSON artifacts exist under planning/phases/phase-03/Work_Cards/",
-    "A WC01 Implementer Report exists under planning/phases/phase-03/Builder_Reports/ after implementation"
-  ],
-  "validation_expectations": [
-    "Read docs/dev/VALIDATION_COMMAND_LANES.md before running validation",
-    "Run a JSON validity check for any JSON artifacts changed",
-    "Run node --check scripts/verify-work-card-fixture.mjs if that file or related fixture assumptions are affected",
-    "If source code is changed, run the documented validation lane, normally npm run validate:codex unless directed otherwise",
-    "Run git status --short and report changed files",
-    "Do not perform Operator acceptance or create validation records"
-  ],
-  "report_required": "planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md"
+  "artifactId": "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-03T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+  "payload": {
+    "contentMarkdown": "# Work Card: Superseded Phase 03 Artifact and Roadmap State Reconciliation\n\n## Work Card ID\n\nWC01\n\nCreated: 2026-07-03\nUpdated: 2026-07-03\n\n## Phase\n\nphase-03 — Workflow Router Screen Correction and Guided Current Action UI\n\n## Status\n\nready_for_implementer\n\n## Operator Approval Source\n\nPhase 03 was approved by the Operator in:\n\n- `planning/phases/phase-03/Operator_Phase_Approval.md`\n- `planning/phases/phase-03/Operator_Phase_Approval.json`\n\nApproved statement:\n\n```text\nI approve the revised Phase 03 Phase Mapping bundle for phase-03: Workflow Router Screen Correction and Guided Current Action UI, including WC03 — Figma Workflow Router UI Shell Integration. The Architect may begin creating executable Work Cards just in time from Work_Card_Plan.md, starting with WC01 unless I request a different order.\n```\n\n## What Problem Are We Solving?\n\nThe repository contains stale and superseded Phase 03 records created before the workflow-router rebaseline. Some durable artifacts still describe Phase 03 as “Repository Reconciliation and Phase Planning Documents” or still present Phase 02 corrective work as active.\n\nThat stale state is dangerous because Phase 03 depends on durable project state. If the app or future Architect/Implementer passes read obsolete Phase 03 artifacts as current authority, the workflow-router UI will route the Operator incorrectly.\n\n## What Should This Accomplish?\n\nReconcile durable project and phase state so Phase 03 is clearly recognized as the active approved phase:\n\n```text\nphase-03: Workflow Router Screen Correction and Guided Current Action UI\n```\n\nPreserve older Phase 03 artifacts as historical/superseded records, but prevent them from being treated as active Phase 03 planning authority.\n\n## What Should the User Be Able To Do?\n\nThe Operator should be able to inspect the repo/app state and see that:\n\n- Phase 02 has been closed by the Operator.\n- Phase 03 has been approved for just-in-time Work Card execution.\n- The approved Phase 03 bundle is the current authority.\n- Older Phase 03 “Repository Reconciliation and Phase Planning Documents” artifacts are superseded.\n- WC01 is the first active executable Work Card candidate.\n\n## What Is Included?\n\n- Review the approved Phase 03 mapping bundle.\n- Review the Phase 02 closeout record that activated Phase 03 manually.\n- Update durable project-state artifacts so they no longer describe Phase 02 WC08 corrective work as the current milestone.\n- Update the living Roadmap and related project/phase state records so Phase 03 is active/approved for execution, not merely proposed or pending review.\n- Update any Phase Map or phase-status artifact that still identifies Phase 03 as “Repository Reconciliation and Phase Planning Documents.”\n- Mark older Phase 03 planning artifacts as superseded historical artifacts without deleting them.\n- Add clear supersession notices to obsolete Phase 03 Markdown artifacts where appropriate.\n- Update matching JSON pairs where the app reads paired JSON records.\n- Ensure the current approved Phase 03 artifacts remain the authority:\n  - `planning/phases/phase-03/Phase_Interview.md`\n  - `planning/phases/phase-03/Phase_Planning.md`\n  - `planning/phases/phase-03/Work_Card_Plan.md`\n  - `planning/phases/phase-03/Operator_Phase_Approval.md`\n- Create a WC01 Implementer Report under the canonical `Implementer_Reports` storage when complete.\n\n## Likely Artifacts To Review\n\nAt minimum, review:\n\n- `docs/workflow/PROCESS_BASELINE.md`\n- `docs/workflow/PROCESS_MAP.drawio`\n- `planning/project/PROJECT_STATE.md`\n- `planning/project/PROJECT_PROFILE.md`\n- `planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md`\n- `planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json`\n- `planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md`\n- `planning/project/Phase_Map/PHASE_MAP_champcity_a_i.json`\n- `planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md`\n- `planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.md`\n- `planning/phases/phase-03/Phase_Interview.md`\n- `planning/phases/phase-03/Phase_Planning.md`\n- `planning/phases/phase-03/Work_Card_Plan.md`\n- `planning/phases/phase-03/Operator_Phase_Approval.md`\n- `planning/phases/phase-03/Operator_Phase_Approval.json`\n- existing obsolete Phase 03 artifacts under:\n  - `planning/phases/phase-03/Phase_Planning_Documents/`\n  - `planning/phases/phase-03/Work_Card_Plans/`\n  - `planning/phases/phase-03/WORK_CARD_BACKLOG.md`\n\nAlso inspect app source only if necessary to identify static labels or default state that still routes Phase 03 to the superseded purpose.\n\n## What Is Not Included?\n\n- Do not implement the durable current required action model. That is WC02.\n- Do not implement the Figma workflow-router UI shell. That is WC03.\n- Do not perform route-specific UI correction. That belongs to later Phase 03 Work Cards.\n- Do not create additional Phase 03 executable Work Cards.\n- Do not create Implementer execution packets separate from Work Cards.\n- Do not delete historical artifacts.\n- Do not rewrite Phase 01 or Phase 02 history beyond necessary status summaries.\n- Do not perform broad UI polish.\n- Do not package, tag, release, deploy, push, or create a PR.\n- Do not call an LLM API, add provider SDKs, add cloud services, or add browser automation.\n\n## Requirements\n\n- Verify the repository path before editing. Expected repository: `%USERPROFILE%\\Projects\\ChampCity_AI`.\n- Verify Git root and remote before editing.\n- Read `AGENTS.md` before implementation.\n- Read `docs/dev/VALIDATION_COMMAND_LANES.md` before running child-process-heavy validation.\n- Preserve Operator / Architect / Implementer-facing role terminology.\n- Preserve the locked workflow-router correction: ChampCity A/I is a workflow router, not a screen picker.\n- Preserve the approved Phase 03 title exactly:\n  - `Workflow Router Screen Correction and Guided Current Action UI`\n- Mark superseded artifacts clearly; do not remove them.\n- Any updated JSON must remain valid JSON.\n- Any updated Markdown must preserve readable human-facing status and source authority.\n- If paired Markdown/JSON records exist and are used by the app, keep the pair semantically consistent.\n- Avoid broad refactors.\n- If source code is touched only to correct static stale labels/defaults, keep the change narrow.\n\n## Required State Corrections\n\nThe reconciled state should communicate:\n\n- Phase 01: closed.\n- Phase 02: closed by Operator; closeout record exists.\n- Phase 03: active / approved for just-in-time Work Card execution.\n- Current Phase 03 approved bundle: `Phase_Interview.md`, `Phase_Planning.md`, `Work_Card_Plan.md`, and `Operator_Phase_Approval.md`.\n- Current executable Work Card: WC01.\n- Superseded Phase 03 title: `Repository Reconciliation and Phase Planning Documents`.\n- Superseded artifacts remain historical and must not be treated as active planning authority.\n\n## How We Know This Is Done\n\n- `planning/project/PROJECT_STATE.md` no longer describes Phase 02 WC08 corrective work as the current active milestone.\n- The living Roadmap identifies Phase 03 as active or approved for execution, not merely proposed/pending review.\n- Phase Map/project-state records no longer identify the active Phase 03 as “Repository Reconciliation and Phase Planning Documents.”\n- Obsolete Phase 03 planning artifacts are clearly marked superseded without being deleted.\n- The approved Phase 03 bundle remains intact.\n- The app-visible state, if static labels/defaults exist, no longer routes Phase 03 to the old repository-reconciliation phase.\n- WC01 Markdown and JSON artifacts exist under `planning/phases/phase-03/Work_Cards/`.\n- A WC01 Implementer Report exists under `planning/phases/phase-03/Implementer_Reports/` after implementation.\n- Validation commands pass or any environment/sandbox limitation is clearly documented.\n\n## How This Should Be Validated\n\n- Read `docs/dev/VALIDATION_COMMAND_LANES.md` before running validation.\n- Run a JSON validity check for any JSON artifacts changed.\n- Run `node --check scripts/verify-work-card-fixture.mjs` if that file or related fixture assumptions are affected.\n- If source code is changed, run the documented validation lane, normally `npm run validate:codex`, unless the validation lane document says to use a different command in the current environment.\n- Run `git status --short` and report changed files.\n- Manually inspect changed Markdown for stale references to the old Phase 03 title.\n- Do not perform Operator acceptance or create validation records.\n\n## Risk Level\n\nmedium\n\n## Risks and Watch Items\n\n- The repo is already dirty; do not assume every existing change belongs to this Work Card.\n- Older Phase 03 artifacts should be preserved, not deleted, because they are useful evidence of the rebaseline path.\n- JSON/Markdown drift could break app readers if only one side of a paired artifact is updated.\n- Updating too much UI in WC01 would blur the approved Work Card order. Keep UI implementation for WC03.\n- The term “active” should not imply all Phase 03 Work Cards are executable; only WC01 is created now, and later Work Cards are created just in time.\n\n## Implementer Instructions\n\nYou are acting as Implementer for ChampCity A/I.\n\nThe Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured Work Card and preserve the approved scope.\n\nBefore editing:\n\n1. Verify the repository path. Expected repository: `%USERPROFILE%\\Projects\\ChampCity_AI`.\n2. Verify Git root and remote. Expected remote repository: `ChampCityChris/ChampCity_AI`.\n3. Read `AGENTS.md`.\n4. Read `docs/dev/VALIDATION_COMMAND_LANES.md`.\n5. Read the approved Phase 03 Phase Mapping bundle.\n6. Review the obsolete Phase 03 artifacts before marking them superseded.\n\nImplementation constraints:\n\n- Keep the pass narrow and deterministic.\n- Do not create WC02 or later Work Cards.\n- Do not implement the workflow-router engine or Figma UI shell in this pass.\n- Do not delete historical records.\n- Do not stage, commit, push, tag, package, deploy, or open a PR.\n- Do not expose secrets or include local credentials in reports.\n\nDeliverable:\n\nCreate a WC01 Implementer Report at:\n\n```text\nplanning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md\n```\n\nThe report must include:\n\n- Summary of changes.\n- Files changed.\n- Superseded artifacts marked.\n- JSON validation performed.\n- Validation commands run and results.\n- Any commands skipped and why.\n- Git status summary.\n- Risks or follow-up items.\n- Recommended next action.\n\n## Implementer Handoff Prompt\n\nUse this as the starting Implementer execution packet. The section heading remains a historical execution handoff heading for artifact compatibility.\n\n```text\nYou are acting as Implementer for ChampCity A/I.\n\nWork Card: WC01 — Superseded Phase 03 Artifact and Roadmap State Reconciliation\n\nRepository: %USERPROFILE%\\Projects\\ChampCity_AI\nExpected remote: ChampCityChris/ChampCity_AI\n\nGoal:\nReconcile durable project and phase state so Phase 03 is clearly recognized as the active approved phase: “Workflow Router Screen Correction and Guided Current Action UI.” Preserve older Phase 03 “Repository Reconciliation and Phase Planning Documents” artifacts as superseded historical records, but prevent them from being treated as current authority.\n\nBefore editing:\n- Verify the repository path and Git root.\n- Verify the remote repository.\n- Read AGENTS.md.\n- Read docs/dev/VALIDATION_COMMAND_LANES.md.\n- Read planning/phases/phase-03/Phase_Interview.md.\n- Read planning/phases/phase-03/Phase_Planning.md.\n- Read planning/phases/phase-03/Work_Card_Plan.md.\n- Read planning/phases/phase-03/Operator_Phase_Approval.md.\n- Review obsolete Phase 03 artifacts under Phase_Planning_Documents, Work_Card_Plans, and WORK_CARD_BACKLOG.md.\n\nScope:\n- Update project-state and roadmap artifacts so Phase 02 is closed and Phase 03 is active/approved for just-in-time Work Card execution.\n- Update Phase Map/project-state records that still identify Phase 03 with the superseded title.\n- Mark obsolete Phase 03 artifacts as superseded without deleting them.\n- Keep Markdown/JSON pairs semantically consistent where the app uses paired artifacts.\n- Correct only narrow static app labels/defaults if they still route Phase 03 to the old phase title.\n- Create a WC01 Implementer Report under planning/phases/phase-03/Implementer_Reports/.\n\nOut of scope:\n- Do not implement WC02 durable current required action model.\n- Do not implement WC03 Figma workflow-router UI shell.\n- Do not create later Work Cards.\n- Do not create a separate Implementer Execution Packet artifact.\n- Do not delete historical artifacts.\n- Do not perform broad UI redesign.\n- Do not stage, commit, push, tag, package, deploy, or open a PR.\n\nAcceptance criteria:\n- PROJECT_STATE.md no longer describes Phase 02 WC08 corrective work as the current active milestone.\n- The living Roadmap identifies Phase 03 as active or approved for execution.\n- Active Phase 03 title is “Workflow Router Screen Correction and Guided Current Action UI.”\n- Obsolete Phase 03 artifacts are clearly marked superseded.\n- The approved Phase 03 bundle remains intact.\n- WC01 report is created with commands, validation, changed files, and next action.\n\nValidation:\n- Read docs/dev/VALIDATION_COMMAND_LANES.md first.\n- Validate changed JSON artifacts.\n- Run node --check scripts/verify-work-card-fixture.mjs if related assumptions are affected.\n- If source code changes, run the documented validation lane, normally npm run validate:codex unless the lane document directs otherwise.\n- Run git status --short and report changed files.\n```\n",
+    "data": {
+      "acceptance_criteria": [
+        "PROJECT_STATE.md no longer describes Phase 02 WC08 corrective work as the current active milestone",
+        "The living Roadmap identifies Phase 03 as active or approved for execution, not merely proposed/pending review",
+        "Phase Map/project-state records no longer identify the active Phase 03 as Repository Reconciliation and Phase Planning Documents",
+        "Obsolete Phase 03 planning artifacts are clearly marked superseded without being deleted",
+        "The approved Phase 03 bundle remains intact",
+        "WC01 Markdown and JSON artifacts exist under planning/phases/phase-03/Work_Cards/",
+        "A WC01 Implementer Report exists under planning/phases/phase-03/Implementer_Reports/ after implementation"
+      ],
+      "created": "2026-07-03",
+      "goal": "Reconcile durable project and phase state so Phase 03 is clearly recognized as the active approved phase: Workflow Router Screen Correction and Guided Current Action UI.",
+      "included_scope": [
+        "Review approved Phase 03 mapping bundle",
+        "Review Phase 02 closeout record",
+        "Update durable project-state artifacts so Phase 02 is not described as the current active milestone",
+        "Update living Roadmap and related project/phase state records so Phase 03 is active/approved for execution",
+        "Update Phase Map or phase-status artifacts that still identify Phase 03 as Repository Reconciliation and Phase Planning Documents",
+        "Mark older Phase 03 planning artifacts as superseded historical artifacts without deleting them",
+        "Update matching JSON pairs where the app reads paired JSON records",
+        "Create WC01 Implementer Report under planning/phases/phase-03/Implementer_Reports/"
+      ],
+      "operator_approval_sources": [
+        "planning/phases/phase-03/Operator_Phase_Approval.md",
+        "planning/phases/phase-03/Operator_Phase_Approval.json"
+      ],
+      "out_of_scope": [
+        "Do not implement WC02 durable current required action model",
+        "Do not implement WC03 Figma workflow-router UI shell",
+        "Do not perform route-specific UI correction",
+        "Do not create additional Phase 03 executable Work Cards",
+        "Do not create Implementer execution packets separate from Work Cards",
+        "Do not delete historical artifacts",
+        "Do not perform broad UI polish",
+        "Do not package, tag, release, deploy, push, or create a PR"
+      ],
+      "phase_id": "phase-03",
+      "phase_title": "Workflow Router Screen Correction and Guided Current Action UI",
+      "problem": "The repository contains stale and superseded Phase 03 records created before the workflow-router rebaseline. Some durable artifacts still describe Phase 03 as Repository Reconciliation and Phase Planning Documents or still present Phase 02 corrective work as active.",
+      "report_required": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+      "risk_level": "medium",
+      "status": "ready_for_implementer",
+      "title": "Superseded Phase 03 Artifact and Roadmap State Reconciliation",
+      "updated": "2026-07-03",
+      "validation_expectations": [
+        "Read docs/dev/VALIDATION_COMMAND_LANES.md before running validation",
+        "Run a JSON validity check for any JSON artifacts changed",
+        "Run node --check scripts/verify-work-card-fixture.mjs if that file or related fixture assumptions are affected",
+        "If source code is changed, run the documented validation lane, normally npm run validate:codex unless directed otherwise",
+        "Run git status --short and report changed files",
+        "Do not perform Operator acceptance or create validation records"
+      ],
+      "work_card_id": "WC01"
+    },
+    "kind": "work_card",
+    "title": "Work Card: Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+  },
+  "payloadHash": "sha256:54566209676104c9140419e3e0c0729af05357b17f94a451820aeae85763cf89",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01",
+      "champcity-ai/phase-03/validation_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+  "artifactType": "approval",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval.json",
+  "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval.md",
+  "payload": {
+    "kind": "approval",
+    "title": "Operator Phase Approval: phase-03"
+  },
+  "payloadHash": "sha256:7bea5a12f8d6e94bd9079775b11a64755874fbca02c5a07c1bf13ad6968610ad",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Operator Phase Approval: phase-03
 
 Status: Approved
@@ -42,7 +71,7 @@ This approval does not authorize:
 - skipping Operator review of full Work Cards
 - treating Figma output as workflow authority
 - blindly replacing the app with the Figma prototype
-- creating a separate Implementer Prompt artifact as a primary handoff
+- creating a separate Implementer Execution Packet artifact as a primary handoff
 - skipping Architect review of Implementer Reports
 - skipping Operator validation records
 - skipping REPAIR sub-card routing after failed validation

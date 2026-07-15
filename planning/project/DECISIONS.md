@@ -1,10 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/DECISIONS",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/DECISIONS.json",
+  "markdownPath": "planning/project/DECISIONS.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Decisions"
+  },
+  "payloadHash": "sha256:109bb1f54adfb5aa1bc4d0dc232660006bf2963995acc3757a6e01500aec78f7",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Decisions
 
 ## Current Decisions
 
 - The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.
-- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Builder Reports, repair prompts, closeout records, and decision history.
-- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Builder Reports, and support the Operator’s decision loop without relying on stale chat context alone.
+- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Implementer Reports, repair prompts, closeout records, and decision history.
+- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Implementer Reports, and support the Operator’s decision loop without relying on stale chat context alone.
 - Fully autonomous software creation without Operator review, validation, and decision authority.
 - The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 - Durable planning artifacts are stored as Markdown and JSON in the repository.
@@ -13,7 +39,7 @@
 - Preferred Implementer tool: Codex.
 - Architect surface: ChatGPT.
 - Phase 02 WC07 separates phase mapping from phase planning. The normal flow is Project Planning Documents + Repository Reconciliation + Project Roadmap -> Generate Phase Map -> Select mapped phase -> Generate Phase Planning Documents.
-- Phase Map Builder is the authority for creating mapped phase records and must not require a phase dropdown sourced only from existing phase artifact folders.
+- Phase Map Composer is the authority for creating mapped phase records and must not require a phase dropdown sourced only from existing phase artifact folders.
 - Phase Planning Documents Generator may show a phase selector only after a Phase Map exists, and the selector must be populated from mapped phase records.
 - Phase Intake is not a normal upstream operator input for phase planning. Existing Phase Intake artifacts remain compatibility records only.
 - Phase Architect Interview is optional and downstream. It may be used for phase-specific clarification only after roadmap and reconciliation context have established the target phase.
@@ -27,7 +53,7 @@
 - Work Card Plan Review is the normal planned-work review surface after Phase Planning. It may show proposed entries and disabled future actions, but WC08 does not authorize it to materialize Formal Work Cards.
 - Planned entries must distinguish planned, already satisfied, implemented but not validated, validated but not closed, deferred, and superseded states.
 - Formal Work Cards require a separate Operator approval step and must be saved under `Work_Cards/`.
-- Architect-created Implementer Prompts come after a Formal Work Card exists.
+- Architect-created Implementer Execution Packets come after a Formal Work Card exists.
 - The existing Capture screen is relabeled Ad Hoc Work Card Capture and is reserved for out-of-cycle, one-off, repair, emergency, or operator-discovered work.
 - Ad Hoc Work Card Capture uses manual/ad hoc authority. Its local fields determine the saved draft and should not silently combine with a selected Work Card or planned Work Card proposal.
 - Phase 03 draft artifacts may live under `planning/phases/phase-03/`, but they are not active until closeout or activation.
@@ -36,6 +62,6 @@
 
 ## Decision Notes
 
-Historical Builder artifact paths remain compatibility storage names until a dedicated migration Work Card changes them safely.
+Active Implementer artifacts use canonical storage names; historical archived paths remain evidence only.
 
 WC07 and WC08 are Phase 02 corrective Work Cards. They do not authorize Phase 03 activation or Phase 02 closeout; the Operator owns those decisions after validation.

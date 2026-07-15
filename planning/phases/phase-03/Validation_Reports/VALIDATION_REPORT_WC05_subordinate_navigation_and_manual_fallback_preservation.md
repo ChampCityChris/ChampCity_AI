@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC05",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-13T11:45:22.026Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC05 Subordinate Navigation and Manual Fallback Preservation"
+  },
+  "payloadHash": "sha256:1cdf9bb45939a6e22a4019ebc608f456a10a7b074515e6ed11bf68b4b5668122",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC05",
+      "champcity-ai/phase-03/implementer_report/WC05",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC05"
+}
+-->
+
 # Human Validation Report - WC05 Subordinate Navigation and Manual Fallback Preservation
 
 ## Validation Target
@@ -8,7 +40,7 @@
 - Phase: phase-03
 - Source JSON file: WC05_subordinate_navigation_and_manual_fallback_preservation.json
 - Source Markdown file: WC05_subordinate_navigation_and_manual_fallback_preservation.md
-- Associated Implementer Report: BUILDER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
 
 ## Validation Result
 

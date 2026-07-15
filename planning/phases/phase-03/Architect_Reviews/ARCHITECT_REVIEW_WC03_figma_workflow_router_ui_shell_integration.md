@@ -1,3 +1,38 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC03",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.md",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC03 Figma Workflow Router UI Shell Integration"
+  },
+  "payloadHash": "sha256:dbab6d4f6442c049c13f90d6fa111e588cdc5844434486b7cc4a2848aa769162",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC03"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC03"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC03",
+      "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC03"
+}
+-->
+
 # Architect Review: WC03 Figma Workflow Router UI Shell Integration
 
 Status: Ready for Operator Visual Validation
@@ -17,7 +52,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`
 
 ## Review Outcome
 
@@ -38,7 +73,7 @@ The report lists inspected source files, including the source application entry/
 Created:
 
 - `src/renderer/app/WorkflowRouterShell.tsx`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md`
 
 Modified:
 

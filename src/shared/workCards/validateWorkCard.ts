@@ -31,7 +31,7 @@ const requiredArrayFields = [
   "acceptanceCriteria",
   "validationPlan",
   "risks",
-  "builderInstructions",
+  "implementerInstructions",
   "operatorNotes",
 ] as const satisfies readonly (keyof WorkCard)[];
 

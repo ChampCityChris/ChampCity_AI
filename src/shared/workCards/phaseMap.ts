@@ -30,7 +30,7 @@ export type MappedPhaseStatus =
   | "implemented_but_not_validated"
   | "validated_but_not_closed";
 
-export interface PhaseMapBuilderRequest {
+export interface PhaseMapRequest {
   projectPlanningDocumentFileName?: string;
   repositoryReconciliationFileName?: string;
   projectRoadmapFileName?: string;
@@ -44,7 +44,7 @@ export interface PhaseMapExistingPhaseArtifact {
   phaseReadinessReviewFileNames: string[];
 }
 
-export interface PhaseMapBuildInput extends PhaseMapBuilderRequest {
+export interface PhaseMapBuildInput extends PhaseMapRequest {
   sourceProjectPlanningDocuments: ProjectPlanningDocumentsRecord;
   sourceProjectPlanningDocumentsMarkdownFileName?: string;
   sourceRepositoryReconciliation: RepositoryReconciliationRecord;
@@ -67,7 +67,7 @@ export interface PhaseMapSourceFileReferences {
 export interface PhaseMapExistingArtifactPreview {
   phaseFolder: string;
   workCardCount: number;
-  builderReportCount: number;
+  implementerReportCount: number;
   validationReportCount: number;
   repairPromptCount: number;
   closeoutReportCount: number;
@@ -522,7 +522,7 @@ function toExistingArtifactPreview(
   return {
     phaseFolder: artifact.phaseFolder,
     workCardCount: artifact.summary.workCardCount,
-    builderReportCount: artifact.summary.builderReportCount,
+    implementerReportCount: artifact.summary.implementerReportCount,
     validationReportCount: artifact.summary.validationReportCount,
     repairPromptCount: artifact.summary.repairPromptCount,
     closeoutReportCount: artifact.summary.closeoutReportCount,
@@ -591,7 +591,7 @@ function renderExistingArtifact(artifact: PhaseMapExistingArtifactPreview): stri
     `### ${artifact.phaseFolder}`,
     "",
     `- Work Cards: ${artifact.workCardCount}`,
-    `- Implementer Reports: ${artifact.builderReportCount}`,
+    `- Implementer Reports: ${artifact.implementerReportCount}`,
     `- Validation Reports: ${artifact.validationReportCount}`,
     `- Repair Prompts: ${artifact.repairPromptCount}`,
     `- Closeout Reports: ${artifact.closeoutReportCount}`,

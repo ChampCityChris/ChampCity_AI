@@ -1,107 +1,135 @@
 {
-  "status": "Active",
-  "project": "ChampCity A/I",
-  "lastUpdated": "2026-07-14",
-  "purpose": "Cross-phase register for unresolved, deferred, future-scope, or product-level observations discovered during phase execution and Operator validation.",
-  "observations": [
-    {
-      "id": "PROJ-OBS-001",
-      "sourceObservationId": "PH03-OBS-001",
-      "title": "Validation checklist should become editable / structured",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "Multiple validation reports",
-      "dateCaptured": "2026-07-13",
-      "operatorObservation": "The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate What was tested and checklist content. Later WC08-REPAIR01 validation also identified that Architect-provided Operator validation steps should focus on item-level acceptance criteria and observable validation assertions rather than broad navigation/setup steps such as opening the app or navigating to a screen.",
-      "architectDisposition": "Deferred to validation-record workflow work.",
-      "assignedTarget": "WC12 or post-Phase-03 validation UX cleanup",
-      "status": "Deferred",
-      "resolutionArtifact": "Pending"
-    },
-    {
-      "id": "PROJ-OBS-002",
-      "sourceObservationId": "PH03-OBS-002",
-      "title": "Screenshot paste and evidence UI needs cleanup",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "WC04-REPAIR01 / WC04-REPAIR03",
-      "dateCaptured": "2026-07-13",
-      "operatorObservation": "Screenshot paste should be the primary input method, attach should be fallback, repo-relative paths should clear after image creation, and screenshot evidence should be shown more like an image/card rather than long path text.",
-      "architectDisposition": "Deferred to validation-record workflow work.",
-      "assignedTarget": "WC12 or post-Phase-03 UI cleanup",
-      "status": "Deferred",
-      "resolutionArtifact": "Pending"
-    },
-    {
-      "id": "PROJ-OBS-003",
-      "sourceObservationId": "PH03-OBS-005",
-      "title": "Multi-project / workspace support does not exist",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "WC05",
-      "dateCaptured": "2026-07-13",
-      "operatorObservation": "There is no way currently to work multiple projects through the application.",
-      "architectDisposition": "Transfer to product backlog / future phase.",
-      "assignedTarget": "Future project/workspace management phase",
-      "status": "Future scope",
-      "resolutionArtifact": "Pending future phase planning"
-    },
-    {
-      "id": "PROJ-OBS-004",
-      "sourceObservationId": "PH03-OBS-007",
-      "title": "Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "WC07-REPAIR01",
-      "dateCaptured": "2026-07-14",
-      "operatorObservation": "Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.",
-      "architectDisposition": "Deferred to later navigation/layout cleanup.",
-      "assignedTarget": "Later Phase 03 navigation/layout cleanup Work Card or post-Phase-03 UI consolidation pass",
-      "status": "Deferred",
-      "resolutionArtifact": "Pending"
-    },
-    {
-      "id": "PROJ-OBS-005",
-      "sourceObservationId": "PH03-OBS-008",
-      "title": "Report review protocol and validation disposition role confusion",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "WC08",
-      "dateCaptured": "2026-07-14",
-      "operatorObservation": "Validation reports and Implementer Reports lack embedded Architect review instructions. The Operator Decision dropdown in validation reports creates role confusion.",
-      "architectDisposition": "Immediate repair Work Card.",
-      "assignedTarget": "WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance",
-      "status": "Assigned",
-      "resolutionArtifact": "Pending WC08-REPAIR02 validation"
-    },
-    {
-      "id": "PROJ-OBS-006",
-      "sourceObservationId": "PH03-OBS-009",
-      "title": "Controlled route recovery is needed when current-action routing is wrong or blocks validation",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
-      "dateCaptured": "2026-07-14",
-      "operatorObservation": "The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.",
-      "architectDisposition": "Assigned to immediate repair after WC08-REPAIR01 validation confirmed the non-mutating prompt-style route guidance is insufficient for an end-user product workflow.",
-      "dispositionRationale": "The app must provide a controlled in-application recovery path when routing is wrong, stale, or blocks validation. The recovery path must be governed by durable evidence and Architect disposition, not an unrestricted Operator override and not a copy/paste prompt to an Architect or LLM.",
-      "assignedTarget": "WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority",
-      "status": "Assigned",
-      "resolutionArtifact": "Pending WC08-REPAIR04 validation"
-    },
-    {
-      "id": "PROJ-OBS-007",
-      "sourceObservationId": "PH03-OBS-010",
-      "title": "Artifact authority and revision governance is undefined",
-      "sourcePhase": "phase-03",
-      "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
-      "dateCaptured": "2026-07-14",
-      "architectObservation": "The application creates a new suffixed artifact when an existing validation report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. Multiple durable artifacts can therefore represent the same workflow event.",
-      "architectDisposition": "Establish a project-wide artifact authority and revision governance rule before implementing a storage fix.",
-      "dispositionRationale": "Artifact identity and artifact revision are separate concepts. Every workflow artifact must have exactly one authoritative revision, and authority must not be inferred from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration.",
-      "architecturalDetermination": "One artifact represents one durable workflow event; revisions represent edits. ChampCity A/I must explicitly resolve one authoritative revision for Work Cards, Builder Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.",
-      "candidateImplementationModels": [
-        "Single authoritative artifact with overwrite semantics and Git history",
-        "Explicitly versioned artifacts with superseded metadata",
-        "Immutable artifacts with a separate authoritative index"
+  "artifactId": "champcity-ai/project/observation_register/Project_Observation_Register",
+  "artifactType": "observation_register",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/Project_Observation_Register.json",
+  "markdownPath": "planning/project/Project_Observation_Register.md",
+  "payload": {
+    "contentMarkdown": "# Project Observation Register\n\nStatus: Active\nProject: ChampCity A/I\nCreated: 2026-07-14\nLast updated: 2026-07-14\nPurpose: Cross-phase register for unresolved, deferred, future-scope, or product-level observations discovered during phase execution and Operator validation.\n\n## Governance Rule\n\nPhase Observation Registers record where an observation was discovered and triaged. This Project Observation Register records observations that must remain visible across phase boundaries.\n\nEvery just-in-time Work Card creation pass must review both:\n\n- `planning/project/Project_Observation_Register.md`\n- `planning/project/Project_Observation_Register.json`\n- `planning/phases/<active-phase>/Observation_Register.md`\n- `planning/phases/<active-phase>/Observation_Register.json`\n\nBefore creating a Work Card, the Architect must decide whether each open observation is in scope for the new Work Card, still deferred to later work, transferred to backlog/future phase, already resolved, or no action required. If an observation is in scope, the Work Card must include it under `Carried-Forward Observations Included`.\n\nAt phase closeout, every phase observation not marked `Resolved` or `No action required` must be copied, linked, or already represented in this project-level register.\n\n## Open / Deferred / Future-Scope Observations\n\n### PROJ-OBS-001 — Validation checklist should become editable / structured\n\n- Source Observation ID: PH03-OBS-001\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: Phase 03 Observation Register; WC04/WC05/WC06 validation observations\n- Source Work Card: Multiple validation reports\n- Date captured: 2026-07-13\n- Operator observation: The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate `What was tested` and checklist content. Later WC08-REPAIR01 validation also identified that Architect-provided Operator validation steps should focus on item-level acceptance criteria and observable validation assertions rather than broad navigation/setup steps such as opening the app or navigating to a screen.\n- Architect disposition: Deferred to validation-record workflow work.\n- Disposition rationale: This is durable validation UX debt. It is not specific to one Work Card and should remain visible until the validation-record creation flow is repaired or redesigned.\n- Assigned target: WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 validation UX cleanup if WC12 scope is kept narrower.\n- Status: Deferred\n- Resolution artifact: Pending\n\n### PROJ-OBS-002 — Screenshot paste and evidence UI needs cleanup\n\n- Source Observation ID: PH03-OBS-002\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: Phase 03 Observation Register; WC04 repair validation observations\n- Source Work Card: WC04-REPAIR01 / WC04-REPAIR03\n- Date captured: 2026-07-13\n- Operator observation: Screenshot paste should be the primary input method, the attach button should be fallback, repo-relative paths should clear after image creation, and screenshot evidence should be shown more like an image/card rather than long path text.\n- Architect disposition: Deferred to validation-record workflow work.\n- Disposition rationale: This is broader validation evidence UX, not limited to a single Work Card. It should remain visible across phases until addressed.\n- Assigned target: WC12 — Operator Validation Record and REPAIR Sub-Card Route, or post-Phase-03 UI cleanup.\n- Status: Deferred\n- Resolution artifact: Pending\n\n### PROJ-OBS-003 — Multi-project / workspace support does not exist\n\n- Source Observation ID: PH03-OBS-005\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md`\n- Source Work Card: WC05 — Subordinate Navigation and Manual Fallback Preservation\n- Date captured: 2026-07-13\n- Operator observation: There is no way currently to work multiple projects through the application.\n- Architect disposition: Transfer to product backlog / future phase.\n- Disposition rationale: Multi-project/workspace management is valid product functionality but outside Phase 03 router UI correction. It must not disappear at Phase 03 closeout.\n- Assigned target: Future project/workspace management phase.\n- Status: Future scope\n- Resolution artifact: Pending future phase planning\n\n### PROJ-OBS-004 — Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate\n\n- Source Observation ID: PH03-OBS-007\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md`\n- Source Work Card: WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability\n- Date captured: 2026-07-14\n- Operator observation: Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.\n- Architect disposition: Deferred to later navigation/layout cleanup.\n- Disposition rationale: This is a valid global navigation/readability issue. It was not a WC07-REPAIR01 blocker because WC07-REPAIR01 repaired artifact workspace layout ownership, not the global workflow/action bar system. It affects workspace real estate and should be considered before creating additional route-specific screens.\n- Assigned target: Later Phase 03 navigation/layout cleanup Work Card, or post-Phase-03 UI consolidation pass.\n- Status: Deferred\n- Resolution artifact: Pending\n\n### PROJ-OBS-005 — Report review protocol and validation disposition role confusion\n\n- Source Observation ID: PH03-OBS-008\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: Operator discussion following WC08 validation review; `planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md`\n- Source Work Card: WC08 — Current Step Context Inspector\n- Date captured: 2026-07-14\n- Operator observation: Validation reports and Implementer Reports lack embedded Architect review instructions. The `Operator Decision` dropdown in validation reports creates role confusion because it asks the Operator to make workflow disposition decisions that should be made by the Architect after analysis.\n- Architect disposition: Immediate repair Work Card.\n- Disposition rationale: This is a process defect causing inconsistent Architect review, inconsistent repair creation, and inconsistent validation-step output. It should be repaired before deeper route work continues.\n- Assigned target: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance\n- Status: Assigned\n- Resolution artifact: Pending WC08-REPAIR02 validation\n\n### PROJ-OBS-006 — Controlled route recovery is needed when current-action routing is wrong or blocks validation\n\n- Source Observation ID: PH03-OBS-009\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: Operator discussion after WC08-REPAIR02 validation was blocked by incorrect routing to WC09 Ad Hoc Work Card Capture.\n- Source Work Card: WC08-REPAIR02 / WC08-REPAIR03\n- Date captured: 2026-07-14\n- Operator observation: The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.\n- Architect disposition: Assigned to immediate repair after WC08-REPAIR01 validation confirmed the non-mutating prompt-style route guidance is insufficient for an end-user product workflow.\n- Disposition rationale: The app must provide a controlled in-application recovery path when routing is wrong, stale, or blocks validation. The recovery path must be governed by durable evidence and Architect disposition, not an unrestricted Operator override and not a copy/paste prompt to an Architect or LLM.\n- Assigned target: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority\n- Status: Assigned\n- Resolution artifact: Pending WC08-REPAIR04 validation\n\n### PROJ-OBS-007 — Artifact authority and revision governance is undefined\n\n- Source Observation ID: PH03-OBS-010\n- Source phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI\n- Source artifact: Architect review of amended WC08-REPAIR02 Human Validation Reports and duplicate `_2` validation artifacts created by the application.\n- Source Work Card: WC08-REPAIR02 / WC08-REPAIR03\n- Date captured: 2026-07-14\n- Architect observation: The application currently creates a new suffixed artifact when an existing validation report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. This creates multiple durable artifacts for the same workflow event and makes authority ambiguous.\n- Architect disposition: Establish a project-wide artifact authority and revision governance rule before implementing a storage fix.\n- Disposition rationale: Artifact identity and artifact revision are separate concepts. At any point in time, every workflow artifact must have exactly one authoritative revision. Historical revisions may exist, but routing, review, and automation must never infer authority from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration.\n- Architectural determination: One artifact represents one durable workflow event; revisions represent edits to that artifact. ChampCity A/I must explicitly resolve one authoritative revision for Work Cards, Implementer Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.\n- Candidate implementation models: Single authoritative artifact with overwrite semantics and Git history; explicitly versioned artifacts with superseded metadata; or immutable artifacts with a separate authoritative index. Filename suffixes alone are not an authority model.\n- Assigned target: Future artifact authority and revision governance Work Card, to be planned before workflow automation depends on duplicate or revised artifacts.\n- Status: Open / Architectural design required\n- Resolution artifact: Pending\n\n## Resolved Phase-Local Observations Not Promoted\n\nThese Phase 03 observations are intentionally not open project-level work items because they were resolved by WC07/WC07-REPAIR01 or resolved for WC07 scope:\n\n- PH03-OBS-003 — Source Evidence should not show full raw paths. Resolved by WC07-REPAIR01 validation.\n- PH03-OBS-004 — Supporting screens are reachable but not populated. Resolved for WC07 current-action artifact context; any future route-specific screen population should be scoped by a later Work Card.\n- PH03-OBS-006 — Work Card Loop needs artifact access during validation. Resolved by WC07-REPAIR01 validation.\n\n## Work Card Creation Requirement\n\nEvery future just-in-time Work Card creation prompt must include this requirement:\n\n```text\nBefore creating this Work Card, review:\n\nplanning/project/Project_Observation_Register.md\nplanning/project/Project_Observation_Register.json\nplanning/phases/<active-phase>/Observation_Register.md\nplanning/phases/<active-phase>/Observation_Register.json\n\nFor every open observation, determine whether it is:\n- in scope for this Work Card;\n- already resolved by prior work;\n- still deferred to a later Work Card in this phase;\n- deferred to a later phase;\n- transferred to product backlog / future phase;\n- no action required.\n\nIf an observation is in scope, explicitly include it in the Work Card under `Carried-Forward Observations Included`.\n\nIf no observation is in scope, state that both Observation Registers were reviewed and no open observations are included.\n\nThe Architect must not silently drop Operator observations.\n```\n\n## Phase Closeout Requirement\n\nEvery phase closeout must include an Observation Register reconciliation section:\n\n```text\nObservation Register Reconciliation:\n- Confirm all phase observations are Resolved, No action required, or represented in the Project Observation Register.\n- List any project-level observations created or updated during closeout.\n- Identify any observations that must influence next-phase activation or next-phase mapping.\n```\n",
+    "data": {
+      "lastUpdated": "2026-07-14",
+      "observations": [
+        {
+          "architectDisposition": "Deferred to validation-record workflow work.",
+          "assignedTarget": "WC12 or post-Phase-03 validation UX cleanup",
+          "dateCaptured": "2026-07-13",
+          "id": "PROJ-OBS-001",
+          "operatorObservation": "The manual validation checklist should move to the top of the Operator validation record, become editable, or become pass/fail/skipped questions so the validation record does not duplicate What was tested and checklist content. Later WC08-REPAIR01 validation also identified that Architect-provided Operator validation steps should focus on item-level acceptance criteria and observable validation assertions rather than broad navigation/setup steps such as opening the app or navigating to a screen.",
+          "resolutionArtifact": "Pending",
+          "sourceObservationId": "PH03-OBS-001",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "Multiple validation reports",
+          "status": "Deferred",
+          "title": "Validation checklist should become editable / structured"
+        },
+        {
+          "architectDisposition": "Deferred to validation-record workflow work.",
+          "assignedTarget": "WC12 or post-Phase-03 UI cleanup",
+          "dateCaptured": "2026-07-13",
+          "id": "PROJ-OBS-002",
+          "operatorObservation": "Screenshot paste should be the primary input method, attach should be fallback, repo-relative paths should clear after image creation, and screenshot evidence should be shown more like an image/card rather than long path text.",
+          "resolutionArtifact": "Pending",
+          "sourceObservationId": "PH03-OBS-002",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "WC04-REPAIR01 / WC04-REPAIR03",
+          "status": "Deferred",
+          "title": "Screenshot paste and evidence UI needs cleanup"
+        },
+        {
+          "architectDisposition": "Transfer to product backlog / future phase.",
+          "assignedTarget": "Future project/workspace management phase",
+          "dateCaptured": "2026-07-13",
+          "id": "PROJ-OBS-003",
+          "operatorObservation": "There is no way currently to work multiple projects through the application.",
+          "resolutionArtifact": "Pending future phase planning",
+          "sourceObservationId": "PH03-OBS-005",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "WC05",
+          "status": "Future scope",
+          "title": "Multi-project / workspace support does not exist"
+        },
+        {
+          "architectDisposition": "Deferred to later navigation/layout cleanup.",
+          "assignedTarget": "Later Phase 03 navigation/layout cleanup Work Card or post-Phase-03 UI consolidation pass",
+          "dateCaptured": "2026-07-14",
+          "id": "PROJ-OBS-004",
+          "operatorObservation": "Action bar remains duplicative and cluttered. Supporting Tools menu is duplicative of the action bar. Action bar should be collapsible or minimizable in some way to return real estate to the workspace.",
+          "resolutionArtifact": "Pending",
+          "sourceObservationId": "PH03-OBS-007",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "WC07-REPAIR01",
+          "status": "Deferred",
+          "title": "Top workflow/action bars and Supporting Tools are duplicative and consume workspace real estate"
+        },
+        {
+          "architectDisposition": "Immediate repair Work Card.",
+          "assignedTarget": "WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance",
+          "dateCaptured": "2026-07-14",
+          "id": "PROJ-OBS-005",
+          "operatorObservation": "Validation reports and Implementer Reports lack embedded Architect review instructions. The Operator Decision dropdown in validation reports creates role confusion.",
+          "resolutionArtifact": "Pending WC08-REPAIR02 validation",
+          "sourceObservationId": "PH03-OBS-008",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "WC08",
+          "status": "Assigned",
+          "title": "Report review protocol and validation disposition role confusion"
+        },
+        {
+          "architectDisposition": "Assigned to immediate repair after WC08-REPAIR01 validation confirmed the non-mutating prompt-style route guidance is insufficient for an end-user product workflow.",
+          "assignedTarget": "WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority",
+          "dateCaptured": "2026-07-14",
+          "dispositionRationale": "The app must provide a controlled in-application recovery path when routing is wrong, stale, or blocks validation. The recovery path must be governed by durable evidence and Architect disposition, not an unrestricted Operator override and not a copy/paste prompt to an Architect or LLM.",
+          "id": "PROJ-OBS-006",
+          "operatorObservation": "The Operator needs a controlled recovery path when current-action routing is wrong, has advanced too far, is stuck on stale state, or prevents access to the validation/review screen needed to continue. The app should not trap the Operator behind a broken route, but it also should not let the Operator casually mark work complete, skip validation, or advance phases without evidence.",
+          "resolutionArtifact": "Pending WC08-REPAIR04 validation",
+          "sourceObservationId": "PH03-OBS-009",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
+          "status": "Assigned",
+          "title": "Controlled route recovery is needed when current-action routing is wrong or blocks validation"
+        },
+        {
+          "architectDisposition": "Establish a project-wide artifact authority and revision governance rule before implementing a storage fix.",
+          "architectObservation": "The application creates a new suffixed artifact when an existing validation report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. Multiple durable artifacts can therefore represent the same workflow event.",
+          "architecturalDetermination": "One artifact represents one durable workflow event; revisions represent edits. ChampCity A/I must explicitly resolve one authoritative revision for Work Cards, Implementer Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.",
+          "assignedTarget": "Future artifact authority and revision governance Work Card before workflow automation depends on duplicate or revised artifacts.",
+          "candidateImplementationModels": [
+            "Single authoritative artifact with overwrite semantics and Git history",
+            "Explicitly versioned artifacts with superseded metadata",
+            "Immutable artifacts with a separate authoritative index"
+          ],
+          "dateCaptured": "2026-07-14",
+          "dispositionRationale": "Artifact identity and artifact revision are separate concepts. Every workflow artifact must have exactly one authoritative revision, and authority must not be inferred from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration.",
+          "id": "PROJ-OBS-007",
+          "resolutionArtifact": "Pending",
+          "sourceObservationId": "PH03-OBS-010",
+          "sourcePhase": "phase-03",
+          "sourceWorkCard": "WC08-REPAIR02 / WC08-REPAIR03",
+          "status": "Open / Architectural design required",
+          "title": "Artifact authority and revision governance is undefined"
+        }
       ],
-      "assignedTarget": "Future artifact authority and revision governance Work Card before workflow automation depends on duplicate or revised artifacts.",
-      "status": "Open / Architectural design required",
-      "resolutionArtifact": "Pending"
-    }
-  ]
+      "project": "ChampCity A/I",
+      "purpose": "Cross-phase register for unresolved, deferred, future-scope, or product-level observations discovered during phase execution and Operator validation.",
+      "status": "Active"
+    },
+    "kind": "observation_register",
+    "title": "Project Observation Register"
+  },
+  "payloadHash": "sha256:c001dc35a90bf68ab14f951b80ee410da6bc7d5fbdeca82e9f73f64d21ef0463",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC08",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
 }

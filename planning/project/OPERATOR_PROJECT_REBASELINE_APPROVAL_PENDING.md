@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+  "artifactType": "approval",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
+  "markdownPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
+  "payload": {
+    "kind": "approval",
+    "title": "Operator Project Rebaseline Approval"
+  },
+  "payloadHash": "sha256:8de0bbd422a2aa5e7bd371db256854316e626bb9fc6783cf2cdda115947ed4cf",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Operator Project Rebaseline Approval
 
 Status: Pending Operator Approval

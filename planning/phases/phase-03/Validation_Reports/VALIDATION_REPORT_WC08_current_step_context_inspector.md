@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC08",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-14T16:15:21.936Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC08 Current Step Context Inspector"
+  },
+  "payloadHash": "sha256:0ca9b089da74bcbdef42808aa853aaf3da613972e06a6f7ab6b5a01295ec440d",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03"
+    ],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC08",
+      "champcity-ai/phase-03/implementer_report/WC08",
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T16:15:21.936Z",
+  "workCardId": "WC08"
+}
+-->
+
 # Human Validation Report - WC08 Current Step Context Inspector
 
 ## Validation Target
@@ -8,7 +42,7 @@
 - Phase: phase-03
 - Source JSON file: WC08_current_step_context_inspector.json
 - Source Markdown file: WC08_current_step_context_inspector.md
-- Associated Implementer Report: BUILDER_REPORT_WC08_current_step_context_inspector.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md
 
 ## Validation Result
 

@@ -58,7 +58,7 @@ import type {
 } from "../shared/workCards/projectRoadmap";
 import type {
   ListSavedPhaseMapsResult,
-  PhaseMapBuilderRequest,
+  PhaseMapRequest,
   PhaseMapPreviewResult,
   PhaseMapSaveResult,
 } from "../shared/workCards/phaseMap";
@@ -69,16 +69,16 @@ import type {
   ListSavedWorkCardsResult,
 } from "../shared/workCards/renderArchitectFramingPrompt";
 import type {
-  BuilderPromptArtifactListResult,
-  BuilderPromptPreviewResult,
-  BuilderPromptRequest,
-  BuilderPromptSaveResult,
-} from "../shared/workCards/renderBuilderPrompt";
+  ImplementerExecutionPacketArtifactListResult,
+  ImplementerExecutionPacketPreviewResult,
+  ImplementerExecutionPacketRequest,
+  ImplementerExecutionPacketSaveResult,
+} from "../shared/workCards/renderImplementerExecutionPacket";
 import type {
-  BuilderReportCapturePreviewResult,
-  BuilderReportCaptureRequest,
-  BuilderReportCaptureSaveResult,
-} from "../shared/workCards/validateBuilderReport";
+  ImplementerReportCapturePreviewResult,
+  ImplementerReportCaptureRequest,
+  ImplementerReportCaptureSaveResult,
+} from "../shared/workCards/validateImplementerReport";
 import type {
   RiskReviewPreviewResult,
   RiskReviewRequest,
@@ -86,10 +86,10 @@ import type {
 } from "../shared/workCards/renderRiskReviewMarkdown";
 import type {
   AvailablePhaseFoldersResult,
-  BuilderReportFileLoadRequest,
-  BuilderReportFileLoadResult,
-  HumanValidationBuilderReportListRequest,
-  HumanValidationBuilderReportListResult,
+  ImplementerReportFileLoadRequest,
+  ImplementerReportFileLoadResult,
+  HumanValidationImplementerReportListRequest,
+  HumanValidationImplementerReportListResult,
   HumanValidationFormInput,
   HumanValidationPreviewResult,
   HumanValidationSaveResult,
@@ -118,6 +118,30 @@ import type {
   PlanningArtifactPreviewRequest,
   PlanningArtifactPreviewResult,
 } from "../shared/workCards/artifactReviewWorkspace";
+import type {
+  ContextPacketExportResult,
+  CurrentContextPacketExportRequest,
+  CurrentContextPacketPreviewRequest,
+  CurrentContextPacketPreviewResult,
+} from "../shared/contextPackets/contextPacket";
+import type { RoutedActionContract } from "../shared/workflow";
+
+let currentRoutedActionBinding: RoutedActionContract | null = null;
+
+async function refreshCurrentRequiredAction(): Promise<CurrentRequiredActionResult> {
+  const result = await ipcRenderer.invoke(
+    "workCards:getCurrentRequiredAction",
+  ) as CurrentRequiredActionResult;
+  currentRoutedActionBinding =
+    result.ok && result.currentAction?.routedAction
+      ? result.currentAction.routedAction
+      : null;
+  return result;
+}
+
+function invokeProcess<T>(channel: string, input: unknown): Promise<T> {
+  return ipcRenderer.invoke(channel, input, currentRoutedActionBinding);
+}
 
 const api = {
   getAppInfo: () => ({
@@ -128,7 +152,7 @@ const api = {
       "Project Architect Interview",
       "Project Plan",
       "Reconcile / Project State Review",
-      "Phase Map Builder",
+      "Phase Map Composer",
       "Phase Planning Documents Generator",
       "Work Card Plan Review",
       "Ad Hoc Work Card Capture",
@@ -145,21 +169,21 @@ const api = {
   previewProjectIntake: (
     input: ProjectIntakeInput,
   ): Promise<ProjectIntakePreviewResult> =>
-    ipcRenderer.invoke("projectIntake:preview", input),
+    invokeProcess("projectIntake:preview", input),
   saveProjectIntake: (
     input: ProjectIntakeInput,
   ): Promise<ProjectIntakeSaveResult> =>
-    ipcRenderer.invoke("projectIntake:save", input),
+    invokeProcess("projectIntake:save", input),
   listSavedProjectIntakes: (): Promise<ListSavedProjectIntakesResult> =>
     ipcRenderer.invoke("projectArchitectInterview:listProjectIntakes"),
   previewProjectArchitectInterviewPrompt: (
     input: ProjectArchitectInterviewPromptRequest,
   ): Promise<ProjectArchitectInterviewPromptPreviewResult> =>
-    ipcRenderer.invoke("projectArchitectInterview:previewPrompt", input),
+    invokeProcess("projectArchitectInterview:previewPrompt", input),
   saveProjectArchitectInterviewPrompt: (
     input: ProjectArchitectInterviewPromptRequest,
   ): Promise<ProjectArchitectInterviewPromptSaveResult> =>
-    ipcRenderer.invoke("projectArchitectInterview:savePrompt", input),
+    invokeProcess("projectArchitectInterview:savePrompt", input),
   listProjectPlanningDocumentProjectIntakes:
     (): Promise<ListSavedProjectIntakesResult> =>
       ipcRenderer.invoke("projectPlanningDocuments:listProjectIntakes"),
@@ -169,22 +193,22 @@ const api = {
   previewProjectPlanningDocuments: (
     input: ProjectPlanningDocumentsRequest,
   ): Promise<ProjectPlanningDocumentsPreviewResult> =>
-    ipcRenderer.invoke("projectPlanningDocuments:preview", input),
+    invokeProcess("projectPlanningDocuments:preview", input),
   saveProjectPlanningDocuments: (
     input: ProjectPlanningDocumentsRequest,
   ): Promise<ProjectPlanningDocumentsSaveResult> =>
-    ipcRenderer.invoke("projectPlanningDocuments:save", input),
+    invokeProcess("projectPlanningDocuments:save", input),
   listPhaseIntakeProjectPlanningDocuments:
     (): Promise<ListSavedProjectPlanningDocumentsResult> =>
       ipcRenderer.invoke("phaseIntake:listProjectPlanningDocuments"),
   previewPhaseIntake: (
     input: PhaseIntakeInput,
   ): Promise<PhaseIntakePreviewResult> =>
-    ipcRenderer.invoke("phaseIntake:preview", input),
+    invokeProcess("phaseIntake:preview", input),
   savePhaseIntake: (
     input: PhaseIntakeInput,
   ): Promise<PhaseIntakeSaveResult> =>
-    ipcRenderer.invoke("phaseIntake:save", input),
+    invokeProcess("phaseIntake:save", input),
   listPhaseArchitectInterviewPhaseIntakes: (
     phase: string,
   ): Promise<ListSavedPhaseIntakesResult> =>
@@ -192,42 +216,42 @@ const api = {
   previewPhaseArchitectInterviewPrompt: (
     input: PhaseArchitectInterviewPromptRequest,
   ): Promise<PhaseArchitectInterviewPromptPreviewResult> =>
-    ipcRenderer.invoke("phaseArchitectInterview:previewPrompt", input),
+    invokeProcess("phaseArchitectInterview:previewPrompt", input),
   savePhaseArchitectInterviewPrompt: (
     input: PhaseArchitectInterviewPromptRequest,
   ): Promise<PhaseArchitectInterviewPromptSaveResult> =>
-    ipcRenderer.invoke("phaseArchitectInterview:savePrompt", input),
+    invokeProcess("phaseArchitectInterview:savePrompt", input),
   listRepositoryReconciliationProjectPlanningDocuments:
     (): Promise<ListSavedProjectPlanningDocumentsResult> =>
       ipcRenderer.invoke("repositoryReconciliation:listProjectPlanningDocuments"),
   previewRepositoryReconciliationPrompt: (
     input: RepositoryReconciliationPromptRequest,
   ): Promise<RepositoryReconciliationPromptPreviewResult> =>
-    ipcRenderer.invoke("repositoryReconciliation:previewPrompt", input),
+    invokeProcess("repositoryReconciliation:previewPrompt", input),
   previewRepositoryReconciliation: (
     input: RepositoryReconciliationRequest,
   ): Promise<RepositoryReconciliationPreviewResult> =>
-    ipcRenderer.invoke("repositoryReconciliation:preview", input),
+    invokeProcess("repositoryReconciliation:preview", input),
   saveRepositoryReconciliation: (
     input: RepositoryReconciliationRequest,
   ): Promise<RepositoryReconciliationSaveResult> =>
-    ipcRenderer.invoke("repositoryReconciliation:save", input),
+    invokeProcess("repositoryReconciliation:save", input),
   previewProjectRoadmap: (
     input: ProjectRoadmapRequest,
   ): Promise<ProjectRoadmapPreviewResult> =>
-    ipcRenderer.invoke("projectRoadmap:preview", input),
+    invokeProcess("projectRoadmap:preview", input),
   saveProjectRoadmap: (
     input: ProjectRoadmapRequest,
   ): Promise<ProjectRoadmapSaveResult> =>
-    ipcRenderer.invoke("projectRoadmap:save", input),
+    invokeProcess("projectRoadmap:save", input),
   listSavedProjectRoadmaps: (): Promise<ListSavedProjectRoadmapsResult> =>
     ipcRenderer.invoke("projectRoadmap:listSaved"),
   previewPhaseMap: (
-    input: PhaseMapBuilderRequest,
+    input: PhaseMapRequest,
   ): Promise<PhaseMapPreviewResult> =>
-    ipcRenderer.invoke("phaseMap:preview", input),
-  savePhaseMap: (input: PhaseMapBuilderRequest): Promise<PhaseMapSaveResult> =>
-    ipcRenderer.invoke("phaseMap:save", input),
+    invokeProcess("phaseMap:preview", input),
+  savePhaseMap: (input: PhaseMapRequest): Promise<PhaseMapSaveResult> =>
+    invokeProcess("phaseMap:save", input),
   listSavedPhaseMaps: (): Promise<ListSavedPhaseMapsResult> =>
     ipcRenderer.invoke("phaseMap:listSaved"),
   listPhasePlanningProjectPlanningDocuments:
@@ -247,11 +271,11 @@ const api = {
   previewPhasePlanningDocuments: (
     input: PhasePlanningDocumentsRequest,
   ): Promise<PhasePlanningDocumentsPreviewResult> =>
-    ipcRenderer.invoke("phasePlanning:preview", input),
+    invokeProcess("phasePlanning:preview", input),
   savePhasePlanningDocuments: (
     input: PhasePlanningDocumentsRequest,
   ): Promise<PhasePlanningDocumentsSaveResult> =>
-    ipcRenderer.invoke("phasePlanning:save", input),
+    invokeProcess("phasePlanning:save", input),
   listSavedWorkCardPlans: (
     phase: string,
   ): Promise<ListSavedWorkCardPlansResult> =>
@@ -261,61 +285,61 @@ const api = {
   previewWorkCardDraft: (
     input: WorkCardDraftInput,
   ): Promise<WorkCardPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewDraft", input),
+    invokeProcess("workCards:previewDraft", input),
   saveWorkCardDraft: (input: WorkCardDraftInput): Promise<WorkCardSaveResult> =>
-    ipcRenderer.invoke("workCards:saveDraft", input),
+    invokeProcess("workCards:saveDraft", input),
   listSavedWorkCards: (phase: string): Promise<ListSavedWorkCardsResult> =>
     ipcRenderer.invoke("workCards:listSaved", phase),
   previewArchitectPrompt: (
     input: ArchitectPromptRequest,
   ): Promise<ArchitectPromptPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewArchitectPrompt", input),
+    invokeProcess("workCards:previewArchitectPrompt", input),
   saveArchitectPrompt: (
     input: ArchitectPromptRequest,
   ): Promise<ArchitectPromptSaveResult> =>
-    ipcRenderer.invoke("workCards:saveArchitectPrompt", input),
+    invokeProcess("workCards:saveArchitectPrompt", input),
   previewRiskReview: (
     input: RiskReviewRequest,
   ): Promise<RiskReviewPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewRiskReview", input),
+    invokeProcess("workCards:previewRiskReview", input),
   saveRiskReview: (input: RiskReviewRequest): Promise<RiskReviewSaveResult> =>
-    ipcRenderer.invoke("workCards:saveRiskReview", input),
-  listBuilderPromptSupportingArtifacts: (
-    input: BuilderPromptRequest,
-  ): Promise<BuilderPromptArtifactListResult> =>
-    ipcRenderer.invoke("workCards:listBuilderPromptSupportingArtifacts", input),
-  previewBuilderPrompt: (
-    input: BuilderPromptRequest,
-  ): Promise<BuilderPromptPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewBuilderPrompt", input),
-  saveBuilderPrompt: (
-    input: BuilderPromptRequest,
-  ): Promise<BuilderPromptSaveResult> =>
-    ipcRenderer.invoke("workCards:saveBuilderPrompt", input),
-  previewBuilderReportCapture: (
-    input: BuilderReportCaptureRequest,
-  ): Promise<BuilderReportCapturePreviewResult> =>
-    ipcRenderer.invoke("workCards:previewBuilderReportCapture", input),
-  saveBuilderReportCapture: (
-    input: BuilderReportCaptureRequest,
-  ): Promise<BuilderReportCaptureSaveResult> =>
-    ipcRenderer.invoke("workCards:saveBuilderReportCapture", input),
+    invokeProcess("workCards:saveRiskReview", input),
+  listImplementerExecutionPacketSupportingArtifacts: (
+    input: ImplementerExecutionPacketRequest,
+  ): Promise<ImplementerExecutionPacketArtifactListResult> =>
+    ipcRenderer.invoke("workCards:listImplementerExecutionPacketSupportingArtifacts", input),
+  previewImplementerExecutionPacket: (
+    input: ImplementerExecutionPacketRequest,
+  ): Promise<ImplementerExecutionPacketPreviewResult> =>
+    invokeProcess("workCards:previewImplementerExecutionPacket", input),
+  saveImplementerExecutionPacket: (
+    input: ImplementerExecutionPacketRequest,
+  ): Promise<ImplementerExecutionPacketSaveResult> =>
+    invokeProcess("workCards:saveImplementerExecutionPacket", input),
+  previewImplementerReportCapture: (
+    input: ImplementerReportCaptureRequest,
+  ): Promise<ImplementerReportCapturePreviewResult> =>
+    invokeProcess("workCards:previewImplementerReportCapture", input),
+  saveImplementerReportCapture: (
+    input: ImplementerReportCaptureRequest,
+  ): Promise<ImplementerReportCaptureSaveResult> =>
+    invokeProcess("workCards:saveImplementerReportCapture", input),
   previewArchitectReviewRecord: (
     input: ArchitectReviewFormInput,
   ): Promise<ArchitectReviewPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewArchitectReviewRecord", input),
+    invokeProcess("workCards:previewArchitectReviewRecord", input),
   saveArchitectReviewRecord: (
     input: ArchitectReviewFormInput,
   ): Promise<ArchitectReviewSaveResult> =>
-    ipcRenderer.invoke("workCards:saveArchitectReviewRecord", input),
-  loadBuilderReportFile: (
-    input: BuilderReportFileLoadRequest,
-  ): Promise<BuilderReportFileLoadResult> =>
-    ipcRenderer.invoke("workCards:loadBuilderReportFile", input),
-  listHumanValidationBuilderReports: (
-    input: HumanValidationBuilderReportListRequest,
-  ): Promise<HumanValidationBuilderReportListResult> =>
-    ipcRenderer.invoke("workCards:listHumanValidationBuilderReports", input),
+    invokeProcess("workCards:saveArchitectReviewRecord", input),
+  loadImplementerReportFile: (
+    input: ImplementerReportFileLoadRequest,
+  ): Promise<ImplementerReportFileLoadResult> =>
+    ipcRenderer.invoke("workCards:loadImplementerReportFile", input),
+  listHumanValidationImplementerReports: (
+    input: HumanValidationImplementerReportListRequest,
+  ): Promise<HumanValidationImplementerReportListResult> =>
+    ipcRenderer.invoke("workCards:listHumanValidationImplementerReports", input),
   listHumanValidationTargets: (
     phase: string,
   ): Promise<ListValidationTargetsResult> =>
@@ -327,37 +351,45 @@ const api = {
   previewHumanValidationRecord: (
     input: HumanValidationFormInput,
   ): Promise<HumanValidationPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewHumanValidationRecord", input),
+    invokeProcess("workCards:previewHumanValidationRecord", input),
   saveHumanValidationRecord: (
     input: HumanValidationFormInput,
   ): Promise<HumanValidationSaveResult> =>
-    ipcRenderer.invoke("workCards:saveHumanValidationRecord", input),
+    invokeProcess("workCards:saveHumanValidationRecord", input),
   attachValidationEvidenceFile: (
     input: ValidationEvidenceFileImportRequest,
   ): Promise<ValidationEvidenceFileImportResult> =>
-    ipcRenderer.invoke("workCards:attachValidationEvidenceFile", input),
+    invokeProcess("workCards:attachValidationEvidenceFile", input),
   getPhaseCloseoutSummary: (
     phase: string,
   ): Promise<PhaseCloseoutSummaryResult> =>
     ipcRenderer.invoke("workCards:getPhaseCloseoutSummary", phase),
   getCurrentRequiredAction: (): Promise<CurrentRequiredActionResult> =>
-    ipcRenderer.invoke("workCards:getCurrentRequiredAction"),
+    refreshCurrentRequiredAction(),
+  previewCurrentContextPacket: (
+    input: CurrentContextPacketPreviewRequest,
+  ): Promise<CurrentContextPacketPreviewResult> =>
+    invokeProcess("contextPackets:previewCurrent", input),
+  exportCurrentContextPacket: (
+    input: CurrentContextPacketExportRequest,
+  ): Promise<ContextPacketExportResult> =>
+    invokeProcess("contextPackets:exportCurrent", input),
   saveRouteReviewRequest: (
     input: RouteReviewRequestInput,
   ): Promise<RouteReviewRequestSaveResult> =>
-    ipcRenderer.invoke("workCards:saveRouteReviewRequest", input),
+    invokeProcess("workCards:saveRouteReviewRequest", input),
   previewPlanningArtifact: (
     input: PlanningArtifactPreviewRequest,
   ): Promise<PlanningArtifactPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewPlanningArtifact", input),
+    invokeProcess("workCards:previewPlanningArtifact", input),
   previewPhaseCloseoutRecord: (
     input: PhaseCloseoutFormInput,
   ): Promise<PhaseCloseoutPreviewResult> =>
-    ipcRenderer.invoke("workCards:previewPhaseCloseoutRecord", input),
+    invokeProcess("workCards:previewPhaseCloseoutRecord", input),
   savePhaseCloseoutRecord: (
     input: PhaseCloseoutFormInput,
   ): Promise<PhaseCloseoutSaveResult> =>
-    ipcRenderer.invoke("workCards:savePhaseCloseoutRecord", input),
+    invokeProcess("workCards:savePhaseCloseoutRecord", input),
 };
 
 contextBridge.exposeInMainWorld("champCity", api);

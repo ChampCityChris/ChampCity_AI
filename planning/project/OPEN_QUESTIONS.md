@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/OPEN_QUESTIONS",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/OPEN_QUESTIONS.json",
+  "markdownPath": "planning/project/OPEN_QUESTIONS.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Open Questions"
+  },
+  "payloadHash": "sha256:2e67a4052e8b3eaacee79f8a77210ff65f80188a1083e7a5b39755a4e7339047",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Open Questions
 
 ## Questions

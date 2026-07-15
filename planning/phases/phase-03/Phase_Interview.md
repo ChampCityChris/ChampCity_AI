@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_interview/Phase_Interview",
+  "artifactType": "architect_interview",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Phase_Interview.json",
+  "markdownPath": "planning/phases/phase-03/Phase_Interview.md",
+  "payload": {
+    "kind": "architect_interview",
+    "title": "Phase Interview: phase-03"
+  },
+  "payloadHash": "sha256:8e83ba8d2761f2893ae6a365a6a1f25241b3f1e119bd0aeb03b0fbcff33c8448",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Phase Interview: phase-03
 
 Status: Approved / Current Phase 03 interview authority
@@ -122,7 +151,7 @@ The following are already decided and should not be reopened inside Phase 03:
 
 - Phase Mapping is one phase at a time.
 - Phase Planning is an artifact inside Phase Mapping, not a standalone top-level workflow concept.
-- Work Card is the Implementer handoff and should not be split into a separate primary Implementer Prompt artifact.
+- Work Card is the Implementer handoff and should not be split into a separate primary Implementer Execution Packet artifact.
 - Implementer Reports are reviewed by the Architect.
 - Operator validation creates Validation Records.
 - REPAIR sub-cards use `WCxx-REPAIRxx` naming.

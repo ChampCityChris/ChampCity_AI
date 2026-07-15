@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/VALIDATION_POLICY",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/VALIDATION_POLICY.json",
+  "markdownPath": "planning/project/VALIDATION_POLICY.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Validation Policy"
+  },
+  "payloadHash": "sha256:ce0b33a8318443a65badcf498dfdb10302442c1a4463945ad8442fccd51fae06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Validation Policy
 
 ## Automated Validation

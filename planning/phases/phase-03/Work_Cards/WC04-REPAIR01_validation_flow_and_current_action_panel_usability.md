@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-12T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC04-REPAIR01 — Validation Flow and Current Action Panel Usability"
+  },
+  "payloadHash": "sha256:9ee0fc7f87557a06d2fbf7dfb87bdd0150d61776261130991ce19604282e5abd",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Repair Work Card: WC04-REPAIR01 — Validation Flow and Current Action Panel Usability
 
 Status: ready_for_implementer
@@ -17,7 +51,7 @@ Primary source:
 Supporting sources:
 
 - `planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04_primary_current_action_panel.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.md`
 - `src/renderer/app/WorkflowRouterShell.tsx`
 
@@ -172,7 +206,7 @@ Do not add heavy dependencies or unrelated media-management systems.
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
 
 The report must include:
 

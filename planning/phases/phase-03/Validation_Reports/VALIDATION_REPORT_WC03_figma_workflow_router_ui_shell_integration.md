@@ -1,3 +1,35 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC03",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-04T03:09:58.888Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC03 Figma Workflow Router UI Shell Integration"
+  },
+  "payloadHash": "sha256:e4bb4dbcf97fc64dc0d6eddcc318e4ca00735519e143e98f59610dd96ec95165",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC03",
+      "champcity-ai/phase-03/implementer_report/WC03",
+      "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC03"
+}
+-->
+
 # Human Validation Report - WC03 Figma Workflow Router UI Shell Integration
 
 ## Validation Target
@@ -8,7 +40,7 @@
 - Phase: phase-03
 - Source JSON file: WC03_figma_workflow_router_ui_shell_integration.json
 - Source Markdown file: WC03_figma_workflow_router_ui_shell_integration.md
-- Associated Implementer Report: BUILDER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md
 
 ## Validation Result
 

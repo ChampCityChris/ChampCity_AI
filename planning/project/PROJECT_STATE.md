@@ -1,3 +1,32 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/PROJECT_STATE",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/PROJECT_STATE.json",
+  "markdownPath": "planning/project/PROJECT_STATE.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Project State"
+  },
+  "payloadHash": "sha256:3908af0c902d03959383e442213d0febc050e88e26140fdc9ae18e0df3ab840c",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/architect_review/WC01",
+      "champcity-ai/phase-03/implementer_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Project State
 
 ## Last Updated
@@ -44,12 +73,12 @@ Latest closeout artifact reviewed:
 Closeout artifact summary:
 
 - Work Cards: 16 files / 8 paired Work Cards.
-- Builder Reports: 17.
+- Implementer Reports: 17.
 - Validation Reports: 38.
 - Repair Prompts: 4.
 - Architect Prompts: 0.
 - Risk Reviews: 0.
-- Builder Prompts: 0.
+- Implementer Execution Packets: 0.
 
 The closeout report is the durable transition evidence for manual Phase 03 activation. Phase 02 WC08 is no longer the current milestone.
 
@@ -61,7 +90,7 @@ Latest validation artifact reviewed:
 
 - `planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.md`
 - Generated: `2026-07-02T15:14:05.954Z`
-- Associated Implementer Report: `BUILDER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md`
+- Associated Implementer Report: `IMPLEMENTER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md`
 - Validation result: `Pass`
 - Operator decision: `Passed - proceed`
 - Operator observation: `WC06 manually validated ready for Phase 2 closeout.`
@@ -83,7 +112,7 @@ Manual validation passed for:
 
 ## WC07 Status
 
-WC07: `Split Phase Map Builder and Phase Planning Documents Generator` split phase mapping from phase planning and exposed the larger workflow-state boundary corrected by WC08.
+WC07: `Split Phase Map Composer and Phase Planning Documents Generator` split phase mapping from phase planning and exposed the larger workflow-state boundary corrected by WC08.
 
 Corrected flow:
 
@@ -96,8 +125,8 @@ Project Planning Documents + Repository Reconciliation + Project Roadmap
 
 WC07 rules:
 
-- Phase Map Builder must not require a phase dropdown.
-- Phase Map Builder derives mapped phases from the selected Project Roadmap plus Project Planning Documents and Repository Reconciliation sources.
+- Phase Map Composer must not require a phase dropdown.
+- Phase Map Composer derives mapped phases from the selected Project Roadmap plus Project Planning Documents and Repository Reconciliation sources.
 - Phase Planning Documents Generator may use a phase dropdown only after a Phase Map exists, and that dropdown must be populated from mapped phase records.
 - Compatibility Phase Intake, Phase Architect Interview Prompt, and completed Phase Architect Interview output are optional Advanced / Legacy inputs only.
 - The normal generator path must not block on `Paste the completed Phase Architect Interview output first.`
@@ -117,8 +146,8 @@ WC08 authority model:
 - Work Card Plan = proposed Work Card count, order, names, and rough intent.
 - Work Card Plan Review = read-only review/materialization boundary for proposed planned entries until a separate Operator-approved workflow creates Formal Work Cards.
 - Formal Work Cards = approved executable units saved under `Work_Cards/`.
-- Implementer Prompt = build instruction generated from an approved Formal Work Card.
-- Builder Report = Implementer result.
+- Implementer Execution Packet = build instruction generated from an approved Formal Work Card.
+- Implementer Report = Implementer result.
 - Human Validation Report = Operator evidence and decision.
 - Closeout Report = phase-level acceptance and transition authority.
 
@@ -146,7 +175,7 @@ Current Phase 03 authority:
 
 Latest WC06 repair implementer artifact reviewed:
 
-- `planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md`
+- `planning/phases/phase-02/Implementer_Reports/IMPLEMENTER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md`
 
 Implemented outcomes reported:
 
@@ -178,7 +207,7 @@ Implementer validation reported:
 - WC04: Generate Project Planning Documents.
 - WC05: Add Phase Intake and Phase Interview prompt generator.
 - WC06: Add Repository Reconciliation and Generate Phase Planning Documents / Roadmap workflow.
-- WC07: Split Phase Map Builder and Phase Planning Documents Generator.
+- WC07: Split Phase Map Composer and Phase Planning Documents Generator.
 - WC08: Phase Transition, Work Card Plan Review, and Artifact Authority Model.
 
 ## Current Phase 03 Work Card

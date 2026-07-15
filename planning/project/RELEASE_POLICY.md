@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/supporting_document/RELEASE_POLICY",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/project/RELEASE_POLICY.json",
+  "markdownPath": "planning/project/RELEASE_POLICY.md",
+  "payload": {
+    "kind": "supporting_document",
+    "title": "Release Policy"
+  },
+  "payloadHash": "sha256:1e2d2eb23fb3c0eb0b61142bd796a0e085420662123dcab5c9d850ffd7890404",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Release Policy
 
 ## Git Commit Rules
@@ -24,6 +50,6 @@ The MVP foundation plan is retained here as a historical release record. Current
 - `v0.1.0-foundation`: project memory, planning scaffold, Electron + TypeScript shell, and design document updates.
 - `v0.2.0-work-card-schema`: Work Card schema, Markdown renderer, and file path rules.
 - `v0.3.0-capture-frame-review`: capture form, framing workflow, save, and review.
-- `v0.4.0-builder-prompt-flow`: risk router, Builder prompt generator, and plan capture.
-- `v0.5.0-validation-repair-closeout`: Builder report capture, validation, repair, closeout, and project-memory update.
+- `v0.4.0-implementer-prompt-flow`: risk router, Implementer execution packet generator, and plan capture.
+- `v0.5.0-validation-repair-closeout`: Implementer report capture, validation, repair, closeout, and project-memory update.
 - `v1.0.0-mvp`: complete MVP done definition.

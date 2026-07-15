@@ -1,3 +1,36 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+  "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC08-REPAIR01 — Route Context Explanation and Correction Affordance"
+  },
+  "payloadHash": "sha256:dcc23f14de4001bb898b32779214a54227f9860ddfbbf5b66de4f3baba56427b",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+    ],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}
+-->
+
 # Repair Work Card: WC08-REPAIR01 — Route Context Explanation and Correction Affordance
 
 Status: ready_for_implementer
@@ -19,7 +52,7 @@ Supporting evidence:
 
 - `planning/phases/phase-03/Validation_Evidence/WC08_current_step_context_inspector/`
 - `planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md`
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08_current_step_context_inspector.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md`
 - `planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md`
 
 ## Operator Validation Result
@@ -245,7 +278,7 @@ The following passed items must remain true:
 
 Create:
 
-`planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md`
+`planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md`
 
 The report must include:
 

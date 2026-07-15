@@ -29,7 +29,7 @@ function routeAction(overrides = {}) {
         "Repair Work Card JSON",
       ),
       artifact(
-        "planning/phases/phase-example/Builder_Reports/BUILDER_REPORT_WC42-REPAIR07_generic.md",
+        "planning/phases/phase-example/Implementer_Reports/IMPLEMENTER_REPORT_WC42-REPAIR07_generic.md",
         "Repair Implementer Report",
       ),
       artifact(
@@ -266,7 +266,7 @@ assert.match(
 const correctionSource = inspectorSource.slice(correctionIndex, diagnosticsIndex);
 assert.doesNotMatch(
   correctionSource,
-  /saveHumanValidationRecord|saveArchitectPrompt|saveBuilderReportCapture|previewPlanningArtifact/,
+  /saveHumanValidationRecord|saveArchitectPrompt|saveImplementerReportCapture|previewPlanningArtifact/,
   "The route-correction affordance must not approve, validate, mutate workflow state, or become an artifact browser.",
 );
 assert.match(inspectorSource, /saveRouteReviewRequest/);

@@ -1,3 +1,29 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+  "artifactType": "repository_reconciliation",
+  "createdAt": "2026-07-02T15:40:24.160Z",
+  "jsonPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json",
+  "markdownPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
+  "payload": {
+    "kind": "repository_reconciliation",
+    "title": "Repository Reconciliation: ChampCity A/I"
+  },
+  "payloadHash": "sha256:53f293227f1947fc2d94f740c91d6eb54fd7c6b65ae2a4699cf9f60801637351",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "pending",
+  "updatedAt": "2026-07-02T15:40:24.160Z"
+}
+-->
+
 # Repository Reconciliation: ChampCity A/I
 
 ## Source Context
@@ -18,7 +44,7 @@ Updated: 2026-07-02T15:40:24.160Z
 ## Project Name
 ChampCity A/I
 ## Product Thesis
-We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt builder but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
+We are attempting to build a end to end platform for using the Architect/Implementer model workflow for Agentic AI app development.  ChampCity A/I should help a non-developer end user in communicating with an AI Architect to plan a project through all phases of design to complete working application.  The final intended use is not just a prompt implementer but a connector where prompts are created, passed on to the architect model, output is reviewed by operator and then passed to the implementer, results are then validated by the operator and passed back to the architect for evaluation to decide if a fix is need, or a work card is complete.  The application should also provide a visual checklist of phase completion so the operator can see a visual map of the project, phase progress.
 ## User Type
 Non-developer end users. They may be tech savvy but  have limited knowledge in coding languages, tech stacks, or development planning.
 ## Core Loop
@@ -91,14 +117,14 @@ The Operator owns final answers. The Architect may help frame options before imp
 - The largest technical/product risk is MCP boundary design. Because ChampCity MCP is integral, the project must be precise about what ChatGPT can read, what it can write, where files are saved, and how the Operator sees or approves those changes.
 - Subscription integration risk should be reframed. The primary concern is not whether ChatGPT can use an API. The intended Alpha path is ChatGPT subscription plus MCP-mediated repo access. The risk is whether this can be made understandable, safe, reliable, and repeatable for non-developer users.
 - The project should guard against treating MCP as invisible magic. The user needs simple status indicators and plain-language explanations of what is connected, what files are being touched, and what action comes next.
-- The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Builder Reports, validation reports, and closeout records.
+- The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Implementer Reports, validation reports, and closeout records.
 - The project must avoid scope drift into autonomy. The app should help the Operator drive the AI workflow; it should not silently become an autonomous coding agent.
 - The workflow must avoid developer-first language where possible. “Capture,” “Frame,” “Plan,” “Build,” and “Prove” are better user-facing concepts than “requirements elicitation,” “architecture decomposition,” “implementation orchestration,” and “acceptance validation.”
-- The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Builder Reports before proposing new work. Otherwise it will create redundant phase plans.
+- The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Implementer Reports before proposing new work. Otherwise it will create redundant phase plans.
 - The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 - Security boundaries must remain explicit. API keys, subscription sessions, local repo access, MCP permissions, generated prompts, and build artifacts need separate treatment. The documents should not collapse those into one generic “AI integration” bucket.
 - Architect / Implementer role separation must remain clear. The Architect frames, evaluates, decides repair/complete, and generates handoffs. The Implementer executes scoped build work and reports results. The Operator approves, validates, and controls movement between states.
-- Phase 1 includes Builder Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Builder prompt generation, Builder Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
+- Phase 1 includes Implementer Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Implementer execution packet generation, Implementer Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
 - Security concerns:
 - Basic security safeguards for local repo access and API-key handling.
 - ### G. MCP Integration, Repo-Bridge Workflow, and Security Boundary Design
@@ -109,8 +135,8 @@ The Operator owns final answers. The Architect may help frame options before imp
 # Decisions
 ## Current Decisions
 - The Operator remains a centaur. ChampCity A/I should not become a fully autonomous software-creation system. The Operator remains responsible for approvals, validation, decision-making, and movement between workflow states.
-- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Builder Reports, repair prompts, closeout records, and decision history.
-- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Builder Reports, and support the Operator’s decision loop without relying on stale chat context alone.
+- Project profile, phase plans, work cards, Architect outputs, Implementer outputs, validation notes, Implementer Reports, repair prompts, closeout records, and decision history.
+- ChampCity MCP is the repo bridge that allows the Architect to inspect project state, generate and save planning artifacts, review Implementer Reports, and support the Operator’s decision loop without relying on stale chat context alone.
 - Fully autonomous software creation without Operator review, validation, and decision authority.
 - The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
 - Durable planning artifacts are stored as Markdown and JSON in the repository.
@@ -119,7 +145,7 @@ The Operator owns final answers. The Architect may help frame options before imp
 - Preferred Implementer tool: Codex.
 - Architect surface: ChatGPT.
 ## Decision Notes
-Historical Builder artifact paths remain compatibility storage names until a dedicated migration Work Card changes them safely.
+Active Implementer artifacts use canonical storage names; historical archived paths remain evidence only.
 
 ## Implemented State Summary
 
@@ -143,7 +169,7 @@ Not provided.
 
 ## Current Risks
 
-- The current app workflow surface is broader than a prompt builder. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer prompt generator, Implementer report capture, human validation, and phase closeo
+- The current app workflow surface is broader than a prompt implementer. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer execution packet generator, Implementer report capture, human validation, and phase closeo
 - MCP integration is conceptually central but still under-defined as a product feature. The documents correctly identify ChampCity MCP as the repo bridge, but the remaining risk is operational: the Operator needs clear status indicators, visible read/write boundaries, artifact previews, approval gates, and understandable failure states.
 - A dedicated MCP integration/security phase is missing as the next practical product phase. The risks already identify this as the largest technical/product risk, but it has not yet been converted into the next phase plan.
 - RISKS.md contains structural residue. The fragments ### G. MCP Integration... and ## 7. Risks and Drift Warnings appear embedded in the risk list rather than normalized as risk entries.
@@ -183,7 +209,7 @@ Not provided.
 
 Reviewed Artifact Summary
 
-Reviewed the supplied reconciliation handoff for ChampCity A/I, including the safe summaries for PROJECT_PROFILE.md, PROJECT_STATE.md, WORK_CARD_BACKLOG.md, OPEN_QUESTIONS.md, RISKS.md, DECISIONS.md, Phase 02 artifact counts, current app workflow surface, and repository structure. I also checked the available ChampCity MCP capability surface; it confirms bounded local project document lookup and Builder Report summary support, but not arbitrary web fetch or hidden memory mutation. The attached handoff is the controlling evidence source for this reconciliation.
+Reviewed the supplied reconciliation handoff for ChampCity A/I, including the safe summaries for PROJECT_PROFILE.md, PROJECT_STATE.md, WORK_CARD_BACKLOG.md, OPEN_QUESTIONS.md, RISKS.md, DECISIONS.md, Phase 02 artifact counts, current app workflow surface, and repository structure. I also checked the available ChampCity MCP capability surface; it confirms bounded local project document lookup and Implementer Report summary support, but not arbitrary web fetch or hidden memory mutation. The attached handoff is the controlling evidence source for this reconciliation.
 
 Implemented State Summary
 
@@ -191,7 +217,7 @@ ChampCity A/I is in Alpha app development. The approved technical shape remains 
 
 Phase 02 is recorded as closed. The supplied state says WC01 through WC06 are complete, including project intake, project Architect interview, validation/evidence repair, project planning documents, phase intake/interview, and phase planning document generation. The closeout artifact is dated 2026-07-02T15:28:24.620Z and records Close phase.
 
-The current app workflow surface is broader than a prompt builder. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer prompt generator, Implementer report capture, human validation, and phase closeout.
+The current app workflow surface is broader than a prompt implementer. It includes project intake, Architect interview generation, project planning document generation, reconciliation/project state review, phase intake, phase Architect interview, phase planning documents, Work Card capture, Architect prompt composer, risk router, Implementer execution packet generator, Implementer report capture, human validation, and phase closeout.
 
 The repo structure appears coherent for the current Alpha state: root at <PROJECT_REPO>, with src/main, src/preload, src/renderer, src/shared, plus planning/project and planning/phases.
 
@@ -205,7 +231,7 @@ The evidence workflow exists enough to be discussed in Phase 02, but screenshot/
 
 The release surface is not yet reconciled. The app has internal workflow surfaces, but there is no evidence here of installer packaging, first-run onboarding, repo-selection safety checks, user-facing MCP setup flow, release validation, or public documentation.
 
-Compatibility storage remains unresolved. The decision notes say historical Builder artifact paths remain compatibility storage names until a dedicated migration Work Card changes them safely. That is not blocking current planning, but it is technical debt.
+Canonical Implementer storage migration is complete. Historical archived paths remain evidence only and are excluded from active workflow discovery.
 
 Missing Items
 
@@ -283,7 +309,7 @@ Milestone 3: Guided Alpha Workflow Complete
 Outcome: an Operator can start with project intake and progress through Capture -> Frame -> Plan -> Build -> Prove without needing to understand the underlying artifact structure.
 
 Milestone 4: Evidence and Validation System Hardened
-Outcome: validation notes, screenshots, Builder Reports, repair prompts, and closeout artifacts are consistently linked and recoverable.
+Outcome: validation notes, screenshots, Implementer Reports, repair prompts, and closeout artifacts are consistently linked and recoverable.
 
 Milestone 5: Beta Candidate
 Outcome: installable app, documented setup, clean-machine validation, known limitations, fallback procedures, and no stale planning contradictions.
@@ -303,7 +329,7 @@ Phase 05: State Reconciliation and Artifact Integrity
 Purpose: make contradiction detection, stale backlog detection, missing artifact detection, and repair routing part of the product.
 
 Phase 06: Evidence, Validation, and Release Hardening
-Purpose: mature validation evidence, screenshot storage, Builder Report handling, repair loop integrity, and closeout confidence.
+Purpose: mature validation evidence, screenshot storage, Implementer Report handling, repair loop integrity, and closeout confidence.
 
 Phase 07: Beta Packaging and Onboarding
 Purpose: installer, first-run setup, repo selection, MCP setup explanation, documentation, and clean-environment validation.

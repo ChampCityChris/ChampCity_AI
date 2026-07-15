@@ -1,0 +1,644 @@
+{
+  "artifactId": "champcity-ai/system/workflow_state",
+  "artifactType": "workflow_state",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
+  "markdownPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md",
+  "payload": {
+    "contentMarkdown": "# Canonical Workflow State Index\n\n- State revision: 1\n- Current stage: prove\n- Active phase: phase-03\n- Current action: architect_review_of_implementer_report_required\n- Responsible role: architect\n- Authoritative target: champcity-ai/phase-03/work_card/WC08-REPAIR04\n- Required sources: champcity-ai/phase-03/implementer_report/WC08-REPAIR04\n- Expected output: champcity-ai/phase-03/architect_review/WC08-REPAIR04\n- Success route: operator_validation_required\n- Blocking conditions: none\n\nReference navigation is excluded from routed authority.\n",
+    "data": {
+      "actionCatalog": {
+        "architect_disposition_required": {
+          "actionId": "architect_disposition_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/architect_disposition/WC08-REPAIR04",
+            "artifactType": "architect_disposition"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": "repair_work_card_required",
+            "repair": "repair_work_card_required",
+            "success": "phase_closeout_required"
+          },
+          "screenId": "architect-disposition",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/validation_report/WC08-REPAIR04"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "architect_review_of_implementer_report_required": {
+          "actionId": "architect_review_of_implementer_report_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
+            "artifactType": "architect_review"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": "architect_review_of_implementer_report_required",
+            "repair": "architect_disposition_required",
+            "success": "operator_validation_required"
+          },
+          "screenId": "architect-review",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "implementer_execution_required": {
+          "actionId": "implementer_execution_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+            "artifactType": "implementer_report"
+          },
+          "role": "implementer",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "architect_review_of_implementer_report_required"
+          },
+          "screenId": "implementer-execution",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/implementer_execution_packet/WC08-REPAIR04"
+          ],
+          "stage": "build",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "implementer_handoff_required": {
+          "actionId": "implementer_handoff_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/implementer_execution_packet/WC08-REPAIR04",
+            "artifactType": "implementer_execution_packet"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "implementer_execution_required"
+          },
+          "screenId": "implementer-handoff",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+            "champcity-ai/phase-03/work_card_approval/WC08-REPAIR04"
+          ],
+          "stage": "build",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "next_phase_activation_required": {
+          "actionId": "next_phase_activation_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-04/phase_activation/phase-04",
+            "artifactType": "phase_activation"
+          },
+          "role": "application",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "workflow_complete"
+          },
+          "screenId": "next-phase-activation",
+          "sourceArtifactIds": [
+            "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i"
+          ],
+          "stage": "capture",
+          "targetArtifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i"
+        },
+        "operator_closeout_approval_required": {
+          "actionId": "operator_closeout_approval_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/phase_closeout_approval/phase-03",
+            "artifactType": "phase_closeout_approval"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": "phase_closeout_required",
+            "repair": "phase_closeout_required",
+            "success": "roadmap_update_required"
+          },
+          "screenId": "operator-closeout-approval",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/phase_closeout/phase-03"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/phase_closeout/phase-03"
+        },
+        "operator_phase_approval_required": {
+          "actionId": "operator_phase_approval_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+            "artifactType": "phase_approval"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": "phase_planning_required",
+            "repair": "phase_planning_required",
+            "success": "work_card_authoring_required"
+          },
+          "screenId": "operator-phase-approval",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/phase_planning/Phase_Planning",
+            "champcity-ai/phase-03/work_card_plan_review/Work_Card_Plan"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/phase-03/work_card_plan_review/Work_Card_Plan"
+        },
+        "operator_project_approval_required": {
+          "actionId": "operator_project_approval_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+            "artifactType": "project_approval"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": "project_planning_required",
+            "repair": "project_planning_required",
+            "success": "phase_mapping_required"
+          },
+          "screenId": "operator-project-approval",
+          "sourceArtifactIds": [
+            "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+            "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+            "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i"
+        },
+        "operator_validation_required": {
+          "actionId": "operator_validation_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR04",
+            "artifactType": "validation_report"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": "architect_disposition_required",
+            "repair": "architect_disposition_required",
+            "success": "phase_closeout_required"
+          },
+          "screenId": "operator-validation",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/architect_review/WC08-REPAIR04"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "operator_work_card_approval_required": {
+          "actionId": "operator_work_card_approval_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/work_card_approval/WC08-REPAIR04",
+            "artifactType": "work_card_approval"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": "work_card_authoring_required",
+            "repair": "work_card_authoring_required",
+            "success": "implementer_handoff_required"
+          },
+          "screenId": "operator-work-card-approval",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+          ],
+          "stage": "build",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "phase_architect_interview_required": {
+          "actionId": "phase_architect_interview_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/architect_interview/Phase_Interview",
+            "artifactType": "architect_interview"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "phase_planning_required"
+          },
+          "screenId": "phase-architect-interview",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/phase_intake/PHASE_INTAKE"
+          ],
+          "stage": "frame",
+          "targetArtifactId": "champcity-ai/phase-03/phase_intake/PHASE_INTAKE"
+        },
+        "phase_closeout_required": {
+          "actionId": "phase_closeout_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/phase_closeout/phase-03",
+            "artifactType": "phase_closeout"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "operator_closeout_approval_required"
+          },
+          "screenId": "phase-closeout",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+            "champcity-ai/phase-03/validation_report/WC08-REPAIR04"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning"
+        },
+        "phase_intake_required": {
+          "actionId": "phase_intake_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/phase_intake/PHASE_INTAKE",
+            "artifactType": "phase_intake"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "phase_architect_interview_required"
+          },
+          "screenId": "phase-intake",
+          "sourceArtifactIds": [
+            "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i"
+          ],
+          "stage": "capture",
+          "targetArtifactId": "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i"
+        },
+        "phase_mapping_required": {
+          "actionId": "phase_mapping_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+            "artifactType": "phase_map"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "phase_intake_required"
+          },
+          "screenId": "phase-mapping",
+          "sourceArtifactIds": [
+            "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+            "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING"
+        },
+        "phase_planning_required": {
+          "actionId": "phase_planning_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning",
+            "artifactType": "phase_planning"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "work_card_plan_review_required"
+          },
+          "screenId": "phase-planning",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/architect_interview/Phase_Interview"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/phase-03/architect_interview/Phase_Interview"
+        },
+        "project_architect_interview_required": {
+          "actionId": "project_architect_interview_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
+            "artifactType": "architect_interview"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "project_planning_required"
+          },
+          "screenId": "project-architect-interview",
+          "sourceArtifactIds": [
+            "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i"
+          ],
+          "stage": "frame",
+          "targetArtifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i"
+        },
+        "project_intake_required": {
+          "actionId": "project_intake_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
+            "artifactType": "project_intake"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "project_architect_interview_required"
+          },
+          "screenId": "project-intake",
+          "sourceArtifactIds": [],
+          "stage": "capture",
+          "targetArtifactId": null
+        },
+        "project_planning_required": {
+          "actionId": "project_planning_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+            "artifactType": "project_planning"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "repository_reconciliation_required"
+          },
+          "screenId": "project-planning",
+          "sourceArtifactIds": [
+            "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i"
+        },
+        "project_roadmap_required": {
+          "actionId": "project_roadmap_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+            "artifactType": "roadmap"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "operator_project_approval_required"
+          },
+          "screenId": "project-roadmap",
+          "sourceArtifactIds": [
+            "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i"
+        },
+        "repair_work_card_required": {
+          "actionId": "repair_work_card_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+            "artifactType": "work_card"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "operator_work_card_approval_required"
+          },
+          "screenId": "repair-work-card-authoring",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/architect_disposition/WC08-REPAIR04"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "repository_reconciliation_required": {
+          "actionId": "repository_reconciliation_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+            "artifactType": "repository_reconciliation"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "project_roadmap_required"
+          },
+          "screenId": "repository-reconciliation",
+          "sourceArtifactIds": [
+            "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i"
+        },
+        "roadmap_update_required": {
+          "actionId": "roadmap_update_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+            "artifactType": "roadmap"
+          },
+          "role": "application",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "next_phase_activation_required"
+          },
+          "screenId": "roadmap-update",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/phase_closeout_approval/phase-03"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/phase_closeout_approval/phase-03"
+        },
+        "route_review_request_required": {
+          "actionId": "route_review_request_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/route_review_request/WC08-REPAIR04",
+            "artifactType": "route_review_request"
+          },
+          "role": "operator",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": null
+          },
+          "screenId": "route-review-request",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+            "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+        },
+        "work_card_authoring_required": {
+          "actionId": "work_card_authoring_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+            "artifactType": "work_card"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "operator_work_card_approval_required"
+          },
+          "screenId": "work-card-authoring",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+            "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval"
+        },
+        "work_card_plan_review_required": {
+          "actionId": "work_card_plan_review_required",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/phase-03/work_card_plan_review/Work_Card_Plan",
+            "artifactType": "work_card_plan_review"
+          },
+          "role": "architect",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": "operator_phase_approval_required"
+          },
+          "screenId": "work-card-plan-review",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-03/phase_planning/Phase_Planning",
+            "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+          ],
+          "stage": "plan",
+          "targetArtifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning"
+        },
+        "workflow_complete": {
+          "actionId": "workflow_complete",
+          "expectedOutput": {
+            "artifactId": "champcity-ai/project/workflow_completion/champcity-ai",
+            "artifactType": "workflow_completion"
+          },
+          "role": "application",
+          "routes": {
+            "failure": null,
+            "repair": null,
+            "success": null
+          },
+          "screenId": "workflow-complete",
+          "sourceArtifactIds": [
+            "champcity-ai/phase-04/phase_activation/phase-04"
+          ],
+          "stage": "prove",
+          "targetArtifactId": "champcity-ai/phase-04/phase_activation/phase-04"
+        }
+      },
+      "activePhaseId": "phase-03",
+      "authoritativeTargetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+      "blockingConditions": [],
+      "closeout": {
+        "approvalArtifactId": null,
+        "closeoutArtifactId": null,
+        "status": "blocked"
+      },
+      "createdAt": "2026-07-14T00:00:00.000Z",
+      "currentAction": {
+        "actionId": "architect_review_of_implementer_report_required",
+        "authorityStatus": "ready",
+        "bindingSource": {
+          "kind": "workflow_state_index",
+          "stateRevision": 1,
+          "workflowStateArtifactId": "champcity-ai/system/workflow_state"
+        },
+        "blockers": [],
+        "expectedOutput": {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
+          "artifactType": "architect_review"
+        },
+        "role": "architect",
+        "routes": {
+          "failure": "architect_review_of_implementer_report_required",
+          "repair": "architect_disposition_required",
+          "success": "operator_validation_required"
+        },
+        "schemaVersion": "champcity.routed-action.v1",
+        "screenId": "architect-review",
+        "sourceArtifactIds": [
+          "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+        ],
+        "stage": "prove",
+        "stateRevision": 1,
+        "targetArtifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+      },
+      "currentActionId": "architect_review_of_implementer_report_required",
+      "currentStage": "prove",
+      "expectedOutput": {
+        "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
+        "artifactType": "architect_review"
+      },
+      "nextPhase": {
+        "activationArtifactId": null,
+        "phaseId": null,
+        "status": "blocked"
+      },
+      "openRepairChain": {
+        "activeRepairArtifactIds": [
+          "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+          "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+          "champcity-ai/phase-03/work_card/WC08-REPAIR06"
+        ],
+        "latestDispositionArtifactId": null,
+        "rootWorkCardArtifactId": "champcity-ai/phase-03/work_card/WC08",
+        "status": "open"
+      },
+      "projectId": "champcity-ai",
+      "requiredSourceArtifactIds": [
+        "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
+      ],
+      "responsibleRole": "architect",
+      "roadmap": {
+        "roadmapArtifactId": null,
+        "status": "blocked"
+      },
+      "routes": {
+        "failure": "architect_review_of_implementer_report_required",
+        "repair": "architect_disposition_required",
+        "success": "operator_validation_required"
+      },
+      "schemaVersion": "champcity.workflow-state.v1",
+      "stageStates": {
+        "build": {
+          "completedAt": "2026-07-14T00:00:00.000Z",
+          "progress": "complete",
+          "stage": "build",
+          "startedAt": "2026-07-14T00:00:00.000Z"
+        },
+        "capture": {
+          "completedAt": "2026-07-14T00:00:00.000Z",
+          "progress": "complete",
+          "stage": "capture",
+          "startedAt": "2026-07-14T00:00:00.000Z"
+        },
+        "frame": {
+          "completedAt": "2026-07-14T00:00:00.000Z",
+          "progress": "complete",
+          "stage": "frame",
+          "startedAt": "2026-07-14T00:00:00.000Z"
+        },
+        "plan": {
+          "completedAt": "2026-07-14T00:00:00.000Z",
+          "progress": "complete",
+          "stage": "plan",
+          "startedAt": "2026-07-14T00:00:00.000Z"
+        },
+        "prove": {
+          "completedAt": null,
+          "progress": "active",
+          "stage": "prove",
+          "startedAt": "2026-07-14T00:00:00.000Z"
+        }
+      },
+      "stateRevision": 1,
+      "transitionHistory": [],
+      "updatedAt": "2026-07-14T00:00:00.000Z",
+      "workflowStateArtifactId": "champcity-ai/system/workflow_state"
+    },
+    "kind": "workflow_state",
+    "title": "Canonical Workflow State Index"
+  },
+  "payloadHash": "sha256:61c5c6a96a392465b8293518a1d97597a54348b7cde0494a92715f40c4aa11d6",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/architect_review/WC08-REPAIR04"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-14T00:00:00.000Z"
+}

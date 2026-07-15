@@ -1,3 +1,39 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+  "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC04-REPAIR01 Validation Flow and Current Action Panel Usability"
+  },
+  "payloadHash": "sha256:a8090971a94de22bf073c9ebcadf4f369a452d90bb505e3dd13a735a37a6ef92",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+    ],
+    "sources": [
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04-REPAIR01"
+}
+-->
+
 # Architect Review: WC04-REPAIR01 Validation Flow and Current Action Panel Usability
 
 Status: Repair Required Before Operator Validation
@@ -17,7 +53,7 @@ Reviewed by: Architect
 
 ## Reviewed Implementer Report
 
-- `planning/phases/phase-03/Builder_Reports/BUILDER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
+- `planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md`
 
 ## Review Outcome
 

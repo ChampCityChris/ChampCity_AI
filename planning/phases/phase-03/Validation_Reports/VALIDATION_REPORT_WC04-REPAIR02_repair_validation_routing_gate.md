@@ -1,3 +1,38 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+  "artifactType": "validation_report",
+  "createdAt": "2026-07-13T01:06:01.821Z",
+  "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+  "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
+  "payload": {
+    "kind": "validation_report",
+    "title": "Human Validation Report - WC04-REPAIR02 Repair Validation Routing Gate"
+  },
+  "payloadHash": "sha256:df07ae860b7a6b82835c42a815ed49c8da800567d80ba390f3d98db0248c6fc5",
+  "phaseId": "phase-03",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-03/work_card/WC05"
+    ],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+      "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-14T00:00:00.000Z",
+  "workCardId": "WC04-REPAIR02"
+}
+-->
+
 # Human Validation Report - WC04-REPAIR02 Repair Validation Routing Gate
 
 ## Validation Target
@@ -9,7 +44,7 @@
 - Parent Work Card ID: WC04
 - Source JSON file: WC04-REPAIR02_repair_validation_routing_gate.json
 - Source Markdown file: WC04-REPAIR02_repair_validation_routing_gate.md
-- Associated Implementer Report: BUILDER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md
+- Associated Implementer Report: IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md
 
 ## Validation Result
 
@@ -63,7 +98,7 @@ None recorded.
 
 ## Additional Operator Observations
 
-Manual validation checklist should be moved to the top of validation operator record where the What was tested box now lives.  The validation checklist should be editable so it can be the recorded source of what was tested by the operator.  This could also be achieved by converting the numbered checklist into  questions with a pass/fail/skipped selector for the operator to assess.  This will prevent duplication of information in the operator report. 
+Manual validation checklist should be moved to the top of validation operator record where the What was tested box now lives.  The validation checklist should be editable so it can be the recorded source of what was tested by the operator.  This could also be achieved by converting the numbered checklist into  questions with a pass/fail/skipped selector for the operator to assess.  This will prevent duplication of information in the operator report.
 
 Screenshots still function poorly.  The ability to paste the screenshot directly should be the primary input method with the fallback being the attach button.  The add or edit repor-relative paths still pastes long repo paths in the box.  Once the image.png is created this box should clear.  It also shouldn't be hidden behind a collapsing header.
 

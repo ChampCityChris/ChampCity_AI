@@ -1,4 +1,4 @@
-# ChampCity_AI Builder Rules
+# ChampCity_AI Implementer Rules
 
 ## Source of Truth
 
@@ -25,8 +25,8 @@
 - Future LLM provider policy: design for provider abstraction, but do not implement SDKs yet.
 - Likely future LLM providers include OpenAI API, Anthropic, local Ollama, and a generic OpenAI-compatible endpoint for providers such as Featherless or LM Studio.
 - Product-facing role terminology: use `Implementer` for the coding/build agent role in visible UI, prompts, and new explanatory copy.
-- Legacy artifact compatibility: existing schema fields, filenames, and folders may still use `Builder_*` names, including `Builder_Prompts`, `Builder_Reports`, and `BUILDER_REPORT_*`, until a dedicated migration Work Card updates storage paths safely.
-- Historical records should not be renamed casually; when legacy Builder artifact paths are shown, explain that they are compatibility storage names for Implementer-facing work.
+- Active Implementer Reports use `Implementer_Reports/` and `IMPLEMENTER_REPORT_*` paths.
+- Markdown and JSON are synchronized representations of one logical artifact revision; an unsynchronized pair is blocking.
 
 ## Work Card Artifacts
 
@@ -35,7 +35,7 @@
 - Required Markdown path pattern: `planning/phases/<phase-folder>/Work_Cards/<work_card_id>_<slug>.md`.
 - The JSON artifact is the structured app-readable Work Card source.
 - The Markdown artifact is the durable human-readable rendering.
-- Implementers/builders must not create Markdown-only Work Cards unless the prompt explicitly says it is a temporary note and not an app-selectable Work Card.
+- Implementers must not create Markdown-only Work Cards unless the prompt explicitly says it is a temporary note and not an app-selectable Work Card.
 
 ## Security
 
@@ -47,7 +47,7 @@
 
 ## Local Path Redaction
 
-- Do not write concrete local machine paths into committed artifacts, Work Cards, Builder/Implementer Reports, validation records, closeout records, planning documents, or handoff prompts.
+- Do not write concrete local machine paths into committed artifacts, Work Cards, Implementer Reports, validation records, closeout records, planning documents, or handoff prompts.
 - This rule applies to both Architect and Implementer outputs.
 - Use `<PROJECT_REPO>` to refer to the local repository root.
 - Use repo-relative paths for files inside the project, for example `planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md`.
@@ -124,19 +124,19 @@ If the project requires a durable artifact containing the final commit hash, the
 - The Implementer must not perform Operator manual validation, Human Validation acceptance, Work Card acceptance, phase closeout, or product-owner approval unless the prompt explicitly grants that authority.
 - The Implementer must not create, save, or mark final Human Validation records as accepted on behalf of the Operator.
 - Manual validation tasks that require visual judgment, usability judgment, live workflow acceptance, evidence-path confirmation, or closeout approval belong to the Operator.
-- Builder Reports must list remaining Operator manual validation steps under manual validation required; they must not claim those steps were completed by the Operator unless the Operator actually provided that result.
+- Implementer Reports must list remaining Operator manual validation steps under manual validation required; they must not claim those steps were completed by the Operator unless the Operator actually provided that result.
 - If a prompt says to manually validate, interpret that as: describe the Operator manual validation required, unless the prompt explicitly says the Implementer is authorized to perform a non-acceptance smoke check.
 
-## Builder Report Artifacts
+## Implementer Report Artifacts
 
-- Every Builder pass must create a Markdown Builder Report and place it in the `Builder_Reports` folder for the respective phase being worked.
-- Required path pattern: `planning/phases/<phase-folder>/Builder_Reports/`.
-- Required report naming convention: `BUILDER_REPORT_<work_card_or_fix_id>_<short_task_name>.md`.
-- Example Work Card report: `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC01_work_card_schema_renderer.md`.
-- Example fix/governance report: `planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX01_agents_report_rule.md`.
+- Every Implementer pass must create a Markdown Implementer Report and place it in the `Implementer_Reports` folder for the respective phase being worked.
+- Required path pattern: `planning/phases/<phase-folder>/Implementer_Reports/`.
+- Required report naming convention: `IMPLEMENTER_REPORT_<work_card_or_fix_id>_<short_task_name>.md`.
+- Example Work Card report: `planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_work_card_schema_renderer.md`.
+- Example fix/governance report: `planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_FIX01_agents_report_rule.md`.
 - The report must identify whether the pass was for a numbered Work Card or a simple fix/governance update.
 - The report must be committed with the related work unless the prompt explicitly says not to commit.
-- Each Builder Report must include:
+- Each Implementer Report must include:
   - Repository path inspected.
   - Git branch and remote status.
   - Files created.
@@ -152,7 +152,7 @@ If the project requires a durable artifact containing the final commit hash, the
 
 ## Final Report Requirements
 
-Final Builder reports must include:
+Final Implementer reports must include:
 
 - Files changed.
 - Implementation summary.
