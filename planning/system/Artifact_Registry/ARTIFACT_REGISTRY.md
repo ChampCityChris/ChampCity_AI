@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:68910b7303d2f2509c747a0e23ad1462ae06dbeab9b960786cb85e3756be80e1",
+  "payloadHash": "sha256:e674a60362b1c22b3bcc6e956219052319c47302044ba2ae52321735a9065d18",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -109,6 +109,7 @@
       "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
       "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
       "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-04/diagnostic_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01",
       "champcity-ai/phase-04/phase_activation/phase-04",
@@ -146,16 +147,16 @@
     ],
     "supersedes": []
   },
-  "revision": 32,
+  "revision": 34,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T20:10:22.547Z"
+  "updatedAt": "2026-07-15T20:55:00.000Z"
 }
 -->
 
 # Canonical Artifact Registry
 
-Entries: 128
+Entries: 129
 
 | Artifact ID | Type | Revision | Status | Authority | Synchronized |
 | --- | --- | ---: | --- | --- | --- |
@@ -253,6 +254,7 @@ Entries: 128
 | champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents | work_card_plan | 2 | superseded | no | yes |
 | champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | 2 | active | yes | yes |
 | champcity-ai/phase-04/approval/Operator_Phase_Approval | phase_approval | 1 | active | yes | yes |
+| champcity-ai/phase-04/diagnostic_report/WC01 | diagnostic_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01 | implementer_report | 2 | active | yes | yes |
 | champcity-ai/phase-04/implementer_report/WC01-REPAIR01 | implementer_report | 2 | blocked | yes | yes |
 | champcity-ai/phase-04/phase_activation/phase-04 | phase_activation | 1 | active | yes | yes |
