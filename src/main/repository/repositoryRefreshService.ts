@@ -33,13 +33,18 @@ export class RepositoryRefreshService {
   private projectionRevision = 0;
   private refreshTail: Promise<RepositoryProjectionSnapshot> | null = null;
   private readonly listeners = new Set<RepositoryProjectionListener>();
+  private project: ConfiguredProject;
+  private readonly projectId: string;
 
   constructor(
-    private readonly project: ConfiguredProject,
+    project: ConfiguredProject,
     private readonly workspaces: ProjectWorkspaceRegistry,
     private readonly projector = new EvidenceDerivedWorkflowProjector(),
     private readonly clock: () => string = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.project = structuredClone(project);
+    this.projectId = project.projectId;
+  }
 
   subscribe(listener: RepositoryProjectionListener): () => void {
     this.listeners.add(listener);
@@ -73,7 +78,7 @@ export class RepositoryRefreshService {
       const snapshot = await this.refresh("manual");
       return {
         ok: snapshot.scanResult.blockers.length === 0,
-        selectedProjectId: this.project.projectId,
+        selectedProjectId: snapshot.project.projectId,
         scanResult: snapshot.scanResult,
         ...(snapshot.scanResult.blockers.length > 0
           ? { errorMessages: snapshot.scanResult.blockers.map((blocker) => blocker.message) }
@@ -82,21 +87,22 @@ export class RepositoryRefreshService {
     } catch (error) {
       return {
         ok: false,
-        selectedProjectId: this.project.projectId,
+        selectedProjectId: this.projectId,
         errorMessages: [plainError(error)],
       };
     }
   }
 
   private async performRefresh(reason: string): Promise<RepositoryProjectionSnapshot> {
-    await this.workspaces.updateObserverStatus(this.project.projectId, "scanning");
+    const project = await this.resolveProjectForRefresh();
+    await this.workspaces.updateObserverStatus(project.projectId, "scanning");
     try {
-      const nextGraph = await scanVerifiedArtifactGraph(this.project, this.clock);
+      const nextGraph = await scanVerifiedArtifactGraph(project, this.clock);
       const noOp = this.graph?.fingerprint === nextGraph.fingerprint;
       if (!noOp) this.projectionRevision += 1;
       if (this.projectionRevision === 0) this.projectionRevision = 1;
       const projection = this.projector.project(
-        this.project,
+        project,
         nextGraph,
         this.projectionRevision,
       );
@@ -120,23 +126,34 @@ export class RepositoryRefreshService {
         noOp,
       };
       const snapshot: RepositoryProjectionSnapshot = {
-        project: structuredClone(this.project),
+        project: structuredClone(project),
         graph: nextGraph,
         projection,
         registry: nextGraph.derivedRegistry(),
         scanResult,
       };
+      this.project = structuredClone(project);
       this.graph = nextGraph;
       this.snapshot = snapshot;
-      await this.workspaces.updateScanResult(this.project.projectId, scanResult);
+      await this.workspaces.updateScanResult(project.projectId, scanResult);
       if (!noOp || reason === "project-switch") {
         for (const listener of this.listeners) await listener(snapshot);
       }
       return snapshot;
     } catch (error) {
-      await this.workspaces.updateObserverStatus(this.project.projectId, "error");
+      await this.workspaces.updateObserverStatus(project.projectId, "error");
       throw error;
     }
+  }
+
+  private async resolveProjectForRefresh(): Promise<ConfiguredProject> {
+    const project = await this.workspaces.getProject(this.projectId);
+    if (!project) {
+      throw new Error(
+        `Configured project ${this.projectId} is not available. Select an enabled project workspace before refreshing repository state.`,
+      );
+    }
+    return project;
   }
 }
 function plainError(error: unknown): string {

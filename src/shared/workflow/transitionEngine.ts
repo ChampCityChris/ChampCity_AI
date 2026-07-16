@@ -30,6 +30,18 @@ export interface WorkflowActionBinding {
   expectedOutputArtifactId: string;
 }
 
+export interface ExecutableTransitionRule {
+  actionId: string;
+  processId: WorkflowActionTemplate["processId"];
+  processClassification: WorkflowActionTemplate["processClassification"];
+  advancesWorkflowState: boolean;
+  stage: WorkflowStage;
+  role: WorkflowRole;
+  screenId: WorkflowScreenId;
+  expectedOutputArtifactType: string;
+  routes: RoutedActionRoutes;
+}
+
 export interface CreateWorkflowStateInput {
   workflowStateArtifactId?: string;
   projectId: string;
@@ -98,6 +110,67 @@ export class WorkflowTransitionError extends Error {
     super(message);
     this.name = "WorkflowTransitionError";
   }
+}
+
+export const executableTransitionRules: readonly ExecutableTransitionRule[] =
+  defaultLifecycleActionTemplates.map((template) => ({
+    actionId: template.actionId,
+    processId: template.processId,
+    processClassification: template.processClassification,
+    advancesWorkflowState: template.advancesWorkflowState,
+    stage: template.stage,
+    role: template.role,
+    screenId: template.screenId,
+    expectedOutputArtifactType: template.expectedOutputArtifactType,
+    routes: { ...template.routes },
+  }));
+
+export const executableTransitionRuleByActionId: Readonly<Record<string, ExecutableTransitionRule>> =
+  Object.freeze(
+    Object.fromEntries(
+      executableTransitionRules.map((rule) => [
+        rule.actionId,
+        Object.freeze({
+          ...rule,
+          routes: Object.freeze({ ...rule.routes }),
+        }),
+      ]),
+    ),
+  ) as Readonly<Record<string, ExecutableTransitionRule>>;
+
+assertExecutableProcessConformance(
+  executableTransitionRules.map((rule) => ({
+    actionId: rule.actionId,
+    processId: rule.processId,
+    processClassification: rule.processClassification,
+    advancesWorkflowState: rule.advancesWorkflowState,
+    stage: rule.stage,
+    role: rule.role,
+    screenId: rule.screenId,
+    targetArtifactId: null,
+    sourceArtifactIds: [],
+    expectedOutput: {
+      artifactId: `champcity-ai/model/${rule.expectedOutputArtifactType}/${rule.actionId}`,
+      artifactType: rule.expectedOutputArtifactType,
+    },
+    routes: { ...rule.routes },
+  })),
+);
+
+export function requireExecutableTransitionRule(
+  actionId: string,
+): ExecutableTransitionRule {
+  const rule = executableTransitionRuleByActionId[actionId];
+  if (!rule) {
+    throw new WorkflowTransitionError(
+      "missing_action",
+      `Action ${actionId} is not defined by the executable transition model.`,
+    );
+  }
+  return {
+    ...rule,
+    routes: { ...rule.routes },
+  };
 }
 
 export function materializeActionCatalog(

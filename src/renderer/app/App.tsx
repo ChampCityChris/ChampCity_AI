@@ -6417,6 +6417,7 @@ function ProjectWorkspaceBar({
       <div className="mt-1 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground/60">
         <span className="truncate">{selected?.repositoryRoot ?? "No configured repository"}</span>
         <span>Observer: {selected?.observerStatus ?? "stopped"}</span>
+        <span>Branch: {scan?.branch ?? "unavailable"}</span>
         <span>Last scan: {scan?.scannedAt ?? "not scanned"}</span>
         <span>
           Changes: +{scan?.changes.addedArtifactIds.length ?? 0} / ~{scan?.changes.changedArtifactIds.length ?? 0} / -{scan?.changes.removedArtifactIds.length ?? 0}

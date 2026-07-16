@@ -60,6 +60,14 @@ export class ProjectWorkspaceRegistry {
     return project ? cloneProject(project) : null;
   }
 
+  async getProject(projectId: string): Promise<ConfiguredProject | null> {
+    const document = await this.load();
+    const project = document.projects.find(
+      (candidate) => candidate.projectId === projectId && candidate.enabled,
+    );
+    return project ? cloneProject(project) : null;
+  }
+
   async addProject(request: AddProjectWorkspaceRequest): Promise<ConfiguredProject> {
     const validated = await validateProjectRepository(request);
     return this.mutate((document) => {

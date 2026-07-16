@@ -1,0 +1,89 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-04/work_card/WC02-REPAIR01",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-16T13:40:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Work_Cards/WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair.json",
+  "markdownPath": "planning/phases/phase-04/Work_Cards/WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair.md",
+  "parentArtifactId": "champcity-ai/phase-04/work_card/WC02",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair Work Card: WC02-REPAIR01 Architect Bridge Contract Alignment and Task Packet Generation Repair"
+  },
+  "payloadHash": "sha256:bb73fa7e9eb8fac44f92b87ce2206456d5983569ecef46b08edf6a2594150492",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair"
+    ],
+    "sources": [
+      "champcity-ai/phase-04/architect_review/WC02",
+      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
+      "champcity-ai/phase-04/work_card/WC02"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T15:10:00.000Z",
+  "workCardId": "WC02-REPAIR01"
+}
+-->
+
+# Repair Work Card: Phase 04 WC02-REPAIR01 Architect Bridge Contract Alignment and Task Packet Generation Repair
+
+Status: implemented_pending_architect_review
+Phase: phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization
+Parent Work Card: WC02 — Architect Bridge, Current-Action Surface Audit, and Embedded ChatGPT Browser
+Repair identity: champcity-ai/phase-04/work_card/WC02-REPAIR01
+Repair limit: only and final permitted repair for WC02
+Acceptance target: WC02-REPAIR01 Operator validation after Architect review
+
+## Authority
+
+Repair the WC02 Architect Bridge implementation so it functions in the real Phase 04 WC01 repaired-parent disposition state.
+
+This repair is authorized by the WC02 Architect Review. The repair is limited to Architect Bridge contract alignment, task-packet generation, expected-output correction, and repaired-parent source-bundle construction.
+
+## Required Work
+
+1. Align `architect_disposition_required` across the current-action route table, IPC policy, process contract, renderer surface, and expected-output handling.
+2. Authorize `workCards:ensureArchitectTaskPacket` as a non-transitioning support write for Architect Bridge.
+3. Resolve repaired-parent WC01 final output to `candidate_disposition/WC01`, not `architect_disposition/WC01`.
+4. If `candidate_disposition/WC01` exists and is valid, Refresh Repository State must advance past WC01 to WC02.
+5. If `candidate_disposition/WC01` is missing, Architect Bridge must generate and display actual Architect Task Packet paths and a copy-ready prompt.
+6. Build the full repaired-parent source bundle from WC01 validation, WC01 Architect Review, parent Work Card, parent Implementer Report, repair Work Card, and repair Implementer Report evidence.
+
+## Required Acceptance
+
+1. Architect Bridge can generate an `architect_task` packet without blocked-write errors.
+2. The packet is a valid synchronized canonical pair.
+3. The packet expected output is `candidate_disposition/WC01` for the real repaired-parent WC01 case.
+4. The packet contains the full repaired-parent evidence bundle.
+5. The screen no longer shows pending packet generation after generation succeeds.
+6. If candidate disposition for WC01 exists, refresh advances to WC02.
+7. Human Validation remains limited to Operator Validation actions.
+8. Mounted Electron coverage verifies the formerly failing visual path.
+
+## Out of Scope
+
+- Browser expansion.
+- ChatGPT DOM automation.
+- Implementer/Codex integration.
+- OpenAI API or provider integration.
+- WC01-REPAIR02.
+- Broad UI redesign.
+- A new recovery/override system.
+
+## Required Output
+
+Create the synchronized Implementer Report pair:
+
+`planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair.{json,md}`
+
+Canonical Implementer Report artifact:
+
+`champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair`

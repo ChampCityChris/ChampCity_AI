@@ -1,0 +1,51 @@
+{
+  "artifactId": "champcity-ai/phase-04/architect_review/WC02",
+  "artifactType": "architect_review",
+  "createdAt": "2026-07-16T13:35:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.json",
+  "markdownPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.md",
+  "payload": {
+    "contentMarkdown": "# Architect Review: Phase 04 WC02 Architect Bridge, Current-Action Surface Audit, and Embedded ChatGPT Browser\n\n## Decision\n\nReady for Operator validation.\n\n## Review Scope\n\nCombined parent and final repair review.\n\n## Scope Reviewed\n\nReviewed the original WC02 Implementer Report, the WC02-REPAIR01 Work Card, the WC02-REPAIR01 Implementer Report, and the repaired Architect Bridge behavior after restoring the missing formal Work Card chain.\n\n## Findings\n\nThe original WC02 implementation delivered the first Architect Bridge surface but failed live repaired-parent task-packet generation and retained expected-output contract drift. WC02-REPAIR01 corrected that failure by aligning Architect Bridge routing, process IPC policy, process contract, source-bundle generation, and candidate-disposition expected-output resolution.\n\nThe combined implementation now satisfies the acceptance target for WC02. Architect disposition routes through Architect Bridge, architect_task remains a non-transitioning support artifact, the repaired-parent source bundle is visible, and the existing completed-via-repair WC01 evidence no longer traps the Operator on the old blocked Bridge state.\n\n## Validation Assessment\n\nAutomated validation passed after the missing Work Card and review artifacts were restored. The validation lane reported successful build, 44 tests, repository gates, and mounted Electron regressions. Electron cache/GPU warnings were present but did not fail validation.\n\n## Operator Validation Authorization\n\nOperator validation is authorized for the parent WC02 acceptance target. The expected validation output is:\n\n`champcity-ai/phase-04/validation_report/WC02`\n\n## Required Repair\n\nNo additional numbered repair is authorized for WC02. WC02-REPAIR01 is the final permitted repair for this parent acceptance target.\n\n## Operator Validation Instructions\n\n1. Refresh repository state in ChampCity A/I.\n2. Confirm the current action routes to Operator Validation for WC02.\n3. Confirm the expected output is `champcity-ai/phase-04/validation_report/WC02`.\n4. Confirm the previous Architect Review route for WC02 is no longer presented.\n5. Complete Operator validation against the restored WC02 and WC02-REPAIR01 evidence chain.\n",
+    "data": {
+      "acceptedRepairResult": true,
+      "architectReviewResult": "accepted_after_final_repair",
+      "authorizingArchitectReviewArtifactId": "champcity-ai/phase-04/architect_review/WC02",
+      "authorizingArchitectReviewRevision": 1,
+      "combinedParentReview": true,
+      "decision": "Ready for Operator validation",
+      "operatorValidationAuthorized": true,
+      "operatorValidationTargetArtifactId": "champcity-ai/phase-04/validation_report/WC02",
+      "originalImplementerReportArtifactId": "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
+      "repairClassification": "final_permitted_repair",
+      "repairedParentWorkCardArtifactId": "champcity-ai/phase-04/work_card/WC02",
+      "repairImplementerReportArtifactId": "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
+      "repairWorkCardArtifactId": "champcity-ai/phase-04/work_card/WC02-REPAIR01",
+      "repairWorkCardId": "WC02-REPAIR01",
+      "reviewScope": "combined_parent_and_final_repair",
+      "workCardId": "WC02"
+    },
+    "kind": "architect_review",
+    "title": "Architect Review: WC02 Architect Bridge Current-Action Surface Audit and Embedded ChatGPT Browser"
+  },
+  "payloadHash": "sha256:15e7b93aedfcd813940acd7fbabb272554338e8643f02c6675a8f0f7ca5e7a22",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-04/validation_report/WC02"
+    ],
+    "sources": [
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
+      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
+      "champcity-ai/phase-04/work_card/WC02",
+      "champcity-ai/phase-04/work_card/WC02-REPAIR01"
+    ],
+    "supersedes": []
+  },
+  "revision": 3,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T19:10:00.000Z",
+  "workCardId": "WC02"
+}

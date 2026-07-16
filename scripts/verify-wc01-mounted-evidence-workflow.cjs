@@ -244,7 +244,7 @@ app.whenReady().then(async () => {
       );
       await waitFor(
         window,
-        `document.body.innerText.includes("Operator Validation of Repaired Parent Work Card") && document.body.innerText.includes("Resolution path: completed via ${repairId}")`,
+        `document.body.innerText.includes("Routed workspace: Human Validation") && window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.routedAction?.expectedOutput?.artifactId === "${projectId}/${phaseId}/validation_report/${workCardId}")`,
         "repaired-parent Operator Validation UI",
       );
       writeArtifact({

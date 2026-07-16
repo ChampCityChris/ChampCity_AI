@@ -4,6 +4,7 @@ import {
   createWorkflowStateIndex,
   materializeActionCatalog,
   projectRoutedAction,
+  requireExecutableTransitionRule,
   type CandidateResolutionStatus,
   type WorkflowActionBinding,
   type WorkflowBlocker,
@@ -223,25 +224,6 @@ function deriveWorkCardStep(
       workCard,
     );
   }
-  const repairResolution = resolveRepairLineage(
-    projectId,
-    phaseId,
-    graph,
-    workCard,
-    report,
-    review,
-  );
-  if (repairResolution.detected) {
-    return deriveRepairedParentStep(
-      projectId,
-      phaseId,
-      graph,
-      workCard,
-      report,
-      review,
-      repairResolution,
-    );
-  }
   const reviewData = recordData(review);
   const decision = text(reviewData.decision).toLowerCase();
   const authorized = reviewData.operatorValidationAuthorized === true || decision.includes("ready for operator validation");
@@ -256,6 +238,23 @@ function deriveWorkCardStep(
         [review.artifact.artifactId],
         expectedValidationId,
         [workCard, report, review],
+        workCard,
+      );
+    }
+    const combinedEvidence = combinedParentReviewEvidence(graph, workCard, report, review);
+    if (combinedEvidence.length > 0) {
+      return step(
+        "architect_disposition_required",
+        workCard.artifact.artifactId,
+        [
+          validation.artifact.artifactId,
+          review.artifact.artifactId,
+          workCard.artifact.artifactId,
+          report.artifact.artifactId,
+          ...combinedEvidence.map((node) => node.artifact.artifactId),
+        ],
+        `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+        [workCard, report, review, validation, ...combinedEvidence],
         workCard,
       );
     }
@@ -277,6 +276,25 @@ function deriveWorkCardStep(
       `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
       [workCard, report, review, validation],
       workCard,
+    );
+  }
+  const repairResolution = resolveRepairLineage(
+    projectId,
+    phaseId,
+    graph,
+    workCard,
+    report,
+    review,
+  );
+  if (repairResolution.detected) {
+    return deriveRepairedParentStep(
+      projectId,
+      phaseId,
+      graph,
+      workCard,
+      report,
+      review,
+      repairResolution,
     );
   }
   if (decision.includes("repair")) {
@@ -630,6 +648,7 @@ function step(
   activeWorkCard: VerifiedArtifactNode | null,
   blockers: WorkflowBlocker[] = [],
 ): ProjectedStep {
+  requireExecutableTransitionRule(actionId);
   return {
     actionId,
     targetArtifactId,
@@ -792,6 +811,36 @@ function isCombinedParentReview(
     requiredSources
       .filter((artifactId) => artifactId !== review.artifact.artifactId)
       .every((artifactId) => review.artifact.relationships.sources.includes(artifactId))
+  );
+}
+
+function combinedParentReviewEvidence(
+  graph: VerifiedArtifactGraph,
+  parentWorkCard: VerifiedArtifactNode,
+  parentReport: VerifiedArtifactNode,
+  review: VerifiedArtifactNode,
+): VerifiedArtifactNode[] {
+  const data = recordData(review);
+  const scope = text(data.reviewScope);
+  if (scope !== "combined_parent_and_final_repair" && data.combinedParentReview !== true) {
+    return [];
+  }
+  if (text(data.repairedParentWorkCardArtifactId) !== parentWorkCard.artifact.artifactId) {
+    return [];
+  }
+  const repairWorkCardId = text(data.repairWorkCardArtifactId);
+  const repairWorkCard = repairWorkCardId ? graph.controlling(repairWorkCardId) : null;
+  const repairReportId =
+    text(data.repairImplementerReportArtifactId) ||
+    review.artifact.relationships.sources.find(
+      (artifactId) =>
+        artifactId.includes("/implementer_report/") &&
+        artifactId !== parentReport.artifact.artifactId,
+    ) ||
+    null;
+  const repairReport = repairReportId ? graph.controlling(repairReportId) : null;
+  return [repairWorkCard, repairReport].filter(
+    (node): node is VerifiedArtifactNode => Boolean(node),
   );
 }
 

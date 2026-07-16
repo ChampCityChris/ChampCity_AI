@@ -584,8 +584,12 @@ async function evidenceProjectionAuthorityGate(root) {
     "src/main/repository/repositoryRefreshService.ts",
     "src/main/repository/verifiedArtifactGraph.ts",
     "src/main/workflow/evidenceDerivedWorkflowProjector.ts",
+    "src/main/workflow/processIpcPolicy.ts",
     "src/main/workflow/routedActionService.ts",
     "src/main/workflow/routedProcessInvocationService.ts",
+    "src/shared/workCards/currentActionRouteTable.ts",
+    "src/shared/workflow/processContract.ts",
+    "src/shared/workflow/transitionEngine.ts",
   ];
   const forbiddenPatterns = [
     /currentRequiredAction/,
@@ -593,6 +597,15 @@ async function evidenceProjectionAuthorityGate(root) {
     /workflowStateArtifactPort/,
     /scripts\/migration/,
     /evaluateCurrentRequiredAction/,
+    /legacy\s+runtime\s+fallback/i,
+    /historical\s+compatibility\s+reader/i,
+    /filename[-_\s]+order\s+inference/i,
+    /directory[-_\s]+order\s+inference/i,
+    /status[-_\s]+string\s+inference/i,
+    /reference[-_\s]+card\s+fallback/i,
+    /renderer[-_\s]+binding\s+fallback/i,
+    /Artifact Registry fallback/i,
+    /try old path, then new path/i,
   ];
   for (const file of requiredFiles) {
     gate.checked += 1;

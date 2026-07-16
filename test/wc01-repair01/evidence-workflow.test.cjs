@@ -129,12 +129,15 @@ async function seedWorkCardLoop(root, projectId, phaseId, workCardId, options = 
     projectId,
     phaseId,
     workCardId,
-    artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
-    artifactType: "work_card",
-    stem: `planning/phases/${phaseId}/Work_Cards/${workCardId}_authority_cutover`,
-    expectedOutputs: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
-    data: { workCardId, status: "ready_for_implementer", ...options.workCardData },
-  });
+      artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+      artifactType: "work_card",
+      stem: `planning/phases/${phaseId}/Work_Cards/${workCardId}_authority_cutover`,
+      expectedOutputs: [
+        options.expectedImplementerReportId ??
+          `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+      ],
+      data: { workCardId, status: "ready_for_implementer", ...options.workCardData },
+    });
 }
 
 async function projectGraph(root, projectId = "project-alpha", revision = 1) {
@@ -640,6 +643,125 @@ test("WC09-REPAIR02 regression binds exact report/review and routes validation w
     result = await projectGraph(root, projectId, 2);
     assert.equal(result.projection.state.currentAction.actionId, "operator_validation_required");
     assert.equal(result.projection.state.currentAction.targetArtifactId, `${projectId}/${phaseId}/work_card/${repairId}`);
+  });
+});
+
+test("live WC02 evidence routes to parent Operator Validation despite later repair Work Card", async () => {
+  await temporaryRoot("champcity-wc02-repair02-regression-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const parentId = "WC02";
+    const parentReportId = `${projectId}/${phaseId}/implementer_report/WC02-architect-bridge-current-action-surface-audit`;
+    const repairId = "WC02-REPAIR01";
+    const repairReportId = `${projectId}/${phaseId}/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair`;
+    await seedWorkCardLoop(root, projectId, phaseId, parentId, {
+      expectedImplementerReportId: parentReportId,
+      workCardData: { maxRepairCount: 1 },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: parentId,
+      artifactId: parentReportId,
+      artifactType: "implementer_report",
+      parentArtifactId: `${projectId}/${phaseId}/work_card/${parentId}`,
+      stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_WC02_architect_bridge_current_action_surface_audit`,
+      sources: [`${projectId}/${phaseId}/work_card/${parentId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/architect_review/${parentId}`],
+      data: { workCardId: parentId, status: "implemented_awaiting_architect_review" },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: repairId,
+      artifactId: `${projectId}/${phaseId}/work_card/${repairId}`,
+      artifactType: "work_card",
+      parentArtifactId: `${projectId}/${phaseId}/work_card/${parentId}`,
+      stem: `planning/phases/${phaseId}/Work_Cards/WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair`,
+      sources: [
+        `${projectId}/${phaseId}/architect_review/${parentId}`,
+        parentReportId,
+        `${projectId}/${phaseId}/work_card/${parentId}`,
+      ],
+      expectedOutputs: [repairReportId],
+      data: {
+        workCardId: repairId,
+        finalNumberedRepair: true,
+        maximumRepairCount: 1,
+        authorizingArchitectReviewRevision: 1,
+        controllingRepairReportArtifactId: repairReportId,
+        logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/${repairId}`,
+      },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: repairId,
+      artifactId: repairReportId,
+      artifactType: "implementer_report",
+      parentArtifactId: `${projectId}/${phaseId}/work_card/${parentId}`,
+      stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair`,
+      sources: [`${projectId}/${phaseId}/work_card/${repairId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/architect_review/${parentId}`],
+      data: { workCardId: repairId, status: "implemented_awaiting_architect_review" },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: parentId,
+      artifactId: `${projectId}/${phaseId}/architect_review/${parentId}`,
+      artifactType: "architect_review",
+      revision: 3,
+      stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser`,
+      sources: [
+        repairReportId,
+        parentReportId,
+        `${projectId}/${phaseId}/work_card/${parentId}`,
+        `${projectId}/${phaseId}/work_card/${repairId}`,
+      ],
+      expectedOutputs: [`${projectId}/${phaseId}/validation_report/${parentId}`],
+      data: {
+        workCardId: parentId,
+        decision: "Ready for Operator validation",
+        operatorValidationAuthorized: true,
+        reviewScope: "combined_parent_and_final_repair",
+        combinedParentReview: true,
+        repairedParentWorkCardArtifactId: `${projectId}/${phaseId}/work_card/${parentId}`,
+        repairWorkCardArtifactId: `${projectId}/${phaseId}/work_card/${repairId}`,
+        authorizingArchitectReviewArtifactId: `${projectId}/${phaseId}/architect_review/${parentId}`,
+        authorizingArchitectReviewRevision: 1,
+      },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC02-REPAIR02",
+      artifactId: `${projectId}/${phaseId}/work_card/WC02-REPAIR02`,
+      artifactType: "work_card",
+      parentArtifactId: `${projectId}/${phaseId}/work_card/${parentId}`,
+      stem: `planning/phases/${phaseId}/Work_Cards/WC02-REPAIR02_executable_transition_engine_and_refresh_authority_rebuild`,
+      sources: [
+        `${projectId}/${phaseId}/work_card/${parentId}`,
+        parentReportId,
+        `${projectId}/${phaseId}/architect_review/${parentId}`,
+        `${projectId}/${phaseId}/work_card/${repairId}`,
+        repairReportId,
+      ],
+      expectedOutputs: [
+        `${projectId}/${phaseId}/implementer_report/WC02-REPAIR02-executable-transition-engine-and-refresh-authority-rebuild`,
+      ],
+      data: {
+        workCardId: "WC02-REPAIR02",
+        status: "ready_for_implementer",
+        repairClassification: "systemic_transition_authority_rebuild",
+      },
+    });
+
+    const result = await projectGraph(root, projectId);
+    const action = result.projection.state.currentAction;
+    assert.equal(action.actionId, "operator_validation_required");
+    assert.equal(action.workCardId, undefined);
+    assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/${parentId}`);
+    assert.deepEqual(action.expectedOutput, {
+      artifactId: `${projectId}/${phaseId}/validation_report/${parentId}`,
+      artifactType: "validation_report",
+    });
+    assert.equal(
+      result.projection.state.blockingConditions.some((blocker) =>
+        blocker.code === "repair_lineage_ambiguous"
+      ),
+      false,
+    );
   });
 });
 

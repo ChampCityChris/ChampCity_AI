@@ -1,0 +1,56 @@
+{
+  "artifactId": "champcity-ai/phase-04/reconciliation_review/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW",
+  "artifactType": "reconciliation_review",
+  "createdAt": "2026-07-16T14:40:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Reconciliation_Reviews/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW.json",
+  "markdownPath": "planning/phases/phase-04/Reconciliation_Reviews/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW.md",
+  "payload": {
+    "contentMarkdown": "# Phase 04 Reconciliation and Closeout Readiness Review\n\nStatus: Architect recommendation / closeout-readiness review\nDate: 2026-07-16\nPhase: phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization\nProcess lane: Prove / closeout readiness\n\n## Decision\n\nPhase 04 should not continue by authoring the originally planned WC02 candidate as the next product work item.\n\nThe current application state is mechanically explainable: WC01 is now resolved as completed_via_repair, so the evidence-derived workflow advances to the next unresolved candidate in the approved Phase 04 Work Card Plan. That next candidate is WC02. The app is therefore following its current canonical candidate plan.\n\nThe problem is not that WC02 Operator validation was skipped. The problem is that the Phase 04 candidate plan no longer matches the work that actually happened during the recovery effort. WC02 and WC02-REPAIR01 were used in practice for Architect Bridge and task-packet recovery work driven by the WC01 disposition blocker, while the approved Work Card Plan still describes WC02 as Governed Operator Recovery and Override.\n\nPhase 04 now requires reconciliation before additional implementation.\n\n## Findings\n\n### 1. Validation was not passed over\n\nThe current routed action `work_card_authoring_required` for expected output `champcity-ai/phase-04/work_card/WC02` means the app advanced from WC01 to the next planned candidate. It does not mean that the originally planned WC02 was implemented, reviewed, validated, and closed.\n\nThe Architect Review for WC02-REPAIR01 accepted the repair evidence as ready for Operator validation. It did not replace Operator validation. The apparent skip is a naming and planning mismatch caused by recovery work being recorded under WC02/WC02-REPAIR01 while the formal candidate plan still expects a future WC02 Work Card.\n\n### 2. Phase 04 achieved more than its original WC01 scope\n\nThe following outcomes are now evidenced:\n\n- WC01 canonical routed-screen and projection retirement work was implemented and repaired.\n- WC01 was validated and resolved as completed_via_repair.\n- The Architect Bridge screen was introduced for Architect-owned action support.\n- Architect Task Packet generation was repaired so Architect disposition can generate a support packet when the final output is missing.\n- The repaired-parent WC01 path now resolves to candidate_disposition/WC01.\n- Existing candidate_disposition/WC01 evidence advances the runtime to the next candidate.\n- Normal validation and repository gates pass after the Architect Review pair for WC02-REPAIR01.\n\nThese outcomes materially shift the project. The product now has the first slice of Architect integration, not merely workflow execution hardening.\n\n### 3. Current planning records are stale\n\nThe project Roadmap still says phase-03 is the current incomplete phase and describes phase-04 as proposed. PROJECT_STATE likewise still says phase-03 is active. Those project-level records are no longer aligned with the repository evidence, Phase 04 activation artifacts, and current app behavior.\n\nThe durable Workflow State artifact is also stale. Runtime authority is now evidence-derived projection, but the persisted workflow-state file still contains older WC01 action metadata and should not be treated as the current operational truth without regeneration.\n\n### 4. The Phase 04 Work Card Plan is no longer the best next authority\n\nThe approved Phase 04 Work Card Plan remains valid historical planning evidence, but continuing directly to its original WC02 candidate would be misleading. The next product need is not governed override alone. The next need is a full workspace-surface rebaseline across the locked process:\n\nProject Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop.\n\nThe app now needs a role-appropriate workspace for every step, not only Work Cards.\n\n## Closeout Readiness Assessment\n\nPhase 04 is not ready for ordinary closeout yet.\n\nPhase 04 is closeout-ready only after one of these decisions is recorded:\n\n1. Rebaseline Phase 04 and replace the remaining candidate plan with a closeout/rebaseline path; or\n2. Carry forward the unimplemented Phase 04 candidates into the new roadmap; or\n3. Cancel/defer the remaining original Phase 04 candidates and close Phase 04 as a stabilization bridge phase.\n\nThe recommended path is option 3: close Phase 04 as a stabilization bridge phase after Operator validation confirms the app advances past WC01 and no longer shows the blocked Architect Bridge state.\n\n## Recommended Next Action\n\nCreate the next Architect-owned artifact:\n\nProject Roadmap Rebaseline: Full Process Workspace Surfaces\n\nPurpose:\n\n- reconcile project-level roadmap and project state with current repo evidence;\n- define the next phase around end-to-end workspace surfaces;\n- map every process step to role, source bundle, expected output, workspace, and bridge behavior;\n- separate Architect Bridge integration from Operator validation and Implementer-owned execution;\n- carry forward or defer the remaining Phase 04 candidates intentionally.\n\nDo not author the old WC02 Work Card from the current Phase 04 plan as the next implementation pass.\n\n## Required Workspace Surface Matrix for the New Roadmap\n\nThe next roadmap should require a matrix covering:\n\n- Project Intake: Operator-owned intake workspace.\n- Project Interview: Architect task workspace and task packet.\n- Reconciliation Review: Architect task workspace and repo evidence bundle.\n- Project Mapping: Architect roadmap workspace.\n- Operator Project Approval: Operator approval workspace.\n- Phase Mapping: Architect phase map workspace.\n- Operator Phase Approval: Operator phase approval workspace.\n- Work Card Authoring: Architect Work Card workspace.\n- Implementer Execution: Implementer report capture / handoff workspace.\n- Architect Review: Architect review or Architect Bridge task workspace.\n- Operator Validation: Operator validation workspace.\n- Architect Disposition: Architect Bridge task workspace.\n- Repair Work Card Creation: Architect repair workspace.\n- Candidate Disposition: Architect/Operator boundary must be explicitly resolved.\n- Phase Closeout: Architect closeout workspace.\n- Operator Phase Closeout Approval: Operator approval workspace.\n- Roadmap Update: Architect roadmap update workspace.\n- Next Phase Activation: Operator activation workspace.\n- Repeat Loop: Application-owned status and progression surface.\n\n## Architect Disposition\n\nDo not continue Phase 04 implementation under the stale candidate list until the roadmap/project-state reconciliation is completed.\n\nOperator manual validation should confirm only the immediate recovery outcome:\n\n- Refresh Repository State advances past WC01.\n- The app lands on WC02 authoring because the existing candidate plan says WC02 is next.\n- This behavior is understood as plan drift, not validation bypass.\n- The previous blocked Architect Bridge state is gone.\n\nAfter that confirmation, the next controlled action should be roadmap/project-state rebaseline, not old WC02 authoring.\n",
+    "data": {
+      "decision": "rebaseline_before_additional_implementation",
+      "doNotAuthorCurrentPlannedWc02Yet": true,
+      "nextRecommendedArtifact": "Project Roadmap Rebaseline: Full Process Workspace Surfaces",
+      "phaseCloseoutReady": false,
+      "phaseId": "phase-04",
+      "recommendedPath": "operator_validate_recovery_then_rebaseline_roadmap_and_project_state",
+      "remainingPhase04CandidatesDisposition": "carry_forward_defer_or_cancel_during_rebaseline",
+      "reviewType": "phase_closeout_readiness_reconciliation",
+      "validationSkippedFinding": "not_skipped_current_state_reflects_wc01_completed_via_repair_and_next_planned_candidate_wc02",
+      "workspaceSurfaceAuditRequired": true
+    },
+    "kind": "reconciliation_review",
+    "title": "Phase 04 Reconciliation and Closeout Readiness Review"
+  },
+  "payloadHash": "sha256:ae6afded8e7b158566143cfc389530c1edffd78053e3f16a15234ef646394baa",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE",
+      "champcity-ai/phase-04/phase_closeout/phase-04"
+    ],
+    "sources": [
+      "champcity-ai/phase-04/phase_planning/Phase_Planning",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE",
+      "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+      "champcity-ai/system/workflow_state",
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
+      "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
+      "champcity-ai/phase-04/validation_report/WC01",
+      "champcity-ai/phase-04/candidate_disposition/WC01",
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
+      "champcity-ai/phase-04/architect_review/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T19:10:00.000Z"
+}
