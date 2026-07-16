@@ -1,0 +1,40 @@
+{
+  "artifactId": "champcity-ai/phase-05/work_card/WC02",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-16T23:45:00.000Z",
+  "jsonPath": "planning/phases/phase-05/Work_Cards/WC02_reconciled_current_state_and_ground_rules_baseline.json",
+  "markdownPath": "planning/phases/phase-05/Work_Cards/WC02_reconciled_current_state_and_ground_rules_baseline.md",
+  "payloadHash": "sha256:147e7c55f229bef5412222d8001d0093bafafd4c958d11561ec824c1d146be23",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-05/reconciliation_review/WC02"
+    ],
+    "sources": [
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/work_card_plan/Work_Card_Plan"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T23:45:00.000Z",
+  "workCardId": "WC02",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Phase 05 WC02 Reconciled Current-State and Ground-Rules Baseline",
+    "contentMarkdown": "# Work Card: Phase 05 WC02 Reconciled Current-State and Ground-Rules Baseline\n\nStatus: ready_for_architect\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nWork Card: WC02\nOwner: Architect\nRisk: critical\nChange strategy: no code changes; proposed baseline first; living documents update only after Operator approval\n\n## Purpose\n\nCreate the reconciled baseline that will govern future Phase 05 roadmap work and later implementation phases.\n\nThis Work Card is Architect-owned planning work. It does not authorize source-code changes, status cleanup, broad artifact mutation, or living-document rewrites. It produces a proposed baseline for Operator approval.\n\n## Clarifications Incorporated\n\nThe Operator answered yes to these WC01 follow-up questions:\n\n1. WC02 should create a reconciled baseline first, then update living documents only after Operator approval.\n2. WC02 should propose status corrections for active-looking historical artifacts, but avoid broad artifact-status cleanup until approval.\n3. Artifact Registry and Workflow State should be formally treated as derived/cache/diagnostic until the workflow kernel is rebuilt.\n4. Codex should be described as the first supported Implementer while the Implementer contract remains tool-neutral.\n5. The public beta candidate minimum scope includes Windows build, project registration, ChatGPT subscription plus ChampCity MCP Architect Bridge, Implementer loop, validation/evidence, Git automation, multi-project dogfooding, and release-candidate documentation.\n\n## Required Output\n\nProduce the synchronized artifact pair:\n\n`planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC02_reconciled_current_state_and_ground_rules_baseline.{json,md}`\n\nCanonical artifact ID:\n\n`champcity-ai/phase-05/reconciliation_review/WC02`\n\n## Required Baseline Sections\n\nThe output must include:\n\n1. Current authoritative project state.\n2. Living documents requiring later update after Operator approval.\n3. Ground rules for future Work Cards.\n4. Old foundation removal / migration rules.\n5. Process-map and stage-ownership rules.\n6. UI usability acceptance rules.\n7. Architect Bridge / MCP / ChatGPT subscription integration rules.\n8. Implementer support model.\n9. Multi-project dogfooding requirement.\n10. Git automation and Operator abstraction requirement.\n11. Evidence and screenshot storage rule.\n12. Release-candidate minimum scope.\n13. Proposed artifact/status corrections that require approval before broad cleanup.\n14. Explicit statement that WC03 may draft the release-candidate roadmap only after this baseline is approved or corrected.\n\n## Acceptance Criteria\n\n- The baseline distinguishes approved state from proposed cleanup.\n- It does not mutate stale living documents yet.\n- It treats existing code and artifact paths as evidence, not automatic compatibility requirements.\n- It preserves the established process map.\n- It requires UI usability as part of acceptance.\n- It identifies workflow kernel work as the next implementation foundation.\n- It records the public beta candidate as the target release-candidate form.\n- It keeps the Implementer contract tool-neutral while identifying Codex as the first supported Implementer.\n",
+    "data": {
+      "workCardId": "WC02",
+      "owner": "Architect",
+      "status": "ready_for_architect",
+      "requiresImplementer": false,
+      "codeChangesAuthorized": false,
+      "livingDocumentUpdatesAuthorized": false,
+      "expectedOutputArtifactId": "champcity-ai/phase-05/reconciliation_review/WC02"
+    }
+  }
+}
