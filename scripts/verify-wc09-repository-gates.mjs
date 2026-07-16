@@ -638,6 +638,55 @@ async function evidenceProjectionAuthorityGate(root) {
   return finishGate(gate);
 }
 
+async function activeProjectWorkspaceAuthorityGate(root) {
+  const gate = makeGate("active_project_workspace_authority");
+  const runtime = await readText(root, "src/main/canonicalRuntime.ts");
+  const registry = await readText(root, "src/main/projects/projectWorkspaceRegistry.ts");
+  const refresh = await readText(root, "src/main/repository/repositoryRefreshService.ts");
+  const renderer = await readText(root, "src/renderer/app/App.tsx");
+  const preload = await readText(root, "src/preload/index.ts");
+
+  for (const [file, source] of [
+    ["src/main/canonicalRuntime.ts", runtime],
+    ["src/main/projects/projectWorkspaceRegistry.ts", registry],
+    ["src/main/repository/repositoryRefreshService.ts", refresh],
+    ["src/renderer/app/App.tsx", renderer],
+    ["src/preload/index.ts", preload],
+  ]) {
+    gate.checked += 1;
+    if (source === null) fail(gate, "active-project-source-missing", file);
+  }
+
+  if (!runtime?.includes("ensureActiveSelectedProject")) {
+    fail(gate, "manual-refresh-missing-selected-project-guard", "src/main/canonicalRuntime.ts");
+  }
+  if (/refreshSelectedRepository\(\)[\s\S]{0,240}requireActive\(\)\.refresh\.manualRefreshResult\(\)/.test(runtime ?? "") &&
+      !/refreshSelectedRepository\(\)[\s\S]{0,240}ensureActiveSelectedProject\(\)/.test(runtime ?? "")) {
+    fail(gate, "manual-refresh-bypasses-selected-project-guard", "src/main/canonicalRuntime.ts");
+  }
+  if (refresh?.includes('if (!noOp || reason === "project-switch")')) {
+    fail(gate, "noop-refresh-suppresses-renderer-projection", "src/main/repository/repositoryRefreshService.ts");
+  }
+  if (registry?.includes("return cloneProject(duplicateRoot)")) {
+    fail(gate, "duplicate-project-root-silently-reused", "src/main/projects/projectWorkspaceRegistry.ts");
+  }
+  if (!registry?.includes("isConfiguredProjectReachable")) {
+    fail(gate, "project-list-missing-reachability-filter", "src/main/projects/projectWorkspaceRegistry.ts");
+  }
+  for (const pattern of [
+    { id: "visible-raw-repository-path-control", pattern: /Repository directory|projectPathDraft|onPathDraftChange/ },
+    { id: "visible-nonfunctional-add-project-label", pattern: />\s*Add project\s*</ },
+  ]) {
+    if (pattern.pattern.test(renderer ?? "")) {
+      fail(gate, pattern.id, "src/renderer/app/App.tsx");
+    }
+  }
+  if (!renderer?.includes("Add local project") || !preload?.includes("chooseProjectFolder")) {
+    fail(gate, "missing-folder-picker-project-registration", "src/renderer/app/App.tsx");
+  }
+  return finishGate(gate);
+}
+
 function isLegacyScanScope(file) {
   return (
     file === "README.md" ||
@@ -977,6 +1026,7 @@ async function main() {
     gates.push(await runtimeBoundaryGate(root, repoFiles));
     gates.push(await routedAuthorityBoundaryGate(root));
     gates.push(await evidenceProjectionAuthorityGate(root));
+    gates.push(await activeProjectWorkspaceAuthorityGate(root));
     gates.push(await legacyTerminologyGate(root, repoFiles));
     gates.push(await activeArtifactNamingGate(repoFiles));
     gates.push(await secretAssignmentGate(root, changedExisting));

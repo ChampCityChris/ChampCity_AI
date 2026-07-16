@@ -23,6 +23,7 @@ import { CanonicalWorkflowAuthority } from "./workCards/canonicalWorkflowAuthori
 import { RoutedProcessInvocationService } from "./workflow";
 
 interface ActiveProjectRuntime {
+  projectId: string;
   refresh: RepositoryRefreshService;
   observer: RepositoryObserver;
   authority: CanonicalWorkflowAuthority;
@@ -58,18 +59,34 @@ export async function initializeCanonicalRuntime(input: {
   workspaces = new ProjectWorkspaceRegistry({ storagePath: input.workspaceStoragePath });
   const document = await workspaces.initialize(input.defaultRepositoryRoot);
   const selectedProjectId = document.selectedProjectId;
-  if (!selectedProjectId) throw new Error("No active project is configured.");
-  await activateProject(selectedProjectId);
+  if (!selectedProjectId) return;
+  try {
+    await activateProject(selectedProjectId);
+  } catch {
+    active = null;
+  }
 }
 
 export async function listProjectWorkspaces(): Promise<ProjectWorkspaceListResult> {
   try {
     const registry = requireWorkspaces();
     const document = await registry.load();
+    const projects = await registry.list();
+    const selectedProjectId =
+      projects.find((project) => project.selected)?.projectId ?? null;
+    const selectedMissing =
+      document.selectedProjectId !== null && selectedProjectId === null;
     return {
-      ok: true,
-      selectedProjectId: document.selectedProjectId,
-      projects: await registry.list(),
+      ok: !selectedMissing,
+      selectedProjectId,
+      projects,
+      ...(selectedMissing
+        ? {
+            errorMessages: [
+              "Active project is not available. Choose the project folder again before refreshing project state.",
+            ],
+          }
+        : {}),
     };
   } catch (error) {
     return { ok: false, selectedProjectId: null, projects: [], errorMessages: [plainError(error)] };
@@ -82,6 +99,7 @@ export async function addProjectWorkspace(
   try {
     const registry = requireWorkspaces();
     const project = await registry.addProject(request);
+    await activateProject(project.projectId);
     const listed = await listProjectWorkspaces();
     return {
       ...listed,
@@ -111,11 +129,25 @@ export async function selectProjectWorkspace(
 }
 
 export async function refreshSelectedRepository(): Promise<RefreshRepositoryStateResult> {
-  return requireActive().refresh.manualRefreshResult();
+  try {
+    await ensureActiveSelectedProject();
+    return requireActive().refresh.manualRefreshResult();
+  } catch (error) {
+    return {
+      ok: false,
+      selectedProjectId: null,
+      errorMessages: [plainError(error)],
+    };
+  }
 }
 
 export async function refreshSelectedRepositoryOnFocus(): Promise<void> {
-  await requireActive().refresh.refresh("application-focus");
+  try {
+    await ensureActiveSelectedProject();
+    await requireActive().refresh.refresh("application-focus");
+  } catch {
+    // Focus refresh is opportunistic; explicit refresh/list IPC exposes recovery state.
+  }
 }
 
 export function subscribeToRepositoryProjection(
@@ -169,6 +201,7 @@ async function activateProject(projectId: string): Promise<void> {
     listener(project.repositoryRoot, project.projectId);
   }
   active = {
+    projectId: project.projectId,
     refresh,
     observer,
     authority,
@@ -178,6 +211,18 @@ async function activateProject(projectId: string): Promise<void> {
   };
   await refresh.refresh("project-switch");
   await observer.start();
+}
+
+async function ensureActiveSelectedProject(): Promise<void> {
+  const selected = await requireWorkspaces().getSelected();
+  if (!selected) {
+    throw new Error(
+      "Active project is not available. Choose the project folder again before refreshing project state.",
+    );
+  }
+  if (active?.projectId !== selected.projectId) {
+    await activateProject(selected.projectId);
+  }
 }
 
 function requireWorkspaces(): ProjectWorkspaceRegistry {

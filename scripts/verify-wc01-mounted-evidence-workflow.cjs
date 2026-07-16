@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
     const window = await waitForWindow();
     await waitFor(
       window,
-      `document.body.innerText.includes("Mounted Evidence Project") && document.body.innerText.includes("Refresh Repository State")`,
+      `document.body.innerText.includes("Mounted Evidence Project") && document.body.innerText.includes("Refresh project state") && document.body.innerText.includes("Add local project") && !document.body.innerText.includes("Repository directory")`,
       "selected project workspace bar",
     );
     await waitFor(
@@ -81,7 +81,7 @@ app.whenReady().then(async () => {
       });
 
       await window.webContents.executeJavaScript(
-        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
         true,
       );
       await waitFor(
@@ -258,7 +258,7 @@ app.whenReady().then(async () => {
         title: "Validation Report: WC01 Parent Pass",
       });
       await window.webContents.executeJavaScript(
-        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
         true,
       );
       await waitFor(
@@ -300,7 +300,7 @@ app.whenReady().then(async () => {
         title: `Candidate Disposition: ${workCardId} completed_via_repair`,
       });
       await window.webContents.executeJavaScript(
-        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
         true,
       );
       await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "implementer_execution_required" && result.currentAction?.workCardId === "WC02")`, "next candidate after durable completed_via_repair disposition");

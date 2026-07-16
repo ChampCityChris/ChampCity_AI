@@ -128,6 +128,7 @@ import type {
 import type { RoutedActionContract } from "../shared/workflow";
 import type {
   AddProjectWorkspaceRequest,
+  ProjectFolderSelectionResult,
   ProjectScanResult,
   ProjectWorkspaceListResult,
   ProjectWorkspaceMutationResult,
@@ -154,6 +155,8 @@ function invokeProcess<T>(channel: string, input: unknown): Promise<T> {
 const api = {
   listProjects: (): Promise<ProjectWorkspaceListResult> =>
     ipcRenderer.invoke("projects:list"),
+  chooseProjectFolder: (): Promise<ProjectFolderSelectionResult> =>
+    ipcRenderer.invoke("projects:chooseFolder"),
   addProject: (
     input: AddProjectWorkspaceRequest,
   ): Promise<ProjectWorkspaceMutationResult> =>

@@ -2,11 +2,13 @@ import {
   app,
   BrowserView,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   type ContextMenuParams,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
+  type OpenDialogOptions,
 } from "electron";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -103,7 +105,10 @@ import type {
   CurrentContextPacketExportRequest,
   CurrentContextPacketPreviewRequest,
 } from "../shared/contextPackets/contextPacket";
-import type { AddProjectWorkspaceRequest } from "../shared/projects";
+import type {
+  AddProjectWorkspaceRequest,
+  ProjectFolderSelectionResult,
+} from "../shared/projects";
 import {
   addProjectWorkspace,
   contextPacketService,
@@ -117,6 +122,7 @@ import {
   shutdownCanonicalRuntime,
   subscribeToRepositoryProjection,
 } from "./canonicalRuntime";
+import { requireProcessIpcPolicy } from "./workflow";
 
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
@@ -344,6 +350,23 @@ app.on("before-quit", () => {
 
 function registerWorkCardIpc(): void {
   ipcMain.handle("projects:list", () => listProjectWorkspaces());
+  ipcMain.handle(
+    "projects:chooseFolder",
+    async (event): Promise<ProjectFolderSelectionResult> => {
+      const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+      const options: OpenDialogOptions = {
+        title: "Choose project folder",
+        properties: ["openDirectory"],
+      };
+      const result = owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options);
+      if (result.canceled || result.filePaths.length === 0) {
+        return { ok: false, cancelled: true };
+      }
+      return { ok: true, repositoryRoot: result.filePaths[0] };
+    },
+  );
   ipcMain.handle(
     "projects:add",
     (_event, input: AddProjectWorkspaceRequest) => addProjectWorkspace(input),
@@ -636,7 +659,7 @@ function registerProcessIpc(
 ): void {
   // Fail startup if a preview/write handler has not made an explicit routed,
   // reference, corrective, or context-utility classification.
-  routedProcessInvocationService.policyFor(channel);
+  requireProcessIpcPolicy(channel);
   ipcMain.handle(channel, (event, payload, rendererBinding) =>
     routedProcessInvocationService.invoke({
       channel,

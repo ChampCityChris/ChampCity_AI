@@ -496,7 +496,6 @@ export default function App() {
   const [currentActionError, setCurrentActionError] = useState<string>();
   const [projectWorkspaces, setProjectWorkspaces] =
     useState<ProjectWorkspaceListResult | null>(null);
-  const [projectPathDraft, setProjectPathDraft] = useState("");
   const [projectBusy, setProjectBusy] = useState(false);
   const [projectError, setProjectError] = useState<string>();
   const hasAlignedInitialWorkspace = useRef(false);
@@ -576,7 +575,7 @@ export default function App() {
   useEffect(() => {
     void loadCurrentRequiredAction();
     void loadProjectWorkspaces();
-  }, [loadCurrentRequiredAction]);
+  }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
 
   useEffect(() => {
     return window.champCity.onRepositoryProjectionChanged(
@@ -624,22 +623,30 @@ export default function App() {
   }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
 
   const handleAddProject = useCallback(async () => {
-    if (!projectPathDraft.trim()) return;
     setProjectBusy(true);
     setProjectError(undefined);
     try {
+      const folder = await window.champCity.chooseProjectFolder();
+      if (!folder.ok || !folder.repositoryRoot) {
+        if (!folder.cancelled) {
+          throw new Error(folder.errorMessages?.join(" ") || "Project folder could not be selected.");
+        }
+        return;
+      }
       const result = await window.champCity.addProject({
-        repositoryRoot: projectPathDraft.trim(),
+        repositoryRoot: folder.repositoryRoot,
       });
       setProjectWorkspaces(result);
       if (!result.ok) throw new Error(result.errorMessages?.join(" ") || "Project configuration failed.");
-      setProjectPathDraft("");
+      hasAlignedInitialWorkspace.current = false;
+      setActiveCard(null);
+      await loadCurrentRequiredAction();
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Project configuration failed.");
     } finally {
       setProjectBusy(false);
     }
-  }, [projectPathDraft]);
+  }, [loadCurrentRequiredAction]);
 
   useEffect(() => {
     const currentAction = currentActionResult?.currentAction;
@@ -907,10 +914,8 @@ export default function App() {
       projectWorkspaceBar={
         <ProjectWorkspaceBar
           workspaces={projectWorkspaces}
-          pathDraft={projectPathDraft}
           busy={projectBusy}
           error={projectError}
-          onPathDraftChange={setProjectPathDraft}
           onSelect={handleProjectSelect}
           onRefresh={handleRepositoryRefresh}
           onAdd={handleAddProject}
@@ -6351,24 +6356,22 @@ function ImplementerReportCaptureScreen({
 
 function ProjectWorkspaceBar({
   workspaces,
-  pathDraft,
   busy,
   error,
-  onPathDraftChange,
   onSelect,
   onRefresh,
   onAdd,
 }: {
   workspaces: ProjectWorkspaceListResult | null;
-  pathDraft: string;
   busy: boolean;
   error?: string;
-  onPathDraftChange: (value: string) => void;
   onSelect: (projectId: string) => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
   onAdd: () => void | Promise<void>;
 }) {
   const selected = workspaces?.projects.find((project) => project.selected);
+  const projects = workspaces?.projects ?? [];
+  const hasRecoveryState = Boolean(workspaces && !selected);
   const scan = selected?.lastScanResult;
   return (
     <div className="shrink-0 border-b border-border bg-card/55 px-4 py-2">
@@ -6378,12 +6381,17 @@ function ProjectWorkspaceBar({
         </span>
         <select
           aria-label="Active project"
-          value={workspaces?.selectedProjectId ?? ""}
-          disabled={busy || !workspaces?.projects.length}
+          value={selected?.projectId ?? ""}
+          disabled={busy || projects.length === 0}
           onChange={(event) => void onSelect(event.target.value)}
           className="min-w-[13rem] rounded border border-border bg-[#0e1218] px-2 py-1 text-foreground"
         >
-          {(workspaces?.projects ?? []).map((project) => (
+          {!selected ? (
+            <option value="" disabled>
+              Choose a project folder
+            </option>
+          ) : null}
+          {projects.map((project) => (
             <option key={project.projectId} value={project.projectId}>
               {project.displayName}
             </option>
@@ -6396,26 +6404,25 @@ function ProjectWorkspaceBar({
           className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-primary disabled:opacity-50"
         >
           <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
-          Refresh Repository State
+          Refresh project state
         </button>
-        <input
-          aria-label="Repository directory to add"
-          value={pathDraft}
-          onChange={(event) => onPathDraftChange(event.target.value)}
-          placeholder="Repository directory"
-          className="min-w-[16rem] flex-1 rounded border border-border bg-white/[0.04] px-2 py-1 text-foreground"
-        />
         <button
           type="button"
-          disabled={busy || !pathDraft.trim()}
+          disabled={busy}
           onClick={() => void onAdd()}
-          className="rounded border border-border px-2 py-1 text-foreground/80 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-foreground/80 disabled:opacity-50"
         >
-          Add project
+          <FolderOpen size={12} />
+          Add local project
         </button>
       </div>
+      {hasRecoveryState ? (
+        <div className="mt-1 text-[10px] text-amber-300">
+          Active project is not available. Choose the project folder again.
+        </div>
+      ) : null}
       <div className="mt-1 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground/60">
-        <span className="truncate">{selected?.repositoryRoot ?? "No configured repository"}</span>
+        <span className="truncate">Project folder: {selected?.repositoryRoot ?? "not selected"}</span>
         <span>Observer: {selected?.observerStatus ?? "stopped"}</span>
         <span>Branch: {scan?.branch ?? "unavailable"}</span>
         <span>Last scan: {scan?.scannedAt ?? "not scanned"}</span>

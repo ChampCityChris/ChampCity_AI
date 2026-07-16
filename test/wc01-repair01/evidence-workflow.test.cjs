@@ -168,6 +168,52 @@ test("configured repositories persist selection and remain isolated", async () =
   });
 });
 
+test("project registration rejects duplicate roots, duplicate IDs, and invalid folders clearly", async () => {
+  await temporaryRoot("champcity-projects-duplicates-a-", async (rootA) => {
+    await temporaryRoot("champcity-projects-duplicates-b-", async (rootB) => {
+      const storage = path.join(os.tmpdir(), `champcity-workspaces-duplicates-${process.pid}-${Date.now()}.json`);
+      const invalidRoot = path.join(os.tmpdir(), `champcity-invalid-${process.pid}-${Date.now()}`);
+      await mkdir(invalidRoot, { recursive: true });
+      try {
+        const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+        await registry.addProject({ repositoryRoot: rootA, projectId: "alpha" });
+        await assert.rejects(
+          () => registry.addProject({ repositoryRoot: rootA, projectId: "alpha-copy" }),
+          /already registered/i,
+        );
+        await assert.rejects(
+          () => registry.addProject({ repositoryRoot: rootB, projectId: "alpha" }),
+          /already belongs to another repository/i,
+        );
+        await assert.rejects(
+          () => registry.addProject({ repositoryRoot: invalidRoot, projectId: "invalid" }),
+          /supported ChampCity workspace/i,
+        );
+      } finally {
+        await rm(storage, { force: true });
+        await rm(invalidRoot, { recursive: true, force: true });
+      }
+    });
+  });
+});
+
+test("invalid selected project is not listed or returned as active route authority", async () => {
+  await temporaryRoot("champcity-projects-moved-", async (root) => {
+    const storage = path.join(os.tmpdir(), `champcity-workspaces-moved-${process.pid}-${Date.now()}.json`);
+    try {
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+      await registry.addProject({ repositoryRoot: root, projectId: "moved-project" });
+      await registry.selectProject("moved-project");
+      await rm(root, { recursive: true, force: true });
+
+      assert.equal(await registry.getSelected(), null);
+      assert.deepEqual(await registry.list(), []);
+    } finally {
+      await rm(storage, { force: true });
+    }
+  });
+});
+
 test("external Implementer Report advances WC01 to exact Architect Review route without registry import", async () => {
   await temporaryRoot("champcity-wc01-external-", async (root) => {
     const projectId = "project-alpha";
@@ -610,6 +656,120 @@ test("refresh is a no-op on identical evidence, recomputes after restart, and ig
     } finally {
       await rm(storage, { force: true });
     }
+  });
+});
+
+test("manual refresh and cold start produce the same route after committed disposition evidence", async () => {
+  await temporaryRoot("champcity-refresh-cold-start-parity-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    await seedWorkCardLoop(root, projectId, phaseId, "WC01");
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      artifactId: `${projectId}/${phaseId}/work_card_plan/Work_Card_Plan`,
+      artifactType: "work_card_plan",
+      revision: 2,
+      stem: `planning/phases/${phaseId}/Work_Card_Plan`,
+      data: {
+        status: "approved",
+        candidates: [
+          { id: "WC01", title: "Completed candidate", order: 1 },
+          { id: "WC02", title: "Next candidate", order: 2 },
+        ],
+      },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC02",
+      artifactId: `${projectId}/${phaseId}/work_card/WC02`,
+      artifactType: "work_card",
+      stem: `planning/phases/${phaseId}/Work_Cards/WC02_next_candidate`,
+      expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC02`],
+      data: { workCardId: "WC02", status: "ready_for_implementer" },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/implementer_report/WC01`,
+      artifactType: "implementer_report",
+      stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_WC01`,
+      expectedOutputs: [`${projectId}/${phaseId}/architect_review/WC01`],
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/architect_review/WC01`,
+      artifactType: "architect_review",
+      stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01`,
+      expectedOutputs: [`${projectId}/${phaseId}/validation_report/WC01`],
+      data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/validation_report/WC01`,
+      artifactType: "validation_report",
+      stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
+      data: { validationResult: "Pass" },
+    });
+
+    const storage = path.join(os.tmpdir(), `champcity-parity-${process.pid}-${Date.now()}.json`);
+    try {
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+      await registry.addProject({ repositoryRoot: root, projectId });
+      const configured = await registry.selectProject(projectId);
+      const manual = new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME);
+      const beforeDisposition = await manual.refresh("manual");
+      assert.equal(beforeDisposition.projection.state.currentAction.actionId, "implementer_execution_required");
+      assert.equal(beforeDisposition.projection.state.currentAction.targetArtifactId, `${projectId}/${phaseId}/work_card/WC02`);
+
+      await writeArtifact(root, {
+        projectId, phaseId, workCardId: "WC01",
+        artifactId: `${projectId}/${phaseId}/candidate_disposition/WC01`,
+        artifactType: "candidate_disposition",
+        stem: `planning/phases/${phaseId}/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01`,
+        sources: [`${projectId}/${phaseId}/validation_report/WC01`],
+        data: { status: "completed", workCardId: "WC01" },
+      });
+
+      const afterManual = await manual.refresh("manual");
+      const coldStart = await new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME)
+        .refresh("application-start");
+      assert.equal(afterManual.projection.state.currentAction.actionId, coldStart.projection.state.currentAction.actionId);
+      assert.equal(afterManual.projection.state.currentAction.targetArtifactId, coldStart.projection.state.currentAction.targetArtifactId);
+      assert.equal(afterManual.scanResult.currentAction.actionId, coldStart.scanResult.currentAction.actionId);
+      assert.equal((await registry.getSelected()).projectId, projectId);
+    } finally {
+      await rm(storage, { force: true });
+    }
+  });
+});
+
+test("multiple configured projects refresh independently without route bleed", async () => {
+  await temporaryRoot("champcity-route-isolation-a-", async (rootA) => {
+    await temporaryRoot("champcity-route-isolation-b-", async (rootB) => {
+      const storage = path.join(os.tmpdir(), `champcity-route-isolation-${process.pid}-${Date.now()}.json`);
+      try {
+        await seedWorkCardLoop(rootA, "project-alpha", "phase-04", "WC01");
+        await seedWorkCardLoop(rootB, "project-beta", "phase-04", "WC09");
+        const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+        await registry.addProject({ repositoryRoot: rootA, projectId: "project-alpha" });
+        await registry.addProject({ repositoryRoot: rootB, projectId: "project-beta" });
+
+        const alpha = await registry.selectProject("project-alpha");
+        const alphaSnapshot = await new RepositoryRefreshService(alpha, registry, undefined, () => FIXED_TIME)
+          .refresh("manual");
+        await registry.selectProject("project-beta");
+        const beta = await registry.getSelected();
+        const betaSnapshot = await new RepositoryRefreshService(beta, registry, undefined, () => FIXED_TIME)
+          .refresh("manual");
+
+        assert.equal(alphaSnapshot.projection.state.projectId, "project-alpha");
+        assert.equal(alphaSnapshot.projection.state.currentAction.targetArtifactId, "project-alpha/phase-04/work_card/WC01");
+        assert.equal(betaSnapshot.projection.state.projectId, "project-beta");
+        assert.equal(betaSnapshot.projection.state.currentAction.targetArtifactId, "project-beta/phase-04/work_card/WC09");
+        assert.equal(betaSnapshot.projection.state.currentAction.targetArtifactId.includes("project-alpha"), false);
+      } finally {
+        await rm(storage, { force: true });
+      }
+    });
   });
 });
 

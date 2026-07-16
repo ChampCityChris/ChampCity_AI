@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
     const window = await waitForWindow();
     await waitFor(
       window,
-      `document.body.innerText.includes("WC02 Transition Authority Project") && document.body.innerText.includes("Refresh Repository State")`,
+      `document.body.innerText.includes("WC02 Transition Authority Project") && document.body.innerText.includes("Refresh project state") && document.body.innerText.includes("Add local project") && !document.body.innerText.includes("Repository directory")`,
       "selected WC02 transition fixture",
     );
     await waitFor(
@@ -55,7 +55,7 @@ app.whenReady().then(async () => {
     assert.equal(initial.currentAction.routedAction.bindingSource.kind, "evidence_projection");
 
     await window.webContents.executeJavaScript(
-      `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
+      `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
       true,
     );
     await waitFor(
@@ -79,6 +79,8 @@ app.whenReady().then(async () => {
       true,
     );
     assert.ok(bodyText.includes("Branch: feature/wc02-transition-mounted"));
+    assert.equal(bodyText.includes("Configured project"), false);
+    assert.equal(bodyText.includes("Active project is not available"), false);
 
     console.log(JSON.stringify({ wc02TransitionAuthorityMounted: "passed", projectId }));
     await require("../dist/main/canonicalRuntime.js").shutdownCanonicalRuntime();

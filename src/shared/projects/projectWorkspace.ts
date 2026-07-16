@@ -100,6 +100,13 @@ export interface ProjectWorkspaceMutationResult extends ProjectWorkspaceListResu
   project?: ProjectWorkspaceSummary;
 }
 
+export interface ProjectFolderSelectionResult {
+  ok: boolean;
+  repositoryRoot?: string;
+  cancelled?: boolean;
+  errorMessages?: string[];
+}
+
 export interface RefreshRepositoryStateResult {
   ok: boolean;
   selectedProjectId: string | null;

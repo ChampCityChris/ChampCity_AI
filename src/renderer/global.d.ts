@@ -199,6 +199,7 @@ import type {
 } from "../shared/contextPackets/contextPacket";
 import type {
   AddProjectWorkspaceRequest,
+  ProjectFolderSelectionResult,
   ProjectScanResult,
   ProjectWorkspaceListResult,
   ProjectWorkspaceMutationResult,
@@ -419,6 +420,7 @@ declare global {
   interface Window {
     champCity: {
       listProjects: () => Promise<ProjectWorkspaceListResult>;
+      chooseProjectFolder: () => Promise<ProjectFolderSelectionResult>;
       addProject: (
         input: AddProjectWorkspaceRequest,
       ) => Promise<ProjectWorkspaceMutationResult>;

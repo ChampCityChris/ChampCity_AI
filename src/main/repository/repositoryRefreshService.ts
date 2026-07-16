@@ -136,9 +136,7 @@ export class RepositoryRefreshService {
       this.graph = nextGraph;
       this.snapshot = snapshot;
       await this.workspaces.updateScanResult(project.projectId, scanResult);
-      if (!noOp || reason === "project-switch") {
-        for (const listener of this.listeners) await listener(snapshot);
-      }
+      for (const listener of this.listeners) await listener(snapshot);
       return snapshot;
     } catch (error) {
       await this.workspaces.updateObserverStatus(project.projectId, "error");

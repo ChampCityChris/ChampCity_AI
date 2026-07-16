@@ -49,7 +49,13 @@ export class ProjectWorkspaceRegistry {
 
   async list(): Promise<ProjectWorkspaceSummary[]> {
     const document = await this.load();
-    return document.projects.map((project) => toSummary(project, document.selectedProjectId));
+    const summaries: ProjectWorkspaceSummary[] = [];
+    for (const project of document.projects) {
+      if (!project.enabled) continue;
+      if (!(await isConfiguredProjectReachable(project))) continue;
+      summaries.push(toSummary(project, document.selectedProjectId));
+    }
+    return summaries;
   }
 
   async getSelected(): Promise<ConfiguredProject | null> {
@@ -57,7 +63,9 @@ export class ProjectWorkspaceRegistry {
     const project = document.projects.find(
       (candidate) => candidate.projectId === document.selectedProjectId && candidate.enabled,
     );
-    return project ? cloneProject(project) : null;
+    return project && (await isConfiguredProjectReachable(project))
+      ? cloneProject(project)
+      : null;
   }
 
   async getProject(projectId: string): Promise<ConfiguredProject | null> {
@@ -65,7 +73,9 @@ export class ProjectWorkspaceRegistry {
     const project = document.projects.find(
       (candidate) => candidate.projectId === projectId && candidate.enabled,
     );
-    return project ? cloneProject(project) : null;
+    return project && (await isConfiguredProjectReachable(project))
+      ? cloneProject(project)
+      : null;
   }
 
   async addProject(request: AddProjectWorkspaceRequest): Promise<ConfiguredProject> {
@@ -74,7 +84,9 @@ export class ProjectWorkspaceRegistry {
       const duplicateRoot = document.projects.find(
         (candidate) => pathKey(candidate.repositoryRoot) === pathKey(validated.repositoryRoot),
       );
-      if (duplicateRoot) return cloneProject(duplicateRoot);
+      if (duplicateRoot) {
+        throw new Error(`Project folder is already registered as ${duplicateRoot.displayName}.`);
+      }
       if (document.projects.some((candidate) => candidate.projectId === validated.projectId)) {
         throw new Error(`Configured project ID ${validated.projectId} already belongs to another repository.`);
       }
@@ -97,11 +109,12 @@ export class ProjectWorkspaceRegistry {
   }
 
   async selectProject(projectId: string): Promise<ConfiguredProject> {
-    return this.mutate((document) => {
+    return this.mutate(async (document) => {
       const project = document.projects.find(
         (candidate) => candidate.projectId === projectId && candidate.enabled,
       );
       if (!project) throw new Error(`Configured project ${projectId} is unavailable.`);
+      await assertConfiguredProjectReachable(project);
       const now = this.clock();
       document.selectedProjectId = projectId;
       project.lastOpenedAt = now;
@@ -153,12 +166,16 @@ export class ProjectWorkspaceRegistry {
 async function validateProjectRepository(
   request: AddProjectWorkspaceRequest,
 ): Promise<Pick<ConfiguredProject, "projectId" | "displayName" | "repositoryRoot" | "planningRoot">> {
-  if (!request.repositoryRoot.trim()) throw new Error("Repository root is required.");
-  const repositoryRoot = await realpath(path.resolve(request.repositoryRoot));
+  if (!request.repositoryRoot.trim()) throw new Error("Choose a project folder before adding it.");
+  const repositoryRoot = await realpath(path.resolve(request.repositoryRoot)).catch(() => {
+    throw new Error("Project folder was not found. Choose the project folder again.");
+  });
   if (!(await stat(repositoryRoot)).isDirectory()) {
-    throw new Error("Configured repository root must be a directory.");
+    throw new Error("Project folder must be a directory.");
   }
-  await access(path.join(repositoryRoot, "package.json"));
+  await access(path.join(repositoryRoot, "package.json")).catch(() => {
+    throw new Error("Project folder is not a supported ChampCity workspace: package.json was not found.");
+  });
   const planningRootCandidate = path.resolve(
     repositoryRoot,
     request.planningRoot?.trim() || "planning",
@@ -167,15 +184,44 @@ async function validateProjectRepository(
   if (relativePlanning.startsWith("..") || path.isAbsolute(relativePlanning)) {
     throw new Error("Planning root must remain inside the configured repository.");
   }
-  const planningRoot = await realpath(planningRootCandidate);
+  const planningRoot = await realpath(planningRootCandidate).catch(() => {
+    throw new Error("Project folder is not a supported ChampCity workspace: planning folder was not found.");
+  });
   if (!(await stat(planningRoot)).isDirectory()) {
-    throw new Error("Configured planning root must be a directory.");
+    throw new Error("Project planning folder must be a directory.");
   }
   const metadata = await readProjectMetadata(repositoryRoot, planningRoot);
   const projectId = normalizeId(request.projectId || metadata.projectId || path.basename(repositoryRoot));
   const displayName = (request.displayName || metadata.displayName || projectId).trim();
   if (!displayName) throw new Error("Configured project display name is required.");
   return { projectId, displayName, repositoryRoot, planningRoot };
+}
+
+async function assertConfiguredProjectReachable(project: ConfiguredProject): Promise<void> {
+  try {
+    const repositoryRoot = await realpath(project.repositoryRoot);
+    const planningRoot = await realpath(project.planningRoot);
+    if (!(await stat(repositoryRoot)).isDirectory()) {
+      throw new Error("Project folder is not a directory.");
+    }
+    if (!(await stat(planningRoot)).isDirectory()) {
+      throw new Error("Planning folder is not a directory.");
+    }
+    await access(path.join(repositoryRoot, "package.json"));
+  } catch (error) {
+    throw new Error(
+      `Project ${project.displayName} is not available. Choose the project folder again. ${plainError(error)}`,
+    );
+  }
+}
+
+async function isConfiguredProjectReachable(project: ConfiguredProject): Promise<boolean> {
+  try {
+    await assertConfiguredProjectReachable(project);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function readProjectMetadata(
