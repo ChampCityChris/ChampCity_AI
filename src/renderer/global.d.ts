@@ -176,6 +176,7 @@ import type {
   RouteReviewRequestRecord,
   RouteReviewRequestSaveResult,
 } from "../shared/workCards/routeReviewRequest";
+import type { ArchitectTaskPacketSaveResult } from "../shared/workCards/architectTaskPacket";
 import type {
   ArchitectReviewFormInput,
   ArchitectReviewPreviewResult,
@@ -425,6 +426,19 @@ declare global {
         projectId: string,
       ) => Promise<ProjectWorkspaceMutationResult>;
       refreshRepositoryState: () => Promise<RefreshRepositoryStateResult>;
+      showArchitectBrowser: (bounds: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }) => Promise<{ ok: boolean; errorMessages?: string[] }>;
+      resizeArchitectBrowser: (bounds: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }) => Promise<{ ok: boolean; errorMessages?: string[] }>;
+      hideArchitectBrowser: () => Promise<{ ok: boolean; errorMessages?: string[] }>;
       onRepositoryProjectionChanged: (
         listener: (result: ProjectScanResult) => void,
       ) => () => void;
@@ -562,6 +576,7 @@ declare global {
         nextActionId?: string | null;
         errorMessages?: string[];
       }>;
+      ensureArchitectTaskPacket: () => Promise<ArchitectTaskPacketSaveResult>;
       loadImplementerReportFile: (
         input: ImplementerReportFileLoadRequest,
       ) => Promise<ImplementerReportFileLoadResult>;

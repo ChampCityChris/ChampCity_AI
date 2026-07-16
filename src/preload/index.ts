@@ -109,6 +109,7 @@ import type {
   RouteReviewRequestInput,
   RouteReviewRequestSaveResult,
 } from "../shared/workCards/routeReviewRequest";
+import type { ArchitectTaskPacketSaveResult } from "../shared/workCards/architectTaskPacket";
 import type {
   ArchitectReviewFormInput,
   ArchitectReviewPreviewResult,
@@ -161,6 +162,22 @@ const api = {
     ipcRenderer.invoke("projects:select", projectId),
   refreshRepositoryState: (): Promise<RefreshRepositoryStateResult> =>
     ipcRenderer.invoke("projects:refresh"),
+  showArchitectBrowser: (bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): Promise<{ ok: boolean; errorMessages?: string[] }> =>
+    ipcRenderer.invoke("architectBrowser:show", bounds),
+  resizeArchitectBrowser: (bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): Promise<{ ok: boolean; errorMessages?: string[] }> =>
+    ipcRenderer.invoke("architectBrowser:resize", bounds),
+  hideArchitectBrowser: (): Promise<{ ok: boolean; errorMessages?: string[] }> =>
+    ipcRenderer.invoke("architectBrowser:hide"),
   onRepositoryProjectionChanged: (
     listener: (result: ProjectScanResult) => void,
   ): (() => void) => {
@@ -366,6 +383,8 @@ const api = {
     nextActionId?: string | null;
     errorMessages?: string[];
   }> => ipcRenderer.invoke("workCards:saveCompletedViaRepairDisposition", input),
+  ensureArchitectTaskPacket: (): Promise<ArchitectTaskPacketSaveResult> =>
+    invokeProcess("workCards:ensureArchitectTaskPacket", {}),
   loadImplementerReportFile: (
     input: ImplementerReportFileLoadRequest,
   ): Promise<ImplementerReportFileLoadResult> =>

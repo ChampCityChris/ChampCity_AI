@@ -1,5 +1,6 @@
 import {
   app,
+  BrowserView,
   BrowserWindow,
   ipcMain,
   Menu,
@@ -15,6 +16,7 @@ import {
   getCurrentRequiredAction,
   getNextWorkCardId,
   getPhaseCloseoutSummary,
+  ensureArchitectTaskPacket,
   listImplementerExecutionPacketSupportingArtifacts,
   listAvailablePhaseFolders,
   listHumanValidationImplementerReports,
@@ -119,6 +121,8 @@ import {
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
 const electronRuntimeRoot = path.join(repositoryRoot, "tmp", "electron-runtime");
+let architectBrowserView: BrowserView | null = null;
+let architectBrowserOwner: BrowserWindow | null = null;
 
 configureLocalElectronRuntimePaths();
 
@@ -209,6 +213,104 @@ function buildEditContextMenuTemplate(
   return [];
 }
 
+interface ArchitectBrowserBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function registerArchitectBrowserIpc(): void {
+  ipcMain.handle(
+    "architectBrowser:show",
+    (event, bounds: ArchitectBrowserBounds) => {
+      const owner = BrowserWindow.fromWebContents(event.sender);
+
+      if (!owner) {
+        return {
+          ok: false,
+          errorMessages: ["Architect browser owner window is unavailable."],
+        };
+      }
+
+      const view = ensureArchitectBrowserView(owner);
+      view.setBounds(sanitizeArchitectBrowserBounds(bounds));
+
+      if (!view.webContents.getURL().startsWith("https://chatgpt.com")) {
+        void view.webContents.loadURL("https://chatgpt.com");
+      }
+
+      return { ok: true };
+    },
+  );
+  ipcMain.handle(
+    "architectBrowser:resize",
+    (_event, bounds: ArchitectBrowserBounds) => {
+      architectBrowserView?.setBounds(sanitizeArchitectBrowserBounds(bounds));
+      return { ok: true };
+    },
+  );
+  ipcMain.handle("architectBrowser:hide", () => {
+    detachArchitectBrowserView();
+    return { ok: true };
+  });
+}
+
+function ensureArchitectBrowserView(owner: BrowserWindow): BrowserView {
+  if (architectBrowserView && architectBrowserOwner === owner) {
+    return architectBrowserView;
+  }
+
+  detachArchitectBrowserView();
+  architectBrowserOwner = owner;
+  architectBrowserView = new BrowserView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      partition: "persist:champcity-architect-bridge",
+    },
+  });
+  owner.addBrowserView(architectBrowserView);
+  owner.on("closed", () => {
+    if (architectBrowserOwner === owner) {
+      architectBrowserView = null;
+      architectBrowserOwner = null;
+    }
+  });
+
+  return architectBrowserView;
+}
+
+function detachArchitectBrowserView(): void {
+  if (
+    architectBrowserView &&
+    architectBrowserOwner &&
+    !architectBrowserOwner.isDestroyed()
+  ) {
+    architectBrowserOwner.removeBrowserView(architectBrowserView);
+  }
+
+  architectBrowserView = null;
+  architectBrowserOwner = null;
+}
+
+function sanitizeArchitectBrowserBounds(
+  bounds: ArchitectBrowserBounds,
+): Electron.Rectangle {
+  const positive = (value: unknown, fallback: number) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.max(0, Math.round(value))
+      : fallback;
+
+  return {
+    x: positive(bounds.x, 0),
+    y: positive(bounds.y, 0),
+    width: Math.max(120, positive(bounds.width, 640)),
+    height: Math.max(120, positive(bounds.height, 360)),
+  };
+}
+
 app.whenReady().then(async () => {
   subscribeToRepositoryProjection((snapshot) => {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -220,6 +322,7 @@ app.whenReady().then(async () => {
     workspaceStoragePath: path.join(app.getPath("userData"), "project-workspaces.json"),
   });
   registerWorkCardIpc();
+  registerArchitectBrowserIpc();
   createMainWindow();
 
   app.on("activate", () => {
@@ -431,6 +534,9 @@ function registerWorkCardIpc(): void {
     "workCards:saveCompletedViaRepairDisposition",
     (_event, input: { rationale: string }) =>
       saveCompletedViaRepairDisposition(input),
+  );
+  registerProcessIpc("workCards:ensureArchitectTaskPacket", () =>
+    ensureArchitectTaskPacket(),
   );
   registerProcessIpc(
     "workCards:previewArchitectReviewRecord",

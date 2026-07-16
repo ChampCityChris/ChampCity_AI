@@ -56,6 +56,7 @@ import {
   type ArchitectReviewSaveResult,
   type ArchitectReviewSectionKey,
 } from "../../shared/workCards/architectReviewRecord";
+import type { ArchitectTaskPacketSaveResult } from "../../shared/workCards/architectTaskPacket";
 import {
   getManualScreenForCurrentAction,
   WorkflowRouterShell,
@@ -78,6 +79,7 @@ type AppScreen =
   | "implementer-execution-packet"
   | "implementer-report-capture"
   | "architect-review"
+  | "architect-bridge"
   | "human-validation"
   | "candidate-disposition"
   | "phase-closeout";
@@ -302,6 +304,16 @@ const routedOnlyWorkflowScreens: WorkflowStep[] = [
     nextAction:
       "Review the associated Implementer Report and create the governed Architect Review output.",
     Icon: Eye,
+  },
+  {
+    id: "architect-bridge",
+    label: "Architect Bridge",
+    mode: "architect",
+    shortDesc: "Task packet and ChatGPT",
+    screenTitle: "Architect Bridge",
+    nextAction:
+      "Generate a canonical Architect Task Packet and copy the prompt into ChatGPT.com.",
+    Icon: MessageSquareText,
   },
   {
     id: "candidate-disposition",
@@ -807,6 +819,12 @@ export default function App() {
             setActiveScreen("human-validation");
           }
         }}
+      />
+    ),
+    "architect-bridge": (
+      <ArchitectBridgeScreen
+        currentActionResult={currentActionResult}
+        onRefresh={handleRepositoryRefresh}
       />
     ),
     "human-validation": (
@@ -7183,6 +7201,255 @@ function CandidateDispositionScreen({
         </ArtifactPanel>
       }
     />
+  );
+}
+
+function ArchitectBridgeScreen({
+  currentActionResult,
+  onRefresh,
+}: {
+  currentActionResult: ChampCityCurrentRequiredActionResult | null;
+  onRefresh: () => void | Promise<void>;
+}) {
+  const action = currentActionResult?.currentAction;
+  const [packetResult, setPacketResult] =
+    useState<ArchitectTaskPacketSaveResult | null>(null);
+  const browserHostRef = useRef<HTMLDivElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [errors, setErrors] = useState<string[]>([]);
+  const isArchitectAction = action?.responsibleRole === "architect";
+  const packet = packetResult?.packet;
+  const sourceIds = packet?.payload.data.sourceArtifactIds ??
+    action?.routedAction?.sourceArtifactIds ??
+    [];
+  const expectedOutput = packet?.payload.data.expectedOutput ??
+    action?.routedAction?.expectedOutput;
+  const prompt = packetResult?.chatGptPrompt ?? "";
+
+  const ensurePacket = useCallback(async () => {
+    if (!isArchitectAction) return;
+    setBusy(true);
+    setErrors([]);
+    setCopyMessage("");
+    try {
+      const result = await window.champCity.ensureArchitectTaskPacket();
+      setPacketResult(result);
+      if (!result.ok) {
+        setErrors(result.errorMessages ?? ["Architect Task Packet could not be generated."]);
+      }
+    } catch (error) {
+      setErrors([
+        error instanceof Error
+          ? error.message
+          : "Architect Task Packet could not be generated.",
+      ]);
+      setPacketResult(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [isArchitectAction]);
+
+  useEffect(() => {
+    void ensurePacket();
+  }, [ensurePacket]);
+
+  useEffect(() => {
+    const host = browserHostRef.current;
+
+    if (!host || !isArchitectAction) {
+      void window.champCity.hideArchitectBrowser();
+      return;
+    }
+
+    const bounds = () => {
+      const rect = host.getBoundingClientRect();
+
+      return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+    const syncBrowser = () => {
+      void window.champCity.resizeArchitectBrowser(bounds());
+    };
+
+    void window.champCity.showArchitectBrowser(bounds());
+    const resizeObserver = new ResizeObserver(syncBrowser);
+    resizeObserver.observe(host);
+    window.addEventListener("resize", syncBrowser);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", syncBrowser);
+      void window.champCity.hideArchitectBrowser();
+    };
+  }, [isArchitectAction]);
+
+  return (
+    <ScreenLayout
+      left={
+        <div className="flex h-full min-h-0 flex-col gap-4 p-4">
+          <ScreenIntro
+            title="Architect Bridge"
+            description="Generate a canonical Architect Task Packet and use the subscription ChatGPT surface to complete the Architect-owned action."
+            badge={action?.id ?? "architect action"}
+          />
+          {!isArchitectAction ? (
+            <Notice type="error">
+              This surface is only available for Architect-owned current actions.
+            </Notice>
+          ) : null}
+          <ErrorList errors={errors} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <FieldGroup title="Current action">
+              <MetadataLine label="Action ID" value={action?.id ?? "unresolved"} />
+              <MetadataLine label="Responsible role" value="Architect" />
+              <MetadataLine
+                label="Requested action"
+                value={packet?.payload.data.requestedAction ?? "pending packet generation"}
+              />
+              <MetadataLine
+                label="Target artifact"
+                value={packet?.payload.data.targetArtifactId ?? action?.routedAction?.targetArtifactId ?? "unresolved"}
+              />
+            </FieldGroup>
+            <FieldGroup title="Expected output">
+              <MetadataLine
+                label="Artifact ID"
+                value={expectedOutput?.artifactId ?? "unresolved"}
+              />
+              <MetadataLine
+                label="Artifact type"
+                value={expectedOutput?.artifactType ?? "unresolved"}
+              />
+              <MetadataLine
+                label="Task packet JSON"
+                value={packetResult?.jsonPath ?? "pending packet generation"}
+              />
+              <MetadataLine
+                label="Task packet Markdown"
+                value={packetResult?.markdownPath ?? "pending packet generation"}
+              />
+            </FieldGroup>
+          </div>
+          <FieldGroup title="Source artifacts">
+            <ul className="grid max-h-40 gap-1 overflow-auto pr-1">
+              {sourceIds.length > 0 ? (
+                sourceIds.map((artifactId) => (
+                  <li key={artifactId}>
+                    <code className="break-anywhere text-xs text-muted-foreground/85">
+                      {artifactId}
+                    </code>
+                  </li>
+                ))
+              ) : (
+                <li className="text-xs text-muted-foreground/65">
+                  Source artifacts are pending current-action resolution.
+                </li>
+              )}
+            </ul>
+          </FieldGroup>
+          <FieldGroup title="Copy-ready ChatGPT prompt">
+            <textarea
+              className={cn(textareaCls, "min-h-[150px] font-mono text-xs")}
+              value={prompt}
+              readOnly
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void copyText(prompt, setCopyMessage)}
+                disabled={!prompt}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Copy size={14} />
+                Copy prompt
+              </button>
+              <button
+                type="button"
+                onClick={() => void ensurePacket()}
+                disabled={busy || !isArchitectAction}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-sm text-foreground transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FileText size={14} />
+                Generate packet
+              </button>
+              <button
+                type="button"
+                onClick={() => void onRefresh()}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-sm text-foreground transition hover:bg-white/[0.06]"
+              >
+                <RefreshCw size={14} />
+                Refresh / recheck
+              </button>
+            </div>
+            {copyMessage ? (
+              <p className="mt-2 text-xs text-muted-foreground/70">{copyMessage}</p>
+            ) : null}
+          </FieldGroup>
+          <Notice type="info">
+            ChatGPT.com is a subscription-surface Architect Bridge. The browser is not workflow authority and the app does not scrape or automate ChatGPT conversation contents.
+          </Notice>
+        </div>
+      }
+      right={
+        <div className="flex h-full min-h-0 flex-col border-l border-border bg-card/20">
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(180px,42%)_1fr]">
+            <ArtifactPanel
+              eyebrow="Canonical bridge artifact"
+              title="Architect Task Packet Preview"
+              status={packetResult?.ok ? "Generated" : busy ? "Generating" : "Pending"}
+              filename={packetResult?.markdownPath}
+              emptyMessage="No Architect Task Packet generated yet."
+            >
+              <MonoBlock className="max-h-full">
+                {packetResult?.markdown ?? "Open or generate the Architect Bridge task packet."}
+              </MonoBlock>
+            </ArtifactPanel>
+            <div className="flex min-h-0 flex-col border-t border-border">
+              <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
+                <div>
+                  <div className="text-xs font-semibold text-foreground">
+                    Embedded ChatGPT Browser
+                  </div>
+                  <div className="text-[10px] text-muted-foreground/60">
+                    https://chatgpt.com
+                  </div>
+                </div>
+                <span className="rounded border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] text-primary">
+                  Architect Bridge only
+                </span>
+              </div>
+              <div
+                ref={browserHostRef}
+                data-testid="architect-browser-surface"
+                className="relative min-h-0 flex-1 overflow-hidden bg-[#f7f7f8]"
+              >
+                <div className="pointer-events-none absolute inset-0 grid place-items-center text-xs text-slate-500">
+                  Loading ChatGPT.com...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
+function MetadataLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
+        {label}
+      </div>
+      <code className="break-anywhere text-xs leading-relaxed text-foreground/80">
+        {value}
+      </code>
+    </div>
   );
 }
 

@@ -171,6 +171,10 @@ import {
   type RouteReviewRequestSaveResult,
 } from "../../shared/workCards/routeReviewRequest";
 import {
+  buildArchitectTaskPacket,
+  type ArchitectTaskPacketSaveResult,
+} from "../../shared/workCards/architectTaskPacket";
+import {
   getArtifactDisplayName,
   isPlanningMarkdownPreviewable,
   type PlanningArtifactPreviewRequest,
@@ -3108,6 +3112,56 @@ export async function saveCompletedViaRepairDisposition(input: {
     };
   } catch (error) {
     return { ok: false, errorMessages: [toPlainSaveError(error)] };
+  }
+}
+
+export async function ensureArchitectTaskPacket(): Promise<ArchitectTaskPacketSaveResult> {
+  try {
+    const current = await getCurrentRequiredAction();
+    const action = current.currentAction;
+
+    if (!current.ok || !action) {
+      throw new Error(
+        current.errorMessages?.join(" ") ||
+          "Current Architect action is not available.",
+      );
+    }
+
+    if (action.responsibleRole !== "architect") {
+      throw new Error(
+        `Architect Task Packets are only generated for Architect actions; current action belongs to ${action.responsibleRole}.`,
+      );
+    }
+
+    const packet = buildArchitectTaskPacket(action, configuredProjectId);
+    const targets = await saveCanonicalPlanningArtifact({
+      directory: resolveInside(repositoryRoot, ...packet.directoryPath.split("/")),
+      jsonFileName: packet.jsonFileName,
+      markdownFileName: packet.markdownFileName,
+      artifactType: packet.artifactType,
+      title: packet.payload.title,
+      contentMarkdown: packet.payload.contentMarkdown,
+      data: packet.payload.data,
+      phaseId: packet.phaseId,
+      workCardId: packet.workCardId,
+      parentArtifactId: packet.payload.data.targetArtifactId,
+      relationships: packet.relationships,
+      status: "active",
+    });
+
+    return {
+      ok: true,
+      packet,
+      jsonPath: toRepoRelativePath(targets.firstPath),
+      markdownPath: toRepoRelativePath(targets.secondPath),
+      markdown: packet.payload.contentMarkdown,
+      chatGptPrompt: packet.chatGptPrompt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessages: [toPlainSaveError(error)],
+    };
   }
 }
 

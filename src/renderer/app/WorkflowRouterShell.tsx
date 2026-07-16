@@ -28,6 +28,7 @@ import {
   resolveSupportNavigationState,
   type SupportNavigationItem,
 } from "../../shared/workCards/supportNavigation";
+import { getCurrentActionSurfaceRoute } from "../../shared/workCards/currentActionRouteTable";
 import {
   resolveWorkflowVisibility,
   workflowGuideGroups,
@@ -193,7 +194,7 @@ const actionIdToManualScreen: Record<string, string> = {
   architect_review_of_validation_report_required: "human-validation",
   operator_validation_required: "human-validation",
   repair_sub_card_creation_required: "architect-prompt-composer",
-  architect_disposition_required: "human-validation",
+  architect_disposition_required: "architect-bridge",
   repair_work_card_required: "new-work-card",
   repair_implementer_handoff_required: "implementer-execution-packet",
   repair_validation_required: "human-validation",
@@ -260,6 +261,11 @@ export function getManualScreenForCurrentAction(
   action: ChampCityCurrentRequiredAction | undefined,
 ): string {
   const actionId = normalizeKey(action?.id);
+  const route = getCurrentActionSurfaceRoute(actionId);
+
+  if (route) {
+    return route.manualScreenId;
+  }
 
   if (actionId && actionIdToManualScreen[actionId]) {
     return actionIdToManualScreen[actionId];

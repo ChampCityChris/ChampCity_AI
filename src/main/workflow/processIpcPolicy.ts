@@ -252,6 +252,33 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
       transition: { mode: "handled-by-writer" },
     },
   ),
+  {
+    kind: "routed",
+    channel: "workCards:ensureArchitectTaskPacket",
+    operation: "supporting-write",
+    variants: [
+      route(
+        "architect_review_of_implementer_report_required",
+        "architect",
+        "architect-review",
+        "architect_review",
+      ),
+      route(
+        "architect_disposition_required",
+        "architect",
+        "architect-disposition",
+        "architect_disposition",
+      ),
+      route(
+        "architect_review_of_validation_report_required",
+        "architect",
+        "architect-disposition",
+        "architect_disposition",
+      ),
+    ],
+    allowedAuxiliaryArtifactTypes: ["architect_task"],
+    transition: { mode: "none" },
+  },
   ...routedPair(
     "workCards",
     route(
