@@ -1,0 +1,48 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-04/candidate_disposition/WC01",
+  "artifactType": "candidate_disposition",
+  "createdAt": "2026-07-16T03:20:00.000Z",
+  "jsonPath": "planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01.json",
+  "markdownPath": "planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01.md",
+  "payload": {
+    "kind": "candidate_disposition",
+    "title": "Candidate Disposition: WC01 completed via repair"
+  },
+  "payloadHash": "sha256:4522576b6ae5bdd3c84dbf370a8618210b02fc554be64582a6e4234144c2a824",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/architect_review/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
+      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
+      "champcity-ai/phase-04/validation_report/WC01"
+    ],
+    "expectedOutputs": [],
+    "supersedes": [],
+    "children": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T03:20:00.000Z",
+  "workCardId": "WC01"
+}
+-->
+
+# Candidate Disposition: Phase 04 WC01
+
+## Disposition
+
+completed_via_repair
+
+## Rationale
+
+WC01 Operator Validation passed after the authorized WC01-REPAIR01 repair chain. The parent WC01 is therefore completed via repair. PROJ-OBS-009 was recorded as a non-blocking validation evidence-model observation.
+
+## Next Action
+
+Advance to Phase 04 WC02.

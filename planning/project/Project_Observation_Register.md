@@ -9,7 +9,7 @@
     "kind": "observation_register",
     "title": "Project Observation Register"
   },
-  "payloadHash": "sha256:dc68096c868de6cb36c4c434c81e6c0cb4d93358a5bbd28b68e2f96a0c7840dc",
+  "payloadHash": "sha256:e2876563d5e9f0bc1a343f29697a3f850f9984888da408b65fee550d10be4d0c",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -167,6 +167,19 @@ At phase closeout, every phase observation not marked `Resolved` or `No action r
 - Candidate implementation models: Single authoritative artifact with overwrite semantics and Git history; explicitly versioned artifacts with superseded metadata; or immutable artifacts with a separate authoritative index. Filename suffixes alone are not an authority model.
 - Assigned target: Future artifact authority and revision governance Work Card, to be planned before workflow automation depends on duplicate or revised artifacts.
 - Status: Open / Architectural design required
+- Resolution artifact: Pending
+
+### PROJ-OBS-009 — Repaired-parent validation needs routed evidence-bundle association
+
+- Source phase: phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization
+- Source artifact: `planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC01_work_card_wc01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md`
+- Source Work Card: WC01 / WC01-REPAIR01
+- Date captured: 2026-07-16
+- Operator observation: During WC01 validation after WC01-REPAIR01, the validation screen allowed the parent WC01 Validation Report to be saved, but did not allow clean association to the relevant Implementer Report evidence because the UI still expects a single Implementer Report association. In repaired-parent validation, the correct evidence is a routed bundle: parent Work Card, accepted Architect Review, original Implementer Report, repair Work Card, and final repair Implementer Report.
+- Architect disposition: Non-blocking observation. WC01 validation remains valid because the accepted Architect Review carries the combined repair evidence chain. Future validation UI should replace the single Implementer Report selector with a routed evidence-bundle association when validating a repaired parent Work Card.
+- Disposition rationale: The issue affects evidence-association clarity and validation UX, but it did not prevent the parent WC01 Validation Report from being saved and does not invalidate WC01 validation.
+- Assigned target: Future validation-record / routed evidence-bundle UI cleanup. Review before additional validation workflow automation.
+- Status: Deferred / validation UX and evidence-model cleanup
 - Resolution artifact: Pending
 
 ## Resolved Phase-Local Observations Not Promoted

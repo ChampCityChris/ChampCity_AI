@@ -1,0 +1,37 @@
+{
+  "artifactId": "champcity-ai/phase-04/implementer_report/FIX01-phase04-artifact-hash-synchronization",
+  "artifactType": "implementer_report",
+  "createdAt": "2026-07-16T03:39:41.081Z",
+  "jsonPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_FIX01_phase04_artifact_hash_synchronization.json",
+  "markdownPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_FIX01_phase04_artifact_hash_synchronization.md",
+  "payload": {
+    "contentMarkdown": "# Implementer Report: FIX01 Phase 04 Artifact Hash Synchronization\n\nStatus: Complete\nPass classification: Simple fix / canonical artifact synchronization\nPhase: phase-04 - Workflow Authority Cutover and Operator Recovery Stabilization\nBranch: feature/phase-04-wc01-repair01-evidence-derived-workflow\nIntended commit: Fix Phase 04 validation artifact hash synchronization\nCommit hash: pending until commit is created, when this report is part of the same commit\nPush status: pending\n\n## Repository Path Inspected\n\n- Repository path inspected: verified approved repo root.\n- Remote origin: https://github.com/ChampCityChris/ChampCity_AI.git.\n- Branch inspected: feature/phase-04-wc01-repair01-evidence-derived-workflow.\n\n## Files Created\n\n- planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_FIX01_phase04_artifact_hash_synchronization.json.\n- planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_FIX01_phase04_artifact_hash_synchronization.md.\n\n## Files Modified\n\n- planning/project/Project_Observation_Register.json.\n- planning/project/Project_Observation_Register.md.\n- planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json.\n- planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md.\n\n## Files Intentionally Not Created\n\n- No Work Card, repair Work Card, Architect Review, Human Validation record, phase closeout record, release tag, or application code change was created for this fix.\n\n## Implementation Summary\n\nThe Project Observation Register pair had drifted: the Markdown body and structured JSON data included PROJ-OBS-009, but the JSON payload.contentMarkdown did not include the rendered PROJ-OBS-009 section. The first recomputed hash correction exposed that body mismatch.\n\nThe fix regenerated the Project Observation Register pair from the Markdown body using the repository canonical artifact renderer, recomputed its payload hash as sha256:e2876563d5e9f0bc1a343f29697a3f850f9984888da408b65fee550d10be4d0c, updated the Artifact Registry entry for that artifact, and regenerated the Artifact Registry pair.\n\nThe WC01 validation report pair and candidate disposition pair were verified and left unchanged.\n\n## Commands Run And Results\n\n- pwd - passed; confirmed the approved repo root.\n- git status --short --branch - passed; confirmed the active feature branch and dirty planning artifacts.\n- git remote -v - passed; confirmed origin.\n- Get-Content docs/dev/VALIDATION_COMMAND_LANES.md - passed; confirmed the normal Windows validation lane requirement.\n- Canonical pair verification for Project Observation Register, Artifact Registry, WC01 validation report, and WC01 candidate disposition - initially failed on the Project Observation Register hash, then on payload body drift after the intermediate hash correction, and passed after canonical regeneration.\n- Canonical artifact regeneration through the repository renderer - first sandboxed write failed with EPERM; elevated local write succeeded.\n- npm run validate:codex - passed in the approved normal Windows lane; this ran npm run test:full, including build, unit tests, repository gates, and renderer smoke checks.\n\n## Validation Performed\n\n- Canonical pair verification passed for the Project Observation Register, Artifact Registry, WC01 validation report, and WC01 candidate disposition.\n- Full validation passed through npm run validate:codex, which invoked npm run test:full.\n- Build passed.\n- Unit tests passed: 39 passed, 0 failed.\n- Repository gates passed, including canonical_registry_pairs with 137 checked after this report registration.\n- Renderer smoke checks passed for initial-save and restart modes.\n\nExecution lane: canonical read-only verification ran locally; artifact regeneration used elevated local write after sandbox EPERM; full validation used the approved normal Windows validation wrapper.\n\n## Validation Skipped And Reason\n\n- npm run test was not run directly because docs/dev/VALIDATION_COMMAND_LANES.md requires child-process-heavy test commands to use the approved normal Windows validation wrapper. npm run validate:codex ran the full test target through npm run test:full.\n- Operator manual validation, Human Validation acceptance, Architect review, phase closeout, merge, and release tagging were not performed because they are outside Implementer authority for this fix.\n\n## Git Actions Performed\n\n- Commit created: pending until commit is created.\n- Commit hash: pending until commit is created, when this report is part of the same commit.\n- Push: pending.\n- Tag: none.\n\n## Security And Secret-Safety Notes\n\n- No secrets, tokens, API keys, credentials, .env files, provider SDKs, deployment automation, databases, or cloud integrations were added.\n- Durable content uses repo-relative paths and the approved repo-root verification wording; no concrete local machine path is recorded.\n- Renderer filesystem behavior was not changed.\n\n## Blocking Questions\n\nNone.\n\n## Manual Validation Required\n\n- Operator or Architect may review the resulting planning artifacts and decide the next workflow action. No Implementer acceptance claim is made.\n\n## Residual Risks\n\n- Existing uncommitted Phase 04 validation and candidate disposition artifacts were already present before this fix and remain part of the working tree.\n- Electron emitted Windows cache/GPU warnings during renderer smoke validation, but the smoke checks returned passed and the validation command exited successfully.\n\n## Recommended Next Implementer Task\n\nContinue with the Architect-selected next Phase 04 action after this synchronized artifact state is reviewed.\n",
+    "data": {
+      "fixId": "FIX01",
+      "phase": "phase-04",
+      "status": "complete",
+      "validation": "npm run validate:codex passed"
+    },
+    "kind": "implementer_report",
+    "title": "Implementer Report: FIX01 Phase 04 Artifact Hash Synchronization"
+  },
+  "payloadHash": "sha256:743eb9f3b8f7861b7b007e0e4a74e718da8c98156a804283edf91e413eed2e5f",
+  "phaseId": "phase-04",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-04/candidate_disposition/WC01",
+      "champcity-ai/phase-04/validation_report/WC01",
+      "champcity-ai/project/observation_register/Project_Observation_Register",
+      "champcity-ai/system/artifact_registry"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T03:39:41.081Z",
+  "workCardId": "FIX01"
+}
