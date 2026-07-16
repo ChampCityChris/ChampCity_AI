@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC07",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Human validation and repair loop"
+  },
+  "payloadHash": "sha256:b45654475d564d5e85dc23a1dca31de7783241a0956e1fb403b3511124a6d504",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC07"
+}
+-->
+
 # Work Card: Human validation and repair loop
 
 ## Work Card ID

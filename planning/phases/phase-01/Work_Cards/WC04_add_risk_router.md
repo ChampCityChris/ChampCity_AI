@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC04",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Add Risk Router"
+  },
+  "payloadHash": "sha256:a2cd3857524e6306f7188e517e66a1010aca9509f2e629c9211772fc1de418c1",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC04"
+}
+-->
+
 # Work Card: Add Risk Router
 
 ## Work Card ID

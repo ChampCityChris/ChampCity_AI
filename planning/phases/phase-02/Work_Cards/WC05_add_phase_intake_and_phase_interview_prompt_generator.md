@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC05",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Add Phase Intake and Phase Interview prompt generator"
+  },
+  "payloadHash": "sha256:ac84390d550a9a419be510348f2204e928b5f05c6d29b5ecf36adc2c8aa4c9d0",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC05"
+}
+-->
+
 # Work Card: Add Phase Intake and Phase Interview prompt generator
 
 ## Work Card ID

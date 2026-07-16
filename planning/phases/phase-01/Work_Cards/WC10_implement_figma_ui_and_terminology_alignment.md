@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC10",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Implement Figma UI and terminology alignment"
+  },
+  "payloadHash": "sha256:32062fb4bb42498c76579b65aa578bfcc8d95dee23dc1230d2d0518c6c6f454f",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC10"
+}
+-->
+
 # Work Card: Implement Figma UI and terminology alignment
 
 ## Work Card ID

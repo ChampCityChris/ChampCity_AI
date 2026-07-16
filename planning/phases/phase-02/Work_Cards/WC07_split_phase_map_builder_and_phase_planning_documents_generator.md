@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC07",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-02T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Split Phase Map Builder and Phase Planning Documents Generator"
+  },
+  "payloadHash": "sha256:c0ff530a653e4fef6a10cfa3ded8806d1781ca1519fc8fdbc417e15895c91c87",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC07"
+}
+-->
+
 # Work Card: Split Phase Map Builder and Phase Planning Documents Generator
 
 ## Work Card ID

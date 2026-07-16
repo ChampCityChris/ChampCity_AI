@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC03",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Add Architect framing prompt composer"
+  },
+  "payloadHash": "sha256:07cd887a244e11d083cdc568a2f14e8ce3849046411a9e5bc8c3b1a384d9b7fb",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC03"
+}
+-->
+
 # Work Card: Add Architect framing prompt composer
 
 ## Work Card ID

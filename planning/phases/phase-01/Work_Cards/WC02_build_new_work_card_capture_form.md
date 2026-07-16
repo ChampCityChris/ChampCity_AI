@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC02",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-28T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Build New Work Card capture form"
+  },
+  "payloadHash": "sha256:f28d265a92ad860ab4acec481e0e1badca0e6b0caaba039d28d5bc1ee6bc0116",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC02"
+}
+-->
+
 # Work Card: Build New Work Card capture form
 
 ## Work Card ID

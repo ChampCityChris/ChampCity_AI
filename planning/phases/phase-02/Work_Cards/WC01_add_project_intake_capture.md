@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC01",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-30T15:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Add Project Intake capture"
+  },
+  "payloadHash": "sha256:9534008910caef57db1765502c40f079037dede9d065aec23832c9d511451499",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC01"
+}
+-->
+
 # Work Card: Add Project Intake capture
 
 ## Work Card ID

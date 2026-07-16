@@ -1,93 +1,121 @@
 {
-  "workCardId": "WC01",
-  "title": "Add Project Intake capture",
-  "phase": "phase-02",
-  "status": "ready_for_builder",
+  "artifactId": "champcity-ai/phase-02/work_card/WC01",
+  "artifactType": "work_card",
   "createdAt": "2026-06-30T15:00:00.000Z",
-  "updatedAt": "2026-06-30T15:00:00.000Z",
-  "problem": "Phase 1 proved the Work Card execution loop, but ChampCity A/I still lacks the higher-level Project Intake workflow that lets a non-developer Operator start a new project in plain language.",
-  "goal": "Add Project Intake capture as the first upstream planning workflow, saving durable JSON and Markdown artifacts that the Architect can use later.",
-  "userOutcome": "The Operator can open a Project Intake screen, fill in plain-language project fields, preview the generated Markdown, and save paired Project Intake artifacts under project-level planning storage.",
-  "scope": [
-    "Create Phase 02 scaffold folders for Work Cards and Builder Reports.",
-    "Create WC01 JSON and Markdown Work Card artifacts for Phase 02.",
-    "Add a simple JSON-compatible Project Intake shared model.",
-    "Add lightweight Project Intake validation with blocking errors and non-blocking warnings.",
-    "Add deterministic Project Intake Markdown rendering with non-developer-friendly headings.",
-    "Add a Project Intake top-level UI mode without removing existing Phase 1 workflow screens.",
-    "Add constrained main/preload IPC for saving Project Intake JSON and Markdown under `planning/project/Project_Intake/`.",
-    "Generate safe `PROJECT_INTAKE_<slug>.json` and `PROJECT_INTAKE_<slug>.md` filenames without silently overwriting existing artifacts.",
-    "Show a Markdown preview that states the next step is a Project Architect Interview prompt.",
-    "Extend lightweight validation coverage for Phase 02 WC01 artifacts, existing Phase 01 Work Cards, Project Intake validation, rendering, warnings, and filename safety.",
-    "Create the required WC01 Implementer Report under the legacy `Builder_Reports` folder."
-  ],
-  "outOfScope": [
-    "Do not generate Project Architect Interview prompts.",
-    "Do not create a Project Profile.",
-    "Do not create a Project Roadmap.",
-    "Do not create phase plans.",
-    "Do not create Work Cards from Project Intake.",
-    "Do not call an LLM API.",
-    "Do not add provider SDKs.",
-    "Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or deployment tooling.",
-    "Do not package the app or create installers.",
-    "Do not create release tags.",
-    "Do not push to GitHub.",
-    "Do not redesign the app shell or rename legacy `Builder_*` artifact folders."
-  ],
-  "requirements": [
-    "The Project Intake model must stay simple and JSON-compatible.",
-    "Required fields must include project name, product summary, target users, user problem, desired user outcome, and source of truth location.",
-    "Warnings must be returned for missing known constraints, non-goals, security or data concerns, and Operator uncertainties without blocking save.",
-    "The Markdown renderer must use plain-language headings and include the required next-step statement.",
-    "Renderer code must not write files directly.",
-    "Main/preload IPC must constrain Project Intake writes to `planning/project/Project_Intake/`.",
-    "Path handling must normalize and validate paths, reject traversal, reject arbitrary absolute paths from renderer input, and restrict generated filenames to safe slug values.",
-    "Saving must create only generated Project Intake JSON and Markdown artifacts and must not silently overwrite existing files.",
-    "Existing Work Card capture, Architect Prompt Composer, Risk Router, Implementer Prompt Generator, Implementer Report Capture, Human Validation, and Phase Closeout screens must remain available.",
-    "No Project Architect Interview generator, Project Profile, roadmap, phase plan, Work Card generator, LLM call, SDK, database, auth, cloud, MCP, or connector integration may be added."
-  ],
-  "acceptanceCriteria": [
-    "Phase 02 WC01 JSON validates against the existing Work Card schema.",
-    "Phase 02 WC01 Markdown matches the existing Work Card renderer output.",
-    "A Project Intake screen or mode is visible in the app.",
-    "The Project Intake screen uses plain-language fields for the Operator.",
-    "The Project Intake preview uses the deterministic Project Intake Markdown renderer.",
-    "Saving Project Intake creates both JSON and Markdown files under `planning/project/Project_Intake/`.",
-    "Filename generation uses safe `PROJECT_INTAKE_<slug>` names and suffixes duplicates or rejects unsafe values.",
-    "The Project Intake artifact clearly says it does not create the Project Profile or Work Cards by itself.",
-    "Existing Phase 1 workflow screens still open.",
-    "No Project Architect Interview prompt is generated.",
-    "No Project Profile, Project Roadmap, Phase Plan, or Work Cards are generated from the intake.",
-    "`npm run typecheck`, `npm run build`, `npm test`, `npm run test:work-cards`, and `git status --short` are run and documented."
-  ],
-  "validationPlan": [
-    "Run `npm run typecheck`.",
-    "Run `npm run build`.",
-    "Run `npm test`.",
-    "Run `npm run test:work-cards`.",
-    "Run `git status --short` and review changed files.",
-    "Manually validate that the Electron app opens, the Project Intake mode is visible, saving creates JSON and Markdown under `planning/project/Project_Intake/`, existing Phase 1 screens still open, and no downstream Architect Interview/Profile/Roadmap/Work Card generation occurs."
-  ],
-  "riskLevel": "medium",
-  "risks": [
-    "Project Intake is an upstream workflow and must not be confused with Work Card generation.",
-    "The renderer is a large existing single-file React implementation, so changes must avoid breaking existing Phase 1 flows.",
-    "Path safety is important because Project Intake saves project-level artifacts rather than phase-level artifacts.",
-    "Manual Electron validation is still required to confirm the new screen and save flow in the desktop app."
-  ],
-  "builderInstructions": [
-    "Verify the repository path and Git root before editing.",
-    "Read `AGENTS.md`, Phase 1 closeout artifacts, latest WC10 UI repair reports, renderer source, main/preload IPC, and shared Work Card files before implementation.",
-    "Keep this pass limited to Project Intake capture and durable Project Intake artifacts.",
-    "Preserve legacy `Builder_*` folder names for compatibility while using Implementer in product-facing copy.",
-    "Run required validation commands and document results in the Builder Report.",
-    "Stage only files changed or created for Phase 02 WC01 and commit with `feat: add project intake capture`."
-  ],
-  "operatorNotes": [
-    "ChampCity A/I means Architect / Implementer.",
-    "The app should help the Operator summon the Architect, not force the Operator to think like an architect.",
-    "Project Intake is the first step in the future upstream flow before Project Architect Interview and planning documents.",
-    "This Work Card intentionally stops before generating the Project Architect Interview prompt."
-  ]
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+  "payload": {
+    "contentMarkdown": "# Work Card: Add Project Intake capture\n\n## Work Card ID\n\nWC01\n\nCreated: 2026-06-30T15:00:00.000Z\nUpdated: 2026-06-30T15:00:00.000Z\n\n## Phase\n\nphase-02\n\n## Status\n\nready_for_builder\n\n## What Problem Are We Solving?\n\nPhase 1 proved the Work Card execution loop, but ChampCity A/I still lacks the higher-level Project Intake workflow that lets a non-developer Operator start a new project in plain language.\n\n## What Should This Accomplish?\n\nAdd Project Intake capture as the first upstream planning workflow, saving durable JSON and Markdown artifacts that the Architect can use later.\n\n## What Should the User Be Able To Do?\n\nThe Operator can open a Project Intake screen, fill in plain-language project fields, preview the generated Markdown, and save paired Project Intake artifacts under project-level planning storage.\n\n## What Is Included?\n\n- Create Phase 02 scaffold folders for Work Cards and Builder Reports.\n- Create WC01 JSON and Markdown Work Card artifacts for Phase 02.\n- Add a simple JSON-compatible Project Intake shared model.\n- Add lightweight Project Intake validation with blocking errors and non-blocking warnings.\n- Add deterministic Project Intake Markdown rendering with non-developer-friendly headings.\n- Add a Project Intake top-level UI mode without removing existing Phase 1 workflow screens.\n- Add constrained main/preload IPC for saving Project Intake JSON and Markdown under `planning/project/Project_Intake/`.\n- Generate safe `PROJECT_INTAKE_<slug>.json` and `PROJECT_INTAKE_<slug>.md` filenames without silently overwriting existing artifacts.\n- Show a Markdown preview that states the next step is a Project Architect Interview prompt.\n- Extend lightweight validation coverage for Phase 02 WC01 artifacts, existing Phase 01 Work Cards, Project Intake validation, rendering, warnings, and filename safety.\n- Create the required WC01 Implementer Report under the legacy `Builder_Reports` folder.\n\n## What Is Not Included?\n\n- Do not generate Project Architect Interview prompts.\n- Do not create a Project Profile.\n- Do not create a Project Roadmap.\n- Do not create phase plans.\n- Do not create Work Cards from Project Intake.\n- Do not call an LLM API.\n- Do not add provider SDKs.\n- Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or deployment tooling.\n- Do not package the app or create installers.\n- Do not create release tags.\n- Do not push to GitHub.\n- Do not redesign the app shell or rename legacy `Builder_*` artifact folders.\n\n## Requirements\n\n- The Project Intake model must stay simple and JSON-compatible.\n- Required fields must include project name, product summary, target users, user problem, desired user outcome, and source of truth location.\n- Warnings must be returned for missing known constraints, non-goals, security or data concerns, and Operator uncertainties without blocking save.\n- The Markdown renderer must use plain-language headings and include the required next-step statement.\n- Renderer code must not write files directly.\n- Main/preload IPC must constrain Project Intake writes to `planning/project/Project_Intake/`.\n- Path handling must normalize and validate paths, reject traversal, reject arbitrary absolute paths from renderer input, and restrict generated filenames to safe slug values.\n- Saving must create only generated Project Intake JSON and Markdown artifacts and must not silently overwrite existing files.\n- Existing Work Card capture, Architect Prompt Composer, Risk Router, Implementer Prompt Generator, Implementer Report Capture, Human Validation, and Phase Closeout screens must remain available.\n- No Project Architect Interview generator, Project Profile, roadmap, phase plan, Work Card generator, LLM call, SDK, database, auth, cloud, MCP, or connector integration may be added.\n\n## How We Know This Is Done\n\n- Phase 02 WC01 JSON validates against the existing Work Card schema.\n- Phase 02 WC01 Markdown matches the existing Work Card renderer output.\n- A Project Intake screen or mode is visible in the app.\n- The Project Intake screen uses plain-language fields for the Operator.\n- The Project Intake preview uses the deterministic Project Intake Markdown renderer.\n- Saving Project Intake creates both JSON and Markdown files under `planning/project/Project_Intake/`.\n- Filename generation uses safe `PROJECT_INTAKE_<slug>` names and suffixes duplicates or rejects unsafe values.\n- The Project Intake artifact clearly says it does not create the Project Profile or Work Cards by itself.\n- Existing Phase 1 workflow screens still open.\n- No Project Architect Interview prompt is generated.\n- No Project Profile, Project Roadmap, Phase Plan, or Work Cards are generated from the intake.\n- `npm run typecheck`, `npm run build`, `npm test`, `npm run test:work-cards`, and `git status --short` are run and documented.\n\n## How This Should Be Validated\n\n- Run `npm run typecheck`.\n- Run `npm run build`.\n- Run `npm test`.\n- Run `npm run test:work-cards`.\n- Run `git status --short` and review changed files.\n- Manually validate that the Electron app opens, the Project Intake mode is visible, saving creates JSON and Markdown under `planning/project/Project_Intake/`, existing Phase 1 screens still open, and no downstream Architect Interview/Profile/Roadmap/Work Card generation occurs.\n\n## Risk Level\n\nmedium\n\n## Risks and Watch Items\n\n- Project Intake is an upstream workflow and must not be confused with Work Card generation.\n- The renderer is a large existing single-file React implementation, so changes must avoid breaking existing Phase 1 flows.\n- Path safety is important because Project Intake saves project-level artifacts rather than phase-level artifacts.\n- Manual Electron validation is still required to confirm the new screen and save flow in the desktop app.\n\n## Builder Instructions\n\n- Verify the repository path and Git root before editing.\n- Read `AGENTS.md`, Phase 1 closeout artifacts, latest WC10 UI repair reports, renderer source, main/preload IPC, and shared Work Card files before implementation.\n- Keep this pass limited to Project Intake capture and durable Project Intake artifacts.\n- Preserve legacy `Builder_*` folder names for compatibility while using Implementer in product-facing copy.\n- Run required validation commands and document results in the Builder Report.\n- Stage only files changed or created for Phase 02 WC01 and commit with `feat: add project intake capture`.\n\n## Operator Notes\n\n- ChampCity A/I means Architect / Implementer.\n- The app should help the Operator summon the Architect, not force the Operator to think like an architect.\n- Project Intake is the first step in the future upstream flow before Project Architect Interview and planning documents.\n- This Work Card intentionally stops before generating the Project Architect Interview prompt.\n\n## Builder Handoff Prompt\n\nUse this as the starting Implementer prompt. The section heading remains a legacy Builder handoff heading for artifact compatibility.\n\nYou are acting as Implementer for ChampCity A/I.\n\nThe Implementer may be Codex, Claude Code, Cursor, or another coding agent. Build only from this structured handoff and preserve the approved scope.\n\nBefore editing:\n- Verify the repository path before editing. Expected repository: `<PROJECT_REPO>`.\n- Read `AGENTS.md` and relevant planning files.\n\nWork Card: WC01 - Add Project Intake capture\n\nGoal: Add Project Intake capture as the first upstream planning workflow, saving durable JSON and Markdown artifacts that the Architect can use later.\n\nScope:\n- Create Phase 02 scaffold folders for Work Cards and Builder Reports.\n- Create WC01 JSON and Markdown Work Card artifacts for Phase 02.\n- Add a simple JSON-compatible Project Intake shared model.\n- Add lightweight Project Intake validation with blocking errors and non-blocking warnings.\n- Add deterministic Project Intake Markdown rendering with non-developer-friendly headings.\n- Add a Project Intake top-level UI mode without removing existing Phase 1 workflow screens.\n- Add constrained main/preload IPC for saving Project Intake JSON and Markdown under `planning/project/Project_Intake/`.\n- Generate safe `PROJECT_INTAKE_<slug>.json` and `PROJECT_INTAKE_<slug>.md` filenames without silently overwriting existing artifacts.\n- Show a Markdown preview that states the next step is a Project Architect Interview prompt.\n- Extend lightweight validation coverage for Phase 02 WC01 artifacts, existing Phase 01 Work Cards, Project Intake validation, rendering, warnings, and filename safety.\n- Create the required WC01 Implementer Report under the legacy `Builder_Reports` folder.\n\nOut of scope:\n- Do not generate Project Architect Interview prompts.\n- Do not create a Project Profile.\n- Do not create a Project Roadmap.\n- Do not create phase plans.\n- Do not create Work Cards from Project Intake.\n- Do not call an LLM API.\n- Do not add provider SDKs.\n- Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or deployment tooling.\n- Do not package the app or create installers.\n- Do not create release tags.\n- Do not push to GitHub.\n- Do not redesign the app shell or rename legacy `Builder_*` artifact folders.\n\nRequirements:\n- The Project Intake model must stay simple and JSON-compatible.\n- Required fields must include project name, product summary, target users, user problem, desired user outcome, and source of truth location.\n- Warnings must be returned for missing known constraints, non-goals, security or data concerns, and Operator uncertainties without blocking save.\n- The Markdown renderer must use plain-language headings and include the required next-step statement.\n- Renderer code must not write files directly.\n- Main/preload IPC must constrain Project Intake writes to `planning/project/Project_Intake/`.\n- Path handling must normalize and validate paths, reject traversal, reject arbitrary absolute paths from renderer input, and restrict generated filenames to safe slug values.\n- Saving must create only generated Project Intake JSON and Markdown artifacts and must not silently overwrite existing files.\n- Existing Work Card capture, Architect Prompt Composer, Risk Router, Implementer Prompt Generator, Implementer Report Capture, Human Validation, and Phase Closeout screens must remain available.\n- No Project Architect Interview generator, Project Profile, roadmap, phase plan, Work Card generator, LLM call, SDK, database, auth, cloud, MCP, or connector integration may be added.\n\nAcceptance criteria:\n- Phase 02 WC01 JSON validates against the existing Work Card schema.\n- Phase 02 WC01 Markdown matches the existing Work Card renderer output.\n- A Project Intake screen or mode is visible in the app.\n- The Project Intake screen uses plain-language fields for the Operator.\n- The Project Intake preview uses the deterministic Project Intake Markdown renderer.\n- Saving Project Intake creates both JSON and Markdown files under `planning/project/Project_Intake/`.\n- Filename generation uses safe `PROJECT_INTAKE_<slug>` names and suffixes duplicates or rejects unsafe values.\n- The Project Intake artifact clearly says it does not create the Project Profile or Work Cards by itself.\n- Existing Phase 1 workflow screens still open.\n- No Project Architect Interview prompt is generated.\n- No Project Profile, Project Roadmap, Phase Plan, or Work Cards are generated from the intake.\n- `npm run typecheck`, `npm run build`, `npm test`, `npm run test:work-cards`, and `git status --short` are run and documented.\n\nValidation plan:\n- Run `npm run typecheck`.\n- Run `npm run build`.\n- Run `npm test`.\n- Run `npm run test:work-cards`.\n- Run `git status --short` and review changed files.\n- Manually validate that the Electron app opens, the Project Intake mode is visible, saving creates JSON and Markdown under `planning/project/Project_Intake/`, existing Phase 1 screens still open, and no downstream Architect Interview/Profile/Roadmap/Work Card generation occurs.\n\nImplementer Report:\n- Create an Implementer Report under the legacy `planning/phases/phase-02/Builder_Reports/` folder and include commands run, validation results, security notes, git actions, and the recommended next Implementer task.\n",
+    "data": {
+      "acceptanceCriteria": [
+        "Phase 02 WC01 JSON validates against the existing Work Card schema.",
+        "Phase 02 WC01 Markdown matches the existing Work Card renderer output.",
+        "A Project Intake screen or mode is visible in the app.",
+        "The Project Intake screen uses plain-language fields for the Operator.",
+        "The Project Intake preview uses the deterministic Project Intake Markdown renderer.",
+        "Saving Project Intake creates both JSON and Markdown files under `planning/project/Project_Intake/`.",
+        "Filename generation uses safe `PROJECT_INTAKE_<slug>` names and suffixes duplicates or rejects unsafe values.",
+        "The Project Intake artifact clearly says it does not create the Project Profile or Work Cards by itself.",
+        "Existing Phase 1 workflow screens still open.",
+        "No Project Architect Interview prompt is generated.",
+        "No Project Profile, Project Roadmap, Phase Plan, or Work Cards are generated from the intake.",
+        "`npm run typecheck`, `npm run build`, `npm test`, `npm run test:work-cards`, and `git status --short` are run and documented."
+      ],
+      "builderInstructions": [
+        "Verify the repository path and Git root before editing.",
+        "Read `AGENTS.md`, Phase 1 closeout artifacts, latest WC10 UI repair reports, renderer source, main/preload IPC, and shared Work Card files before implementation.",
+        "Keep this pass limited to Project Intake capture and durable Project Intake artifacts.",
+        "Preserve legacy `Builder_*` folder names for compatibility while using Implementer in product-facing copy.",
+        "Run required validation commands and document results in the Builder Report.",
+        "Stage only files changed or created for Phase 02 WC01 and commit with `feat: add project intake capture`."
+      ],
+      "createdAt": "2026-06-30T15:00:00.000Z",
+      "goal": "Add Project Intake capture as the first upstream planning workflow, saving durable JSON and Markdown artifacts that the Architect can use later.",
+      "migratedFrom": "legacy_saved_work_card_json",
+      "migrationDisposition": "historical_non_authoritative",
+      "operatorNotes": [
+        "ChampCity A/I means Architect / Implementer.",
+        "The app should help the Operator summon the Architect, not force the Operator to think like an architect.",
+        "Project Intake is the first step in the future upstream flow before Project Architect Interview and planning documents.",
+        "This Work Card intentionally stops before generating the Project Architect Interview prompt."
+      ],
+      "outOfScope": [
+        "Do not generate Project Architect Interview prompts.",
+        "Do not create a Project Profile.",
+        "Do not create a Project Roadmap.",
+        "Do not create phase plans.",
+        "Do not create Work Cards from Project Intake.",
+        "Do not call an LLM API.",
+        "Do not add provider SDKs.",
+        "Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or deployment tooling.",
+        "Do not package the app or create installers.",
+        "Do not create release tags.",
+        "Do not push to GitHub.",
+        "Do not redesign the app shell or rename legacy `Builder_*` artifact folders."
+      ],
+      "phase": "phase-02",
+      "problem": "Phase 1 proved the Work Card execution loop, but ChampCity A/I still lacks the higher-level Project Intake workflow that lets a non-developer Operator start a new project in plain language.",
+      "requirements": [
+        "The Project Intake model must stay simple and JSON-compatible.",
+        "Required fields must include project name, product summary, target users, user problem, desired user outcome, and source of truth location.",
+        "Warnings must be returned for missing known constraints, non-goals, security or data concerns, and Operator uncertainties without blocking save.",
+        "The Markdown renderer must use plain-language headings and include the required next-step statement.",
+        "Renderer code must not write files directly.",
+        "Main/preload IPC must constrain Project Intake writes to `planning/project/Project_Intake/`.",
+        "Path handling must normalize and validate paths, reject traversal, reject arbitrary absolute paths from renderer input, and restrict generated filenames to safe slug values.",
+        "Saving must create only generated Project Intake JSON and Markdown artifacts and must not silently overwrite existing files.",
+        "Existing Work Card capture, Architect Prompt Composer, Risk Router, Implementer Prompt Generator, Implementer Report Capture, Human Validation, and Phase Closeout screens must remain available.",
+        "No Project Architect Interview generator, Project Profile, roadmap, phase plan, Work Card generator, LLM call, SDK, database, auth, cloud, MCP, or connector integration may be added."
+      ],
+      "riskLevel": "medium",
+      "risks": [
+        "Project Intake is an upstream workflow and must not be confused with Work Card generation.",
+        "The renderer is a large existing single-file React implementation, so changes must avoid breaking existing Phase 1 flows.",
+        "Path safety is important because Project Intake saves project-level artifacts rather than phase-level artifacts.",
+        "Manual Electron validation is still required to confirm the new screen and save flow in the desktop app."
+      ],
+      "scope": [
+        "Create Phase 02 scaffold folders for Work Cards and Builder Reports.",
+        "Create WC01 JSON and Markdown Work Card artifacts for Phase 02.",
+        "Add a simple JSON-compatible Project Intake shared model.",
+        "Add lightweight Project Intake validation with blocking errors and non-blocking warnings.",
+        "Add deterministic Project Intake Markdown rendering with non-developer-friendly headings.",
+        "Add a Project Intake top-level UI mode without removing existing Phase 1 workflow screens.",
+        "Add constrained main/preload IPC for saving Project Intake JSON and Markdown under `planning/project/Project_Intake/`.",
+        "Generate safe `PROJECT_INTAKE_<slug>.json` and `PROJECT_INTAKE_<slug>.md` filenames without silently overwriting existing artifacts.",
+        "Show a Markdown preview that states the next step is a Project Architect Interview prompt.",
+        "Extend lightweight validation coverage for Phase 02 WC01 artifacts, existing Phase 01 Work Cards, Project Intake validation, rendering, warnings, and filename safety.",
+        "Create the required WC01 Implementer Report under the legacy `Builder_Reports` folder."
+      ],
+      "status": "ready_for_builder",
+      "title": "Add Project Intake capture",
+      "updatedAt": "2026-06-30T15:00:00.000Z",
+      "userOutcome": "The Operator can open a Project Intake screen, fill in plain-language project fields, preview the generated Markdown, and save paired Project Intake artifacts under project-level planning storage.",
+      "validationPlan": [
+        "Run `npm run typecheck`.",
+        "Run `npm run build`.",
+        "Run `npm test`.",
+        "Run `npm run test:work-cards`.",
+        "Run `git status --short` and review changed files.",
+        "Manually validate that the Electron app opens, the Project Intake mode is visible, saving creates JSON and Markdown under `planning/project/Project_Intake/`, existing Phase 1 screens still open, and no downstream Architect Interview/Profile/Roadmap/Work Card generation occurs."
+      ],
+      "workCardId": "WC01"
+    },
+    "kind": "work_card",
+    "title": "Add Project Intake capture"
+  },
+  "payloadHash": "sha256:9534008910caef57db1765502c40f079037dede9d065aec23832c9d511451499",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC01"
 }

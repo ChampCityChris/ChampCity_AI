@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC06",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Capture Builder Report"
+  },
+  "payloadHash": "sha256:7fcf9054b26de172d1bf6ba3bf7e19b5c8379c52347ddbf9c387ad0983616239",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC06"
+}
+-->
+
 # Work Card: Capture Builder Report
 
 ## Work Card ID

@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC06",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-02T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Add Repository Reconciliation and Generate Phase Planning Documents"
+  },
+  "payloadHash": "sha256:d5f38a0ae2171625547596ae5219baa1196bcef94dab966a1364cb0855e8a079",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC06"
+}
+-->
+
 # Work Card: Add Repository Reconciliation and Generate Phase Planning Documents
 
 ## Work Card ID

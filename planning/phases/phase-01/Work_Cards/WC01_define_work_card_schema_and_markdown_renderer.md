@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC01",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-28T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Define Work Card schema and Markdown renderer"
+  },
+  "payloadHash": "sha256:3cba35ec36aec0fe0b6d9a23336439780d193010eec8f2e9c84db33ee90d63e7",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC01"
+}
+-->
+
 # Work Card: Define Work Card schema and Markdown renderer
 
 ## Work Card ID

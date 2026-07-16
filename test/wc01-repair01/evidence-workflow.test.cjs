@@ -20,6 +20,11 @@ const {
 const {
   EvidenceDerivedWorkflowProjector,
 } = require("../../dist/main/workflow/evidenceDerivedWorkflowProjector");
+const {
+  configureWorkCardRepositoryRoot,
+  listHumanValidationTargets,
+  listSavedWorkCards,
+} = require("../../dist/main/workCards/workCardFileStore");
 
 const FIXED_TIME = "2026-07-15T21:00:00.000Z";
 
@@ -228,6 +233,87 @@ test("external Architect Review, Validation Report, and explicit repair decision
     });
     result = await projectGraph(root, projectId, 2);
     assert.equal(result.projection.state.currentAction.actionId, "architect_disposition_required");
+  });
+});
+
+test("canonical Work Card artifacts never require retired Saved Work Card fields or block WC01 validation routing", async () => {
+  await temporaryRoot("champcity-canonical-work-card-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const workCardId = "WC01";
+    await seedWorkCardLoop(root, projectId, phaseId, workCardId, {
+      workCardData: {
+        phaseId,
+        status: "ready_for_implementer",
+      },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId,
+      artifactId: `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+      artifactType: "implementer_report",
+      stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_authority_cutover`,
+      sources: [`${projectId}/${phaseId}/work_card/${workCardId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
+      data: { workCardId, status: "implemented_awaiting_architect_review" },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId,
+      artifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
+      artifactType: "architect_review",
+      revision: 2,
+      stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${workCardId}_authority_cutover`,
+      sources: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+      data: {
+        decision: "Ready for Operator validation",
+        operatorValidationAuthorized: true,
+        expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+      },
+    });
+
+    configureWorkCardRepositoryRoot(root, projectId);
+    const listed = await listSavedWorkCards(phaseId);
+    assert.equal(listed.ok, true);
+    assert.equal(listed.invalidFiles?.length ?? 0, 0);
+    assert.equal(listed.workCards?.[0]?.workCardId, workCardId);
+    assert.equal(
+      JSON.stringify(listed).includes("Saved Work Card JSON is not valid"),
+      false,
+    );
+
+    const targets = await listHumanValidationTargets(phaseId);
+    assert.equal(targets.ok, true);
+    assert.equal(targets.invalidFiles?.length ?? 0, 0);
+    assert.equal(targets.targets?.some((target) => target.id === workCardId), true);
+
+    const storage = path.join(os.tmpdir(), `champcity-canonical-wc-${process.pid}-${Date.now()}.json`);
+    try {
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+      await registry.addProject({ repositoryRoot: root, projectId });
+      const configured = await registry.selectProject(projectId);
+      const service = new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME);
+      const snapshot = await service.refresh("manual");
+      const action = snapshot.projection.state.currentAction;
+
+      assert.equal(snapshot.scanResult.blockers.length, 0);
+      assert.equal(action.actionId, "operator_validation_required");
+      assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
+      assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/validation_report/${workCardId}`);
+      assert.equal(
+        snapshot.projection.state.blockingConditions.some((blocker) =>
+          blocker.message.includes("Saved Work Card JSON is not valid"),
+        ),
+        false,
+      );
+      assert.equal(
+        snapshot.projection.state.blockingConditions.some((blocker) =>
+          blocker.message.includes("Implementer Report association needs attention"),
+        ),
+        false,
+      );
+    } finally {
+      await rm(storage, { force: true });
+    }
   });
 });
 

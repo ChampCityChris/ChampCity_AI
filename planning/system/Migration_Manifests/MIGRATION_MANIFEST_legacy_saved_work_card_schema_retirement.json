@@ -1,0 +1,2691 @@
+{
+  "artifactId": "champcity-ai/system/migration_manifest/legacy_saved_work_card_schema_retirement",
+  "artifactType": "migration_manifest",
+  "createdAt": "2026-07-16T00:00:00.000Z",
+  "jsonPath": "planning/system/Migration_Manifests/MIGRATION_MANIFEST_legacy_saved_work_card_schema_retirement.json",
+  "markdownPath": "planning/system/Migration_Manifests/MIGRATION_MANIFEST_legacy_saved_work_card_schema_retirement.md",
+  "payload": {
+    "contentMarkdown": "# Migration Manifest: Legacy Saved Work Card Schema Retirement\n\nStatus: completed\nMigration date: 2026-07-16\nRepository path inspected: verified approved repo root\n\n## Summary\n\n- Inspected files: 425\n- Inspected artifact stems: 239\n- Converted legacy Saved Work Card pairs: 18\n- Removed files: 0\n- Legacy Saved Work Card JSON remaining after migration: 0\n- Current repository projection after migration: operator_validation_required for champcity-ai/phase-04/work_card/WC01\n- Expected output after migration: champcity-ai/phase-04/validation_report/WC01\n- Scan blockers after migration: 0\n\n## Converted Artifacts\n\n- planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json -> champcity-ai/phase-01/work_card/WC01 (historical)\n- planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json -> champcity-ai/phase-01/work_card/WC02 (historical)\n- planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json -> champcity-ai/phase-01/work_card/WC03 (historical)\n- planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json -> champcity-ai/phase-01/work_card/WC04 (historical)\n- planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json -> champcity-ai/phase-01/work_card/WC05 (historical)\n- planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json -> champcity-ai/phase-01/work_card/WC06 (historical)\n- planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json -> champcity-ai/phase-01/work_card/WC07 (historical)\n- planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json -> champcity-ai/phase-01/work_card/WC08 (historical)\n- planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json -> champcity-ai/phase-01/work_card/WC09 (historical)\n- planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json -> champcity-ai/phase-01/work_card/WC10 (historical)\n- planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json -> champcity-ai/phase-02/work_card/WC01 (historical)\n- planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json -> champcity-ai/phase-02/work_card/WC02 (historical)\n- planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json -> champcity-ai/phase-02/work_card/WC03 (historical)\n- planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json -> champcity-ai/phase-02/work_card/WC04 (historical)\n- planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json -> champcity-ai/phase-02/work_card/WC05 (historical)\n- planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json -> champcity-ai/phase-02/work_card/WC06 (historical)\n- planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json -> champcity-ai/phase-02/work_card/WC07 (historical)\n- planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json -> champcity-ai/phase-02/work_card/WC08 (historical)\n\n## Historical / Ignored Decision\n\nLegacy Markdown-only and non-canonical non-Work-Card planning files remain historical or support material. Production authority scans use canonical artifact pairs only; old Saved Work Card schema files were converted rather than retained as active authority.\n\n## Validation Evidence\n\n- Repository inventory after migration reported zero legacy Saved Work Card JSON files and zero orphan canonical JSON files.\n- Verified artifact graph scan reported zero blockers.\n- Evidence-derived workflow projection reported operator_validation_required for WC01 with expected output champcity-ai/phase-04/validation_report/WC01.\n- Artifact Registry rebuilt from the verified graph with 155 entries.\n",
+    "data": {
+      "artifactIdsCreatedOrChanged": [
+        "champcity-ai/phase-01/work_card/WC01",
+        "champcity-ai/phase-01/work_card/WC02",
+        "champcity-ai/phase-01/work_card/WC03",
+        "champcity-ai/phase-01/work_card/WC04",
+        "champcity-ai/phase-01/work_card/WC05",
+        "champcity-ai/phase-01/work_card/WC06",
+        "champcity-ai/phase-01/work_card/WC07",
+        "champcity-ai/phase-01/work_card/WC08",
+        "champcity-ai/phase-01/work_card/WC09",
+        "champcity-ai/phase-01/work_card/WC10",
+        "champcity-ai/phase-02/work_card/WC01",
+        "champcity-ai/phase-02/work_card/WC02",
+        "champcity-ai/phase-02/work_card/WC03",
+        "champcity-ai/phase-02/work_card/WC04",
+        "champcity-ai/phase-02/work_card/WC05",
+        "champcity-ai/phase-02/work_card/WC06",
+        "champcity-ai/phase-02/work_card/WC07",
+        "champcity-ai/phase-02/work_card/WC08",
+        "champcity-ai/system/artifact_registry"
+      ],
+      "convertedArtifacts": [
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC01",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC02",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC03",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC04",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC05",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC06",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC07",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC08",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC09",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC10",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC01",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC02",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC03",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC04",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC05",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC06",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC07",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC08",
+          "artifactType": "work_card",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.md",
+          "status": "historical"
+        }
+      ],
+      "convertedFiles": [
+        "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json",
+        "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
+        "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json",
+        "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+        "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json",
+        "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
+        "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json",
+        "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
+        "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json",
+        "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+        "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+        "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+        "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json",
+        "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
+        "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json",
+        "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
+        "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json",
+        "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.md",
+        "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json",
+        "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.md",
+        "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json",
+        "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json",
+        "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.md",
+        "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json",
+        "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+        "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+        "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json",
+        "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+        "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+        "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+        "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json",
+        "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.md"
+      ],
+      "countsAfterMigration": {
+        "canonicalArtifactPairs": 153,
+        "generatedOrNonArtifact": 1,
+        "historicalCanonicalPairs": 94,
+        "legacyMarkdownOnlyArtifacts": 50,
+        "legacySavedWorkCardJson": 0,
+        "orphans": 3,
+        "otherLegacyPairs": 32
+      },
+      "filesInspected": [
+        "planning/project/CHANGE_LOG.json",
+        "planning/project/CHANGE_LOG.md",
+        "planning/project/DECISIONS.json",
+        "planning/project/DECISIONS.md",
+        "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.json",
+        "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.md",
+        "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.json",
+        "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.md",
+        "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.json",
+        "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.md",
+        "planning/project/ENVIRONMENT.json",
+        "planning/project/ENVIRONMENT.md",
+        "planning/project/GLOSSARY.json",
+        "planning/project/GLOSSARY.md",
+        "planning/project/MVP_SCOPE.json",
+        "planning/project/MVP_SCOPE.md",
+        "planning/project/OPEN_QUESTIONS.json",
+        "planning/project/OPEN_QUESTIONS.md",
+        "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
+        "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
+        "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.json",
+        "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md",
+        "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+        "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+        "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.json",
+        "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.md",
+        "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.json",
+        "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.md",
+        "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.json",
+        "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.md",
+        "planning/project/Project_Observation_Register.json",
+        "planning/project/Project_Observation_Register.md",
+        "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+        "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+        "planning/project/PROJECT_PROFILE.json",
+        "planning/project/PROJECT_PROFILE.md",
+        "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
+        "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md",
+        "planning/project/PROJECT_STATE.json",
+        "planning/project/PROJECT_STATE.md",
+        "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
+        "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+        "planning/project/RELEASE_POLICY.json",
+        "planning/project/RELEASE_POLICY.md",
+        "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json",
+        "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
+        "planning/project/RISKS.json",
+        "planning/project/RISKS.md",
+        "planning/project/SECURITY_POLICY.json",
+        "planning/project/SECURITY_POLICY.md",
+        "planning/project/VALIDATION_POLICY.json",
+        "planning/project/VALIDATION_POLICY.md",
+        "planning/project/WORK_CARD_BACKLOG.json",
+        "planning/project/WORK_CARD_BACKLOG.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX01_agents_report_rule.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX02_configure_git_remote.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX03_codex_validation_lane_rule.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC02_electron_launch_failure.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_backfill_work_card_json_artifacts.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_blank_renderer_after_vite_tailwind_migration.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_header_layout_and_workflow_rail.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_source_driven_figma_ui_parity.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_strict_figma_source_parity_diff_pass.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_ui_branding_and_responsive_overflow_fixes.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC02_work_card_capture_form.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC03_architect_framing_prompt_composer.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC04_risk_router.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC05_generate_builder_prompt.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC06_capture_builder_report.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC07_human_validation_and_repair_loop.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC08_phase_1_closeout_and_status_management.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC09_figma_ui_design_handoff_package.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC10_figma_ui_and_terminology_alignment.md",
+        "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.json",
+        "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.md",
+        "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.json",
+        "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.md",
+        "planning/phases/phase-01/UI_Design_Handoff/BRAND_AND_UI_DIRECTION.md",
+        "planning/phases/phase-01/UI_Design_Handoff/CURRENT_UI_INVENTORY.md",
+        "planning/phases/phase-01/UI_Design_Handoff/FIGMA_IMPLEMENTATION_MAP.md",
+        "planning/phases/phase-01/UI_Design_Handoff/FIGMA_PROMPT.md",
+        "planning/phases/phase-01/UI_Design_Handoff/FIGMA_SOURCE_DIFF_WC10.md",
+        "planning/phases/phase-01/UI_Design_Handoff/README.md",
+        "planning/phases/phase-01/UI_Design_Handoff/SCREENSHOT_CAPTURE_INSTRUCTIONS.md",
+        "planning/phases/phase-01/UI_Design_Handoff/SOURCE_REFERENCES.md",
+        "planning/phases/phase-01/UI_Design_Handoff/UX_FLOW_MAP.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.md",
+        "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json",
+        "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
+        "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json",
+        "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+        "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json",
+        "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
+        "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json",
+        "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
+        "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json",
+        "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+        "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+        "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+        "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json",
+        "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
+        "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json",
+        "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
+        "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json",
+        "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.md",
+        "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json",
+        "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_FIX_context_menu_copy_paste.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_project_planning_documents_ui.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_architect_led_phase_intake_flow.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC08_complete_phase_transition_work_card_plan_review.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_repair_project_intake_action_status_layout.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_validation_status_indicator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_validation_target_selector.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC07_split_phase_map_builder_phase_planning_generator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC08_phase_transition_artifact_authority_model.md",
+        "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.json",
+        "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_2.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_3.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_3.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+        "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_FIX_context_menu_copy_paste.json",
+        "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_WC03_repair_header_layout_regression.json",
+        "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json",
+        "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json",
+        "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.md",
+        "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json",
+        "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+        "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+        "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json",
+        "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+        "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+        "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+        "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json",
+        "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+        "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+        "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+        "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.json",
+        "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.md",
+        "planning/phases/phase-03/Observation_Register.json",
+        "planning/phases/phase-03/Observation_Register.md",
+        "planning/phases/phase-03/Operator_Phase_Approval.json",
+        "planning/phases/phase-03/Operator_Phase_Approval.md",
+        "planning/phases/phase-03/Operator_Phase_Approval_PENDING.json",
+        "planning/phases/phase-03/Operator_Phase_Approval_PENDING.md",
+        "planning/phases/phase-03/Phase_Interview.json",
+        "planning/phases/phase-03/Phase_Interview.md",
+        "planning/phases/phase-03/Phase_Planning.json",
+        "planning/phases/phase-03/Phase_Planning.md",
+        "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json",
+        "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md",
+        "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.json",
+        "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+        "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+        "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+        "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+        "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+        "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+        "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.json",
+        "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md",
+        "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.json",
+        "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.md",
+        "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+        "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+        "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.json",
+        "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.md",
+        "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+        "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+        "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.json",
+        "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.md",
+        "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+        "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+        "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+        "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+        "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
+        "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
+        "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+        "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+        "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.json",
+        "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+        "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+        "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.json",
+        "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md",
+        "planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+        "planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+        "planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+        "planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+        "planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+        "planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+        "planning/phases/phase-03/WORK_CARD_BACKLOG.json",
+        "planning/phases/phase-03/WORK_CARD_BACKLOG.md",
+        "planning/phases/phase-03/Work_Card_Plan.json",
+        "planning/phases/phase-03/Work_Card_Plan.md",
+        "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json",
+        "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.md",
+        "planning/phases/phase-04/Architecture_Decisions/ARCHITECTURE_DECISION_WC01_repository_observed_evidence_derived_multi_project_workflow.json",
+        "planning/phases/phase-04/Architecture_Decisions/ARCHITECTURE_DECISION_WC01_repository_observed_evidence_derived_multi_project_workflow.md",
+        "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+        "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+        "planning/phases/phase-04/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_repository_architecture_and_root_cause_analysis.json",
+        "planning/phases/phase-04/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_repository_architecture_and_root_cause_analysis.md",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_governed_implementer_report_transition_and_state_reconciliation.json",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_governed_implementer_report_transition_and_state_reconciliation.md",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.json",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.md",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_routed_architect_review_ui_binding.json",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_routed_architect_review_ui_binding.md",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+        "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+        "planning/phases/phase-04/Operator_Phase_Approval.json",
+        "planning/phases/phase-04/Operator_Phase_Approval.md",
+        "planning/phases/phase-04/Phase_Activation.json",
+        "planning/phases/phase-04/Phase_Activation.md",
+        "planning/phases/phase-04/Phase_Planning.json",
+        "planning/phases/phase-04/Phase_Planning.md",
+        "planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.json",
+        "planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.md",
+        "planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+        "planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+        "planning/phases/phase-04/Work_Card_Plan.json",
+        "planning/phases/phase-04/Work_Card_Plan.md",
+        "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json",
+        "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md",
+        "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
+        "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md"
+      ],
+      "intentionallyIgnored": [
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX01_agents_report_rule.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX02_configure_git_remote.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX03_codex_validation_lane_rule.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC02_electron_launch_failure.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_backfill_work_card_json_artifacts.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_blank_renderer_after_vite_tailwind_migration.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_header_layout_and_workflow_rail.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_source_driven_figma_ui_parity.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_strict_figma_source_parity_diff_pass.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_ui_branding_and_responsive_overflow_fixes.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC02_work_card_capture_form.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC03_architect_framing_prompt_composer.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC04_risk_router.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC05_generate_builder_prompt.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC06_capture_builder_report.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC07_human_validation_and_repair_loop.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC08_phase_1_closeout_and_status_management.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC09_figma_ui_design_handoff_package.md",
+        "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC10_figma_ui_and_terminology_alignment.md",
+        "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.json",
+        "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.json",
+        "planning/phases/phase-01/UI_Design_Handoff/BRAND_AND_UI_DIRECTION.md",
+        "planning/phases/phase-01/UI_Design_Handoff/CURRENT_UI_INVENTORY.md",
+        "planning/phases/phase-01/UI_Design_Handoff/FIGMA_IMPLEMENTATION_MAP.md",
+        "planning/phases/phase-01/UI_Design_Handoff/FIGMA_PROMPT.md",
+        "planning/phases/phase-01/UI_Design_Handoff/FIGMA_SOURCE_DIFF_WC10.md",
+        "planning/phases/phase-01/UI_Design_Handoff/README.md",
+        "planning/phases/phase-01/UI_Design_Handoff/SCREENSHOT_CAPTURE_INSTRUCTIONS.md",
+        "planning/phases/phase-01/UI_Design_Handoff/SOURCE_REFERENCES.md",
+        "planning/phases/phase-01/UI_Design_Handoff/UX_FLOW_MAP.md",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json",
+        "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_FIX_context_menu_copy_paste.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_project_planning_documents_ui.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_architect_led_phase_intake_flow.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC08_complete_phase_transition_work_card_plan_review.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_repair_project_intake_action_status_layout.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_validation_status_indicator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_validation_target_selector.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC07_split_phase_map_builder_phase_planning_generator.md",
+        "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC08_phase_transition_artifact_authority_model.md",
+        "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.json",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC01_add_project_intake_capture.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC02_add_project_architect_interview_prompt_generator.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC04_generate_project_planning_documents.md",
+        "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_3.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.json",
+        "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+        "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_FIX_context_menu_copy_paste.json",
+        "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_WC03_repair_header_layout_regression.json",
+        "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json"
+      ],
+      "inventory": [
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX01_agents_report_rule.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX02_configure_git_remote.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_FIX03_codex_validation_lane_rule.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC02_electron_launch_failure.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_backfill_work_card_json_artifacts.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_blank_renderer_after_vite_tailwind_migration.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_header_layout_and_workflow_rail.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_source_driven_figma_ui_parity.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_strict_figma_source_parity_diff_pass.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_REPAIR_WC10_ui_branding_and_responsive_overflow_fixes.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC01_work_card_schema_renderer.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC02_work_card_capture_form.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC03_architect_framing_prompt_composer.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC04_risk_router.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC05_generate_builder_prompt.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC06_capture_builder_report.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC07_human_validation_and_repair_loop.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC08_phase_1_closeout_and_status_management.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC09_figma_ui_design_handoff_package.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/Builder_Reports/BUILDER_REPORT_WC10_figma_ui_and_terminology_alignment.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.json",
+          "markdownPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.json",
+          "markdownPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/BRAND_AND_UI_DIRECTION.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/CURRENT_UI_INVENTORY.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/FIGMA_IMPLEMENTATION_MAP.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/FIGMA_PROMPT.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/FIGMA_SOURCE_DIFF_WC10.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/README.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/SCREENSHOT_CAPTURE_INSTRUCTIONS.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/SOURCE_REFERENCES.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-01/UI_Design_Handoff/UX_FLOW_MAP.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "generated/transient/non-artifact file",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
+          "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.md",
+          "status": null
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC01",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC02",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC03",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC04",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC04_add_risk_router.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC05",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC06",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC07",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC08",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC09",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-01/work_card/WC10",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json",
+          "markdownPath": "planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_FIX_context_menu_copy_paste.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC04_project_planning_documents_ui.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_architect_led_phase_intake_flow.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC06_project_roadmap_phase_map.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_REPAIR_WC08_complete_phase_transition_work_card_plan_review.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_add_project_intake_capture.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC01_repair_project_intake_action_status_layout.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC03_validation_status_indicator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_generate_project_planning_documents.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC04_validation_target_selector.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC07_split_phase_map_builder_phase_planning_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Builder_Reports/BUILDER_REPORT_WC08_phase_transition_artifact_authority_model.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.json",
+          "markdownPath": "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC01_add_project_intake_capture.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC02_add_project_architect_interview_prompt_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC04_generate_project_planning_documents.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "legacy Markdown-only artifact retained historical/ignored",
+          "jsonPath": null,
+          "markdownPath": "planning/phases/phase-02/Repair_Prompts/REPAIR_PROMPT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_2.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_3.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_3.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "other_legacy_pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+          "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+          "status": null
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "orphan JSON or Markdown without synchronized pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_FIX_context_menu_copy_paste.json",
+          "markdownPath": null,
+          "status": "builder_report_received"
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "orphan JSON or Markdown without synchronized pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_WC03_repair_header_layout_regression.json",
+          "markdownPath": null,
+          "status": "builder_report_received"
+        },
+        {
+          "artifactId": null,
+          "artifactType": null,
+          "classification": "orphan JSON or Markdown without synchronized pair",
+          "jsonPath": "planning/phases/phase-02/Validation_Targets/VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
+          "markdownPath": null,
+          "status": "builder_report_received"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC01",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC02",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC03",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC04",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC05",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC06",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC07",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-02/work_card/WC08",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json",
+          "markdownPath": "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC01",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC02",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC03",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC05",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC06",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC07",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC09",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC09-REPAIR01",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+          "markdownPath": "planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC02",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC03",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC05",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC06",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC07",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR05",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC09",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+          "markdownPath": "planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/migration_manifest/WC09",
+          "artifactType": "migration_manifest",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.json",
+          "markdownPath": "planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/observation_register/Observation_Register",
+          "artifactType": "observation_register",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Observation_Register.json",
+          "markdownPath": "planning/phases/phase-03/Observation_Register.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+          "artifactType": "approval",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval.json",
+          "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
+          "artifactType": "approval",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval_PENDING.json",
+          "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval_PENDING.md",
+          "status": "superseded"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/architect_interview/Phase_Interview",
+          "artifactType": "architect_interview",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Phase_Interview.json",
+          "markdownPath": "planning/phases/phase-03/Phase_Interview.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/phase_planning/Phase_Planning",
+          "artifactType": "phase_planning",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Phase_Planning.json",
+          "markdownPath": "planning/phases/phase-03/Phase_Planning.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+          "artifactType": "phase_planning",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json",
+          "markdownPath": "planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.md",
+          "status": "superseded"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/repair_record/WC08",
+          "artifactType": "repair_record",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC01",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC02",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC03",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC05",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC06",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC06-REPAIR01",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC07",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/validation_report/WC09-REPAIR02",
+          "artifactType": "validation_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+          "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+          "status": "blocked"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
+          "artifactType": "backlog",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/WORK_CARD_BACKLOG.json",
+          "markdownPath": "planning/phases/phase-03/WORK_CARD_BACKLOG.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+          "artifactType": "work_card_plan",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Card_Plan.json",
+          "markdownPath": "planning/phases/phase-03/Work_Card_Plan.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+          "artifactType": "work_card_plan",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json",
+          "markdownPath": "planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.md",
+          "status": "superseded"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC05",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC06-REPAIR01",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR03",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR04",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR05",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC08-REPAIR06",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.md",
+          "status": "historical"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC09",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR01",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-03/work_card/WC09-REPAIR02",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
+          "markdownPath": "planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/architect_review/WC01",
+          "artifactType": "architect_review",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+          "markdownPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/architecture_decision/WC01",
+          "artifactType": "architecture_decision",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Architecture_Decisions/ARCHITECTURE_DECISION_WC01_repository_observed_evidence_derived_multi_project_workflow.json",
+          "markdownPath": "planning/phases/phase-04/Architecture_Decisions/ARCHITECTURE_DECISION_WC01_repository_observed_evidence_derived_multi_project_workflow.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/diagnostic_report/WC01",
+          "artifactType": "diagnostic_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_repository_architecture_and_root_cause_analysis.json",
+          "markdownPath": "planning/phases/phase-04/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_repository_architecture_and_root_cause_analysis.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/implementer_report/WC01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+          "markdownPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/implementer_report/WC01-REPAIR01",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_governed_implementer_report_transition_and_state_reconciliation.json",
+          "markdownPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_governed_implementer_report_transition_and_state_reconciliation.md",
+          "status": "blocked"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.json",
+          "markdownPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-routed-architect-review-ui-binding",
+          "artifactType": "implementer_report",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_routed_architect_review_ui_binding.json",
+          "markdownPath": "planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_routed_architect_review_ui_binding.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/approval/Operator_Phase_Approval",
+          "artifactType": "phase_approval",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Operator_Phase_Approval.json",
+          "markdownPath": "planning/phases/phase-04/Operator_Phase_Approval.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/phase_activation/phase-04",
+          "artifactType": "phase_activation",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Phase_Activation.json",
+          "markdownPath": "planning/phases/phase-04/Phase_Activation.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/phase_planning/Phase_Planning",
+          "artifactType": "phase_planning",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Phase_Planning.json",
+          "markdownPath": "planning/phases/phase-04/Phase_Planning.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+          "artifactType": "work_card_plan",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Work_Card_Plan.json",
+          "markdownPath": "planning/phases/phase-04/Work_Card_Plan.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/work_card/WC01",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
+          "markdownPath": "planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/phase-04/work_card/WC01-REPAIR01",
+          "artifactType": "work_card",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.json",
+          "markdownPath": "planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/CHANGE_LOG",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/CHANGE_LOG.json",
+          "markdownPath": "planning/project/CHANGE_LOG.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/DECISIONS",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/DECISIONS.json",
+          "markdownPath": "planning/project/DECISIONS.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+          "artifactType": "design_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.json",
+          "markdownPath": "planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN",
+          "artifactType": "design_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.json",
+          "markdownPath": "planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW",
+          "artifactType": "design_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.json",
+          "markdownPath": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/ENVIRONMENT",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/ENVIRONMENT.json",
+          "markdownPath": "planning/project/ENVIRONMENT.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/GLOSSARY",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/GLOSSARY.json",
+          "markdownPath": "planning/project/GLOSSARY.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/MVP_SCOPE",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/MVP_SCOPE.json",
+          "markdownPath": "planning/project/MVP_SCOPE.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/OPEN_QUESTIONS",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/OPEN_QUESTIONS.json",
+          "markdownPath": "planning/project/OPEN_QUESTIONS.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+          "artifactType": "approval",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
+          "markdownPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
+          "artifactType": "phase_map",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.json",
+          "markdownPath": "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
+          "artifactType": "architect_interview",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
+          "artifactType": "project_intake",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation",
+          "artifactType": "project_intake",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.json",
+          "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation",
+          "artifactType": "project_intake",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.json",
+          "markdownPath": "planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/observation_register/Project_Observation_Register",
+          "artifactType": "observation_register",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Observation_Register.json",
+          "markdownPath": "planning/project/Project_Observation_Register.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
+          "artifactType": "project_planning",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/PROJECT_PROFILE",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/PROJECT_PROFILE.json",
+          "markdownPath": "planning/project/PROJECT_PROFILE.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+          "artifactType": "roadmap",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
+          "markdownPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/PROJECT_STATE",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/PROJECT_STATE.json",
+          "markdownPath": "planning/project/PROJECT_STATE.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
+          "markdownPath": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/RELEASE_POLICY",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/RELEASE_POLICY.json",
+          "markdownPath": "planning/project/RELEASE_POLICY.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
+          "artifactType": "repository_reconciliation",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json",
+          "markdownPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/RISKS",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/RISKS.json",
+          "markdownPath": "planning/project/RISKS.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/SECURITY_POLICY",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/SECURITY_POLICY.json",
+          "markdownPath": "planning/project/SECURITY_POLICY.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/supporting_document/VALIDATION_POLICY",
+          "artifactType": "supporting_document",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/VALIDATION_POLICY.json",
+          "markdownPath": "planning/project/VALIDATION_POLICY.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
+          "artifactType": "backlog",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/project/WORK_CARD_BACKLOG.json",
+          "markdownPath": "planning/project/WORK_CARD_BACKLOG.md",
+          "status": "pending"
+        },
+        {
+          "artifactId": "champcity-ai/system/artifact_registry",
+          "artifactType": "artifact_registry",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json",
+          "markdownPath": "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md",
+          "status": "active"
+        },
+        {
+          "artifactId": "champcity-ai/system/workflow_state",
+          "artifactType": "workflow_state",
+          "classification": "canonical champcity.artifact.v1 pair",
+          "jsonPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.json",
+          "markdownPath": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.md",
+          "status": "active"
+        }
+      ],
+      "markedHistorical": [
+        "champcity-ai/phase-01/work_card/WC01",
+        "champcity-ai/phase-01/work_card/WC02",
+        "champcity-ai/phase-01/work_card/WC03",
+        "champcity-ai/phase-01/work_card/WC04",
+        "champcity-ai/phase-01/work_card/WC05",
+        "champcity-ai/phase-01/work_card/WC06",
+        "champcity-ai/phase-01/work_card/WC07",
+        "champcity-ai/phase-01/work_card/WC08",
+        "champcity-ai/phase-01/work_card/WC09",
+        "champcity-ai/phase-01/work_card/WC10",
+        "champcity-ai/phase-02/work_card/WC01",
+        "champcity-ai/phase-02/work_card/WC02",
+        "champcity-ai/phase-02/work_card/WC03",
+        "champcity-ai/phase-02/work_card/WC04",
+        "champcity-ai/phase-02/work_card/WC05",
+        "champcity-ai/phase-02/work_card/WC06",
+        "champcity-ai/phase-02/work_card/WC07",
+        "champcity-ai/phase-02/work_card/WC08"
+      ],
+      "registryEntriesUpdated": 155,
+      "removedFiles": [],
+      "rootsInspected": [
+        "planning/project",
+        "planning/phases/phase-01",
+        "planning/phases/phase-02",
+        "planning/phases/phase-03",
+        "planning/phases/phase-04",
+        "planning/system"
+      ],
+      "validationEvidence": [
+        "legacySavedWorkCardJson=0",
+        "orphanCanonicalJson=0",
+        "verifiedArtifactGraph.blockers=0",
+        "currentAction=operator_validation_required",
+        "expectedOutput=champcity-ai/phase-04/validation_report/WC01"
+      ]
+    },
+    "kind": "migration_manifest",
+    "title": "Legacy Saved Work Card Schema Retirement Migration Manifest"
+  },
+  "payloadHash": "sha256:66ef10034886a622f0d7a71e201986d07a660fab75b1161b8df5c2e9bb183902",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-16T00:00:00.000Z"
+}

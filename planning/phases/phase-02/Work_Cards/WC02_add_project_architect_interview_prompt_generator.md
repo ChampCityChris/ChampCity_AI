@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC02",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-30T18:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Add Project Architect Interview prompt generator"
+  },
+  "payloadHash": "sha256:f045800bfeddea895c0505239ec1830658f18177f287760d1aed69f8dcbb0237",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC02"
+}
+-->
+
 # Work Card: Add Project Architect Interview prompt generator
 
 ## Work Card ID

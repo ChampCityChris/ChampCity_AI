@@ -23,6 +23,8 @@ const MIGRATION_MANIFEST_STEM =
 const MIGRATION_MANIFEST_PATHS = new Set([
   `${MIGRATION_MANIFEST_STEM}.json`,
   `${MIGRATION_MANIFEST_STEM}.md`,
+  "planning/system/Migration_Manifests/MIGRATION_MANIFEST_legacy_saved_work_card_schema_retirement.json",
+  "planning/system/Migration_Manifests/MIGRATION_MANIFEST_legacy_saved_work_card_schema_retirement.md",
 ]);
 const ACTIVE_PLANNING_PREFIXES = [
   "planning/project/",
@@ -898,6 +900,9 @@ function isAllowedWc09Change(file) {
     "package.json",
   ]);
   if (exact.has(file)) return true;
+  if (/^planning\/phases\/phase-0[12]\/Work_Cards\/WC\d+_[A-Za-z0-9_-]+\.(?:json|md)$/i.test(file)) {
+    return true;
+  }
   return [
     "docs/architecture/",
     "planning/archive/wc09/",

@@ -1,75 +1,103 @@
 {
-  "workCardId": "WC02",
-  "title": "Build New Work Card capture form",
-  "phase": "phase-01",
-  "status": "ready_for_builder",
+  "artifactId": "champcity-ai/phase-01/work_card/WC02",
+  "artifactType": "work_card",
   "createdAt": "2026-06-28T00:00:00.000Z",
-  "updatedAt": "2026-06-28T00:00:00.000Z",
-  "problem": "ChampCity A/I needs the first Operator-facing screen for capturing plain-language Work Card intent while preserving the Architect review boundary.",
-  "goal": "Add a narrow React renderer UI that captures Operator intent, previews the existing rendered Markdown, and saves structured JSON plus durable Markdown draft Work Card artifacts.",
-  "userOutcome": "The Operator can open the Electron app, enter Work Card intent in plain language, preview the rendered Markdown, and save both JSON and Markdown artifacts for Architect review.",
-  "scope": [
-    "Add React and React DOM narrowly for the renderer UI.",
-    "Build the New Work Card capture form with the required Operator-facing fields.",
-    "Default phase to `phase-01`, risk level to `medium`, and captured status to `ready_for_architect`.",
-    "Map form input into the existing WC01 Work Card schema.",
-    "Use the existing WC01 Markdown renderer for preview and saved Markdown.",
-    "Save JSON and Markdown through constrained Electron IPC under the selected phase Work_Cards folder.",
-    "Add simple validation coverage for draft construction, Markdown rendering, and path sanitizer traversal rejection.",
-    "Create the WC02 Builder Report."
-  ],
-  "outOfScope": [
-    "Do not implement editing existing Work Cards.",
-    "Do not implement Architect automation.",
-    "Do not implement risk router behavior.",
-    "Do not implement Builder Report capture workflow.",
-    "Do not add LLM provider SDKs or provider integrations.",
-    "Do not add authentication, databases, cloud services, deployment automation, MCP integrations, or connector integrations.",
-    "Do not perform a broad Figma-quality UI redesign."
-  ],
-  "requirements": [
-    "Renderer code must not use direct filesystem access.",
-    "Filesystem writes must be mediated by constrained main/preload IPC.",
-    "Save paths must be normalized, validated, and kept inside `planning/phases/<phase-folder>/Work_Cards/`.",
-    "Status must not be exposed as an Operator-editable field.",
-    "Plain-language validation errors must be shown for required fields.",
-    "The preview must include `## Builder Handoff Prompt`.",
-    "The preview should make clear that captured Work Cards are drafts requiring Architect review."
-  ],
-  "acceptanceCriteria": [
-    "The New Work Card screen opens in the Electron renderer.",
-    "The form captures every required Operator intent field.",
-    "Required-field errors are plain language.",
-    "Preview uses the existing Work Card Markdown renderer and includes `## Builder Handoff Prompt`.",
-    "Saving creates both `.json` and `.md` files under `planning/phases/phase-01/Work_Cards/`.",
-    "Captured Work Cards are saved with status `ready_for_architect`.",
-    "Save-path sanitizer rejects traversal examples such as `../bad`.",
-    "`npm run typecheck`, `npm run build`, `npm test`, and `npm run test:work-cards` pass."
-  ],
-  "validationPlan": [
-    "Run `npm run typecheck`.",
-    "Run `npm run build`.",
-    "Run `npm test`.",
-    "Run `npm run test:work-cards`.",
-    "Run `git status --short` and review changed files.",
-    "Manually run `npm start` to confirm the UI opens and save behavior works."
-  ],
-  "riskLevel": "medium",
-  "risks": [
-    "The first React setup may expose build assumptions that future UI work needs to refine.",
-    "Manual UI validation is still required because no renderer smoke test exists yet.",
-    "The Work Card ID scanner will move to the next number after the WC02 artifact exists."
-  ],
-  "builderInstructions": [
-    "Verify the repository path before editing.",
-    "Keep the pass limited to WC02 capture form, constrained IPC, draft mapping, validation coverage, the WC02 Work Card artifact, and the Builder Report.",
-    "Do not add Architect automation, risk routing, provider SDKs, database, cloud, auth, deployment, MCP, or connector integrations.",
-    "Run the required validation commands and document results in the Builder Report.",
-    "Stage only files created or modified for WC02 and commit with `feat: add work card capture form`."
-  ],
-  "operatorNotes": [
-    "A Work Card should never be authored by the Operator alone.",
-    "The capture form records Operator intent as a draft with `ready_for_architect` status.",
-    "The Architect remains responsible for translating captured intent into a Builder-ready Work Card."
-  ]
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.md",
+  "payload": {
+    "contentMarkdown": "# Work Card: Build New Work Card capture form\n\n## Work Card ID\n\nWC02\n\nCreated: 2026-06-28T00:00:00.000Z\nUpdated: 2026-06-28T00:00:00.000Z\n\n## Phase\n\nphase-01\n\n## Status\n\nready_for_builder\n\n## What Problem Are We Solving?\n\nChampCity A/I needs the first Operator-facing screen for capturing plain-language Work Card intent while preserving the Architect review boundary.\n\n## What Should This Accomplish?\n\nAdd a narrow React renderer UI that captures Operator intent, previews the existing rendered Markdown, and saves structured JSON plus durable Markdown draft Work Card artifacts.\n\n## What Should the User Be Able To Do?\n\nThe Operator can open the Electron app, enter Work Card intent in plain language, preview the rendered Markdown, and save both JSON and Markdown artifacts for Architect review.\n\n## What Is Included?\n\n- Add React and React DOM narrowly for the renderer UI.\n- Build the New Work Card capture form with the required Operator-facing fields.\n- Default phase to `phase-01`, risk level to `medium`, and captured status to `ready_for_architect`.\n- Map form input into the existing WC01 Work Card schema.\n- Use the existing WC01 Markdown renderer for preview and saved Markdown.\n- Save JSON and Markdown through constrained Electron IPC under the selected phase Work_Cards folder.\n- Add simple validation coverage for draft construction, Markdown rendering, and path sanitizer traversal rejection.\n- Create the WC02 Builder Report.\n\n## What Is Not Included?\n\n- Do not implement editing existing Work Cards.\n- Do not implement Architect automation.\n- Do not implement risk router behavior.\n- Do not implement Builder Report capture workflow.\n- Do not add LLM provider SDKs or provider integrations.\n- Do not add authentication, databases, cloud services, deployment automation, MCP integrations, or connector integrations.\n- Do not perform a broad Figma-quality UI redesign.\n\n## Requirements\n\n- Renderer code must not use direct filesystem access.\n- Filesystem writes must be mediated by constrained main/preload IPC.\n- Save paths must be normalized, validated, and kept inside `planning/phases/<phase-folder>/Work_Cards/`.\n- Status must not be exposed as an Operator-editable field.\n- Plain-language validation errors must be shown for required fields.\n- The preview must include `## Builder Handoff Prompt`.\n- The preview should make clear that captured Work Cards are drafts requiring Architect review.\n\n## How We Know This Is Done\n\n- The New Work Card screen opens in the Electron renderer.\n- The form captures every required Operator intent field.\n- Required-field errors are plain language.\n- Preview uses the existing Work Card Markdown renderer and includes `## Builder Handoff Prompt`.\n- Saving creates both `.json` and `.md` files under `planning/phases/phase-01/Work_Cards/`.\n- Captured Work Cards are saved with status `ready_for_architect`.\n- Save-path sanitizer rejects traversal examples such as `../bad`.\n- `npm run typecheck`, `npm run build`, `npm test`, and `npm run test:work-cards` pass.\n\n## How This Should Be Validated\n\n- Run `npm run typecheck`.\n- Run `npm run build`.\n- Run `npm test`.\n- Run `npm run test:work-cards`.\n- Run `git status --short` and review changed files.\n- Manually run `npm start` to confirm the UI opens and save behavior works.\n\n## Risk Level\n\nmedium\n\n## Risks and Watch Items\n\n- The first React setup may expose build assumptions that future UI work needs to refine.\n- Manual UI validation is still required because no renderer smoke test exists yet.\n- The Work Card ID scanner will move to the next number after the WC02 artifact exists.\n\n## Builder Instructions\n\n- Verify the repository path before editing.\n- Keep the pass limited to WC02 capture form, constrained IPC, draft mapping, validation coverage, the WC02 Work Card artifact, and the Builder Report.\n- Do not add Architect automation, risk routing, provider SDKs, database, cloud, auth, deployment, MCP, or connector integrations.\n- Run the required validation commands and document results in the Builder Report.\n- Stage only files created or modified for WC02 and commit with `feat: add work card capture form`.\n\n## Operator Notes\n\n- A Work Card should never be authored by the Operator alone.\n- The capture form records Operator intent as a draft with `ready_for_architect` status.\n- The Architect remains responsible for translating captured intent into a Builder-ready Work Card.\n\n## Builder Handoff Prompt\n\nUse this as the starting Builder prompt:\n\nYou are acting as Builder for ChampCity A/I.\n\nBefore editing:\n- Verify the repository path before editing. Expected repository: `<PROJECT_REPO>`.\n- Read `AGENTS.md` and relevant planning files.\n\nWork Card: WC02 - Build New Work Card capture form\n\nGoal: Add a narrow React renderer UI that captures Operator intent, previews the existing rendered Markdown, and saves structured JSON plus durable Markdown draft Work Card artifacts.\n\nScope:\n- Add React and React DOM narrowly for the renderer UI.\n- Build the New Work Card capture form with the required Operator-facing fields.\n- Default phase to `phase-01`, risk level to `medium`, and captured status to `ready_for_architect`.\n- Map form input into the existing WC01 Work Card schema.\n- Use the existing WC01 Markdown renderer for preview and saved Markdown.\n- Save JSON and Markdown through constrained Electron IPC under the selected phase Work_Cards folder.\n- Add simple validation coverage for draft construction, Markdown rendering, and path sanitizer traversal rejection.\n- Create the WC02 Builder Report.\n\nOut of scope:\n- Do not implement editing existing Work Cards.\n- Do not implement Architect automation.\n- Do not implement risk router behavior.\n- Do not implement Builder Report capture workflow.\n- Do not add LLM provider SDKs or provider integrations.\n- Do not add authentication, databases, cloud services, deployment automation, MCP integrations, or connector integrations.\n- Do not perform a broad Figma-quality UI redesign.\n\nRequirements:\n- Renderer code must not use direct filesystem access.\n- Filesystem writes must be mediated by constrained main/preload IPC.\n- Save paths must be normalized, validated, and kept inside `planning/phases/<phase-folder>/Work_Cards/`.\n- Status must not be exposed as an Operator-editable field.\n- Plain-language validation errors must be shown for required fields.\n- The preview must include `## Builder Handoff Prompt`.\n- The preview should make clear that captured Work Cards are drafts requiring Architect review.\n\nAcceptance criteria:\n- The New Work Card screen opens in the Electron renderer.\n- The form captures every required Operator intent field.\n- Required-field errors are plain language.\n- Preview uses the existing Work Card Markdown renderer and includes `## Builder Handoff Prompt`.\n- Saving creates both `.json` and `.md` files under `planning/phases/phase-01/Work_Cards/`.\n- Captured Work Cards are saved with status `ready_for_architect`.\n- Save-path sanitizer rejects traversal examples such as `../bad`.\n- `npm run typecheck`, `npm run build`, `npm test`, and `npm run test:work-cards` pass.\n\nValidation plan:\n- Run `npm run typecheck`.\n- Run `npm run build`.\n- Run `npm test`.\n- Run `npm run test:work-cards`.\n- Run `git status --short` and review changed files.\n- Manually run `npm start` to confirm the UI opens and save behavior works.\n\nBuilder Report:\n- Create a Builder Report under `planning/phases/phase-01/Builder_Reports/` and include commands run, validation results, security notes, git actions, and the recommended next Builder task.\n",
+    "data": {
+      "acceptanceCriteria": [
+        "The New Work Card screen opens in the Electron renderer.",
+        "The form captures every required Operator intent field.",
+        "Required-field errors are plain language.",
+        "Preview uses the existing Work Card Markdown renderer and includes `## Builder Handoff Prompt`.",
+        "Saving creates both `.json` and `.md` files under `planning/phases/phase-01/Work_Cards/`.",
+        "Captured Work Cards are saved with status `ready_for_architect`.",
+        "Save-path sanitizer rejects traversal examples such as `../bad`.",
+        "`npm run typecheck`, `npm run build`, `npm test`, and `npm run test:work-cards` pass."
+      ],
+      "builderInstructions": [
+        "Verify the repository path before editing.",
+        "Keep the pass limited to WC02 capture form, constrained IPC, draft mapping, validation coverage, the WC02 Work Card artifact, and the Builder Report.",
+        "Do not add Architect automation, risk routing, provider SDKs, database, cloud, auth, deployment, MCP, or connector integrations.",
+        "Run the required validation commands and document results in the Builder Report.",
+        "Stage only files created or modified for WC02 and commit with `feat: add work card capture form`."
+      ],
+      "createdAt": "2026-06-28T00:00:00.000Z",
+      "goal": "Add a narrow React renderer UI that captures Operator intent, previews the existing rendered Markdown, and saves structured JSON plus durable Markdown draft Work Card artifacts.",
+      "migratedFrom": "legacy_saved_work_card_json",
+      "migrationDisposition": "historical_non_authoritative",
+      "operatorNotes": [
+        "A Work Card should never be authored by the Operator alone.",
+        "The capture form records Operator intent as a draft with `ready_for_architect` status.",
+        "The Architect remains responsible for translating captured intent into a Builder-ready Work Card."
+      ],
+      "outOfScope": [
+        "Do not implement editing existing Work Cards.",
+        "Do not implement Architect automation.",
+        "Do not implement risk router behavior.",
+        "Do not implement Builder Report capture workflow.",
+        "Do not add LLM provider SDKs or provider integrations.",
+        "Do not add authentication, databases, cloud services, deployment automation, MCP integrations, or connector integrations.",
+        "Do not perform a broad Figma-quality UI redesign."
+      ],
+      "phase": "phase-01",
+      "problem": "ChampCity A/I needs the first Operator-facing screen for capturing plain-language Work Card intent while preserving the Architect review boundary.",
+      "requirements": [
+        "Renderer code must not use direct filesystem access.",
+        "Filesystem writes must be mediated by constrained main/preload IPC.",
+        "Save paths must be normalized, validated, and kept inside `planning/phases/<phase-folder>/Work_Cards/`.",
+        "Status must not be exposed as an Operator-editable field.",
+        "Plain-language validation errors must be shown for required fields.",
+        "The preview must include `## Builder Handoff Prompt`.",
+        "The preview should make clear that captured Work Cards are drafts requiring Architect review."
+      ],
+      "riskLevel": "medium",
+      "risks": [
+        "The first React setup may expose build assumptions that future UI work needs to refine.",
+        "Manual UI validation is still required because no renderer smoke test exists yet.",
+        "The Work Card ID scanner will move to the next number after the WC02 artifact exists."
+      ],
+      "scope": [
+        "Add React and React DOM narrowly for the renderer UI.",
+        "Build the New Work Card capture form with the required Operator-facing fields.",
+        "Default phase to `phase-01`, risk level to `medium`, and captured status to `ready_for_architect`.",
+        "Map form input into the existing WC01 Work Card schema.",
+        "Use the existing WC01 Markdown renderer for preview and saved Markdown.",
+        "Save JSON and Markdown through constrained Electron IPC under the selected phase Work_Cards folder.",
+        "Add simple validation coverage for draft construction, Markdown rendering, and path sanitizer traversal rejection.",
+        "Create the WC02 Builder Report."
+      ],
+      "status": "ready_for_builder",
+      "title": "Build New Work Card capture form",
+      "updatedAt": "2026-06-28T00:00:00.000Z",
+      "userOutcome": "The Operator can open the Electron app, enter Work Card intent in plain language, preview the rendered Markdown, and save both JSON and Markdown artifacts for Architect review.",
+      "validationPlan": [
+        "Run `npm run typecheck`.",
+        "Run `npm run build`.",
+        "Run `npm test`.",
+        "Run `npm run test:work-cards`.",
+        "Run `git status --short` and review changed files.",
+        "Manually run `npm start` to confirm the UI opens and save behavior works."
+      ],
+      "workCardId": "WC02"
+    },
+    "kind": "work_card",
+    "title": "Build New Work Card capture form"
+  },
+  "payloadHash": "sha256:f28d265a92ad860ab4acec481e0e1badca0e6b0caaba039d28d5bc1ee6bc0116",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC02"
 }

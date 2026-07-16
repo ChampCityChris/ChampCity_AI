@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC03",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-30T20:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Repair validation and evidence UI"
+  },
+  "payloadHash": "sha256:955d867a36934df5d876db6aa7c9f3657f060419ef0795a731ddc010294ed35a",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC03"
+}
+-->
+
 # Work Card: Repair validation and evidence UI
 
 ## Work Card ID

@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC09",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Prepare Figma UI design handoff package"
+  },
+  "payloadHash": "sha256:70d80924f9b4c6224c0a672854f8bdeef11e624d502d3b9b538fe824cbc3e222",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC09"
+}
+-->
+
 # Work Card: Prepare Figma UI design handoff package
 
 ## Work Card ID

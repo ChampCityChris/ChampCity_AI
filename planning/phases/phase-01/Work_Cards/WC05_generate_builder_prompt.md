@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC05",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Generate Builder prompt"
+  },
+  "payloadHash": "sha256:99e7bf7d68db23430f423bab4f5126b5d0bffbac32e8f8472aff0f4d5eb7da44",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC05"
+}
+-->
+
 # Work Card: Generate Builder prompt
 
 ## Work Card ID

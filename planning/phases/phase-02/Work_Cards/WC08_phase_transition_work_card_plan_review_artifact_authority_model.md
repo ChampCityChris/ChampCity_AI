@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC08",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-02T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Phase Transition, Work Card Plan Review, and Artifact Authority Model"
+  },
+  "payloadHash": "sha256:f63915c195c293c1dae33d083919501f3d829d033416e5de76e38a2e3c78667f",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC08"
+}
+-->
+
 # Work Card: Phase Transition, Work Card Plan Review, and Artifact Authority Model
 
 ## Work Card ID

@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-01/work_card/WC08",
+  "artifactType": "work_card",
+  "createdAt": "2026-06-29T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json",
+  "markdownPath": "planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Phase 1 closeout and status management"
+  },
+  "payloadHash": "sha256:a963585a9f7f4a68da30e26d6a8d51c86a333b19d58c9e0ab7ca234f07a00689",
+  "phaseId": "phase-01",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC08"
+}
+-->
+
 # Work Card: Phase 1 closeout and status management
 
 ## Work Card ID

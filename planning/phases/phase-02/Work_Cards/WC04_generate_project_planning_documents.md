@@ -1,3 +1,31 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-02/work_card/WC04",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "jsonPath": "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json",
+  "markdownPath": "planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Generate Project Planning Documents"
+  },
+  "payloadHash": "sha256:a9016494b97541e68920b247418fc034fa89737fb33361ec7720b1e07c70d1b2",
+  "phaseId": "phase-02",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "historical",
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "workCardId": "WC04"
+}
+-->
+
 # Work Card: Generate Project Planning Documents
 
 ## Work Card ID

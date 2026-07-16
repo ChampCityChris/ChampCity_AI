@@ -148,6 +148,7 @@ import {
 } from "../../shared/workCards/validationRecord";
 import {
   buildWorkCardValidationTarget,
+  buildValidationTargetFromWorkCardFields,
   formatValidationTargetLabel,
   isValidationTargetKind,
   toValidationTargetRecord,
@@ -3974,9 +3975,13 @@ function absoluteFromRepoPath(repoPath: string): string {
 }
 
 function parseCanonicalArtifactData(rawJson: string): unknown {
+  return parseCanonicalArtifact(rawJson).payload.data;
+}
+
+function parseCanonicalArtifact(rawJson: string): CanonicalArtifact {
   const parsed = JSON.parse(rawJson) as unknown;
   assertCanonicalArtifact(parsed);
-  return (parsed as CanonicalArtifact).payload.data;
+  return parsed as CanonicalArtifact;
 }
 
 async function readSavedProjectIntakeFile(
@@ -5509,22 +5514,8 @@ async function readSavedWorkCardFile(
   const directory = resolveWorkCardsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = parseCanonicalArtifactData(rawJson);
-  const validation = validateWorkCard(parsed);
-
-  if (!validation.valid) {
-    throw new Error(
-      `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
-    );
-  }
-
-  const workCard = parsed as WorkCard;
-
-  if (workCard.phase !== phase.trim()) {
-    throw new Error("Saved Work Card phase must match the selected phase folder.");
-  }
-
-  return workCard;
+  const artifact = parseCanonicalWorkCardArtifact(rawJson);
+  return toWorkCardViewModel(artifact, phase);
 }
 
 async function readSavedWorkCardAssociationFile(
@@ -5540,26 +5531,10 @@ async function readSavedWorkCardAssociationFile(
   const directory = resolveWorkCardsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = parseCanonicalArtifactData(rawJson);
-  const validation = validateWorkCard(parsed);
-
-  if (!validation.valid) {
-    throw new Error(
-      `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
-    );
-  }
-
-  const workCard = parsed as WorkCard;
-  if (workCard.phase !== phase.trim()) {
-    throw new Error("Saved Work Card phase must match the selected phase folder.");
-  }
-  return {
-    workCardId: workCard.workCardId,
-    title: workCard.title,
-    phase: workCard.phase,
-    status: workCard.status,
-    riskLevel: workCard.riskLevel,
-  };
+  return toWorkCardAssociationFields(
+    parseCanonicalWorkCardArtifact(rawJson),
+    phase,
+  );
 }
 
 async function readWorkCardValidationTargetFile(
@@ -5575,21 +5550,146 @@ async function readWorkCardValidationTargetFile(
   const directory = resolveWorkCardsDirectory(phase);
   const filePath = resolveInside(directory, fileName.trim());
   const rawJson = await readFile(filePath, "utf8");
-  const parsed = parseCanonicalArtifactData(rawJson);
-  const validation = validateWorkCard(parsed);
-
-  if (!validation.valid) {
-    throw new Error(
-      `Saved Work Card JSON is not valid: ${validation.errors.join(" ")}`,
-    );
-  }
-
-  const workCard = parsed as WorkCard;
-  return buildWorkCardValidationTarget(
+  const workCard = toWorkCardAssociationFields(
+    parseCanonicalWorkCardArtifact(rawJson),
+    phase,
+  );
+  return buildValidationTargetFromWorkCardFields(
     workCard,
     fileName,
     expectedImplementerReportFileName(workCard),
   );
+}
+
+function parseCanonicalWorkCardArtifact(rawJson: string): CanonicalArtifact {
+  const artifact = parseCanonicalArtifact(rawJson);
+
+  if (artifact.artifactType !== "work_card" || artifact.payload.kind !== "work_card") {
+    throw new Error("Canonical Work Card artifact must have artifactType work_card.");
+  }
+
+  return artifact;
+}
+
+function toWorkCardAssociationFields(
+  artifact: CanonicalArtifact,
+  expectedPhase: string,
+): WorkCardValidationTargetFields {
+  const phase = artifact.phaseId?.trim() || textFromArtifactData(artifact, "phaseId") || textFromArtifactData(artifact, "phase");
+  const workCardId = artifact.workCardId?.trim() || textFromArtifactData(artifact, "workCardId") || artifact.artifactId.split("/").at(-1) || "";
+
+  if (phase !== expectedPhase.trim()) {
+    throw new Error("Canonical Work Card phase must match the selected phase folder.");
+  }
+
+  if (!workCardId) {
+    throw new Error("Canonical Work Card artifact must identify workCardId.");
+  }
+
+  return {
+    workCardId,
+    title: artifact.payload.title.trim(),
+    phase,
+    status: textFromArtifactData(artifact, "status") || artifact.status,
+    riskLevel: normalizeCanonicalWorkCardRisk(
+      textFromArtifactData(artifact, "riskLevel") ||
+        textFromArtifactData(artifact, "risk"),
+    ),
+    parentWorkCardId:
+      textFromArtifactData(artifact, "parentWorkCardId") ||
+      artifact.parentArtifactId?.split("/").at(-1),
+  };
+}
+
+function toWorkCardViewModel(
+  artifact: CanonicalArtifact,
+  expectedPhase: string,
+): WorkCard {
+  const association = toWorkCardAssociationFields(artifact, expectedPhase);
+  const contentMarkdown = artifact.payload.contentMarkdown.trim();
+  const status = normalizeLegacyWorkCardStatus(association.status);
+  const riskLevel = normalizeCanonicalWorkCardRisk(association.riskLevel);
+  const data = isPlainRecord(artifact.payload.data) ? artifact.payload.data : {};
+
+  return {
+    workCardId: association.workCardId,
+    title: association.title,
+    phase: association.phase,
+    status,
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt,
+    problem: textValue(data.problem) || contentMarkdown || association.title,
+    goal: textValue(data.goal) || textValue(data.purpose) || contentMarkdown || association.title,
+    userOutcome: textValue(data.userOutcome) || textValue(data.outcome) || contentMarkdown || association.title,
+    scope: stringArrayValue(data.scope) || stringArrayValue(data.requiredWork) || [],
+    outOfScope: stringArrayValue(data.outOfScope) || [],
+    requirements: stringArrayValue(data.requirements) || stringArrayValue(data.acceptanceCriteria) || [],
+    acceptanceCriteria: stringArrayValue(data.acceptanceCriteria) || [],
+    validationPlan: stringArrayValue(data.validationPlan) || stringArrayValue(data.requiredValidation) || [],
+    riskLevel,
+    risks: stringArrayValue(data.risks) || [],
+    implementerInstructions:
+      stringArrayValue(data.implementerInstructions) ||
+      stringArrayValue(data.requiredImplementation) ||
+      [],
+    operatorNotes: stringArrayValue(data.operatorNotes) || [],
+  };
+}
+
+function normalizeLegacyWorkCardStatus(status: string | undefined): WorkCard["status"] {
+  const normalized = status?.trim();
+  const supported: readonly WorkCard["status"][] = [
+    "draft",
+    "ready_for_architect",
+    "ready_for_implementer",
+    "in_implementer_pass",
+    "implementer_report_received",
+    "needs_repair",
+    "validated",
+    "closed",
+  ];
+
+  return normalized && supported.includes(normalized as WorkCard["status"])
+    ? (normalized as WorkCard["status"])
+    : "ready_for_implementer";
+}
+
+function normalizeCanonicalWorkCardRisk(
+  risk: string | undefined,
+): WorkCard["riskLevel"] {
+  const normalized = risk?.trim().toLowerCase();
+
+  if (normalized === "low" || normalized === "medium" || normalized === "high") {
+    return normalized;
+  }
+
+  return normalized === "critical" ? "high" : "medium";
+}
+
+function textFromArtifactData(
+  artifact: CanonicalArtifact,
+  key: string,
+): string | undefined {
+  return isPlainRecord(artifact.payload.data)
+    ? textValue(artifact.payload.data[key])
+    : undefined;
+}
+
+function textValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function stringArrayValue(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }
 
 function expectedImplementerReportFileName(
