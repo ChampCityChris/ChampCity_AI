@@ -496,12 +496,17 @@ export default function App() {
   const routedArchitectReviewBinding = useMemo(() => {
     return currentActionResult?.routedArchitectReviewBinding;
   }, [currentActionResult?.routedArchitectReviewBinding]);
+  const routedArchitectReviewWorkCardFileName = useMemo(() => {
+    const jsonPath = currentActionResult?.routedScreen?.target?.jsonPath ?? "";
+    return jsonPath.split("/").filter(Boolean).pop() ?? "";
+  }, [currentActionResult?.routedScreen?.target?.jsonPath]);
   const architectReviewScreenKey = routedArchitectReviewBinding
     ? [
         routedArchitectReviewBinding.bindingSource,
         routedArchitectReviewBinding.currentActionId,
         routedArchitectReviewBinding.phaseId,
         routedArchitectReviewBinding.workCardId,
+        routedArchitectReviewWorkCardFileName,
         routedArchitectReviewBinding.implementerReportPath,
         routedArchitectReviewBinding.expectedOutputPath,
         ...routedArchitectReviewBinding.blockingState.issues.map(
@@ -795,6 +800,7 @@ export default function App() {
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         routedReviewBinding={routedArchitectReviewBinding}
+        routedWorkCardFileName={routedArchitectReviewWorkCardFileName}
         onWorkflowAdvanced={async (nextScreenId) => {
           await loadCurrentRequiredAction();
           if (nextScreenId === "operator-validation") {
@@ -6430,9 +6436,11 @@ function ArchitectReviewScreen({
   phaseOptions,
   onPhaseChange,
   routedReviewBinding,
+  routedWorkCardFileName,
   onWorkflowAdvanced,
 }: Pick<ScreenProps, "phase" | "phaseOptions" | "onPhaseChange"> & {
   routedReviewBinding?: RoutedArchitectReviewBinding;
+  routedWorkCardFileName?: string;
   onWorkflowAdvanced?: (nextScreenId?: string) => void | Promise<void>;
 }) {
   const reviewPhase = routedReviewBinding?.phaseId ?? phase;
@@ -6469,6 +6477,7 @@ function ArchitectReviewScreen({
     : null;
   const routedReportFileName =
     routedReviewBinding?.implementerReportFileName ?? "";
+  const routedTargetWorkCardFileName = routedWorkCardFileName ?? "";
   const bindingErrors =
     routedReviewBinding?.blockingState.issues.map((issue) => issue.message) ??
     [];
@@ -6481,25 +6490,43 @@ function ArchitectReviewScreen({
   );
   const isRepairedParentReview =
     routedReviewBinding?.reviewScope === "combined_parent_and_final_repair";
+  const selectedRoutedWorkCardMatches = Boolean(
+    routedReviewBinding &&
+      (selectedWorkCard?.workCardId.toLowerCase() ===
+        routedReviewBinding.workCardId.toLowerCase() ||
+        (routedTargetWorkCardFileName &&
+          selectedFileName === routedTargetWorkCardFileName)),
+  );
   const routedBindingActive = Boolean(
     routedReviewBinding &&
       !routedReviewBinding.blockingState.blocked &&
-      selectedWorkCard?.workCardId.toLowerCase() ===
-        routedReviewBinding.workCardId.toLowerCase() &&
+      selectedRoutedWorkCardMatches &&
       selectedImplementerReportFileName === routedReportFileName,
   );
 
   useEffect(() => {
+    if (routedReviewBinding && routedReportFileName) {
+      setSelectedImplementerReportFileName(routedReportFileName);
+      setStatusMessage(
+        isRepairedParentReview
+          ? "Combined parent Architect Review is bound from the current action."
+          : "Current-action target and Implementer Report are bound for Architect Review.",
+      );
+    }
+  }, [isRepairedParentReview, routedReportFileName, routedReviewBinding]);
+
+  useEffect(() => {
     if (workCards.length === 0) {
-      setSelectedFileName("");
+      setSelectedFileName(routedTargetWorkCardFileName);
       return;
     }
 
     const routedFileName = routedReviewBinding
-      ? findCurrentActionArchitectReviewWorkCardFileName(
-          routedReviewBinding,
-          workCards,
-        )
+      ? routedTargetWorkCardFileName ||
+        findCurrentActionArchitectReviewWorkCardFileName(
+            routedReviewBinding,
+            workCards,
+          )
       : undefined;
     const nextFileName = routedReviewBinding
       ? routedFileName ?? ""
@@ -6510,7 +6537,12 @@ function ArchitectReviewScreen({
     if (nextFileName !== selectedFileName) {
       setSelectedFileName(nextFileName);
     }
-  }, [routedReviewBinding, selectedFileName, workCards]);
+  }, [
+    routedReviewBinding,
+    routedTargetWorkCardFileName,
+    selectedFileName,
+    workCards,
+  ]);
 
   useEffect(() => {
     if (!selectedFileName) {
@@ -6537,8 +6569,20 @@ function ArchitectReviewScreen({
         setIsBusy(false);
 
         if (!result.ok) {
-          setImplementerReports([]);
-          setSelectedImplementerReportFileName("");
+          setImplementerReports(
+            routedReviewBinding && routedReportFileName
+              ? [
+                  {
+                    fileName: routedReportFileName,
+                    label: `${routedReportFileName} (current action)`,
+                    isDefaultMatch: true,
+                  },
+                ]
+              : [],
+          );
+          setSelectedImplementerReportFileName(
+            routedReviewBinding ? routedReportFileName : "",
+          );
           setErrors(
             result.errorMessages ?? ["Implementer Reports could not be loaded."],
           );
@@ -6552,25 +6596,35 @@ function ArchitectReviewScreen({
             option.fileName.toLowerCase() ===
             routedReportFileName.toLowerCase(),
         );
+        const displayedOptions =
+          routedReviewBinding && routedReportFileName && !routedMatch
+            ? [
+                {
+                  fileName: routedReportFileName,
+                  label: `${routedReportFileName} (current action)`,
+                  isDefaultMatch: true,
+                },
+                ...options,
+              ]
+            : options;
         const nextReportFileName = routedReviewBinding
-          ? routedMatch?.fileName ?? ""
+          ? routedReportFileName
           : result.defaultFileName || options[0]?.fileName || "";
-
-        setImplementerReports(options);
-        setSelectedImplementerReportFileName(nextReportFileName);
-        setStatusMessage(
-          routedMatch
-            ? "Current-action target and Implementer Report are bound for Architect review."
+        const nextStatusMessage = routedReviewBinding
+          ? isRepairedParentReview
+            ? "Combined parent Architect Review is bound from the current action."
+            : "Current-action target and Implementer Report are bound for Architect Review."
+          : routedMatch
+            ? "Current-action target and Implementer Report are bound for Architect Review."
             : nextReportFileName
               ? "Implementer Report association loaded."
-              : "No matching Implementer Report is available.",
-        );
+              : "No matching Implementer Report is available.";
 
-        if (routedReviewBinding && !routedMatch) {
-          setErrors([
-            `Current action ${routedReviewBinding.workCardId} requires ${routedReviewBinding.implementerReportFileName}, but that report is not available for the routed target. The Architect owns correction of the current-action source binding before preview or save.`,
-          ]);
-        }
+        setImplementerReports(displayedOptions);
+        setSelectedImplementerReportFileName(nextReportFileName);
+        setStatusMessage(nextStatusMessage);
+
+        setErrors([]);
       })
       .catch(() => {
         if (!active) {
@@ -6578,8 +6632,20 @@ function ArchitectReviewScreen({
         }
 
         setIsBusy(false);
-        setImplementerReports([]);
-        setSelectedImplementerReportFileName("");
+        setImplementerReports(
+          routedReviewBinding && routedReportFileName
+            ? [
+                {
+                  fileName: routedReportFileName,
+                  label: `${routedReportFileName} (current action)`,
+                  isDefaultMatch: true,
+                },
+              ]
+            : [],
+        );
+        setSelectedImplementerReportFileName(
+          routedReviewBinding ? routedReportFileName : "",
+        );
         setErrors(["Implementer Reports could not be loaded."]);
         setStatusMessage("Implementer Report association needs attention.");
       });
@@ -6589,6 +6655,7 @@ function ArchitectReviewScreen({
     };
   }, [
     reviewPhase,
+    isRepairedParentReview,
     routedReportFileName,
     routedReviewBinding,
     selectedFileName,

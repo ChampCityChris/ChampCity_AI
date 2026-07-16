@@ -112,36 +112,118 @@ app.whenReady().then(async () => {
         "repaired-parent Architect Review UI",
       );
 
-      const reviewResult = await window.webContents.executeJavaScript(
+      const routedUiState = await window.webContents.executeJavaScript(
         `(async () => {
           const current = await window.champCity.getCurrentRequiredAction();
           const binding = current.routedArchitectReviewBinding;
-          const input = {
-            phase: binding.phaseId,
-            workCardFileName: current.routedScreen.target.jsonPath.split("/").at(-1),
-            implementerReportFileName: binding.implementerReportFileName,
-            routedReviewBinding: binding,
-            decision: "Ready for Operator validation",
-            workCardCompliance: "Parent WC01 is ready for Operator Validation.",
-            changedFilesReviewed: "Superseded authority remains removed.",
-            acceptanceCriteriaAssessment: "All parent WC01 requirements were revalidated.",
-            validationClaimsAssessment: "WC01-REPAIR01 corrected the identified defects.",
-            skippedChecksAssessment: "Another repair is prohibited.",
-            observationRegisterImpact: "No observation status changed.",
-            operatorValidationSteps: "Confirm the routed Operator Validation workspace.",
-            requiredRepair: "Residual risks remain Operator-owned; no additional repair is permitted."
+          const text = document.body.innerText;
+          const selects = [...document.querySelectorAll("select")].map((select) => ({
+            value: select.value,
+            disabled: select.disabled,
+            options: [...select.options].map((option) => option.textContent || ""),
+          }));
+          return {
+            hasBinding: Boolean(binding),
+            binding,
+            text,
+            selects,
+            reportSummary: text.match(/Associated Implementer Report: [^\\n]+/)?.[0] || "",
           };
-          const preview = await window.champCity.previewArchitectReviewRecord(input);
-          const saved = preview.ok && preview.validation?.valid
-            ? await window.champCity.saveArchitectReviewRecord(input)
-            : null;
-          return { preview, saved };
         })()`,
         true,
       );
-      assert.equal(reviewResult.preview.ok, true, JSON.stringify(reviewResult.preview.errorMessages));
-      assert.equal(reviewResult.preview.validation.valid, true, JSON.stringify(reviewResult.preview.validation.errors));
-      assert.equal(reviewResult.saved.ok, true, JSON.stringify(reviewResult.saved?.errorMessages));
+      assert.equal(routedUiState.hasBinding, true, "Architect Review form must receive the routedReviewBinding.");
+      assert.equal(routedUiState.binding.phaseId, phaseId);
+      assert.equal(routedUiState.binding.workCardId, workCardId);
+      assert.equal(routedUiState.binding.reviewScope, "combined_parent_and_final_repair");
+      assert.ok(routedUiState.binding.implementerReportFileName, "Canonical binding must name the primary Implementer Report.");
+      assert.ok(routedUiState.binding.expectedOutputPath, "Canonical binding must name the expected Architect Review output.");
+      assert.ok(
+        routedUiState.binding.combinedEvidence.some(
+          (item) => item.artifactId === `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+        ),
+        "Canonical binding must include parent Implementer Report evidence.",
+      );
+      assert.ok(
+        routedUiState.binding.combinedEvidence.some(
+          (item) => item.artifactId === `${projectId}/${phaseId}/implementer_report/${repairId}`,
+        ),
+        "Canonical binding must include final repair Implementer Report evidence.",
+      );
+      assert.ok(routedUiState.text.includes(routedUiState.binding.implementerReportFileName), "Routed Implementer Report filename must be visible in the review workspace.");
+      assert.ok(routedUiState.text.includes(routedUiState.binding.expectedOutputPath), "Routed expected output path must be visible in the review workspace.");
+      assert.ok(routedUiState.text.includes("combined parent and final repair evidence"), "Combined evidence review mode must be visible.");
+      assert.ok(routedUiState.text.includes("Implementer Report: WC01 Mounted Authority Cutover"), "Parent Implementer Report evidence must be visible.");
+      assert.ok(routedUiState.text.includes(`Implementer Report: ${repairId} Mounted Repair`), "Final repair Implementer Report evidence must be visible.");
+      assert.ok(!routedUiState.text.includes("Associated Implementer Report: none"), "Routed Architect Review must not display an empty Implementer Report association.");
+      assert.ok(!routedUiState.text.includes("Select an Implementer Report to review."), "Routed Architect Review must not require manual Implementer Report selection.");
+      assert.ok(
+        routedUiState.selects.some((select) => select.disabled && select.value === routedUiState.binding.implementerReportFileName),
+        "The visible Implementer Report control must be hydrated from the routed binding and locked.",
+      );
+
+      const referenceRetargetAttempt = await window.webContents.executeJavaScript(
+        `(async () => {
+          const before = (await window.champCity.getCurrentRequiredAction()).routedArchitectReviewBinding;
+          for (const select of [...document.querySelectorAll("select")]) {
+            if (select.disabled) continue;
+            const other = [...select.options].find((option) => option.value && option.value !== select.value && option.textContent.includes("WC02"));
+            if (!other) continue;
+            select.value = other.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          const after = (await window.champCity.getCurrentRequiredAction()).routedArchitectReviewBinding;
+          return { before, after, text: document.body.innerText };
+        })()`,
+        true,
+      );
+      assert.deepEqual(referenceRetargetAttempt.after, referenceRetargetAttempt.before, "Manual Reference card changes must not retarget the routed Architect Review binding.");
+      assert.ok(referenceRetargetAttempt.text.includes(routedUiState.binding.implementerReportFileName), "Routed binding filename must remain visible after Reference card changes.");
+
+      const uiSaveResult = await window.webContents.executeJavaScript(
+        `(async () => {
+          const setValue = (element, value) => {
+            const prototype = Object.getPrototypeOf(element);
+            const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+            descriptor?.set?.call(element, value);
+            element.dispatchEvent(new Event("input", { bubbles: true }));
+            element.dispatchEvent(new Event("change", { bubbles: true }));
+          };
+          const decision = [...document.querySelectorAll("select")].find((select) =>
+            [...select.options].some((option) => option.value === "Ready for Operator validation")
+          );
+          setValue(decision, "Ready for Operator validation");
+          const values = [
+            "Parent WC01 is ready for Operator Validation.",
+            "Superseded authority remains removed.",
+            "All parent WC01 requirements were revalidated.",
+            "WC01-REPAIR01 corrected the identified defects.",
+            "Another repair is prohibited.",
+            "No observation status changed.",
+            "Confirm the routed Operator Validation workspace.",
+            "Residual risks remain Operator-owned; no additional repair is permitted."
+          ];
+          [...document.querySelectorAll("textarea")].slice(0, values.length).forEach((textarea, index) => {
+            setValue(textarea, values[index]);
+          });
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const previewText = document.body.innerText;
+          const button = [...document.querySelectorAll("button")].find((candidate) =>
+            candidate.textContent.includes("Save Architect Review") && !candidate.disabled
+          );
+          button?.click();
+          return {
+            hadPreview: previewText.includes("## Architect Review Decision"),
+            buttonFound: Boolean(button),
+            buttonDisabled: button?.disabled ?? null,
+            text: previewText,
+          };
+        })()`,
+        true,
+      );
+      assert.equal(uiSaveResult.hadPreview, true, "The real UI form state must generate the Architect Review preview.");
+      assert.equal(uiSaveResult.buttonFound, true, "The real UI Save Architect Review button must become enabled.");
       await waitFor(
         window,
         `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "operator_validation_required")`,
