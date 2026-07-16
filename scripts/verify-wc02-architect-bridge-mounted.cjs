@@ -43,7 +43,7 @@ app.whenReady().then(async () => {
     );
     await waitFor(
       window,
-      `document.body.innerText.includes("ARCHITECT_TASK_WC01") && document.querySelector("[data-testid='architect-browser-surface']") !== null`,
+      `document.body.innerText.includes("ARCHITECT_TASK_WC01_candidate_disposition") && document.querySelector("[data-testid='architect-browser-surface']") !== null`,
       "Architect Task Packet and browser surface",
     );
     const state = await window.webContents.executeJavaScript(
@@ -57,6 +57,33 @@ app.whenReady().then(async () => {
     );
     assert.equal(state.hasHumanValidationField, false, "Architect Bridge must not render Human Validation fields.");
     assert.equal(state.hasBrowserSurface, true, "Architect Browser surface must be available from the Bridge.");
+    assert.equal(
+      state.text.includes("pending packet generation"),
+      false,
+      "Architect Bridge must not show pending packet generation after packet generation succeeds.",
+    );
+    assert.equal(
+      state.text.includes("blocked and cannot accept a write"),
+      false,
+      "Architect Bridge must not show a blocked write error for architect_task generation.",
+    );
+    assert.ok(
+      state.text.includes("candidate_disposition/WC01"),
+      "Expected output must show candidate_disposition/WC01.",
+    );
+    for (const requiredSource of [
+      `${projectId}/${phaseId}/validation_report/${workCardId}`,
+      `${projectId}/${phaseId}/architect_review/${workCardId}`,
+      `${projectId}/${phaseId}/work_card/${workCardId}`,
+      `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+      `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
+      `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
+    ]) {
+      assert.ok(
+        state.text.includes(requiredSource),
+        `Architect Bridge source bundle must include ${requiredSource}.`,
+      );
+    }
     assert.ok(
       state.textareaValues.some((value) => value.includes("Use ChampCity MCP to fetch:")),
       "Copy-ready MCP fetch prompt must be visible.",
@@ -69,7 +96,7 @@ app.whenReady().then(async () => {
           "phases",
           phaseId,
           "Architect_Tasks",
-          "ARCHITECT_TASK_WC01_review_validation_report_and_write_repair_decision.json",
+          "ARCHITECT_TASK_WC01_candidate_disposition.json",
         ),
       ),
       "Architect Task Packet JSON pair must be written.",
@@ -82,7 +109,7 @@ app.whenReady().then(async () => {
           "phases",
           phaseId,
           "Architect_Tasks",
-          "ARCHITECT_TASK_WC01_review_validation_report_and_write_repair_decision.md",
+          "ARCHITECT_TASK_WC01_candidate_disposition.md",
         ),
       ),
       "Architect Task Packet Markdown pair must be written.",
@@ -155,7 +182,7 @@ function prepareFixture() {
     workCardId,
     stem: `planning/phases/${phaseId}/Work_Cards/WC01_architect_bridge_regression`,
     expectedOutputs: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
-    data: { workCardId, status: "ready_for_implementer" },
+    data: { workCardId, status: "ready_for_implementer", maxRepairCount: 1 },
     title: "Work Card: WC01 Architect Bridge Regression",
   });
   writeArtifact({
@@ -172,20 +199,70 @@ function prepareFixture() {
     artifactType: "architect_review",
     phaseId,
     workCardId,
+    revision: 2,
     stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01_architect_bridge_regression`,
-    sources: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
+    sources: [
+      `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+      `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
+      `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
+    ],
     expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
-    data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
+    data: {
+      decision: "Ready for Operator validation",
+      operatorValidationAuthorized: true,
+      reviewScope: "combined_parent_and_final_repair",
+      combinedParentReview: true,
+      repairedParentWorkCardArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+      repairWorkCardArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
+      authorizingArchitectReviewArtifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
+      authorizingArchitectReviewRevision: 1,
+    },
+  });
+  writeArtifact({
+    artifactId: `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
+    artifactType: "work_card",
+    phaseId,
+    workCardId: `${workCardId}-REPAIR01`,
+    parentArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+    stem: `planning/phases/${phaseId}/Work_Cards/WC01-REPAIR01_architect_bridge_regression`,
+    sources: [
+      `${projectId}/${phaseId}/work_card/${workCardId}`,
+      `${projectId}/${phaseId}/architect_review/${workCardId}`,
+    ],
+    expectedOutputs: [
+      `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
+    ],
+    data: {
+      workCardId: `${workCardId}-REPAIR01`,
+      finalNumberedRepair: true,
+      authorizingArchitectReviewRevision: 1,
+      logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01`,
+      controllingRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
+    },
+    title: "Work Card: WC01-REPAIR01 Architect Bridge Regression",
+  });
+  writeArtifact({
+    artifactId: `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
+    artifactType: "implementer_report",
+    phaseId,
+    workCardId: `${workCardId}-REPAIR01`,
+    parentArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+    stem: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority`,
+    sources: [`${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`],
+    expectedOutputs: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
+    data: {
+      workCardId: `${workCardId}-REPAIR01`,
+      status: "implemented_awaiting_architect_review",
+    },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}`,
     artifactType: "validation_report",
     phaseId,
     workCardId,
-    status: "blocked",
     stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01_architect_bridge_regression`,
     sources: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
-    data: { workCardId, result: "Fail" },
+    data: { workCardId, result: "Pass" },
   });
 
   fs.mkdirSync(userDataRoot, { recursive: true });
@@ -214,11 +291,12 @@ function writeArtifact(input) {
   const artifact = buildCanonicalArtifact({
     artifactId: input.artifactId,
     artifactType: input.artifactType,
-    revision: 1,
+    revision: input.revision ?? 1,
     status: input.status ?? "active",
     projectId,
     ...(input.phaseId ? { phaseId: input.phaseId } : {}),
     ...(input.workCardId ? { workCardId: input.workCardId } : {}),
+    ...(input.parentArtifactId ? { parentArtifactId: input.parentArtifactId } : {}),
     createdAt: fixedTime,
     updatedAt: fixedTime,
     jsonPath: `${input.stem}.json`,

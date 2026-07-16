@@ -261,12 +261,48 @@ app.whenReady().then(async () => {
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
         true,
       );
-      await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "candidate_disposition_required")`, "parent disposition gate after validation pass");
-      const dispositionResult = await window.webContents.executeJavaScript(
-        `window.champCity.saveCompletedViaRepairDisposition({ rationale: "Operator fixture confirms the complete repaired-parent outcome." })`,
+      await waitFor(
+        window,
+        `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "architect_disposition_required" && result.currentAction?.routedAction?.screenId === "architect-bridge" && result.currentAction?.routedAction?.expectedOutput?.artifactId === "${projectId}/${phaseId}/candidate_disposition/${workCardId}")`,
+        "Architect Bridge disposition gate after validation pass",
+      );
+      const packetResult = await window.webContents.executeJavaScript(
+        `window.champCity.ensureArchitectTaskPacket()`,
         true,
       );
-      assert.equal(dispositionResult.ok, true, JSON.stringify(dispositionResult.errorMessages));
+      assert.equal(packetResult.ok, true, JSON.stringify(packetResult.errorMessages));
+      assert.equal(
+        packetResult.packet.payload.data.expectedOutput.artifactId,
+        `${projectId}/${phaseId}/candidate_disposition/${workCardId}`,
+      );
+      writeArtifact({
+        artifactId: `${projectId}/${phaseId}/candidate_disposition/${workCardId}`,
+        artifactType: "candidate_disposition",
+        phaseId,
+        workCardId,
+        parentArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+        stem: `planning/phases/${phaseId}/Candidate_Dispositions/CANDIDATE_DISPOSITION_${workCardId}`,
+        sources: [
+          `${projectId}/${phaseId}/work_card/${workCardId}`,
+          `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+          `${projectId}/${phaseId}/architect_review/${workCardId}`,
+          `${projectId}/${phaseId}/work_card/${repairId}`,
+          `${projectId}/${phaseId}/implementer_report/${repairId}`,
+          `${projectId}/${phaseId}/validation_report/${workCardId}`,
+        ],
+        data: {
+          workCardId,
+          status: "completed_via_repair",
+          rationale: "Mounted fixture confirms the complete repaired-parent outcome.",
+          resolutionPath: "completed_via_repair",
+          parentWorkCardArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+        },
+        title: `Candidate Disposition: ${workCardId} completed_via_repair`,
+      });
+      await window.webContents.executeJavaScript(
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh Repository State"))?.click(), true)`,
+        true,
+      );
       await waitFor(window, `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "implementer_execution_required" && result.currentAction?.workCardId === "WC02")`, "next candidate after durable completed_via_repair disposition");
 
       await window.webContents.executeJavaScript(`window.champCity.selectProject("${otherProjectId}")`, true);

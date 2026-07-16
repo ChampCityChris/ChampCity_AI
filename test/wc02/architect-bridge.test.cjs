@@ -8,6 +8,9 @@ const {
   currentActionSurfaceRoutes,
   getCurrentActionSurfaceRoute,
 } = require("../../dist/shared/workCards/currentActionRouteTable");
+const {
+  processIpcPolicies,
+} = require("../../dist/main/workflow/processIpcPolicy");
 
 const projectId = "champcity-ai";
 const phaseId = "phase-04";
@@ -35,7 +38,7 @@ function architectDispositionAction() {
       advancesWorkflowState: true,
       stage: "prove",
       role: "architect",
-      screenId: "architect-disposition",
+      screenId: "architect-bridge",
       targetArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
       sourceArtifactIds: [
         `${projectId}/${phaseId}/validation_report/${workCardId}`,
@@ -46,8 +49,8 @@ function architectDispositionAction() {
         `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
       ],
       expectedOutput: {
-        artifactId: `${projectId}/${phaseId}/architect_disposition/${workCardId}`,
-        artifactType: "architect_disposition",
+        artifactId: `${projectId}/${phaseId}/candidate_disposition/${workCardId}`,
+        artifactType: "candidate_disposition",
       },
       routes: { success: "operator_validation_required", failure: "repair_work_card_required", repair: "repair_work_card_required" },
       bindingSource: {
@@ -71,6 +74,30 @@ test("current-action route table maps architect disposition to Architect Bridge,
   assert.equal(route.uiSurface, "architect-bridge");
   assert.equal(route.authorizedOperations.includes("workCards:previewHumanValidationRecord"), false);
   assert.equal(route.authorizedOperations.includes("workCards:ensureArchitectTaskPacket"), true);
+});
+
+test("architect disposition task packet IPC policy is an Architect Bridge support write", () => {
+  const policy = processIpcPolicies.find(
+    (candidate) => candidate.channel === "workCards:ensureArchitectTaskPacket",
+  );
+  assert.equal(policy.kind, "routed");
+  assert.equal(policy.operation, "supporting-write");
+  assert.deepEqual(policy.allowedAuxiliaryArtifactTypes, ["architect_task"]);
+  assert.deepEqual(policy.transition, { mode: "none" });
+
+  const dispositionVariant = policy.variants.find(
+    (variant) => variant.actionId === "architect_disposition_required",
+  );
+  assert.ok(dispositionVariant);
+  assert.equal(dispositionVariant.role, "architect");
+  assert.equal(dispositionVariant.screenId, "architect-bridge");
+  assert.equal(dispositionVariant.expectedOutputArtifactType, "candidate_disposition");
+
+  const validationReviewVariant = policy.variants.find(
+    (variant) => variant.actionId === "architect_review_of_validation_report_required",
+  );
+  assert.ok(validationReviewVariant);
+  assert.equal(validationReviewVariant.screenId, "architect-bridge");
 });
 
 test("current-action route table inventories every locked current-action family", () => {
@@ -111,8 +138,20 @@ test("architect disposition packet targets repaired parent candidate disposition
   assert.equal(data.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
   assert.equal(data.expectedOutput.artifactId, `${projectId}/${phaseId}/candidate_disposition/${workCardId}`);
   assert.equal(data.expectedOutput.artifactType, "candidate_disposition");
-  assert.ok(data.sourceArtifactIds.includes(`${projectId}/${phaseId}/validation_report/${workCardId}`));
-  assert.ok(data.sourceArtifactIds.includes(`${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`));
+  for (const requiredSource of [
+    `${projectId}/${phaseId}/validation_report/${workCardId}`,
+    `${projectId}/${phaseId}/architect_review/${workCardId}`,
+    `${projectId}/${phaseId}/work_card/${workCardId}`,
+    `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+    `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
+    `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
+  ]) {
+    assert.ok(data.sourceArtifactIds.includes(requiredSource), `${requiredSource} must be in the packet source bundle`);
+  }
+  assert.equal(
+    data.sourceArtifactIds.includes(`${projectId}/${phaseId}/architect_disposition/${workCardId}`),
+    false,
+  );
   assert.equal(
     data.defaultDecisionRule,
     "Validation Report = Pass plus parent completed after authorized repair chain means write completed_via_repair.",

@@ -461,13 +461,23 @@ test("final repair routes combined parent review, parent validation, and complet
       artifactType: "validation_report",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
       sources: [`${projectId}/${phaseId}/architect_review/WC01`],
-      data: { result: "Pass", workCardId: "WC01" },
+      data: { validationResult: "Pass", workCardId: "WC01" },
     });
     result = await projectGraph(root, projectId, 5);
     action = result.projection.state.currentAction;
-    assert.equal(action.actionId, "candidate_disposition_required");
+    assert.equal(action.actionId, "architect_disposition_required");
+    assert.equal(action.screenId, "architect-bridge");
     assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
     assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/candidate_disposition/WC01`);
+    assert.equal(action.expectedOutput.artifactType, "candidate_disposition");
+    assert.deepEqual(action.sourceArtifactIds, [
+      `${projectId}/${phaseId}/validation_report/WC01`,
+      `${projectId}/${phaseId}/architect_review/WC01`,
+      `${projectId}/${phaseId}/work_card/WC01`,
+      `${projectId}/${phaseId}/implementer_report/WC01`,
+      `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
+      `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
+    ]);
 
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01",

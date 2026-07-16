@@ -669,7 +669,7 @@ function rebindWorkCardLoopAction(
     implementer_execution_required: "implementer_report",
     architect_review_of_implementer_report_required: "architect_review",
     operator_validation_required: "validation_report",
-    architect_disposition_required: "architect_disposition",
+    architect_disposition_required: "candidate_disposition",
     candidate_disposition_required: "candidate_disposition",
   };
   const artifactType = dynamicOutputTypes[next.actionId];

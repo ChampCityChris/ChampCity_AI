@@ -191,7 +191,7 @@ function deriveWorkCardStep(
       "architect_disposition_required",
       workCard.artifact.artifactId,
       [workCard.artifact.artifactId],
-      `${projectId}/${phaseId}/architect_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+      `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
       [workCard],
       workCard,
     );
@@ -259,7 +259,7 @@ function deriveWorkCardStep(
         workCard,
       );
     }
-    const validationResult = text(recordData(validation).result).toLowerCase();
+    const validationResult = validationResultFor(validation);
     if (["pass", "passed", "success", "completed"].includes(validationResult)) {
       return step(
         "work_card_authoring_required",
@@ -274,7 +274,7 @@ function deriveWorkCardStep(
       "architect_disposition_required",
       workCard.artifact.artifactId,
       [validation.artifact.artifactId],
-      `${projectId}/${phaseId}/architect_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+      `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
       [workCard, report, review, validation],
       workCard,
     );
@@ -285,7 +285,7 @@ function deriveWorkCardStep(
         "architect_disposition_required",
         workCard.artifact.artifactId,
         [review.artifact.artifactId],
-        `${projectId}/${phaseId}/architect_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+        `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
         [workCard, report, review],
         workCard,
       );
@@ -455,7 +455,7 @@ function deriveRepairedParentStep(
       "architect_disposition_required",
       parentWorkCard.artifact.artifactId,
       [parentReview.artifact.artifactId],
-      `${projectId}/${phaseId}/architect_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+      `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
       [parentWorkCard, parentReport, parentReview],
       parentWorkCard,
       resolution.blockers,
@@ -498,7 +498,7 @@ function deriveRepairedParentStep(
       "architect_disposition_required",
       parentWorkCard.artifact.artifactId,
       [parentReview.artifact.artifactId],
-      `${projectId}/${phaseId}/architect_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+      `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
       [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport],
       parentWorkCard,
       resolution.blockers,
@@ -528,7 +528,7 @@ function deriveRepairedParentStep(
       [...resolution.blockers, ...validationBlockers],
     );
   }
-  const result = text(recordData(validation).result).toLowerCase();
+  const result = validationResultFor(validation);
   if (["pass", "passed", "success", "completed"].includes(result)) {
     const dispositions = graph.forWorkCard(
       "candidate_disposition",
@@ -537,14 +537,15 @@ function deriveRepairedParentStep(
     );
     if (dispositions.length === 0) {
       return step(
-        "candidate_disposition_required",
+        "architect_disposition_required",
         parentWorkCard.artifact.artifactId,
         [
-          parentReport.artifact.artifactId,
+          validation.artifact.artifactId,
           parentReview.artifact.artifactId,
+          parentWorkCard.artifact.artifactId,
+          parentReport.artifact.artifactId,
           repairWorkCard.artifact.artifactId,
           repairReport.artifact.artifactId,
-          validation.artifact.artifactId,
         ],
         `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
         [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport, validation],
@@ -563,8 +564,15 @@ function deriveRepairedParentStep(
   return step(
     "architect_disposition_required",
     parentWorkCard.artifact.artifactId,
-    [validation.artifact.artifactId],
-    `${projectId}/${phaseId}/architect_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+    [
+      validation.artifact.artifactId,
+      parentReview.artifact.artifactId,
+      parentWorkCard.artifact.artifactId,
+      parentReport.artifact.artifactId,
+      repairWorkCard.artifact.artifactId,
+      repairReport.artifact.artifactId,
+    ],
+    `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
     [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport, validation],
     parentWorkCard,
     [...resolution.blockers, ...validationBlockers],
@@ -687,7 +695,7 @@ function candidateResolution(
     ));
   }
   const passing = validations.filter((node) => {
-    const result = text(recordData(node).result).toLowerCase();
+    const result = validationResultFor(node);
     return ["pass", "passed", "success", "completed"].includes(result);
   })[0];
   const parentId = `${graph.projectId}/${phaseId}/work_card/${candidateId}`;
@@ -872,6 +880,15 @@ function recordData(node: VerifiedArtifactNode | null): Record<string, JsonValue
   return node && isRecord(node.artifact.payload.data)
     ? (node.artifact.payload.data as Record<string, JsonValue>)
     : {};
+}
+
+function validationResultFor(node: VerifiedArtifactNode): string {
+  const data = recordData(node);
+  return (
+    text(data.result) ||
+    text(data.validationResult) ||
+    text(data.status)
+  ).toLowerCase();
 }
 
 function text(value: JsonValue | undefined): string {

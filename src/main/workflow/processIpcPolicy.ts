@@ -266,14 +266,14 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
       route(
         "architect_disposition_required",
         "architect",
-        "architect-disposition",
-        "architect_disposition",
+        "architect-bridge",
+        "candidate_disposition",
       ),
       route(
         "architect_review_of_validation_report_required",
         "architect",
-        "architect-disposition",
-        "architect_disposition",
+        "architect-bridge",
+        "candidate_disposition",
       ),
     ],
     allowedAuxiliaryArtifactTypes: ["architect_task"],

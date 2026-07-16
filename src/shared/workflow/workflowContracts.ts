@@ -28,6 +28,7 @@ export type WorkflowScreenId =
   | "implementer-handoff"
   | "implementer-execution"
   | "architect-review"
+  | "architect-bridge"
   | "operator-validation"
   | "architect-disposition"
   | "repair-work-card-authoring"

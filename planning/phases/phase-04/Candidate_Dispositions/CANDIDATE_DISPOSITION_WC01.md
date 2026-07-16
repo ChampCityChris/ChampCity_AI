@@ -13,6 +13,8 @@
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
@@ -21,9 +23,7 @@
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
       "champcity-ai/phase-04/validation_report/WC01"
     ],
-    "expectedOutputs": [],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
   "revision": 1,
   "schemaVersion": "champcity.artifact.v1",
