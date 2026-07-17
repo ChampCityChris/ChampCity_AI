@@ -2,26 +2,26 @@
   "artifactId": "champcity-ai/phase-06/work_card/WC02",
   "artifactType": "work_card",
   "schemaVersion": "champcity.artifact.v1",
-  "revision": 3,
-  "status": "blocked",
+  "revision": 4,
+  "status": "approved_for_implementer_execution",
   "projectId": "champcity-ai",
   "phaseId": "phase-06",
   "workCardId": "WC02",
   "createdAt": "2026-07-17T03:50:00.000Z",
-  "updatedAt": "2026-07-17T13:25:00.000Z",
+  "updatedAt": "2026-07-17T13:40:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-  "payloadHash": "sha256:1fde77e91bfd2b65b7e262c0cb7ce4e7d9b319fc7d2740387e7a87d864f9ae28",
+  "payloadHash": "sha256:5dfa2b373dd26c182f7c3884602d875f61e878a008ded10261e3e71a595a0352",
   "relationships": {
     "sources": [
       "champcity-ai/phase-06/candidate_disposition/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/phase-06/approval/WC02"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-06/approval/WC02",
       "champcity-ai/phase-06/implementer_report/WC02"
     ],
     "supersedes": [],
@@ -33,13 +33,13 @@
     "data": {
       "phaseId": "phase-06",
       "workCardId": "WC02",
-      "status": "blocked",
+      "status": "approved_for_implementer_execution",
       "owner": "Implementer",
-      "sourceCodeChangesAuthorized": false,
+      "sourceCodeChangesAuthorized": true,
       "oldAuthorityRemovalPolicy": "remove_only",
       "disableOrFallbackAllowed": false,
-      "requiresOperatorApprovalBeforeImplementation": true,
-      "blockedReason": "Operator blocked WC02. The draft is not approved for Implementer handoff or execution until explicitly revised and approved.",
+      "requiresOperatorApprovalBeforeImplementation": false,
+      "approvedBy": "champcity-ai/phase-06/approval/WC02",
       "expectedImplementerReportArtifactId": "champcity-ai/phase-06/implementer_report/WC02",
       "dependsOn": [
         "champcity-ai/phase-06/candidate_disposition/WC01"

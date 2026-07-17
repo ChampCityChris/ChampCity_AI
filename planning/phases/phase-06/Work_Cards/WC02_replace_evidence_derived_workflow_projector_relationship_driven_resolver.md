@@ -1,13 +1,13 @@
 # Work Card: Phase 06 WC02 — Replace EvidenceDerivedWorkflowProjector with Relationship-Driven Resolver
 
-Status: blocked
+Status: approved_for_implementer_execution
 Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
 Work Card: WC02
 Owner: Implementer
 Risk: critical
 Change strategy: Implementation; replacement of old workflow authority with relationship-driven kernel/resolver
 
-Blocked note: WC02 is not approved for Implementer handoff or execution. Source-code changes are not authorized until Operator approval creates an approval artifact and updates this Work Card status.
+Approval note: WC02 is approved for Implementer execution by `champcity-ai/phase-06/approval/WC02`. Source-code changes are authorized only within the boundaries of this Work Card.
 
 ## Purpose
 
