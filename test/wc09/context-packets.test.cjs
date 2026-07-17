@@ -306,12 +306,12 @@ test("authorized export atomically commits packet, adjacent manifest, and regist
 const liveIds = {
   target: "champcity-ai/phase-03/work_card/WC08-REPAIR04",
   report: "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
-  validation: "champcity-ai/phase-03/validation_report/WC08-REPAIR04",
+  validation: "champcity-ai/phase-03/operator_validation/WC08-REPAIR04",
   expectedReview: "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
   phasePlan: "champcity-ai/phase-03/phase_planning/current",
   workCardPlan: "champcity-ai/phase-03/work_card_plan/current",
   closeout: "champcity-ai/phase-03/phase_closeout/current",
-  roadmap: "champcity-ai/project/roadmap/current",
+  roadmap: "champcity-ai/project/project_roadmap/current",
   observations: "champcity-ai/phase-03/observation_register/current",
   unrelatedReport: "champcity-ai/phase-03/implementer_report/WC99",
 };
@@ -395,7 +395,7 @@ function createLiveCompilerFixture() {
   });
   add({
     artifactId: liveIds.validation,
-    artifactType: "validation_report",
+    artifactType: "operator_validation",
     title: "WC08-REPAIR04 New Validation Evidence",
     content: "RELEVANT NEW VALIDATION EVIDENCE",
     phaseId: "phase-03",
@@ -425,7 +425,7 @@ function createLiveCompilerFixture() {
   });
   add({
     artifactId: liveIds.roadmap,
-    artifactType: "roadmap",
+    artifactType: "project_roadmap",
     title: "Current Project Roadmap",
     content: "Next-phase boundary and project sequencing.",
   });
@@ -631,7 +631,7 @@ test("live compiler marks materialized current and new evidence, never a missing
   assert.match(disposition.packet.markdown, /RELEVANT NEW VALIDATION EVIDENCE/);
   const dispositionChanged = changedEvidenceSection(disposition.packet);
   assert.match(dispositionChanged, /implementer_report\/WC08-REPAIR04/);
-  assert.match(dispositionChanged, /validation_report\/WC08-REPAIR04/);
+  assert.match(dispositionChanged, /operator_validation\/WC08-REPAIR04/);
   assert.doesNotMatch(dispositionChanged, /architect_review\/WC08-REPAIR04/);
 });
 

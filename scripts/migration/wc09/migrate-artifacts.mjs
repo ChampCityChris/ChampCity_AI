@@ -906,13 +906,13 @@ function inferArtifactType(stem) {
     ["/Project_Intake/", "project_intake"],
     ["/Project_Architect_Interview_Prompts/", "architect_interview"],
     ["/Project_Planning_Documents/", "project_planning"],
-    ["/Repository_Reconciliation/", "repository_reconciliation"],
-    ["/Project_Roadmap/", "roadmap"],
+    ["/Repository_Reconciliation/", "reconciliation_review"],
+    ["/Project_Roadmap/", "project_roadmap"],
     ["/Phase_Map/", "phase_map"],
     ["/Work_Cards/", "work_card"],
     ["/Implementer_Reports/", "implementer_report"],
     ["/Architect_Reviews/", "architect_review"],
-    ["/Validation_Reports/", "validation_report"],
+    ["/Validation_Reports/", "operator_validation"],
     ["/Repair_Prompts/", "repair_record"],
     ["/Phase_Planning_Documents/", "phase_planning"],
     ["/Work_Card_Plans/", "work_card_plan"],
@@ -925,7 +925,7 @@ function inferArtifactType(stem) {
   }
   const base = path.posix.basename(stem);
   if (/Observation_Register/i.test(base)) return "observation_register";
-  if (/Operator_.*Approval/i.test(base)) return "approval";
+  if (/Operator_.*Approval/i.test(base)) return "operator_approval";
   if (/Phase_Interview/i.test(base)) return "architect_interview";
   if (/Phase_Planning/i.test(base)) return "phase_planning";
   if (/Work_Card_Plan/i.test(base)) return "work_card_plan";
@@ -993,7 +993,7 @@ const lifecycleTypeRank = new Map([
   ["work_card", 0],
   ["implementer_report", 1],
   ["architect_review", 2],
-  ["validation_report", 3],
+  ["operator_validation", 3],
 ]);
 
 function enrichRelationships(drafts, draftByPath) {
@@ -1072,12 +1072,12 @@ function enrichRelationships(drafts, draftByPath) {
       if (workCardArtifacts.implementer_report) sources.add(workCardArtifacts.implementer_report);
       if (artifact.phaseId && artifact.workCardId) {
         expectedOutputs.add(
-          workCardArtifacts.validation_report ??
-            `champcity-ai/${artifact.phaseId}/validation_report/${artifact.workCardId}`,
+          workCardArtifacts.operator_validation ??
+            `champcity-ai/${artifact.phaseId}/operator_validation/${artifact.workCardId}`,
         );
       }
     }
-    if (artifact.artifactType === "validation_report") {
+    if (artifact.artifactType === "operator_validation") {
       if (workCardArtifacts.work_card) sources.add(workCardArtifacts.work_card);
       if (workCardArtifacts.implementer_report) sources.add(workCardArtifacts.implementer_report);
       if (workCardArtifacts.architect_review) sources.add(workCardArtifacts.architect_review);
@@ -1740,30 +1740,30 @@ function migrationWorkflowBindings({
   const projectPlanning =
     "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i";
   const reconciliation =
-    "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i";
-  const roadmap = "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i";
+    "champcity-ai/project/reconciliation_review/REPOSITORY_RECONCILIATION_champcity_a_i";
+  const roadmap = "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i";
   const projectApproval =
-    "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING";
+    "champcity-ai/project/operator_approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING";
   const phaseMap = "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i";
   const phaseInterview = "champcity-ai/phase-03/architect_interview/Phase_Interview";
   const phasePlanning = "champcity-ai/phase-03/phase_planning/Phase_Planning";
   const workCardPlan = "champcity-ai/phase-03/work_card_plan/Work_Card_Plan";
-  const phaseApproval = "champcity-ai/phase-03/approval/Operator_Phase_Approval";
+  const phaseApproval = "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval";
   const workCard = currentWorkCardArtifactId ??
     `champcity-ai/phase-03/work_card/${nextCandidateId}`;
   const workCardId = currentWorkCardId ?? nextCandidateId;
   const workCardApproval =
-    `champcity-ai/phase-03/work_card_approval/${workCardId}`;
+    `champcity-ai/phase-03/operator_approval/${workCardId}`;
   const report = `champcity-ai/phase-03/implementer_report/${workCardId}`;
   const review = `champcity-ai/phase-03/architect_review/${workCardId}`;
-  const validation = `champcity-ai/phase-03/validation_report/${workCardId}`;
+  const validation = `champcity-ai/phase-03/operator_validation/${workCardId}`;
   const disposition =
     `champcity-ai/phase-03/architect_disposition/${workCardId}`;
   const candidateDisposition =
     `champcity-ai/phase-03/candidate_disposition/${workCardId}`;
   const closeout = "champcity-ai/phase-03/phase_closeout/phase-03";
   const closeoutApproval =
-    "champcity-ai/phase-03/phase_closeout_approval/phase-03";
+    "champcity-ai/phase-03/operator_approval/phase-03";
   const phaseActivation = "champcity-ai/phase-04/phase_activation/phase-04";
   const routeReview =
     `champcity-ai/phase-03/route_review_request/${workCardId}`;
@@ -1869,7 +1869,7 @@ function deriveCandidateExecutionState(
   }
   for (const artifact of artifacts.filter(
     (item) =>
-      item.artifactType === "validation_report" &&
+      item.artifactType === "operator_validation" &&
       (item.workCardId === candidate.candidateId ||
         item.payload?.data?.parentWorkCardId === candidate.candidateId) &&
       ["active", "pending", "blocked"].includes(item.status) &&
@@ -2008,7 +2008,7 @@ function deriveExplicitStabilizationRepairAuthority(artifacts) {
   const escalationLinks = artifacts
     .filter(
       (artifact) =>
-        artifact.artifactType === "validation_report" &&
+        artifact.artifactType === "operator_validation" &&
         typeof artifact.payload?.data?.architectDisposition?.assignedTarget ===
           "string",
     )
@@ -2271,7 +2271,7 @@ function deriveCurrentObligation(targetWorkCard, artifacts, phaseExecution) {
       workCardId,
     };
   }
-  const validation = findAuthority("validation_report");
+  const validation = findAuthority("operator_validation");
   return {
     actionId: "operator_validation_required",
     targetArtifactId,
@@ -2279,8 +2279,8 @@ function deriveCurrentObligation(targetWorkCard, artifacts, phaseExecution) {
     expectedOutput: {
       artifactId:
         validation?.artifactId ??
-        `champcity-ai/phase-03/validation_report/${workCardId}`,
-      artifactType: "validation_report",
+        `champcity-ai/phase-03/operator_validation/${workCardId}`,
+      artifactType: "operator_validation",
     },
     workCardId,
   };
@@ -2426,7 +2426,7 @@ function validateRelationshipIntegrity(artifacts) {
   for (const [key, group] of byWorkCard) {
     assertLifecycleRelationship(errors, key, group.work_card, group.implementer_report);
     assertLifecycleRelationship(errors, key, group.implementer_report, group.architect_review);
-    assertLifecycleRelationship(errors, key, group.architect_review, group.validation_report);
+    assertLifecycleRelationship(errors, key, group.architect_review, group.operator_validation);
   }
   return errors;
 }

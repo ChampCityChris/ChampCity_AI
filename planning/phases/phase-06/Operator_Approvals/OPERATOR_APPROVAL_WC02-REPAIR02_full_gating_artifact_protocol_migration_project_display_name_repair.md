@@ -1,36 +1,36 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/approval/WC02-REPAIR02",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02-REPAIR02",
+  "artifactId": "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T21:05:00.000Z",
-  "updatedAt": "2026-07-17T21:05:00.000Z",
   "jsonPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.json",
   "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR02",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
+  },
+  "payloadHash": "sha256:d6ec32f1b59394a36e4bbc0acb5ff0942b9010c46627c15adb31159ee53c4c8b",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR02",
-      "champcity-ai/phase-06/validation_report/WC02-REPAIR01",
-      "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
+      "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
+    ],
+    "supersedes": []
   },
-  "payloadHash": "sha256:16bb285e21e347c7773ae75c7a900f5a2ea7da29978a0f4a92079c7fef146399",
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T21:05:00.000Z",
+  "workCardId": "WC02-REPAIR02"
 }
 -->
 

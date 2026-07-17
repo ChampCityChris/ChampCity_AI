@@ -1,49 +1,49 @@
 {
   "artifactId": "champcity-ai/phase-06/candidate_disposition/WC01",
   "artifactType": "candidate_disposition",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "accepted",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01",
   "createdAt": "2026-07-17T03:50:00.000Z",
-  "updatedAt": "2026-07-17T03:50:00.000Z",
   "jsonPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.json",
   "markdownPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
+  "payload": {
+    "data": {
+      "acceptedControllingOutput": "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "disposition": "completed_via_repair",
+      "nextWorkCardDraftAuthorized": "WC02",
+      "phaseId": "phase-06",
+      "repairWorkCardId": "WC01-REPAIR01",
+      "status": "accepted",
+      "wc02ImplementationAuthorized": false,
+      "workCardId": "WC01"
+    },
+    "kind": "candidate_disposition",
+    "title": "Candidate Disposition: Phase 06 WC01 Accepted via WC01-REPAIR01"
+  },
   "payloadHash": "sha256:d7f78e5da984ed65ab5870d37a9d0a1965cc6bc9ccdf963b989d14a0eb2d98e9",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC01",
-      "champcity-ai/phase-06/approval/WC01",
+      "champcity-ai/phase-06/operator_approval/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/implementer_report/WC01",
       "champcity-ai/phase-06/architect_review/WC01",
       "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-06/approval/WC01-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
       "champcity-ai/phase-06/implementer_report/WC01-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC01-REPAIR01",
-      "champcity-ai/phase-06/validation_report/WC01-REPAIR01"
+      "champcity-ai/phase-06/operator_validation/WC01-REPAIR01"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/work_card/WC02"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "candidate_disposition",
-    "title": "Candidate Disposition: Phase 06 WC01 Accepted via WC01-REPAIR01",
-    "data": {
-      "phaseId": "phase-06",
-      "workCardId": "WC01",
-      "repairWorkCardId": "WC01-REPAIR01",
-      "disposition": "completed_via_repair",
-      "status": "accepted",
-      "acceptedControllingOutput": "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
-      "nextWorkCardDraftAuthorized": "WC02",
-      "wc02ImplementationAuthorized": false
-    }
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "accepted",
+  "updatedAt": "2026-07-17T03:50:00.000Z",
+  "workCardId": "WC01"
 }

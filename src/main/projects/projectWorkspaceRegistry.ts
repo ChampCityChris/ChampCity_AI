@@ -229,23 +229,73 @@ async function readProjectMetadata(
   planningRoot: string,
 ): Promise<{ projectId?: string; displayName?: string }> {
   const profilePath = path.join(planningRoot, "project", "PROJECT_PROFILE.json");
+  const packageMetadata = await readPackageMetadata(repositoryRoot);
   try {
     const profile = JSON.parse(await readFile(profilePath, "utf8"));
+    const profileTitle =
+      typeof profile.payload?.title === "string"
+        ? profile.payload.title.replace(/^Project Profile:\s*/i, "").trim()
+        : undefined;
     return {
       projectId: typeof profile.projectId === "string" ? profile.projectId : undefined,
       displayName:
-        typeof profile.payload?.title === "string"
-          ? profile.payload.title.replace(/^Project Profile:\s*/i, "").trim()
-          : undefined,
+        explicitProjectDisplayName(profile) ??
+        (profileTitle && !isGenericProjectProfileTitle(profileTitle) ? profileTitle : undefined) ??
+        packageMetadata.displayName ??
+        packageMetadata.projectId ??
+        path.basename(repositoryRoot),
     };
   } catch (error) {
     if (!isMissing(error)) throw new Error(`Project profile is invalid: ${plainError(error)}`);
-    const packageJson = JSON.parse(await readFile(path.join(repositoryRoot, "package.json"), "utf8"));
-    return {
-      projectId: typeof packageJson.name === "string" ? packageJson.name : undefined,
-      displayName: typeof packageJson.productName === "string" ? packageJson.productName : undefined,
-    };
+    return packageMetadata;
   }
+}
+
+async function readPackageMetadata(
+  repositoryRoot: string,
+): Promise<{ projectId?: string; displayName?: string }> {
+  const packageJson = JSON.parse(await readFile(path.join(repositoryRoot, "package.json"), "utf8"));
+  return {
+    projectId: typeof packageJson.name === "string" ? packageJson.name : undefined,
+    displayName:
+      typeof packageJson.productName === "string"
+        ? packageJson.productName
+        : typeof packageJson.description === "string" && packageJson.description.trim()
+          ? packageJson.description.trim()
+          : undefined,
+  };
+}
+
+function explicitProjectDisplayName(profile: unknown): string | undefined {
+  if (!isRecord(profile)) return undefined;
+  const payload = isRecord(profile.payload) ? profile.payload : {};
+  const data = isRecord(payload.data) ? payload.data : {};
+  for (const value of [
+    data.projectName,
+    data.displayName,
+    data.publicBrand,
+    data.name,
+    extractMarkdownHeadingValue(payload.contentMarkdown, "Project Name"),
+    extractMarkdownHeadingValue(payload.contentMarkdown, "Public Brand"),
+  ]) {
+    if (typeof value === "string" && value.trim() && !isGenericProjectProfileTitle(value)) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function extractMarkdownHeadingValue(value: unknown, heading: string): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+  const headingLine = `## ${heading}`.toLowerCase();
+  const index = lines.findIndex((line) => line.trim().toLowerCase() === headingLine);
+  if (index === -1) return undefined;
+  return lines.slice(index + 1).find((line) => line.trim() && !line.trim().startsWith("#"))?.trim();
+}
+
+function isGenericProjectProfileTitle(value: string): boolean {
+  return /^project profile$/i.test(value.trim());
 }
 
 async function persistDocument(

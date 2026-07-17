@@ -1,20 +1,23 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/validation_report/WC02",
-  "artifactType": "validation_report",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 2,
-  "status": "failed",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02",
+  "artifactId": "champcity-ai/phase-06/operator_validation/WC02",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-17T17:15:00.000Z",
-  "updatedAt": "2026-07-17T17:35:00.000Z",
   "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02_failed_current_action_stale_phase04_living_plan.json",
   "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02_failed_current_action_stale_phase04_living_plan.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
-  "payloadHash": "sha256:50f8cb348195e62323a9d7af3e811e44bc32c35c1996bb2799bcd62fa98e0e25",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "Validation Report: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04"
+  },
+  "payloadHash": "sha256:188711726eefe1fda693e1d46615bdf8b09e4e1ea3ecc19d3418ad03f7d05acb",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC02",
       "champcity-ai/phase-06/architect_review/WC02",
@@ -24,16 +27,13 @@
       "champcity-ai/phase-06/phase_activation/phase-06",
       "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR01"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04"
-  }
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "blocked",
+  "updatedAt": "2026-07-17T17:35:00.000Z",
+  "workCardId": "WC02"
 }
 -->
 

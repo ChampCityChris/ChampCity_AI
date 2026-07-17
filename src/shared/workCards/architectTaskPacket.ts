@@ -379,7 +379,7 @@ function uniqueStrings(values: readonly string[]): string[] {
 
 function hasValidationReport(sourceArtifactIds: readonly string[]): boolean {
   return sourceArtifactIds.some((artifactId) =>
-    artifactId.includes("/validation_report/"),
+    artifactId.includes("/operator_validation/"),
   );
 }
 

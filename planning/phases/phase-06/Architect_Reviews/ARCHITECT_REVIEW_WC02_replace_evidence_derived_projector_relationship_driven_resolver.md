@@ -2,36 +2,36 @@
 {
   "artifactId": "champcity-ai/phase-06/architect_review/WC02",
   "artifactType": "architect_review",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "accepted_for_operator_validation",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02",
   "createdAt": "2026-07-17T14:52:00.000Z",
-  "updatedAt": "2026-07-17T14:52:00.000Z",
   "jsonPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02_replace_evidence_derived_projector_relationship_driven_resolver.json",
   "markdownPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02_replace_evidence_derived_projector_relationship_driven_resolver.md",
   "parentArtifactId": "champcity-ai/phase-06/implementer_report/WC02",
-  "payloadHash": "sha256:4054b8748f3e453a4740ac750483a140e742855ed5648af7f417ec40095b2455",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: Phase 06 WC02 Replace Evidence Projector With Relationship Resolver"
+  },
+  "payloadHash": "sha256:6c20a1d6447bfdd4678335888d7443a5e5b71f1262d3bc4cc5cd9fc9951919e9",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/operator_validation/WC02"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC02",
-      "champcity-ai/phase-06/approval/WC02",
+      "champcity-ai/phase-06/operator_approval/WC02",
       "champcity-ai/phase-06/implementer_report/WC02",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/candidate_disposition/WC01"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/validation_report/WC02"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "architect_review",
-    "title": "Architect Review: Phase 06 WC02 Replace Evidence Projector With Relationship Resolver"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "accepted_for_operator_validation",
+  "updatedAt": "2026-07-17T14:52:00.000Z",
+  "workCardId": "WC02"
 }
 -->
 
@@ -55,7 +55,7 @@ The implementation is not a final Phase 06 kernel endpoint. It is an acceptable 
 ## Sources Reviewed
 
 - `champcity-ai/phase-06/work_card/WC02`
-- `champcity-ai/phase-06/approval/WC02`
+- `champcity-ai/phase-06/operator_approval/WC02`
 - `champcity-ai/phase-06/implementer_report/WC02`
 - `champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory`
 - `champcity-ai/phase-06/candidate_disposition/WC01`

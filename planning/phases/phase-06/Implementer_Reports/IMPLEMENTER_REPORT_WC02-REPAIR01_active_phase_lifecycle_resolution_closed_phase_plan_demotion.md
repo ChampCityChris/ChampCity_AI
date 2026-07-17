@@ -20,8 +20,8 @@
     ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC02-REPAIR01",
-      "champcity-ai/phase-06/approval/WC02-REPAIR01",
-      "champcity-ai/phase-06/validation_report/WC02",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
+      "champcity-ai/phase-06/operator_validation/WC02",
       "champcity-ai/phase-06/architect_review/WC02",
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
       "champcity-ai/phase-05/phase_closeout/PHASE_05",

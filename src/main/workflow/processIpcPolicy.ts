@@ -146,7 +146,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
   ),
   ...routedSupportingPair(
     "projectPlanningDocuments",
-    route("project_mapping_required", "architect", "project-mapping", "roadmap"),
+    route("project_mapping_required", "architect", "project-mapping", "project_roadmap"),
     ["project_planning", "supporting_document"],
   ),
   ...routedSupportingPair(
@@ -169,7 +169,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
         "reconciliation_review_required",
         "architect",
         "repository-reconciliation",
-        "repository_reconciliation",
+        "reconciliation_review",
       ),
     ],
     allowedAuxiliaryArtifactTypes: [],
@@ -181,12 +181,12 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
       "reconciliation_review_required",
       "architect",
       "repository-reconciliation",
-      "repository_reconciliation",
+      "reconciliation_review",
     ),
   ),
   ...routedPair(
     "projectRoadmap",
-    route("project_mapping_required", "architect", "project-mapping", "roadmap"),
+    route("project_mapping_required", "architect", "project-mapping", "project_roadmap"),
     { auxiliary: ["phase_readiness_review", "work_card_plan", "phase_intake"] },
   ),
   ...routedPair(
@@ -285,7 +285,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
       "operator_validation_required",
       "operator",
       "operator-validation",
-      "validation_report",
+          "operator_validation",
     ),
     {
       previewSuffix: ":previewHumanValidationRecord",
@@ -311,7 +311,7 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
         "operator_validation_required",
         "operator",
         "operator-validation",
-        "validation_report",
+      "operator_validation",
       ),
     ],
     allowedAuxiliaryArtifactTypes: [],

@@ -63,6 +63,11 @@ function project(root, projectId = "project-alpha") {
 async function writeArtifact(root, input) {
   const jsonPath = `${input.stem}.json`;
   const markdownPath = `${input.stem}.md`;
+  const data =
+    input.artifactType === "operator_approval" &&
+    input.artifactId.includes("/operator_approval/Operator_Phase_Approval")
+      ? { approvalScope: "phase_work_card_plan", decision: "approved", ...input.data }
+      : input.data ?? {};
   const artifact = buildCanonicalArtifact({
     artifactId: input.artifactId,
     artifactType: input.artifactType,
@@ -86,7 +91,7 @@ async function writeArtifact(root, input) {
       kind: input.artifactType,
       title: input.title ?? `${input.artifactType} ${input.workCardId ?? ""}`.trim(),
       contentMarkdown: input.contentMarkdown ?? `# ${input.title ?? input.artifactType}\n`,
-      data: input.data ?? {},
+      data,
     },
   });
   const absoluteJson = path.join(root, ...jsonPath.split("/"));
@@ -120,8 +125,8 @@ async function seedWorkCardLoop(root, projectId, phaseId, workCardId, options = 
   await writeArtifact(root, {
     projectId,
     phaseId,
-    artifactId: `${projectId}/${phaseId}/approval/Operator_Phase_Approval`,
-    artifactType: "phase_approval",
+    artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
+    artifactType: "operator_approval",
     stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
     data: { decision: "approved" },
   });
@@ -197,6 +202,34 @@ test("project registration rejects duplicate roots, duplicate IDs, and invalid f
   });
 });
 
+test("project registration does not use generic Project Profile as display name", async () => {
+  await temporaryRoot("champcity-project-profile-name-", async (root) => {
+    const storage = path.join(os.tmpdir(), `champcity-workspaces-profile-${process.pid}-${Date.now()}.json`);
+    try {
+      await mkdir(path.join(root, "planning", "project"), { recursive: true });
+      await writeFile(
+        path.join(root, "planning", "project", "PROJECT_PROFILE.json"),
+        JSON.stringify({
+          projectId: "champcity-ai",
+          payload: {
+            title: "Project Profile",
+            contentMarkdown: "# Project Profile\n\n## Project Name\n\nChampCity A/I\n",
+            data: {},
+          },
+        }),
+        "utf8",
+      );
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+      const configured = await registry.addProject({ repositoryRoot: root });
+      assert.equal(configured.projectId, "champcity-ai");
+      assert.equal(configured.displayName, "ChampCity A/I");
+      assert.notEqual(configured.displayName, "Project Profile");
+    } finally {
+      await rm(storage, { force: true });
+    }
+  });
+});
+
 test("invalid selected project is not listed or returned as active route authority", async () => {
   await temporaryRoot("champcity-projects-moved-", async (root) => {
     const storage = path.join(os.tmpdir(), `champcity-workspaces-moved-${process.pid}-${Date.now()}.json`);
@@ -266,7 +299,7 @@ test("external Architect Review, Validation Report, and explicit repair decision
       artifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
       artifactType: "architect_review",
       stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${workCardId}_authority_cutover`,
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${workCardId}`],
       data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
     });
     let result = await projectGraph(root, projectId);
@@ -274,8 +307,8 @@ test("external Architect Review, Validation Report, and explicit repair decision
 
     await writeArtifact(root, {
       projectId, phaseId, workCardId,
-      artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}`,
-      artifactType: "validation_report",
+      artifactId: `${projectId}/${phaseId}/operator_validation/${workCardId}`,
+      artifactType: "operator_validation",
       status: "blocked",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_${workCardId}_authority_cutover`,
       data: { result: "Fail" },
@@ -312,11 +345,11 @@ test("canonical Work Card artifacts never require retired Saved Work Card fields
       revision: 2,
       stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${workCardId}_authority_cutover`,
       sources: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${workCardId}`],
       data: {
         decision: "Ready for Operator validation",
         operatorValidationAuthorized: true,
-        expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+        expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${workCardId}`],
       },
     });
 
@@ -347,7 +380,7 @@ test("canonical Work Card artifacts never require retired Saved Work Card fields
       assert.equal(snapshot.scanResult.blockers.length, 0);
       assert.equal(action.actionId, "operator_validation_required");
       assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
-      assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/validation_report/${workCardId}`);
+      assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/operator_validation/${workCardId}`);
       assert.equal(
         snapshot.projection.state.blockingConditions.some((blocker) =>
           blocker.message.includes("Saved Work Card JSON is not valid"),
@@ -461,13 +494,13 @@ test("final repair routes combined parent review, parent validation, and complet
       artifactId: `${projectId}/${phaseId}/architect_review/WC01-REPAIR01`,
       artifactType: "architect_review",
       stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_authority_cutover`,
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/WC01-REPAIR01`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/WC01-REPAIR01`],
       data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
     });
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01-REPAIR01",
-      artifactId: `${projectId}/${phaseId}/validation_report/WC01-REPAIR01`,
-      artifactType: "validation_report",
+      artifactId: `${projectId}/${phaseId}/operator_validation/WC01-REPAIR01`,
+      artifactType: "operator_validation",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01`,
       data: { result: "Pass" },
     });
@@ -486,7 +519,7 @@ test("final repair routes combined parent review, parent validation, and complet
         `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
         `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
       ],
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/WC01`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/WC01`],
       data: {
         decision: "Ready for Operator validation",
         operatorValidationAuthorized: true,
@@ -502,12 +535,12 @@ test("final repair routes combined parent review, parent validation, and complet
     action = result.projection.state.currentAction;
     assert.equal(action.actionId, "operator_validation_required");
     assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
-    assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/validation_report/WC01`);
+    assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/operator_validation/WC01`);
 
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01",
-      artifactId: `${projectId}/${phaseId}/validation_report/WC01`,
-      artifactType: "validation_report",
+      artifactId: `${projectId}/${phaseId}/operator_validation/WC01`,
+      artifactType: "operator_validation",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
       sources: [`${projectId}/${phaseId}/architect_review/WC01`],
       expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/WC01`],
@@ -521,7 +554,7 @@ test("final repair routes combined parent review, parent validation, and complet
     assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/candidate_disposition/WC01`);
     assert.equal(action.expectedOutput.artifactType, "candidate_disposition");
     assert.deepEqual(action.sourceArtifactIds, [
-      `${projectId}/${phaseId}/validation_report/WC01`,
+      `${projectId}/${phaseId}/operator_validation/WC01`,
       `${projectId}/${phaseId}/architect_review/WC01`,
       `${projectId}/${phaseId}/work_card/WC01`,
       `${projectId}/${phaseId}/implementer_report/WC01`,
@@ -540,7 +573,7 @@ test("final repair routes combined parent review, parent validation, and complet
         `${projectId}/${phaseId}/architect_review/WC01`,
         `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
         `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
-        `${projectId}/${phaseId}/validation_report/WC01`,
+        `${projectId}/${phaseId}/operator_validation/WC01`,
       ],
       data: { status: "completed_via_repair", workCardId: "WC01" },
     });
@@ -710,8 +743,8 @@ test("relationship resolver reports ambiguous candidate evidence as a blocker", 
         projectId,
         phaseId,
         workCardId,
-        artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}-${suffix}`,
-        artifactType: "validation_report",
+        artifactId: `${projectId}/${phaseId}/operator_validation/${workCardId}-${suffix}`,
+        artifactType: "operator_validation",
         stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_${workCardId}_${suffix}`,
         data: { validationResult: "Pass" },
       });
@@ -850,13 +883,13 @@ test("manual refresh and cold start produce the same route after committed dispo
       artifactId: `${projectId}/${phaseId}/architect_review/WC01`,
       artifactType: "architect_review",
       stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC01`,
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/WC01`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/WC01`],
       data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
     });
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01",
-      artifactId: `${projectId}/${phaseId}/validation_report/WC01`,
-      artifactType: "validation_report",
+      artifactId: `${projectId}/${phaseId}/operator_validation/WC01`,
+      artifactType: "operator_validation",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
       data: { validationResult: "Pass" },
     });
@@ -876,7 +909,7 @@ test("manual refresh and cold start produce the same route after committed dispo
         artifactId: `${projectId}/${phaseId}/candidate_disposition/WC01`,
         artifactType: "candidate_disposition",
         stem: `planning/phases/${phaseId}/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01`,
-        sources: [`${projectId}/${phaseId}/validation_report/WC01`],
+        sources: [`${projectId}/${phaseId}/operator_validation/WC01`],
         data: { status: "completed", workCardId: "WC01" },
       });
 
@@ -954,8 +987,8 @@ test("closed phases and active_for_planning activation do not route stale Phase 
     await writeArtifact(root, {
       projectId,
       phaseId: "phase-04",
-      artifactId: `${projectId}/phase-04/approval/Operator_Phase_Approval`,
-      artifactType: "phase_approval",
+      artifactId: `${projectId}/phase-04/operator_approval/Operator_Phase_Approval`,
+      artifactType: "operator_approval",
       stem: "planning/phases/phase-04/Operator_Phase_Approval",
       data: { decision: "approved" },
     });
@@ -1009,8 +1042,8 @@ test("closed phases and active_for_planning activation do not route stale Phase 
     await writeArtifact(root, {
       projectId,
       phaseId: "phase-06",
-      artifactId: `${projectId}/phase-06/approval/Operator_Phase_Approval`,
-      artifactType: "phase_approval",
+      artifactId: `${projectId}/phase-06/operator_approval/Operator_Phase_Approval`,
+      artifactType: "operator_approval",
       stem: "planning/phases/phase-06/Operator_Phase_Approval",
       data: { decision: "approved" },
     });
@@ -1077,6 +1110,66 @@ test("conflicting live phase activations block instead of guessing current actio
   });
 });
 
+test("old generic phase approval is not live resolver authority", async () => {
+  await temporaryRoot("champcity-old-phase-approval-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-06";
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      artifactId: `${projectId}/${phaseId}/phase_activation/${phaseId}`,
+      artifactType: "phase_activation",
+      stem: `planning/phases/${phaseId}/Phase_Activation`,
+      data: { status: "active_for_planning", phaseId },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      artifactId: `${projectId}/${phaseId}/phase_planning/Phase_Planning`,
+      artifactType: "phase_planning",
+      stem: `planning/phases/${phaseId}/Phase_Planning`,
+      expectedOutputs: [`${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`],
+      data: { phaseId, status: "draft_for_operator_review" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      artifactId: `${projectId}/${phaseId}/work_card_plan/Work_Card_Plan`,
+      artifactType: "work_card_plan",
+      stem: `planning/phases/${phaseId}/Work_Card_Plan`,
+      expectedOutputs: [`${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`],
+      data: {
+        status: "approved",
+        candidates: [{ id: "WC01", title: "Target protocol", order: 1 }],
+      },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      artifactId: `${projectId}/${phaseId}/approval/Operator_Phase_Approval`,
+      artifactType: "phase_approval",
+      stem: `planning/phases/${phaseId}/Operator_Phase_Approval_legacy`,
+      data: { decision: "approved" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      workCardId: "WC01",
+      artifactId: `${projectId}/${phaseId}/work_card/WC01`,
+      artifactType: "work_card",
+      stem: `planning/phases/${phaseId}/Work_Cards/WC01_target_protocol`,
+      expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC01`],
+      data: { workCardId: "WC01", status: "ready_for_implementer" },
+    });
+
+    const result = await projectGraph(root, projectId);
+    const action = result.projection.state.currentAction;
+    assert.equal(action.actionId, "operator_phase_approval_required");
+    assert.equal(action.expectedOutput.artifactType, "operator_approval");
+    assert.notEqual(action.actionId, "implementer_execution_required");
+  });
+});
+
 test("invalid later lifecycle evidence blocks stale closed-phase plan fallback", async () => {
   await temporaryRoot("champcity-invalid-lifecycle-", async (root) => {
     const projectId = "project-alpha";
@@ -1103,8 +1196,8 @@ test("invalid later lifecycle evidence blocks stale closed-phase plan fallback",
     await writeArtifact(root, {
       projectId,
       phaseId: "phase-04",
-      artifactId: `${projectId}/phase-04/approval/Operator_Phase_Approval`,
-      artifactType: "phase_approval",
+      artifactId: `${projectId}/phase-04/operator_approval/Operator_Phase_Approval`,
+      artifactType: "operator_approval",
       stem: "planning/phases/phase-04/Operator_Phase_Approval",
       data: { decision: "approved" },
     });
@@ -1162,7 +1255,7 @@ test("WC09-REPAIR02 regression binds exact report/review and routes validation w
       artifactId: `${projectId}/${phaseId}/architect_review/${repairId}`,
       artifactType: "architect_review",
       stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_${repairId}_locked_contract`,
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/${repairId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${repairId}`],
       data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
     });
     result = await projectGraph(root, projectId, 2);
@@ -1236,7 +1329,7 @@ test("live WC02 evidence routes to parent Operator Validation despite later repa
         `${projectId}/${phaseId}/work_card/${parentId}`,
         `${projectId}/${phaseId}/work_card/${repairId}`,
       ],
-      expectedOutputs: [`${projectId}/${phaseId}/validation_report/${parentId}`],
+      expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${parentId}`],
       data: {
         workCardId: parentId,
         decision: "Ready for Operator validation",
@@ -1278,8 +1371,8 @@ test("live WC02 evidence routes to parent Operator Validation despite later repa
     assert.equal(action.workCardId, undefined);
     assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/${parentId}`);
     assert.deepEqual(action.expectedOutput, {
-      artifactId: `${projectId}/${phaseId}/validation_report/${parentId}`,
-      artifactType: "validation_report",
+      artifactId: `${projectId}/${phaseId}/operator_validation/${parentId}`,
+      artifactType: "operator_validation",
     });
     assert.equal(
       result.projection.state.blockingConditions.some((blocker) =>

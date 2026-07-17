@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/validation_report/WC02-REPAIR01",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-17T20:00:00.000Z",
   "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json",
   "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.md",
   "parentArtifactId": "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
   "payload": {
-    "kind": "validation_report",
+    "kind": "operator_validation",
     "title": "Validation Report: Phase 06 WC02-REPAIR01 — Operator Validation Failure"
   },
-  "payloadHash": "sha256:d5cc204d3d4d9b4216670e8e2c213a9e8ae06eac4d069ff9c76888ab61304996",
+  "payloadHash": "sha256:906ae05c47c996f03c93a8365aa20856c71f834d4fc75bbc94c8c8f637500cac",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -20,10 +20,10 @@
     ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC02-REPAIR01",
-      "champcity-ai/phase-06/approval/WC02-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/project/supporting_document/PROJECT_PROFILE"
     ],
@@ -31,7 +31,7 @@
   },
   "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "failed",
+  "status": "blocked",
   "updatedAt": "2026-07-17T20:20:00.000Z",
   "workCardId": "WC02-REPAIR01"
 }
@@ -48,7 +48,7 @@ Result: failed with partial pass
 
 The original stale Phase 04 route appears repaired. The app no longer shows `phase-04`, no longer shows Phase 04 `work_card_authoring_required`, and does not route to Ad Hoc Work Card Capture for stale Phase 04 `WC04`.
 
-Operator validation still fails because the app now shows `phase-06` with `operator_phase_approval_required` even though Phase 06 Operator Phase Approval already exists at `champcity-ai/phase-06/approval/Operator_Phase_Approval`.
+Operator validation still fails because the app now shows `phase-06` with `operator_phase_approval_required` even though Phase 06 Operator Phase Approval already exists at `champcity-ai/phase-06/operator_approval/Operator_Phase_Approval`.
 
 The active project dropdown also displays `Project Profile` instead of a usable workspace/project name.
 

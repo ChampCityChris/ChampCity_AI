@@ -2,37 +2,37 @@
 {
   "artifactId": "champcity-ai/phase-06/architect_review/WC01-REPAIR01",
   "artifactType": "architect_review",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "accepted_for_operator_validation",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01-REPAIR01",
   "createdAt": "2026-07-17T03:40:00.000Z",
-  "updatedAt": "2026-07-17T03:40:00.000Z",
   "jsonPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json",
   "markdownPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-  "payloadHash": "sha256:5bd644b5b1846bb6c7be354e3fe84f6cc005df0af85ec241c3e858b0fe13e186",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: Phase 06 WC01-REPAIR01 Design Document Metadata and Inventory Completion"
+  },
+  "payloadHash": "sha256:8251137ed5cc03842dc6a6ad64e5443c45219292385b7b598448dd2f3f0605db",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/operator_validation/WC01-REPAIR01"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-06/approval/WC01-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/implementer_report/WC01",
       "champcity-ai/phase-06/implementer_report/WC01-REPAIR01"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/validation_report/WC01-REPAIR01"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "architect_review",
-    "title": "Architect Review: Phase 06 WC01-REPAIR01 Design Document Metadata and Inventory Completion"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "accepted_for_operator_validation",
+  "updatedAt": "2026-07-17T03:40:00.000Z",
+  "workCardId": "WC01-REPAIR01"
 }
 -->
 

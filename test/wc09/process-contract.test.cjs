@@ -92,6 +92,37 @@ test("subordinate project artifacts and optional handoff utilities are not runti
   assert.equal(packet.advancesWorkflowState, false);
 });
 
+test("operator gates use scoped target protocol artifact types only", () => {
+  const expectedByAction = new Map(
+    defaultLifecycleActionTemplates.map((item) => [
+      item.actionId,
+      item.expectedOutputArtifactType,
+    ]),
+  );
+  assert.equal(expectedByAction.get("operator_project_approval_required"), "operator_approval");
+  assert.equal(expectedByAction.get("operator_phase_approval_required"), "operator_approval");
+  assert.equal(expectedByAction.get("operator_work_card_approval_required"), "operator_approval");
+  assert.equal(expectedByAction.get("operator_validation_required"), "operator_validation");
+  assert.equal(expectedByAction.get("operator_phase_closeout_approval_required"), "operator_approval");
+  assert.equal(expectedByAction.get("project_mapping_required"), "project_roadmap");
+  assert.equal(expectedByAction.get("roadmap_update_required"), "project_roadmap");
+
+  const runtimeArtifactTypes = new Set(
+    defaultLifecycleActionTemplates.map((item) => item.expectedOutputArtifactType),
+  );
+  for (const legacyType of [
+    "project_approval",
+    "phase_approval",
+    "work_card_approval",
+    "phase_closeout_approval",
+    "validation_report",
+    "repository_reconciliation",
+    "roadmap",
+  ]) {
+    assert.equal(runtimeArtifactTypes.has(legacyType), false, legacyType);
+  }
+});
+
 test("conformance rejects a subordinate action promoted into the top-level process", () => {
   const catalog = materializeActionCatalog(
     defaultLifecycleActionTemplates,

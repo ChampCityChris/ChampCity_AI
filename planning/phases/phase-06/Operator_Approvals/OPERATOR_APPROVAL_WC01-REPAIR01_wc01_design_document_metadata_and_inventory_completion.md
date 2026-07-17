@@ -1,36 +1,36 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/approval/WC01-REPAIR01",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01-REPAIR01",
+  "artifactId": "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T02:55:00.000Z",
-  "updatedAt": "2026-07-17T02:55:00.000Z",
   "jsonPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json",
   "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-  "payloadHash": "sha256:2cd01bf926c511978eb3ea6c06e6d652055eada9b651f1dbd3779fa6a3f5005b",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: Phase 06 WC01-REPAIR01"
+  },
+  "payloadHash": "sha256:2af69de9a63296e626a40b60061b1f03aebc347822c1ad8b85cd6440fe718a79",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/implementer_report/WC01-REPAIR01"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC01-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC01",
       "champcity-ai/phase-06/implementer_report/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/implementer_report/WC01-REPAIR01"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: Phase 06 WC01-REPAIR01"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T02:55:00.000Z",
+  "workCardId": "WC01-REPAIR01"
 }
 -->
 

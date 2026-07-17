@@ -257,7 +257,7 @@ interface DecisionAuthorityPlan {
 const reviewEvidenceTypes = new Set([
   "implementer_report",
   "architect_review",
-  "validation_report",
+  "operator_validation",
 ]);
 
 const workCardCreationAuthorityTypes = new Set([
@@ -265,22 +265,21 @@ const workCardCreationAuthorityTypes = new Set([
   "phase_planning",
   "work_card_plan",
   "backlog",
-  "roadmap",
+  "project_roadmap",
 ]);
 
 const phaseCloseoutAuthorityTypes = new Set([
   "phase_map",
   "phase_planning",
   "work_card_plan",
-  "approval",
+  "operator_approval",
   "phase_closeout",
-  "phase_closeout_approval",
-  "roadmap",
+  "project_roadmap",
 ]);
 
 const implementerAntecedentTypes = new Set([
   "architect_review",
-  "validation_report",
+  "operator_validation",
   "repair_record",
 ]);
 
@@ -371,7 +370,7 @@ function buildDecisionAuthorityPlan(
           isActiveAuthorityStatus(entry.status);
         const projectAuthority =
           !entry.phaseId &&
-          ["phase_map", "roadmap"].includes(entry.artifactType) &&
+          ["phase_map", "project_roadmap"].includes(entry.artifactType) &&
           isActiveAuthorityStatus(entry.status);
         if (phaseAuthority || projectAuthority) add(entry);
       }
@@ -395,7 +394,7 @@ function buildDecisionAuthorityPlan(
           isActiveAuthorityStatus(entry.status);
         const projectAuthority =
           !entry.phaseId &&
-          ["phase_map", "roadmap"].includes(entry.artifactType) &&
+          ["phase_map", "project_roadmap"].includes(entry.artifactType) &&
           isActiveAuthorityStatus(entry.status);
         if (phaseAuthority || projectAuthority) add(entry);
       }

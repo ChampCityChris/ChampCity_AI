@@ -700,7 +700,7 @@ function rebindWorkCardLoopAction(
             ? [phaseExecution.workCardPlanArtifactId]
             : []),
           ...next.sourceArtifactIds.filter((artifactId) =>
-            artifactId.includes("/approval/"),
+            artifactId.includes("/operator_approval/"),
           ),
         ]),
         expectedOutput: {
@@ -738,10 +738,10 @@ function rebindWorkCardLoopAction(
   if (!targetArtifactId) return copyActionRecord(next);
 
   const dynamicOutputTypes: Readonly<Record<string, string>> = {
-    operator_work_card_approval_required: "work_card_approval",
+    operator_work_card_approval_required: "operator_approval",
     implementer_execution_required: "implementer_report",
     architect_review_of_implementer_report_required: "architect_review",
-    operator_validation_required: "validation_report",
+    operator_validation_required: "operator_validation",
     architect_disposition_required: "candidate_disposition",
     candidate_disposition_required: "candidate_disposition",
   };

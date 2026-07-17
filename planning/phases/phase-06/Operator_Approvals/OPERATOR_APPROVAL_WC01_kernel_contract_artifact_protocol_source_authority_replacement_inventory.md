@@ -1,36 +1,36 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/approval/WC01",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01",
+  "artifactId": "champcity-ai/phase-06/operator_approval/WC01",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T02:25:00.000Z",
-  "updatedAt": "2026-07-17T02:25:00.000Z",
   "jsonPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json",
   "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
-  "payloadHash": "sha256:ebcb4e3050fdd27910b1b3c7d3dc90a07e0a58f0efc459cecfbf56b0054608b7",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: Phase 06 WC01"
+  },
+  "payloadHash": "sha256:00b90a98ba55594befd296a8e8e6e63905c7f556340aa8ae70a344f8b4f292ae",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/work_card/WC01",
-      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
-      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/implementer_report/WC01"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: Phase 06 WC01"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T02:25:00.000Z",
+  "workCardId": "WC01"
 }
 -->
 

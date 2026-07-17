@@ -2,38 +2,38 @@
 {
   "artifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR02",
   "artifactType": "work_card",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 4,
-  "status": "approved_for_implementer_execution",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02-REPAIR02",
   "createdAt": "2026-07-17T20:00:00.000Z",
-  "updatedAt": "2026-07-17T21:05:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC02-REPAIR02_phase_approval_recognition_project_display_name_repair.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC02-REPAIR02_phase_approval_recognition_project_display_name_repair.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
-  "payloadHash": "sha256:6e796d4a95568a3eb81e1aa9bbe9590296f6b3727b105147a54cc61d7cdb911e",
-  "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/validation_report/WC02-REPAIR01",
-      "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
-      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
-      "champcity-ai/project/supporting_document/PROJECT_PROFILE"
-    ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/approval/WC02-REPAIR02",
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
-    ],
-    "supersedes": [],
-    "children": []
-  },
   "payload": {
     "kind": "work_card",
     "title": "Work Card: Phase 06 WC02-REPAIR02 — Full Gating Artifact Protocol Migration and Project Display Name Repair"
-  }
+  },
+  "payloadHash": "sha256:1f897be581416d352436b5dbd7fb2de8acedb7df180c7bf4365a13064fe905e0",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
+      "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/project/supporting_document/PROJECT_PROFILE"
+    ],
+    "supersedes": []
+  },
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "approved_for_implementer_execution",
+  "updatedAt": "2026-07-17T21:05:00.000Z",
+  "workCardId": "WC02-REPAIR02"
 }
 -->
 
@@ -60,7 +60,7 @@ WC01 documented the old authority surfaces and defined the target Phase 06 artif
 Current mismatch:
 
 - `src/shared/workflow/processContract.ts` still uses old gate terms such as `phase_approval`, `project_approval`, `work_card_approval`, and `phase_closeout_approval`.
-- Current repository artifacts use generic `approval` artifacts, including `champcity-ai/phase-06/approval/Operator_Phase_Approval`.
+- Current repository artifacts use generic `approval` artifacts, including `champcity-ai/phase-06/operator_approval/Operator_Phase_Approval`.
 - WC01 target protocol identifies operator approval evidence as `operator_approval`.
 
 The correct repair is to complete the target protocol migration. Do not create duplicate compatibility artifacts. Do not preserve old artifact terms as resolver fallback authority. Do not mark controlling gate artifacts historical to bypass the resolver.

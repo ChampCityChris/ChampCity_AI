@@ -1,35 +1,35 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/approval/WC02-REPAIR01",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02-REPAIR01",
+  "artifactId": "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T18:10:00.000Z",
-  "updatedAt": "2026-07-17T18:10:00.000Z",
   "jsonPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR01_active_phase_lifecycle_resolution_closed_phase_plan_demotion.json",
   "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR01_active_phase_lifecycle_resolution_closed_phase_plan_demotion.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR01",
-  "payloadHash": "sha256:deb6ae8675d66af494047713585543a5e36c858fef67175dd634454885f02d3f",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: Phase 06 WC02-REPAIR01"
+  },
+  "payloadHash": "sha256:da8f5072ffb323573c31d264d32bb162d0155ce68adcdec172c0f46f0f4429d1",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
-      "champcity-ai/phase-06/validation_report/WC02",
-      "champcity-ai/phase-06/architect_review/WC02"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR01"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
+      "champcity-ai/phase-06/operator_validation/WC02",
+      "champcity-ai/phase-06/architect_review/WC02"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: Phase 06 WC02-REPAIR01"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T18:10:00.000Z",
+  "workCardId": "WC02-REPAIR01"
 }
 -->
 

@@ -2,40 +2,40 @@
 {
   "artifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR01",
   "artifactType": "work_card",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 4,
-  "status": "approved_for_implementer_execution",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02-REPAIR01",
   "createdAt": "2026-07-17T17:15:00.000Z",
-  "updatedAt": "2026-07-17T18:10:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC02-REPAIR01_living_work_card_plan_closeout_active_phase_resolution.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC02-REPAIR01_living_work_card_plan_closeout_active_phase_resolution.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
-  "payloadHash": "sha256:9b46a8441557c66487bf532adb4cf85cb3c4d41be3ff2d2649ecd0609d52c79b",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Phase 06 WC02-REPAIR01 — Active Phase Lifecycle Resolution and Closed-Phase Plan Demotion"
+  },
+  "payloadHash": "sha256:863fde6a62b8a7bc06f43fd173b94cc40762315ac0fa39a0426b2e93ae184a43",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01"
+    ],
     "sources": [
-      "champcity-ai/phase-06/validation_report/WC02",
+      "champcity-ai/phase-06/operator_validation/WC02",
       "champcity-ai/phase-06/architect_review/WC02",
       "champcity-ai/phase-06/work_card/WC02",
-      "champcity-ai/phase-06/approval/WC02",
-      "champcity-ai/phase-06/approval/WC02-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/WC02",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
       "champcity-ai/phase-05/phase_closeout/PHASE_05",
       "champcity-ai/phase-06/phase_activation/phase-06",
       "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "work_card",
-    "title": "Work Card: Phase 06 WC02-REPAIR01 — Active Phase Lifecycle Resolution and Closed-Phase Plan Demotion"
-  }
+  "revision": 4,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "approved_for_implementer_execution",
+  "updatedAt": "2026-07-17T18:10:00.000Z",
+  "workCardId": "WC02-REPAIR01"
 }
 -->
 

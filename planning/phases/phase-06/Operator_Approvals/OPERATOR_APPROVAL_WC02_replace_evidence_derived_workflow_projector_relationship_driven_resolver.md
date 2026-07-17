@@ -1,36 +1,36 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-06/approval/WC02",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC02",
+  "artifactId": "champcity-ai/phase-06/operator_approval/WC02",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T13:40:00.000Z",
-  "updatedAt": "2026-07-17T13:40:00.000Z",
   "jsonPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json",
   "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
-  "payloadHash": "sha256:06dca81f1602ee6dd22275233538ce37fd6c3c2ba4a63128f33803839d10edf3",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: Phase 06 WC02 Replace EvidenceDerivedWorkflowProjector with Relationship-Driven Resolver"
+  },
+  "payloadHash": "sha256:afed1a42a1ce3b88a42b36009ef4b0e0ab4b96fe9c49be097f4db3839343968f",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/implementer_report/WC02"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC02",
       "champcity-ai/phase-06/candidate_disposition/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/implementer_report/WC02"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: Phase 06 WC02 Replace EvidenceDerivedWorkflowProjector with Relationship-Driven Resolver"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T13:40:00.000Z",
+  "workCardId": "WC02"
 }
 -->
 

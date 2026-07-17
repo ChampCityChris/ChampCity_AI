@@ -2,38 +2,38 @@
 {
   "artifactId": "champcity-ai/phase-06/work_card/WC01",
   "artifactType": "work_card",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 2,
-  "status": "approved_for_implementer_execution",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01",
   "createdAt": "2026-07-17T02:20:00.000Z",
-  "updatedAt": "2026-07-17T02:25:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-  "payloadHash": "sha256:48ee859d35e821607a08ed32e4ecf31f21232edbd740a48bdb9d94e1f01c8272",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Phase 06 WC01 — Kernel Contract, Artifact Protocol, and Source Authority Replacement Inventory"
+  },
+  "payloadHash": "sha256:053fdfe78c55a7a214b1230c87944ddf4ec9b849e7a727b18e71fc5f3adf3874",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/implementer_report/WC01"
+    ],
     "sources": [
-      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
-      "champcity-ai/phase-06/approval/WC01",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/operator_approval/WC01",
       "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
       "champcity-ai/phase-06/phase_planning/Phase_Planning",
       "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation_register/Project_Observation_Register"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
-      "champcity-ai/phase-06/implementer_report/WC01"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "work_card",
-    "title": "Work Card: Phase 06 WC01 — Kernel Contract, Artifact Protocol, and Source Authority Replacement Inventory"
-  }
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "approved_for_implementer_execution",
+  "updatedAt": "2026-07-17T02:25:00.000Z",
+  "workCardId": "WC01"
 }
 -->
 

@@ -1,44 +1,45 @@
 {
-  "artifactId": "champcity-ai/phase-06/validation_report/WC01-REPAIR01",
-  "artifactType": "validation_report",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "passed",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01-REPAIR01",
+  "artifactId": "champcity-ai/phase-06/operator_validation/WC01-REPAIR01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-17T03:50:00.000Z",
-  "updatedAt": "2026-07-17T03:50:00.000Z",
   "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.json",
   "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-  "payloadHash": "sha256:f9318cf9d3f88d3a00ea9d3b6cc80ad0183ec78896ff92f9d27e5db621310b59",
+  "payload": {
+    "data": {
+      "decision": "passed_accept_for_disposition",
+      "parentWorkCardId": "WC01",
+      "phaseId": "phase-06",
+      "result": "passed",
+      "runtimeUiValidationRequired": false,
+      "validationScope": "work_card",
+      "validationType": "operator_visual_artifact_validation",
+      "workCardId": "WC01-REPAIR01"
+    },
+    "kind": "operator_validation",
+    "title": "Validation Report: Phase 06 WC01-REPAIR01 Visual Validation"
+  },
+  "payloadHash": "sha256:7fa146e17f48deb366558a3e113c3780b4123f17fa97d00cbc2ff0f91ae1e7ec",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/candidate_disposition/WC01"
+    ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-06/approval/WC01-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
       "champcity-ai/phase-06/implementer_report/WC01-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC01-REPAIR01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/implementer_report/WC01"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/candidate_disposition/WC01"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: Phase 06 WC01-REPAIR01 Visual Validation",
-    "data": {
-      "phaseId": "phase-06",
-      "workCardId": "WC01-REPAIR01",
-      "parentWorkCardId": "WC01",
-      "validationType": "operator_visual_artifact_validation",
-      "result": "passed",
-      "runtimeUiValidationRequired": false,
-      "decision": "passed_accept_for_disposition"
-    }
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T03:50:00.000Z",
+  "workCardId": "WC01-REPAIR01"
 }

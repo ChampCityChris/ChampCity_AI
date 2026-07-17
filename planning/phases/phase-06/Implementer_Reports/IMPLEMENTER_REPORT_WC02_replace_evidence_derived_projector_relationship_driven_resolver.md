@@ -20,7 +20,7 @@
     ],
     "sources": [
       "champcity-ai/phase-06/work_card/WC02",
-      "champcity-ai/phase-06/approval/WC02",
+      "champcity-ai/phase-06/operator_approval/WC02",
       "champcity-ai/phase-06/candidate_disposition/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/architect_review/WC01-REPAIR01"

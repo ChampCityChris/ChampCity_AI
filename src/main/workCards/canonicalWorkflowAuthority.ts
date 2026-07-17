@@ -281,7 +281,7 @@ export class CanonicalWorkflowAuthority {
         ]),
         expectedOutputs:
           input.decision === "Ready for Operator validation"
-            ? [`${latest.state.projectId}/${latest.phaseId}/validation_report/${latest.workCardId}`]
+            ? [`${latest.state.projectId}/${latest.phaseId}/operator_validation/${latest.workCardId}`]
             : [],
         supersedes: [],
         children: [],
@@ -334,7 +334,7 @@ export class CanonicalWorkflowAuthority {
       (entry) => entry.artifactType === "implementer_report" && entry.workCardId?.match(/-REPAIR\d+$/i),
     );
     const hasParentValidation = resolution.sourceEntries.some(
-      (entry) => entry.artifactType === "validation_report" && entry.workCardId === workCardId,
+      (entry) => entry.artifactType === "operator_validation" && entry.workCardId === workCardId,
     );
     if (!phaseId || !workCardId || !hasRepairWorkCard || !hasRepairReport || !hasParentValidation) {
       throw new Error("completed_via_repair requires exact parent validation and final repair evidence.");

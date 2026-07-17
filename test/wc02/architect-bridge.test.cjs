@@ -41,7 +41,7 @@ function architectDispositionAction() {
       screenId: "architect-bridge",
       targetArtifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
       sourceArtifactIds: [
-        `${projectId}/${phaseId}/validation_report/${workCardId}`,
+        `${projectId}/${phaseId}/operator_validation/${workCardId}`,
         `${projectId}/${phaseId}/architect_review/${workCardId}`,
         `${projectId}/${phaseId}/work_card/${workCardId}`,
         `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
@@ -139,7 +139,7 @@ test("architect disposition packet targets repaired parent candidate disposition
   assert.equal(data.expectedOutput.artifactId, `${projectId}/${phaseId}/candidate_disposition/${workCardId}`);
   assert.equal(data.expectedOutput.artifactType, "candidate_disposition");
   for (const requiredSource of [
-    `${projectId}/${phaseId}/validation_report/${workCardId}`,
+    `${projectId}/${phaseId}/operator_validation/${workCardId}`,
     `${projectId}/${phaseId}/architect_review/${workCardId}`,
     `${projectId}/${phaseId}/work_card/${workCardId}`,
     `${projectId}/${phaseId}/implementer_report/${workCardId}`,

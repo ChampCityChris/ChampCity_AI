@@ -206,7 +206,9 @@ function deriveStep(
         )
       : step("project_intake_required", null, [], null, [], null);
   }
-  const phaseApproval = first(graph.byType("phase_approval", phaseId));
+  const phaseApproval = first(
+    scopedOperatorApprovals(graph, phaseId, "phase_work_card_plan"),
+  );
   if (!plan || !phaseApproval) {
     const sources = graph.byType("phase_planning", phaseId);
     const source = plan ?? sources[0] ?? null;
@@ -279,7 +281,7 @@ function deriveWorkCardStep(
   const decision = text(reviewData.decision).toLowerCase();
   const authorized = reviewData.operatorValidationAuthorized === true || decision.includes("ready for operator validation");
   if (authorized) {
-    const expectedValidationId = exactExpectedOutput(review, "validation_report");
+    const expectedValidationId = exactExpectedOutput(review, "operator_validation");
     const validation = expectedValidationId ? activeEvidence(graph.controlling(expectedValidationId)) : null;
     if (!validation) {
       return step(
@@ -569,7 +571,7 @@ function deriveRepairedParentStep(
     );
   }
   const validations = graph.forWorkCard(
-    "validation_report",
+    "operator_validation",
     phaseId,
     parentWorkCard.artifact.workCardId ?? "",
   );
@@ -586,7 +588,7 @@ function deriveRepairedParentStep(
       "operator_validation_required",
       parentWorkCard.artifact.artifactId,
       [parentReview.artifact.artifactId],
-      exactExpectedOutput(parentReview, "validation_report"),
+      exactExpectedOutput(parentReview, "operator_validation"),
       [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport],
       parentWorkCard,
       [...resolution.blockers, ...validationBlockers],
@@ -906,7 +908,7 @@ function candidateResolution(
   if (["carried_forward", "deferred", "cancelled"].includes(dispositionStatus)) {
     return { status: dispositionStatus, evidenceArtifactIds: [disposition.artifact.artifactId], blockers };
   }
-  const validations = graph.forWorkCard("validation_report", phaseId, candidateId);
+  const validations = graph.forWorkCard("operator_validation", phaseId, candidateId);
   if (validations.length > 1) {
     blockers.push(lineageBlocker(
       "candidate_validation_ambiguous",
@@ -970,6 +972,21 @@ function candidateResolution(
     return { status: "completed", evidenceArtifactIds: [passing.artifact.artifactId], blockers };
   }
   return { status: "unresolved", evidenceArtifactIds: [], blockers };
+}
+
+function scopedOperatorApprovals(
+  graph: VerifiedArtifactGraph,
+  phaseId: string,
+  scope: string,
+): VerifiedArtifactNode[] {
+  return graph.byType("operator_approval", phaseId).filter((node) => {
+    const data = recordData(node);
+    return (
+      text(data.approvalScope) === scope ||
+      (scope === "phase_work_card_plan" &&
+        text(data.approvalScope) === "phase")
+    );
+  });
 }
 
 function readCandidates(plan: VerifiedArtifactNode | null): Array<{ id: string; title: string; order: number }> {
