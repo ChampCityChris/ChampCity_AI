@@ -924,6 +924,220 @@ test("multiple configured projects refresh independently without route bleed", a
   });
 });
 
+test("closed phases and active_for_planning activation do not route stale Phase 04 planned work", async () => {
+  await temporaryRoot("champcity-phase-lifecycle-", async (root) => {
+    const projectId = "project-alpha";
+    const phase04CloseoutId = `${projectId}/phase-04/phase_closeout/PHASE_04`;
+    const phase05ActivationId = `${projectId}/phase-05/phase_activation/phase-05`;
+    const phase05CloseoutId = `${projectId}/phase-05/phase_closeout/PHASE_05`;
+    const phase06ActivationId = `${projectId}/phase-06/phase_activation/phase-06`;
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: `${projectId}/phase-04/phase_activation/phase-04`,
+      artifactType: "phase_activation",
+      stem: "planning/phases/phase-04/Phase_Activation",
+      data: { status: "active", phaseId: "phase-04" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: `${projectId}/phase-04/work_card_plan/Work_Card_Plan`,
+      artifactType: "work_card_plan",
+      stem: "planning/phases/phase-04/Work_Card_Plan",
+      expectedOutputs: [`${projectId}/phase-04/work_card/WC04`],
+      data: {
+        status: "approved",
+        candidates: [{ id: "WC04", title: "Stale closed-phase candidate", order: 4 }],
+      },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: `${projectId}/phase-04/approval/Operator_Phase_Approval`,
+      artifactType: "phase_approval",
+      stem: "planning/phases/phase-04/Operator_Phase_Approval",
+      data: { decision: "approved" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: phase04CloseoutId,
+      artifactType: "phase_closeout",
+      stem: "planning/phases/phase-04/Phase_Closeout/PHASE_04_closeout",
+      expectedOutputs: [phase05ActivationId],
+      data: { status: "closed", nextPhaseId: "phase-05" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-05",
+      artifactId: phase05ActivationId,
+      artifactType: "phase_activation",
+      stem: "planning/phases/phase-05/Phase_Activation",
+      sources: [phase04CloseoutId],
+      data: { status: "active", phaseId: "phase-05" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-05",
+      artifactId: phase05CloseoutId,
+      artifactType: "phase_closeout",
+      stem: "planning/phases/phase-05/Phase_Closeout/PHASE_05_closeout",
+      expectedOutputs: [phase06ActivationId],
+      data: { status: "closed", nextPhaseId: "phase-06" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-06",
+      artifactId: phase06ActivationId,
+      artifactType: "phase_activation",
+      stem: "planning/phases/phase-06/Phase_Activation",
+      sources: [phase05CloseoutId],
+      data: { status: "active_for_planning", phaseId: "phase-06" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-06",
+      artifactId: `${projectId}/phase-06/work_card_plan/Work_Card_Plan`,
+      artifactType: "work_card_plan",
+      stem: "planning/phases/phase-06/Work_Card_Plan",
+      data: {
+        status: "approved",
+        candidates: [{ id: "WC02-REPAIR01", title: "Lifecycle repair", order: 1 }],
+      },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-06",
+      artifactId: `${projectId}/phase-06/approval/Operator_Phase_Approval`,
+      artifactType: "phase_approval",
+      stem: "planning/phases/phase-06/Operator_Phase_Approval",
+      data: { decision: "approved" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-06",
+      workCardId: "WC02-REPAIR01",
+      artifactId: `${projectId}/phase-06/work_card/WC02-REPAIR01`,
+      artifactType: "work_card",
+      stem: "planning/phases/phase-06/Work_Cards/WC02-REPAIR01_lifecycle_repair",
+      expectedOutputs: [`${projectId}/phase-06/implementer_report/WC02-REPAIR01`],
+      data: { workCardId: "WC02-REPAIR01", status: "ready_for_implementer" },
+    });
+
+    const storage = path.join(os.tmpdir(), `champcity-lifecycle-${process.pid}-${Date.now()}.json`);
+    try {
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+      const configured = await registry.addProject({ repositoryRoot: root, projectId });
+      assert.equal(configured.planningRoot, path.join(root, "planning"));
+      await registry.selectProject(projectId);
+      const snapshot = await new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME)
+        .refresh("phase-lifecycle-regression");
+      const action = snapshot.projection.state.currentAction;
+
+      assert.equal(snapshot.projection.state.activePhaseId, "phase-06");
+      assert.equal(action.actionId, "implementer_execution_required");
+      assert.equal(action.targetArtifactId, `${projectId}/phase-06/work_card/WC02-REPAIR01`);
+      assert.equal(action.authorityStatus, "ready");
+      assert.equal(snapshot.projection.resolverResult.kind, "current_action");
+      assert.equal(snapshot.graph.byType("work_card_plan", "phase-04").length, 1);
+      assert.equal(action.targetArtifactId.includes("phase-04"), false);
+      assert.equal(
+        action.bindingSource.evidenceArtifactIds.includes(`${projectId}/phase-04/work_card_plan/Work_Card_Plan`),
+        false,
+      );
+      assert.ok(action.bindingSource.evidenceArtifactIds.includes(phase06ActivationId));
+      assert.ok(action.bindingSource.evidenceArtifactIds.includes(phase05CloseoutId));
+    } finally {
+      await rm(storage, { force: true });
+    }
+  });
+});
+
+test("conflicting live phase activations block instead of guessing current action", async () => {
+  await temporaryRoot("champcity-phase-conflict-", async (root) => {
+    const projectId = "project-alpha";
+    for (const [phaseId, workCardId] of [["phase-06", "WC01"], ["phase-07", "WC02"]]) {
+      await seedWorkCardLoop(root, projectId, phaseId, workCardId);
+    }
+
+    const result = await projectGraph(root, projectId);
+    const action = result.projection.state.currentAction;
+    assert.equal(action.authorityStatus, "blocked");
+    assert.equal(result.projection.resolverResult.kind, "blocked");
+    assert.equal(
+      result.projection.state.blockingConditions.some((blocker) =>
+        blocker.code === "ambiguous_current_action" &&
+        blocker.message.includes("Conflicting phase lifecycle evidence")
+      ),
+      true,
+    );
+    assert.equal(action.actionId, "implementer_execution_required");
+    assert.equal(action.targetArtifactId.includes("phase-04"), false);
+  });
+});
+
+test("invalid later lifecycle evidence blocks stale closed-phase plan fallback", async () => {
+  await temporaryRoot("champcity-invalid-lifecycle-", async (root) => {
+    const projectId = "project-alpha";
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: `${projectId}/phase-04/phase_activation/phase-04`,
+      artifactType: "phase_activation",
+      stem: "planning/phases/phase-04/Phase_Activation",
+      data: { status: "active", phaseId: "phase-04" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: `${projectId}/phase-04/work_card_plan/Work_Card_Plan`,
+      artifactType: "work_card_plan",
+      stem: "planning/phases/phase-04/Work_Card_Plan",
+      expectedOutputs: [`${projectId}/phase-04/work_card/WC04`],
+      data: {
+        status: "approved",
+        candidates: [{ id: "WC04", title: "Stale closed-phase candidate", order: 4 }],
+      },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-04",
+      artifactId: `${projectId}/phase-04/approval/Operator_Phase_Approval`,
+      artifactType: "phase_approval",
+      stem: "planning/phases/phase-04/Operator_Phase_Approval",
+      data: { decision: "approved" },
+    });
+    await writeArtifact(root, {
+      projectId,
+      phaseId: "phase-06",
+      artifactId: `${projectId}/phase-06/phase_activation/phase-06`,
+      artifactType: "phase_activation",
+      stem: "planning/phases/phase-06/Phase_Activation",
+      data: { status: "active_for_planning", phaseId: "phase-06" },
+    });
+    await writeFile(
+      path.join(root, "planning", "phases", "phase-06", "Phase_Activation.md"),
+      "# Damaged lifecycle pair\n",
+      "utf8",
+    );
+
+    const result = await projectGraph(root, projectId);
+    const action = result.projection.state.currentAction;
+    assert.equal(result.projection.state.activePhaseId, "phase-06");
+    assert.equal(action.authorityStatus, "blocked");
+    assert.equal(action.actionId, "operator_phase_approval_required");
+    assert.equal(action.targetArtifactId?.includes("phase-04") ?? false, false);
+    assert.equal(
+      result.projection.state.blockingConditions.some((blocker) =>
+        blocker.code === "ambiguous_current_action" &&
+        blocker.message.includes("Later phase lifecycle evidence is present")
+      ),
+      true,
+    );
+  });
+});
+
 test("WC09-REPAIR02 regression binds exact report/review and routes validation without reference retargeting", async () => {
   await temporaryRoot("champcity-wc09-regression-", async (root) => {
     const projectId = "project-alpha";

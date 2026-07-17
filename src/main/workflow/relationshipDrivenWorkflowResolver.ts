@@ -24,6 +24,12 @@ interface ProjectedStep {
   blockers: WorkflowBlocker[];
 }
 
+interface PhaseLifecycleSelection {
+  phaseId: string | null;
+  evidenceArtifactIds: string[];
+  blockers: WorkflowBlocker[];
+}
+
 export interface RepairLineageProjection {
   repairWorkCardArtifactId: string;
   repairedParentWorkCardArtifactId: string;
@@ -82,7 +88,8 @@ export class RelationshipDrivenWorkflowResolver {
     graph: VerifiedArtifactGraph,
     projectionRevision: number,
   ): RelationshipWorkflowProjection {
-    const activePhaseId = selectActivePhaseId(graph);
+    const lifecycle = selectPhaseLifecycle(graph);
+    const activePhaseId = lifecycle.phaseId;
     const plan = activePhaseId
       ? selectSingle(graph.byType("work_card_plan", activePhaseId))
       : null;
@@ -133,8 +140,13 @@ export class RelationshipDrivenWorkflowResolver {
             : null,
       }),
     });
+    const evidenceArtifactIds = unique([
+      ...lifecycle.evidenceArtifactIds,
+      ...step.evidenceArtifactIds,
+    ]);
     const blockers = [
       ...toWorkflowBlockers(graph),
+      ...lifecycle.blockers,
       ...candidateResults.flatMap((result) => result.blockers),
       ...step.blockers,
     ];
@@ -153,7 +165,7 @@ export class RelationshipDrivenWorkflowResolver {
       workflowStateArtifactId: state.workflowStateArtifactId,
       stateRevision: state.stateRevision,
       projectId: project.projectId,
-      evidenceArtifactIds: [...step.evidenceArtifactIds],
+      evidenceArtifactIds,
     };
     state.currentActionId = step.actionId;
     state.currentStage = activeRecord.stage;
@@ -166,7 +178,7 @@ export class RelationshipDrivenWorkflowResolver {
     return {
       state,
       graph,
-      evidenceArtifactIds: [...step.evidenceArtifactIds],
+      evidenceArtifactIds,
       repairLineage: repairLineageForStep(graph, step),
       resolverResult,
     };
@@ -688,30 +700,191 @@ function step(
   };
 }
 
-function selectActivePhaseId(graph: VerifiedArtifactGraph): string | null {
+function selectPhaseLifecycle(graph: VerifiedArtifactGraph): PhaseLifecycleSelection {
+  const closeoutsByPhase = new Map<string, VerifiedArtifactNode[]>();
+  for (const closeout of graph.byType("phase_closeout")) {
+    const phaseId = closeout.artifact.phaseId;
+    if (!phaseId) continue;
+    closeoutsByPhase.set(phaseId, [...(closeoutsByPhase.get(phaseId) ?? []), closeout]);
+  }
   const activations = graph.byType("phase_activation").filter((node) => {
     const status = text(recordData(node).status).toLowerCase();
-    return node.artifact.status === "active" && (!status || status === "active");
+    return (
+      node.artifact.status === "active" &&
+      (!status || status === "active" || status === "active_for_planning")
+    );
   });
+  const invalidLifecycleArtifactIds = invalidLifecycleIds(graph);
+  const invalidLifecyclePhaseIds = unique(
+    invalidLifecycleArtifactIds
+      .map(lifecyclePhaseIdFromArtifactId)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const lifecycleEvidenceIds = unique([
+    ...activations.map((node) => node.artifact.artifactId),
+    ...[...closeoutsByPhase.values()].flat().map((node) => node.artifact.artifactId),
+    ...invalidLifecycleArtifactIds,
+  ]);
+  const blockers: WorkflowBlocker[] = [];
   const phaseIds = unique(
     activations.map((node) => node.artifact.phaseId).filter((value): value is string => Boolean(value)),
   );
   if (phaseIds.length === 0) {
-    const plans = graph.byType("work_card_plan");
-    return plans.length === 1 ? plans[0].artifact.phaseId ?? null : null;
+    if (invalidLifecyclePhaseIds.length > 0) {
+      blockers.push(invalidLifecycleBlocker(invalidLifecycleArtifactIds));
+      return {
+        phaseId: latestPhaseId(invalidLifecyclePhaseIds),
+        evidenceArtifactIds: lifecycleEvidenceIds,
+        blockers,
+      };
+    }
+    const plans = graph.byType("work_card_plan").filter(
+      (plan) => !plan.artifact.phaseId || !closeoutsByPhase.has(plan.artifact.phaseId),
+    );
+    return {
+      phaseId: plans.length === 1 ? plans[0].artifact.phaseId ?? null : null,
+      evidenceArtifactIds: lifecycleEvidenceIds,
+      blockers,
+    };
   }
+
+  for (const phaseId of phaseIds) {
+    const matches = activations.filter((node) => node.artifact.phaseId === phaseId);
+    if (matches.length > 1) {
+      blockers.push(relationshipBlocker(
+        "duplicate_active_authority",
+        `Phase ${phaseId} has multiple controlling activation artifacts. Resolve the duplicate lifecycle evidence before continuing.`,
+        matches.map((node) => node.artifact.artifactId),
+      ));
+    }
+  }
+
+  const retiredClosedPhaseIds = new Set<string>();
+  for (const [closedPhaseId, closeouts] of closeoutsByPhase) {
+    const laterActivations = activations.filter((activation) => {
+      const activationPhaseId = activation.artifact.phaseId;
+      if (!activationPhaseId || activationPhaseId === closedPhaseId) return false;
+      return (
+        comparePhaseIds(closedPhaseId, activationPhaseId) < 0 ||
+        closeouts.some((closeout) =>
+          closeout.artifact.relationships.expectedOutputs.includes(activation.artifact.artifactId) ||
+          activation.artifact.relationships.sources.includes(closeout.artifact.artifactId),
+        )
+      );
+    });
+    if (laterActivations.length > 0) retiredClosedPhaseIds.add(closedPhaseId);
+  }
+
+  const liveActivations = activations.filter(
+    (activation) => !activation.artifact.phaseId || !retiredClosedPhaseIds.has(activation.artifact.phaseId),
+  );
+  const livePhaseIds = unique(
+    liveActivations.map((node) => node.artifact.phaseId).filter((value): value is string => Boolean(value)),
+  );
+  if (livePhaseIds.length === 0) {
+    blockers.push(relationshipBlocker(
+      "ambiguous_current_action",
+      "All active phase activations belong to phases that already have controlling closeout evidence. A later active phase activation is required before routing the current action.",
+      lifecycleEvidenceIds,
+    ));
+    return applyInvalidLifecycleBlocker(
+      latestPhaseId(phaseIds),
+      invalidLifecyclePhaseIds,
+      invalidLifecycleArtifactIds,
+      lifecycleEvidenceIds,
+      blockers,
+    );
+  }
+
   const sourcedByLater = new Set<string>();
-  for (const activation of activations) {
+  for (const activation of liveActivations) {
     for (const sourceId of activation.artifact.relationships.sources) {
       const source = graph.controlling(sourceId);
       if (source?.artifact.phaseId && source.artifact.phaseId !== activation.artifact.phaseId) {
         sourcedByLater.add(source.artifact.phaseId);
       }
     }
+    for (const [closedPhaseId, closeouts] of closeoutsByPhase) {
+      if (
+        activation.artifact.phaseId !== closedPhaseId &&
+        closeouts.some((closeout) => closeout.artifact.relationships.expectedOutputs.includes(activation.artifact.artifactId))
+      ) {
+        sourcedByLater.add(closedPhaseId);
+      }
+    }
   }
-  const terminal = phaseIds.filter((phaseId) => !sourcedByLater.has(phaseId));
-  if (terminal.length === 1) return terminal[0];
-  return [...(terminal.length > 0 ? terminal : phaseIds)].sort(comparePhaseIds).at(-1) ?? null;
+  const terminal = livePhaseIds.filter((phaseId) => !sourcedByLater.has(phaseId));
+  if (terminal.length === 1) {
+    return applyInvalidLifecycleBlocker(
+      terminal[0],
+      invalidLifecyclePhaseIds,
+      invalidLifecycleArtifactIds,
+      lifecycleEvidenceIds,
+      blockers,
+    );
+  }
+  const candidates = terminal.length > 0 ? terminal : livePhaseIds;
+  blockers.push(relationshipBlocker(
+    "ambiguous_current_action",
+    `Conflicting phase lifecycle evidence leaves ${candidates.length} possible active phases: ${candidates.join(", ")}. Resolve the activation/closeout chain before continuing.`,
+    lifecycleEvidenceIds,
+  ));
+  return applyInvalidLifecycleBlocker(
+    latestPhaseId(candidates),
+    invalidLifecyclePhaseIds,
+    invalidLifecycleArtifactIds,
+    lifecycleEvidenceIds,
+    blockers,
+  );
+}
+
+function applyInvalidLifecycleBlocker(
+  selectedPhaseId: string | null,
+  invalidPhaseIds: string[],
+  invalidArtifactIds: string[],
+  evidenceArtifactIds: string[],
+  blockers: WorkflowBlocker[],
+): PhaseLifecycleSelection {
+  const latestInvalidPhaseId = latestPhaseId(invalidPhaseIds);
+  if (
+    latestInvalidPhaseId &&
+    (!selectedPhaseId || comparePhaseIds(selectedPhaseId, latestInvalidPhaseId) <= 0)
+  ) {
+    blockers.push(invalidLifecycleBlocker(invalidArtifactIds));
+    return {
+      phaseId:
+        selectedPhaseId && comparePhaseIds(selectedPhaseId, latestInvalidPhaseId) > 0
+          ? selectedPhaseId
+          : latestInvalidPhaseId,
+      evidenceArtifactIds,
+      blockers,
+    };
+  }
+  return { phaseId: selectedPhaseId, evidenceArtifactIds, blockers };
+}
+
+function invalidLifecycleIds(graph: VerifiedArtifactGraph): string[] {
+  return unique(
+    graph.blockers.flatMap((blocker) =>
+      blocker.artifactIds.filter((artifactId) => lifecyclePhaseIdFromArtifactId(artifactId)),
+    ),
+  );
+}
+
+function invalidLifecycleBlocker(artifactIds: string[]): WorkflowBlocker {
+  return relationshipBlocker(
+    "ambiguous_current_action",
+    "Later phase lifecycle evidence is present but its canonical pair is invalid or unsynchronized. The app cannot safely route to an older closed-phase plan until the lifecycle artifacts verify.",
+    artifactIds,
+  );
+}
+
+function lifecyclePhaseIdFromArtifactId(artifactId: string): string | null {
+  return artifactId.match(/\/(phase-\d+)\/(?:phase_activation|phase_closeout)\//i)?.[1] ?? null;
+}
+
+function latestPhaseId(phaseIds: string[]): string | null {
+  return [...phaseIds].sort(comparePhaseIds).at(-1) ?? null;
 }
 
 function candidateResolution(
