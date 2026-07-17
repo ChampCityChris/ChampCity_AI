@@ -2,31 +2,35 @@
 {
   "artifactId": "champcity-ai/phase-06/implementer_report/WC01",
   "artifactType": "implementer_report",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "completed",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01",
-  "createdAt": "2026-07-17T03:55:00.000Z",
-  "updatedAt": "2026-07-17T03:55:00.000Z",
+  "createdAt": "2026-07-17T03:22:02.855Z",
   "jsonPath": "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json",
   "markdownPath": "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
-  "payloadHash": "sha256:58833558d3205226cc2f0f39a7e3f8dd8c0018ae1fbd4f372630ee42e51de498",
-  "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/work_card/WC01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
-    ],
-    "expectedOutputs": [],
-    "supersedes": [],
-    "children": []
-  },
   "payload": {
     "kind": "implementer_report",
     "title": "Implementer Report: Phase 06 WC01 Kernel Contract and Replacement Inventory"
-  }
+  },
+  "payloadHash": "sha256:970fab2ba58966b1453f017af5dc34e43a607508e94977d107bf3665aabba2b9",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/approval/WC01",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/architect_review/WC01",
+      "champcity-ai/phase-06/work_card/WC01-REPAIR01",
+      "champcity-ai/phase-06/approval/WC01-REPAIR01"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "completed",
+  "updatedAt": "2026-07-17T03:22:02.855Z",
+  "workCardId": "WC01"
 }
 -->
 
@@ -38,6 +42,8 @@ Phase: phase-06
 Work Card: WC01
 Branch: feature/phase-04-wc01-repair01-evidence-derived-workflow
 Intended commit message: Create WC01 kernel contract and replacement inventory
+Reviewed WC01 implementation commit: `9c06b3f21d15be1b62bb79d6d2daa43696057873`
+Repair note: WC01-REPAIR01 revised this report in place to correct future-dated metadata and replace pending reviewed-commit language. The repair commit hash is not recorded in this original WC01 report.
 
 ## Repository Path Inspected
 
@@ -130,8 +136,9 @@ No secrets, tokens, credentials, API keys, .env files, archives, screenshots, bu
 
 - Branch verified: `feature/phase-04-wc01-repair01-evidence-derived-workflow`
 - Files prepared for staging: the four WC01 artifacts listed above.
-- Commit created: pending until commit is created.
-- Commit hash: pending until commit is created, because this report is committed with the related work.
+- Commit created for reviewed WC01 implementation: yes.
+- Reviewed WC01 implementation commit hash: `9c06b3f21d15be1b62bb79d6d2daa43696057873`.
+- Repair commit hash: not recorded in this original WC01 report; WC01-REPAIR01 records repair commit handling separately.
 - Push: not performed in this pass unless separately requested.
 
 ## Manual Validation Required
@@ -156,4 +163,4 @@ None.
 
 ## Recommended Next Implementer Task
 
-Proceed to WC02: replace the evidence-derived projector with the relationship-driven resolver, beginning with a scoped code-review checkpoint against this inventory.
+Proceed to WC02 after WC01-REPAIR01 Architect re-review and Operator validation: replace the evidence-derived projector with the relationship-driven resolver, beginning with a scoped code-review checkpoint against this inventory.
