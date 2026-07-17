@@ -1,0 +1,43 @@
+{
+  "artifactId": "champcity-ai/phase-06/validation_report/WC02",
+  "artifactType": "validation_report",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "failed",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-06",
+  "workCardId": "WC02",
+  "createdAt": "2026-07-17T14:58:00.000Z",
+  "updatedAt": "2026-07-17T14:58:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02_failed_current_action_stale_phase04_living_plan.json",
+  "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02_failed_current_action_stale_phase04_living_plan.md",
+  "parentArtifactId": "champcity-ai/phase-06/architect_review/WC02",
+  "payloadHash": "sha256:f2e2e2e72ee4dd258feadae6dcb72066cfe12544b236e5ec849436716e934f1e",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/approval/WC02",
+      "champcity-ai/phase-06/implementer_report/WC02",
+      "champcity-ai/phase-06/architect_review/WC02",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-06/phase_activation/phase-06"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01"
+    ],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "validation_report",
+    "title": "Validation Report: Phase 06 WC02 Operator Validation Failure",
+    "data": {
+      "phaseId": "phase-06",
+      "workCardId": "WC02",
+      "validationResult": "failed",
+      "failureCode": "stale_living_work_card_plan_current_action",
+      "requiresRepair": true
+    }
+  }
+}
