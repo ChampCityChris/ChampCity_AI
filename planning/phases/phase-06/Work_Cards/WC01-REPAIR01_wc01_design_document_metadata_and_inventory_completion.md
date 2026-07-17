@@ -3,21 +3,22 @@
   "artifactId": "champcity-ai/phase-06/work_card/WC01-REPAIR01",
   "artifactType": "work_card",
   "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "draft_for_operator_review",
+  "revision": 2,
+  "status": "approved_for_implementer_execution",
   "projectId": "champcity-ai",
   "phaseId": "phase-06",
   "workCardId": "WC01-REPAIR01",
   "createdAt": "2026-07-17T02:50:00.000Z",
-  "updatedAt": "2026-07-17T02:50:00.000Z",
+  "updatedAt": "2026-07-17T02:55:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
-  "payloadHash": "sha256:65fdddf81787acbce605af39512acc4caad8e9acbc7dc1914ba641ff88f72049",
+  "payloadHash": "sha256:acf169cea0a94618ea675e29e180fc1a5a2608587509d09f290c92b9f55f1091",
   "relationships": {
     "sources": [
       "champcity-ai/phase-06/work_card/WC01",
       "champcity-ai/phase-06/approval/WC01",
+      "champcity-ai/phase-06/approval/WC01-REPAIR01",
       "champcity-ai/phase-06/implementer_report/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/architect_review/WC01"
@@ -37,7 +38,7 @@
 
 # Work Card: Phase 06 WC01-REPAIR01 — WC01 Design Document Metadata and Inventory Completion
 
-Status: draft_for_operator_review
+Status: approved_for_implementer_execution
 Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
 Parent Work Card: WC01
 Repair Work Card: WC01-REPAIR01
