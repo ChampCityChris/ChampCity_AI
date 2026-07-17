@@ -10,7 +10,7 @@
     "kind": "validation_report",
     "title": "Validation Report: Phase 06 WC02-REPAIR01 — Operator Validation Failure"
   },
-  "payloadHash": "sha256:89bdc7f6426598660e574f01ec6f15e9037466c46dcc26774b6b864f34cd00f8",
+  "payloadHash": "sha256:d5cc204d3d4d9b4216670e8e2c213a9e8ae06eac4d069ff9c76888ab61304996",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -24,14 +24,15 @@
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
       "champcity-ai/phase-06/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/project/supporting_document/PROJECT_PROFILE"
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "failed",
-  "updatedAt": "2026-07-17T20:00:00.000Z",
+  "updatedAt": "2026-07-17T20:20:00.000Z",
   "workCardId": "WC02-REPAIR01"
 }
 -->
@@ -45,16 +46,28 @@ Result: failed with partial pass
 
 ## Result
 
-The original stale Phase 04 route appears repaired: the app no longer shows `phase-04`, no longer shows Phase 04 `work_card_authoring_required`, and does not route to Ad Hoc Work Card Capture for stale Phase 04 `WC04`.
+The original stale Phase 04 route appears repaired. The app no longer shows `phase-04`, no longer shows Phase 04 `work_card_authoring_required`, and does not route to Ad Hoc Work Card Capture for stale Phase 04 `WC04`.
 
 Operator validation still fails because the app now shows `phase-06` with `operator_phase_approval_required` even though Phase 06 Operator Phase Approval already exists at `champcity-ai/phase-06/approval/Operator_Phase_Approval`.
 
-## Architect RCA
+The active project dropdown also displays `Project Profile` instead of a usable workspace/project name.
 
-The resolver checks for Phase approval using `graph.byType("phase_approval", phaseId)`. The current Phase 06 Operator Phase Approval artifact is canonical `artifactType: "approval"`, not `phase_approval`. This artifact-type mismatch causes the resolver to treat completed Phase 06 approval as missing.
+## Corrected Architect RCA
 
-The active project dropdown also shows `Project Profile` because `projectWorkspaceRegistry.ts` uses `PROJECT_PROFILE.payload.title`. In this repo that title is the generic document title, while the real project name/public brand is in the profile body.
+The failure is not merely that the resolver should recognize an existing `approval` artifact as if it were a `phase_approval`.
 
-## Required Repair
+WC01 defined the Phase 06 target artifact protocol and listed `operator_approval` as the supported operator approval evidence type. The current system is inconsistent across three surfaces:
 
-Create WC02-REPAIR02 to align phase approval recognition with canonical approval artifacts and repair project display-name derivation.
+- `processContract.ts` still expects `phase_approval` for `operator_phase_approval_required`;
+- the existing Phase 06 Operator Phase Approval artifact is typed as generic `approval`;
+- WC01 target protocol lists `operator_approval`.
+
+This is an incomplete migration from old/process-contract artifact language and existing generic approval artifacts into the Phase 06 target resolver protocol. The correct repair is to align the process contract, resolver, and governing approval artifacts to the WC01 target artifact protocol, not to preserve `phase_approval` or blindly treat generic `approval` as the final target model.
+
+The project dropdown issue is separate. `projectWorkspaceRegistry.ts` uses `PROJECT_PROFILE.payload.title`; in this repo that field is the document title `Project Profile`, not the workspace/project display name. The registry must derive a human-usable project display name from explicit metadata or safe fallbacks, not from generic document titles.
+
+## Required Repair Direction
+
+Create WC02-REPAIR02 to complete the target artifact-protocol migration for phase/operator approvals and to repair project display-name derivation.
+
+The repair must not create a duplicate `phase_approval` artifact as a workaround. It must not preserve old artifact language in the resolver. It must resolve the target artifact type and migrate the code/artifacts/tests accordingly.
