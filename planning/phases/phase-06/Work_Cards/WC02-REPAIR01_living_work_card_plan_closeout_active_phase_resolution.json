@@ -2,27 +2,26 @@
   "artifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR01",
   "artifactType": "work_card",
   "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
+  "revision": 2,
   "status": "draft_for_operator_review",
   "projectId": "champcity-ai",
   "phaseId": "phase-06",
   "workCardId": "WC02-REPAIR01",
-  "createdAt": "2026-07-17T14:58:00.000Z",
-  "updatedAt": "2026-07-17T14:58:00.000Z",
+  "createdAt": "2026-07-17T17:15:00.000Z",
+  "updatedAt": "2026-07-17T17:35:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC02-REPAIR01_living_work_card_plan_closeout_active_phase_resolution.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC02-REPAIR01_living_work_card_plan_closeout_active_phase_resolution.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
-  "payloadHash": "sha256:73c9bff5fb03918a05fc4ac08fd69b47fea78c566d3c6ccd42f498aa1832c2b9",
+  "payloadHash": "sha256:3e8b2635877177a321cfd8636cda81a1b4115cef5f3e1a0a83af7d194600a357",
   "relationships": {
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02",
-      "champcity-ai/phase-06/approval/WC02",
-      "champcity-ai/phase-06/implementer_report/WC02",
-      "champcity-ai/phase-06/architect_review/WC02",
       "champcity-ai/phase-06/validation_report/WC02",
-      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/architect_review/WC02",
+      "champcity-ai/phase-06/work_card/WC02",
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-06/phase_activation/phase-06"
+      "champcity-ai/phase-05/phase_closeout/PHASE_05",
+      "champcity-ai/phase-06/phase_activation/phase-06",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-06/approval/WC02-REPAIR01",
@@ -33,13 +32,8 @@
   },
   "payload": {
     "kind": "work_card",
-    "title": "Work Card: Phase 06 WC02-REPAIR01 — Living Work Card Plan Closeout and Active Phase Resolution",
-    "data": {
-      "phaseId": "phase-06",
-      "workCardId": "WC02-REPAIR01",
-      "parentWorkCardId": "WC02",
-      "status": "draft_for_operator_review",
-      "sourceCodeChangesAuthorized": true
-    }
+    "title": "Work Card: Phase 06 WC02-REPAIR01 — Active Phase Resolution and Operator-Visible Current Action RCA",
+    "contentMarkdown": "# Work Card: Phase 06 WC02-REPAIR01 — Active Phase Resolution and Operator-Visible Current Action RCA\n\nStatus: draft_for_operator_review\nPhase: phase-06\nWork Card: WC02-REPAIR01\nParent Work Card: WC02\nOwner: Implementer\nRisk: critical\nChange strategy: RCA first; then targeted implementation and/or governed artifact correction\n\n## Purpose\n\nRepair the WC02 validation failure where the application displayed `phase-04` `work_card_authoring_required` and routed the Operator to Ad Hoc Work Card Capture for a suggested `WC04`.\n\nThis Work Card replaces the earlier incorrectly framed repair target. The failure is not that the Operator declined to create Markdown/JSON pairs. The failure is that the visible current-action route was wrong or not explainable to a nontechnical Operator.\n\n## RCA First\n\nBefore editing source code, reproduce the current-action decision path from the current repository evidence.\n\nThe Implementer Report must answer:\n\n1. Which phase did the resolver select before repair?\n2. Which artifact caused that phase selection?\n3. Which Work Card Plan was read before repair?\n4. Why did the UI show `phase-04` and `work_card_authoring_required`?\n5. Did the selected project/workspace use the repository `planning/` root or a stale/narrow planning root?\n6. Did the scan include Phase 05 and Phase 06 artifacts?\n7. Did any graph blockers prevent Phase 05 or Phase 06 evidence from being authoritative?\n8. Did the running app use stale built code?\n9. Was the Phase 04 Work Card Plan root cause, a contributing factor, or only visible evidence?\n10. What code path made the final current-action decision?\n\nDo not claim a root cause without this reproduction.\n\n## Required Evidence To Inspect\n\nArtifacts:\n\n- Phase 04 Work Card Plan;\n- Phase 04 closeout;\n- Phase 05 activation and closeout;\n- Phase 06 activation, planning, Work Card Plan, and Operator approval;\n- WC02 Implementer Report and WC02 Architect Review.\n\nCode:\n\n- `src/main/workflow/relationshipDrivenWorkflowResolver.ts`;\n- `src/main/repository/repositoryRefreshService.ts`;\n- `src/main/repository/verifiedArtifactGraph.ts`;\n- `src/main/projects/projectWorkspaceRegistry.ts`;\n- current-action main/preload/renderer display paths.\n\n## Required Repair Behavior\n\nAfter repair, a closed phase must not drive live current-action routing merely because its Work Card Plan remains a controlling artifact.\n\nThe application must distinguish:\n\n- living Work Card Plan during an active phase;\n- historical Work Card Plan after phase closeout;\n- active phase/current-action evidence for the current phase.\n\nA closed phase plan may remain readable as historical evidence, but it must not produce live `work_card_authoring_required`.\n\n## Possible Repair Paths\n\nThe actual implementation path must follow the RCA. Acceptable directions may include:\n\n- exclude phases with controlling closeout artifacts from live current-action routing once a later phase is activated;\n- use phase closeout `expectedOutputs` and later phase activation `sources` to establish phase succession;\n- block with an understandable message when multiple active phase candidates conflict;\n- repair workspace scan/configuration if it is using a stale planning root;\n- repair UI display if reference-phase selection is being mistaken for live current action;\n- update living-document governance so Work Card Plans are updated during execution and treated as historical at closeout.\n\nDo not require manual Operator JSON/Markdown editing as the fix.\n\n## Required Tests\n\nAdd or update tests proving:\n\n- a repo with Phase 04 closeout, Phase 05 closeout, and Phase 06 activation does not route to Phase 04 Work Card authoring;\n- a closed phase Work Card Plan cannot produce live current action;\n- stale Work Card Plans remain readable but non-authoritative for live routing;\n- contradictory phase evidence blocks with an understandable explanation;\n- reference phase/card controls do not retarget live current action;\n- workspace registry uses the intended planning root.\n\n## Required Implementer Report\n\nCreate:\n\n`planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR01_active_phase_resolution_operator_visible_current_action_rca.{json,md}`\n\nArtifact ID:\n\n`champcity-ai/phase-06/implementer_report/WC02-REPAIR01`\n\nThe report must include RCA reproduction steps, exact root cause, evidence proving whether the Phase 04 Work Card Plan was root cause or only visible evidence, files changed, tests, validation, residual risks, final git status, and commit hash.\n\n## Acceptance Criteria\n\n- The app no longer routes to Phase 04 Work Card authoring when Phase 04 is closed and Phase 06 is active.\n- Closed phase Work Card Plans cannot drive live current action.\n- The current-action panel displays the correct active phase or a clear blocker.\n- The Operator is not asked to create Markdown/JSON pairs as validation or recovery.\n- The repair includes a documented RCA, not an assumed root cause.\n- Tests cover closed-phase plan behavior and active-phase resolution.\n\n## Manual Validation After Implementer\n\n1. Launch or refresh ChampCity_AI.\n2. Confirm the current action no longer shows `phase-04 work_card_authoring_required`.\n3. Confirm the app shows the correct current phase or a clear blocker.\n4. Confirm reference phase/card controls do not retarget live current action.\n5. Confirm no Ad Hoc Work Card Capture screen is presented as the normal continuation path for stale Phase 04 evidence.\n6. Confirm the Implementer Report explains the root cause in plain language.\n\n## Remaining Phase 06 Passes\n\n- Architect Review of WC02-REPAIR01.\n- Operator validation of WC02-REPAIR01.\n- Re-run or disposition WC02 validation after repair.\n- WC03 through WC06 after WC02 is accepted.\n",
+    "data": {}
   }
 }
