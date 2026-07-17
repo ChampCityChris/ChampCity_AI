@@ -2,17 +2,17 @@
   "artifactId": "champcity-ai/phase-06/work_card/WC02",
   "artifactType": "work_card",
   "schemaVersion": "champcity.artifact.v1",
-  "revision": 2,
-  "status": "draft_for_operator_review",
+  "revision": 3,
+  "status": "blocked",
   "projectId": "champcity-ai",
   "phaseId": "phase-06",
   "workCardId": "WC02",
   "createdAt": "2026-07-17T03:50:00.000Z",
-  "updatedAt": "2026-07-17T12:20:00.000Z",
+  "updatedAt": "2026-07-17T13:25:00.000Z",
   "jsonPath": "planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json",
   "markdownPath": "planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-  "payloadHash": "sha256:77d514f4c8bec5848274963ffe7040645f2ba16fc9300f57730ec054e5e87f56",
+  "payloadHash": "sha256:1fde77e91bfd2b65b7e262c0cb7ce4e7d9b319fc7d2740387e7a87d864f9ae28",
   "relationships": {
     "sources": [
       "champcity-ai/phase-06/candidate_disposition/WC01",
@@ -33,11 +33,13 @@
     "data": {
       "phaseId": "phase-06",
       "workCardId": "WC02",
-      "status": "draft_for_operator_review",
+      "status": "blocked",
       "owner": "Implementer",
-      "sourceCodeChangesAuthorized": true,
+      "sourceCodeChangesAuthorized": false,
       "oldAuthorityRemovalPolicy": "remove_only",
       "disableOrFallbackAllowed": false,
+      "requiresOperatorApprovalBeforeImplementation": true,
+      "blockedReason": "Operator blocked WC02. The draft is not approved for Implementer handoff or execution until explicitly revised and approved.",
       "expectedImplementerReportArtifactId": "champcity-ai/phase-06/implementer_report/WC02",
       "dependsOn": [
         "champcity-ai/phase-06/candidate_disposition/WC01"
