@@ -1,0 +1,259 @@
+{
+  "artifactId": "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+  "artifactType": "design_document",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "completed",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-06",
+  "workCardId": "WC01",
+  "createdAt": "2026-07-17T03:55:00.000Z",
+  "updatedAt": "2026-07-17T03:55:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json",
+  "markdownPath": "planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
+  "payloadHash": "sha256:48cbc532f419bfd1c1ffe97901198d5143d70a1c130fa73ba173d37a9d743c2c",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/approval/WC01",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/phase_planning/Phase_Planning",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/design_document/artifact_authority_model",
+      "champcity-ai/project/architecture/workflow_authority_contract"
+    ],
+    "expectedOutputs": [],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "design_document",
+    "title": "Design Document: Phase 06 WC01 Kernel Contract and Replacement Inventory",
+    "contentMarkdown": "# Design Document: Phase 06 WC01 Kernel Contract and Replacement Inventory\n\nStatus: completed\nPhase: phase-06 - Workflow Kernel and Artifact Protocol Replacement\nWork Card: WC01\nOwner: Implementer\nChange boundary: documentation and source review only; no source-code changes authorized\n\n## Purpose\n\nThis document defines the Phase 06 target workflow kernel contract, artifact-transition protocol, supported artifact types, authority rules, blocker model, and source authority Replacement Inventory required before WC02 through WC05 implementation starts.\n\nThe governing decision is that ChampCity A/I must stop treating the old evidence projector, Artifact Registry, Workflow State, renderer state, filename patterns, timestamp order, suffixes, or fallback builders as workflow authority. The target authority is one relationship-driven kernel that evaluates verified repository evidence and explicit human decisions.\n\n## Source Authorities Reviewed\n\nPrimary planning and architecture sources reviewed:\n\n- `planning/phases/phase-06/Phase_Activation.{json,md}`\n- `planning/phases/phase-06/Phase_Planning.{json,md}`\n- `planning/phases/phase-06/Work_Card_Plan.{json,md}`\n- `planning/phases/phase-06/Operator_Phase_Approval.{json,md}`\n- `planning/phases/phase-06/Work_Cards/WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.{json,md}`\n- `planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.{json,md}`\n- `planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.{json,md}`\n- `planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.md`\n- `docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md`\n\nSource-code authority surfaces reviewed:\n\n- `src/main/workflow/`\n- `src/shared/workflow/`\n- `src/main/workCards/`\n- `src/shared/workCards/`\n- `src/main/repository/`\n- `src/main/projects/`\n- relevant IPC, preload, and renderer current-action bindings\n- repository gates and tests under `scripts/` and `test/`\n\n## Target Kernel Contract\n\nThe Phase 06 kernel is the only runtime component authorized to compute the governed current action. It must be a deterministic resolver over evidence and rules: given a verified artifact graph snapshot, project/workspace context, transition-rule definitions, explicit role gates, and artifact relationships, it returns either one authorized current action or a blocking result.\n\nRequired kernel input:\n\n- project identity and planning root\n- verified JSON/Markdown artifact pairs and payload hashes\n- artifact IDs, artifact types, revisions, status, phase ID, work card ID, paths, and relationships\n- explicit source, expected output, supersedes, and child relationships\n- human decision artifacts such as approvals, reviews, validations, dispositions, and closeouts\n- role gate definitions for Architect, Implementer, and Operator\n- transition-rule definitions for the active phase/workflow\n- diagnostic cache snapshots only as diagnostics, never as overriding authority\n\nRequired kernel output:\n\n- `kind: current_action` or `kind: blocked`\n- current phase, work card, target artifact, source artifacts, expected output artifact, and role\n- exact JSON and Markdown paths for the expected output when an output write is authorized\n- route/screen hint for presentation only\n- blockers with stable codes and evidence references\n- diagnostic evidence summary, including ignored stale caches if relevant\n- no synthesized artifact IDs when the expected output is absent\n\nThe kernel must not inspect file modification time, directory order, newest-file heuristics, UI state, route aliases, screen state, or cached registry state to choose the current action.\n\n## Artifact Transition Protocol\n\nEvery governed transition must be represented by verified artifacts and relationships. A transition rule must name the lifecycle position, role allowed to act, required source artifacts or relationship predicates, required statuses and artifact types, expected output artifact ID/type/path pair, produced status, next candidates, and blockers for missing, stale, superseded, duplicated, ambiguous, or unsynchronized evidence.\n\nTransition execution protocol:\n\n1. Refresh the repository and verify artifact pairs.\n2. Build a verified artifact graph from synchronized JSON/Markdown pairs.\n3. Evaluate transition rules against explicit relationships and statuses.\n4. Apply role gates and blocking conditions.\n5. Emit one current action or a blocked result.\n6. Route UI/process invocation from the kernel result only.\n7. Write governed outputs only through the exact kernel expected-output binding.\n8. Recompute after writes; do not advance from local UI state.\n\n## Supported Artifact Types\n\nPhase 06 kernel rules must initially support these artifact types:\n\n- `phase_activation`\n- `phase_planning`\n- `work_card_plan`\n- `work_card`\n- `operator_approval`\n- `design_document`\n- `implementer_report`\n- `architect_review`\n- `operator_validation`\n- `candidate_disposition`\n- `repair_work_card`\n- `phase_closeout`\n- `project_state`\n- `project_roadmap`\n- `project_observation_register`\n\nAdditional artifact types may be added only by explicit transition-rule update and matching validation coverage. Unknown artifact types may be read as evidence, but they must not advance governed workflow unless a rule names them.\n\n## Authority Rules\n\nThe kernel is authoritative for current action. Verified artifact pairs are authoritative evidence. Explicit artifact relationships are authoritative links. Role gates are authoritative constraints. Artifact Registry and Workflow State are diagnostic/cache until a later kernel rule gives them a narrower role.\n\nThe following are prohibited as current-action authority:\n\n- synthetic artifact ID construction\n- filename, slug, suffix, or title inference\n- timestamp or directory-order selection\n- newest-file defaults\n- renderer-selected route state\n- reference navigation state\n- stale IPC binding cache\n- Artifact Registry cache override\n- Workflow State override\n- compatibility fallback without a named supported consumer and sunset plan\n\n## Blocking And Ambiguity Model\n\nThe kernel must block rather than guess when evidence is incomplete or contradictory. Minimum blocker codes:\n\n- `missing_required_source`\n- `missing_expected_output_binding`\n- `unsynchronized_artifact_pair`\n- `payload_hash_mismatch`\n- `duplicate_artifact_id`\n- `ambiguous_current_action`\n- `superseded_candidate`\n- `stale_cache_ignored`\n- `role_not_authorized`\n- `route_binding_mismatch`\n- `unknown_transition_rule`\n- `manual_validation_required`\n\nA blocked result must include the evidence that caused the block and the role expected to resolve it when known. It must not provide a write-capable expected output unless the output is exactly authorized.\n\n## Replacement Inventory\n\n| Module / code path | Classification | Authority problem | Required action | Owner |\n| --- | --- | --- | --- | --- |\n| `src/main/workflow/evidenceDerivedWorkflowProjector.ts` | Replace | Old primary current-action authority; uses hard-coded phase/work-card branches and synthetic expected-output IDs. | Replace with the relationship-driven kernel; remove runtime use after WC02. | WC02 |\n| `src/shared/workflow/transitionEngine.ts` | Migrate | Useful transition checks are mixed with mutable state advancement and synthetic current-step assumptions. | Preserve blocker concepts; make transition output a kernel result over verified evidence. | WC02 |\n| `src/shared/workflow/processContract.ts` | Migrate | Exact output binding is useful, but current terminology can imply registry authority. | Rebase contract on kernel transition rules and exact expected-output bindings. | WC02 |\n| `src/main/workflow/routedProcessInvocationService.ts` | Migrate | Strong route/role/screen/output guards currently consume old current-action bindings. | Keep guards; source all bindings from the kernel and reject synthesized routes. | WC02/WC05 |\n| `src/main/workflow/routedWriteScope.ts` | Preserve | Write-scope enforcement is useful when caller bindings are authoritative. | Continue requiring exact kernel-provided output binding. | WC02/WC05 |\n| `src/main/workflow/processIpcPolicy.ts` | Migrate | Static routed IPC policy can drift from supported kernel transitions. | Verify or derive routed permissions from kernel transitions; keep non-routed exceptions explicit. | WC02/WC05 |\n| `src/shared/workflow/workflowContracts.ts` | Migrate | Presentation DTOs can blur UI state with workflow authority. | Make DTOs projections of immutable kernel results with source evidence and blockers. | WC02/WC05 |\n| `src/shared/workflow/roleGates.ts` | Preserve | Role gate rules are valid constraints. | Inject role decisions into kernel evaluation and blocker reporting. | WC02/WC05 |\n| `src/shared/workflow/evidencePrecedence.ts` | Migrate | Useful precedence rules could become competing authority if read directly. | Move precedence into kernel evidence reduction and ambiguity blocking. | WC02 |\n| `src/main/repository/verifiedArtifactGraph.ts` | Migrate | Pair verification and graph semantics are essential evidence, but graph diagnostics must not select routes. | Expose verified graph snapshots to the kernel; keep final route selection in the kernel. | WC02/WC04 |\n| `src/main/repository/repositoryRefreshService.ts` | Migrate | Refresh currently bridges repository evidence to the old projector. | Replace projector projection with kernel evaluation over verified graph evidence. | WC02/WC04 |\n| `src/main/workflow/canonicalRoutedScreenAdapter.ts` | Replace | Uses Artifact Registry and some slug/title-derived outputs as route authority. | Replace with kernel-to-screen adapter using exact target/source/output IDs. | WC04/WC05 |\n| `src/main/workCards/canonicalWorkflowAuthority.ts` | Migrate | App-facing authority surface delegates through old current-action and registry-backed paths. | Turn into a kernel consumer/adapter only; remove action construction. | WC05 |\n| `src/main/workCards/workCardFileStore.ts` | Migrate | Canonical pair writes are useful; workflow selection can rely on file discovery, mtimes, or generated IDs. | Keep durable writes; require kernel expected-output binding for governed workflow writes. | WC03/WC05 |\n| `src/shared/workCards/currentActionProjection.ts` | Migrate | Legacy projection fields invite reconstruction of action identity. | Map exact kernel DTOs only; remove partial legacy identity construction. | WC05 |\n| `src/shared/workCards/currentActionRouteTable.ts` | Migrate | Duplicated route table and aliases can drift from kernel-supported actions. | Generate or validate routes against kernel transitions; aliases cannot authorize obsolete actions. | WC05 |\n| `src/shared/workCards/architectReviewRecord.ts` | Migrate | Exact binding checks are useful, but manual fallback can bypass routed lifecycle authority. | Require kernel-routed binding for governed Architect Review lifecycle saves. | WC05 |\n| `src/shared/workCards/validationRecord.ts` | Migrate | Operator decisions are data, not route authority by themselves. | Route validation transitions through kernel rules; keep validation IDs as record IDs only. | WC05/Phase 10 |\n| `src/shared/workCards/routeReviewRequest.ts` | Preserve | Valid as request evidence, not authority. | Keep non-authoritative; kernel may surface it as blocker or repair evidence. | WC05/Phase 10 |\n| `src/preload/index.ts` | Migrate | Cached routed action binding is useful as a stale-write guard but cannot be authority. | Expose kernel result/binding tokens and reject stale or mismatched writes. | WC05 |\n| `src/renderer/app/WorkflowRouterShell.tsx and src/renderer/app/App.tsx` | Migrate | Renderer state and reference navigation must not retarget current action. | Render kernel current action and keep reference navigation visibly separate. | WC05 |\n| `src/main/projects/projectWorkspaceRegistry.ts and src/main/repository/repositoryObserver.ts` | Preserve | Project isolation and observation are inputs, not route authority. | Continue feeding project context and refresh events into kernel evaluation. | WC04/Phase 11 |\n| `src/shared/artifacts/* and src/main/artifacts/*` | Migrate | Pair validation is evidence; registry records are diagnostic/cache until kernel-defined. | Preserve hashes and transactions; block registry cache override of verified graph evidence. | WC04 |\n| `planning/system/Workflow_State/WORKFLOW_STATE_INDEX.*` | Defer | Workflow State is diagnostic/cache until the kernel defines a future role. | If emitted, make it derived projection data that cannot override newer verified evidence. | WC04 |\n| `scripts/verify-wc09-repository-gates.mjs and related gates` | Replace | Old WC09 scope misses Phase 06 old/new dual-authority risks. | Replace with Phase 06 no-fallback, pair-sync, no-local-path, and stale-cache gates. | WC03 |\n| `test/wc01-repair01, test/wc02-repair02, test/wc09, and workflow-related tests` | Migrate | Some tests encode projector fallback behavior. | Rewrite useful scenarios as kernel replay and no-fallback regression coverage. | WC03 |\n| `Implementer execution packet and handoff rendering surfaces` | Defer | Useful for later Implementer contract hardening, not Phase 06 route authority. | Do not let packet rendering select current action; later derive packets from kernel results. | Phase 09 |\n\n## Detailed Inventory Data\n\n### 1. src/main/workflow/evidenceDerivedWorkflowProjector.ts\n\n- Classification: Replace\n- Current authority problem: Old primary current-action authority; uses hard-coded phase/work-card branches and synthetic expected-output IDs.\n- Named supported consumer: None as old authority.\n- Migration requirement: Replace with the relationship-driven kernel; remove runtime use after WC02.\n- Deletion/removal requirement: Remove old runtime authority after replacement coverage exists.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02\n\n### 2. src/shared/workflow/transitionEngine.ts\n\n- Classification: Migrate\n- Current authority problem: Useful transition checks are mixed with mutable state advancement and synthetic current-step assumptions.\n- Named supported consumer: None as old authority.\n- Migration requirement: Preserve blocker concepts; make transition output a kernel result over verified evidence.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02\n\n### 3. src/shared/workflow/processContract.ts\n\n- Classification: Migrate\n- Current authority problem: Exact output binding is useful, but current terminology can imply registry authority.\n- Named supported consumer: None as old authority.\n- Migration requirement: Rebase contract on kernel transition rules and exact expected-output bindings.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02\n\n### 4. src/main/workflow/routedProcessInvocationService.ts\n\n- Classification: Migrate\n- Current authority problem: Strong route/role/screen/output guards currently consume old current-action bindings.\n- Named supported consumer: None as old authority.\n- Migration requirement: Keep guards; source all bindings from the kernel and reject synthesized routes.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC05\n\n### 5. src/main/workflow/routedWriteScope.ts\n\n- Classification: Preserve\n- Current authority problem: Write-scope enforcement is useful when caller bindings are authoritative.\n- Named supported consumer: Listed current or migrated consumer only.\n- Migration requirement: Continue requiring exact kernel-provided output binding.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC05\n\n### 6. src/main/workflow/processIpcPolicy.ts\n\n- Classification: Migrate\n- Current authority problem: Static routed IPC policy can drift from supported kernel transitions.\n- Named supported consumer: None as old authority.\n- Migration requirement: Verify or derive routed permissions from kernel transitions; keep non-routed exceptions explicit.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC05\n\n### 7. src/shared/workflow/workflowContracts.ts\n\n- Classification: Migrate\n- Current authority problem: Presentation DTOs can blur UI state with workflow authority.\n- Named supported consumer: None as old authority.\n- Migration requirement: Make DTOs projections of immutable kernel results with source evidence and blockers.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC05\n\n### 8. src/shared/workflow/roleGates.ts\n\n- Classification: Preserve\n- Current authority problem: Role gate rules are valid constraints.\n- Named supported consumer: Listed current or migrated consumer only.\n- Migration requirement: Inject role decisions into kernel evaluation and blocker reporting.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC05\n\n### 9. src/shared/workflow/evidencePrecedence.ts\n\n- Classification: Migrate\n- Current authority problem: Useful precedence rules could become competing authority if read directly.\n- Named supported consumer: None as old authority.\n- Migration requirement: Move precedence into kernel evidence reduction and ambiguity blocking.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02\n\n### 10. src/main/repository/verifiedArtifactGraph.ts\n\n- Classification: Migrate\n- Current authority problem: Pair verification and graph semantics are essential evidence, but graph diagnostics must not select routes.\n- Named supported consumer: None as old authority.\n- Migration requirement: Expose verified graph snapshots to the kernel; keep final route selection in the kernel.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC04\n\n### 11. src/main/repository/repositoryRefreshService.ts\n\n- Classification: Migrate\n- Current authority problem: Refresh currently bridges repository evidence to the old projector.\n- Named supported consumer: None as old authority.\n- Migration requirement: Replace projector projection with kernel evaluation over verified graph evidence.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC02/WC04\n\n### 12. src/main/workflow/canonicalRoutedScreenAdapter.ts\n\n- Classification: Replace\n- Current authority problem: Uses Artifact Registry and some slug/title-derived outputs as route authority.\n- Named supported consumer: None as old authority.\n- Migration requirement: Replace with kernel-to-screen adapter using exact target/source/output IDs.\n- Deletion/removal requirement: Remove old runtime authority after replacement coverage exists.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC04/WC05\n\n### 13. src/main/workCards/canonicalWorkflowAuthority.ts\n\n- Classification: Migrate\n- Current authority problem: App-facing authority surface delegates through old current-action and registry-backed paths.\n- Named supported consumer: None as old authority.\n- Migration requirement: Turn into a kernel consumer/adapter only; remove action construction.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05\n\n### 14. src/main/workCards/workCardFileStore.ts\n\n- Classification: Migrate\n- Current authority problem: Canonical pair writes are useful; workflow selection can rely on file discovery, mtimes, or generated IDs.\n- Named supported consumer: None as old authority.\n- Migration requirement: Keep durable writes; require kernel expected-output binding for governed workflow writes.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC03/WC05\n\n### 15. src/shared/workCards/currentActionProjection.ts\n\n- Classification: Migrate\n- Current authority problem: Legacy projection fields invite reconstruction of action identity.\n- Named supported consumer: None as old authority.\n- Migration requirement: Map exact kernel DTOs only; remove partial legacy identity construction.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05\n\n### 16. src/shared/workCards/currentActionRouteTable.ts\n\n- Classification: Migrate\n- Current authority problem: Duplicated route table and aliases can drift from kernel-supported actions.\n- Named supported consumer: None as old authority.\n- Migration requirement: Generate or validate routes against kernel transitions; aliases cannot authorize obsolete actions.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05\n\n### 17. src/shared/workCards/architectReviewRecord.ts\n\n- Classification: Migrate\n- Current authority problem: Exact binding checks are useful, but manual fallback can bypass routed lifecycle authority.\n- Named supported consumer: None as old authority.\n- Migration requirement: Require kernel-routed binding for governed Architect Review lifecycle saves.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05\n\n### 18. src/shared/workCards/validationRecord.ts\n\n- Classification: Migrate\n- Current authority problem: Operator decisions are data, not route authority by themselves.\n- Named supported consumer: None as old authority.\n- Migration requirement: Route validation transitions through kernel rules; keep validation IDs as record IDs only.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05/Phase 10\n\n### 19. src/shared/workCards/routeReviewRequest.ts\n\n- Classification: Preserve\n- Current authority problem: Valid as request evidence, not authority.\n- Named supported consumer: Listed current or migrated consumer only.\n- Migration requirement: Keep non-authoritative; kernel may surface it as blocker or repair evidence.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05/Phase 10\n\n### 20. src/preload/index.ts\n\n- Classification: Migrate\n- Current authority problem: Cached routed action binding is useful as a stale-write guard but cannot be authority.\n- Named supported consumer: None as old authority.\n- Migration requirement: Expose kernel result/binding tokens and reject stale or mismatched writes.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05\n\n### 21. src/renderer/app/WorkflowRouterShell.tsx and src/renderer/app/App.tsx\n\n- Classification: Migrate\n- Current authority problem: Renderer state and reference navigation must not retarget current action.\n- Named supported consumer: None as old authority.\n- Migration requirement: Render kernel current action and keep reference navigation visibly separate.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC05\n\n### 22. src/main/projects/projectWorkspaceRegistry.ts and src/main/repository/repositoryObserver.ts\n\n- Classification: Preserve\n- Current authority problem: Project isolation and observation are inputs, not route authority.\n- Named supported consumer: Listed current or migrated consumer only.\n- Migration requirement: Continue feeding project context and refresh events into kernel evaluation.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC04/Phase 11\n\n### 23. src/shared/artifacts/* and src/main/artifacts/*\n\n- Classification: Migrate\n- Current authority problem: Pair validation is evidence; registry records are diagnostic/cache until kernel-defined.\n- Named supported consumer: None as old authority.\n- Migration requirement: Preserve hashes and transactions; block registry cache override of verified graph evidence.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC04\n\n### 24. planning/system/Workflow_State/WORKFLOW_STATE_INDEX.*\n\n- Classification: Defer\n- Current authority problem: Workflow State is diagnostic/cache until the kernel defines a future role.\n- Named supported consumer: Future owner listed in implementation owner.\n- Migration requirement: If emitted, make it derived projection data that cannot override newer verified evidence.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC04\n\n### 25. scripts/verify-wc09-repository-gates.mjs and related gates\n\n- Classification: Replace\n- Current authority problem: Old WC09 scope misses Phase 06 old/new dual-authority risks.\n- Named supported consumer: None as old authority.\n- Migration requirement: Replace with Phase 06 no-fallback, pair-sync, no-local-path, and stale-cache gates.\n- Deletion/removal requirement: Remove old runtime authority after replacement coverage exists.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC03\n\n### 26. test/wc01-repair01, test/wc02-repair02, test/wc09, and workflow-related tests\n\n- Classification: Migrate\n- Current authority problem: Some tests encode projector fallback behavior.\n- Named supported consumer: None as old authority.\n- Migration requirement: Rewrite useful scenarios as kernel replay and no-fallback regression coverage.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: WC03\n\n### 27. Implementer execution packet and handoff rendering surfaces\n\n- Classification: Defer\n- Current authority problem: Useful for later Implementer contract hardening, not Phase 06 route authority.\n- Named supported consumer: Future owner listed in implementation owner.\n- Migration requirement: Do not let packet rendering select current action; later derive packets from kernel results.\n- Deletion/removal requirement: Remove any fallback path that competes with the kernel.\n- Tests or gates needed: prove no old/new dual authority, no synthetic ID route, no stale cache override, and exact output binding.\n- Implementation owner: Phase 09\n\n## Implementation Ownership Mapping\n\nWC02 owns the relationship-driven kernel, replacement of the evidence projector, transition-rule evaluation, core process contract migration, and resolver-level no-fallback tests.\n\nWC03 owns real Phase 04/05 replay fixtures and repository gates that detect old/new dual authority, synthetic ID generation, fallback route authority, stale registry/workflow-state override, and obsolete WC09 gate assumptions.\n\nWC04 owns the Artifact Registry and Workflow State diagnostic/cache boundary, repository refresh integration, and verified artifact graph integration so diagnostics cannot override newer verified evidence.\n\nWC05 owns kernel-to-UI/current-action adapters, IPC/preload binding enforcement, renderer presentation, reference-navigation separation, and routed write binding at the UI/process boundary.\n\nLater roadmap phases own validation/evidence governance, repair governance, multi-project dogfooding, Implementer packet hardening, and Git automation beyond the Phase 06 kernel boundary.\n\n## Validation And Gate Recommendations\n\nPhase 06 implementation should add or update gates for:\n\n- JSON/Markdown pair synchronization and payload hashes\n- duplicate artifact IDs and unsynchronized pairs\n- no concrete local paths in durable artifacts\n- no secrets, tokens, credentials, or .env artifacts\n- no synthetic workflow artifact ID construction in current-action code\n- no filename, suffix, timestamp, or directory-order route selection\n- no Artifact Registry or Workflow State current-action override\n- no renderer/reference-navigation retargeting\n- no routed process invocation without exact kernel binding\n- real repository replay for Phase 04 closeout, Phase 05 rebaseline, Phase 06 activation, and WC01 completion\n\n## Acceptance Notes\n\nThis WC01 output is intentionally architectural. It does not edit source code, delete old code, add tests, or run implementation validation. WC02 through WC05 must use this inventory as a starting authority and record any narrowed, amended, or newly discovered entries in their Implementer Reports.",
+    "data": {
+      "phaseId": "phase-06",
+      "workCardId": "WC01",
+      "sourceCodeChangesAuthorized": false,
+      "kernelAuthority": "relationship_driven_verified_artifact_graph",
+      "artifactRegistryRole": "diagnostic_cache_only_until_kernel_defined",
+      "workflowStateRole": "diagnostic_cache_only_until_kernel_defined",
+      "supportedArtifactTypes": [
+        "phase_activation",
+        "phase_planning",
+        "work_card_plan",
+        "work_card",
+        "operator_approval",
+        "design_document",
+        "implementer_report",
+        "architect_review",
+        "operator_validation",
+        "candidate_disposition",
+        "repair_work_card",
+        "phase_closeout",
+        "project_state",
+        "project_roadmap",
+        "project_observation_register"
+      ],
+      "noFallbackInvariants": [
+        "no synthetic artifact IDs",
+        "no filename/title/suffix inference",
+        "no timestamp/directory-order authority",
+        "no UI/reference-navigation retargeting",
+        "no registry/workflow-state override",
+        "no compatibility fallback without named supported consumer and sunset plan"
+      ],
+      "replacementInventory": [
+        {
+          "module": "src/main/workflow/evidenceDerivedWorkflowProjector.ts",
+          "classification": "Replace",
+          "authorityProblem": "Old primary current-action authority; uses hard-coded phase/work-card branches and synthetic expected-output IDs.",
+          "migrationRequirement": "Replace with the relationship-driven kernel; remove runtime use after WC02.",
+          "ownerWorkCard": "WC02"
+        },
+        {
+          "module": "src/shared/workflow/transitionEngine.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Useful transition checks are mixed with mutable state advancement and synthetic current-step assumptions.",
+          "migrationRequirement": "Preserve blocker concepts; make transition output a kernel result over verified evidence.",
+          "ownerWorkCard": "WC02"
+        },
+        {
+          "module": "src/shared/workflow/processContract.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Exact output binding is useful, but current terminology can imply registry authority.",
+          "migrationRequirement": "Rebase contract on kernel transition rules and exact expected-output bindings.",
+          "ownerWorkCard": "WC02"
+        },
+        {
+          "module": "src/main/workflow/routedProcessInvocationService.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Strong route/role/screen/output guards currently consume old current-action bindings.",
+          "migrationRequirement": "Keep guards; source all bindings from the kernel and reject synthesized routes.",
+          "ownerWorkCard": "WC02/WC05"
+        },
+        {
+          "module": "src/main/workflow/routedWriteScope.ts",
+          "classification": "Preserve",
+          "authorityProblem": "Write-scope enforcement is useful when caller bindings are authoritative.",
+          "migrationRequirement": "Continue requiring exact kernel-provided output binding.",
+          "ownerWorkCard": "WC02/WC05"
+        },
+        {
+          "module": "src/main/workflow/processIpcPolicy.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Static routed IPC policy can drift from supported kernel transitions.",
+          "migrationRequirement": "Verify or derive routed permissions from kernel transitions; keep non-routed exceptions explicit.",
+          "ownerWorkCard": "WC02/WC05"
+        },
+        {
+          "module": "src/shared/workflow/workflowContracts.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Presentation DTOs can blur UI state with workflow authority.",
+          "migrationRequirement": "Make DTOs projections of immutable kernel results with source evidence and blockers.",
+          "ownerWorkCard": "WC02/WC05"
+        },
+        {
+          "module": "src/shared/workflow/roleGates.ts",
+          "classification": "Preserve",
+          "authorityProblem": "Role gate rules are valid constraints.",
+          "migrationRequirement": "Inject role decisions into kernel evaluation and blocker reporting.",
+          "ownerWorkCard": "WC02/WC05"
+        },
+        {
+          "module": "src/shared/workflow/evidencePrecedence.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Useful precedence rules could become competing authority if read directly.",
+          "migrationRequirement": "Move precedence into kernel evidence reduction and ambiguity blocking.",
+          "ownerWorkCard": "WC02"
+        },
+        {
+          "module": "src/main/repository/verifiedArtifactGraph.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Pair verification and graph semantics are essential evidence, but graph diagnostics must not select routes.",
+          "migrationRequirement": "Expose verified graph snapshots to the kernel; keep final route selection in the kernel.",
+          "ownerWorkCard": "WC02/WC04"
+        },
+        {
+          "module": "src/main/repository/repositoryRefreshService.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Refresh currently bridges repository evidence to the old projector.",
+          "migrationRequirement": "Replace projector projection with kernel evaluation over verified graph evidence.",
+          "ownerWorkCard": "WC02/WC04"
+        },
+        {
+          "module": "src/main/workflow/canonicalRoutedScreenAdapter.ts",
+          "classification": "Replace",
+          "authorityProblem": "Uses Artifact Registry and some slug/title-derived outputs as route authority.",
+          "migrationRequirement": "Replace with kernel-to-screen adapter using exact target/source/output IDs.",
+          "ownerWorkCard": "WC04/WC05"
+        },
+        {
+          "module": "src/main/workCards/canonicalWorkflowAuthority.ts",
+          "classification": "Migrate",
+          "authorityProblem": "App-facing authority surface delegates through old current-action and registry-backed paths.",
+          "migrationRequirement": "Turn into a kernel consumer/adapter only; remove action construction.",
+          "ownerWorkCard": "WC05"
+        },
+        {
+          "module": "src/main/workCards/workCardFileStore.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Canonical pair writes are useful; workflow selection can rely on file discovery, mtimes, or generated IDs.",
+          "migrationRequirement": "Keep durable writes; require kernel expected-output binding for governed workflow writes.",
+          "ownerWorkCard": "WC03/WC05"
+        },
+        {
+          "module": "src/shared/workCards/currentActionProjection.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Legacy projection fields invite reconstruction of action identity.",
+          "migrationRequirement": "Map exact kernel DTOs only; remove partial legacy identity construction.",
+          "ownerWorkCard": "WC05"
+        },
+        {
+          "module": "src/shared/workCards/currentActionRouteTable.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Duplicated route table and aliases can drift from kernel-supported actions.",
+          "migrationRequirement": "Generate or validate routes against kernel transitions; aliases cannot authorize obsolete actions.",
+          "ownerWorkCard": "WC05"
+        },
+        {
+          "module": "src/shared/workCards/architectReviewRecord.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Exact binding checks are useful, but manual fallback can bypass routed lifecycle authority.",
+          "migrationRequirement": "Require kernel-routed binding for governed Architect Review lifecycle saves.",
+          "ownerWorkCard": "WC05"
+        },
+        {
+          "module": "src/shared/workCards/validationRecord.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Operator decisions are data, not route authority by themselves.",
+          "migrationRequirement": "Route validation transitions through kernel rules; keep validation IDs as record IDs only.",
+          "ownerWorkCard": "WC05/Phase 10"
+        },
+        {
+          "module": "src/shared/workCards/routeReviewRequest.ts",
+          "classification": "Preserve",
+          "authorityProblem": "Valid as request evidence, not authority.",
+          "migrationRequirement": "Keep non-authoritative; kernel may surface it as blocker or repair evidence.",
+          "ownerWorkCard": "WC05/Phase 10"
+        },
+        {
+          "module": "src/preload/index.ts",
+          "classification": "Migrate",
+          "authorityProblem": "Cached routed action binding is useful as a stale-write guard but cannot be authority.",
+          "migrationRequirement": "Expose kernel result/binding tokens and reject stale or mismatched writes.",
+          "ownerWorkCard": "WC05"
+        },
+        {
+          "module": "src/renderer/app/WorkflowRouterShell.tsx and src/renderer/app/App.tsx",
+          "classification": "Migrate",
+          "authorityProblem": "Renderer state and reference navigation must not retarget current action.",
+          "migrationRequirement": "Render kernel current action and keep reference navigation visibly separate.",
+          "ownerWorkCard": "WC05"
+        },
+        {
+          "module": "src/main/projects/projectWorkspaceRegistry.ts and src/main/repository/repositoryObserver.ts",
+          "classification": "Preserve",
+          "authorityProblem": "Project isolation and observation are inputs, not route authority.",
+          "migrationRequirement": "Continue feeding project context and refresh events into kernel evaluation.",
+          "ownerWorkCard": "WC04/Phase 11"
+        },
+        {
+          "module": "src/shared/artifacts/* and src/main/artifacts/*",
+          "classification": "Migrate",
+          "authorityProblem": "Pair validation is evidence; registry records are diagnostic/cache until kernel-defined.",
+          "migrationRequirement": "Preserve hashes and transactions; block registry cache override of verified graph evidence.",
+          "ownerWorkCard": "WC04"
+        },
+        {
+          "module": "planning/system/Workflow_State/WORKFLOW_STATE_INDEX.*",
+          "classification": "Defer",
+          "authorityProblem": "Workflow State is diagnostic/cache until the kernel defines a future role.",
+          "migrationRequirement": "If emitted, make it derived projection data that cannot override newer verified evidence.",
+          "ownerWorkCard": "WC04"
+        },
+        {
+          "module": "scripts/verify-wc09-repository-gates.mjs and related gates",
+          "classification": "Replace",
+          "authorityProblem": "Old WC09 scope misses Phase 06 old/new dual-authority risks.",
+          "migrationRequirement": "Replace with Phase 06 no-fallback, pair-sync, no-local-path, and stale-cache gates.",
+          "ownerWorkCard": "WC03"
+        },
+        {
+          "module": "test/wc01-repair01, test/wc02-repair02, test/wc09, and workflow-related tests",
+          "classification": "Migrate",
+          "authorityProblem": "Some tests encode projector fallback behavior.",
+          "migrationRequirement": "Rewrite useful scenarios as kernel replay and no-fallback regression coverage.",
+          "ownerWorkCard": "WC03"
+        },
+        {
+          "module": "Implementer execution packet and handoff rendering surfaces",
+          "classification": "Defer",
+          "authorityProblem": "Useful for later Implementer contract hardening, not Phase 06 route authority.",
+          "migrationRequirement": "Do not let packet rendering select current action; later derive packets from kernel results.",
+          "ownerWorkCard": "Phase 09"
+        }
+      ]
+    }
+  }
+}
