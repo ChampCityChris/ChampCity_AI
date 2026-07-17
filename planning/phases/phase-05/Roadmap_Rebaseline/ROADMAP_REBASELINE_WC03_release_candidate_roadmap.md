@@ -3,47 +3,50 @@
   "artifactId": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
   "artifactType": "roadmap_rebaseline",
   "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
+  "revision": 2,
   "status": "active",
   "projectId": "champcity-ai",
   "phaseId": "phase-05",
   "workCardId": "WC03",
   "parentArtifactId": "champcity-ai/phase-05/work_card/WC03",
   "createdAt": "2026-07-17T01:15:00.000Z",
-  "updatedAt": "2026-07-17T01:15:00.000Z",
+  "updatedAt": "2026-07-17T01:20:00.000Z",
   "jsonPath": "planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.json",
   "markdownPath": "planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.md",
-  "payloadHash": "sha256:proposed-roadmap-rebaseline-wc03",
+  "payloadHash": "sha256:4a1c847c39afec9c2f8138137adebdd49bb81929505d466fee5851949c019ded",
   "relationships": {
     "sources": [
       "champcity-ai/phase-05/work_card/WC03",
       "champcity-ai/phase-05/approval/WC03",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline"
-    ],
+    "expectedOutputs": [],
     "supersedes": [],
     "children": []
+  },
+  "payload": {
+    "kind": "roadmap_rebaseline",
+    "title": "Roadmap Rebaseline: Public Downloadable Beta Candidate"
   }
 }
 -->
 
 # Roadmap Rebaseline: Public Downloadable Beta Candidate
 
-Status: proposed_for_operator_review
+Status: approved
 Phase: phase-05 — Reconciliation and Roadmap Rebaseline
 Work Card: WC03
 Owner: Architect
 
 ## Executive Decision
 
-ChampCity A/I should continue Alpha development from a rebuilt workflow-kernel foundation, not from another patch pass over the current evidence projector. The target release is a public downloadable beta candidate, beginning with Windows.
+ChampCity A/I will continue Alpha development from a rebuilt workflow-kernel foundation, not from another patch pass over the current evidence projector. The target release is a public downloadable beta candidate, beginning with Windows.
 
-This roadmap does not authorize implementation by itself. It defines the proposed phase sequence and the required living-document updates after Operator approval.
+This roadmap does not authorize implementation by itself. It defines the approved phase sequence and the required living-document updates after Operator approval.
 
 ## Current State
 
@@ -115,4 +118,4 @@ Every future implementation Work Card must state existing implementation classif
 
 ## Approval Boundary
 
-This roadmap is proposed for Operator review. Implementation begins only after roadmap approval and next-phase activation through the required phase-planning process.
+This roadmap has been approved by the Operator. Implementation begins only after next-phase activation through the required phase-planning process.
