@@ -9,18 +9,25 @@
     "kind": "supporting_document",
     "title": "Risks"
   },
-  "payloadHash": "sha256:8d32ce3f67a0d9ce6a583a614b46e099bd8930e74745c67a36414b4510c80463",
+  "payloadHash": "sha256:899e59388f1ca4d30b3202b72d8e244807551f85453e5c338d2e47aaf165c71d",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
-    "sources": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation/PROJ-OBS-010"
+    ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-17T01:35:00.000Z"
 }
 -->
 
@@ -28,32 +35,19 @@
 
 ## Known Risks And Drift Warnings
 
-- WC08 artifact authority risk: draft next-phase planning artifacts can be mistaken for active phase scope unless Project Roadmap, Phase Map, Phase Planning Documents, Work Card Plans, Formal Work Cards, Implementer Execution Packets, reports, validation, and closeout each show their distinct authority.
-- WC08 activation risk: a Work Card Plan can look executable unless it is clearly labeled Pending Review / Not Active and Formal Work Cards require a separate Operator approval step.
-- WC08 review-surface risk: proposed Work Card Plan entries can be mistaken for formal Work Cards unless Work Card Plan Review labels them Proposed / Not Executable and keeps materialization actions disabled until a separate Operator-approved workflow exists.
-- WC08 ad hoc authority risk: Ad Hoc Work Card Capture can conflict with header-selected Work Card context unless the UI states that local manual/ad hoc fields are authoritative for new drafts.
-- The largest technical/product risk is MCP boundary design. Because ChampCity MCP is integral, the project must be precise about what ChatGPT can read, what it can write, where files are saved, and how the Operator sees or approves those changes.
-- Subscription integration risk should be reframed. The primary concern is not whether ChatGPT can use an API. The intended Alpha path is ChatGPT subscription plus MCP-mediated repo access. The risk is whether this can be made understandable, safe, reliable, and repeatable for non-developer users.
-- The project should guard against treating MCP as invisible magic. The user needs simple status indicators and plain-language explanations of what is connected, what files are being touched, and what action comes next.
-- The project should guard against over-reliance on chat context. MCP should be used to ground Architect decisions in durable repo artifacts: project profile, phase state, work cards, Implementer Reports, validation reports, and closeout records.
-- The project must avoid scope drift into autonomy. The app should help the Operator drive the AI workflow; it should not silently become an autonomous coding agent.
-- WC07 phase planning risk: the app must not treat existing phase folders as the only selectable future phases. The Phase Map is the selectable phase authority, while generated phase artifacts are context.
-- The workflow must avoid developer-first language where possible. “Capture,” “Frame,” “Plan,” “Build,” and “Prove” are better user-facing concepts than “requirements elicitation,” “architecture decomposition,” “implementation orchestration,” and “acceptance validation.”
-- The project must avoid duplicate planning work. Since Phase 1 and Phase 2 already implemented core pieces, the next generator must inventory existing Implementer Reports before proposing new work. Otherwise it will create redundant phase plans.
-- The project must avoid state fragmentation. The app must keep durable profile, phase, work-card, prompt, handoff, validation, repair, closeout, and decision artifacts tied together. Raw chats alone are not sufficient.
-- Security boundaries must remain explicit. API keys, subscription sessions, local repo access, MCP permissions, generated prompts, and build artifacts need separate treatment. The documents should not collapse those into one generic “AI integration” bucket.
-- Architect / Implementer role separation must remain clear. The Architect frames, evaluates, decides repair/complete, and generates handoffs. The Implementer executes scoped build work and reports results. The Operator approves, validates, and controls movement between states.
-- Phase 1 includes Implementer Reports for work-card schema/rendering, work-card capture, Architect framing prompt composer, risk router, Implementer execution packet generation, Implementer Report capture, human validation and repair loop, phase closeout/status management, Figma UI handoff, and UI/terminology alignment.
-- Security concerns:
-- Basic security safeguards for local repo access and API-key handling.
-- ### G. MCP Integration, Repo-Bridge Workflow, and Security Boundary Design
-- This phase should define the repo bridge, MCP status model, read/write boundaries, Operator visibility, safe artifact writes, fallback behavior, and security posture.
-- ## 7. Risks and Drift Warnings
-- Security or data concern: model API integration will require strict security to not be exposed in source code or final build packaging
-- Known constraint: ChatGPT subscriptions prevent the use of API for wiring the model directly into the application.
+- Compatibility/fallback debt risk: Implementers may preserve wrong old runtime paths because they exist. Default Alpha strategy is Replace with migration; runtime fallbacks require a named supported consumer and approved sunset plan.
+- Workflow-kernel replacement risk: Phase 06 must replace the old evidence projector and artifact protocol boundary without creating two active authorities. Success requires real evidence replay and gates that reject filename, timestamp, suffix, or synthetic-ID inference.
+- Architect Bridge/MCP integration risk: ChatGPT subscription plus ChampCity MCP is Alpha core. The bridge must make source, target, expected output, MCP status, write boundaries, and fallback visible to the Operator.
+- Dogfooding re-entry risk: the app is not the reliable workflow controller until Phase 08 criteria are met. Returning too early can create false confidence; returning too late can hide product workflow failures.
+- Git exposure risk: raw Git operations are too developer-centric for the target Operator. Git automation and product-language readiness/status are required before release candidate.
+- UI acceptance risk: automated validation can pass while the intended Operator workflow remains unusable. UI usability is an acceptance condition for workflow-facing Work Cards.
+- Provider/API security boundary risk: API-backed provider integration is future/final-state work. Keys, provider settings, subscription workflow, MCP repo access, and local artifact writes must remain separated and secure.
+- Evidence storage risk: screenshots and validation evidence must be repo-visible and app-controlled without leaking local machine paths or hidden external dependencies.
+- Multi-project authority risk: future dogfooding across multiple repositories must isolate planning roots, repository roots, artifact graphs, current actions, and evidence writes with no route bleed.
 
 ## Risk Handling Notes
 
 - Keep renderer filesystem access mediated through Electron main/preload IPC.
-- Do not add provider SDKs, auth, databases, cloud services, MCP, or connector integrations without a dedicated approved Work Card.
+- Do not add provider SDKs, auth, databases, cloud services, MCP, connector integrations, or runtime compatibility layers without a dedicated approved Work Card.
 - Operator manual validation remains required for acceptance and closeout decisions.
+- Planning artifacts must use repo-relative paths or `<PROJECT_REPO>`, not concrete local machine paths.

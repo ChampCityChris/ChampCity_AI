@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:320f94daa2b49d0e243cb8bc03a0f6530cd39b9c4a38461328c94379a81bb8ee",
+  "payloadHash": "sha256:c210e9397a47d2192045d72c002ef4587ff38d30241a6d2a741f3f721ea46689",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -154,10 +154,10 @@
     ],
     "supersedes": []
   },
-  "revision": 48,
+  "revision": 49,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-16T03:39:41.081Z"
+  "updatedAt": "2026-07-17T01:40:00.000Z"
 }
 -->
 
@@ -277,28 +277,28 @@ Entries: 136
 | champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | 1 | pending | yes | yes |
 | champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |
 | champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | 2 | pending | yes | yes |
-| champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | 2 | active | yes | yes |
+| champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | 3 | active | yes | yes |
 | champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN | design_document | 2 | active | yes | yes |
 | champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW | design_document | 2 | active | yes | yes |
-| champcity-ai/project/observation_register/Project_Observation_Register | observation_register | 2 | active | yes | yes |
+| champcity-ai/project/observation_register/Project_Observation_Register | observation_register | 3 | active | yes | yes |
 | champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i | phase_map | 2 | pending | yes | yes |
 | champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i | project_intake | 1 | active | yes | yes |
 | champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation | project_intake | 1 | active | yes | yes |
 | champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation | project_intake | 1 | active | yes | yes |
 | champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i | project_planning | 2 | pending | yes | yes |
 | champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i | repository_reconciliation | 2 | pending | yes | yes |
-| champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i | roadmap | 2 | active | yes | yes |
+| champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i | roadmap | 3 | active | yes | yes |
 | champcity-ai/project/supporting_document/CHANGE_LOG | supporting_document | 2 | active | yes | yes |
-| champcity-ai/project/supporting_document/DECISIONS | supporting_document | 2 | active | yes | yes |
+| champcity-ai/project/supporting_document/DECISIONS | supporting_document | 3 | active | yes | yes |
 | champcity-ai/project/supporting_document/ENVIRONMENT | supporting_document | 1 | active | yes | yes |
 | champcity-ai/project/supporting_document/GLOSSARY | supporting_document | 3 | active | yes | yes |
 | champcity-ai/project/supporting_document/MVP_SCOPE | supporting_document | 3 | active | yes | yes |
-| champcity-ai/project/supporting_document/OPEN_QUESTIONS | supporting_document | 1 | active | yes | yes |
-| champcity-ai/project/supporting_document/PROJECT_PROFILE | supporting_document | 2 | active | yes | yes |
-| champcity-ai/project/supporting_document/PROJECT_STATE | supporting_document | 2 | pending | yes | yes |
-| champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL | supporting_document | 2 | pending | yes | yes |
+| champcity-ai/project/supporting_document/OPEN_QUESTIONS | supporting_document | 2 | active | yes | yes |
+| champcity-ai/project/supporting_document/PROJECT_PROFILE | supporting_document | 3 | active | yes | yes |
+| champcity-ai/project/supporting_document/PROJECT_STATE | supporting_document | 3 | active | yes | yes |
+| champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL | supporting_document | 3 | superseded | no | yes |
 | champcity-ai/project/supporting_document/RELEASE_POLICY | supporting_document | 2 | active | yes | yes |
-| champcity-ai/project/supporting_document/RISKS | supporting_document | 2 | active | yes | yes |
+| champcity-ai/project/supporting_document/RISKS | supporting_document | 3 | active | yes | yes |
 | champcity-ai/project/supporting_document/SECURITY_POLICY | supporting_document | 1 | active | yes | yes |
 | champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | 1 | active | yes | yes |
 | champcity-ai/system/migration_manifest/legacy_saved_work_card_schema_retirement | migration_manifest | 1 | active | yes | yes |

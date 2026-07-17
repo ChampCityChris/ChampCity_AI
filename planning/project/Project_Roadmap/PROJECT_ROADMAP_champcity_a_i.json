@@ -5,115 +5,96 @@
   "jsonPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
   "markdownPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md",
   "payload": {
-    "contentMarkdown": "# Project Roadmap: ChampCity A/I\n\nStatus: Living master roadmap\nUpdated for: Workflow Router Rebaseline\n\n## Rebaseline Decision\n\nThe prior Roadmap and UI direction were based on an incorrect mental model. The application was drifting toward a screen-picker design where the Operator chooses among many screens. That is superseded.\n\nThe corrected product model is:\n\n```text\nChampCity A/I is a workflow router, not a screen picker.\n```\n\nThe application must compute the current actionable step from durable project state and guide the Operator to that step.\n\n## Locked Workflow\n\n```text\nProject Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop\n```\n\n## Milestones\n\n- MVP: completed.\n- Alpha: active.\n- Beta: future.\n- Release: future.\n\n## Phases\n\n### phase-01: MVP Foundation and Core Work Card Loop\n\nStatus: closed\nConfidence: high\n\nPhase 01 remains valid and closed. It proved the initial MVP foundation and Work Card loop.\n\n### phase-02: Upstream Project Planning and Corrective Workflow Authority\n\nStatus: closed\nConfidence: high\n\nPhase 02 is closed by Operator closeout. The closeout record activates Phase 03 manually because the current Phase Mapping screen is not reliable enough to use for this transition.\n\nPhase 02 correction:\n\n- Phase Mapping survives as the phase-level planning concept.\n- Phase Planning is an artifact inside Phase Mapping, not a separate top-level workflow screen.\n- Work Card is also the Implementer execution packet.\n- Implementer Reports are reviewed by the Architect.\n- Operator validation creates Validation Records.\n- Closeout approval authorizes Roadmap update and Next Phase Activation.\n\nCloseout evidence: `planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.md`\n\nCloseout decision: Close phase.\n\nNext Phase Activation decision: Activate next phase.\n\n### phase-03: Workflow Router Screen Correction and Guided Current Action UI\n\nStatus: active / approved for just-in-time Work Card execution\nConfidence: high\n\nPurpose: correct the application screens so they adhere to the newly mapped workflow process.\n\nThis is the active development phase after Phase 02 closeout. Its job is not generic UI polish. Its job is to replace the screen-picker/operator-navigation mental model with a workflow-router UI.\n\nApproved Phase 03 authority:\n\n- `planning/phases/phase-03/Phase_Interview.md`\n- `planning/phases/phase-03/Phase_Planning.md`\n- `planning/phases/phase-03/Work_Card_Plan.md`\n- `planning/phases/phase-03/Operator_Phase_Approval.md`\n\nCurrent executable Work Card: `WC01: Superseded Phase 03 Artifact and Roadmap State Reconciliation`.\n\nRequired outcomes:\n\n1. The app computes the current actionable step from durable project state.\n2. The primary UI shows the current required action before secondary navigation.\n3. The Operator sees why the step is next, what inputs are used, what artifact or record will be written, and what happens after success or failure.\n4. Project Intake, Project Interview, Reconciliation Review, Project Mapping, Phase Mapping, Work Card Loop, Phase Closeout, Roadmap Update, and Next Phase Activation are represented as one coherent process.\n5. Phase Mapping is presented as the phase-level planning workflow.\n6. Phase Planning is presented as an artifact created during Phase Mapping, not a separate primary workflow screen.\n7. Work Card is presented as the Implementer handoff; do not make Implementer Execution Packet a separate primary artifact.\n8. Implementer Report review routes to the Architect.\n9. Operator validation creates Validation Records.\n10. Failed validation routes to REPAIR sub-card creation.\n11. Closeout and Next Phase Activation follow the locked process baseline.\n12. The visual process map and Figma redesign are used as design inputs, but the implementation follows the locked workflow baseline.\n\nDo not create full Work Cards from this Roadmap alone. Detailed Phase Mapping creates `Work_Card_Plan.md` first.\n\n### phase-04: Workflow Execution Hardening\n\nStatus: proposed\nConfidence: medium\n\nPurpose: harden the Work Card Loop, Implementer Report capture, Architect report review, validation records, repair sub-cards, and parent Work Card rollup status after the workflow-router screen model is installed.\n\n### phase-05: MCP Integration, Repo Bridge, and Security Boundary\n\nStatus: proposed\nConfidence: medium\n\nPurpose: make repo/MCP access visible, bounded, understandable, and safe for non-developer Operators.\n\n### phase-06: Guided Operator UX Polish and Figma Implementation\n\nStatus: proposed\nConfidence: medium\n\nPurpose: apply broader visual polish and Figma design refinement after the workflow-router correction is implemented.\n\n### phase-07: Evidence, Validation, and Release Packaging\n\nStatus: proposed\nConfidence: low\n\nPurpose: prepare auditability, validation summaries, onboarding, release notes, packaging, and Beta readiness.\n\n## First Incomplete Phase\n\nCurrent first incomplete phase is phase-03.\n\nCurrent active phase:\n\n```text\nphase-03: Workflow Router Screen Correction and Guided Current Action UI\n```\n\n## Superseded Assumptions\n\n- app as screen picker\n- Phase Planning as separate top-level workflow concept\n- Implementer Execution Packet as separate primary artifact from Work Card\n- Operator manually selecting among many workflow screens as the main path\n- generic UI polish before workflow-router correction\n- Phase 03 as `Repository Reconciliation and Phase Planning Documents`\n\n## Artifact Policy\n\nRoadmap.md is the living master record. Roadmap does not create executable Work Cards. Phase Mapping creates the phase bundle and Work_Card_Plan.md. Full Work Cards are created just in time by the Architect after Operator Phase Approval.\n",
+    "contentMarkdown": "# Project Roadmap: ChampCity A/I\n\nStatus: Living master roadmap\nCurrent approved roadmap authority: `champcity-ai/phase-05/roadmap_rebaseline/WC03`\nUpdated for: Phase 05 approved roadmap rebaseline\n\n## Rebaseline Decision\n\nThe Operator approved the Phase 05 release-candidate roadmap rebaseline. ChampCity A/I continues Alpha development from a rebuilt workflow-kernel foundation, not another patch pass over the current evidence projector. The target release is a public downloadable beta candidate, beginning with Windows.\n\nThis roadmap is planning authority. It does not authorize source-code implementation by itself. Implementation resumes through the required next-phase planning and Work Card process.\n\n## Current Roadmap Authority\n\n- Approved roadmap: `champcity-ai/phase-05/roadmap_rebaseline/WC03`\n- Operator approval: `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`\n- Current-state baseline: `champcity-ai/phase-05/reconciliation_review/WC02`\n- Phase 04 closeout: `champcity-ai/phase-04/phase_closeout/PHASE_04`\n\n## Current State\n\nPhase 04 is closed as a stabilization bridge. Phase 05 roadmap rebaseline is approved. The next implementation phase is Phase 06: Workflow Kernel and Artifact Protocol Replacement.\n\nArtifact Registry and Workflow State are diagnostic/cache until the workflow kernel is rebuilt. The app is not currently the reliable workflow controller until Phase 08 re-entry criteria are met.\n\n## Release Candidate Definition\n\nThe public beta candidate is a Windows desktop build that a non-developer or semi-technical Operator can install and use to run a governed AI-assisted software-development workflow with durable repo artifacts. Minimum scope includes reliable project registration, ChatGPT subscription plus ChampCity MCP Architect Bridge, Codex as the first supported Implementer, durable workflow kernel, validation/evidence, repair/disposition, Git automation, multi-project dogfooding, usable UI, packaging, onboarding, and documentation.\n\n## Phases\n\n### phase-01: MVP Foundation and Core Work Card Loop\n\nStatus: closed\n\nHistorical MVP proof of concept; not current architecture authority.\n\n### phase-02: Upstream Project Planning and Corrective Workflow Authority\n\nStatus: closed\n\nHistorical corrective planning work.\n\n### phase-03: Workflow Router Screen Correction and Guided Current Action UI\n\nStatus: interrupted/superseded\n\nSuperseded by later stabilization evidence and the Phase 05 roadmap rebaseline.\n\n### phase-04: Stabilization Bridge and Foundation Rebaseline\n\nStatus: closed\n\nClosed as stabilization bridge; it exposed the need to replace the old foundation.\n\n### phase-05: Reconciliation and Roadmap Rebaseline\n\nStatus: approved\n\nRoadmap rebaseline approved by the Operator; source-code implementation not authorized by WC03 approval.\n\n### phase-06: Workflow Kernel and Artifact Protocol Replacement\n\nStatus: next implementation phase\n\nReplace the hard-coded projector with a relationship-driven workflow kernel and canonical artifact protocol.\n\n### phase-07: Architect Bridge and MCP-First Integration\n\nStatus: planned\n\nMake ChatGPT subscription plus ChampCity MCP the Alpha-core Architect integration path.\n\n### phase-08: In-App Dogfooding Re-Entry\n\nStatus: planned\n\nReturn ChampCity_AI development to application-led dogfooding after kernel and bridge criteria are met.\n\n### phase-09: Implementer Contract and Codex Loop Hardening\n\nStatus: planned\n\nSupport Codex first while keeping the Implementer contract tool-neutral.\n\n### phase-10: Validation, Evidence, and Repair Governance\n\nStatus: planned\n\nMake validation, evidence bundles, screenshots, repair lineage, and UI usability first-class workflow systems.\n\n### phase-11: Multi-Project Dogfooding and Workspace Authority\n\nStatus: planned\n\nDogfood ChampCity_AI, ChampCity GPT / ChampCity MCP, ChampCity_RP_Desktop, and Revisionary with isolated workspace authority.\n\n### phase-12: Git Automation and Operator Abstraction\n\nStatus: planned\n\nRemove Git as an end-user responsibility before release candidate.\n\n### phase-13: UI Hardening and Workflow Cockpit\n\nStatus: planned\n\nMake the UI a usable workflow cockpit rather than a screen picker.\n\n### phase-14: Security, Settings, and Provider Boundary\n\nStatus: planned\n\nDefine secure boundaries for MCP, local repo access, provider keys, and future API-backed models.\n\n### phase-15: Release Candidate Packaging and Documentation\n\nStatus: planned\n\nProduce the Windows-first public downloadable beta candidate with setup, onboarding, evidence, and release documentation.\n\n## First Incomplete Phase\n\nCurrent first incomplete phase is phase-06.\n\nCurrent next implementation phase:\n\n```text\nphase-06: Workflow Kernel and Artifact Protocol Replacement\n```\n\n## Old-Foundation Removal Rules\n\nEvery future implementation Work Card must state the existing implementation classification: Preserve, Migrate, or Replace. It must identify runtime compatibility requirements with a named supported consumer, migration strategy, deletion/removal plan, tests proving old and new authority paths are not both active, and UI impact when touching Operator workflow. Default for unreleased Alpha is to replace wrong foundations with durable-data migration only.\n\n## Superseded Assumptions\n\n- Phase 03 is the active implementation phase.\n- Phase 04 or Phase 05 should patch the existing evidence projector as the final workflow controller.\n- Artifact Registry or Workflow State is current independent runtime authority before the Phase 06 kernel rebuild.\n- Implementer Execution Packet is a separate primary artifact overriding Work Card authority.\n- UI usability can be deferred as optional polish after data artifacts pass tests.\n- Git can remain a normal end-user responsibility for the release candidate.\n\n## Artifact Policy\n\nThe roadmap is the living master record for phase sequence and release-candidate scope. It does not create executable Work Cards. Phase planning and Operator approval create Work Card Plans, and full Work Cards are created just in time by the Architect after the relevant approval.\n",
     "data": {
-      "artifactPolicy": {
-        "fullWorkCardsCreatedJustInTimeByArchitect": true,
-        "phaseMappingCreatesWorkCardPlan": true,
-        "roadmapCreatesExecutableWorkCards": false,
-        "workCardIsImplementerPrompt": true
-      },
-      "currentActivePhase": "phase-03",
-      "currentExecutableWorkCard": "WC01: Superseded Phase 03 Artifact and Roadmap State Reconciliation",
-      "currentFirstIncompletePhase": "phase-03",
-      "id": "PROJECT_ROADMAP_champcity_a_i",
-      "lockedWorkflow": [
-        "Project Intake",
-        "Project Interview",
-        "Reconciliation Review",
-        "Project Mapping",
-        "Operator Project Approval",
-        "Phase Mapping",
-        "Operator Phase Approval",
-        "Work Card Loop",
-        "Phase Closeout",
-        "Operator Phase Closeout Approval",
-        "Roadmap Update",
-        "Next Phase Activation",
-        "Repeat Phase Mapping / Work Card Loop"
-      ],
+      "currentActivePhase": null,
+      "currentApprovedRoadmapAuthority": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "currentFirstIncompletePhase": "phase-06",
+      "dogfoodingReturnPhase": "phase-08",
+      "nextImplementationPhase": "phase-06",
       "phases": [
         {
-          "confidence": "high",
           "id": "phase-01",
           "status": "closed",
           "title": "MVP Foundation and Core Work Card Loop"
         },
         {
-          "closeoutEvidence": "planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.md",
-          "confidence": "high",
           "id": "phase-02",
-          "nextPhaseActivationDecision": "Activate next phase",
           "status": "closed",
           "title": "Upstream Project Planning and Corrective Workflow Authority"
         },
         {
-          "approvedAuthority": [
-            "planning/phases/phase-03/Phase_Interview.md",
-            "planning/phases/phase-03/Phase_Planning.md",
-            "planning/phases/phase-03/Work_Card_Plan.md",
-            "planning/phases/phase-03/Operator_Phase_Approval.md"
-          ],
-          "confidence": "high",
-          "currentExecutableWorkCard": "WC01: Superseded Phase 03 Artifact and Roadmap State Reconciliation",
-          "doNotCreateFullWorkCardsFromRoadmap": true,
-          "expectedOutcomes": [
-            "current required action panel",
-            "workflow state router",
-            "phase mapping as primary phase-level planning concept",
-            "phase planning as artifact inside phase mapping",
-            "Work Card as Implementer handoff",
-            "Architect review of Implementer Reports",
-            "Operator validation records",
-            "repair sub-card handling",
-            "phase closeout and next phase activation routing"
-          ],
           "id": "phase-03",
-          "purpose": "Correct the application screens and UI behavior to adhere to the newly mapped workflow process. The UI must compute and display the current actionable step, show required inputs and outputs, and make generic navigation secondary.",
-          "status": "active_approved_for_jit_work_card_execution",
+          "status": "interrupted_superseded",
           "title": "Workflow Router Screen Correction and Guided Current Action UI"
         },
         {
-          "confidence": "medium",
           "id": "phase-04",
-          "status": "proposed",
-          "title": "Workflow Execution Hardening"
+          "status": "closed",
+          "title": "Stabilization Bridge and Foundation Rebaseline"
         },
         {
-          "confidence": "medium",
           "id": "phase-05",
-          "status": "proposed",
-          "title": "MCP Integration, Repo Bridge, and Security Boundary"
+          "status": "approved",
+          "title": "Reconciliation and Roadmap Rebaseline"
         },
         {
-          "confidence": "medium",
           "id": "phase-06",
-          "status": "proposed",
-          "title": "Guided Operator UX Polish and Figma Implementation"
+          "status": "next_implementation_phase",
+          "title": "Workflow Kernel and Artifact Protocol Replacement"
         },
         {
-          "confidence": "low",
           "id": "phase-07",
-          "status": "proposed",
-          "title": "Evidence, Validation, and Release Packaging"
+          "status": "planned",
+          "title": "Architect Bridge and MCP-First Integration"
+        },
+        {
+          "id": "phase-08",
+          "status": "planned",
+          "title": "In-App Dogfooding Re-Entry"
+        },
+        {
+          "id": "phase-09",
+          "status": "planned",
+          "title": "Implementer Contract and Codex Loop Hardening"
+        },
+        {
+          "id": "phase-10",
+          "status": "planned",
+          "title": "Validation, Evidence, and Repair Governance"
+        },
+        {
+          "id": "phase-11",
+          "status": "planned",
+          "title": "Multi-Project Dogfooding and Workspace Authority"
+        },
+        {
+          "id": "phase-12",
+          "status": "planned",
+          "title": "Git Automation and Operator Abstraction"
+        },
+        {
+          "id": "phase-13",
+          "status": "planned",
+          "title": "UI Hardening and Workflow Cockpit"
+        },
+        {
+          "id": "phase-14",
+          "status": "planned",
+          "title": "Security, Settings, and Provider Boundary"
+        },
+        {
+          "id": "phase-15",
+          "status": "planned",
+          "title": "Release Candidate Packaging and Documentation"
         }
       ],
-      "productCorrection": "ChampCity A/I is a workflow router, not a screen picker.",
-      "project": "ChampCity A/I",
-      "status": "living_master_roadmap",
-      "supersededAssumptions": [
-        "app_as_screen_picker",
-        "phase_planning_as_separate_top_level_workflow",
-        "implementer_prompt_as_separate_primary_artifact",
-        "operator_manually_selects_many_screens_as_main_path",
-        "phase_03_repository_reconciliation_and_phase_planning_documents"
-      ],
-      "updatedFor": "Workflow Router Rebaseline"
+      "releaseTarget": "public_downloadable_beta_candidate_windows_first"
     },
     "kind": "roadmap",
     "title": "Project Roadmap: ChampCity A/I"
   },
-  "payloadHash": "sha256:b833ed51ce47d5abbf5a5f7dd210715ed02e45cbe22f936ab6ebcf7cd7f6d172",
+  "payloadHash": "sha256:762215788150a1868d3f3a1fd56375166c9e07d507c2a96f08179f69a58aeb35",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -121,11 +102,18 @@
       "champcity-ai/phase-03/implementer_report/WC01"
     ],
     "expectedOutputs": [],
-    "sources": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation/PROJ-OBS-010"
+    ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-17T01:35:00.000Z"
 }

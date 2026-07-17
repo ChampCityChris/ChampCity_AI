@@ -9,36 +9,45 @@
     "kind": "supporting_document",
     "title": "Open Questions"
   },
-  "payloadHash": "sha256:2e67a4052e8b3eaacee79f8a77210ff65f80188a1083e7a5b39755a4e7339047",
+  "payloadHash": "sha256:fb36fd7736364a454ced79d95d4986952264b6496acbafa9e1a4461d420ed6f6",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
-    "sources": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation/PROJ-OBS-010"
+    ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-17T01:35:00.000Z"
 }
 -->
 
 # Open Questions
 
-## Questions
+## Answered By Phase 05 WC01/WC02/WC03
 
-- These are not blockers for the next planning-documents step, but they should remain open profile fields until resolved.
-- First, how should ChampCity A/I expose and explain ChampCity MCP setup to non-developer users without overwhelming them?
-- Recommended default: the app should present MCP as a required local connector for the guided Alpha workflow, with simple status checks and plain-language explanations.
-- Second, should subscription-surface automation beyond MCP be built as browser automation, clipboard automation, desktop overlay/helper, staged copy/paste queue, or some combination of these?
-- Recommended default: treat this as a later design/research phase. MCP-mediated repo access is the primary Alpha integration path.
-- Third, should Beta require Mac/Linux support, or is Windows public release enough for Beta?
-- Recommended default: Windows public release is enough for Beta. Mac/Linux can follow after the workflow is proven.
-- Fourth, should screenshots be stored directly in the repo, stored in an app-controlled evidence folder, or referenced by path?
-- Recommended default: use an app-controlled evidence folder under the project planning structure, with repo-safe filenames and no hidden external dependency.
-- Operator uncertainty: I am unsure how to code a solution for integrating this application with the subscription versions of ChatGPT or Claude
+- Default Architect integration: ChatGPT subscription plus ChampCity MCP.
+- Implementer model: Codex is the first supported Implementer, and the Implementer contract remains tool-neutral.
+- Public beta target: Windows-first downloadable public beta candidate.
+- Evidence/screenshots: repo-visible app-controlled evidence storage under planning/evidence-style project structure.
+- Git automation: required before release candidate; raw Git must not remain a normal Operator responsibility.
+
+## Remaining Open Questions
+
+- What exact Operator-facing setup, status, and repair UI should ChampCity A/I provide for ChampCity MCP connection failures?
+- What explicit fallback design should exist when MCP read/write fails during Alpha, and what evidence should that fallback create for repair?
+- Which secure local storage mechanism and settings UX should be used for future API-backed provider keys?
+- After the Windows-first beta candidate is proven, what timing and scope should Mac/Linux support have?
 
 ## Owner
 
-The Operator owns final answers. The Architect may help frame options before implementation.
+The Operator owns final answers. The Architect may frame options before implementation, and future Work Cards should resolve only the questions needed for their approved phase scope.

@@ -9,7 +9,7 @@
     "kind": "supporting_document",
     "title": "Project Mapping Rebaseline: Workflow Router Model"
   },
-  "payloadHash": "sha256:bdc18bf426632a2c32e2bb8e3a88ef83ca7ae40e888b8fe9d7fa66b4c9dc4d28",
+  "payloadHash": "sha256:eeb510ee2d97740ee021bada1adbc0d08b9f6d0e04c952875b29259c189ecd1b",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -17,61 +17,41 @@
       "champcity-ai/phase-03/implementer_report/WC01"
     ],
     "expectedOutputs": [],
-    "sources": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation/PROJ-OBS-010"
+    ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "pending",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "status": "superseded",
+  "updatedAt": "2026-07-17T01:35:00.000Z"
 }
 -->
 
 # Project Mapping Rebaseline: Workflow Router Model
 
-Status: Current source context for approved Phase 03 workflow-router correction.
+Status: Superseded as current roadmap authority by `champcity-ai/phase-05/roadmap_rebaseline/WC03`
 
-## Reason
+## Disposition
 
-The prior Roadmap and UI direction overemphasized separate screens and planning surfaces. The corrected product model is that ChampCity A/I is a workflow router, not a screen picker.
+This document remains historical context for the Phase 03 workflow-router correction. It is no longer the current source context for active implementation and must not be used to claim Phase 03 is current.
 
-## Corrected workflow
+## Current Authority
 
-Project Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop.
+The current approved roadmap authority is `champcity-ai/phase-05/roadmap_rebaseline/WC03`, approved by `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`.
 
-## Required product corrections
+Phase 04 is closed as a stabilization bridge. Phase 05 roadmap rebaseline is approved. The next implementation phase is Phase 06: Workflow Kernel and Artifact Protocol Replacement.
 
-- Roadmap.md is the living master record.
-- Phase Mapping is the phase-level planning process.
-- Phase Planning is an artifact created during Phase Mapping, not a separate top-level workflow concept.
-- Work_Card_Plan.md contains Work Card candidates only.
-- The Architect creates full Work Cards just in time.
-- The Work Card is also the Implementer execution packet.
-- Implementer Reports are reviewed by the Architect.
-- Operator validation creates Validation Records.
-- Repair sub-cards use WCxx-REPAIRxx naming.
-- Closeout approval authorizes Roadmap update and Next Phase Activation.
+## Historical Value
 
-## Conflicts identified
+The durable product correction from this document remains useful: ChampCity A/I should route the Operator through a governed workflow rather than act as a screen picker. Phase 05 changes the implementation path: the old projector and artifact protocol boundary must be replaced through the Phase 06 kernel work before application-led dogfooding resumes in Phase 08.
 
-PROJECT_PROFILE.md still uses Capture -> Frame -> Plan -> Build -> Prove as if it were the core workflow. That phrase should remain only as a mental model.
+## Superseded Statements
 
-The current Roadmap still describes Implementer Execution Packet as separate from Formal Work Card and treats Phase Planning Documents as a separate authority surface. Those assumptions are superseded.
-
-## Phase assessment
-
-Phase 01 remains closed.
-
-Phase 02 is closed by Operator closeout.
-
-Prior draft Phase 03 is superseded by the approved workflow-router Phase 03 bundle.
-
-## Recommended next phase
-
-Approved phase-03 title: Workflow Router Screen Correction and Guided Current Action UI.
-
-Purpose: implement the corrected workflow-router model in artifacts and UI behavior. The app should compute the current actionable step and show it as the primary Operator path.
-
-## Operator action
-
-Use this rebaseline as source context for Phase 03 implementation. The separate project-level approval artifact remains pending unless the Operator records that approval.
+Any statement in this artifact that identifies Phase 03 as the approved current implementation phase is superseded. Any statement that treats Artifact Registry or Workflow State as current runtime authority before the Phase 06 kernel rebuild is superseded.

@@ -1,0 +1,42 @@
+{
+  "artifactId": "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
+  "artifactType": "implementer_report",
+  "createdAt": "2026-07-17T01:45:00.000Z",
+  "jsonPath": "planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json",
+  "markdownPath": "planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.md",
+  "parentArtifactId": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+  "payload": {
+    "contentMarkdown": "# Implementer Report: WC03-LIVING-DOCS Living Document Update Pass\n\n## Pass Type\n\nNumbered Work Card follow-up / approved living-document update pass.\n\n## Repository Path Inspected\n\nVerified approved repo root.\n\n## Git Branch And Remote Status\n\n- Branch: `feature/phase-04-wc01-repair01-evidence-derived-workflow`\n- Remote: `origin` -> `https://github.com/ChampCityChris/ChampCity_AI.git`\n- Starting working tree: clean\n- Intended commit message: `Update living documents for approved Phase 05 roadmap`\n\n## Files Created\n\n- `planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json`\n- `planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.md`\n\n## Files Modified\n\n- `planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.{json,md}`\n- `planning/project/PROJECT_STATE.{json,md}`\n- `planning/project/PROJECT_PROFILE.{json,md}`\n- `planning/project/DECISIONS.{json,md}`\n- `planning/project/RISKS.{json,md}`\n- `planning/project/OPEN_QUESTIONS.{json,md}`\n- `planning/project/Project_Observation_Register.{json,md}`\n- `planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.{json,md}`\n- `planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.{json,md}`\n- `docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md`\n- `planning/system/Artifact_Registry/ARTIFACT_REGISTRY.{json,md}`\n\n## Files Intentionally Not Created\n\n- No `_2`, `_3`, or suffix revision living-document files.\n- No source-code, test, package, provider, database, connector, or deployment files.\n- No Workflow State revision; Phase 05 treats Workflow State as diagnostic/cache until Phase 06.\n\n## Exact Living-Document Updates Made\n\n- Project Roadmap now states `champcity-ai/phase-05/roadmap_rebaseline/WC03` as current approved roadmap authority and replaces stale phase descriptions with Phase 06 through Phase 15.\n- Project State now states Phase 04 is closed as stabilization bridge, Phase 05 roadmap rebaseline is approved, Phase 06 is next, Artifact Registry and Workflow State are diagnostic/cache, and the app is not reliable workflow controller until Phase 08 re-entry criteria are met.\n- Project Profile now records ChatGPT subscription plus ChampCity MCP as default Architect integration, API-backed model integration as future/final-state, ChampCity MCP as core integrated app component/future model-harness boundary, Codex as first supported Implementer with tool-neutral contract, and Windows-first public beta target.\n- Decisions now records kernel priority, Architect Bridge as Alpha core, early multi-project dogfooding, Git automation before release candidate, UI usability as acceptance condition, and replace/migrate over unapproved runtime compatibility fallback.\n- Risks now covers compatibility/fallback debt, workflow-kernel replacement, Architect Bridge/MCP integration, dogfooding re-entry, Git exposure, UI acceptance, provider/API boundary, evidence storage, and multi-project authority.\n- Open Questions now marks Phase 05 answers closed and retains only implementation-detail questions.\n- Project Observation Register now includes `PROJ-OBS-010` in the main register and assigns it to Phase 12.\n- REBASELINE_WORKFLOW_ROUTER_MODEL is marked superseded by the approved Phase 05 roadmap and no longer claims Phase 03 is current.\n- ARTIFACT_AUTHORITY_MODEL now says the Work Card is the Implementer handoff authority and old separate Implementer Execution Packet concepts do not override Phase 05.\n- WORKFLOW_AUTHORITY_CONTRACT now describes target state and identifies Phase 06 as the implementation phase that replaces the current projector.\n- Artifact Registry metadata cache was synchronized only for existing revised project-level entries.\n\n## Commands Run And Results\n\n- `pwd`: passed; verified approved repo root.\n- `git remote -v`: passed; remote is ChampCityChris/ChampCity_AI.\n- `git status --porcelain`: passed before editing; working tree clean.\n- `Get-Content AGENTS.md`: passed.\n- `Get-Content docs/dev/VALIDATION_COMMAND_LANES.md`: passed.\n- Canonical pair verification for edited living-document pairs and Artifact Registry: passed.\n- `node scripts/verify-wc09-repository-gates.mjs --base feature/phase-03-wc09-repair02-process-contract-evidence-precedence` sandbox lane: failed with known `spawn EPERM`.\n- Same repository gate in approved normal Windows lane after Registry synchronization: failed only on `git_changed_file_scope`; all other gates passed. Remaining failure is the old WC09 gate flagging 24 existing Phase 05 artifacts as `outside-wc09-scope` because the gate base remains scoped to Phase 03/04 WC09 work.\n- `git diff --name-only` source-scope check: passed; no source, test, script, package, or lockfile changes.\n- Placeholder payload-hash scan: passed; no placeholder hashes.\n\n## Validation Skipped And Reason\n\n- `npm run typecheck`, `npm run build`, and `npm test` skipped because this pass changed planning/architecture documents only and no source code, tests, package metadata, or lockfiles changed.\n- Operator manual validation was not performed by the Implementer.\n\n## Git Actions Performed\n\n- Commit created: pending until commit is created.\n- Commit hash: pending until commit is created, because this report is committed with the work.\n- Tag: none.\n- Push: pending.\n\n## Security / Secret-Safety Notes\n\n- No secrets, tokens, API keys, credentials, `.env` files, provider SDKs, or credential-bearing configuration were added.\n- Durable artifacts use repo-relative paths or `<PROJECT_REPO>` language.\n- No source code was changed.\n\n## Blocking Questions\n\nNone.\n\n## Manual Validation Required\n\n1. Review Project Roadmap and confirm Phase 06 through Phase 15 match the approved roadmap.\n2. Review Project State and confirm it no longer says Phase 03 is active.\n3. Review Project Observation Register and confirm PROJ-OBS-010 is included.\n4. Review Open Questions and confirm answered Phase 05 questions are no longer open.\n5. Confirm no source code changed.\n\n## Residual Risks\n\n- The legacy WC09 repository gate remains scoped to a Phase 03/04 base and reports existing Phase 05 artifacts as outside scope.\n- Workflow State was intentionally not advanced because the Phase 05 baseline treats it as diagnostic/cache pending Phase 06.\n\n## Recommended Next Implementer Task\n\nCreate or execute the next approved Phase 06 planning/implementation Work Card for Workflow Kernel and Artifact Protocol Replacement.\n",
+    "data": {
+      "branch": "feature/phase-04-wc01-repair01-evidence-derived-workflow",
+      "commitHash": "pending_until_commit_created",
+      "intendedCommitMessage": "Update living documents for approved Phase 05 roadmap",
+      "passType": "numbered_work_card_followup_living_document_update",
+      "sourceCodeChanged": false,
+      "validationResult": "canonical_pairs_passed_repository_gate_failed_only_old_scope_git_changed_file_scope"
+    },
+    "kind": "implementer_report",
+    "title": "Implementer Report: WC03-LIVING-DOCS Living Document Update Pass"
+  },
+  "payloadHash": "sha256:93ef0f72d10d44c0ed7b86019a718333189cbc94c4dc032c727069e5427bac4d",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation/PROJ-OBS-010"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:45:00.000Z",
+  "workCardId": "WC03-LIVING-DOCS"
+}

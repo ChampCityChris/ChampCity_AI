@@ -9,18 +9,25 @@
     "kind": "supporting_document",
     "title": "Project Profile"
   },
-  "payloadHash": "sha256:9d449c220bc26fc7743cab7e096855b46d185ab65952dae361cf5dc04e1ea02b",
+  "payloadHash": "sha256:c9f90a2d8b0312e6a3cc52b648ea45cfa31df52857e020b5b52d0b897d2a6087",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
-    "sources": [],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation/PROJ-OBS-010"
+    ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-17T01:35:00.000Z"
 }
 -->
 
@@ -36,39 +43,23 @@ ChampCity AI
 
 ## Current Stage
 
-Alpha app development.
+Alpha app development after approved Phase 05 roadmap rebaseline.
 
 ## Product Thesis
 
 ChampCity A/I is a local Electron workflow application for non-developer or semi-technical Operators who use an Architect and an Implementer to plan, build, validate, repair, close, and advance software development phases through durable repo artifacts.
 
-The corrected product model is that ChampCity A/I is a workflow router, not a screen picker. The application should compute the current actionable step from durable project state and guide the Operator to the correct next action.
-
-## Mental Model
-
-Capture -> Frame -> Plan -> Build -> Prove remains a useful explanatory mental model, but it is not the application workflow.
-
-The actual locked workflow is:
-
-```text
-Project Intake -> Project Interview -> Reconciliation Review -> Project Mapping -> Operator Project Approval -> Phase Mapping -> Operator Phase Approval -> Work Card Loop -> Phase Closeout -> Operator Phase Closeout Approval -> Roadmap Update -> Next Phase Activation -> Repeat Phase Mapping / Work Card Loop
-```
-
-## Primary Users
-
-Non-developer and semi-technical Operators. They may be technically comfortable, but they should not be expected to know coding languages, software architecture, implementation planning, or formal validation practices.
+The product is a governed workflow controller. During the current rebaseline interval, the app is evidence and tooling, not the reliable workflow controller, until the Phase 06 kernel and Phase 08 dogfooding re-entry criteria are met.
 
 ## Operating Roles
 
 - Operator: owns priority, approval, credentials, business judgment, validation, and final acceptance.
 - Architect: frames work, asks guided questions, creates planning artifacts, reviews Implementer Reports, drafts Work Cards, drafts repair sub-cards, and provides manual validation steps.
-- Implementer: coding-focused LLM that executes approved Work Cards and returns Implementer Reports.
+- Implementer: coding-focused execution role that performs approved Work Cards and returns Implementer Reports. Codex is the first supported Implementer, while the Implementer contract remains tool-neutral.
 
 ## Source of Truth
 
-`%USERPROFILE%\Projects\ChampCity_AI`
-
-The source of truth is the local project repo and its durable Markdown/JSON artifacts.
+The source of truth is the local project repository and its durable Markdown/JSON artifacts. Committed planning artifacts should use repo-relative paths or `<PROJECT_REPO>`, not concrete local machine paths.
 
 ## Approved Technical Shape
 
@@ -76,65 +67,19 @@ The source of truth is the local project repo and its durable Markdown/JSON arti
 - Language: TypeScript.
 - Frontend: React.
 - Persistence: file-backed Markdown and JSON planning artifacts.
-- Repo bridge: ChampCity MCP.
-- Implementer: Codex or another coding-focused LLM acting in the Implementer role.
-- Manual copy/paste remains a fallback path, not the primary desired workflow.
+- Default Architect integration: ChatGPT subscription plus ChampCity MCP.
+- Future/final-state model integration: API-backed model integration through secure provider boundaries, not the default Alpha path.
+- ChampCity MCP direction: core integrated app component, repo bridge, and future model-harness boundary.
+- First supported Implementer: Codex.
+- Implementer contract: tool-neutral.
+- Public beta candidate target: Windows-first downloadable desktop beta candidate.
 
-## Corrected Workflow Authority
+## Current Integration Baseline
 
-- Project Intake writes `Project_Intake.md` and creates or binds the local workspace path.
-- Project Interview is always required and writes `Project_Interview.md`.
-- Reconciliation Review runs when repo detection finds prior project content and reconstructs completed phases and completed Work Cards only.
-- Project Mapping creates `Project_Profile.md` and `Roadmap.md`, approved as a bundle.
-- `Roadmap.md` is the living master record.
-- Phase Mapping is performed one phase at a time for the first incomplete phase.
-- Phase Mapping creates `Phase_Interview.md`, `Phase_Planning.md`, and `Work_Card_Plan.md`.
-- `Work_Card_Plan.md` contains mapped Work Card candidates only: IDs, titles, summaries, order, dependencies, and purpose.
-- The Architect creates each full Work Card just in time.
-- The Work Card is also the Implementer execution packet.
-- Implementer Reports are reviewed by the Architect, not by the Operator for validation design.
-- The Architect provides manual validation steps.
-- Operator validation creates Validation Records.
-- Repair sub-cards use `WCxx-REPAIRxx` naming and are informally reviewed by the Operator.
-- Phase Closeout accounts for every mapped candidate and authorizes Roadmap update and Next Phase Activation after Operator closeout approval.
+ChatGPT subscription plus ChampCity MCP is the default Architect integration for Alpha and the release-candidate path. API-backed OpenAI, Anthropic, local Ollama, and generic OpenAI-compatible provider integration remain future/final-state provider work and require secure settings/provider-boundary implementation before use as product defaults.
 
-## UI Product Direction
+Manual copy/paste may remain an explicit fallback during Alpha, but it is not the desired primary workflow. Fallbacks must be visible, recorded, and repaired when they block in-app dogfooding.
 
-The UI must not be primarily a list of screens. It should provide:
+## Workflow Direction
 
-- current required action
-- why that action is next
-- source artifacts being used
-- artifact or record that will be written
-- approval or validation required
-- success path
-- failure or repair path
-
-Secondary navigation may exist, but the primary experience should route the Operator through the locked workflow.
-
-## Current Rebaseline
-
-A Project Mapping Rebaseline was created to supersede prior screen-picker and split phase-planning assumptions.
-
-Related artifacts:
-
-- `docs/workflow/PROCESS_BASELINE.md`
-- `planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md`
-- `planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md`
-
-## Safe Assumptions
-
-- ChampCity MCP is available and configured for the project workspace during Alpha development.
-- API-backed integration remains optional future functionality for users who supply API keys.
-- ChatGPT subscription surface plus MCP-mediated repo access is the preferred Alpha planning model.
-- The Operator remains responsible for approval, validation, and movement between workflow states.
-- The app should expose MCP status and artifact-write status in plain language.
-
-## Superseded Assumptions
-
-The following assumptions are superseded by the workflow-router rebaseline:
-
-- The app is mainly a screen picker.
-- Phase Planning is a separate top-level workflow concept from Phase Mapping.
-- Implementer Execution Packet is a separate primary artifact from the Work Card.
-- The Operator should manually select among many workflow screens to determine what to do next.
+Phase 06 rebuilds the workflow kernel and artifact protocol. Phase 07 makes Architect Bridge Alpha core. Phase 08 returns ChampCity_AI development to application-led dogfooding. Later phases harden Implementer contracts, validation/evidence, multi-project authority, Git automation, UI usability, provider/security boundaries, and release-candidate packaging.
