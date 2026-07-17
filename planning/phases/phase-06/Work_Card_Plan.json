@@ -1,0 +1,46 @@
+{
+  "artifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+  "artifactType": "work_card_plan",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "active",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-06",
+  "createdAt": "2026-07-17T02:05:00.000Z",
+  "updatedAt": "2026-07-17T02:05:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Work_Card_Plan.json",
+  "markdownPath": "planning/phases/phase-06/Work_Card_Plan.md",
+  "payloadHash": "sha256:c013f03ba70a8a8d323500511c6c683a21c79d40d095841532133b88366214fe",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-06/phase_planning/Phase_Planning",
+      "champcity-ai/phase-06/phase_activation/phase-06",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/approval/Operator_Phase_Approval"
+    ],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "work_card_plan",
+    "title": "Work Card Plan: phase-06",
+    "contentMarkdown": "# Work Card Plan: phase-06\n\nStatus: draft_for_operator_review\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nCreated: 2026-07-17\n\nThis Work Card Plan is not executable by itself. Full Work Cards must be created just in time by the Architect after Operator approval.\n\n## Ordered Candidates\n\n### WC01 — Kernel Contract and Artifact Protocol Baseline\n\nDefine the target workflow kernel contract, artifact-transition protocol, supported artifact types, transition inputs, transition outputs, blocking model, and no-fallback invariants.\n\nDependencies: Phase 06 approval. Priority: critical.\n\n### WC02 — Replace EvidenceDerivedWorkflowProjector with Relationship-Driven Resolver\n\nReplace the hand-coded evidence projector with a resolver that consumes verified artifact relationships and explicit transition rules. Remove synthetic ID construction, filename inference, timestamp inference, suffix inference, and WC-specific completion branches.\n\nDependencies: WC01. Priority: critical.\n\n### WC03 — Real Phase 04/05 Replay Fixture and No-Fallback Repository Gates\n\nCreate real repository replay coverage for Phase 04 and Phase 05 evidence, including repaired-parent completion, WC03 living-doc completion, Phase 05 closeout, and Phase 06 planning activation. Add gates that fail on old/new dual authority and runtime fallback patterns.\n\nDependencies: WC01, WC02. Priority: critical.\n\n### WC04 — Artifact Registry and Workflow State Diagnostic Boundary\n\nMake Artifact Registry and Workflow State explicitly diagnostic/cache unless and until the kernel defines their target role. Ensure neither can override verified artifact graph evidence.\n\nDependencies: WC01, WC02. Priority: high.\n\n### WC05 — Kernel-to-UI Current Action Adapter\n\nConnect the new kernel to the current-action presentation layer without letting UI state, reference navigation, stale screen state, or registry cache retarget the action. Include minimal UI usability checks for current action clarity.\n\nDependencies: WC02, WC03. Priority: high.\n\n### WC06 — Operator Validation of Kernel-Derived Current Action and Phase Closeout Readiness\n\nPerform Operator validation that the kernel-derived current action is accurate, understandable, and based on verified evidence. Confirm no old projector fallback or stale Workflow State authority remains.\n\nDependencies: WC01–WC05. Priority: critical.\n\n## Candidate Resolution Rule\n\nPhase 06 closes only when every candidate is completed, completed via repair, explicitly deferred, or cancelled by Operator-approved disposition, and the Phase 06 exit condition has been met.\n",
+    "data": {
+      "phaseId": "phase-06",
+      "status": "draft_for_operator_review",
+      "candidateCount": 6,
+      "formalWorkCardsCreated": false,
+      "operatorApprovalRequired": true,
+      "candidates": [
+        "WC01",
+        "WC02",
+        "WC03",
+        "WC04",
+        "WC05",
+        "WC06"
+      ]
+    }
+  }
+}

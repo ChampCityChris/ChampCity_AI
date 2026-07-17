@@ -1,0 +1,43 @@
+{
+  "artifactId": "champcity-ai/phase-05/phase_closeout/PHASE_05",
+  "artifactType": "phase_closeout",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "active",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-05",
+  "createdAt": "2026-07-17T02:05:00.000Z",
+  "updatedAt": "2026-07-17T02:05:00.000Z",
+  "jsonPath": "planning/phases/phase-05/Phase_Closeouts/PHASE_05_CLOSEOUT_reconciliation_and_roadmap_rebaseline.json",
+  "markdownPath": "planning/phases/phase-05/Phase_Closeouts/PHASE_05_CLOSEOUT_reconciliation_and_roadmap_rebaseline.md",
+  "payloadHash": "sha256:61d64ce6493f1bb6bb259c5366e804ebbf72be8845d0dc1a983a077bbbc598a8",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/approval/WC02",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/validation_report/WC03-LIVING-DOCS",
+      "champcity-ai/phase-05/candidate_disposition/WC03-LIVING-DOCS"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/phase_activation/phase-06"
+    ],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "phase_closeout",
+    "title": "Phase 05 Closeout: Reconciliation and Roadmap Rebaseline",
+    "contentMarkdown": "# Phase 05 Closeout: Reconciliation and Roadmap Rebaseline\n\nStatus: closed\nProject: ChampCity A/I\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nCloseout method: Architect closeout outside the application using current artifact schema\nCloseout date: 2026-07-17\n\n## Closeout Decision\n\nPhase 05 is closed.\n\nPhase 05 completed the required reconciliation work after Phase 04 exposed that the prompt-handoff MVP foundation was not sufficient for integrated Architect / Implementer / Operator workflow execution.\n\nThe approved current roadmap authority is:\n\n```text\nchampcity-ai/phase-05/roadmap_rebaseline/WC03\n```\n\n## Completed Phase 05 Outcomes\n\n- WC01 completed the planning-corpus review, MCP/tooling-failure identification, and clarification cycle.\n- WC02 created the reconciled current-state and ground-rules baseline and received Operator approval.\n- WC03 created the release-candidate roadmap rebaseline and received Operator approval.\n- The required living-document update pass was completed, Architect reviewed, Operator validated, and dispositioned as accepted.\n- Project Roadmap, Project State, Project Profile, Decisions, Risks, Open Questions, Project Observation Register, Rebaseline Workflow Router Model, Artifact Authority Model, and Workflow Authority Contract were updated to reflect Phase 05 authority.\n- PROJ-OBS-010 was integrated into the Project Observation Register.\n- The roadmap now defines Phase 06 through Phase 15 from current state to public downloadable beta candidate.\n- Phase 08 is explicitly defined as the mandatory return-to-application dogfooding phase.\n\n## Closeout Findings\n\nPhase 05 did not authorize source-code implementation. It established planning authority and the next implementation boundary.\n\nThe application must not be treated as the reliable workflow controller until the approved re-entry criteria are met in Phase 08. Until Phase 06 is implemented and accepted, Artifact Registry and Workflow State remain diagnostic/cache, not independent runtime authority.\n\nThe existing repository validation gate still contains an old WC09 changed-file scope rule. That gate fails for Phase 05/Phase 06 planning artifacts even when canonical-pair and safety gates pass. This is a known validation-scope defect to address in the implementation roadmap rather than a Phase 05 closeout blocker.\n\n## Observation Register Reconciliation\n\nProject-level observations remain represented in `planning/project/Project_Observation_Register.{json,md}`.\n\nKey carried-forward observations:\n\n- PROJ-OBS-007: Artifact authority and revision governance → Phase 06.\n- PROJ-OBS-008: Avoid automatic compatibility debt → Phase 06 and all foundational Work Cards.\n- PROJ-OBS-010: Git process automation and Operator abstraction → Phase 12.\n- Validation/evidence observations → Phase 10.\n- Multi-project/workspace observations → Phase 11.\n- UI cockpit observations → Phase 13.\n\n## Next Phase Activation Decision\n\nActivate Phase 06 planning.\n\nPhase 06 title:\n\n```text\nWorkflow Kernel and Artifact Protocol Replacement\n```\n\nPhase 06 is the next implementation phase. The immediate next action is Operator review and approval of the Phase 06 planning bundle before any Phase 06 implementation Work Card is executed.\n",
+    "data": {
+      "phaseId": "phase-05",
+      "status": "closed",
+      "decision": "close_phase_and_activate_phase_06_planning",
+      "nextPhaseId": "phase-06",
+      "nextPhaseTitle": "Workflow Kernel and Artifact Protocol Replacement",
+      "implementationAuthorized": false
+    }
+  }
+}
