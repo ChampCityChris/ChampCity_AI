@@ -3,16 +3,16 @@
   "artifactId": "champcity-ai/phase-05/work_card/WC03",
   "artifactType": "work_card",
   "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
+  "revision": 2,
   "status": "active",
   "projectId": "champcity-ai",
   "phaseId": "phase-05",
   "workCardId": "WC03",
   "createdAt": "2026-07-17T00:50:00.000Z",
-  "updatedAt": "2026-07-17T00:50:00.000Z",
+  "updatedAt": "2026-07-17T01:10:00.000Z",
   "jsonPath": "planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.json",
   "markdownPath": "planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.md",
-  "payloadHash": "sha256:d2eb13d1f3962ecb6c97c7c76e18554b577cad4032d5dbb9edb61f41f61d2ee1",
+  "payloadHash": "sha256:855ebcacd3ea740cfc9d4837d5ffd4cd52e58fbcb80d9474dcc2a730e34a1a15",
   "relationships": {
     "sources": [
       "champcity-ai/phase-05/reconciliation_review/WC01",
@@ -41,6 +41,8 @@ Work Card: WC03
 Owner: Architect
 Risk: critical
 Change strategy: no source-code changes; roadmap and living-document proposal only
+Revision: 2
+Revision reason: Operator requested explicit roadmap criteria requiring a defined phase for returning ChampCity_AI development dogfooding back into the application.
 
 ## Purpose
 
@@ -50,7 +52,7 @@ The roadmap must have tight phase boundaries and validateable success criteria. 
 
 ## Authority
 
-This Work Card is authorized by Operator approval of PH05 WC02.
+This Work Card is authorized by Operator approval of PH05 WC02 and revised by Operator direction to require a defined return-to-in-app-dogfooding phase.
 
 Primary sources:
 
@@ -73,6 +75,7 @@ Primary sources:
 9. Git automation/operator abstraction is required before release candidate.
 10. Repo-visible screenshot/evidence storage is required.
 11. The target release is a public downloadable beta candidate, beginning with Windows.
+12. The roadmap must define a specific phase where development of ChampCity_AI returns to being dogfooded inside the application. That phase must include entry criteria, required in-app workflow coverage, required fallback rules, validation evidence, and exit criteria. The return-to-dogfooding point must be explicit and testable, not implied as a later aspiration.
 
 ## Required Output
 
@@ -93,9 +96,10 @@ The roadmap rebaseline must include:
 3. Alpha-to-beta phase roadmap.
 4. Each phase purpose, scope, non-scope, success criteria, validation evidence, and exit condition.
 5. Explicit placement of workflow kernel, Architect Bridge, MCP integration, Implementer loop, validation/evidence, Git automation, multi-project dogfooding, UI hardening, packaging, and documentation.
-6. Required living-document updates after Operator approval.
-7. Old-foundation removal rules carried into future Work Cards.
-8. A recommendation for the next implementation phase and its first candidate Work Cards.
+6. A named phase where ChampCity_AI development returns to in-app dogfooding, including entry criteria and exit criteria.
+7. Required living-document updates after Operator approval.
+8. Old-foundation removal rules carried into future Work Cards.
+9. A recommendation for the next implementation phase and its first candidate Work Cards.
 
 ## Acceptance Criteria
 
@@ -103,5 +107,7 @@ The roadmap rebaseline must include:
 - Each phase has a tight boundary.
 - Every phase has validateable success criteria.
 - The roadmap reaches a public downloadable beta candidate.
+- The roadmap names the phase where ChampCity_AI dogfooding returns to the application.
+- The dogfooding-return phase has clear entry criteria, required in-app coverage, validation evidence, and exit criteria.
 - It does not authorize implementation by itself.
 - It identifies living documents that should be updated after approval.
