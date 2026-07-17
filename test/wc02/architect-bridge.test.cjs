@@ -54,7 +54,7 @@ function architectDispositionAction() {
       },
       routes: { success: "operator_validation_required", failure: "repair_work_card_required", repair: "repair_work_card_required" },
       bindingSource: {
-        kind: "evidence_projection",
+        kind: "relationship_resolver",
         workflowStateArtifactId: `${projectId}/system/workflow_state`,
         stateRevision: 1,
         projectId,

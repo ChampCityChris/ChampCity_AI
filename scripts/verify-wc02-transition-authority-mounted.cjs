@@ -52,7 +52,7 @@ app.whenReady().then(async () => {
       initial.currentAction.routedAction.expectedOutput.artifactId,
       `${projectId}/${phaseId}/validation_report/${workCardId}`,
     );
-    assert.equal(initial.currentAction.routedAction.bindingSource.kind, "evidence_projection");
+    assert.equal(initial.currentAction.routedAction.bindingSource.kind, "relationship_resolver");
 
     await window.webContents.executeJavaScript(
       `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,

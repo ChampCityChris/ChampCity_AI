@@ -578,12 +578,12 @@ async function routedAuthorityBoundaryGate(root) {
 }
 
 async function evidenceProjectionAuthorityGate(root) {
-  const gate = makeGate("single_evidence_projection_runtime_authority");
+  const gate = makeGate("single_relationship_resolver_runtime_authority");
   const requiredFiles = [
     "src/main/canonicalRuntime.ts",
     "src/main/repository/repositoryRefreshService.ts",
     "src/main/repository/verifiedArtifactGraph.ts",
-    "src/main/workflow/evidenceDerivedWorkflowProjector.ts",
+    "src/main/workflow/relationshipDrivenWorkflowResolver.ts",
     "src/main/workflow/processIpcPolicy.ts",
     "src/main/workflow/routedActionService.ts",
     "src/main/workflow/routedProcessInvocationService.ts",

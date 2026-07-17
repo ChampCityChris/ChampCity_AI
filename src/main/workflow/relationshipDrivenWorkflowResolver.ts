@@ -18,7 +18,7 @@ interface ProjectedStep {
   actionId: string;
   targetArtifactId: string | null;
   sourceArtifactIds: string[];
-  expectedOutputArtifactId: string;
+  expectedOutputArtifactId: string | null;
   evidenceArtifactIds: string[];
   activeWorkCard: VerifiedArtifactNode | null;
   blockers: WorkflowBlocker[];
@@ -37,28 +37,60 @@ export interface RepairLineageProjection {
   finalParentAcceptanceTargetArtifactId: string;
 }
 
-export interface EvidenceWorkflowProjection {
+export interface RelationshipResolverExpectedOutput {
+  artifactId: string;
+  artifactType: string;
+  jsonPath: string | null;
+  markdownPath: string | null;
+}
+
+export type RelationshipWorkflowResolverResult =
+  | {
+      kind: "current_action";
+      actionId: string;
+      role: string;
+      targetArtifactId: string | null;
+      sourceArtifactIds: string[];
+      expectedOutput: RelationshipResolverExpectedOutput;
+      blockers: [];
+      routeHint: string;
+      screenHint: string;
+    }
+  | {
+      kind: "blocked";
+      actionId: string;
+      role: string;
+      targetArtifactId: string | null;
+      sourceArtifactIds: string[];
+      expectedOutput: RelationshipResolverExpectedOutput | null;
+      blockers: WorkflowBlocker[];
+      routeHint: string;
+      screenHint: string;
+    };
+
+export interface RelationshipWorkflowProjection {
   state: WorkflowStateIndex;
   graph: VerifiedArtifactGraph;
   evidenceArtifactIds: string[];
   repairLineage: RepairLineageProjection | null;
+  resolverResult: RelationshipWorkflowResolverResult;
 }
 
-export class EvidenceDerivedWorkflowProjector {
-  project(
+export class RelationshipDrivenWorkflowResolver {
+  resolve(
     project: ConfiguredProject,
     graph: VerifiedArtifactGraph,
     projectionRevision: number,
-  ): EvidenceWorkflowProjection {
+  ): RelationshipWorkflowProjection {
     const activePhaseId = selectActivePhaseId(graph);
     const plan = activePhaseId
       ? selectSingle(graph.byType("work_card_plan", activePhaseId))
       : null;
     const candidates = readCandidates(plan);
     const candidateResults = candidates.map((candidate) => {
-      const workCard = graph.controlling(
-        `${project.projectId}/${activePhaseId}/work_card/${candidate.id}`,
-      );
+      const workCard = activePhaseId
+        ? selectSingle(graph.forWorkCard("work_card", activePhaseId, candidate.id))
+        : null;
       const resolution = candidateResolution(graph, activePhaseId ?? "", candidate.id);
       return { state: {
         candidateId: candidate.id,
@@ -78,11 +110,11 @@ export class EvidenceDerivedWorkflowProjector {
       ? graph.controlling(activeCandidate.fullWorkCardArtifactId)
       : null;
     const step = deriveStep(project, graph, activePhaseId, plan, baseWorkCard, activeCandidate?.candidateId ?? null);
-    const bindings = buildBindings(project.projectId, activePhaseId, plan, step);
+    const bindings = buildBindings(step);
     const actions = materializeActionCatalog(defaultLifecycleActionTemplates, bindings);
     const createdAt = graph.scannedAt;
     const state = createWorkflowStateIndex({
-      workflowStateArtifactId: `${project.projectId}/system/evidence_projection`,
+      workflowStateArtifactId: `${project.projectId}/system/relationship_resolver`,
       projectId: project.projectId,
       activePhaseId,
       createdAt,
@@ -117,7 +149,7 @@ export class EvidenceDerivedWorkflowProjector {
       blockers,
     );
     state.currentAction.bindingSource = {
-      kind: "evidence_projection",
+      kind: "relationship_resolver",
       workflowStateArtifactId: state.workflowStateArtifactId,
       stateRevision: state.stateRevision,
       projectId: project.projectId,
@@ -130,11 +162,13 @@ export class EvidenceDerivedWorkflowProjector {
     state.requiredSourceArtifactIds = [...activeRecord.sourceArtifactIds];
     state.expectedOutput = { ...activeRecord.expectedOutput };
     state.routes = { ...activeRecord.routes };
+    const resolverResult = buildResolverResult(graph, activeRecord, blockers);
     return {
       state,
       graph,
       evidenceArtifactIds: [...step.evidenceArtifactIds],
       repairLineage: repairLineageForStep(graph, step),
+      resolverResult,
     };
   }
 }
@@ -150,19 +184,26 @@ function deriveStep(
   if (!phaseId) {
     const intake = first(graph.byType("project_intake"));
     return intake
-      ? step("project_interview_required", intake.artifact.artifactId, [intake.artifact.artifactId], `${project.projectId}/project/architect_interview/current`, [intake], null)
-      : step("project_intake_required", null, [], `${project.projectId}/project/project_intake/current`, [], null);
+      ? step(
+          "project_interview_required",
+          intake.artifact.artifactId,
+          [intake.artifact.artifactId],
+          exactExpectedOutput(intake, "architect_interview"),
+          [intake],
+          null,
+        )
+      : step("project_intake_required", null, [], null, [], null);
   }
   const phaseApproval = first(graph.byType("phase_approval", phaseId));
   if (!plan || !phaseApproval) {
     const sources = graph.byType("phase_planning", phaseId);
+    const source = plan ?? sources[0] ?? null;
+    const actionId = phaseApproval ? "work_card_authoring_required" : "operator_phase_approval_required";
     return step(
-      phaseApproval ? "work_card_authoring_required" : "operator_phase_approval_required",
-      plan?.artifact.artifactId ?? sources[0]?.artifact.artifactId ?? null,
+      actionId,
+      source?.artifact.artifactId ?? null,
       unique(sources.map((node) => node.artifact.artifactId)),
-      phaseApproval
-        ? `${project.projectId}/${phaseId}/work_card/${candidateId ?? "WC01"}`
-        : `${project.projectId}/${phaseId}/approval/Operator_Phase_Approval`,
+      source ? exactExpectedOutput(source, expectedOutputTypeForAction(actionId)) : null,
       [...sources, ...(plan ? [plan] : [])],
       null,
     );
@@ -172,7 +213,7 @@ function deriveStep(
       "work_card_authoring_required",
       plan.artifact.artifactId,
       [phaseApproval.artifact.artifactId, plan.artifact.artifactId],
-      `${project.projectId}/${phaseId}/work_card/${candidateId ?? "WC01"}`,
+      candidateId ? exactExpectedOutput(plan, "work_card", candidateId) : null,
       [phaseApproval, plan],
       null,
     );
@@ -192,15 +233,14 @@ function deriveWorkCardStep(
       "architect_disposition_required",
       workCard.artifact.artifactId,
       [workCard.artifact.artifactId],
-      `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+      exactExpectedOutput(workCard, "candidate_disposition"),
       [workCard],
       workCard,
     );
   }
   visited.add(workCard.artifact.artifactId);
-  const expectedReportId = exactExpectedOutput(workCard, "implementer_report") ??
-    `${projectId}/${phaseId}/implementer_report/${workCard.artifact.workCardId ?? "unknown"}`;
-  const report = activeEvidence(graph.controlling(expectedReportId));
+  const expectedReportId = exactExpectedOutput(workCard, "implementer_report");
+  const report = expectedReportId ? activeEvidence(graph.controlling(expectedReportId)) : null;
   if (!report) {
     return step(
       "implementer_execution_required",
@@ -211,9 +251,8 @@ function deriveWorkCardStep(
       workCard,
     );
   }
-  const expectedReviewId = exactExpectedOutput(report, "architect_review") ??
-    `${projectId}/${phaseId}/architect_review/${workCard.artifact.workCardId ?? "unknown"}`;
-  const review = activeEvidence(graph.controlling(expectedReviewId));
+  const expectedReviewId = exactExpectedOutput(report, "architect_review");
+  const review = expectedReviewId ? activeEvidence(graph.controlling(expectedReviewId)) : null;
   if (!review) {
     return step(
       "architect_review_of_implementer_report_required",
@@ -228,9 +267,8 @@ function deriveWorkCardStep(
   const decision = text(reviewData.decision).toLowerCase();
   const authorized = reviewData.operatorValidationAuthorized === true || decision.includes("ready for operator validation");
   if (authorized) {
-    const expectedValidationId = exactExpectedOutput(review, "validation_report") ??
-      `${projectId}/${phaseId}/validation_report/${workCard.artifact.workCardId ?? "unknown"}`;
-    const validation = activeEvidence(graph.controlling(expectedValidationId));
+    const expectedValidationId = exactExpectedOutput(review, "validation_report");
+    const validation = expectedValidationId ? activeEvidence(graph.controlling(expectedValidationId)) : null;
     if (!validation) {
       return step(
         "operator_validation_required",
@@ -253,7 +291,7 @@ function deriveWorkCardStep(
           report.artifact.artifactId,
           ...combinedEvidence.map((node) => node.artifact.artifactId),
         ],
-        `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+        exactExpectedOutput(validation, "candidate_disposition"),
         [workCard, report, review, validation, ...combinedEvidence],
         workCard,
       );
@@ -264,7 +302,7 @@ function deriveWorkCardStep(
         "work_card_authoring_required",
         workCard.artifact.artifactId,
         [validation.artifact.artifactId],
-        `${projectId}/${phaseId}/work_card/next`,
+        exactExpectedOutput(validation, "work_card"),
         [workCard, report, review, validation],
         workCard,
       );
@@ -273,7 +311,7 @@ function deriveWorkCardStep(
       "architect_disposition_required",
       workCard.artifact.artifactId,
       [validation.artifact.artifactId],
-      `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+      exactExpectedOutput(validation, "candidate_disposition"),
       [workCard, report, review, validation],
       workCard,
     );
@@ -303,14 +341,13 @@ function deriveWorkCardStep(
         "architect_disposition_required",
         workCard.artifact.artifactId,
         [review.artifact.artifactId],
-        `${projectId}/${phaseId}/candidate_disposition/${workCard.artifact.workCardId ?? "unknown"}`,
+        exactExpectedOutput(review, "candidate_disposition"),
         [workCard, report, review],
         workCard,
       );
     }
-    const expectedRepairId = exactExpectedOutput(review, "work_card") ??
-      `${projectId}/${phaseId}/work_card/${requiredRepairId(review) ?? `${workCard.artifact.workCardId}-REPAIR01`}`;
-    const repair = activeEvidence(graph.controlling(expectedRepairId));
+    const expectedRepairId = exactExpectedOutput(review, "work_card");
+    const repair = expectedRepairId ? activeEvidence(graph.controlling(expectedRepairId)) : null;
     if (!repair) {
       return step(
         "repair_work_card_required",
@@ -370,7 +407,7 @@ function resolveRepairLineage(
     ));
   }
   const repairWorkCard = childRepairs[0] ?? (requestedRepairId
-    ? graph.controlling(`${projectId}/${phaseId}/work_card/${requestedRepairId}`)
+    ? selectSingle(graph.forWorkCard("work_card", phaseId, requestedRepairId))
     : null);
   if (!repairWorkCard) {
     return { detected: true, lineage: null, repairWorkCard: null, repairReport: null, blockers };
@@ -421,12 +458,9 @@ function resolveRepairLineage(
   }
   const physicalReportId =
     text(repairData.controllingRepairReportArtifactId) ||
-    exactExpectedOutput(repairWorkCard, "implementer_report") ||
-    `${projectId}/${phaseId}/implementer_report/${repairId}`;
-  const logicalReportId =
-    text(repairData.logicalRepairReportArtifactId) ||
-    `${projectId}/${phaseId}/implementer_report/${repairId}`;
-  const repairReport = activeEvidence(graph.controlling(physicalReportId));
+    exactExpectedOutput(repairWorkCard, "implementer_report");
+  const logicalReportId = text(repairData.logicalRepairReportArtifactId) || physicalReportId;
+  const repairReport = physicalReportId ? activeEvidence(graph.controlling(physicalReportId)) : null;
   if (repairReport && (
     repairReport.artifact.workCardId !== repairId ||
     repairReport.artifact.parentArtifactId !== parentId ||
@@ -435,7 +469,7 @@ function resolveRepairLineage(
     blockers.push(lineageBlocker(
       "repair_report_invalid",
       `The controlling repair report does not correspond exactly to ${repairId} and ${parentId}.`,
-      [physicalReportId, repairWorkCard.artifact.artifactId, parentId],
+      [physicalReportId, repairWorkCard.artifact.artifactId, parentId].filter((value): value is string => Boolean(value)),
     ));
   }
   const authorizingRevision = typeof repairData.authorizingArchitectReviewRevision === "number"
@@ -446,8 +480,8 @@ function resolveRepairLineage(
   const lineage: RepairLineageProjection = {
     repairWorkCardArtifactId: repairWorkCard.artifact.artifactId,
     repairedParentWorkCardArtifactId: parentId,
-    repairImplementerReportArtifactId: physicalReportId,
-    logicalRepairReportArtifactId: logicalReportId,
+    repairImplementerReportArtifactId: physicalReportId ?? "",
+    logicalRepairReportArtifactId: logicalReportId ?? "",
     originalParentImplementerReportArtifactId: parentReport.artifact.artifactId,
     authorizingArchitectReviewArtifactId: parentReview.artifact.artifactId,
     authorizingArchitectReviewRevision: authorizingRevision,
@@ -473,7 +507,7 @@ function deriveRepairedParentStep(
       "architect_disposition_required",
       parentWorkCard.artifact.artifactId,
       [parentReview.artifact.artifactId],
-      `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+      exactExpectedOutput(parentReview, "candidate_disposition"),
       [parentWorkCard, parentReport, parentReview],
       parentWorkCard,
       resolution.blockers,
@@ -501,7 +535,7 @@ function deriveRepairedParentStep(
       "architect_review_of_implementer_report_required",
       parentWorkCard.artifact.artifactId,
       combinedSources,
-      `${projectId}/${phaseId}/architect_review/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+      exactExpectedOutput(repairReport, "architect_review") ?? exactExpectedOutput(parentReport, "architect_review"),
       [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport],
       parentWorkCard,
       resolution.blockers,
@@ -516,7 +550,7 @@ function deriveRepairedParentStep(
       "architect_disposition_required",
       parentWorkCard.artifact.artifactId,
       [parentReview.artifact.artifactId],
-      `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+      exactExpectedOutput(parentReview, "candidate_disposition"),
       [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport],
       parentWorkCard,
       resolution.blockers,
@@ -540,7 +574,7 @@ function deriveRepairedParentStep(
       "operator_validation_required",
       parentWorkCard.artifact.artifactId,
       [parentReview.artifact.artifactId],
-      `${projectId}/${phaseId}/validation_report/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+      exactExpectedOutput(parentReview, "validation_report"),
       [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport],
       parentWorkCard,
       [...resolution.blockers, ...validationBlockers],
@@ -565,7 +599,7 @@ function deriveRepairedParentStep(
           repairWorkCard.artifact.artifactId,
           repairReport.artifact.artifactId,
         ],
-        `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+        exactExpectedOutput(validation, "candidate_disposition"),
         [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport, validation],
         parentWorkCard,
         [...resolution.blockers, ...validationBlockers],
@@ -590,43 +624,26 @@ function deriveRepairedParentStep(
       repairWorkCard.artifact.artifactId,
       repairReport.artifact.artifactId,
     ],
-    `${projectId}/${phaseId}/candidate_disposition/${parentWorkCard.artifact.workCardId ?? "unknown"}`,
+    exactExpectedOutput(validation, "candidate_disposition"),
     [parentWorkCard, parentReport, parentReview, repairWorkCard, repairReport, validation],
     parentWorkCard,
     [...resolution.blockers, ...validationBlockers],
   );
 }
 
-function buildBindings(
-  projectId: string,
-  phaseId: string | null,
-  plan: VerifiedArtifactNode | null,
-  active: ProjectedStep,
-): Record<string, WorkflowActionBinding> {
-  const phase = phaseId ?? "phase-unmapped";
-  const workCardId = active.activeWorkCard?.artifact.workCardId ?? "WC01";
-  const workCardIdPath = `${projectId}/${phase}/work_card/${workCardId}`;
+function buildBindings(active: ProjectedStep): Record<string, WorkflowActionBinding> {
   const defaults: Record<string, WorkflowActionBinding> = {};
   for (const template of defaultLifecycleActionTemplates) {
     defaults[template.actionId] = {
-      targetArtifactId: workCardIdPath,
+      targetArtifactId: null,
       sourceArtifactIds: [],
-      expectedOutputArtifactId: `${projectId}/${phase}/${template.expectedOutputArtifactType}/${workCardId}`,
+      expectedOutputArtifactId: nonAuthoritativeBlockedOutputId(template.actionId),
     };
   }
-  Object.assign(defaults, {
-    project_intake_required: binding(null, [], `${projectId}/project/project_intake/current`),
-    project_interview_required: binding(`${projectId}/project/project_intake/current`, [], `${projectId}/project/architect_interview/current`),
-    reconciliation_review_required: binding(`${projectId}/project/architect_interview/current`, [], `${projectId}/project/repository_reconciliation/current`),
-    project_mapping_required: binding(`${projectId}/project/repository_reconciliation/current`, [], `${projectId}/project/roadmap/current`),
-    operator_project_approval_required: binding(`${projectId}/project/roadmap/current`, [], `${projectId}/project/project_approval/current`),
-    phase_mapping_required: binding(`${projectId}/project/roadmap/current`, [], `${projectId}/${phase}/phase_map/current`),
-    operator_phase_approval_required: binding(plan?.artifact.artifactId ?? `${projectId}/${phase}/work_card_plan/current`, [], `${projectId}/${phase}/approval/Operator_Phase_Approval`),
-  });
   defaults[active.actionId] = binding(
     active.targetArtifactId,
     active.sourceArtifactIds,
-    active.expectedOutputArtifactId,
+    active.expectedOutputArtifactId ?? nonAuthoritativeBlockedOutputId(active.actionId),
   );
   return defaults;
 }
@@ -643,12 +660,23 @@ function step(
   actionId: string,
   targetArtifactId: string | null,
   sourceArtifactIds: string[],
-  expectedOutputArtifactId: string,
+  expectedOutputArtifactId: string | null,
   evidence: VerifiedArtifactNode[],
   activeWorkCard: VerifiedArtifactNode | null,
   blockers: WorkflowBlocker[] = [],
 ): ProjectedStep {
   requireExecutableTransitionRule(actionId);
+  const expectedOutputBlockers = expectedOutputArtifactId
+    ? []
+    : [relationshipBlocker(
+        "missing_expected_output_binding",
+        `Action ${actionId} is blocked because its controlling source artifact does not name an exact expected output.`,
+        unique([
+          ...(targetArtifactId ? [targetArtifactId] : []),
+          ...sourceArtifactIds,
+          ...evidence.map((node) => node.artifact.artifactId),
+        ]),
+      )];
   return {
     actionId,
     targetArtifactId,
@@ -656,7 +684,7 @@ function step(
     expectedOutputArtifactId,
     evidenceArtifactIds: unique(evidence.map((node) => node.artifact.artifactId)),
     activeWorkCard,
-    blockers,
+    blockers: [...blockers, ...expectedOutputBlockers],
   };
 }
 
@@ -717,9 +745,10 @@ function candidateResolution(
     const result = validationResultFor(node);
     return ["pass", "passed", "success", "completed"].includes(result);
   })[0];
-  const parentId = `${graph.projectId}/${phaseId}/work_card/${candidateId}`;
+  const parentWorkCard = selectSingle(graph.forWorkCard("work_card", phaseId, candidateId));
+  const parentId = parentWorkCard?.artifact.artifactId ?? null;
   const hasRepair = graph.byType("work_card", phaseId).some(
-    (node) => node.artifact.parentArtifactId === parentId && node.artifact.workCardId?.match(/-REPAIR\d+$/i),
+    (node) => parentId !== null && node.artifact.parentArtifactId === parentId && node.artifact.workCardId?.match(/-REPAIR\d+$/i),
   );
   if (dispositionStatus === "completed_via_repair") {
     if (!passing || !hasRepair) {
@@ -737,10 +766,12 @@ function candidateResolution(
       ? text(recordData(repairWorkCard).controllingRepairReportArtifactId) ||
         exactExpectedOutput(repairWorkCard, "implementer_report")
       : null;
+    const parentReport = selectSingle(graph.forWorkCard("implementer_report", phaseId, candidateId));
+    const parentReview = selectSingle(graph.forWorkCard("architect_review", phaseId, candidateId));
     const requiredEvidenceIds = [
       parentId,
-      `${graph.projectId}/${phaseId}/implementer_report/${candidateId}`,
-      `${graph.projectId}/${phaseId}/architect_review/${candidateId}`,
+      parentReport?.artifact.artifactId,
+      parentReview?.artifact.artifactId,
       repairWorkCard?.artifact.artifactId,
       repairReportId,
       passing.artifact.artifactId,
@@ -782,12 +813,17 @@ function readCandidates(plan: VerifiedArtifactNode | null): Array<{ id: string; 
     .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
 }
 
-function exactExpectedOutput(node: VerifiedArtifactNode, artifactType: string): string | null {
-  return (
-    node.artifact.relationships.expectedOutputs.find((artifactId) =>
-      artifactId.includes(`/${artifactType}/`),
-    ) ?? null
-  );
+function exactExpectedOutput(
+  node: VerifiedArtifactNode | null,
+  artifactType: string,
+  logicalId?: string,
+): string | null {
+  if (!node) return null;
+  const expected = node.artifact.relationships.expectedOutputs.filter((artifactId) => {
+    if (!artifactId.includes(`/${artifactType}/`)) return false;
+    return logicalId ? artifactId.endsWith(`/${logicalId}`) : true;
+  });
+  return expected.length === 1 ? expected[0] : null;
 }
 
 function requiredRepairId(review: VerifiedArtifactNode): string | null {
@@ -853,10 +889,19 @@ function numericRepairLimit(workCard: VerifiedArtifactNode): number | null {
 }
 
 function lineageBlocker(code: WorkflowBlocker["code"], message: string, artifactIds: string[]): WorkflowBlocker {
+  return relationshipBlocker(code, message, artifactIds, "architect");
+}
+
+function relationshipBlocker(
+  code: WorkflowBlocker["code"],
+  message: string,
+  artifactIds: string[],
+  ownerRole: WorkflowBlocker["ownerRole"] = "application",
+): WorkflowBlocker {
   return {
     code,
     message,
-    ownerRole: "architect",
+    ownerRole,
     artifactIds: unique(artifactIds),
     blocking: true,
   };
@@ -870,13 +915,18 @@ function repairLineageForStep(
     .map((artifactId) => graph.controlling(artifactId))
     .find((node) => node?.artifact.artifactType === "work_card" && !node.artifact.workCardId?.match(/-REPAIR\d+$/i));
   if (!parent) return null;
-  const parentReport = graph.controlling(
-    `${parent.artifact.projectId}/${parent.artifact.phaseId}/implementer_report/${parent.artifact.workCardId}`,
-  );
-  const parentReview = graph.controlling(
-    `${parent.artifact.projectId}/${parent.artifact.phaseId}/architect_review/${parent.artifact.workCardId}`,
-  );
-  if (!parentReport || !parentReview || !parent.artifact.phaseId) return null;
+  if (!parent.artifact.phaseId || !parent.artifact.workCardId) return null;
+  const parentReport = selectSingle(graph.forWorkCard(
+    "implementer_report",
+    parent.artifact.phaseId,
+    parent.artifact.workCardId,
+  ));
+  const parentReview = selectSingle(graph.forWorkCard(
+    "architect_review",
+    parent.artifact.phaseId,
+    parent.artifact.workCardId,
+  ));
+  if (!parentReport || !parentReview) return null;
   return resolveRepairLineage(
     parent.artifact.projectId,
     parent.artifact.phaseId,
@@ -904,17 +954,82 @@ function toWorkflowBlockers(graph: VerifiedArtifactGraph): WorkflowBlocker[] {
   return graph.blockers.map((blocker) => ({
     code:
       blocker.code === "duplicate_authority"
-        ? "duplicate_active_authority"
-        : blocker.code === "incomplete_pair"
-          ? "missing_pair"
-          : blocker.code === "invalid_pair"
-            ? "pair_mismatch"
-            : "manual_intervention_required",
+        ? "duplicate_artifact_id"
+      : blocker.code === "incomplete_pair"
+          ? "unsynchronized_artifact_pair"
+        : blocker.code === "invalid_pair"
+            ? blocker.message.toLowerCase().includes("payloadhash") ||
+              blocker.message.toLowerCase().includes("payload hash")
+              ? "payload_hash_mismatch"
+              : "unsynchronized_artifact_pair"
+          : "manual_intervention_required",
     message: blocker.message,
     ownerRole: "application",
     artifactIds: [...blocker.artifactIds],
     blocking: true,
   }));
+}
+
+function expectedOutputTypeForAction(actionId: string): string {
+  return requireExecutableTransitionRule(actionId).expectedOutputArtifactType;
+}
+
+function nonAuthoritativeBlockedOutputId(actionId: string): string {
+  return `relationship_resolver_blocked/${actionId}`;
+}
+
+function buildResolverResult(
+  graph: VerifiedArtifactGraph,
+  action: WorkflowStateIndex["actionCatalog"][string],
+  blockers: WorkflowBlocker[],
+): RelationshipWorkflowResolverResult {
+  const expected =
+    action.expectedOutput.artifactId.startsWith("relationship_resolver_blocked/")
+      ? null
+      : expectedOutputView(graph, action.expectedOutput.artifactId, action.expectedOutput.artifactType);
+  const base = {
+    actionId: action.actionId,
+    role: action.role,
+    targetArtifactId: action.targetArtifactId,
+    sourceArtifactIds: [...action.sourceArtifactIds],
+    expectedOutput: expected,
+    routeHint: action.routes.success ?? action.routes.failure ?? action.routes.repair ?? "",
+    screenHint: action.screenId,
+  };
+  if (blockers.length > 0 || !expected) {
+    return {
+      ...base,
+      kind: "blocked",
+      expectedOutput: expected,
+      blockers: blockers.length > 0
+        ? blockers.map((blocker) => ({ ...blocker, artifactIds: [...blocker.artifactIds] }))
+        : [relationshipBlocker(
+            "missing_expected_output_binding",
+            `Action ${action.actionId} has no exact expected-output binding.`,
+            unique([...(action.targetArtifactId ? [action.targetArtifactId] : []), ...action.sourceArtifactIds]),
+          )],
+    };
+  }
+  return {
+    ...base,
+    kind: "current_action",
+    expectedOutput: expected,
+    blockers: [],
+  };
+}
+
+function expectedOutputView(
+  graph: VerifiedArtifactGraph,
+  artifactId: string,
+  artifactType: string,
+): RelationshipResolverExpectedOutput {
+  const existing = graph.controlling(artifactId);
+  return {
+    artifactId,
+    artifactType,
+    jsonPath: existing?.jsonPath ?? null,
+    markdownPath: existing?.markdownPath ?? null,
+  };
 }
 
 function selectSingle(nodes: VerifiedArtifactNode[]): VerifiedArtifactNode | null {

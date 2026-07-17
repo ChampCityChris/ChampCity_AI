@@ -18,8 +18,8 @@ const {
   scanVerifiedArtifactGraph,
 } = require("../../dist/main/repository");
 const {
-  EvidenceDerivedWorkflowProjector,
-} = require("../../dist/main/workflow/evidenceDerivedWorkflowProjector");
+  RelationshipDrivenWorkflowResolver,
+} = require("../../dist/main/workflow/relationshipDrivenWorkflowResolver");
 const {
   configureWorkCardRepositoryRoot,
   listHumanValidationTargets,
@@ -143,7 +143,7 @@ async function seedWorkCardLoop(root, projectId, phaseId, workCardId, options = 
 async function projectGraph(root, projectId = "project-alpha", revision = 1) {
   const configured = project(root, projectId);
   const graph = await scanVerifiedArtifactGraph(configured, () => FIXED_TIME);
-  const projection = new EvidenceDerivedWorkflowProjector().project(configured, graph, revision);
+  const projection = new RelationshipDrivenWorkflowResolver().resolve(configured, graph, revision);
   return { graph, projection };
 }
 
@@ -243,7 +243,7 @@ test("external Implementer Report advances WC01 to exact Architect Review route 
       artifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
       artifactType: "architect_review",
     });
-    assert.equal(action.bindingSource.kind, "evidence_projection");
+    assert.equal(action.bindingSource.kind, "relationship_resolver");
     assert.equal(result.graph.nodes.some((node) => node.artifact.artifactType === "artifact_registry"), false);
   });
 });
@@ -510,6 +510,7 @@ test("final repair routes combined parent review, parent validation, and complet
       artifactType: "validation_report",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
       sources: [`${projectId}/${phaseId}/architect_review/WC01`],
+      expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/WC01`],
       data: { validationResult: "Pass", workCardId: "WC01" },
     });
     result = await projectGraph(root, projectId, 5);
@@ -652,7 +653,157 @@ test("refresh is a no-op on identical evidence, recomputes after restart, and ig
       const restarted = new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME);
       const afterRestart = await restarted.refresh("application-start");
       assert.equal(afterRestart.projection.state.currentAction.actionId, first.projection.state.currentAction.actionId);
-      assert.equal(afterRestart.projection.state.currentAction.bindingSource.kind, "evidence_projection");
+      assert.equal(afterRestart.projection.state.currentAction.bindingSource.kind, "relationship_resolver");
+    } finally {
+      await rm(storage, { force: true });
+    }
+  });
+});
+
+test("relationship resolver blocks missing expected output binding instead of synthesizing an Implementer Report ID", async () => {
+  await temporaryRoot("champcity-missing-output-binding-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const workCardId = "WC01";
+    await seedWorkCardLoop(root, projectId, phaseId, workCardId);
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      workCardId,
+      artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+      artifactType: "work_card",
+      revision: 2,
+      stem: `planning/phases/${phaseId}/Work_Cards/${workCardId}_authority_cutover`,
+      expectedOutputs: [],
+      data: { workCardId, status: "ready_for_implementer" },
+    });
+
+    const result = await projectGraph(root, projectId);
+    const action = result.projection.state.currentAction;
+    assert.equal(result.projection.resolverResult.kind, "blocked");
+    assert.equal(result.projection.resolverResult.expectedOutput, null);
+    assert.equal(action.authorityStatus, "blocked");
+    assert.equal(
+      action.expectedOutput.artifactId,
+      "relationship_resolver_blocked/implementer_execution_required",
+    );
+    assert.notEqual(
+      action.expectedOutput.artifactId,
+      `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+    );
+    assert.ok(
+      result.projection.state.blockingConditions.some(
+        (blocker) => blocker.code === "missing_expected_output_binding",
+      ),
+    );
+  });
+});
+
+test("relationship resolver reports ambiguous candidate evidence as a blocker", async () => {
+  await temporaryRoot("champcity-ambiguous-candidate-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const workCardId = "WC01";
+    await seedWorkCardLoop(root, projectId, phaseId, workCardId);
+    for (const suffix of ["first", "second"]) {
+      await writeArtifact(root, {
+        projectId,
+        phaseId,
+        workCardId,
+        artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}-${suffix}`,
+        artifactType: "validation_report",
+        stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_${workCardId}_${suffix}`,
+        data: { validationResult: "Pass" },
+      });
+    }
+
+    const result = await projectGraph(root, projectId);
+    assert.equal(result.projection.resolverResult.kind, "blocked");
+    assert.ok(
+      result.projection.state.blockingConditions.some(
+        (blocker) => blocker.code === "candidate_validation_ambiguous",
+      ),
+    );
+  });
+});
+
+test("relationship resolver blocks duplicate artifact IDs and unsynchronized pairs from verified graph evidence", async () => {
+  await temporaryRoot("champcity-graph-blockers-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const workCardId = "WC01";
+    await seedWorkCardLoop(root, projectId, phaseId, workCardId);
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      workCardId,
+      artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+      artifactType: "work_card",
+      stem: `planning/phases/${phaseId}/Work_Cards/${workCardId}_duplicate`,
+      expectedOutputs: [`${projectId}/${phaseId}/implementer_report/${workCardId}`],
+      data: { workCardId, status: "ready_for_implementer" },
+    });
+    await writeFile(
+      path.join(root, "planning", "phases", phaseId, "Work_Cards", "UNSYNCED.json"),
+      JSON.stringify({
+        schemaVersion: "champcity.artifact.v1",
+        artifactId: `${projectId}/${phaseId}/work_card/UNSYNCED`,
+      }),
+      "utf8",
+    );
+
+    const result = await projectGraph(root, projectId);
+    assert.equal(result.projection.resolverResult.kind, "blocked");
+    assert.ok(
+      result.projection.state.blockingConditions.some(
+        (blocker) => blocker.code === "duplicate_artifact_id",
+      ),
+    );
+    assert.ok(
+      result.projection.state.blockingConditions.some(
+        (blocker) => blocker.code === "unsynchronized_artifact_pair",
+      ),
+    );
+  });
+});
+
+test("repository refresh uses relationship resolver and ignores stale registry and Workflow State cache", async () => {
+  await temporaryRoot("champcity-stale-cache-boundary-", async (root) => {
+    const projectId = "project-alpha";
+    const phaseId = "phase-04";
+    const workCardId = "WC01";
+    await seedWorkCardLoop(root, projectId, phaseId, workCardId);
+    await writeArtifact(root, {
+      projectId,
+      artifactId: `${projectId}/system/workflow_state`,
+      artifactType: "workflow_state",
+      stem: "planning/system/Workflow_State/WORKFLOW_STATE_INDEX",
+      data: { currentActionId: "project_intake_required", stateRevision: 999 },
+    });
+    await writeArtifact(root, {
+      projectId,
+      artifactId: `${projectId}/system/artifact_registry`,
+      artifactType: "artifact_registry",
+      stem: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY_INDEX",
+      data: {
+        currentActionId: "project_intake_required",
+        expectedOutputArtifactId: `${projectId}/project/project_intake/current`,
+      },
+    });
+
+    const storage = path.join(os.tmpdir(), `champcity-stale-cache-${process.pid}-${Date.now()}.json`);
+    try {
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
+      await registry.addProject({ repositoryRoot: root, projectId });
+      const configured = await registry.selectProject(projectId);
+      const snapshot = await new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME)
+        .refresh("manual");
+
+      assert.equal(snapshot.projection.resolverResult.kind, "current_action");
+      assert.equal(snapshot.projection.state.currentAction.actionId, "implementer_execution_required");
+      assert.equal(snapshot.projection.state.currentAction.bindingSource.kind, "relationship_resolver");
+      assert.equal(snapshot.projection.state.currentAction.targetArtifactId, `${projectId}/${phaseId}/work_card/${workCardId}`);
+      assert.equal(snapshot.scanResult.currentAction.actionId, "implementer_execution_required");
     } finally {
       await rm(storage, { force: true });
     }

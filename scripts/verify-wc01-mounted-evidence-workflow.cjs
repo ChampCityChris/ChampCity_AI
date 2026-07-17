@@ -52,7 +52,7 @@ app.whenReady().then(async () => {
       true,
     );
     assert.equal(initial.ok, true);
-    assert.equal(initial.currentAction.routedAction.bindingSource.kind, "evidence_projection");
+    assert.equal(initial.currentAction.routedAction.bindingSource.kind, "relationship_resolver");
     assert.equal(initial.currentAction.workCardId, restart ? "WC02" : repairId);
 
     if (!restart) {

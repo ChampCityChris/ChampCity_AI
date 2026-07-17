@@ -29,7 +29,7 @@ function bindings() {
 
 function stateFor(actionId) {
   return createWorkflowStateIndex({
-    workflowStateArtifactId: `${projectId}/system/evidence_projection`,
+    workflowStateArtifactId: `${projectId}/system/relationship_resolver`,
     projectId,
     activePhaseId: phaseId,
     createdAt: fixedTime,

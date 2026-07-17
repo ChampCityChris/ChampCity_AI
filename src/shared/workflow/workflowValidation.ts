@@ -236,7 +236,12 @@ function validateRoutedAction(
   if (!isRecord(value.bindingSource)) {
     errors.push("currentAction.bindingSource must be an object.");
   } else {
-    requireEqual(value.bindingSource.kind, "workflow_state_index", "currentAction.bindingSource.kind", errors);
+    if (
+      value.bindingSource.kind !== "workflow_state_index" &&
+      value.bindingSource.kind !== "relationship_resolver"
+    ) {
+      errors.push("currentAction.bindingSource.kind must identify workflow_state_index or relationship_resolver.");
+    }
     requireEqual(
       value.bindingSource.workflowStateArtifactId,
       state.workflowStateArtifactId,

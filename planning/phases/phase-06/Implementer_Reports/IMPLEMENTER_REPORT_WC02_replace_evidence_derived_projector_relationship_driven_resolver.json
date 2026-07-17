@@ -1,0 +1,165 @@
+{
+  "artifactId": "champcity-ai/phase-06/implementer_report/WC02",
+  "artifactType": "implementer_report",
+  "createdAt": "2026-07-17T14:15:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.json",
+  "markdownPath": "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
+  "payload": {
+    "contentMarkdown": "# Implementer Report: Phase 06 WC02 Replace Evidence Projector With Relationship Resolver\n\nStatus: completed\nPass type: numbered Work Card\nPhase: phase-06\nWork Card: WC02\nCanonical artifact ID: champcity-ai/phase-06/implementer_report/WC02\nBranch: feature/phase-04-wc01-repair01-evidence-derived-workflow\nIntended commit message: Replace evidence projector with relationship resolver\nCommit hash: pending until commit is created, because this report is committed with the implementation.\n\n## Repository Path Inspected\n\nVerified approved repo root. Concrete local machine paths are intentionally omitted from this durable report.\n\n## Git Branch And Remote Status\n\n- Branch verified: feature/phase-04-wc01-repair01-evidence-derived-workflow.\n- Remote verified: origin points to the approved ChampCity_AI GitHub repository.\n- Initial working tree before edits: clean; branch ahead of origin by existing local commits.\n\n## Work Card And Approval Artifacts Read\n\nRead and followed:\n\n- planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}\n- planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}\n- planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.{json,md}\n- planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.{json,md}\n- planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.{json,md}\n- AGENTS.md\n- docs/dev/VALIDATION_COMMAND_LANES.md\n\nWC02 status was approved_for_implementer_execution. WC02 Operator approval was active and authorized source-code implementation with remove-only old-authority policy.\n\n## WC01 Replacement Inventory Reviewed\n\nThe repaired WC01 Design Document was reviewed as the controlling inventory. WC02 ownership was confirmed for the relationship-driven resolver, old projector replacement, repository refresh integration, process contract alignment, core transition-rule use, and focused no-fallback tests. WC04/WC05 ownership remains for broader Artifact Registry, Workflow State, UI, preload, renderer, and current-action adapter boundary work.\n\n## Scoped Code-Review Checkpoint Findings\n\n- src/main/workflow/evidenceDerivedWorkflowProjector.ts: Replace/Delete. Old primary current-action authority. It selected actions with hard-coded phase/work-card branches and fallback expected-output ID construction. Deleted from production source and replaced by relationshipDrivenWorkflowResolver.ts.\n- src/shared/workflow/transitionEngine.ts: WC02-shared migrate/preserve. Transition rules and role/blocker concepts remain useful. Mutable in-memory advancement still contains synthetic rebinding for transition-engine tests, but repository refresh/current-action authority no longer uses it; WC05/WC03 can further narrow this path.\n- src/shared/workflow/processContract.ts: Preserve/migrate. The locked process contract remains the transition rule source for action IDs, roles, screens, and expected output types. WC02 did not add new process actions.\n- src/shared/workflow/evidencePrecedence.ts: Preserve/migrate. Candidate precedence remains a pure ordering helper and is not imported by repository refresh as an independent authority path.\n- src/main/repository/verifiedArtifactGraph.ts: Preserve/migrate. Verified graph remains the evidence source. Scanner blockers for duplicate IDs and unsynchronized pairs are now surfaced through relationship resolver blockers.\n- src/main/repository/repositoryRefreshService.ts: Migrate. Refresh was the old projector bridge. It now constructs RelationshipDrivenWorkflowResolver and consumes resolve() output.\n- src/main/workflow/routedProcessInvocationService.ts: Preserve for WC02. Routed invocation enforces the current action it receives. No old-projector import existed; it now receives relationship-resolver bindings through refresh.\n- src/main/workflow/routedWriteScope.ts: Preserve. Write scope continues to bind writes to the exact routed expected output and remains non-authoritative by itself.\n- src/main/workflow/processIpcPolicy.ts: Preserve for WC02/WC05. Static channel policy remains a guard table. It does not compute current action and has no old-projector import.\n- src/shared/workflow/workflowContracts.ts: Migrate. Extended blocker vocabulary and replaced evidence_projection binding source with relationship_resolver.\n- src/shared/workflow/roleGates.ts: Preserve. Role gates remain valid constraints and block writes when resolver output is blocked or stale.\n\nAdditional authority path discovered: scripts/verify-wc09-repository-gates.mjs still required the deleted projector file by name. It was minimally updated to check the relationship resolver file so repository-gate validation does not fail because the approved deletion succeeded. The broader WC09 gate replacement remains WC03-owned.\n\n## Files Created\n\n- src/main/workflow/relationshipDrivenWorkflowResolver.ts\n- planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.json\n- planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.md\n\n## Files Modified\n\n- scripts/verify-wc01-mounted-evidence-workflow.cjs\n- scripts/verify-wc02-transition-authority-mounted.cjs\n- scripts/verify-wc09-repository-gates.mjs\n- src/main/repository/repositoryRefreshService.ts\n- src/main/workflow/index.ts\n- src/shared/workflow/workflowContracts.ts\n- src/shared/workflow/workflowValidation.ts\n- test/wc01-repair01/evidence-workflow.test.cjs\n- test/wc02-repair02/executable-transition-engine.test.cjs\n- test/wc02/architect-bridge.test.cjs\n\n## Files Deleted\n\n- src/main/workflow/evidenceDerivedWorkflowProjector.ts\n\n## Files Intentionally Not Created\n\n- No UI-only replacement or renderer retargeting workaround.\n- No provider SDKs, databases, cloud services, authentication, deployment automation, MCP integrations, or connector integrations.\n- No Workflow State or Artifact Registry authority artifact was created.\n- No Operator validation or acceptance record was created.\n\n## Implementation Summary\n\nImplemented RelationshipDrivenWorkflowResolver as the repository-refresh current-action resolver. It consumes VerifiedArtifactGraph nodes, explicit artifact relationships, locked process transition definitions, role/screen/action metadata, and graph blockers. It emits either resolverResult.kind current_action with exact expected output identity or resolverResult.kind blocked with blockers and no write-capable expected output when the relationship binding is missing.\n\nRepositoryRefreshService now calls RelationshipDrivenWorkflowResolver.resolve() instead of the old projector. The routed action binding source is now relationship_resolver. Workflow contracts and validation accept the new binding source and Phase 06 blocker codes. Focused tests prove success and blocked cases.\n\n## Old-Authority Removal\n\n- Deleted src/main/workflow/evidenceDerivedWorkflowProjector.ts.\n- Removed the production export from src/main/workflow/index.ts.\n- Removed the production import and constructor dependency from src/main/repository/repositoryRefreshService.ts.\n- Replaced repository refresh invocation of projector.project(...) with resolver.resolve(...).\n- Rewrote tests that imported the old projector to import RelationshipDrivenWorkflowResolver.\n- Updated mounted smoke checks from evidence_projection binding source to relationship_resolver.\n- Verified rg over src, test, and scripts found no executable references to evidenceDerivedWorkflowProjector, EvidenceDerivedWorkflowProjector, EvidenceWorkflowProjection, or evidence_projection.\n\nResult: evidenceDerivedWorkflowProjector.ts was deleted, not preserved as a dormant fallback. No production runtime current-action path imports or invokes the old current-action projector authority.\n\n## Tests Added Or Updated\n\nUpdated test/wc01-repair01/evidence-workflow.test.cjs with focused WC02 coverage for:\n\n- relationship-driven evidence resolving current action through explicit expected outputs;\n- missing expected output binding blocking instead of synthesizing an Implementer Report ID;\n- ambiguous candidate validation evidence blocking;\n- duplicate artifact IDs blocking through verified graph evidence;\n- unsynchronized JSON/Markdown pairs blocking through verified graph evidence;\n- stale Workflow State and Artifact Registry artifacts failing to override verified graph evidence;\n- repository refresh publishing relationship_resolver current-action bindings.\n\nUpdated existing tests and smoke scripts to use relationship_resolver binding identity.\n\n## Validation Commands And Results\n\n- node --check scripts/verify-wc09-repository-gates.mjs: passed.\n- node --check on changed CommonJS test and smoke scripts: passed.\n- npm run validate:codex:unit: first sandbox run produced TS5033 EPERM while writing dist, matching the documented sandbox false-failure mode. Reran in the approved normal Windows lane; passed. Result included npm run build and node --test unit suite, 58 tests passed, 0 failed.\n- npm run validate:codex:build: approved normal Windows lane; passed.\n- npm run test:repository: approved normal Windows lane; failed only the legacy git_changed_file_scope gate against the old WC09 base branch. The updated single_relationship_resolver_runtime_authority gate passed, as did canonical pairs, runtime boundary, route authority boundary, workspace authority, local path, secret, generated junk, and dependency gates. The changed-file-scope failure listed pre-existing Phase 05/06 planning artifacts outside the old WC09 scope and is not a WC02 source/runtime defect.\n- rg executable old-projector search over src, test, and scripts: no matches.\n- Safety scan over changed source/test/script files for concrete local paths and secret assignment patterns: no WC02-introduced findings; expected internal gate terms remain in scripts/verify-wc09-repository-gates.mjs.\n- git status --short: pending final check after report creation and staging.\n\nExecution lane used: documented Codex validation wrapper, rerun outside sandbox for child-process-heavy build/test commands after sandbox EPERM.\n\n## Validation Skipped And Reason\n\n- Playwright and Electron renderer smoke validation were not run. WC02 does not require Playwright; manual UI validation belongs after Architect Review and Operator validation.\n- Full npm test was not run because it includes renderer smoke checks not required by this Work Card. The relevant unit/build lane was run, and test:repository was run separately for the touched gate script.\n\n## Manual Validation Required\n\nOperator manual validation remains required after Architect Review:\n\n1. Launch or refresh the ChampCity_AI workspace.\n2. Confirm the app shows a kernel-derived current action rather than a stale projector-derived action.\n3. Confirm the current action names source artifacts and expected output clearly.\n4. Confirm ambiguous or missing evidence produces a visible blocker rather than a guessed action.\n5. Confirm reference navigation does not retarget the current action.\n6. Confirm no old projector fallback is presented as an available authority path.\n7. Confirm automated validation results are recorded in this Implementer Report.\n\n## Residual Risks\n\n- The compatibility WorkflowStateIndex DTO still exists as the presentation/IPC shape. WC04/WC05 own further adapter and diagnostic/cache boundary tightening.\n- transitionEngine.ts still contains legacy mutable transition rebinding used by transition-engine tests, but repository refresh/current-action authority no longer consumes it. This was recorded as WC02-shared and should be narrowed by later WC03/WC05 work if needed.\n- canonicalRoutedScreenAdapter.ts still uses Artifact Registry for read-only routed screen materialization; WC04/WC05 own replacing that broader UI/screen adapter authority boundary.\n- The old WC09 repository gate still has a historical changed-file-scope rule that fails against the current Phase 05/06 branch history. WC03 owns broad replacement of those repository gates.\n\n## Final Git Status\n\nPending final check after this synchronized report pair is created and staged.\n\n## Git Actions Performed\n\n- Commit created: pending until commit is created.\n- Commit hash: pending until commit is created, because this report is part of the same commit.\n- Tag: none.\n- Push: pending after commit unless blocked.\n\n## Security And Secret-Safety Notes\n\nNo secrets, credentials, API keys, tokens, .env files, large archives, screenshots, or generated junk were intentionally created. Durable artifacts use repo-relative paths and omit concrete local machine paths.\n\n## Blocking Questions\n\nNone.\n\n## Recommended Next Implementer Task\n\nArchitect Review of WC02, followed by Operator validation. Next implementation Work Card is WC03 Real Phase 04/05 Replay Fixture and No-Fallback Repository Gates.\n",
+    "data": {
+      "branch": "feature/phase-04-wc01-repair01-evidence-derived-workflow",
+      "commitHash": "pending until commit is created, when the report is part of the same commit",
+      "filesCreated": [
+        "src/main/workflow/relationshipDrivenWorkflowResolver.ts",
+        "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.json",
+        "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.md"
+      ],
+      "filesDeleted": [
+        "src/main/workflow/evidenceDerivedWorkflowProjector.ts"
+      ],
+      "filesModified": [
+        "scripts/verify-wc01-mounted-evidence-workflow.cjs",
+        "scripts/verify-wc02-transition-authority-mounted.cjs",
+        "scripts/verify-wc09-repository-gates.mjs",
+        "src/main/repository/repositoryRefreshService.ts",
+        "src/main/workflow/index.ts",
+        "src/shared/workflow/workflowContracts.ts",
+        "src/shared/workflow/workflowValidation.ts",
+        "test/wc01-repair01/evidence-workflow.test.cjs",
+        "test/wc02-repair02/executable-transition-engine.test.cjs",
+        "test/wc02/architect-bridge.test.cjs"
+      ],
+      "intendedCommitMessage": "Replace evidence projector with relationship resolver",
+      "manualValidationRequired": true,
+      "oldAuthorityRemoval": {
+        "evidenceDerivedWorkflowProjectorStatus": "deleted",
+        "fallbackRemaining": false,
+        "productionRuntimeImportsRemaining": false
+      },
+      "passType": "numbered_work_card",
+      "phaseId": "phase-06",
+      "residualRisks": [
+        "WorkflowStateIndex remains as compatibility DTO for presentation and IPC until WC04/WC05 narrowing.",
+        "transitionEngine mutable rebinding remains outside repository refresh authority and should be narrowed by later work if needed.",
+        "canonicalRoutedScreenAdapter registry-backed screen materialization remains WC04/WC05-owned.",
+        "legacy WC09 changed-file-scope repository gate fails against current Phase 05/06 branch history and is WC03-owned."
+      ],
+      "scopedCodeReviewFindings": [
+        {
+          "classification": "Replace/Delete",
+          "finding": "Old primary current-action authority. It selected actions with hard-coded phase/work-card branches and fallback expected-output ID construction. Deleted from production source and replaced by relationshipDrivenWorkflowResolver.ts.",
+          "module": "src/main/workflow/evidenceDerivedWorkflowProjector.ts"
+        },
+        {
+          "classification": "WC02-shared migrate/preserve",
+          "finding": "Transition rules and role/blocker concepts remain useful. Mutable in-memory advancement still contains synthetic rebinding for transition-engine tests, but repository refresh/current-action authority no longer uses it; WC05/WC03 can further narrow this path.",
+          "module": "src/shared/workflow/transitionEngine.ts"
+        },
+        {
+          "classification": "Preserve/migrate",
+          "finding": "The locked process contract remains the transition rule source for action IDs, roles, screens, and expected output types. WC02 did not add new process actions.",
+          "module": "src/shared/workflow/processContract.ts"
+        },
+        {
+          "classification": "Preserve/migrate",
+          "finding": "Candidate precedence remains a pure ordering helper and is not imported by repository refresh as an independent authority path.",
+          "module": "src/shared/workflow/evidencePrecedence.ts"
+        },
+        {
+          "classification": "Preserve/migrate",
+          "finding": "Verified graph remains the evidence source. Scanner blockers for duplicate IDs and unsynchronized pairs are now surfaced through relationship resolver blockers.",
+          "module": "src/main/repository/verifiedArtifactGraph.ts"
+        },
+        {
+          "classification": "Migrate",
+          "finding": "Refresh was the old projector bridge. It now constructs RelationshipDrivenWorkflowResolver and consumes resolve() output.",
+          "module": "src/main/repository/repositoryRefreshService.ts"
+        },
+        {
+          "classification": "Preserve for WC02",
+          "finding": "Routed invocation enforces the current action it receives. No old-projector import existed; it now receives relationship-resolver bindings through refresh.",
+          "module": "src/main/workflow/routedProcessInvocationService.ts"
+        },
+        {
+          "classification": "Preserve",
+          "finding": "Write scope continues to bind writes to the exact routed expected output and remains non-authoritative by itself.",
+          "module": "src/main/workflow/routedWriteScope.ts"
+        },
+        {
+          "classification": "Preserve for WC02/WC05",
+          "finding": "Static channel policy remains a guard table. It does not compute current action and has no old-projector import.",
+          "module": "src/main/workflow/processIpcPolicy.ts"
+        },
+        {
+          "classification": "Migrate",
+          "finding": "Extended blocker vocabulary and replaced evidence_projection binding source with relationship_resolver.",
+          "module": "src/shared/workflow/workflowContracts.ts"
+        },
+        {
+          "classification": "Preserve",
+          "finding": "Role gates remain valid constraints and block writes when resolver output is blocked or stale.",
+          "module": "src/shared/workflow/roleGates.ts"
+        }
+      ],
+      "status": "completed",
+      "validation": [
+        {
+          "command": "node --check scripts/verify-wc09-repository-gates.mjs",
+          "lane": "sandbox",
+          "result": "passed"
+        },
+        {
+          "command": "node --check changed CommonJS scripts/tests",
+          "lane": "sandbox",
+          "result": "passed"
+        },
+        {
+          "command": "npm run validate:codex:unit",
+          "lane": "sandbox",
+          "result": "failed with TS5033 EPERM writing dist; rerun in approved lane"
+        },
+        {
+          "command": "npm run validate:codex:unit",
+          "lane": "normal Windows validation lane",
+          "result": "passed; build plus 58 tests passed"
+        },
+        {
+          "command": "npm run validate:codex:build",
+          "lane": "normal Windows validation lane",
+          "result": "passed"
+        },
+        {
+          "command": "npm run test:repository",
+          "lane": "normal Windows validation lane",
+          "result": "failed legacy git_changed_file_scope only; relationship resolver gate passed"
+        }
+      ],
+      "workCardId": "WC02"
+    },
+    "kind": "implementer_report",
+    "title": "Implementer Report: Phase 06 WC02 Replace Evidence Projector With Relationship Resolver"
+  },
+  "payloadHash": "sha256:b4a8685c698601922c2189d4ae52db9fe49316906a86a3064838c3d053890e7d",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/architect_review/WC02"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/approval/WC02",
+      "champcity-ai/phase-06/candidate_disposition/WC01",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/architect_review/WC01-REPAIR01"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T14:15:00.000Z",
+  "workCardId": "WC02"
+}

@@ -7,9 +7,9 @@ import type { ArtifactRegistry } from "../../shared/artifacts";
 import type { WorkflowStateIndex } from "../../shared/workflow";
 import type { ProjectWorkspaceRegistry } from "../projects";
 import {
-  EvidenceDerivedWorkflowProjector,
-  type EvidenceWorkflowProjection,
-} from "../workflow/evidenceDerivedWorkflowProjector";
+  RelationshipDrivenWorkflowResolver,
+  type RelationshipWorkflowProjection,
+} from "../workflow/relationshipDrivenWorkflowResolver";
 import {
   compareArtifactGraphs,
   scanVerifiedArtifactGraph,
@@ -19,7 +19,7 @@ import {
 export interface RepositoryProjectionSnapshot {
   project: ConfiguredProject;
   graph: VerifiedArtifactGraph;
-  projection: EvidenceWorkflowProjection;
+  projection: RelationshipWorkflowProjection;
   registry: ArtifactRegistry;
   scanResult: ProjectScanResult;
 }
@@ -39,7 +39,7 @@ export class RepositoryRefreshService {
   constructor(
     project: ConfiguredProject,
     private readonly workspaces: ProjectWorkspaceRegistry,
-    private readonly projector = new EvidenceDerivedWorkflowProjector(),
+    private readonly resolver = new RelationshipDrivenWorkflowResolver(),
     private readonly clock: () => string = () => new Date().toISOString(),
   ) {
     this.project = structuredClone(project);
@@ -101,7 +101,7 @@ export class RepositoryRefreshService {
       const noOp = this.graph?.fingerprint === nextGraph.fingerprint;
       if (!noOp) this.projectionRevision += 1;
       if (this.projectionRevision === 0) this.projectionRevision = 1;
-      const projection = this.projector.project(
+      const projection = this.resolver.resolve(
         project,
         nextGraph,
         this.projectionRevision,

@@ -53,14 +53,23 @@ export interface RoutedActionRoutes {
 
 export type WorkflowBlockerCode =
   | "ambiguous_authority"
+  | "ambiguous_current_action"
   | "duplicate_active_authority"
+  | "duplicate_artifact_id"
   | "missing_authority"
+  | "missing_expected_output_binding"
+  | "missing_required_source"
   | "missing_pair"
   | "pair_mismatch"
   | "payload_hash_mismatch"
   | "role_mismatch"
+  | "route_binding_mismatch"
   | "stale_state_revision"
+  | "stale_cache_ignored"
+  | "superseded_candidate"
   | "transition_evidence_missing"
+  | "unknown_transition_rule"
+  | "unsynchronized_artifact_pair"
   | "unsupported_transition"
   | "partial_write"
   | "manual_intervention_required"
@@ -90,7 +99,7 @@ export interface WorkflowBlocker {
 }
 
 export interface RoutedActionBindingSource {
-  kind: "workflow_state_index" | "evidence_projection";
+  kind: "workflow_state_index" | "relationship_resolver";
   workflowStateArtifactId: string;
   stateRevision: number;
   projectId?: string;
