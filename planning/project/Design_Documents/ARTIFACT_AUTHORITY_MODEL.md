@@ -9,17 +9,17 @@
     "kind": "design_document",
     "title": "Artifact Authority Model"
   },
-  "payloadHash": "sha256:2c322c0034db96d07bd30566ca1386d4fa5583b8a6749ce791f5d2d51ab55f4e",
+  "payloadHash": "sha256:1b0764d9ddc72439ad6369fe39a6618df4e49ff69962132f2d6d1640513b5f18",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -35,7 +35,7 @@
 
 Status: Updated for Phase 05 approved roadmap baseline
 Project: ChampCity A/I
-Current approved roadmap authority: `champcity-ai/phase-05/roadmap_rebaseline/WC03`
+Current approved roadmap authority: `champcity-ai/phase-05/project_roadmap/WC03`
 
 ## Purpose
 

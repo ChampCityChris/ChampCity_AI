@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC08-REPAIR03",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T18:35:39.308Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement"
   },
-  "payloadHash": "sha256:a2450ea4b970e5e4521334ac50fe7dbeaa3a1db8c46387649735ca4c4a62cde7",
+  "payloadHash": "sha256:93ef7f0983d8559123aab829fef78cfc0ebd1b78216aded4dd815a5a294d45e8",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Human Validation Report - WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement
+# Human Operator Validation - WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement
 
 ## Validation Target
 
@@ -53,11 +53,11 @@ Use item-level results where feasible: Pass, Concern, Fail, Not tested, Not appl
 
 ## What Was Tested?
 
-Confirm application opens to correct Work Card and validation report can be completed and saved.
+Confirm application opens to correct Work Card and operator validation can be completed and saved.
 
 ## What Passed?
 
-Confirm application opens to correct Work Card and validation report can be completed and saved.
+Confirm application opens to correct Work Card and operator validation can be completed and saved.
 
 ## What Failed?
 

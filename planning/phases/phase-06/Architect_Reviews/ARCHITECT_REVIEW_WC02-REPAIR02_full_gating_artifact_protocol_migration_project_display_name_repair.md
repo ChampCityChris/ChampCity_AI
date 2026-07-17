@@ -10,7 +10,7 @@
     "kind": "architect_review",
     "title": "Architect Review: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
   },
-  "payloadHash": "sha256:877affc848900373796dad8d0be2ce58b9685e4672b918ba7a72669b9970093d",
+  "payloadHash": "sha256:06ffec5111bcb75d6a3af043a2e784d0f2488f05f7e1b0aee84b5107b2e58bc4",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,12 +19,12 @@
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR02",
-      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
-      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
     ],
     "supersedes": []
   },
@@ -93,10 +93,10 @@ MCP inspection confirms Phase 05 still contains live old-protocol artifacts, inc
 - `planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC02_reconciled_current_state_and_ground_rules_baseline.json` with artifact type `approval`;
 - `planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_release_candidate_roadmap_rebaseline.json` with artifact type `approval`;
 - `planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_roadmap_rebaseline.json` with artifact type `approval`;
-- `planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json` with artifact type `validation_report`;
-- `planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.json` with artifact type `roadmap_rebaseline`.
+- `planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json` with artifact type `operator_validation`;
+- `planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.json` with artifact type `project_roadmap`.
 
-Phase 06 relationships also continue to cite `champcity-ai/phase-05/roadmap_rebaseline/WC03`. The Work Card required either migration to `project_roadmap` or explicit formalization of `roadmap_rebaseline` in the target protocol. The implementation did neither for the controlling historical chain.
+Phase 06 relationships also continue to cite `champcity-ai/phase-05/project_roadmap/WC03`. The Work Card required either migration to `project_roadmap` or explicit formalization of `project_roadmap` in the target protocol. The implementation did neither for the controlling historical chain.
 
 This is the defect WC02-REPAIR02 was approved to correct. Deferring it to a separate future Work Card is not acceptable.
 
@@ -178,7 +178,7 @@ These partial findings do not authorize Operator validation because the governin
 1. Restore the three corrupted governance artifact pairs with complete human-readable content and synchronized canonical payloads.
 2. Complete the approved artifact migration from `planning/project/` through Phase 06, including all controlling Project Intake, approval, validation, roadmap/rebaseline, phase setup, Work Card loop, closeout, and next-phase evidence required to resolve current state.
 3. Migrate controlling artifacts in place. Do not create compatibility shadows or duplicate old/new gate artifacts.
-4. Resolve every remaining controlling `approval`, `validation_report`, and `roadmap_rebaseline` artifact according to the approved target protocol.
+4. Resolve every remaining controlling `approval`, `operator_validation`, and `project_roadmap` artifact according to the approved target protocol.
 5. Correct all relationships and expected outputs that still cite retired artifact IDs or types.
 6. Add the required per-artifact migration inventory with all mandated columns and classifications.
 7. Add validation that fails when a canonical JSON payload loses `contentMarkdown` or rendered Markdown contains literal `undefined`.

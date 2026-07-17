@@ -1,19 +1,28 @@
 {
-  "validationId": "VALIDATION_WC03_20260701013747",
-  "workCardId": "WC03",
-  "workCardTitle": "Repair validation and evidence UI",
-  "phase": "phase-02",
-  "builderReportFile": "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
-  "validationResult": "Pass",
-  "testedItems": "1. Validate screen defaults WC02 to the WC02 Implementer Report.\n\n2. Report screen imports the WC02 Implementer Report into the report text box.\n\n3. Screenshot/file evidence import works without manual path typing.\n\n4. Header no longer crunches at normal window size.\n\n5. Only one clear validation save action remains.",
-  "passedItems": "1. Validate screen defaults WC02 to the WC02 Implementer Report.\n\n2. Report screen imports the WC02 Implementer Report into the report text box.\n\n3. Screenshot/file evidence import works without manual path typing.\n\n4. Header no longer crunches at normal window size.\n\n5. Only one clear validation save action remains.",
-  "failedItems": "None",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "",
-  "commandsRun": "npm start",
-  "observedErrors": "None",
-  "additionalOperatorObservations": "Import function works but a direct screenshot paste into the screenshots box does not function.  Functionality should eventually include the ability to copy a screen grab and paste directly into box",
-  "operatorDecision": "Passed - proceed",
-  "recommendedNextAction": "Add Screen Capture Paste directly into Test Box functionality in a later pass.  Closeout PH02 WC 03 and being PH02 WC 04",
-  "createdAt": "2026-07-01T01:37:47.493Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T01:37:47.493Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC03 Repair validation and evidence UI\n\n## Work Card\n\n- Work Card ID: WC03\n- Work Card title: Repair validation and evidence UI\n- Phase: phase-02\n- Associated Implementer Report: BUILDER_REPORT_WC03_repair_header_layout_regression.md\n\n## Validation Result\n\nPass\n\n## What Was Tested?\n\n1. Validate screen defaults WC02 to the WC02 Implementer Report.\n\n2. Report screen imports the WC02 Implementer Report into the report text box.\n\n3. Screenshot/file evidence import works without manual path typing.\n\n4. Header no longer crunches at normal window size.\n\n5. Only one clear validation save action remains.\n\n## What Passed?\n\n1. Validate screen defaults WC02 to the WC02 Implementer Report.\n\n2. Report screen imports the WC02 Implementer Report into the report text box.\n\n3. Screenshot/file evidence import works without manual path typing.\n\n4. Header no longer crunches at normal window size.\n\n5. Only one clear validation save action remains.\n\n## What Failed?\n\nNone\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nnpm start\n\n## Observed Errors\n\nNone\n\n## Additional Operator Observations\n\nImport function works but a direct screenshot paste into the screenshots box does not function.  Functionality should eventually include the ability to copy a screen grab and paste directly into box\n\n## Operator Decision\n\nPassed - proceed\n\n## Recommended Next Action\n\nAdd Screen Capture Paste directly into Test Box functionality in a later pass.  Closeout PH02 WC 03 and being PH02 WC 04\n\n## Generated Timestamp\n\n2026-07-01T01:37:47.493Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC03 repair validation and evidence ui"
+  },
+  "payloadHash": "sha256:7ad423bc2231e0a8577a7f3b3ece456dbe02609d7af795a98d8a08d804929edb",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T01:37:47.493Z",
+  "workCardId": "WC03"
 }

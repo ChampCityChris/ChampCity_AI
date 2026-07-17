@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/approval/Operator_Phase_Approval",
-  "artifactType": "approval",
+  "artifactId": "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval.json",
   "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval.md",
   "payload": {
-    "kind": "approval",
+    "kind": "operator_approval",
     "title": "Operator Phase Approval: phase-03"
   },
-  "payloadHash": "sha256:7bea5a12f8d6e94bd9079775b11a64755874fbca02c5a07c1bf13ad6968610ad",
+  "payloadHash": "sha256:fdb00263c25774efc4fa22eb89f6a3efb4216f3add905a2c5bbde545db663212",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {

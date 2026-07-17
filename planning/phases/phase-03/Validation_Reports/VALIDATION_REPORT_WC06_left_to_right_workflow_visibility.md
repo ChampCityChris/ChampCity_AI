@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC06",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC06",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-13T13:35:00.000Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC06 Left-to-Right Workflow Visibility"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC06 Left-to-Right Workflow Visibility"
   },
-  "payloadHash": "sha256:4f3b2977ec8e8cde4dc408f5dd62de45ec7d546cd7d4a0e21dae91322beffe6a",
+  "payloadHash": "sha256:bd8a74548005c40f295a46f15a6d204c0fdc981ba779d7017454ace0f6b2d71c",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -32,7 +32,7 @@
 }
 -->
 
-# Human Validation Report - WC06 Left-to-Right Workflow Visibility
+# Human Operator Validation - WC06 Left-to-Right Workflow Visibility
 
 ## Validation Target
 

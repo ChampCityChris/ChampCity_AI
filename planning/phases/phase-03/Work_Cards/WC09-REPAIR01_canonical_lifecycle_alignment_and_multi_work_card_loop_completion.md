@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card - WC09-REPAIR01 Canonical Lifecycle Alignment and Multi-Work-Card Loop Completion"
   },
-  "payloadHash": "sha256:f98d84b36ee9500ae8f25ba6754cecf5dd39788ab1b0a679e21e663192ea8d8d",
+  "payloadHash": "sha256:42bcc1054f2edd1da2ecf21bbb7bfa42d1377680d859f66c63befc2eec3460ab",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {

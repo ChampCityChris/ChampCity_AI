@@ -10,15 +10,15 @@
     "kind": "architect_review",
     "title": "Architect Review: WC04-REPAIR01 Validation Flow and Current Action Panel Usability"
   },
-  "payloadHash": "sha256:a8090971a94de22bf073c9ebcadf4f369a452d90bb505e3dd13a735a37a6ef92",
+  "payloadHash": "sha256:5f9c38bd6b91c34b27ac6d082dea4e95451aff586fdca81fa9ef6b6bb91630f2",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR01"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR01"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
@@ -75,7 +75,7 @@ This is the correct decision about fixture scope, but it exposes a real routing 
 
 Durable project state contains:
 
-- WC04 validation report with `Operator Decision: Deferred - not validated yet`,
+- WC04 operator validation with `Operator Decision: Deferred - not validated yet`,
 - WC04-REPAIR01 Work Card, and
 - WC04-REPAIR01 Implementer Report.
 
@@ -122,7 +122,7 @@ Create a follow-up repair to correct durable current-action routing for deferred
 
 The repair must ensure:
 
-1. A validation report with Operator decision `Deferred - not validated yet` is not treated as a passing validation, even if the raw validation result field says `Pass`.
+1. A operator validation with Operator decision `Deferred - not validated yet` is not treated as a passing validation, even if the raw validation result field says `Pass`.
 2. Deferred, failed, partial, blocked, or repair-required Operator decisions prevent the parent Work Card candidate from being treated as resolved.
 3. When a repair Work Card and repair Implementer Report exist but no repair validation record exists, the current-action route points to repair validation or equivalent Operator validation for the repair route.
 4. The current-action fixture covers the deferred-validation case that triggered WC04-REPAIR01.

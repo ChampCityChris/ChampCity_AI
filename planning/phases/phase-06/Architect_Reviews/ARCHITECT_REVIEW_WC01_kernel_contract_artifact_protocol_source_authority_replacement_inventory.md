@@ -2,35 +2,35 @@
 {
   "artifactId": "champcity-ai/phase-06/architect_review/WC01",
   "artifactType": "architect_review",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "repair_required",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
-  "workCardId": "WC01",
   "createdAt": "2026-07-17T02:50:00.000Z",
-  "updatedAt": "2026-07-17T02:50:00.000Z",
   "jsonPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json",
   "markdownPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
-  "payloadHash": "sha256:0f35bc353aa28b6cc3e0f5703794890f7dc3a30c1cb25c15ba72c1ea9ba862a8",
-  "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/work_card/WC01",
-      "champcity-ai/phase-06/approval/WC01",
-      "champcity-ai/phase-06/implementer_report/WC01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
-    ],
-    "expectedOutputs": [
-      "champcity-ai/phase-06/work_card/WC01-REPAIR01"
-    ],
-    "supersedes": [],
-    "children": []
-  },
   "payload": {
     "kind": "architect_review",
     "title": "Architect Review: Phase 06 WC01 Kernel Contract and Replacement Inventory"
-  }
+  },
+  "payloadHash": "sha256:47f6638e7ac79e5aa4b07e00198962ca862876df822428d6594dbcf3ed85dd27",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC01-REPAIR01"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/implementer_report/WC01",
+      "champcity-ai/phase-06/operator_approval/WC01",
+      "champcity-ai/phase-06/work_card/WC01"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "blocked",
+  "updatedAt": "2026-07-17T02:50:00.000Z",
+  "workCardId": "WC01"
 }
 -->
 

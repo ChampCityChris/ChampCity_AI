@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC02-REPAIR02 Executable Transition Engine and Refresh Authority Rebuild"
   },
-  "payloadHash": "sha256:5cf28615e8a0f878fee40580b162e6449b17def7b49aeddf9eee8c2bc33cdffc",
+  "payloadHash": "sha256:4d6063168fe9b301895dd909710019327e775724743855b42a99e75ae9928e23",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,12 +19,12 @@
       "champcity-ai/phase-04/implementer_report/WC02-REPAIR02-executable-transition-engine-and-refresh-authority-rebuild"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC02",
-      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
       "champcity-ai/phase-04/architect_review/WC02",
-      "champcity-ai/phase-04/work_card/WC02-REPAIR01",
+      "champcity-ai/phase-04/architect_review/WC02-REPAIR01",
+      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
       "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
-      "champcity-ai/phase-04/architect_review/WC02-REPAIR01"
+      "champcity-ai/phase-04/work_card/WC02",
+      "champcity-ai/phase-04/work_card/WC02-REPAIR01"
     ],
     "supersedes": []
   },
@@ -111,7 +111,7 @@ The application still does not advance to Operator Validation for WC02. This is 
 4. The scanner detects the controlling pair for an artifact ID even when the physical path changes through a governed migration.
 5. If the exact expected output artifact exists as a valid controlling pair, the transition engine advances without requiring the Operator to resave it.
 6. WC02 current live evidence advances from Architect Review to Operator Validation for WC02.
-7. The expected next output after WC02 Architect Review is `champcity-ai/phase-04/validation_report/WC02`.
+7. The expected next output after WC02 Architect Review is `champcity-ai/phase-04/operator_validation/WC02`.
 8. No hidden Workflow State cache can override newer repository evidence.
 9. Reference navigation cannot alter routed authority.
 10. Renderer binding can block stale writes but cannot select the current action.

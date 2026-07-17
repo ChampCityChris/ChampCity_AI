@@ -9,7 +9,7 @@
     "kind": "candidate_disposition",
     "title": "Candidate Disposition: WC02 completed via repair"
   },
-  "payloadHash": "sha256:607ab2e32258726c90fafac21321072f184909b25ea227c0a1af155df08d369f",
+  "payloadHash": "sha256:adc141aa130d482430e3fd08bd8a8270ac10e6e470de6e5b877e553358b9d98d",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,10 +19,10 @@
       "champcity-ai/phase-04/architect_review/WC02",
       "champcity-ai/phase-04/architect_review/WC02-REPAIR01",
       "champcity-ai/phase-04/architect_review/WC02-REPAIR02",
+      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
       "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
       "champcity-ai/phase-04/implementer_report/WC02-REPAIR02-executable-transition-engine-and-refresh-authority-rebuild",
-      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
-      "champcity-ai/phase-04/validation_report/WC02",
+      "champcity-ai/phase-04/operator_validation/WC02",
       "champcity-ai/phase-04/work_card/WC02",
       "champcity-ai/phase-04/work_card/WC02-REPAIR01",
       "champcity-ai/phase-04/work_card/WC02-REPAIR02"
@@ -49,7 +49,7 @@ WC02 Operator Validation passed after the authorized WC02-REPAIR02 transition-au
 
 The validation evidence confirms the application reached the correct Operator Validation workspace for WC02 and no longer remained blocked on Architect Review when `architect_review/WC02` existed as valid repository evidence.
 
-The validation-save path produced a non-acceptance-blocking product defect: `Invalid artifact registry: $.registryVersion must be 1`. The application saved validation evidence images but did not save the canonical Validation Report pair. The Architect manually wrote the synchronized WC02 Validation Report pair from Operator-provided validation evidence so the durable workflow record is complete.
+The validation-save path produced a non-acceptance-blocking product defect: `Invalid artifact registry: $.registryVersion must be 1`. The application saved validation evidence images but did not save the canonical Operator Validation pair. The Architect manually wrote the synchronized WC02 Operator Validation pair from Operator-provided validation evidence so the durable workflow record is complete.
 
 This save-path defect is not treated as a WC02-REPAIR02 transition-authority failure, but it must be carried forward as validation workflow debt before deeper dogfooding continues.
 

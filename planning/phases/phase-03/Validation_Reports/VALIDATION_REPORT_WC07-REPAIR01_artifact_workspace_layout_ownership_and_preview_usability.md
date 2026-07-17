@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC07-REPAIR01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T14:47:01.454Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC07",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC07-REPAIR01 Artifact Workspace Layout Ownership and Preview Usability"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC07-REPAIR01 Artifact Workspace Layout Ownership and Preview Usability"
   },
-  "payloadHash": "sha256:ec8f8808fa112016caa5415ac3c8cc4247e6fafe564be5736f73b8b32c573d05",
+  "payloadHash": "sha256:4985b149a81162fbdd90b9f8ca56fe43e54391307e3c01688d03d88d94bf95e7",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -31,7 +31,7 @@
 }
 -->
 
-# Human Validation Report - WC07-REPAIR01 Artifact Workspace Layout Ownership and Preview Usability
+# Human Operator Validation - WC07-REPAIR01 Artifact Workspace Layout Ownership and Preview Usability
 
 ## Validation Target
 

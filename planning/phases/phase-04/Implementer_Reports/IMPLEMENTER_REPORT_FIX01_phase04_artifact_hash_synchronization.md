@@ -9,7 +9,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: FIX01 Phase 04 Artifact Hash Synchronization"
   },
-  "payloadHash": "sha256:743eb9f3b8f7861b7b007e0e4a74e718da8c98156a804283edf91e413eed2e5f",
+  "payloadHash": "sha256:d310aed992cd89155259f371ecc35f406ae0c15d64d7a75b16db21e0d50d61b7",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -17,7 +17,7 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/candidate_disposition/WC01",
-      "champcity-ai/phase-04/validation_report/WC01",
+      "champcity-ai/phase-04/operator_validation/WC01",
       "champcity-ai/project/observation_register/Project_Observation_Register",
       "champcity-ai/system/artifact_registry"
     ],
@@ -69,7 +69,7 @@ The Project Observation Register pair had drifted: the Markdown body and structu
 
 The fix regenerated the Project Observation Register pair from the Markdown body using the repository canonical artifact renderer, recomputed its payload hash as sha256:e2876563d5e9f0bc1a343f29697a3f850f9984888da408b65fee550d10be4d0c, updated the Artifact Registry entry for that artifact, and regenerated the Artifact Registry pair.
 
-The WC01 validation report pair and candidate disposition pair were verified and left unchanged.
+The WC01 operator validation pair and candidate disposition pair were verified and left unchanged.
 
 ## Commands Run And Results
 
@@ -77,13 +77,13 @@ The WC01 validation report pair and candidate disposition pair were verified and
 - git status --short --branch - passed; confirmed the active feature branch and dirty planning artifacts.
 - git remote -v - passed; confirmed origin.
 - Get-Content docs/dev/VALIDATION_COMMAND_LANES.md - passed; confirmed the normal Windows validation lane requirement.
-- Canonical pair verification for Project Observation Register, Artifact Registry, WC01 validation report, and WC01 candidate disposition - initially failed on the Project Observation Register hash, then on payload body drift after the intermediate hash correction, and passed after canonical regeneration.
+- Canonical pair verification for Project Observation Register, Artifact Registry, WC01 operator validation, and WC01 candidate disposition - initially failed on the Project Observation Register hash, then on payload body drift after the intermediate hash correction, and passed after canonical regeneration.
 - Canonical artifact regeneration through the repository renderer - first sandboxed write failed with EPERM; elevated local write succeeded.
 - npm run validate:codex - passed in the approved normal Windows lane; this ran npm run test:full, including build, unit tests, repository gates, and renderer smoke checks.
 
 ## Validation Performed
 
-- Canonical pair verification passed for the Project Observation Register, Artifact Registry, WC01 validation report, and WC01 candidate disposition.
+- Canonical pair verification passed for the Project Observation Register, Artifact Registry, WC01 operator validation, and WC01 candidate disposition.
 - Full validation passed through npm run validate:codex, which invoked npm run test:full.
 - Build passed.
 - Unit tests passed: 39 passed, 0 failed.

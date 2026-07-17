@@ -1,4 +1,31 @@
-# Human Validation Report - WC05 Add Phase Intake and Phase Interview prompt generator
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-02T00:15:25.046Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC05 add phase intake and phase interview prompt generator"
+  },
+  "payloadHash": "sha256:f04dc650ecffb80a2f88d18e8d6fef86b702f3d271d1a49d40925fd012107e42",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-02T00:15:25.046Z",
+  "workCardId": "WC05"
+}
+-->
+
+# Human Operator Validation - WC05 Add Phase Intake and Phase Interview prompt generator
 
 ## Validation Target
 

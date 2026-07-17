@@ -5,6 +5,10 @@
   "createdAt": "2026-07-16T22:30:00.000Z",
   "jsonPath": "planning/phases/phase-04/Phase_Closeouts/PHASE_04_CLOSEOUT_stabilization_bridge_and_foundation_rebaseline.json",
   "markdownPath": "planning/phases/phase-04/Phase_Closeouts/PHASE_04_CLOSEOUT_stabilization_bridge_and_foundation_rebaseline.md",
+  "payload": {
+    "kind": "phase_closeout",
+    "title": "Phase 04 Closeout: Stabilization Bridge and Foundation Rebaseline"
+  },
   "payloadHash": "sha256:4f847a33dd46df7a9e8134bdb7d3b842d84fe514d7f795cea0e5393beb2f759a",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
@@ -14,22 +18,18 @@
       "champcity-ai/phase-05/phase_activation/phase-05"
     ],
     "sources": [
+      "champcity-ai/phase-04/architect_review/WC03",
       "champcity-ai/phase-04/candidate_disposition/WC01",
       "champcity-ai/phase-04/candidate_disposition/WC02",
-      "champcity-ai/phase-04/architect_review/WC03",
-      "champcity-ai/project/observation/PROJ-OBS-010",
-      "champcity-ai/phase-04/reconciliation_review/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW"
+      "champcity-ai/phase-04/reconciliation_review/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW",
+      "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
   },
   "revision": 1,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-16T22:30:00.000Z",
-  "payload": {
-    "kind": "phase_closeout",
-    "title": "Phase 04 Closeout: Stabilization Bridge and Foundation Rebaseline"
-  }
+  "updatedAt": "2026-07-16T22:30:00.000Z"
 }
 -->
 

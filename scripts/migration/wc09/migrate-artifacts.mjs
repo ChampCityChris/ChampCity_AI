@@ -1895,7 +1895,7 @@ function deriveCandidateExecutionState(
     evidence.push({
       artifactId: controllingRepair.artifactId,
       candidateId: candidate.candidateId,
-      kind: "repair_work_card_active",
+      kind: "work_card_repair_active",
       repairArtifactId: controllingRepair.artifactId,
       controllingSequence: ++sequence,
       status: controllingRepair.status,
@@ -2125,7 +2125,7 @@ function derivePhaseInterviewAuthority(artifacts) {
   const approval = artifacts.find(
     (artifact) =>
       artifact.artifactId ===
-      "champcity-ai/phase-03/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval",
   );
   const approvedBundle = Array.isArray(approval?.payload?.data?.approved_bundle)
     ? approval.payload.data.approved_bundle

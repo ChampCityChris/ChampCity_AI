@@ -10,13 +10,13 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC04-REPAIR02 Repair Validation Routing Gate"
   },
-  "payloadHash": "sha256:ce3e2326968595df66d9b713b3d3b1d230129e7208ec44528beeec5b63896c98",
+  "payloadHash": "sha256:2d67a716b08a7176f5a7cd45b496566ffba952072c42681efd6305563774044b",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR02"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR02"
@@ -146,7 +146,7 @@ The durable repo state no longer routes to WC05.
 
 - Repository root, branch, status, remote, and branch availability checks - passed; approved repo, clean required base branch, and expected remote were confirmed.
 - `git switch -c feature/phase-03-wc04-repair02-routing-gate` - passed; branch created from the required base branch.
-- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC04-REPAIR02, the WC04 deferred validation report, the WC04-REPAIR01 Implementer Report, and the WC04-REPAIR01 Architect Review - completed before editing and validation.
+- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC04-REPAIR02, the WC04 deferred operator validation, the WC04-REPAIR01 Implementer Report, and the WC04-REPAIR01 Architect Review - completed before editing and validation.
 - `node --check scripts/verify-work-card-fixture.mjs` - passed.
 - `git diff --check` - passed before report creation.
 - `npm run validate:codex` - passed in the approved normal Windows lane. The wrapper ran `npm test`, `npm run typecheck`, TypeScript compilation, Vite production build, and renderer asset copying successfully.

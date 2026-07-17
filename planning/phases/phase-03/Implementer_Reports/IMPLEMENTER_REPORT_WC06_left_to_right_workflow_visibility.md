@@ -9,13 +9,13 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC06 Left-to-Right Workflow Visibility"
   },
-  "payloadHash": "sha256:165fffcd1ccb0841e6f4e6cb8729ec9d648960a82ab3e1a29c6bb4e0da1a7184",
+  "payloadHash": "sha256:d2ec7b1d2750b1d6974b40b9336ab5c10ab3103dfd72ae7ecb4d661e4192f81f",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC06",
-      "champcity-ai/phase-03/validation_report/WC06"
+      "champcity-ai/phase-03/operator_validation/WC06"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC06"
@@ -166,7 +166,7 @@ WC07-WC15 were not implemented. No artifact review workspace, current-step conte
 - Repository root, clean `dev`, branch, remote, and upstream comparison - passed.
 - `git fetch origin dev` - passed; local `dev` exactly matched `origin/dev` before branching.
 - `git switch -c feature/phase-03-wc06-left-to-right-workflow-visibility` - passed.
-- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC06, all WC04 validation reports, and the accepted WC05 validation report - completed before editing.
+- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC06, all WC04 validation reports, and the accepted WC05 operator validation - completed before editing.
 - Source inspection of `WorkflowRouterShell`, current-action routing, the existing process rail, support navigation, application screen mapping, and focused fixtures - completed.
 - `node --check scripts/verify-wc06-workflow-visibility.mjs` - passed.
 - `node --check scripts/verify-wc05-support-navigation.mjs` - passed.

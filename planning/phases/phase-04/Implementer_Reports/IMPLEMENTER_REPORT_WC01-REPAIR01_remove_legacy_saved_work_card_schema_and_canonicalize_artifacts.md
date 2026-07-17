@@ -9,13 +9,13 @@
     "kind": "implementer_report",
     "title": "Remove Legacy Saved Work Card Schema and Canonicalize Artifacts"
   },
-  "payloadHash": "sha256:59b210fa9e260ace152d7825ec8762f0328a2d7d2de84cdf0851ad669c33679b",
+  "payloadHash": "sha256:8645ad90dbc2021fa2d9180e6e26930772d281188250b228cf3cbe55b6d070a0",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/validation_report/WC01"
+      "champcity-ai/phase-04/operator_validation/WC01"
     ],
     "sources": [
       "champcity-ai/phase-04/work_card/WC01",
@@ -76,7 +76,7 @@ Remaining validateWorkCard uses are limited to draft/manual rendering helpers an
 ## Files Intentionally Not Created
 
 - No WC01-REPAIR02 Work Card.
-- No Operator Validation Report.
+- No Operator Operator Validation.
 - No completed_via_repair disposition.
 - No release tag, deployment, provider SDK, authentication, database, cloud, connector, or MCP integration.
 
@@ -84,7 +84,7 @@ Remaining validateWorkCard uses are limited to draft/manual rendering helpers an
 
 Dry-run inventory inspected 425 files across planning/project, planning/phases/phase-01, planning/phases/phase-02, planning/phases/phase-03, planning/phases/phase-04, and planning/system. Before conversion it found 135 canonical pairs, 18 legacy saved Work Card JSON pairs, 50 Markdown-only historical/support artifacts, 3 noncanonical JSON-only records, and 32 other noncanonical pairs.
 
-After migration, legacy saved Work Card JSON count is 0, orphan canonical JSON count is 0, verified graph blockers are 0, and the current repository projects WC01 to operator_validation_required with expected output champcity-ai/phase-04/validation_report/WC01.
+After migration, legacy saved Work Card JSON count is 0, orphan canonical JSON count is 0, verified graph blockers are 0, and the current repository projects WC01 to operator_validation_required with expected output champcity-ai/phase-04/operator_validation/WC01.
 
 ## Migration Manifest
 
@@ -98,7 +98,7 @@ Artifact Registry was regenerated as a synchronized canonical cache with non-arc
 
 ## Current Route Evidence
 
-A direct verified-graph projection of the real repository returned: currentAction operator_validation_required, target champcity-ai/phase-04/work_card/WC01, expected output champcity-ai/phase-04/validation_report/WC01, blockers 0, blockingConditions 0.
+A direct verified-graph projection of the real repository returned: currentAction operator_validation_required, target champcity-ai/phase-04/work_card/WC01, expected output champcity-ai/phase-04/operator_validation/WC01, blockers 0, blockingConditions 0.
 
 ## Commands Run And Results
 
@@ -129,7 +129,7 @@ A direct verified-graph projection of the real repository returned: currentActio
 
 ## Validation Skipped And Reason
 
-No required automated Implementer validation was skipped. Operator acceptance, manual visual validation, final Human Validation acceptance, parent WC01 Validation Report creation, completed_via_repair disposition, merge, and release tag remain outside Implementer authority.
+No required automated Implementer validation was skipped. Operator acceptance, manual visual validation, final Human Validation acceptance, parent WC01 Operator Validation creation, completed_via_repair disposition, merge, and release tag remain outside Implementer authority.
 
 ## Security And Secret Safety
 
@@ -137,7 +137,7 @@ No secrets, credentials, private tokens, .env files, concrete local machine path
 
 ## Manual Validation Required
 
-The Operator should launch ChampCity A/I, select the project, refresh repository state, confirm blocker count is zero, confirm current action is Operator Validation for WC01, confirm expected output champcity-ai/phase-04/validation_report/WC01, and confirm the retired saved Work Card validation message and Implementer Report association warning are absent.
+The Operator should launch ChampCity A/I, select the project, refresh repository state, confirm blocker count is zero, confirm current action is Operator Validation for WC01, confirm expected output champcity-ai/phase-04/operator_validation/WC01, and confirm the retired saved Work Card validation message and Implementer Report association warning are absent.
 
 ## Residual Risks
 

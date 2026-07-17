@@ -30,8 +30,8 @@
       "champcity-ai/phase-04/work_card/WC01-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-04/diagnostic_report/WC01",
-      "champcity-ai/phase-04/architect_review/WC01"
+      "champcity-ai/phase-04/architect_review/WC01",
+      "champcity-ai/phase-04/diagnostic_report/WC01"
     ],
     "supersedes": []
   },

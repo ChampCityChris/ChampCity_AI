@@ -9,13 +9,13 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC07 Artifact Review Workspace"
   },
-  "payloadHash": "sha256:f80689ffcc00cba7ec0ebf4fc243b0c2853ab255506cb81166ee7537b5fcf5b5",
+  "payloadHash": "sha256:2ce37aa935cb8ad2142acd7ed5a3bf825a97ca21cf419c106992118fdd829da4",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC07",
-      "champcity-ai/phase-03/validation_report/WC07"
+      "champcity-ai/phase-03/operator_validation/WC07"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC07"
@@ -67,7 +67,7 @@ Artifact cards use readable filename-derived labels as their primary text. Artif
 
 Available repo-relative planning Markdown files have a read-only inline preview. The renderer calls a narrow preload method backed by Electron main-process validation. The main process accepts only normalized `planning/**/*.md` paths, rejects traversal and unsupported extensions, resolves and rechecks real paths inside the planning root, applies a size limit, and returns text only. Previewing does not write artifacts, save forms, approve, validate, repair, advance state, or change the current-action route.
 
-Repair current-action evidence now retains the parent Work Card, parent Implementer Report, Architect Review, failed parent Validation Report, repair artifacts, repair Implementer Report, prior repair validation evidence when present, and validation-referenced evidence files. This supplies the context WC07 requires without changing the evaluator's route decision authority.
+Repair current-action evidence now retains the parent Work Card, parent Implementer Report, Architect Review, failed parent Operator Validation, repair artifacts, repair Implementer Report, prior repair validation evidence when present, and validation-referenced evidence files. This supplies the context WC07 requires without changing the evaluator's route decision authority.
 
 ## Files Changed
 
@@ -105,12 +105,12 @@ The shared artifact workspace model groups current-action source evidence in thi
 1. Work Card
 2. Implementer Report
 3. Architect Review
-4. Validation Report
+4. Operator Validation
 5. Repair
 6. Source Evidence
 7. Other Support
 
-Repair Work Cards, repair prompts, and repair Implementer Reports remain distinguishable inside the Repair group. Validation records stay in the Validation Report group, including failed parent validation and prior repair validation evidence. Screenshot and other referenced evidence files appear in Source Evidence. Phase plans, project plans, Roadmap records, Phase Map records, and other current-action inputs fall back to Other Support.
+Repair Work Cards, repair prompts, and repair Implementer Reports remain distinguishable inside the Repair group. Validation records stay in the Operator Validation group, including failed parent validation and prior repair validation evidence. Screenshot and other referenced evidence files appear in Source Evidence. Phase plans, project plans, Roadmap records, Phase Map records, and other current-action inputs fall back to Other Support.
 
 Missing artifacts are not mixed into those source groups. They have a separate Missing evidence area with a readable label, inferred role, reason, and collapsed path. Expected output is also separate from both sources and missing evidence.
 
@@ -159,11 +159,11 @@ The repair route now retains and displays:
 - parent Work Card;
 - parent Implementer Report when present;
 - Architect Review when present;
-- failed parent Validation Report;
+- failed parent Operator Validation;
 - validation-referenced source evidence;
 - repair Work Card and/or Repair Prompt;
 - repair Implementer Report;
-- prior repair Validation Report/evidence when present;
+- prior repair Operator Validation/evidence when present;
 - expected Repair Validation Record.
 
 ## Current-Action and Navigation Authority
@@ -180,7 +180,7 @@ The repair route now retains and displays:
 ## Focused Fixture Updates
 
 - Added `scripts/verify-wc07-artifact-workspace.mjs` for Operator-validation grouping, Architect-review grouping, repair-validation grouping, readable labels, expected/missing separation, constrained preview allow/deny behavior, and live non-blank current-action context.
-- Strengthened the current-action fixture so repair validation must retain the failed parent Validation Report and live Phase 03 state may correctly route to WC07.
+- Strengthened the current-action fixture so repair validation must retain the failed parent Operator Validation and live Phase 03 state may correctly route to WC07.
 - Updated WC04-WC06 focused fixture live-state expectations from the now-completed WC06 route to the accepted durable WC07 Implementer route. Their static validation-target, support-navigation, route-map, and workflow-guide assertions remain intact.
 - Updated the WC04 checklist fixture to the newest durable WC06-REPAIR01 Architect Review guidance selected by the existing precedence rule.
 
@@ -239,7 +239,7 @@ No sandbox-only `spawn EPERM` failure occurred. Every child-process-heavy test, 
 After Architect review, the Operator should confirm that:
 
 1. The current routed workspace shows useful artifact context above the route-specific screen.
-2. Operator validation shows Work Card, Implementer Report, Architect Review, and expected Validation Report when present.
+2. Operator validation shows Work Card, Implementer Report, Architect Review, and expected Operator Validation when present.
 3. Architect review shows Work Card, Implementer Report, and expected Architect Review output when present.
 4. Repair validation shows the parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.
 5. Artifact labels are readable and full paths are available without dominating the interface.

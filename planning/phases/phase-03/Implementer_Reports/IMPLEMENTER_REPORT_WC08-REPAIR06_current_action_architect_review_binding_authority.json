@@ -17,7 +17,7 @@
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR06"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC08-REPAIR06"

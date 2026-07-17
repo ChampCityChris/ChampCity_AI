@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC04-REPAIR03",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-13T01:06:18.235Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC04-REPAIR03 Validation Target Context and Panel Simplification"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC04-REPAIR03 Validation Target Context and Panel Simplification"
   },
-  "payloadHash": "sha256:4a80dbe83c3a4ebf021be29f6881c87940b89667cfb3f7483c8c0be9c48008bc",
+  "payloadHash": "sha256:80aa1dc602ed75362b8b0ef7236d3efac6a9d17d1b4b69d9fc6f8717bbfa4c2e",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -33,7 +33,7 @@
 }
 -->
 
-# Human Validation Report - WC04-REPAIR03 Validation Target Context and Panel Simplification
+# Human Operator Validation - WC04-REPAIR03 Validation Target Context and Panel Simplification
 
 ## Validation Target
 

@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Work Card: WC02 Architect Bridge, Current-Action Surface Audit, and Embedded ChatGPT Browser"
   },
-  "payloadHash": "sha256:aee939ff0be9983443f00d004ee54f8e36c5f01819b8ef691f54d63e63f71293",
+  "payloadHash": "sha256:7571dada534c81f59f9d36fec154e4bd06f1ecd9f5764b923f674bc9a91bb0c9",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,8 +19,8 @@
     ],
     "sources": [
       "champcity-ai/phase-04/candidate_disposition/WC01",
+      "champcity-ai/phase-04/operator_validation/WC01",
       "champcity-ai/phase-04/phase_planning/Phase_Planning",
-      "champcity-ai/phase-04/validation_report/WC01",
       "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
     ],
     "supersedes": []
@@ -46,7 +46,7 @@ Repair policy: Maximum one numbered repair. If WC02-REPAIR01 fails Operator vali
 
 Build the first Architect Bridge path for subscription-surface Architect work.
 
-The application must stop requiring the Operator to explain in chat that an Implementer Report or Validation Report is ready. When the workflow requires Architect action, the app must generate a durable Architect Task Packet, show the source bundle, expected output, and copy-ready ChatGPT prompt, and provide an embedded ChatGPT browser surface.
+The application must stop requiring the Operator to explain in chat that an Implementer Report or Operator Validation is ready. When the workflow requires Architect action, the app must generate a durable Architect Task Packet, show the source bundle, expected output, and copy-ready ChatGPT prompt, and provide an embedded ChatGPT browser surface.
 
 ## Required Work
 

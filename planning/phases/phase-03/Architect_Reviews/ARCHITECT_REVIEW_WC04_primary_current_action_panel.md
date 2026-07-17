@@ -9,16 +9,16 @@
     "kind": "architect_review",
     "title": "Architect Review: WC04 Primary Current Action Panel"
   },
-  "payloadHash": "sha256:ca8e76e0145a919ec00ddd3f7708fb8f2b164ed5f60555b6f6a914d027bc8813",
+  "payloadHash": "sha256:14445aabb8e8ebf71c5140350f1ad04f20b143747ab54ea7846d7fd31c9a8f97",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC04"
+      "champcity-ai/phase-03/operator_validation/WC04"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC04"
+      "champcity-ai/phase-03/operator_validation/WC04"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC04",
@@ -187,4 +187,4 @@ No WC04 repair is required before Operator validation.
 
 ## Recommended Next Action
 
-Operator validates WC04 from the pushed feature branch. If passed, commit the WC04 validation report to the feature branch, then merge the approved feature branch into `dev`.
+Operator validates WC04 from the pushed feature branch. If passed, commit the WC04 operator validation to the feature branch, then merge the approved feature branch into `dev`.

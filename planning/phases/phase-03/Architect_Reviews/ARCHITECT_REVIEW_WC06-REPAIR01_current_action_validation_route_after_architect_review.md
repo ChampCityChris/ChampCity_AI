@@ -10,15 +10,15 @@
     "kind": "architect_review",
     "title": "Architect Review: WC06-REPAIR01 Current Action Validation Route After Architect Review"
   },
-  "payloadHash": "sha256:b53b99b7c62b8844673f20f6bbfab4165c32f6aef3eb9d381a6460406f924686",
+  "payloadHash": "sha256:b05d01e675079972578688241b6e1af285f7c22bbfbc73b0fb660636a4e834d9",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC06-REPAIR01"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC06-REPAIR01"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
@@ -58,7 +58,7 @@ The Implementer correctly identified the defect that caused the failed WC06 vali
 
 The repair expands Work Card identity compatibility to recognize `id` / `phaseId` while preserving the existing `workCardId`, `work_card_id`, `phase`, and `phase_id` compatibility forms. This directly addresses the root cause.
 
-The repair also correctly handles the failed WC06 validation report as a route-blocked validation attempt. That report documents that validation could not be reached because the route opened the wrong screen. It should not count as a passing validation, and it also should not force a normal failed-validation repair route against the WC06 implementation itself. The repaired evaluator keeps WC06 current and routes to Operator validation for a new validation attempt.
+The repair also correctly handles the failed WC06 operator validation as a route-blocked validation attempt. That report documents that validation could not be reached because the route opened the wrong screen. It should not count as a passing validation, and it also should not force a normal failed-validation repair route against the WC06 implementation itself. The repaired evaluator keeps WC06 current and routes to Operator validation for a new validation attempt.
 
 ## Evidence Reviewed
 
@@ -135,7 +135,7 @@ Operator validation should confirm:
 7. WC04 validation/repair behavior remains usable.
 8. WC05 support-navigation behavior remains usable.
 9. WC07-WC15 do not appear prematurely.
-10. The Operator can create and save a WC06 validation report from the routed Human Validation screen.
+10. The Operator can create and save a WC06 operator validation from the routed Human Validation screen.
 
 ## Decision
 

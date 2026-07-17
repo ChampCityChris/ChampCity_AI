@@ -90,19 +90,19 @@
     "children": [
       "champcity-ai/phase-03/architect_review/WC05",
       "champcity-ai/phase-03/implementer_report/WC05",
-      "champcity-ai/phase-03/validation_report/WC05"
+      "champcity-ai/phase-03/operator_validation/WC05"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/implementer_report/WC05"
     ],
     "sources": [
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR02",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR03",
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
       "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
       "champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate",
-      "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification",
-      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
-      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+      "champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification"
     ],
     "supersedes": []
   },

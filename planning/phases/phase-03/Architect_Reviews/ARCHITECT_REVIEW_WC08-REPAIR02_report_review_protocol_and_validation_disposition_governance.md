@@ -10,7 +10,7 @@
     "kind": "architect_review",
     "title": "Architect Review: WC08-REPAIR02 Report Review Protocol and Validation Disposition Governance"
   },
-  "payloadHash": "sha256:7bf32db04e109192d942b936aa68239cc82b04489c9a7c7568bf97631b1ce2a0",
+  "payloadHash": "sha256:f053d3adc7274b21aec8166ed2af5f752207f5ba1303695c945cd91e2225e818",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -18,7 +18,7 @@
       "champcity-ai/phase-03/work_card/WC08-REPAIR03"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR02"
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR02"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
@@ -105,7 +105,7 @@ The Implementer reports that the following passed:
 - `node scripts/verify-wc07-artifact-workspace.mjs`
 - syntax checks and `git diff --check`
 
-The most important validation for this repair is `--report-protocol-only`. That fixture specifically checks the new validation report semantics, pending Architect disposition, legacy advisory handling, repair gating, Implementer Report review instructions, Architect Review output validation, required Operator validation steps, and pending current-action routing. That is the correct targeted validation lane for the repair.
+The most important validation for this repair is `--report-protocol-only`. That fixture specifically checks the new operator validation semantics, pending Architect disposition, legacy advisory handling, repair gating, Implementer Report review instructions, Architect Review output validation, required Operator validation steps, and pending current-action routing. That is the correct targeted validation lane for the repair.
 
 The reviewed source files support the validation claims.
 
@@ -140,7 +140,7 @@ Validate the following:
 2. Confirm there is no Operator Decision control that appears to decide workflow routing.
 3. Confirm Validation Result includes `Pass with concerns`.
 4. Confirm the screen or generated report explains the difference between `Concern` and `Fail` at the item level.
-5. Save or preview a new validation report.
+5. Save or preview a new operator validation.
 6. Confirm the generated JSON contains `architectDisposition: Pending Architect review`.
 7. Confirm the generated JSON omits `operatorDecision` for new reports.
 8. Confirm generated Markdown includes `Field Semantics`.

@@ -17,8 +17,8 @@
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC01",
-      "champcity-ai/phase-04/implementer_report/WC01"
+      "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/work_card/WC01"
     ],
     "supersedes": []
   },

@@ -7,15 +7,15 @@
   "payload": {
     "contentMarkdown": "# Work Card: Phase 05 WC01 Planning Corpus Review and Clarifying Questions\n\nStatus: ready_for_architect\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nWork Card: WC01\nOwner: Architect\nRisk: critical\nChange strategy: no code changes; planning-corpus reconciliation only\n\n## Purpose\n\nReview the full planning corpus and remove ambiguity before any release-candidate roadmap is drafted.\n\nThis Work Card must be performed outside the application using the current artifact schema. It is not an Implementer task and it must not produce source-code changes.\n\n## Required Scope\n\nThe Architect must review everything under the project planning root:\n\n`<PROJECT_REPO>/planning`\n\nincluding all subfolders.\n\nAt minimum, the review must cover:\n\n- project-level roadmap, state, decisions, observations, MVP scope, and open questions;\n- all phase folders and phase-local planning artifacts;\n- Work Cards, Implementer Reports, Architect Reviews, Validation Reports, Candidate Dispositions, Migration Manifests, Architecture Decisions, and Reconciliation Reviews;\n- process-map artifacts and stage ownership artifacts;\n- project observations including PROJ-OBS-010;\n- Phase 04 closeout and Phase 05 activation artifacts.\n\n## Required Output\n\nProduce a synchronized reconciliation review artifact:\n\n`planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC01_planning_corpus_inventory_and_questions.{json,md}`\n\nCanonical artifact ID:\n\n`champcity-ai/phase-05/reconciliation_review/WC01`\n\n## Required Contents\n\nThe reconciliation review must include:\n\n1. Planning corpus inventory.\n2. Current project-state summary.\n3. Phase-by-phase status summary.\n4. Artifact authority problems.\n5. UI and Operator usability problems.\n6. Old foundation that may need removal or migration.\n7. Roadmap ambiguity list.\n8. Process-map and stage-ownership consistency check.\n9. Clarifying questions for the Operator.\n10. A statement that no final roadmap decisions are made until the questions are answered.\n\n## Clarifying Question Rule\n\nAfter the review, the Architect must ask clarifying questions until ambiguity is removed.\n\nDo not draft the final release-candidate roadmap in WC01 unless no clarifying questions remain.\n\n## Acceptance Criteria\n\n- The review covers the entire `planning/` directory and subfolders.\n- The review distinguishes evidence from assumption.\n- The review identifies which old foundation likely needs deletion, replacement, or migration.\n- The review keeps the established process map intact.\n- The review treats UI usability as a first-class acceptance concern.\n- The review produces clear Operator questions where ambiguity remains.\n- The review does not start source-code implementation.\n",
     "data": {
-      "workCardId": "WC01",
-      "phaseId": "phase-05",
-      "status": "ready_for_architect",
-      "ownerRole": "architect",
+      "expectedOutputArtifactId": "champcity-ai/phase-05/reconciliation_review/WC01",
       "implementationAllowed": false,
+      "ownerRole": "architect",
+      "phaseId": "phase-05",
       "requiredPlanningRoot": "<PROJECT_REPO>/planning",
-      "requiresFullPlanningReview": true,
       "requiresClarifyingQuestions": true,
-      "expectedOutputArtifactId": "champcity-ai/phase-05/reconciliation_review/WC01"
+      "requiresFullPlanningReview": true,
+      "status": "ready_for_architect",
+      "workCardId": "WC01"
     },
     "kind": "work_card",
     "title": "Work Card: Phase 05 WC01 Planning Corpus Review and Clarifying Questions"

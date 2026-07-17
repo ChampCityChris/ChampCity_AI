@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC02-REPAIR01 Architect Bridge Contract Alignment and Task Packet Generation Repair"
   },
-  "payloadHash": "sha256:bb73fa7e9eb8fac44f92b87ce2206456d5983569ecef46b08edf6a2594150492",
+  "payloadHash": "sha256:c7f57a97d6b1be94311678f8cddad8cbf0ffb084b62c7bc12c2bad117e24b9de",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {

@@ -321,6 +321,21 @@ function deriveWorkCardStep(
         workCard,
       );
     }
+    const expectedRepairId = exactExpectedOutput(validation, "work_card");
+    if (expectedRepairId) {
+      const repair = activeEvidence(graph.controlling(expectedRepairId));
+      if (!repair) {
+        return step(
+          "repair_work_card_required",
+          workCard.artifact.artifactId,
+          [validation.artifact.artifactId],
+          expectedRepairId,
+          [workCard, report, review, validation],
+          workCard,
+        );
+      }
+      return deriveWorkCardStep(projectId, phaseId, graph, repair, visited);
+    }
     return step(
       "architect_disposition_required",
       workCard.artifact.artifactId,

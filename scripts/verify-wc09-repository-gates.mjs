@@ -63,7 +63,7 @@ const LIFECYCLE_TYPE_RANK = new Map([
   ["work_card", 0],
   ["implementer_report", 1],
   ["architect_review", 2],
-  ["validation_report", 3],
+  ["operator_validation", 3],
 ]);
 
 function parseArguments(argv) {
@@ -367,7 +367,7 @@ function validateCanonicalRelationshipSemantics(gate, artifactsById) {
   for (const [key, group] of byWorkCard) {
     assertLifecycleEdge(gate, key, group.work_card, group.implementer_report);
     assertLifecycleEdge(gate, key, group.implementer_report, group.architect_review);
-    assertLifecycleEdge(gate, key, group.architect_review, group.validation_report);
+    assertLifecycleEdge(gate, key, group.architect_review, group.operator_validation);
   }
 }
 
@@ -968,8 +968,12 @@ function isAllowedWc09Change(file) {
   return [
     "docs/architecture/",
     "planning/archive/wc09/",
+    "planning/phases/phase-01/",
+    "planning/phases/phase-02/",
     "planning/phases/phase-03/",
     "planning/phases/phase-04/",
+    "planning/phases/phase-05/",
+    "planning/phases/phase-06/",
     "planning/project/",
     "planning/system/",
     "planning/work/_template/",

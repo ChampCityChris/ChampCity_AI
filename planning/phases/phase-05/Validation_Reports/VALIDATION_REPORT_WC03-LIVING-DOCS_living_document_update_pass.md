@@ -1,40 +1,40 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-05/validation_report/WC03-LIVING-DOCS",
-  "artifactType": "validation_report",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03-LIVING-DOCS",
-  "parentArtifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+  "artifactId": "champcity-ai/phase-05/operator_validation/WC03-LIVING-DOCS",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-17T01:58:00.000Z",
-  "updatedAt": "2026-07-17T01:58:00.000Z",
   "jsonPath": "planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json",
   "markdownPath": "planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.md",
-  "payloadHash": "sha256:549575dc763428ade8cee16b38cd9d49e76eae51592d3b6738517e3a138afc61",
+  "parentArtifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "Operator Validation: WC03-LIVING-DOCS Living Document Update Pass"
+  },
+  "payloadHash": "sha256:c3f9f7e256820556e9f4ac89b68af3e162ec0442d0d734ebf2d8eb9d6d277ab7",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
-      "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-05/candidate_disposition/WC03-LIVING-DOCS"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+      "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: WC03-LIVING-DOCS Living Document Update Pass"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:58:00.000Z",
+  "workCardId": "WC03-LIVING-DOCS"
 }
 -->
 
-# Validation Report: WC03-LIVING-DOCS Living Document Update Pass
+# Operator Validation: WC03-LIVING-DOCS Living Document Update Pass
 
 Status: Pass
 Phase: phase-05 — Reconciliation and Roadmap Rebaseline
@@ -63,8 +63,8 @@ Reviewed evidence chain:
 
 - Implementer Report: `champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass`
 - Architect Review: `champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS`
-- Approved roadmap: `champcity-ai/phase-05/roadmap_rebaseline/WC03`
-- Roadmap approval: `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`
+- Approved roadmap: `champcity-ai/phase-05/project_roadmap/WC03`
+- Roadmap approval: `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`
 
 ## Known Validation Caveat
 

@@ -9,14 +9,14 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC08-REPAIR01 — Route Context Explanation and Correction Affordance"
   },
-  "payloadHash": "sha256:dcc23f14de4001bb898b32779214a54227f9860ddfbbf5b66de4f3baba56427b",
+  "payloadHash": "sha256:3ac818fb3169193c410c4b03f703e34da16b260b68ca96824289d46c09b29868",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR01",
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR01",
       "champcity-ai/phase-03/work_card/WC08-REPAIR03",
       "champcity-ai/phase-03/work_card/WC08-REPAIR04"
     ],
@@ -57,7 +57,7 @@ Supporting evidence:
 
 ## Operator Validation Result
 
-The validation report contains a mixed raw result but a controlling partial decision:
+The operator validation contains a mixed raw result but a controlling partial decision:
 
 - Validation Result: `Pass`
 - Failed item: `5. It explains why the current action was selected.`
@@ -130,7 +130,7 @@ The section must use plain language and should be structured as a small decision
 The app selected WC08 Architect Review because:
 1. WC08 Work Card exists.
 2. WC08 Implementer Report exists.
-3. No passing WC08 Operator Validation Report exists yet.
+3. No passing WC08 Operator Operator Validation exists yet.
 Therefore the next required action is Architect review or Operator validation, depending on the current route evidence.
 ```
 
@@ -337,7 +337,7 @@ Before editing:
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
 6. Read this WC08-REPAIR01 Work Card.
-7. Read the WC08 validation report and evidence.
+7. Read the WC08 operator validation and evidence.
 8. Read WC08 Work Card, Implementer Report, and Architect Review.
 9. Inspect WorkflowRouterShell and currentStepContextInspector.
 

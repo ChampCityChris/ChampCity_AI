@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC08",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC08",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T16:15:21.936Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC08 Current Step Context Inspector"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC08 Current Step Context Inspector"
   },
-  "payloadHash": "sha256:0ca9b089da74bcbdef42808aa853aaf3da613972e06a6f7ab6b5a01295ec440d",
+  "payloadHash": "sha256:50f63b3d92151564907d016d8cb04a3bb7b3181ae02f3ace15c24b2174c0bc6f",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -32,7 +32,7 @@
 }
 -->
 
-# Human Validation Report - WC08 Current Step Context Inspector
+# Human Operator Validation - WC08 Current Step Context Inspector
 
 ## Validation Target
 

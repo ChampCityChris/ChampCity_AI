@@ -5,12 +5,12 @@
   "createdAt": "2026-07-17T20:00:00.000Z",
   "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json",
   "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.md",
-  "parentArtifactId": "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR01",
   "payload": {
     "kind": "operator_validation",
-    "title": "Validation Report: Phase 06 WC02-REPAIR01 — Operator Validation Failure"
+    "title": "Operator Validation: Phase 06 WC02-REPAIR01 Failure"
   },
-  "payloadHash": "sha256:906ae05c47c996f03c93a8365aa20856c71f834d4fc75bbc94c8c8f637500cac",
+  "payloadHash": "sha256:1125f7125bdb2308a6177a4cb873756f6261182001fbc044085314346153eea7",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,25 +19,25 @@
       "champcity-ai/phase-06/work_card/WC02-REPAIR02"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
-      "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
       "champcity-ai/project/supporting_document/PROJECT_PROFILE"
     ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "blocked",
-  "updatedAt": "2026-07-17T20:20:00.000Z",
+  "updatedAt": "2026-07-17T23:38:21.903Z",
   "workCardId": "WC02-REPAIR01"
 }
 -->
 
-# Validation Report: Phase 06 WC02-REPAIR01 — Operator Validation Failure
+# Operator Validation: Phase 06 WC02-REPAIR01 — Operator Validation Failure
 
 Status: failed
 Phase: phase-06
@@ -54,15 +54,15 @@ The active project dropdown also displays `Project Profile` instead of a usable 
 
 ## Corrected Architect RCA
 
-The failure is not merely that the resolver should recognize an existing `approval` artifact as if it were a `phase_approval`.
+The failure is not merely that the resolver should recognize an existing `approval` artifact as if it were a `operator_approval`.
 
 WC01 defined the Phase 06 target artifact protocol and listed `operator_approval` as the supported operator approval evidence type. The current system is inconsistent across three surfaces:
 
-- `processContract.ts` still expects `phase_approval` for `operator_phase_approval_required`;
+- `processContract.ts` still expects `operator_approval` for `operator_phase_approval_required`;
 - the existing Phase 06 Operator Phase Approval artifact is typed as generic `approval`;
 - WC01 target protocol lists `operator_approval`.
 
-This is an incomplete migration from old/process-contract artifact language and existing generic approval artifacts into the Phase 06 target resolver protocol. The correct repair is to align the process contract, resolver, and governing approval artifacts to the WC01 target artifact protocol, not to preserve `phase_approval` or blindly treat generic `approval` as the final target model.
+This is an incomplete migration from old/process-contract artifact language and existing generic approval artifacts into the Phase 06 target resolver protocol. The correct repair is to align the process contract, resolver, and governing approval artifacts to the WC01 target artifact protocol, not to preserve `operator_approval` or blindly treat generic `approval` as the final target model.
 
 The project dropdown issue is separate. `projectWorkspaceRegistry.ts` uses `PROJECT_PROFILE.payload.title`; in this repo that field is the document title `Project Profile`, not the workspace/project display name. The registry must derive a human-usable project display name from explicit metadata or safe fallbacks, not from generic document titles.
 
@@ -70,4 +70,4 @@ The project dropdown issue is separate. `projectWorkspaceRegistry.ts` uses `PROJ
 
 Create WC02-REPAIR02 to complete the target artifact-protocol migration for phase/operator approvals and to repair project display-name derivation.
 
-The repair must not create a duplicate `phase_approval` artifact as a workaround. It must not preserve old artifact language in the resolver. It must resolve the target artifact type and migrate the code/artifacts/tests accordingly.
+The repair must not create a duplicate `operator_approval` artifact as a workaround. It must not preserve old artifact language in the resolver. It must resolve the target artifact type and migrate the code/artifacts/tests accordingly.

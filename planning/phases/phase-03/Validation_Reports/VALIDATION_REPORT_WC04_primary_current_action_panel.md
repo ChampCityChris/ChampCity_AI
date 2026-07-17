@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC04",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC04",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-12T20:21:56.149Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC04 Primary Current Action Panel"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC04 Primary Current Action Panel"
   },
-  "payloadHash": "sha256:de1e4fb42b8ff47eafb14ad8d8daf6bc5f23f21a4ca374551fd7523785c0beb4",
+  "payloadHash": "sha256:187cf1d2ceb346b922540e65e9a5d4c8ed8499e6a84f300668d479adcd537f04",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Human Validation Report - WC04 Primary Current Action Panel
+# Human Operator Validation - WC04 Primary Current Action Panel
 
 ## Validation Target
 

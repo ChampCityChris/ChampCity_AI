@@ -15,25 +15,25 @@
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
-      "champcity-ai/project/supporting_document/PROJECT_STATE",
-      "champcity-ai/phase-04/phase_closeout/phase-04"
+      "champcity-ai/phase-04/phase_closeout/phase-04",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE"
     ],
     "sources": [
-      "champcity-ai/phase-04/phase_planning/Phase_Planning",
-      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
-      "champcity-ai/project/supporting_document/PROJECT_STATE",
-      "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
-      "champcity-ai/system/workflow_state",
-      "champcity-ai/phase-04/work_card/WC01",
-      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
+      "champcity-ai/phase-04/architect_review/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
+      "champcity-ai/phase-04/candidate_disposition/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
-      "champcity-ai/phase-04/validation_report/WC01",
-      "champcity-ai/phase-04/candidate_disposition/WC01",
       "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
-      "champcity-ai/phase-04/architect_review/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair"
+      "champcity-ai/phase-04/operator_validation/WC01",
+      "champcity-ai/phase-04/phase_planning/Phase_Planning",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE",
+      "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL",
+      "champcity-ai/system/workflow_state"
     ],
     "supersedes": []
   },

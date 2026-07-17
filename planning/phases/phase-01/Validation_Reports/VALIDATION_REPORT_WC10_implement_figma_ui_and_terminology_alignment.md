@@ -1,4 +1,31 @@
-# Human Validation Report - WC10 Implement Figma UI and terminology alignment
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:58:26.878Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC10 implement figma ui and terminology alignment"
+  },
+  "payloadHash": "sha256:85ddba9d416b60b22a6928d9f1dd11a258948e19177cd255bfb4c40e5af8b0d1",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:58:26.878Z",
+  "workCardId": "WC10"
+}
+-->
+
+# Human Operator Validation - WC10 Implement Figma UI and terminology alignment
 
 ## Work Card
 

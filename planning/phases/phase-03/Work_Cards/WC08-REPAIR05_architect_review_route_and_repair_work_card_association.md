@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC08-REPAIR05 — Architect Review Route and Repair Work Card Association"
   },
-  "payloadHash": "sha256:53fa2ccdc2afbfd75e805a4b5910c5b73b4035f051588915c5b17bfabd708eaa",
+  "payloadHash": "sha256:74e477c6d00f35286a16cd6b562ee82fbfb430bff054211ada1769fcc1ff9bd6",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -186,7 +186,7 @@ Do not remove or regress:
 - Do not create WC09.
 - Do not create a broad artifact revision governance model.
 - Do not create unrestricted route override behavior.
-- Do not mark WC08, WC08-REPAIR04, or any validation report as accepted.
+- Do not mark WC08, WC08-REPAIR04, or any operator validation as accepted.
 - Do not perform Operator validation.
 - Do not merge to `dev`.
 - Do not push to `master`.

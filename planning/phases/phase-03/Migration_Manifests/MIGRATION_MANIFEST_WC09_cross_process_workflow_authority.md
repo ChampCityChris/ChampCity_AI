@@ -9,15 +9,13 @@
     "kind": "migration_manifest",
     "title": "WC09 Canonical Artifact Migration Manifest"
   },
-  "payloadHash": "sha256:1cbbf2e91f21745acb016aee86c641fe8817aca1239a07915b8f2df8985f147d",
+  "payloadHash": "sha256:d3fb2009f6028f2693bd6c2862578bc8124bf03502d2287d9f2cb3123437cdd2",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-03/approval/Operator_Phase_Approval",
-      "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
       "champcity-ai/phase-03/architect_interview/Phase_Interview",
       "champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction",
       "champcity-ai/phase-03/architect_review/WC01",
@@ -62,25 +60,27 @@
       "champcity-ai/phase-03/implementer_report/WC09-REPAIR01",
       "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
       "champcity-ai/phase-03/observation_register/Observation_Register",
+      "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval_PENDING",
+      "champcity-ai/phase-03/operator_validation/WC01",
+      "champcity-ai/phase-03/operator_validation/WC02",
+      "champcity-ai/phase-03/operator_validation/WC03",
+      "champcity-ai/phase-03/operator_validation/WC04",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR02",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR03",
+      "champcity-ai/phase-03/operator_validation/WC05",
+      "champcity-ai/phase-03/operator_validation/WC06",
+      "champcity-ai/phase-03/operator_validation/WC06-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC07",
+      "champcity-ai/phase-03/operator_validation/WC07-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC08",
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR03",
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR06",
       "champcity-ai/phase-03/phase_planning/Phase_Planning",
       "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
       "champcity-ai/phase-03/repair_record/WC08",
-      "champcity-ai/phase-03/validation_report/WC01",
-      "champcity-ai/phase-03/validation_report/WC02",
-      "champcity-ai/phase-03/validation_report/WC03",
-      "champcity-ai/phase-03/validation_report/WC04",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC05",
-      "champcity-ai/phase-03/validation_report/WC06",
-      "champcity-ai/phase-03/validation_report/WC06-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC07",
-      "champcity-ai/phase-03/validation_report/WC07-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC08",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
       "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
       "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
       "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
@@ -106,20 +106,20 @@
       "champcity-ai/phase-03/work_card/WC09",
       "champcity-ai/phase-03/work_card/WC09-REPAIR01",
       "champcity-ai/phase-03/work_card/WC09-REPAIR02",
-      "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
       "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
       "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
       "champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN",
       "champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW",
       "champcity-ai/project/observation_register/Project_Observation_Register",
+      "champcity-ai/project/operator_approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
       "champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i",
       "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation",
       "champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation",
       "champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i",
-      "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/reconciliation_review/REPOSITORY_RECONCILIATION_champcity_a_i",
       "champcity-ai/project/supporting_document/CHANGE_LOG",
       "champcity-ai/project/supporting_document/DECISIONS",
       "champcity-ai/project/supporting_document/ENVIRONMENT",
@@ -964,7 +964,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING
+### champcity-ai/phase-03/operator_approval/Operator_Phase_Approval_PENDING
 
 - Original path: planning/phases/phase-03/Operator_Phase_Approval_PENDING.md
 - Original schema/type: markdown_or_unversioned_json
@@ -980,7 +980,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/approval/Operator_Phase_Approval
+### champcity-ai/phase-03/operator_approval/Operator_Phase_Approval
 
 - Original path: planning/phases/phase-03/Operator_Phase_Approval.json | planning/phases/phase-03/Operator_Phase_Approval.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1060,7 +1060,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC01
+### champcity-ai/phase-03/operator_validation/WC01
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1076,7 +1076,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC02
+### champcity-ai/phase-03/operator_validation/WC02
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1092,7 +1092,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC03
+### champcity-ai/phase-03/operator_validation/WC03
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1108,7 +1108,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC04
+### champcity-ai/phase-03/operator_validation/WC04
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1124,7 +1124,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC04-REPAIR01
+### champcity-ai/phase-03/operator_validation/WC04-REPAIR01
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability_2.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability_2.md | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1204,7 +1204,7 @@
 - Provenance source: durable_archive_record
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC04-REPAIR02
+### champcity-ai/phase-03/operator_validation/WC04-REPAIR02
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1220,7 +1220,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC04-REPAIR03
+### champcity-ai/phase-03/operator_validation/WC04-REPAIR03
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1236,7 +1236,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC05
+### champcity-ai/phase-03/operator_validation/WC05
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1252,7 +1252,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC06
+### champcity-ai/phase-03/operator_validation/WC06
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1268,7 +1268,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC06-REPAIR01
+### champcity-ai/phase-03/operator_validation/WC06-REPAIR01
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1284,7 +1284,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC07
+### champcity-ai/phase-03/operator_validation/WC07
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1300,7 +1300,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC07-REPAIR01
+### champcity-ai/phase-03/operator_validation/WC07-REPAIR01
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1316,7 +1316,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC08
+### champcity-ai/phase-03/operator_validation/WC08
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1332,7 +1332,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC08-REPAIR01
+### champcity-ai/phase-03/operator_validation/WC08-REPAIR01
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1412,7 +1412,7 @@
 - Provenance source: durable_archive_record
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC08-REPAIR03
+### champcity-ai/phase-03/operator_validation/WC08-REPAIR03
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.md
 - Original schema/type: markdown_or_unversioned_json
@@ -1428,7 +1428,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/phase-03/validation_report/WC08-REPAIR06
+### champcity-ai/phase-03/operator_validation/WC08-REPAIR06
 
 - Original path: planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json | planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md
 - Original schema/type: champcity.artifact.v1
@@ -2004,7 +2004,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING
+### champcity-ai/project/operator_approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING
 
 - Original path: planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json | planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md
 - Original schema/type: markdown_or_unversioned_json
@@ -2212,7 +2212,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i
+### champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i
 
 - Original path: planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json | planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md
 - Original schema/type: markdown_or_unversioned_json
@@ -2276,7 +2276,7 @@
 - Provenance source: git:feature/phase-03-wc08-repair06-current-action-architect-review-binding
 - Unresolved blocker: none
 
-### champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i
+### champcity-ai/project/reconciliation_review/REPOSITORY_RECONCILIATION_champcity_a_i
 
 - Original path: planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json | planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md
 - Original schema/type: markdown_or_unversioned_json

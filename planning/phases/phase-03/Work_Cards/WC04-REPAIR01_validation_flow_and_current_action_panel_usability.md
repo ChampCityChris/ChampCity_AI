@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC04-REPAIR01 — Validation Flow and Current Action Panel Usability"
   },
-  "payloadHash": "sha256:9ee0fc7f87557a06d2fbf7dfb87bdd0150d61776261130991ce19604282e5abd",
+  "payloadHash": "sha256:61f2bddb45894fc8bb5960fb1b54495712c99d3a24c17457024248b90ab04d69",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -18,7 +18,7 @@
       "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR01",
       "champcity-ai/phase-03/work_card/WC05"
     ],
     "expectedOutputs": [],
@@ -42,7 +42,7 @@ Created: 2026-07-12
 
 ## Repair Trigger
 
-WC04 received a deferred Operator validation decision. The validation report records that the current-action panel is improved, but several usability and validation-flow defects prevent clean acceptance.
+WC04 received a deferred Operator validation decision. The operator validation records that the current-action panel is improved, but several usability and validation-flow defects prevent clean acceptance.
 
 Primary source:
 
@@ -93,7 +93,7 @@ The Implementer must create the repair branch from the current WC04 feature bran
 
 ### 1. Preserve validation draft content across navigation
 
-When the Operator types into the validation report form, that content must not be cleared merely because the Operator opens another screen, support panel, context panel, validation target, or manual support route.
+When the Operator types into the operator validation form, that content must not be cleared merely because the Operator opens another screen, support panel, context panel, validation target, or manual support route.
 
 Implement a safe in-renderer draft preservation mechanism for the active validation target. It may use component state lifted to a stable parent, local draft cache, or existing app state patterns. Do not broaden renderer filesystem access.
 
@@ -143,7 +143,7 @@ Preferred source order:
 
 ### 7. Show prior validation target status and report context
 
-When selecting previous Work Cards or validation targets, the UI should show whether the target has a validation report and the recorded result/decision when available.
+When selecting previous Work Cards or validation targets, the UI should show whether the target has a operator validation and the recorded result/decision when available.
 
 At minimum, show enough context to distinguish pending, passed, failed, deferred, or unknown targets, and provide the associated report filename or summary where available.
 
@@ -256,7 +256,7 @@ Before editing:
 3. Create and switch to feature/phase-03-wc04-repair01-validation-flow from feature/phase-03-wc04-current-action-panel.
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
-6. Read the WC04 deferred validation report.
+6. Read the WC04 deferred operator validation.
 7. Read the WC04 Architect Review and Implementer Report.
 8. Inspect the validation screen, WorkflowRouterShell, current-action loading, and validation target/report loading code.
 

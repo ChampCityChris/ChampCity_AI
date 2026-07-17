@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Work Card: WC07 — Artifact Review Workspace"
   },
-  "payloadHash": "sha256:562fbfe16ee2a31692fac553fcd2845fbd82c2cbe3fa74c9f0b7db8fa608f9fb",
+  "payloadHash": "sha256:f07e0f4216b49335daaf633bd3f709b94fbd7292412a10e99b2c11e2a78af021",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -17,7 +17,7 @@
       "champcity-ai/phase-03/architect_review/WC07",
       "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
       "champcity-ai/phase-03/implementer_report/WC07",
-      "champcity-ai/phase-03/validation_report/WC07"
+      "champcity-ai/phase-03/operator_validation/WC07"
     ],
     "expectedOutputs": [],
     "sources": [],
@@ -123,7 +123,7 @@ Source artifacts should be grouped in useful Operator-facing categories, such as
 - Work Card;
 - Implementer Report;
 - Architect Review;
-- Validation Report;
+- Operator Validation;
 - Repair Work Card;
 - Phase planning artifacts;
 - Project planning artifacts;
@@ -131,7 +131,7 @@ Source artifacts should be grouped in useful Operator-facing categories, such as
 - Evidence / screenshot files;
 - Other supporting artifacts.
 
-The exact category names may differ, but Work Card, Implementer Report, Architect Review, Validation Report, Repair, and expected output must be distinguishable.
+The exact category names may differ, but Work Card, Implementer Report, Architect Review, Operator Validation, Repair, and expected output must be distinguishable.
 
 ### 3. Readable artifact cards instead of raw path walls
 
@@ -159,7 +159,7 @@ The workspace must clearly show the artifact the current step is expected to cre
 
 For example:
 
-- Operator validation required → expected Validation Report path;
+- Operator validation required → expected Operator Validation path;
 - Architect review required → expected Architect Review path;
 - full Work Card creation required → expected Work Card path;
 - phase closeout required → expected closeout record path.
@@ -172,7 +172,7 @@ Where the current action involves an Operator or Architect decision, the workspa
 
 Examples:
 
-- Operator validation: show Work Card, Implementer Report, Architect Review, prior validation/repair records if any, and expected Validation Report.
+- Operator validation: show Work Card, Implementer Report, Architect Review, prior validation/repair records if any, and expected Operator Validation.
 - Architect review: show Work Card and Implementer Report, plus expected Architect Review output.
 - Work Card review: show Work Card and Work Card candidate context.
 - Repair validation: show parent Work Card, failed validation record, repair Work Card, repair Implementer Report, and expected repair validation record.
@@ -215,11 +215,11 @@ The goal is not to fully implement every route-specific screen. The goal is to p
 ## Acceptance Criteria
 
 - The routed workspace presents current-action artifact context, not a blank or unrelated screen, when current-action evidence exists.
-- Work Card, Implementer Report, Architect Review, Validation Report, Repair, source evidence, missing evidence, and expected output are distinguishable where present.
+- Work Card, Implementer Report, Architect Review, Operator Validation, Repair, source evidence, missing evidence, and expected output are distinguishable where present.
 - Artifact entries use readable labels instead of raw full-path walls as the primary display.
 - Long paths wrap or are placed behind details/secondary display.
 - The Operator can inspect or preview at least safe Markdown planning artifacts through constrained app-owned mechanisms.
-- Operator validation context exposes Work Card, Implementer Report, Architect Review, and expected Validation Report when those artifacts exist.
+- Operator validation context exposes Work Card, Implementer Report, Architect Review, and expected Operator Validation when those artifacts exist.
 - Architect review context exposes Work Card, Implementer Report, and expected Architect Review output when those artifacts exist.
 - Repair validation context exposes parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.
 - Expected output/draft artifact context is clearly separated from source artifacts.
@@ -251,7 +251,7 @@ Operator validation remains manual and must not be performed by the Implementer.
 The Operator should validate that:
 
 1. The current routed workspace shows useful artifact context instead of blank or unrelated content.
-2. Operator validation context shows the Work Card, Implementer Report, Architect Review, and expected Validation Report.
+2. Operator validation context shows the Work Card, Implementer Report, Architect Review, and expected Operator Validation.
 3. Artifact labels are readable and do not rely on full raw paths as the primary display.
 4. Long paths remain available but do not dominate the UI.
 5. Safe planning artifacts can be opened or previewed without leaving the routed workflow context.
@@ -334,7 +334,7 @@ Before editing:
 
 Required implementation:
 1. Present current-action artifact context in the center workspace.
-2. Group artifacts by role: Work Card, Implementer Report, Architect Review, Validation Report, Repair, expected output, source evidence, missing evidence, and other support.
+2. Group artifacts by role: Work Card, Implementer Report, Architect Review, Operator Validation, Repair, expected output, source evidence, missing evidence, and other support.
 3. Use readable artifact labels instead of full raw paths as the primary display.
 4. Provide a safe open/preview affordance for repo-relative planning artifacts where supported by existing constrained app mechanisms.
 5. Clearly separate source artifacts from expected output/draft artifacts.

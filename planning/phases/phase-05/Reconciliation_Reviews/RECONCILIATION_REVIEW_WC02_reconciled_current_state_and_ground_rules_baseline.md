@@ -6,16 +6,20 @@
   "jsonPath": "planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC02_reconciled_current_state_and_ground_rules_baseline.json",
   "markdownPath": "planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC02_reconciled_current_state_and_ground_rules_baseline.md",
   "parentArtifactId": "champcity-ai/phase-05/work_card/WC02",
-  "payloadHash": "sha256:d010d500d1fc7650b3c2080d427e8bb233bbcf057c68b0d106c262c1debc0ce7",
+  "payload": {
+    "kind": "reconciliation_review",
+    "title": "Reconciliation Review: PH05 WC02 Reconciled Current-State and Ground-Rules Baseline"
+  },
+  "payloadHash": "sha256:02d208272ee9dcdf1c911ff24c7f24fd003a0c589eb02142f18a01e83e1522a4",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-05/work_card/WC02",
-      "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/work_card/WC02",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -24,11 +28,7 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-16T23:45:00.000Z",
-  "workCardId": "WC02",
-  "payload": {
-    "kind": "reconciliation_baseline",
-    "title": "Reconciliation Review: PH05 WC02 Reconciled Current-State and Ground-Rules Baseline"
-  }
+  "workCardId": "WC02"
 }
 -->
 

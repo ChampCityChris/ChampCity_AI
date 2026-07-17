@@ -10,14 +10,14 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC08-REPAIR06 — Current Action Architect Review Binding Authority"
   },
-  "payloadHash": "sha256:cbd520e20f0fa8599aa6b6d25f71ad5448cc8c4085d3294c7f57c8fabed9ceb2",
+  "payloadHash": "sha256:fbc3fb939fb98fc917eb6a56cf5242c43f03205b0167aaf75ee45fa04055e989",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC08-REPAIR06",
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR06",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR06"
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR06"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR06"
@@ -25,8 +25,8 @@
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC08",
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR04",
-      "champcity-ai/phase-03/work_card/WC08-REPAIR04",
-      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
+      "champcity-ai/phase-03/work_card/WC08-REPAIR04"
     ],
     "supersedes": []
   },
@@ -204,7 +204,7 @@ Do not regress:
 - Do not create unrestricted route override behavior.
 - Do not redesign the full workflow rail or Supporting Tools menu.
 - Do not remove reference-card navigation; separate it from routed current-action authority.
-- Do not mark WC08, WC08-REPAIR04, WC08-REPAIR05, WC08-REPAIR06, or any validation report as accepted.
+- Do not mark WC08, WC08-REPAIR04, WC08-REPAIR05, WC08-REPAIR06, or any operator validation as accepted.
 - Do not perform Operator validation.
 - Do not merge to `dev`.
 - Do not push to `master`.

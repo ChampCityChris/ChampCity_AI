@@ -5,19 +5,23 @@
   "createdAt": "2026-07-16T20:40:00.000Z",
   "jsonPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC03_active_project_workspace_and_refresh_parity_stabilization.json",
   "markdownPath": "planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC03_active_project_workspace_and_refresh_parity_stabilization.md",
-  "payloadHash": "sha256:e5ff9cfce61f5c24baeaf74e6cc1bec9d41a2851b50d0871a5fab1a766337667",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC03 Active Project Workspace and Refresh Parity Stabilization"
+  },
+  "payloadHash": "sha256:dbc35828e4a90a93442f1de106253d4e7e096fe2f02443c0e8a9e7fa35d523c2",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/validation_report/WC03"
+      "champcity-ai/phase-04/operator_validation/WC03"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC03",
-      "champcity-ai/phase-04/implementer_report/WC03-active-project-workspace-and-refresh-parity-stabilization",
       "champcity-ai/phase-04/candidate_disposition/WC02",
-      "champcity-ai/phase-04/validation_report/WC02",
+      "champcity-ai/phase-04/implementer_report/WC03-active-project-workspace-and-refresh-parity-stabilization",
+      "champcity-ai/phase-04/operator_validation/WC02",
+      "champcity-ai/phase-04/work_card/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -26,11 +30,7 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-16T20:40:00.000Z",
-  "workCardId": "WC03",
-  "payload": {
-    "kind": "architect_review",
-    "title": "Architect Review: WC03 Active Project Workspace and Refresh Parity Stabilization"
-  }
+  "workCardId": "WC03"
 }
 -->
 
@@ -68,7 +68,7 @@ Operator validation is authorized for WC03.
 
 Expected validation output:
 
-`champcity-ai/phase-04/validation_report/WC03`
+`champcity-ai/phase-04/operator_validation/WC03`
 
 ## Operator Validation Instructions
 

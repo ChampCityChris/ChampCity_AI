@@ -1,4 +1,31 @@
-# Human Validation Report - WC08 Phase 1 closeout and status management
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:58:14.343Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC08 phase 1 closeout and status management"
+  },
+  "payloadHash": "sha256:90f023b2abda0cd2a2fd8ce8f43f4144da8e227c4cd41be66cffe5f1770bb439",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:58:14.343Z",
+  "workCardId": "WC08"
+}
+-->
+
+# Human Operator Validation - WC08 Phase 1 closeout and status management
 
 ## Work Card
 

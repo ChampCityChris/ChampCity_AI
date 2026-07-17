@@ -19,14 +19,14 @@
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-05/phase_closeout/PHASE_05",
+      "champcity-ai/phase-06/architect_review/WC02",
       "champcity-ai/phase-06/operator_approval/WC02-REPAIR01",
       "champcity-ai/phase-06/operator_validation/WC02",
-      "champcity-ai/phase-06/architect_review/WC02",
-      "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/phase_closeout/PHASE_05",
       "champcity-ai/phase-06/phase_activation/phase-06",
-      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01"
     ],
     "supersedes": []
   },

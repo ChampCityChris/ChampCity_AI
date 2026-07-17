@@ -9,14 +9,14 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC07-REPAIR01 — Artifact Workspace Layout Ownership and Preview Usability"
   },
-  "payloadHash": "sha256:352561fcf0ad64578c4109f9395754db30fb61af26266d97e16f9c36ff86a597",
+  "payloadHash": "sha256:2bffd8f10b949e855cffaa926cde0da305a071016efdbfea737b4cd0f7314ca5",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
       "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC07-REPAIR01"
     ],
     "expectedOutputs": [],
     "sources": [],
@@ -40,7 +40,7 @@ Rewritten: 2026-07-14
 
 ## Repair Trigger
 
-WC07 received a deferred Operator validation decision. The validation report records that the Operator could not meaningfully validate WC07 because the artifact review workspace was visually confusing, duplicative, hard to operate, and did not make document access or preview behavior obvious.
+WC07 received a deferred Operator validation decision. The operator validation records that the Operator could not meaningfully validate WC07 because the artifact review workspace was visually confusing, duplicative, hard to operate, and did not make document access or preview behavior obvious.
 
 Primary source:
 
@@ -61,7 +61,7 @@ Supporting sources:
 
 ## Failed Validation Summary
 
-The Operator validation report records:
+The Operator operator validation records:
 
 - Validation Result: `Not Tested`
 - Operator Decision: `Deferred - not validated yet`
@@ -69,7 +69,7 @@ The Operator validation report records:
 The report lists these failed WC07 checks:
 
 1. Current routed workspace shows useful artifact context above the route-specific screen.
-2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.
+2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Operator Validation.
 3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.
 4. Artifact labels are readable and full paths do not dominate.
 5. Planning Markdown preview works inline and stays read-only.
@@ -240,7 +240,7 @@ The artifact list must clearly group artifacts by role when applicable:
 - Work Card.
 - Implementer Report.
 - Architect Review.
-- Validation Report.
+- Operator Validation.
 - Repair Artifacts.
 - Source Evidence.
 - Missing Evidence.
@@ -259,7 +259,7 @@ The Operator validation route must visibly expose:
 - Work Card.
 - Implementer Report.
 - Architect Review.
-- Expected Validation Report.
+- Expected Operator Validation.
 - Relevant prior validation or evidence records where present.
 - The validation form.
 
@@ -333,7 +333,7 @@ The repair validation route must visibly expose:
 - Non-previewable artifacts clearly say they cannot be previewed.
 - Missing artifacts clearly say they are missing.
 - No artifact card appears clickable unless it has a working visible action.
-- Operator validation routes visibly expose Work Card, Implementer Report, Architect Review, expected Validation Report, and the validation form when present.
+- Operator validation routes visibly expose Work Card, Implementer Report, Architect Review, expected Operator Validation, and the validation form when present.
 - Architect review routes visibly expose Work Card, Implementer Report, and expected Architect Review output when present.
 - Repair validation routes visibly expose parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.
 - Expected output, source artifacts, and missing evidence are visually distinct.
@@ -426,7 +426,7 @@ Before editing:
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
 6. Read this WC07-REPAIR01 Work Card.
-7. Read the failed WC07 validation report.
+7. Read the failed WC07 operator validation.
 8. Review the WC07 validation evidence screenshots.
 9. Read WC07 Work Card, Implementer Report, and Architect Review.
 10. Read planning/phases/phase-03/Observation_Register.md.

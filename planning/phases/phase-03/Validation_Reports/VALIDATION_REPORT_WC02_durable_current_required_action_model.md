@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC02",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC02",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-03T20:14:12.188Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC02 Durable Current Required Action Model"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC02 Durable Current Required Action Model"
   },
-  "payloadHash": "sha256:fae28cb1b1335a2a3a9953a667e34c2305134f9271974277c395d57d3cf899ba",
+  "payloadHash": "sha256:74214058d35b37436d4a2bf5c0bcd1eff8b8db4b50006b89519d1ba2708dab01",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Human Validation Report - WC02 Durable Current Required Action Model
+# Human Operator Validation - WC02 Durable Current Required Action Model
 
 ## Validation Target
 

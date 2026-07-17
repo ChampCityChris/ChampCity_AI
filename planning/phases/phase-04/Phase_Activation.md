@@ -18,8 +18,8 @@
       "champcity-ai/phase-04/work_card/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-03/validation_report/WC09-REPAIR02",
-      "champcity-ai/phase-04/approval/Operator_Phase_Approval"
+      "champcity-ai/phase-03/operator_validation/WC09-REPAIR02",
+      "champcity-ai/phase-04/operator_approval/Operator_Phase_Approval"
     ],
     "supersedes": []
   },

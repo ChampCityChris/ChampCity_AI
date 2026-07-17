@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Work Card: WC04 — Primary Current Action Panel"
   },
-  "payloadHash": "sha256:b78b79100d36a01cc864ecd0594a5fe265789e0b39f4a7972826ac7b3751d2e9",
+  "payloadHash": "sha256:0c27b78271e36ac4d084429808d9487207c2bdb79fef9d489fdf873317eb2897",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -17,7 +17,7 @@
       "champcity-ai/phase-03/architect_review/WC04",
       "champcity-ai/phase-03/implementer_report/WC04",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC04",
+      "champcity-ai/phase-03/operator_validation/WC04",
       "champcity-ai/phase-03/work_card/WC05"
     ],
     "expectedOutputs": [],
@@ -114,7 +114,7 @@ The current-action panel should become the Operator’s main decision surface, n
 - Do not implement WC10 Work Card handoff route correction.
 - Do not implement WC11 Implementer Report to Architect Review route.
 - Do not implement WC12 validation/repair route behavior.
-- Do not implement WC13 closeout/roadmap/next-phase behavior.
+- Do not implement WC13 closeout/project_roadmap/next-phase behavior.
 - Do not perform a screen-by-screen rework phase.
 - Do not remove existing screens.
 - Do not create Operator validation records.

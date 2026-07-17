@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC08-REPAIR02 — Report Review Protocol and Validation Disposition Governance"
   },
-  "payloadHash": "sha256:ebd1af71546e2c0d792efdc03c55d5bcfca98ae24190d804622fc66025724dbc",
+  "payloadHash": "sha256:2199ff61eb1adbed4575f54104d2d4c0d0bd5deb84f1af1ba90161a6d913f1a2",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -43,7 +43,7 @@ Created: 2026-07-14
 
 WC08 validation exposed a process defect in how generated validation reports and Implementer Reports are interpreted during Architect review.
 
-The immediate problem was not only WC08 Route Context content. The validation report allowed this mixed state:
+The immediate problem was not only WC08 Route Context content. The operator validation allowed this mixed state:
 
 - Validation Result: `Pass`
 - What Failed: one item was listed as failed
@@ -83,7 +83,7 @@ That disposition belongs to the Architect review.
 
 Update the validation-report, repair-prompt, Implementer Report, and Architect Review guidance/templates so future reports contain the rules needed for consistent review.
 
-After this repair, when the user says, “validation report is ready for review,” the Architect should be able to read the report and follow embedded instructions instead of reconstructing report interpretation rules from chat memory.
+After this repair, when the user says, “operator validation is ready for review,” the Architect should be able to read the report and follow embedded instructions instead of reconstructing report interpretation rules from chat memory.
 
 ## Required Process Model
 
@@ -95,7 +95,7 @@ Use this role split:
 
 The report artifacts must make that split explicit.
 
-## Required Validation Report Changes
+## Required Operator Validation Changes
 
 ### 1. Remove or deprecate Operator Decision as routing authority
 
@@ -135,7 +135,7 @@ Semantics:
 
 ### 3. Add acceptance-criteria item results
 
-Where feasible, the validation report should structure tested items as item-level results:
+Where feasible, the operator validation should structure tested items as item-level results:
 
 - `Pass`
 - `Concern`
@@ -147,7 +147,7 @@ This does not need to become a full database model in this pass if the current f
 
 ### 4. Add report field semantics
 
-Every generated validation report must include a durable section explaining field meaning:
+Every generated operator validation must include a durable section explaining field meaning:
 
 ```text
 ## Field Semantics
@@ -165,7 +165,7 @@ Architect Disposition answers: What happens next after Architect review. It is p
 
 ### 5. Add embedded Architect Review Instructions
 
-Every validation report must include:
+Every operator validation must include:
 
 ```text
 ## Architect Review Instructions
@@ -280,7 +280,7 @@ If parsing code currently treats `operatorDecision` as controlling route evidenc
 
 This repair does not automatically decide whether WC08-REPAIR01 should be implemented.
 
-After this report-governance repair is validated, the Architect should re-review the WC08 validation report under the new protocol and decide whether the route-context plain-language improvement is:
+After this report-governance repair is validated, the Architect should re-review the WC08 operator validation under the new protocol and decide whether the route-context plain-language improvement is:
 
 - immediate WC08-REPAIR01;
 - pass with observation;
@@ -290,7 +290,7 @@ After this report-governance repair is validated, the Architect should re-review
 
 ### PROJ-OBS-005 / PH03-OBS-008 — Report review protocol and validation disposition role confusion
 
-- Source: Operator discussion following WC08 validation report review.
+- Source: Operator discussion following WC08 operator validation review.
 - Included because: The validation and Implementer report templates are producing ambiguous report artifacts that cause inconsistent Architect review and inconsistent repair/merge recommendations.
 - Acceptance impact: Validation reports and Implementer Reports must embed the review rules needed for consistent Architect analysis.
 
@@ -395,9 +395,9 @@ Before editing:
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
 6. Read this WC08-REPAIR02 Work Card.
-7. Read the WC08 validation report and generated repair prompt.
+7. Read the WC08 operator validation and generated repair prompt.
 8. Read both Observation Registers.
-9. Inspect validation report generation, Implementer Report generation, Architect Review generation/guidance, current-action validation parsing, and any report template fixtures.
+9. Inspect operator validation generation, Implementer Report generation, Architect Review generation/guidance, current-action validation parsing, and any report template fixtures.
 
 Required repair:
 - Remove/deprecate Operator Decision as final routing authority in new validation reports.

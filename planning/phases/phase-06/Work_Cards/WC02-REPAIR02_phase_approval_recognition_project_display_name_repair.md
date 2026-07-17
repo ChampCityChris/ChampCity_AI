@@ -10,28 +10,28 @@
     "kind": "work_card",
     "title": "Work Card: Phase 06 WC02-REPAIR02 — Full Gating Artifact Protocol Migration and Project Display Name Repair"
   },
-  "payloadHash": "sha256:1f897be581416d352436b5dbd7fb2de8acedb7df180c7bf4365a13064fe905e0",
+  "payloadHash": "sha256:77f8b71b05791881fe664945bc985f3e11e015b7232b13e8ebc5b27cd16c8753",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02"
     ],
     "sources": [
-      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
       "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
       "champcity-ai/project/supporting_document/PROJECT_PROFILE"
     ],
     "supersedes": []
   },
   "revision": 4,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "approved_for_implementer_execution",
+  "status": "active",
   "updatedAt": "2026-07-17T21:05:00.000Z",
   "workCardId": "WC02-REPAIR02"
 }
@@ -59,7 +59,7 @@ WC01 documented the old authority surfaces and defined the target Phase 06 artif
 
 Current mismatch:
 
-- `src/shared/workflow/processContract.ts` still uses old gate terms such as `phase_approval`, `project_approval`, `work_card_approval`, and `phase_closeout_approval`.
+- `src/shared/workflow/processContract.ts` still uses old gate terms such as `operator_approval`, `operator_approval`, `operator_approval`, and `operator_approval`.
 - Current repository artifacts use generic `approval` artifacts, including `champcity-ai/phase-06/operator_approval/Operator_Phase_Approval`.
 - WC01 target protocol identifies operator approval evidence as `operator_approval`.
 
@@ -105,7 +105,7 @@ Work Card loop gates:
 Phase closeout and next-phase gates:
 - Phase Closeout: `phase_closeout`
 - Operator Phase Closeout Approval: `operator_approval` with phase-closeout approval scope
-- Roadmap Update / Rebaseline: migrate to `project_roadmap` unless `roadmap_rebaseline` is explicitly formalized in protocol and resolver rules
+- Roadmap Update / Rebaseline: migrate to `project_roadmap` unless `project_roadmap` is explicitly formalized in protocol and resolver rules
 - Next Phase Activation: `phase_activation`
 
 Non-gating evidence must not advance the process map by itself: `supporting_document`, `design_document`, `project_state`, `project_observation_register`, `artifact_registry`, and `workflow_state`.
@@ -149,7 +149,7 @@ Inspect and update as needed:
 7. Ensure generic `approval` is not retained as unbounded compatibility fallback.
 8. Ensure `operator_approval` carries enough scope/decision metadata for project, phase, Work Card, and phase-closeout approvals.
 9. Ensure `operator_validation` replaces old validation gate terminology for live resolver decisions.
-10. Decide and document whether existing `roadmap_rebaseline` artifacts are migrated to `project_roadmap` or formally added to supported protocol.
+10. Decide and document whether existing `project_roadmap` artifacts are migrated to `project_roadmap` or formally added to supported protocol.
 11. Fix workspace display-name derivation so generic document titles such as `Project Profile` are not shown as project names.
 12. Stop and report the exact artifact/contradiction if a controlling gate cannot be migrated safely.
 
@@ -158,11 +158,11 @@ Inspect and update as needed:
 Add or update automated tests proving:
 
 - resolver can resolve the governing chain from Project Intake through current Phase 06 without falling back to Phase 01 planning, stale Phase 04 Work Card authoring, or Phase 06 Operator Phase Approval when migrated evidence proves those gates complete;
-- old terms such as `phase_approval`, `project_approval`, `work_card_approval`, and `phase_closeout_approval` are not accepted as live resolver authority after migration;
+- old terms such as `operator_approval`, `operator_approval`, `operator_approval`, and `operator_approval` are not accepted as live resolver authority after migration;
 - generic `approval` is not accepted as unscoped approval authority;
 - scoped `operator_approval` advances project, phase, Work Card, and closeout approval gates when relationships and decision data are valid;
 - controlling validation gates use `operator_validation`;
-- repair Work Cards use `work_card` plus repair metadata, not a separate live `repair_work_card` type;
+- repair Work Cards use `work_card` plus repair metadata, not a separate live `work_card` type;
 - no gating artifact is marked historical merely to bypass a resolver gate;
 - duplicate or abandoned artifacts may be superseded only when a valid controlling artifact remains;
 - current Phase 06 state resolves to the correct next Work Card loop state or a true blocker;

@@ -5,7 +5,7 @@ export const candidateEvidenceKinds = [
   "candidate_validation_pass",
   "candidate_validation_failure",
   "architect_repair_disposition",
-  "repair_work_card_active",
+  "work_card_repair_active",
   "repair_validation_pass",
   "repair_validation_failure",
   "candidate_disposition",
@@ -137,7 +137,7 @@ export function resolveCandidateEvidencePrecedence(
         activeRepairArtifactId = item.repairArtifactId ?? null;
         if (wasResolved) reopenedByArtifactId = item.artifactId;
         break;
-      case "repair_work_card_active":
+      case "work_card_repair_active":
         resolutionStatus = "unresolved";
         resolutionEvidenceArtifactIds = [];
         activeRepairArtifactId = item.repairArtifactId ?? item.artifactId;

@@ -10,15 +10,15 @@
     "kind": "architect_review",
     "title": "Architect Review: WC04-REPAIR03 Validation Target Context and Panel Simplification"
   },
-  "payloadHash": "sha256:aa0ee19e55e8666e3eb146c94ba2596cfce35218d46b9ae9060df2e947be217c",
+  "payloadHash": "sha256:55f167f921de54ad44aadff83cb778926ba41dd2ce2c65bf7b3da72bca2e5e65",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR03"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR03"
     ],
     "sources": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR02",
@@ -86,12 +86,12 @@ The report also states that manual target selection is preserved after the initi
 
 ### Pass: Prior validation target context
 
-The report states that validation report loading now recognizes both current validation record shape and the legacy Phase 03 snake-case record shape. It specifically confirms visibility for:
+The report states that operator validation loading now recognizes both current validation record shape and the legacy Phase 03 snake-case record shape. It specifically confirms visibility for:
 
 - WC01 pass / Passed - proceed
 - WC04 raw Pass with effective Deferred decision
 - WC04-REPAIR01 raw Partial with effective Failed decision
-- associated validation report filename context
+- associated operator validation filename context
 
 This addresses the reported problem that prior work cards appeared as not validated.
 
@@ -190,4 +190,4 @@ No additional repair is required before Operator validation.
 
 ## Recommended Next Action
 
-Operator validates WC04-REPAIR03 from `feature/phase-03-wc04-repair03-validation-target-context`. If passed, record the validation report, then merge the approved repair chain into the parent WC04 feature branch and eventually into `dev` through the approved branch process. Do not start WC05 until the WC04 repair chain is durably validated and merged.
+Operator validates WC04-REPAIR03 from `feature/phase-03-wc04-repair03-validation-target-context`. If passed, record the operator validation, then merge the approved repair chain into the parent WC04 feature branch and eventually into `dev` through the approved branch process. Do not start WC05 until the WC04 repair chain is durably validated and merged.

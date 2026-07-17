@@ -10,13 +10,13 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC04-REPAIR03 Validation Target Context and Panel Simplification"
   },
-  "payloadHash": "sha256:c8677dbf05573948a144c965fcdfdec72ef070d810718591a88e9334a87eaf89",
+  "payloadHash": "sha256:d5aa5bc935f0cbf832b940e4cd759a4e35af7db1070ed22db93a46c86647847d",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR03"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR03"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR03"
@@ -120,7 +120,7 @@ The loader now also normalizes the legacy Phase 03 snake-case record fields (`ph
 - WC01: `Pass` / `Passed - proceed`;
 - WC04: raw `Pass` / effective `Deferred` through `Deferred - not validated yet`;
 - WC04-REPAIR01: raw `Partial` / effective `Failed` through `Failed - repair needed`;
-- associated validation report filename context is present.
+- associated operator validation filename context is present.
 
 The existing status card shows effective status, raw result, Operator decision, JSON/Markdown report filenames, and timestamp. Missing records remain labeled `Not validated yet`.
 
@@ -163,7 +163,7 @@ WC05-WC15 were not implemented, created, modified, or selected prematurely. The 
 
 - Repository root, branch, status, remote, and branch availability checks - passed; approved repo, required base branch, expected remote, and pre-existing untracked files were identified.
 - `git switch -c feature/phase-03-wc04-repair03-validation-target-context` - passed; repair branch created from the required base.
-- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC04-REPAIR03, the WC04-REPAIR01 validation report, the WC04-REPAIR02 Implementer Report, and the WC04-REPAIR01/WC04-REPAIR02 Architect Reviews - completed before editing and validation.
+- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC04-REPAIR03, the WC04-REPAIR01 operator validation, the WC04-REPAIR02 Implementer Report, and the WC04-REPAIR01/WC04-REPAIR02 Architect Reviews - completed before editing and validation.
 - `node --check scripts/verify-wc04-repair03.mjs` - passed.
 - `npm run validate:codex` - passed in the approved normal Windows lane after final source changes. The wrapper ran `npm test`, `npm run typecheck`, TypeScript compilation, Vite production build, and renderer asset copying successfully. An earlier implementation checkpoint run also passed.
 - `node scripts/verify-wc04-repair03.mjs` - passed; route selection, preserved manual selection, legacy/current status context, Architect Review precedence, fallback marking, and live WC04 repair route assertions passed.

@@ -5,10 +5,10 @@
   "jsonPath": "planning/project/DECISIONS.json",
   "markdownPath": "planning/project/DECISIONS.md",
   "payload": {
-    "contentMarkdown": "# Decisions\n\n## Current Decisions\n\n- The Operator remains responsible for approvals, validation, decision-making, credentials, and movement between workflow states.\n- Durable planning artifacts are stored as synchronized Markdown and JSON in the repository.\n- Product-facing terminology uses Operator, Architect, and Implementer.\n- ChatGPT subscription plus ChampCity MCP is the default Architect integration for Alpha.\n- API-backed model integration is future/final-state provider work, not the default Alpha path.\n- ChampCity MCP is intended to become a core integrated app component and future model-harness boundary.\n- Codex is the first supported Implementer, while the Implementer contract remains tool-neutral.\n- The public beta candidate target is Windows-first.\n- Kernel work is the next implementation priority. Phase 06 must replace the old evidence projector and artifact protocol boundary.\n- Architect Bridge is Alpha core, not a later optional integration feature.\n- Multi-project dogfooding is required early in Alpha and must include ChampCity_AI, ChampCity GPT / ChampCity MCP, ChampCity_RP_Desktop, and Revisionary.\n- Git automation and Operator abstraction are required before release candidate. The Operator should not be expected to manage raw staging, commits, pushes, branch state, or dirty-state interpretation as normal product workflow.\n- UI usability is an acceptance condition, not optional polish. Work Cards touching Operator or Architect workflow cannot pass solely because data artifacts exist or automated tests pass.\n- Wrong old foundation must be replaced or migrated, not preserved through runtime compatibility fallbacks. Compatibility requires a named supported consumer and approved sunset plan.\n- Artifact Registry and Workflow State are diagnostic/cache until the workflow kernel is rebuilt.\n- The app is not currently the reliable workflow controller until Phase 08 re-entry criteria are met.\n\n## Decision Notes\n\nThe Phase 05 approved roadmap authority is `champcity-ai/phase-05/roadmap_rebaseline/WC03`. Historical Phase 03 and Phase 04 documents remain evidence, but they do not override the approved Phase 05 baseline.\n",
+    "contentMarkdown": "# Decisions\n\n## Current Decisions\n\n- The Operator remains responsible for approvals, validation, decision-making, credentials, and movement between workflow states.\n- Durable planning artifacts are stored as synchronized Markdown and JSON in the repository.\n- Product-facing terminology uses Operator, Architect, and Implementer.\n- ChatGPT subscription plus ChampCity MCP is the default Architect integration for Alpha.\n- API-backed model integration is future/final-state provider work, not the default Alpha path.\n- ChampCity MCP is intended to become a core integrated app component and future model-harness boundary.\n- Codex is the first supported Implementer, while the Implementer contract remains tool-neutral.\n- The public beta candidate target is Windows-first.\n- Kernel work is the next implementation priority. Phase 06 must replace the old evidence projector and artifact protocol boundary.\n- Architect Bridge is Alpha core, not a later optional integration feature.\n- Multi-project dogfooding is required early in Alpha and must include ChampCity_AI, ChampCity GPT / ChampCity MCP, ChampCity_RP_Desktop, and Revisionary.\n- Git automation and Operator abstraction are required before release candidate. The Operator should not be expected to manage raw staging, commits, pushes, branch state, or dirty-state interpretation as normal product workflow.\n- UI usability is an acceptance condition, not optional polish. Work Cards touching Operator or Architect workflow cannot pass solely because data artifacts exist or automated tests pass.\n- Wrong old foundation must be replaced or migrated, not preserved through runtime compatibility fallbacks. Compatibility requires a named supported consumer and approved sunset plan.\n- Artifact Registry and Workflow State are diagnostic/cache until the workflow kernel is rebuilt.\n- The app is not currently the reliable workflow controller until Phase 08 re-entry criteria are met.\n\n## Decision Notes\n\nThe Phase 05 approved roadmap authority is `champcity-ai/phase-05/project_roadmap/WC03`. Historical Phase 03 and Phase 04 documents remain evidence, but they do not override the approved Phase 05 baseline.\n",
     "data": {
       "architectBridgeAlphaCore": true,
-      "currentApprovedRoadmapAuthority": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "currentApprovedRoadmapAuthority": "champcity-ai/phase-05/project_roadmap/WC03",
       "gitAutomationRequiredBeforeReleaseCandidate": true,
       "kernelWorkNextPriority": true,
       "multiProjectDogfoodingRequiredEarlyAlpha": true,
@@ -18,17 +18,17 @@
     "kind": "supporting_document",
     "title": "Decisions"
   },
-  "payloadHash": "sha256:9697cb382a7c128339df0029faf0ab5fbdd972dce59ebf6a6c4482399fad9f5d",
+  "payloadHash": "sha256:95f78061cac9761af3e750bac153599ed72b320029ef66413c75c7810efcb428",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []

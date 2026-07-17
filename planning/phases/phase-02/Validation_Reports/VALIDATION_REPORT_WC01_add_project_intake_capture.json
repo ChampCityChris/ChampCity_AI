@@ -1,19 +1,28 @@
 {
-  "validationId": "VALIDATION_WC01_20260630162630",
-  "workCardId": "WC01",
-  "workCardTitle": "Add Project Intake capture",
-  "phase": "phase-02",
-  "builderReportFile": "BUILDER_REPORT_WC01_add_project_intake_capture.md",
-  "validationResult": "Pass",
-  "testedItems": "Project Intake MD file creation",
-  "passedItems": "All aspects of the Project Intake creation process",
-  "failedItems": "None",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "",
-  "commandsRun": "",
-  "observedErrors": "",
-  "additionalOperatorObservations": "UI/UX issues identified unrelated to PH02 WC01.  Header has crunch right side display as seen in attached image. Validation screen does not have a dropdown selector for phase it requires the use type exactly the phase name to change the the phase.  image attached. ",
-  "operatorDecision": "Deferred - not validated yet",
-  "recommendedNextAction": "Small fix of UI/UX issues before proceeding to PH02 WC02",
-  "createdAt": "2026-06-30T16:26:30.483Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC01_add_project_intake_capture",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T16:26:30.483Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC01 Add Project Intake capture\n\n## Work Card\n\n- Work Card ID: WC01\n- Work Card title: Add Project Intake capture\n- Phase: phase-02\n- Associated Implementer Report: BUILDER_REPORT_WC01_add_project_intake_capture.md\n\n## Validation Result\n\nPass\n\n## What Was Tested?\n\nProject Intake MD file creation\n\n## What Passed?\n\nAll aspects of the Project Intake creation process\n\n## What Failed?\n\nNone\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\nNone recorded.\n\n## Additional Operator Observations\n\nUI/UX issues identified unrelated to PH02 WC01.  Header has crunch right side display as seen in attached image. Validation screen does not have a dropdown selector for phase it requires the use type exactly the phase name to change the the phase.  image attached.\n\n## Operator Decision\n\nDeferred - not validated yet\n\n## Recommended Next Action\n\nSmall fix of UI/UX issues before proceeding to PH02 WC02\n\n## Generated Timestamp\n\n2026-06-30T16:26:30.483Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC01 add project intake capture"
+  },
+  "payloadHash": "sha256:c0b59b0a7d6b4439c4001754705cf9f0730b79ddb3e1afe31e487db9d68af49e",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T16:26:30.483Z",
+  "workCardId": "WC01"
 }

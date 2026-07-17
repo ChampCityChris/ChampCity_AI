@@ -15,7 +15,7 @@
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR01"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC08-REPAIR01"

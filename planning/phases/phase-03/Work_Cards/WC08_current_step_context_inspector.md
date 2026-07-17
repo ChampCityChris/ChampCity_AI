@@ -9,15 +9,15 @@
     "kind": "work_card",
     "title": "Work Card: WC08 — Current Step Context Inspector"
   },
-  "payloadHash": "sha256:9802afc39ee597146aa3376ec5dc10a4ae9e49ba3bedfac1d645311c141eccd3",
+  "payloadHash": "sha256:927efb284bf254ef16d4772aadf806e00081c290e35afdf79bccc03fc0e81563",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC08",
       "champcity-ai/phase-03/implementer_report/WC08",
+      "champcity-ai/phase-03/operator_validation/WC08",
       "champcity-ai/phase-03/repair_record/WC08",
-      "champcity-ai/phase-03/validation_report/WC08",
       "champcity-ai/phase-03/work_card/WC08-REPAIR03",
       "champcity-ai/phase-03/work_card/WC08-REPAIR06"
     ],
@@ -66,7 +66,7 @@ Implementation context that must be read before editing:
 
 - `AGENTS.md`
 - `docs/dev/VALIDATION_COMMAND_LANES.md`
-- WC07 Work Card, Implementer Report, Architect Review, failed validation report, WC07-REPAIR01 Work Card, Implementer Report, Architect Review, and passing validation report
+- WC07 Work Card, Implementer Report, Architect Review, failed operator validation, WC07-REPAIR01 Work Card, Implementer Report, Architect Review, and passing operator validation
 - WC04, WC05, and WC06 Architect Reviews and validation records as needed to preserve behavior
 
 ## Candidate Source
@@ -193,7 +193,7 @@ Show the state categories that caused the route:
 - Architect Review state;
 - Operator Validation state;
 - Repair state, where present;
-- closeout/roadmap/next-phase state, where present.
+- closeout/project_roadmap/next-phase state, where present.
 
 Do not duplicate WC07 artifact preview. The inspector may summarize evidence and link/select artifacts already represented by WC07, but WC07 remains the artifact review owner.
 

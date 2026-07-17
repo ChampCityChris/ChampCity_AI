@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i",
-  "artifactType": "repository_reconciliation",
+  "artifactId": "champcity-ai/project/reconciliation_review/REPOSITORY_RECONCILIATION_champcity_a_i",
+  "artifactType": "reconciliation_review",
   "createdAt": "2026-07-02T15:40:24.160Z",
   "jsonPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json",
   "markdownPath": "planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.md",
   "payload": {
-    "kind": "repository_reconciliation",
+    "kind": "reconciliation_review",
     "title": "Repository Reconciliation: ChampCity A/I"
   },
-  "payloadHash": "sha256:53f293227f1947fc2d94f740c91d6eb54fd7c6b65ae2a4699cf9f60801637351",
+  "payloadHash": "sha256:71f10fd0125069c757e2c8a944124d6e28087695cb505c636c615053106800c5",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -67,7 +67,7 @@ Capture -> Frame -> Plan -> Build -> Prove
 Alpha app development.
 ## Current Milestone
 Phase 02 upstream project planning workflow is complete and closed out.
-Phase 02 has completed WC01 through WC06, including the WC06 Repository Reconciliation / Project Roadmap / Phase Planning workflow. The latest WC06 validation report records a pass, and the revised Phase 02 closeout report records `Close phase`.
+Phase 02 has completed WC01 through WC06, including the WC06 Repository Reconciliation / Project Roadmap / Phase Planning workflow. The latest WC06 operator validation records a pass, and the revised Phase 02 closeout report records `Close phase`.
 ## Phase 02 Status
 Phase 02 is closed.
 Latest closeout artifact reviewed:

@@ -9,19 +9,19 @@
     "kind": "diagnostic_report",
     "title": "Diagnostic Report: WC01 Repository Architecture and Root-Cause Analysis"
   },
-  "payloadHash": "sha256:8aa3e1e6cf8ed2ca13834d296c70b8dba9d26cbad8be08afbb756e405bc4f27a",
+  "payloadHash": "sha256:0f95d7b9e22df60d0eff26e47026fad6077762f807f8a98700475b1507e664d7",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-03/operator_validation/WC09-REPAIR02",
       "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01",
-      "champcity-ai/system/workflow_state",
+      "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/system/artifact_registry",
-      "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+      "champcity-ai/system/workflow_state"
     ],
     "supersedes": []
   },
@@ -65,7 +65,7 @@ Confidence: high.
 - Current action: implementer_execution_required.
 - Responsible role: implementer.
 - Target: champcity-ai/phase-04/work_card/WC01.
-- Sources: champcity-ai/phase-04/phase_activation/phase-04 and champcity-ai/phase-04/approval/Operator_Phase_Approval.
+- Sources: champcity-ai/phase-04/phase_activation/phase-04 and champcity-ai/phase-04/operator_approval/Operator_Phase_Approval.
 - Expected output: champcity-ai/phase-04/implementer_report/WC01 of type implementer_report.
 - Current screen: implementer-execution.
 - Transition history count: zero.

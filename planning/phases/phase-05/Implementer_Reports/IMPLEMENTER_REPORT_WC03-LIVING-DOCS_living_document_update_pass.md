@@ -5,12 +5,12 @@
   "createdAt": "2026-07-17T01:45:00.000Z",
   "jsonPath": "planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json",
   "markdownPath": "planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.md",
-  "parentArtifactId": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+  "parentArtifactId": "champcity-ai/phase-05/project_roadmap/WC03",
   "payload": {
     "kind": "implementer_report",
     "title": "Implementer Report: WC03-LIVING-DOCS Living Document Update Pass"
   },
-  "payloadHash": "sha256:93ef0f72d10d44c0ed7b86019a718333189cbc94c4dc032c727069e5427bac4d",
+  "payloadHash": "sha256:6cf153beb72e1d5faaa8db8f54b035dbcecac05f385c91a367945df34d389f9b",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
   "relationships": {
@@ -18,10 +18,10 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -78,7 +78,7 @@ Verified approved repo root.
 
 ## Exact Living-Document Updates Made
 
-- Project Roadmap now states `champcity-ai/phase-05/roadmap_rebaseline/WC03` as current approved roadmap authority and replaces stale phase descriptions with Phase 06 through Phase 15.
+- Project Roadmap now states `champcity-ai/phase-05/project_roadmap/WC03` as current approved roadmap authority and replaces stale phase descriptions with Phase 06 through Phase 15.
 - Project State now states Phase 04 is closed as stabilization bridge, Phase 05 roadmap rebaseline is approved, Phase 06 is next, Artifact Registry and Workflow State are diagnostic/cache, and the app is not reliable workflow controller until Phase 08 re-entry criteria are met.
 - Project Profile now records ChatGPT subscription plus ChampCity MCP as default Architect integration, API-backed model integration as future/final-state, ChampCity MCP as core integrated app component/future model-harness boundary, Codex as first supported Implementer with tool-neutral contract, and Windows-first public beta target.
 - Decisions now records kernel priority, Architect Bridge as Alpha core, early multi-project dogfooding, Git automation before release candidate, UI usability as acceptance condition, and replace/migrate over unapproved runtime compatibility fallback.

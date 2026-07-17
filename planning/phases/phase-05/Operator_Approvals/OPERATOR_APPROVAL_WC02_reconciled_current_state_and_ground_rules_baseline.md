@@ -1,34 +1,34 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-05/approval/WC02",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC02",
+  "artifactId": "champcity-ai/phase-05/operator_approval/WC02",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T00:50:00.000Z",
-  "updatedAt": "2026-07-17T00:50:00.000Z",
   "jsonPath": "planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC02_reconciled_current_state_and_ground_rules_baseline.json",
   "markdownPath": "planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC02_reconciled_current_state_and_ground_rules_baseline.md",
-  "payloadHash": "sha256:03b65315ded7765d295f90a4a4ea9146f6437b00fa4ea3e560a03ebcbb207e4a",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: PH05 WC02 Reconciled Current-State and Ground-Rules Baseline"
+  },
+  "payloadHash": "sha256:40318751717d98176834027b9bcfa01023ecd3ec3e8da19b8d9549eab7dfe84c",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/work_card/WC02",
-      "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/reconciliation_review/WC01"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-05/work_card/WC03"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/work_card/WC02"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: PH05 WC02 Reconciled Current-State and Ground-Rules Baseline"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T00:50:00.000Z",
+  "workCardId": "WC02"
 }
 -->
 

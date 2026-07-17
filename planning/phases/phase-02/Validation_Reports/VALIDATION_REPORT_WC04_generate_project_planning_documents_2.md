@@ -1,4 +1,31 @@
-# Human Validation Report - WC04 Generate Project Planning Documents
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC04_generate_project_planning_documents_2",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T21:23:37.336Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC04 generate project planning documents 2"
+  },
+  "payloadHash": "sha256:4d05c41669ba3cfcac6d63fb71e5c4becb75cc2f6c171f4e4c22a5e91f1cd9bb",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T21:23:37.336Z",
+  "workCardId": "WC04"
+}
+-->
+
+# Human Operator Validation - WC04 Generate Project Planning Documents
 
 ## Validation Target
 

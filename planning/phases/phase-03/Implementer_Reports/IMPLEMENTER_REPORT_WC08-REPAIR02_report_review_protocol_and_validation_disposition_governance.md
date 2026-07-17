@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC08-REPAIR02 Report Review Protocol and Validation Disposition Governance"
   },
-  "payloadHash": "sha256:198778fb3af58ec6591bc983ea7158adf7977dc8f0487d724d4aa19516f877df",
+  "payloadHash": "sha256:ca627dfc0fd92dca3f83b3d7cc4fe537767986a58a0e8c0e9c32be55753501ad",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -78,7 +78,7 @@ Current-action validation parsing reads only `architectDisposition` as controlli
 
 Existing historical validation reports were not rewritten or renamed.
 
-## Validation Report Changes
+## Operator Validation Changes
 
 - Removed the Operator Decision control from the Human Validation form.
 - Removed `operatorDecision` from new Human Validation form input and generated records.
@@ -130,7 +130,7 @@ Existing historical validation reports were not rewritten or renamed.
 
 - No WC08-REPAIR01 source, prompt, report, validation, or route-context explanation change.
 - No WC09-WC15 implementation or artifact.
-- No historical Validation Report or Architect Review rewrite.
+- No historical Operator Validation or Architect Review rewrite.
 - No Observation Register status change before Operator validation and Architect disposition of this repair.
 - No Operator validation record, Human Validation acceptance, Work Card acceptance, phase closeout, release tag, merge, deployment, or provider integration.
 - No dependency, package manifest, lockfile, authentication, database, cloud, MCP, connector, or unrestricted renderer filesystem change.
@@ -160,7 +160,7 @@ Validated:
 
 - TypeScript compilation and no-emit checking.
 - Production Vite build and renderer asset copy.
-- New validation report JSON/Markdown protocol.
+- New operator validation JSON/Markdown protocol.
 - `Pass with concerns` and item-level Concern guidance.
 - Absence of Operator Decision in new records.
 - Pending Architect disposition in new records and reports.
@@ -239,7 +239,7 @@ None.
 
 ## Recommended Next Implementer Task
 
-Do not begin WC08-REPAIR01 or WC09-WC15 from this pass. Commit and push only the WC08-REPAIR02 repair branch, request Architect review of this Implementer Report using its embedded instructions, and then perform the Architect-prescribed Operator validation steps. After WC08-REPAIR02 is validated, the Architect should re-review the original WC08 validation report under the repaired protocol and decide the disposition of WC08-REPAIR01.
+Do not begin WC08-REPAIR01 or WC09-WC15 from this pass. Commit and push only the WC08-REPAIR02 repair branch, request Architect review of this Implementer Report using its embedded instructions, and then perform the Architect-prescribed Operator validation steps. After WC08-REPAIR02 is validated, the Architect should re-review the original WC08 operator validation under the repaired protocol and decide the disposition of WC08-REPAIR01.
 
 ## Architect Review Instructions
 

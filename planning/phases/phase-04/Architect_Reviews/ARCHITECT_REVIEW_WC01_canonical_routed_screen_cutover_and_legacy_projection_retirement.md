@@ -9,18 +9,18 @@
     "kind": "architect_review",
     "title": "Architect Review — WC01 Canonical Routed-Screen Cutover and Legacy Projection Retirement"
   },
-  "payloadHash": "sha256:87df42d513efbf2fbf94bed8c4b8773ef475624e0728422cc865a5566b7606b2",
+  "payloadHash": "sha256:d8c9decb08f9bb1cb64126d21ed4fb0777bdec0af3d8df421ec548f0ec092ba7",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/validation_report/WC01"
+      "champcity-ai/phase-04/operator_validation/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
+      "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/phase-04/work_card/WC01-REPAIR01"
     ],
     "supersedes": []
@@ -62,7 +62,7 @@ Validation claims are adequate. The Implementer Report states that the new visib
 
 ## Skipped Checks Assessment
 
-No required automated Implementer validation was skipped. Operator acceptance, production WC01 Validation Report creation, completed_via_repair disposition, merge, and release tagging remain outside Implementer authority and must occur through the governed workflow after this Architect authorization.
+No required automated Implementer validation was skipped. Operator acceptance, production WC01 Operator Validation creation, completed_via_repair disposition, merge, and release tagging remain outside Implementer authority and must occur through the governed workflow after this Architect authorization.
 
 ## Observation Register Impact
 
@@ -72,7 +72,7 @@ No new observation register issue is required for this pass. The earlier routed 
 
 1. Refresh repository state in ChampCity A/I.
 2. Confirm the workflow advances to Operator Validation for parent WC01.
-3. Confirm the expected output is champcity-ai/phase-04/validation_report/WC01.
+3. Confirm the expected output is champcity-ai/phase-04/operator_validation/WC01.
 4. Validate that the routed Architect Review screen no longer shows Associated Implementer Report: none.
 5. Validate that the Implementer Report and combined parent/final-repair evidence remain bound without manual report selection.
 6. Validate that Reference Phase and Reference Card changes do not retarget routed authority.

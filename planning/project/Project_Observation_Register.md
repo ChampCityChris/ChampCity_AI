@@ -9,7 +9,7 @@
     "kind": "observation_register",
     "title": "Project Observation Register"
   },
-  "payloadHash": "sha256:cf645e032f93fcf311bafad2e045bfc367c214a5bc71f10a02f526047e905aa8",
+  "payloadHash": "sha256:e2927ab9feb3c01b9f590b7c97838f12d47df206b8cdace79308ade20a61edfd",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -20,10 +20,10 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []

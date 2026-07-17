@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: Phase 04 WC01-REPAIR01 Repository-Observed Evidence-Derived Workflow Authority"
   },
-  "payloadHash": "sha256:d3f8804f3d24c5b9c0be76c789df5074b294632875df0acfb62598b7ad15f07e",
+  "payloadHash": "sha256:04734418c30a6aa9d40258500150db846828a9ffc57b96b25a3b5f1b0d16914c",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,9 +19,9 @@
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority"
     ],
     "sources": [
-      "champcity-ai/phase-04/diagnostic_report/WC01",
-      "champcity-ai/phase-04/architecture_decision/WC01",
       "champcity-ai/phase-04/architect_review/WC01",
+      "champcity-ai/phase-04/architecture_decision/WC01",
+      "champcity-ai/phase-04/diagnostic_report/WC01",
       "champcity-ai/phase-04/work_card/WC01"
     ],
     "supersedes": []
@@ -93,7 +93,7 @@ Revalidate all original WC01 requirements and the replacement architecture, incl
 
 ## Required validation
 
-Use docs/dev/VALIDATION_COMMAND_LANES.md and the approved normal Windows lane. Add focused unit, repository-gate, and real main/preload/renderer/Electron coverage for configured projects, persistence and isolation, observer/debounce/manual/branch refresh, graph blockers, external Implementer Report/Architect Review/Validation Report detection, explicit decisions, repair limits, WC01 reconstruction, WC09 regression, restart, switching, unchanged-scan no-op, stale cache, legacy import prohibition, actual process relaunch, UI refresh, Architect Review, and Operator Validation. Production-path tests must begin before the failure boundary and use the real service topology.
+Use docs/dev/VALIDATION_COMMAND_LANES.md and the approved normal Windows lane. Add focused unit, repository-gate, and real main/preload/renderer/Electron coverage for configured projects, persistence and isolation, observer/debounce/manual/branch refresh, graph blockers, external Implementer Report/Architect Review/Operator Validation detection, explicit decisions, repair limits, WC01 reconstruction, WC09 regression, restart, switching, unchanged-scan no-op, stale cache, legacy import prohibition, actual process relaunch, UI refresh, Architect Review, and Operator Validation. Production-path tests must begin before the failure boundary and use the real service topology.
 
 ## Deliverables
 

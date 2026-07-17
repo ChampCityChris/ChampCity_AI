@@ -31,10 +31,10 @@
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR02",
-      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory"
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
     ],
     "supersedes": []
   },

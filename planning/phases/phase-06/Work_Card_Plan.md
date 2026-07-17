@@ -9,25 +9,31 @@
     "kind": "work_card_plan",
     "title": "Work Card Plan: phase-06"
   },
-  "payloadHash": "sha256:fa6c13ce917720f75d2adccb14c565ef254e18ca5a5550fabf383791fa1bb127",
+  "payloadHash": "sha256:8ee85fedc55866f9425635e13f401dd915088aae8ffe08152ef82497a1b43b8d",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval"
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/work_card/WC03",
+      "champcity-ai/phase-06/work_card/WC04",
+      "champcity-ai/phase-06/work_card/WC05",
+      "champcity-ai/phase-06/work_card/WC06"
     ],
     "sources": [
-      "champcity-ai/phase-06/phase_planning/Phase_Planning",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-06/phase_activation/phase-06",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
+      "champcity-ai/phase-06/phase_planning/Phase_Planning"
     ],
     "supersedes": []
   },
-  "revision": 3,
+  "revision": 4,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-17T02:20:00.000Z"
+  "updatedAt": "2026-07-17T23:35:32.687Z"
 }
 -->
 

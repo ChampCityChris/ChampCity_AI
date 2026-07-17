@@ -1,35 +1,35 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03",
-  "parentArtifactId": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+  "artifactId": "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T01:20:00.000Z",
-  "updatedAt": "2026-07-17T01:20:00.000Z",
   "jsonPath": "planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_roadmap_rebaseline.json",
   "markdownPath": "planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_roadmap_rebaseline.md",
-  "payloadHash": "sha256:5cd9c147e7ba4bfb2b7507ae6ee717c3b1aebc0093cac97d5f29bfeb01a5d053",
+  "parentArtifactId": "champcity-ai/phase-05/project_roadmap/WC03",
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: WC03 Roadmap Rebaseline"
+  },
+  "payloadHash": "sha256:719b98e651eb9d9082544e303fbce344193331d9b1d231deaa0d9dcc9b7a2881",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/phase-05/work_card/WC03",
-      "champcity-ai/phase-05/approval/WC03"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-05/living_document_update/WC03"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-05/operator_approval/WC03",
+      "champcity-ai/phase-05/project_roadmap/WC03",
+      "champcity-ai/phase-05/work_card/WC03"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "approval",
-    "title": "Operator Approval: WC03 Roadmap Rebaseline"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:20:00.000Z",
+  "workCardId": "WC03"
 }
 -->
 
@@ -38,7 +38,7 @@
 Status: approved
 Phase: phase-05 — Reconciliation and Roadmap Rebaseline
 Work Card: WC03
-Approved artifact: `champcity-ai/phase-05/roadmap_rebaseline/WC03`
+Approved artifact: `champcity-ai/phase-05/project_roadmap/WC03`
 
 ## Approval Decision
 

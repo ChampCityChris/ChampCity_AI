@@ -1,26 +1,28 @@
 {
-  "validationId": "VALIDATION_WC03_REPAIR_validation_and_evidence_ui_20260701022451",
-  "workCardId": "WC03_REPAIR_validation_and_evidence_ui",
-  "workCardTitle": "Repair validation and evidence UI",
-  "validationTargetId": "WC03_REPAIR_validation_and_evidence_ui",
-  "validationTargetKind": "repair",
-  "validationTargetTitle": "Repair validation and evidence UI",
-  "validationTargetSourceJsonFile": "VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
-  "validationTargetSourceMarkdownFile": "WC03_repair_validation_and_evidence_ui.md",
-  "validationTargetExpectedImplementerReportFile": "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
-  "parentWorkCardId": "WC03",
-  "phase": "phase-02",
-  "builderReportFile": "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
-  "validationResult": "Pass",
-  "testedItems": "All manual validation steps complete",
-  "passedItems": "",
-  "failedItems": "",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "",
-  "commandsRun": "",
-  "observedErrors": "",
-  "additionalOperatorObservations": "",
-  "operatorDecision": "Passed - proceed",
-  "recommendedNextAction": "",
-  "createdAt": "2026-07-01T02:24:51.277Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T02:24:51.277Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC03_REPAIR_validation_and_evidence_ui Repair validation and evidence UI\n\n## Validation Target\n\n- Validation Target ID: WC03_REPAIR_validation_and_evidence_ui\n- Validation Target kind: repair\n- Validation Target title: Repair validation and evidence UI\n- Phase: phase-02\n- Parent Work Card ID: WC03\n- Source JSON file: VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json\n- Source Markdown file: WC03_repair_validation_and_evidence_ui.md\n- Expected Implementer Report: BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md\n- Associated Implementer Report: BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md\n\n## Validation Result\n\nPass\n\n## What Was Tested?\n\nAll manual validation steps complete\n\n## What Passed?\n\nNone recorded.\n\n## What Failed?\n\nNone recorded.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\nNone recorded.\n\n## Additional Operator Observations\n\nNone recorded.\n\n## Operator Decision\n\nPassed - proceed\n\n## Recommended Next Action\n\nNone recorded.\n\n## Generated Timestamp\n\n2026-07-01T02:24:51.277Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC03 REPAIR validation and evidence ui repair validation and evidence ui"
+  },
+  "payloadHash": "sha256:6bd2daf07579de9a181642bbc4c211a2545c90f8bd74a7c36b6a92985c165859",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T02:24:51.277Z",
+  "workCardId": "WC03_REPAIR_validation_and_evidence_ui"
 }

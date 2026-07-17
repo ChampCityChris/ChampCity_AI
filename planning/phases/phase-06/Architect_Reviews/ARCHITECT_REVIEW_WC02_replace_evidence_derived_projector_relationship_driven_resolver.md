@@ -10,7 +10,7 @@
     "kind": "architect_review",
     "title": "Architect Review: Phase 06 WC02 Replace Evidence Projector With Relationship Resolver"
   },
-  "payloadHash": "sha256:6c20a1d6447bfdd4678335888d7443a5e5b71f1262d3bc4cc5cd9fc9951919e9",
+  "payloadHash": "sha256:9549a33a04d7f98f483e7793e61e5d53988533b4d37b0c1f700d70badba68c0d",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,17 +19,17 @@
       "champcity-ai/phase-06/operator_validation/WC02"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02",
-      "champcity-ai/phase-06/operator_approval/WC02",
-      "champcity-ai/phase-06/implementer_report/WC02",
+      "champcity-ai/phase-06/candidate_disposition/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
-      "champcity-ai/phase-06/candidate_disposition/WC01"
+      "champcity-ai/phase-06/implementer_report/WC02",
+      "champcity-ai/phase-06/operator_approval/WC02",
+      "champcity-ai/phase-06/work_card/WC02"
     ],
     "supersedes": []
   },
   "revision": 1,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "accepted_for_operator_validation",
+  "status": "active",
   "updatedAt": "2026-07-17T14:52:00.000Z",
   "workCardId": "WC02"
 }

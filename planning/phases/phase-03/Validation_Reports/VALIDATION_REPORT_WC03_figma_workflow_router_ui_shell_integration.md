@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC03",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC03",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-04T03:09:58.888Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC03 Figma Workflow Router UI Shell Integration"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC03 Figma Workflow Router UI Shell Integration"
   },
-  "payloadHash": "sha256:e4bb4dbcf97fc64dc0d6eddcc318e4ca00735519e143e98f59610dd96ec95165",
+  "payloadHash": "sha256:9af5c87f4a2679c2659b5080eef5917e42d61862001f5224ee31fcf3a50fe097",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Human Validation Report - WC03 Figma Workflow Router UI Shell Integration
+# Human Operator Validation - WC03 Figma Workflow Router UI Shell Integration
 
 ## Validation Target
 

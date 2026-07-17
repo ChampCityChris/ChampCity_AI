@@ -10,29 +10,29 @@
     "kind": "design_document",
     "title": "Design Document: Phase 06 WC01 Kernel Contract and Replacement Inventory"
   },
-  "payloadHash": "sha256:f2b5cb00097735d924df53993c2666f8031f20fb43d6276e3928809ef25da15c",
+  "payloadHash": "sha256:5bbc5e2b85bc24b6e8574cb375b205d0f6f0ac7920ec76322e3e995d553b09e6",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC01",
-      "champcity-ai/phase-06/approval/WC01",
-      "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-06/approval/WC01-REPAIR01",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-06/architect_review/WC01",
-      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/operator_approval/WC01",
+      "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
       "champcity-ai/phase-06/phase_planning/Phase_Planning",
-      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/work_card/WC01-REPAIR01",
       "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL"
     ],
     "supersedes": []
   },
   "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "completed",
+  "status": "active",
   "updatedAt": "2026-07-17T03:22:02.855Z",
   "workCardId": "WC01"
 }
@@ -60,13 +60,13 @@ Canonical artifact sources reviewed:
 - `champcity-ai/phase-06/phase_activation/phase-06`
 - `champcity-ai/phase-06/phase_planning/Phase_Planning`
 - `champcity-ai/phase-06/work_card_plan/Work_Card_Plan`
-- `champcity-ai/phase-06/approval/Operator_Phase_Approval`
+- `champcity-ai/phase-06/operator_approval/Operator_Phase_Approval`
 - `champcity-ai/phase-06/work_card/WC01`
-- `champcity-ai/phase-06/approval/WC01`
+- `champcity-ai/phase-06/operator_approval/WC01`
 - `champcity-ai/phase-06/work_card/WC01-REPAIR01`
-- `champcity-ai/phase-06/approval/WC01-REPAIR01`
+- `champcity-ai/phase-06/operator_approval/WC01-REPAIR01`
 - `champcity-ai/phase-06/architect_review/WC01`
-- `champcity-ai/phase-05/roadmap_rebaseline/WC03`
+- `champcity-ai/phase-05/project_roadmap/WC03`
 - `champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL`
 
 Supporting documents reviewed:
@@ -151,7 +151,7 @@ Phase 06 kernel rules must initially support these artifact types:
 - `architect_review`
 - `operator_validation`
 - `candidate_disposition`
-- `repair_work_card`
+- `work_card`
 - `phase_closeout`
 - `project_state`
 - `project_roadmap`

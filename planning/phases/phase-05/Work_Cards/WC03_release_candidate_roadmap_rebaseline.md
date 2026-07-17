@@ -2,34 +2,34 @@
 {
   "artifactId": "champcity-ai/phase-05/work_card/WC03",
   "artifactType": "work_card",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 2,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03",
   "createdAt": "2026-07-17T00:50:00.000Z",
-  "updatedAt": "2026-07-17T01:10:00.000Z",
   "jsonPath": "planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.json",
   "markdownPath": "planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.md",
-  "payloadHash": "sha256:855ebcacd3ea740cfc9d4837d5ffd4cd52e58fbcb80d9474dcc2a730e34a1a15",
-  "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/reconciliation_review/WC01",
-      "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/approval/WC02",
-      "champcity-ai/phase-04/phase_closeout/PHASE_04"
-    ],
-    "expectedOutputs": [
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
-    ],
-    "supersedes": [],
-    "children": []
-  },
   "payload": {
     "kind": "work_card",
     "title": "Work Card: Phase 05 WC03 Release-Candidate Roadmap Rebaseline"
-  }
+  },
+  "payloadHash": "sha256:3bb47c3ee92da6ec3ad772406f98691c53cae71057a6a49bf9fffb4a8ea137d5",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/operator_approval/WC02",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:10:00.000Z",
+  "workCardId": "WC03"
 }
 -->
 
@@ -58,7 +58,7 @@ Primary sources:
 
 - `champcity-ai/phase-05/reconciliation_review/WC01`
 - `champcity-ai/phase-05/reconciliation_review/WC02`
-- `champcity-ai/phase-05/approval/WC02`
+- `champcity-ai/phase-05/operator_approval/WC02`
 - `champcity-ai/phase-04/phase_closeout/PHASE_04`
 - current planning corpus inventory
 
@@ -85,7 +85,7 @@ Create the synchronized roadmap rebaseline artifact:
 
 Canonical artifact ID:
 
-`champcity-ai/phase-05/roadmap_rebaseline/WC03`
+`champcity-ai/phase-05/project_roadmap/WC03`
 
 ## Required Contents
 

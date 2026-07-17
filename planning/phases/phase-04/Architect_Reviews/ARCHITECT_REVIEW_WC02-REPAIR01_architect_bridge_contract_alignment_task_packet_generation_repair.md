@@ -9,24 +9,24 @@
     "kind": "architect_review",
     "title": "Architect Review: WC02-REPAIR01 Architect Bridge Contract Alignment and Task Packet Generation Repair"
   },
-  "payloadHash": "sha256:0ed6dad34c74d0f8fefbe7ca4c0dda75b794901aedce22ab3833180d39723252",
+  "payloadHash": "sha256:543c711ed04153764dcb8129b45c6319afafd18f612f5cd9ab7fd02b7a775c80",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/validation_report/WC02-REPAIR01"
+      "champcity-ai/phase-04/operator_validation/WC02-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
-      "champcity-ai/phase-04/work_card/WC02",
-      "champcity-ai/phase-04/candidate_disposition/WC01",
-      "champcity-ai/phase-04/validation_report/WC01",
       "champcity-ai/phase-04/architect_review/WC01",
-      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/candidate_disposition/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
+      "champcity-ai/phase-04/operator_validation/WC01",
+      "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/phase-04/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority"
+      "champcity-ai/phase-04/work_card/WC02"
     ],
     "supersedes": []
   },
@@ -54,7 +54,7 @@ The repair addresses the prior blocking failure. Architect disposition is now al
 
 The repaired-parent WC01 flow now resolves to candidate_disposition/WC01 rather than architect_disposition/WC01. When candidate_disposition/WC01 exists and is valid, the repository projection advances past WC01 to the WC02 candidate. When the candidate disposition is missing in the mounted fixture, Architect Bridge generates the candidate-disposition task packet and displays the actual JSON path, Markdown path, source bundle, expected output, and copy-ready ChatGPT prompt.
 
-The source bundle now contains the required repaired-parent evidence chain: validation_report/WC01, architect_review/WC01, work_card/WC01, implementer_report/WC01, work_card/WC01-REPAIR01, and implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority.
+The source bundle now contains the required repaired-parent evidence chain: operator_validation/WC01, architect_review/WC01, work_card/WC01, implementer_report/WC01, work_card/WC01-REPAIR01, and implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority.
 
 ## Validation Assessment
 

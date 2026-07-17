@@ -9,17 +9,17 @@
     "kind": "supporting_document",
     "title": "Decisions"
   },
-  "payloadHash": "sha256:9697cb382a7c128339df0029faf0ab5fbdd972dce59ebf6a6c4482399fad9f5d",
+  "payloadHash": "sha256:95f78061cac9761af3e750bac153599ed72b320029ef66413c75c7810efcb428",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -54,4 +54,4 @@
 
 ## Decision Notes
 
-The Phase 05 approved roadmap authority is `champcity-ai/phase-05/roadmap_rebaseline/WC03`. Historical Phase 03 and Phase 04 documents remain evidence, but they do not override the approved Phase 05 baseline.
+The Phase 05 approved roadmap authority is `champcity-ai/phase-05/project_roadmap/WC03`. Historical Phase 03 and Phase 04 documents remain evidence, but they do not override the approved Phase 05 baseline.

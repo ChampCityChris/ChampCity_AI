@@ -9,15 +9,15 @@
     "kind": "architect_review",
     "title": "Architect Review: WC07 Artifact Review Workspace"
   },
-  "payloadHash": "sha256:b51f024ac6920126b5d04e1a2f1b67870075b8c2fb2d7d4dc35cae81346c6c55",
+  "payloadHash": "sha256:e66cbeffd2de3201cd860580f1c8dbd032595a5515c80aee0754507a37289b62",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC07"
+      "champcity-ai/phase-03/operator_validation/WC07"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC07"
+      "champcity-ai/phase-03/operator_validation/WC07"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC07",
@@ -127,7 +127,7 @@ I inspected `scripts/verify-wc07-artifact-workspace.mjs`. The fixture verifies:
 
 - Operator validation groups Work Card, Implementer Report, and Architect Review evidence.
 - Architect review exposes Work Card and Implementer Report evidence.
-- Repair validation exposes parent Work Card, validation report, repair artifacts, and source evidence.
+- Repair validation exposes parent Work Card, operator validation, repair artifacts, and source evidence.
 - Readable labels are not equal to raw paths.
 - Expected output and missing evidence are distinct.
 - Only planning Markdown paths are previewable.
@@ -192,7 +192,7 @@ Focus validation on whether the center workspace now makes the current action un
 Validation checklist:
 
 1. Current routed workspace shows useful artifact context above the route-specific screen.
-2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report when present.
+2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Operator Validation when present.
 3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output when present.
 4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output when present.
 5. Artifact labels are readable and full paths do not dominate the interface.

@@ -1,51 +1,51 @@
 {
   "artifactId": "champcity-ai/phase-05/work_card/WC03",
   "artifactType": "work_card",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 2,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03",
   "createdAt": "2026-07-17T00:50:00.000Z",
-  "updatedAt": "2026-07-17T01:10:00.000Z",
   "jsonPath": "planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.json",
   "markdownPath": "planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.md",
-  "payloadHash": "sha256:855ebcacd3ea740cfc9d4837d5ffd4cd52e58fbcb80d9474dcc2a730e34a1a15",
-  "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/reconciliation_review/WC01",
-      "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/approval/WC02",
-      "champcity-ai/phase-04/phase_closeout/PHASE_04"
-    ],
-    "expectedOutputs": [
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
-    ],
-    "supersedes": [],
-    "children": []
-  },
   "payload": {
-    "kind": "work_card",
-    "title": "Work Card: Phase 05 WC03 Release-Candidate Roadmap Rebaseline",
-    "contentMarkdown": "# Work Card: Phase 05 WC03 Release-Candidate Roadmap Rebaseline\n\nStatus: ready_for_architect\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nWork Card: WC03\nOwner: Architect\nRisk: critical\nChange strategy: no source-code changes; roadmap and living-document proposal only\nRevision: 2\nRevision reason: Operator requested explicit roadmap criteria requiring a defined phase for returning ChampCity_AI development dogfooding back into the application.\n\n## Purpose\n\nCreate an extensive, human-understandable roadmap from the current reconciled state to a public downloadable beta candidate.\n\nThe roadmap must have tight phase boundaries and validateable success criteria. It must not rely on vague future phase-planning passes to define the course.\n\n## Authority\n\nThis Work Card is authorized by Operator approval of PH05 WC02 and revised by Operator direction to require a defined return-to-in-app-dogfooding phase.\n\nPrimary sources:\n\n- `champcity-ai/phase-05/reconciliation_review/WC01`\n- `champcity-ai/phase-05/reconciliation_review/WC02`\n- `champcity-ai/phase-05/approval/WC02`\n- `champcity-ai/phase-04/phase_closeout/PHASE_04`\n- current planning corpus inventory\n\n## Required Roadmap Rules\n\n1. The next implementation phase must start with workflow-kernel and artifact-protocol work.\n2. Incorrect old foundations must be replaced or migrated, not preserved as runtime compatibility debt.\n3. The established process map and stage ownership remain controlling.\n4. UI usability is an acceptance condition inside each implementation phase where user-facing workflow changes are made.\n5. Architect Bridge is Alpha core.\n6. ChatGPT subscription plus ChampCity MCP is the default Architect integration model.\n7. Codex is the first supported Implementer, while the Implementer contract remains tool-neutral.\n8. Multi-project dogfooding across ChampCity_AI, ChampCity_GPT / ChampCity MCP, ChampCity_RP_Desktop, and Revisionary is required early in Alpha.\n9. Git automation/operator abstraction is required before release candidate.\n10. Repo-visible screenshot/evidence storage is required.\n11. The target release is a public downloadable beta candidate, beginning with Windows.\n12. The roadmap must define a specific phase where development of ChampCity_AI returns to being dogfooded inside the application. That phase must include entry criteria, required in-app workflow coverage, required fallback rules, validation evidence, and exit criteria. The return-to-dogfooding point must be explicit and testable, not implied as a later aspiration.\n\n## Required Output\n\nCreate the synchronized roadmap rebaseline artifact:\n\n`planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.{json,md}`\n\nCanonical artifact ID:\n\n`champcity-ai/phase-05/roadmap_rebaseline/WC03`\n\n## Required Contents\n\nThe roadmap rebaseline must include:\n\n1. Current-state summary.\n2. Release-candidate definition.\n3. Alpha-to-beta phase roadmap.\n4. Each phase purpose, scope, non-scope, success criteria, validation evidence, and exit condition.\n5. Explicit placement of workflow kernel, Architect Bridge, MCP integration, Implementer loop, validation/evidence, Git automation, multi-project dogfooding, UI hardening, packaging, and documentation.\n6. A named phase where ChampCity_AI development returns to in-app dogfooding, including entry criteria and exit criteria.\n7. Required living-document updates after Operator approval.\n8. Old-foundation removal rules carried into future Work Cards.\n9. A recommendation for the next implementation phase and its first candidate Work Cards.\n\n## Acceptance Criteria\n\n- The roadmap is extensive but understandable.\n- Each phase has a tight boundary.\n- Every phase has validateable success criteria.\n- The roadmap reaches a public downloadable beta candidate.\n- The roadmap names the phase where ChampCity_AI dogfooding returns to the application.\n- The dogfooding-return phase has clear entry criteria, required in-app coverage, validation evidence, and exit criteria.\n- It does not authorize implementation by itself.\n- It identifies living documents that should be updated after approval.\n",
+    "contentMarkdown": "# Work Card: Phase 05 WC03 Release-Candidate Roadmap Rebaseline\n\nStatus: ready_for_architect\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nWork Card: WC03\nOwner: Architect\nRisk: critical\nChange strategy: no source-code changes; roadmap and living-document proposal only\nRevision: 2\nRevision reason: Operator requested explicit roadmap criteria requiring a defined phase for returning ChampCity_AI development dogfooding back into the application.\n\n## Purpose\n\nCreate an extensive, human-understandable roadmap from the current reconciled state to a public downloadable beta candidate.\n\nThe roadmap must have tight phase boundaries and validateable success criteria. It must not rely on vague future phase-planning passes to define the course.\n\n## Authority\n\nThis Work Card is authorized by Operator approval of PH05 WC02 and revised by Operator direction to require a defined return-to-in-app-dogfooding phase.\n\nPrimary sources:\n\n- `champcity-ai/phase-05/reconciliation_review/WC01`\n- `champcity-ai/phase-05/reconciliation_review/WC02`\n- `champcity-ai/phase-05/operator_approval/WC02`\n- `champcity-ai/phase-04/phase_closeout/PHASE_04`\n- current planning corpus inventory\n\n## Required Roadmap Rules\n\n1. The next implementation phase must start with workflow-kernel and artifact-protocol work.\n2. Incorrect old foundations must be replaced or migrated, not preserved as runtime compatibility debt.\n3. The established process map and stage ownership remain controlling.\n4. UI usability is an acceptance condition inside each implementation phase where user-facing workflow changes are made.\n5. Architect Bridge is Alpha core.\n6. ChatGPT subscription plus ChampCity MCP is the default Architect integration model.\n7. Codex is the first supported Implementer, while the Implementer contract remains tool-neutral.\n8. Multi-project dogfooding across ChampCity_AI, ChampCity_GPT / ChampCity MCP, ChampCity_RP_Desktop, and Revisionary is required early in Alpha.\n9. Git automation/operator abstraction is required before release candidate.\n10. Repo-visible screenshot/evidence storage is required.\n11. The target release is a public downloadable beta candidate, beginning with Windows.\n12. The roadmap must define a specific phase where development of ChampCity_AI returns to being dogfooded inside the application. That phase must include entry criteria, required in-app workflow coverage, required fallback rules, validation evidence, and exit criteria. The return-to-dogfooding point must be explicit and testable, not implied as a later aspiration.\n\n## Required Output\n\nCreate the synchronized roadmap rebaseline artifact:\n\n`planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.{json,md}`\n\nCanonical artifact ID:\n\n`champcity-ai/phase-05/project_roadmap/WC03`\n\n## Required Contents\n\nThe roadmap rebaseline must include:\n\n1. Current-state summary.\n2. Release-candidate definition.\n3. Alpha-to-beta phase roadmap.\n4. Each phase purpose, scope, non-scope, success criteria, validation evidence, and exit condition.\n5. Explicit placement of workflow kernel, Architect Bridge, MCP integration, Implementer loop, validation/evidence, Git automation, multi-project dogfooding, UI hardening, packaging, and documentation.\n6. A named phase where ChampCity_AI development returns to in-app dogfooding, including entry criteria and exit criteria.\n7. Required living-document updates after Operator approval.\n8. Old-foundation removal rules carried into future Work Cards.\n9. A recommendation for the next implementation phase and its first candidate Work Cards.\n\n## Acceptance Criteria\n\n- The roadmap is extensive but understandable.\n- Each phase has a tight boundary.\n- Every phase has validateable success criteria.\n- The roadmap reaches a public downloadable beta candidate.\n- The roadmap names the phase where ChampCity_AI dogfooding returns to the application.\n- The dogfooding-return phase has clear entry criteria, required in-app coverage, validation evidence, and exit criteria.\n- It does not authorize implementation by itself.\n- It identifies living documents that should be updated after approval.\n",
     "data": {
-      "workCardId": "WC03",
-      "phaseId": "phase-05",
-      "status": "ready_for_architect",
-      "owner": "Architect",
-      "implementationRequired": false,
-      "expectedOutputArtifactId": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "sourceCodeChangesAuthorized": false,
-      "operatorApprovalSource": "champcity-ai/phase-05/approval/WC02",
-      "requiresExplicitInAppDogfoodingReturnPhase": true,
       "dogfoodingReturnPhaseMustDefine": [
         "entry_criteria",
         "required_in_app_workflow_coverage",
         "fallback_rules",
         "validation_evidence",
         "exit_criteria"
-      ]
-    }
-  }
+      ],
+      "expectedOutputArtifactId": "champcity-ai/phase-05/project_roadmap/WC03",
+      "implementationRequired": false,
+      "operatorApprovalSource": "champcity-ai/phase-05/operator_approval/WC02",
+      "owner": "Architect",
+      "phaseId": "phase-05",
+      "requiresExplicitInAppDogfoodingReturnPhase": true,
+      "sourceCodeChangesAuthorized": false,
+      "status": "ready_for_architect",
+      "workCardId": "WC03"
+    },
+    "kind": "work_card",
+    "title": "Work Card: Phase 05 WC03 Release-Candidate Roadmap Rebaseline"
+  },
+  "payloadHash": "sha256:3bb47c3ee92da6ec3ad772406f98691c53cae71057a6a49bf9fffb4a8ea137d5",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "sources": [
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/operator_approval/WC02",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02"
+    ],
+    "supersedes": []
+  },
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:10:00.000Z",
+  "workCardId": "WC03"
 }

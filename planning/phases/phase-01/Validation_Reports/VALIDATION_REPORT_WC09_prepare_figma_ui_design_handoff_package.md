@@ -1,4 +1,31 @@
-# Human Validation Report - WC09 Prepare Figma UI design handoff package
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:58:23.491Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC09 prepare figma ui design handoff package"
+  },
+  "payloadHash": "sha256:2ac6de60b5d7903132c18ebff24f14c416e4f2aba2e0b616824e0e3e9dd42519",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:58:23.491Z",
+  "workCardId": "WC09"
+}
+-->
+
+# Human Operator Validation - WC09 Prepare Figma UI design handoff package
 
 ## Work Card
 

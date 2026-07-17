@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC07",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC07",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T12:44:40.132Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC07 Artifact Review Workspace"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC07 Artifact Review Workspace"
   },
-  "payloadHash": "sha256:135b46da73d4f8f790917cfbc24844b83f3697da6ae4be9ec971d053a77963af",
+  "payloadHash": "sha256:c499b4e08c997ee2631996658e56fe55dfd16ab556251388877a35740d977ea6",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -32,7 +32,7 @@
 }
 -->
 
-# Human Validation Report - WC07 Artifact Review Workspace
+# Human Operator Validation - WC07 Artifact Review Workspace
 
 ## Validation Target
 
@@ -51,7 +51,7 @@ Not Tested
 ## What Was Tested?
 
 1. Current routed workspace shows useful artifact context above the route-specific screen.
-2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.
+2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Operator Validation.
 3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.
 4. Repair validation routes show parent Work Card, failed validation, repair Work Card, repair Implementer Report, and expected repair validation output.
 5. Artifact labels are readable and full paths do not dominate.
@@ -71,7 +71,7 @@ Not Tested
 ## What Failed?
 
 1. Current routed workspace shows useful artifact context above the route-specific screen.
-2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Validation Report.
+2. Operator validation routes show Work Card, Implementer Report, Architect Review, and expected Operator Validation.
 3. Architect review routes show Work Card, Implementer Report, and expected Architect Review output.
 5. Artifact labels are readable and full paths do not dominate.
 6. Planning Markdown preview works inline and stays read-only.

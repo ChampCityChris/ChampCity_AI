@@ -1,12 +1,12 @@
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC08-REPAIR06",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
   "payload": {
-    "contentMarkdown": "# Validation Report: WC08-REPAIR06 — Current Action Architect Review Binding Authority\n\nValidation Result: Blocked / Failed\nDate: 2026-07-14\nValidated by: Operator\nPhase: phase-03\nParent Work Card: WC08\nRepair: WC08-REPAIR06\n\n## Operator Evidence\n\nThe application still opens with the current required action:\n\n`Architect review of repair Implementer Report required`\n\nfor:\n\n`WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority`\n\nThe Operator reports that the application still does not provide a usable governed path to complete the Architect Review and advance to Operator Validation.\n\nScreenshot evidence was supplied in the Architect conversation and shows the application remains at the unresolved Architect Review gate after WC08-REPAIR06.\n\n## Validation Assessment\n\n- Current action identity remains visible: observed.\n- WC08-REPAIR04 remains the displayed target: observed.\n- Governed Architect Review action can be completed in-app: failed / blocked.\n- Successful save transitions the workflow to Operator Validation: not demonstrated because the action cannot be completed.\n- WC08 repair chain is resolved: failed.\n- WC09 remains unavailable through normal governed progression: blocked by unresolved WC08 state.\n\n## Operator Outcome\n\nWC08-REPAIR06 does not resolve the application workflow.\n\nThe defect is no longer assigned to another local repair. WC08-REPAIR06 validation is closed as blocked/failed and the unresolved state is assigned to the cross-process stabilization Work Card:\n\n`WC09 — Cross-Process Workflow Authority, Artifact Pair Migration, and Context Packet Foundation`\n\n## Architect Disposition Required\n\nArchitect action:\n\n- Do not create WC08-REPAIR07.\n- Treat the WC08 repair chain as migration and regression-test input for WC09.\n- Require WC09 to make the current WC08 Architect Review action executable and to prove transition to Operator Validation.\n- Keep later Phase 03 route-specific Work Cards blocked until WC09 is accepted.\n",
+    "contentMarkdown": "# Operator Validation: WC08-REPAIR06 — Current Action Architect Review Binding Authority\n\nValidation Result: Blocked / Failed\nDate: 2026-07-14\nValidated by: Operator\nPhase: phase-03\nParent Work Card: WC08\nRepair: WC08-REPAIR06\n\n## Operator Evidence\n\nThe application still opens with the current required action:\n\n`Architect review of repair Implementer Report required`\n\nfor:\n\n`WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority`\n\nThe Operator reports that the application still does not provide a usable governed path to complete the Architect Review and advance to Operator Validation.\n\nScreenshot evidence was supplied in the Architect conversation and shows the application remains at the unresolved Architect Review gate after WC08-REPAIR06.\n\n## Validation Assessment\n\n- Current action identity remains visible: observed.\n- WC08-REPAIR04 remains the displayed target: observed.\n- Governed Architect Review action can be completed in-app: failed / blocked.\n- Successful save transitions the workflow to Operator Validation: not demonstrated because the action cannot be completed.\n- WC08 repair chain is resolved: failed.\n- WC09 remains unavailable through normal governed progression: blocked by unresolved WC08 state.\n\n## Operator Outcome\n\nWC08-REPAIR06 does not resolve the application workflow.\n\nThe defect is no longer assigned to another local repair. WC08-REPAIR06 validation is closed as blocked/failed and the unresolved state is assigned to the cross-process stabilization Work Card:\n\n`WC09 — Cross-Process Workflow Authority, Artifact Pair Migration, and Context Packet Foundation`\n\n## Architect Disposition Required\n\nArchitect action:\n\n- Do not create WC08-REPAIR07.\n- Treat the WC08 repair chain as migration and regression-test input for WC09.\n- Require WC09 to make the current WC08 Architect Review action executable and to prove transition to Operator Validation.\n- Keep later Phase 03 route-specific Work Cards blocked until WC09 is accepted.\n",
     "data": {
       "architectDisposition": {
         "assignedTarget": "WC09",
@@ -45,12 +45,13 @@
       "validatedAt": "2026-07-14",
       "validatedByRole": "operator",
       "validationResult": "blocked_failed",
+      "validationScope": "work_card",
       "workCardId": "WC08-REPAIR06"
     },
-    "kind": "validation_report",
-    "title": "Validation Report: WC08-REPAIR06 — Current Action Architect Review Binding Authority"
+    "kind": "operator_validation",
+    "title": "Operator Validation: WC08-REPAIR06 — Current Action Architect Review Binding Authority"
   },
-  "payloadHash": "sha256:e2d95ca1336b276f52cf1840f0b7133301df83fe0211e66db2eecbcd69063ba8",
+  "payloadHash": "sha256:0b5994ae0b8335836b9e197a6f3fc6e5e3a89d2733c7f1e06f08fbffa3ac49a7",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {

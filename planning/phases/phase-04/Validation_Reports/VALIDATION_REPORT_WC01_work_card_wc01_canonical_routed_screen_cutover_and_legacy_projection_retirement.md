@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-04/validation_report/WC01",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-04/operator_validation/WC01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-16T02:53:19.171Z",
   "jsonPath": "planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC01_work_card_wc01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json",
   "markdownPath": "planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC01_work_card_wc01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "WC01 Validation Report"
+    "kind": "operator_validation",
+    "title": "WC01 Operator Validation"
   },
-  "payloadHash": "sha256:ce2cb70d181540c7a1f21bcb12d1cabe8f1235159fff01f0a558ccff6be1557a",
+  "payloadHash": "sha256:ee93adb38e1a61d0961d74b0a7e50a2dd0b567607b87541da762b2f9704d5afc",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -29,7 +29,7 @@
 }
 -->
 
-# Human Validation Report - WC01 Work Card: WC01 Canonical Routed-Screen Cutover and Legacy Projection Retirement
+# Human Operator Validation - WC01 Work Card: WC01 Canonical Routed-Screen Cutover and Legacy Projection Retirement
 
 ## Validation Target
 
@@ -54,7 +54,7 @@ Use item-level results where feasible: Pass, Concern, Fail, Not tested, Not appl
 
 Confirm App opens to Validation screen for Phase 04 WC01.
 Confirm validation target is parent WC01, not WC01-REPAIR01.
-Confirm expected output is champcity-ai/phase-04/validation_report/WC01.
+Confirm expected output is champcity-ai/phase-04/operator_validation/WC01.
 Confirm Refresh Repository State shows zero blockers.
 Confirm no legacy Saved Work Card schema errors appear.
 Confirm validation can be saved as Pass.
@@ -63,7 +63,7 @@ Confirm validation can be saved as Pass.
 
 Confirm App opens to Validation screen for Phase 04 WC01.
 Confirm validation target is parent WC01, not WC01-REPAIR01.
-Confirm expected output is champcity-ai/phase-04/validation_report/WC01.
+Confirm expected output is champcity-ai/phase-04/operator_validation/WC01.
 Confirm Refresh Repository State shows zero blockers.
 Confirm no legacy Saved Work Card schema errors appear.
 Confirm validation can be saved as Pass.

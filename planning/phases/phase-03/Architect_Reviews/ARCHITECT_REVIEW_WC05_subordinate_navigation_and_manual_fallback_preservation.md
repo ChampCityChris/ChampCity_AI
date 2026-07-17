@@ -14,10 +14,10 @@
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC05"
+      "champcity-ai/phase-03/operator_validation/WC05"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC05"
+      "champcity-ai/phase-03/operator_validation/WC05"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC05",

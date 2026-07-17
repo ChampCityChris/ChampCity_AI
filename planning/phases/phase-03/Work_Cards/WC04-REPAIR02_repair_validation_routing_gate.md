@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC04-REPAIR02 — Repair Validation Routing Gate"
   },
-  "payloadHash": "sha256:462cda69f0edcd6ceb4323899d10f5ae95bffdecff80759c9f756f054485bac4",
+  "payloadHash": "sha256:4f9b226789b9cc1a7c7a606178a4b88f5ae36de2074047bcb5aeecf415d5bb42",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -18,7 +18,7 @@
       "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR02",
       "champcity-ai/phase-03/work_card/WC05"
     ],
     "expectedOutputs": [],
@@ -69,7 +69,7 @@ Supporting sources:
 
 The durable workflow router is advancing to WC05 even though WC04 is not durably resolved.
 
-The WC04 validation report is contradictory at the raw field level:
+The WC04 operator validation is contradictory at the raw field level:
 
 - validation result says `Pass`
 - Operator decision says `Deferred - not validated yet`
@@ -157,7 +157,7 @@ Add or update targeted fixture coverage proving:
 
 ## Acceptance Criteria
 
-- A validation report with raw `Pass` but Operator decision `Deferred - not validated yet` is not treated as passing.
+- A operator validation with raw `Pass` but Operator decision `Deferred - not validated yet` is not treated as passing.
 - Deferred, failed, blocked, partial, rejected, and repair-required outcomes keep the Work Card unresolved.
 - The router does not advance WC04 to WC05 while WC04-REPAIR01 lacks passing repair validation.
 - The current durable repo state routes to WC04-REPAIR01 repair validation or an equivalent repair-validation-required state, not WC05.
@@ -236,7 +236,7 @@ Before editing:
 3. Create and switch to: feature/phase-03-wc04-repair02-routing-gate.
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
-6. Read the WC04 deferred validation report.
+6. Read the WC04 deferred operator validation.
 7. Read the WC04-REPAIR01 Implementer Report and Architect Review.
 8. Inspect current-action routing code and fixture validation code.
 

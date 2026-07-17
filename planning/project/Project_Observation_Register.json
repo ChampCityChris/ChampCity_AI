@@ -107,7 +107,7 @@
         },
         {
           "architectDisposition": "Establish a project-wide artifact authority and revision governance rule before implementing a storage fix.",
-          "architectObservation": "The application creates a new suffixed artifact when an existing validation report is amended instead of updating, superseding, or explicitly identifying one authoritative revision. Multiple durable artifacts can therefore represent the same workflow event.",
+          "architectObservation": "The application creates a new suffixed artifact when an existing operator validation is amended instead of updating, superseding, or explicitly identifying one authoritative revision. Multiple durable artifacts can therefore represent the same workflow event.",
           "architecturalDetermination": "One artifact represents one durable workflow event; revisions represent edits. ChampCity A/I must explicitly resolve one authoritative revision for Work Cards, Implementer Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.",
           "assignedTarget": "Future artifact authority and revision governance Work Card before workflow automation depends on duplicate or revised artifacts.",
           "candidateImplementationModels": [
@@ -129,9 +129,9 @@
           "architectDisposition": "Non-blocking observation. WC01 validation remains valid because the accepted Architect Review carries the combined repair evidence chain. Future validation UI should replace the single Implementer Report selector with a routed evidence-bundle association when validating a repaired parent Work Card.",
           "assignedTarget": "Future validation-record / routed evidence-bundle UI cleanup. Review before additional validation workflow automation.",
           "dateCaptured": "2026-07-16",
-          "dispositionRationale": "The issue affects evidence-association clarity and validation UX, but it did not prevent the parent WC01 Validation Report from being saved and does not invalidate WC01 validation.",
+          "dispositionRationale": "The issue affects evidence-association clarity and validation UX, but it did not prevent the parent WC01 Operator Validation from being saved and does not invalidate WC01 validation.",
           "id": "PROJ-OBS-009",
-          "operatorObservation": "During WC01 validation after WC01-REPAIR01, the validation screen allowed the parent WC01 Validation Report to be saved, but did not allow clean association to the relevant Implementer Report evidence because the UI still expects a single Implementer Report association. In repaired-parent validation, the correct evidence is a routed bundle: parent Work Card, accepted Architect Review, original Implementer Report, repair Work Card, and final repair Implementer Report.",
+          "operatorObservation": "During WC01 validation after WC01-REPAIR01, the validation screen allowed the parent WC01 Operator Validation to be saved, but did not allow clean association to the relevant Implementer Report evidence because the UI still expects a single Implementer Report association. In repaired-parent validation, the correct evidence is a routed bundle: parent Work Card, accepted Architect Review, original Implementer Report, repair Work Card, and final repair Implementer Report.",
           "resolutionArtifact": "Pending",
           "sourceArtifact": "planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC01_work_card_wc01_canonical_routed_screen_cutover_and_legacy_projection_retirement.md",
           "sourcePhase": "phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization",
@@ -160,7 +160,7 @@
     "kind": "observation_register",
     "title": "Project Observation Register"
   },
-  "payloadHash": "sha256:cf645e032f93fcf311bafad2e045bfc367c214a5bc71f10a02f526047e905aa8",
+  "payloadHash": "sha256:e2927ab9feb3c01b9f590b7c97838f12d47df206b8cdace79308ade20a61edfd",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -171,10 +171,10 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []

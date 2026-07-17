@@ -10,7 +10,7 @@
     "kind": "candidate_disposition",
     "title": "Candidate Disposition: Phase 06 WC01 Accepted via WC01-REPAIR01"
   },
-  "payloadHash": "sha256:d7f78e5da984ed65ab5870d37a9d0a1965cc6bc9ccdf963b989d14a0eb2d98e9",
+  "payloadHash": "sha256:4c123cf057bddf501c696cdaa2570d339bdc0c3e581d4ecae56632bbc0312a0f",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,23 +19,23 @@
       "champcity-ai/phase-06/work_card/WC02"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC01",
-      "champcity-ai/phase-06/operator_approval/WC01",
+      "champcity-ai/phase-06/architect_review/WC01",
+      "champcity-ai/phase-06/architect_review/WC01-REPAIR01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "champcity-ai/phase-06/implementer_report/WC01",
-      "champcity-ai/phase-06/architect_review/WC01",
-      "champcity-ai/phase-06/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
       "champcity-ai/phase-06/implementer_report/WC01-REPAIR01",
-      "champcity-ai/phase-06/architect_review/WC01-REPAIR01",
-      "champcity-ai/phase-06/operator_validation/WC01-REPAIR01"
+      "champcity-ai/phase-06/operator_approval/WC01",
+      "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
+      "champcity-ai/phase-06/operator_validation/WC01",
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/work_card/WC01-REPAIR01"
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "accepted",
-  "updatedAt": "2026-07-17T03:50:00.000Z",
+  "status": "active",
+  "updatedAt": "2026-07-17T23:37:17.229Z",
   "workCardId": "WC01"
 }
 -->

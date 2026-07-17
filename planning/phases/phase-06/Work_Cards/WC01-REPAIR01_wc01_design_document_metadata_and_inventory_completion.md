@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Work Card: Phase 06 WC01-REPAIR01 — WC01 Design Document Metadata and Inventory Completion"
   },
-  "payloadHash": "sha256:e119abaeb0e6bd679def50b6be4b58cc19e09628716469b0f9e4a04b593175b0",
+  "payloadHash": "sha256:4e2bfae28343fe9edf2dcc3733bf921c543713aa2385cfa37270850c75c78eaf",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,18 +19,18 @@
       "champcity-ai/phase-06/implementer_report/WC01-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/architect_review/WC01",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/implementer_report/WC01",
       "champcity-ai/phase-06/operator_approval/WC01",
       "champcity-ai/phase-06/operator_approval/WC01-REPAIR01",
-      "champcity-ai/phase-06/implementer_report/WC01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
-      "champcity-ai/phase-06/architect_review/WC01"
+      "champcity-ai/phase-06/work_card/WC01"
     ],
     "supersedes": []
   },
   "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "approved_for_implementer_execution",
+  "status": "active",
   "updatedAt": "2026-07-17T02:55:00.000Z",
   "workCardId": "WC01-REPAIR01"
 }

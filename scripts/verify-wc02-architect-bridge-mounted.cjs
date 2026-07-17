@@ -72,7 +72,7 @@ app.whenReady().then(async () => {
       "Expected output must show candidate_disposition/WC01.",
     );
     for (const requiredSource of [
-      `${projectId}/${phaseId}/validation_report/${workCardId}`,
+      `${projectId}/${phaseId}/operator_validation/${workCardId}`,
       `${projectId}/${phaseId}/architect_review/${workCardId}`,
       `${projectId}/${phaseId}/work_card/${workCardId}`,
       `${projectId}/${phaseId}/implementer_report/${workCardId}`,
@@ -119,7 +119,7 @@ app.whenReady().then(async () => {
     await require("../dist/main/canonicalRuntime.js").shutdownCanonicalRuntime();
     for (const candidate of BrowserWindow.getAllWindows()) candidate.destroy();
     if (cleanup) {
-      fs.rmSync(fixtureRoot, { recursive: true, force: true });
+      fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       fs.rmSync(workspacePath, { force: true });
     }
     app.exit(0);
@@ -144,7 +144,7 @@ app.whenReady().then(async () => {
 });
 
 function prepareFixture() {
-  fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   fs.mkdirSync(path.join(fixtureRoot, "planning"), { recursive: true });
   fs.writeFileSync(
     path.join(fixtureRoot, "package.json"),
@@ -169,11 +169,11 @@ function prepareFixture() {
     },
   });
   writeArtifact({
-    artifactId: `${projectId}/${phaseId}/approval/Operator_Phase_Approval`,
-    artifactType: "phase_approval",
+    artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
+    artifactType: "operator_approval",
     phaseId,
     stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
-    data: { decision: "approved" },
+    data: { approvalScope: "phase_work_card_plan", decision: "approved" },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
@@ -206,7 +206,7 @@ function prepareFixture() {
       `${projectId}/${phaseId}/implementer_report/${workCardId}-REPAIR01-repository-observed-evidence-derived-workflow-authority`,
       `${projectId}/${phaseId}/work_card/${workCardId}-REPAIR01`,
     ],
-    expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+    expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${workCardId}`],
     data: {
       decision: "Ready for Operator validation",
       operatorValidationAuthorized: true,
@@ -256,13 +256,15 @@ function prepareFixture() {
     },
   });
   writeArtifact({
-    artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}`,
-    artifactType: "validation_report",
+    artifactId: `${projectId}/${phaseId}/operator_validation/${workCardId}`,
+    artifactType: "operator_validation",
     phaseId,
     workCardId,
     stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01_architect_bridge_regression`,
     sources: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
+    expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/${workCardId}`],
     data: { workCardId, result: "Pass" },
+    title: "Operator Validation: WC01 Architect Bridge Regression",
   });
 
   fs.mkdirSync(userDataRoot, { recursive: true });

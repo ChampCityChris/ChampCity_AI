@@ -28,7 +28,7 @@ test("later failure and repair authority reopen an earlier passing candidate", (
     evidence("disposition/WC08", "architect_repair_disposition", 3, {
       repairArtifactId: "work-card/WC08-REPAIR01",
     }),
-    evidence("work-card/WC08-REPAIR01", "repair_work_card_active", 4),
+    evidence("work-card/WC08-REPAIR01", "work_card_repair_active", 4),
   ]);
 
   assert.equal(result.ambiguous, false);
@@ -40,7 +40,7 @@ test("later failure and repair authority reopen an earlier passing candidate", (
 
 test("a later controlling repair pass resolves the reopened parent via repair", () => {
   const result = resolveCandidateEvidencePrecedence("WC08", [
-    evidence("work-card/WC08-REPAIR01", "repair_work_card_active", 4),
+    evidence("work-card/WC08-REPAIR01", "work_card_repair_active", 4),
     evidence("validation/WC08-pass", "candidate_validation_pass", 1),
     evidence("validation/WC08-REPAIR01-pass", "repair_validation_pass", 5),
     evidence("disposition/WC08", "architect_repair_disposition", 3, {
@@ -74,7 +74,7 @@ test("historical, superseded, and archived favorable evidence cannot resolve", (
     evidence("validation/archived-pass", "candidate_validation_pass", 3, {
       status: "archived",
     }),
-    evidence("work-card/active-repair", "repair_work_card_active", 4),
+    evidence("work-card/active-repair", "work_card_repair_active", 4),
   ]);
 
   assert.equal(result.resolutionStatus, "unresolved");
@@ -104,7 +104,7 @@ test("duplicate controlling sequence blocks instead of using input or timestamp 
 test("a later active repair reopens an earlier repair pass", () => {
   const result = resolveCandidateEvidencePrecedence("WC08", [
     evidence("validation/repair-pass", "repair_validation_pass", 5),
-    evidence("work-card/later-active-repair", "repair_work_card_active", 6),
+    evidence("work-card/later-active-repair", "work_card_repair_active", 6),
   ]);
 
   assert.equal(result.resolutionStatus, "unresolved");

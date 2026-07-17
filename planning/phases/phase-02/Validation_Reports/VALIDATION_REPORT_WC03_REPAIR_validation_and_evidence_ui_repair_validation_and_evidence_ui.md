@@ -1,4 +1,31 @@
-# Human Validation Report - WC03_REPAIR_validation_and_evidence_ui Repair validation and evidence UI
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T02:24:51.277Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC03 REPAIR validation and evidence ui repair validation and evidence ui"
+  },
+  "payloadHash": "sha256:6bd2daf07579de9a181642bbc4c211a2545c90f8bd74a7c36b6a92985c165859",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T02:24:51.277Z",
+  "workCardId": "WC03_REPAIR_validation_and_evidence_ui"
+}
+-->
+
+# Human Operator Validation - WC03_REPAIR_validation_and_evidence_ui Repair validation and evidence UI
 
 ## Validation Target
 

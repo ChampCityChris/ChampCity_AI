@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR01",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC04-REPAIR01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-13T01:04:12.547Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC04-REPAIR01 Validation Flow and Current Action Panel Usability"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC04-REPAIR01 Validation Flow and Current Action Panel Usability"
   },
-  "payloadHash": "sha256:083223ebcff8ac72d573b491509118d1a7df91ee8034f7f47feb79ee333ff632",
+  "payloadHash": "sha256:d09ff34cb1217134859397301d6b2b300470edfff2d6880ff94fe834bd538808",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -31,7 +31,7 @@
 }
 -->
 
-# Human Validation Report - WC04-REPAIR01 Validation Flow and Current Action Panel Usability
+# Human Operator Validation - WC04-REPAIR01 Validation Flow and Current Action Panel Usability
 
 ## Validation Target
 

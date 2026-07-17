@@ -6,6 +6,10 @@
   "jsonPath": "planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC01_planning_corpus_inventory_and_questions.json",
   "markdownPath": "planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC01_planning_corpus_inventory_and_questions.md",
   "parentArtifactId": "champcity-ai/phase-05/work_card/WC01",
+  "payload": {
+    "kind": "reconciliation_review",
+    "title": "Reconciliation Review: PH05 WC01 Planning Corpus Inventory and Clarifying Questions"
+  },
   "payloadHash": "sha256:4062dae3e67f1fed78c4568e1f84b0c4bfeb60166af6aeb5a0de3a48065748cd",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
@@ -13,14 +17,14 @@
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-05/work_card/WC01",
-      "champcity-ai/phase-05/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-05/phase_planning/Phase_Planning",
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
-      "champcity-ai/project/supporting_document/PROJECT_STATE",
+      "champcity-ai/phase-05/phase_planning/Phase_Planning",
+      "champcity-ai/phase-05/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-05/work_card/WC01",
       "champcity-ai/project/observation_register/Project_Observation_Register",
-      "champcity-ai/project/observation/PROJ-OBS-010"
+      "champcity-ai/project/observation/PROJ-OBS-010",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/supporting_document/PROJECT_STATE"
     ],
     "supersedes": []
   },
@@ -28,11 +32,7 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-16T23:30:00.000Z",
-  "workCardId": "WC01",
-  "payload": {
-    "kind": "reconciliation_review",
-    "title": "Reconciliation Review: PH05 WC01 Planning Corpus Inventory and Clarifying Questions"
-  }
+  "workCardId": "WC01"
 }
 -->
 

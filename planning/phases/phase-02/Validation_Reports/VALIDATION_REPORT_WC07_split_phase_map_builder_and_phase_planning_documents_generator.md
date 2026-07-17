@@ -1,4 +1,31 @@
-# Human Validation Report - WC07 Split Phase Map Builder and Phase Planning Documents Generator
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-02T18:24:53.048Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC07 split phase map builder and phase planning documents generator"
+  },
+  "payloadHash": "sha256:07a0f92265e7cc008eac3ea666086befd840b153526c5045a67c770dca87e080",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-02T18:24:53.048Z",
+  "workCardId": "WC07"
+}
+-->
+
+# Human Operator Validation - WC07 Split Phase Map Builder and Phase Planning Documents Generator
 
 ## Validation Target
 

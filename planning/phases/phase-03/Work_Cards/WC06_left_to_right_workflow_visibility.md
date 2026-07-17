@@ -9,7 +9,7 @@
     "kind": "work_card",
     "title": "Work Card: WC06 — Left-to-Right Workflow Visibility"
   },
-  "payloadHash": "sha256:dff7320c95d519c2b1763dda9ed1c8d657854c69d9451fb1cf6ab620394929ef",
+  "payloadHash": "sha256:9f29d64293f9140073f19add69a2dba93127416e50b0cf3e816dbbad3636f4be",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -17,7 +17,7 @@
       "champcity-ai/phase-03/architect_review/WC06",
       "champcity-ai/phase-03/implementer_report/WC06",
       "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC06",
+      "champcity-ai/phase-03/operator_validation/WC06",
       "champcity-ai/phase-03/work_card/WC06-REPAIR01"
     ],
     "expectedOutputs": [],
@@ -59,7 +59,7 @@ Primary sources:
 - WC02 current-action model and fixtures
 - WC03 workflow router shell
 - WC04 current-action panel and accepted repair chain
-- WC05 subordinate navigation and accepted validation report
+- WC05 subordinate navigation and accepted operator validation
 
 Workflow authority:
 

@@ -1,217 +1,25 @@
 {
-  "closeoutId": "CLOSEOUT_phase-01_20260702151831",
-  "phase": "phase-01",
-  "decision": "Close phase",
-  "artifactSummary": {
-    "phase": "phase-01",
-    "folders": [
-      {
-        "folder": "Work_Cards",
-        "count": 20,
-        "fileNames": [
-          "WC01_define_work_card_schema_and_markdown_renderer.json",
-          "WC01_define_work_card_schema_and_markdown_renderer.md",
-          "WC02_build_new_work_card_capture_form.json",
-          "WC02_build_new_work_card_capture_form.md",
-          "WC03_add_architect_framing_prompt_composer.json",
-          "WC03_add_architect_framing_prompt_composer.md",
-          "WC04_add_risk_router.json",
-          "WC04_add_risk_router.md",
-          "WC05_generate_builder_prompt.json",
-          "WC05_generate_builder_prompt.md",
-          "WC06_capture_builder_report.json",
-          "WC06_capture_builder_report.md",
-          "WC07_human_validation_and_repair_loop.json",
-          "WC07_human_validation_and_repair_loop.md",
-          "WC08_phase_1_closeout_and_status_management.json",
-          "WC08_phase_1_closeout_and_status_management.md",
-          "WC09_prepare_figma_ui_design_handoff_package.json",
-          "WC09_prepare_figma_ui_design_handoff_package.md",
-          "WC10_implement_figma_ui_and_terminology_alignment.json",
-          "WC10_implement_figma_ui_and_terminology_alignment.md"
-        ]
-      },
-      {
-        "folder": "Architect_Prompts",
-        "count": 0,
-        "fileNames": []
-      },
-      {
-        "folder": "Risk_Reviews",
-        "count": 0,
-        "fileNames": []
-      },
-      {
-        "folder": "Builder_Prompts",
-        "count": 0,
-        "fileNames": []
-      },
-      {
-        "folder": "Builder_Reports",
-        "count": 20,
-        "fileNames": [
-          "BUILDER_REPORT_FIX01_agents_report_rule.md",
-          "BUILDER_REPORT_FIX02_configure_git_remote.md",
-          "BUILDER_REPORT_FIX03_codex_validation_lane_rule.md",
-          "BUILDER_REPORT_REPAIR_WC02_electron_launch_failure.md",
-          "BUILDER_REPORT_REPAIR_WC04_backfill_work_card_json_artifacts.md",
-          "BUILDER_REPORT_REPAIR_WC10_blank_renderer_after_vite_tailwind_migration.md",
-          "BUILDER_REPORT_REPAIR_WC10_header_layout_and_workflow_rail.md",
-          "BUILDER_REPORT_REPAIR_WC10_source_driven_figma_ui_parity.md",
-          "BUILDER_REPORT_REPAIR_WC10_strict_figma_source_parity_diff_pass.md",
-          "BUILDER_REPORT_REPAIR_WC10_ui_branding_and_responsive_overflow_fixes.md",
-          "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
-          "BUILDER_REPORT_WC02_work_card_capture_form.md",
-          "BUILDER_REPORT_WC03_architect_framing_prompt_composer.md",
-          "BUILDER_REPORT_WC04_risk_router.md",
-          "BUILDER_REPORT_WC05_generate_builder_prompt.md",
-          "BUILDER_REPORT_WC06_capture_builder_report.md",
-          "BUILDER_REPORT_WC07_human_validation_and_repair_loop.md",
-          "BUILDER_REPORT_WC08_phase_1_closeout_and_status_management.md",
-          "BUILDER_REPORT_WC09_figma_ui_design_handoff_package.md",
-          "BUILDER_REPORT_WC10_figma_ui_and_terminology_alignment.md"
-        ]
-      },
-      {
-        "folder": "Validation_Reports",
-        "count": 22,
-        "fileNames": [
-          "VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.json",
-          "VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.md",
-          "VALIDATION_REPORT_WC02_build_new_work_card_capture_form.json",
-          "VALIDATION_REPORT_WC02_build_new_work_card_capture_form.md",
-          "VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json",
-          "VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.md",
-          "VALIDATION_REPORT_WC04_add_risk_router.json",
-          "VALIDATION_REPORT_WC04_add_risk_router.md",
-          "VALIDATION_REPORT_WC05_generate_builder_prompt.json",
-          "VALIDATION_REPORT_WC05_generate_builder_prompt.md",
-          "VALIDATION_REPORT_WC06_capture_builder_report.json",
-          "VALIDATION_REPORT_WC06_capture_builder_report.md",
-          "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
-          "VALIDATION_REPORT_WC07_human_validation_and_repair_loop.md",
-          "VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.json",
-          "VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.md",
-          "VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json",
-          "VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.md",
-          "VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json",
-          "VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.md",
-          "VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
-          "VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.md"
-        ]
-      },
-      {
-        "folder": "Repair_Prompts",
-        "count": 0,
-        "fileNames": []
-      },
-      {
-        "folder": "Closeout_Reports",
-        "count": 6,
-        "fileNames": [
-          "CLOSEOUT_REPORT_phase-01_phase_1_closeout_2.json",
-          "CLOSEOUT_REPORT_phase-01_phase_1_closeout_2.md",
-          "CLOSEOUT_REPORT_phase-01_phase_1_closeout_3.json",
-          "CLOSEOUT_REPORT_phase-01_phase_1_closeout_3.md",
-          "CLOSEOUT_REPORT_phase-01_phase_1_closeout.json",
-          "CLOSEOUT_REPORT_phase-01_phase_1_closeout.md"
-        ]
-      }
-    ],
-    "artifactCounts": {
-      "Work_Cards": 20,
-      "Architect_Prompts": 0,
-      "Risk_Reviews": 0,
-      "Builder_Prompts": 0,
-      "Builder_Reports": 20,
-      "Validation_Reports": 22,
-      "Repair_Prompts": 0,
-      "Closeout_Reports": 6
-    },
-    "workCardCount": 10,
-    "workCardsWithBothJsonAndMarkdown": [
-      {
-        "workCardId": "WC01",
-        "stem": "WC01_define_work_card_schema_and_markdown_renderer",
-        "jsonFileName": "WC01_define_work_card_schema_and_markdown_renderer.json",
-        "markdownFileName": "WC01_define_work_card_schema_and_markdown_renderer.md"
-      },
-      {
-        "workCardId": "WC02",
-        "stem": "WC02_build_new_work_card_capture_form",
-        "jsonFileName": "WC02_build_new_work_card_capture_form.json",
-        "markdownFileName": "WC02_build_new_work_card_capture_form.md"
-      },
-      {
-        "workCardId": "WC03",
-        "stem": "WC03_add_architect_framing_prompt_composer",
-        "jsonFileName": "WC03_add_architect_framing_prompt_composer.json",
-        "markdownFileName": "WC03_add_architect_framing_prompt_composer.md"
-      },
-      {
-        "workCardId": "WC04",
-        "stem": "WC04_add_risk_router",
-        "jsonFileName": "WC04_add_risk_router.json",
-        "markdownFileName": "WC04_add_risk_router.md"
-      },
-      {
-        "workCardId": "WC05",
-        "stem": "WC05_generate_builder_prompt",
-        "jsonFileName": "WC05_generate_builder_prompt.json",
-        "markdownFileName": "WC05_generate_builder_prompt.md"
-      },
-      {
-        "workCardId": "WC06",
-        "stem": "WC06_capture_builder_report",
-        "jsonFileName": "WC06_capture_builder_report.json",
-        "markdownFileName": "WC06_capture_builder_report.md"
-      },
-      {
-        "workCardId": "WC07",
-        "stem": "WC07_human_validation_and_repair_loop",
-        "jsonFileName": "WC07_human_validation_and_repair_loop.json",
-        "markdownFileName": "WC07_human_validation_and_repair_loop.md"
-      },
-      {
-        "workCardId": "WC08",
-        "stem": "WC08_phase_1_closeout_and_status_management",
-        "jsonFileName": "WC08_phase_1_closeout_and_status_management.json",
-        "markdownFileName": "WC08_phase_1_closeout_and_status_management.md"
-      },
-      {
-        "workCardId": "WC09",
-        "stem": "WC09_prepare_figma_ui_design_handoff_package",
-        "jsonFileName": "WC09_prepare_figma_ui_design_handoff_package.json",
-        "markdownFileName": "WC09_prepare_figma_ui_design_handoff_package.md"
-      },
-      {
-        "workCardId": "WC10",
-        "stem": "WC10_implement_figma_ui_and_terminology_alignment",
-        "jsonFileName": "WC10_implement_figma_ui_and_terminology_alignment.json",
-        "markdownFileName": "WC10_implement_figma_ui_and_terminology_alignment.md"
-      }
-    ],
-    "workCardsMissingJson": [],
-    "workCardsMissingMarkdown": [],
-    "builderReportCount": 20,
-    "builderPromptCount": 0,
-    "architectPromptCount": 0,
-    "riskReviewCount": 0,
-    "validationReportCount": 22,
-    "repairPromptCount": 0,
-    "closeoutReportCount": 6,
-    "latestCloseoutReportFileName": "CLOSEOUT_REPORT_phase-01_phase_1_closeout.md",
-    "missingExpectedArtifactObservations": [
-      "Existing Closeout Report artifacts found. Latest filename: CLOSEOUT_REPORT_phase-01_phase_1_closeout.md."
-    ],
-    "deterministicRecommendation": "Phase appears ready for closeout review."
+  "artifactId": "champcity-ai/supporting_document/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4",
+  "artifactType": "supporting_document",
+  "createdAt": "2026-07-02T15:18:31.605Z",
+  "jsonPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.json",
+  "markdownPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.md",
+  "payload": {
+    "contentMarkdown": "# Phase Closeout Report - phase-01\n\n## Phase\n\nphase-01\n\n## Closeout Decision\n\nClose phase\n\n## Deterministic Recommendation\n\nPhase appears ready for closeout review. Closeout decision is recorded for human review; this record does not close Work Cards automatically.\n\n## Artifact Summary\n\n- Work_Cards: 20\n- Architect_Prompts: 0\n- Risk_Reviews: 0\n- Builder_Prompts: 0\n- Builder_Reports: 20\n- Validation_Reports: 22\n- Repair_Prompts: 0\n- Closeout_Reports: 6\n\n## Work Card Pairing Status\n\n- WC01: WC01_define_work_card_schema_and_markdown_renderer.json + WC01_define_work_card_schema_and_markdown_renderer.md\n- WC02: WC02_build_new_work_card_capture_form.json + WC02_build_new_work_card_capture_form.md\n- WC03: WC03_add_architect_framing_prompt_composer.json + WC03_add_architect_framing_prompt_composer.md\n- WC04: WC04_add_risk_router.json + WC04_add_risk_router.md\n- WC05: WC05_generate_builder_prompt.json + WC05_generate_builder_prompt.md\n- WC06: WC06_capture_builder_report.json + WC06_capture_builder_report.md\n- WC07: WC07_human_validation_and_repair_loop.json + WC07_human_validation_and_repair_loop.md\n- WC08: WC08_phase_1_closeout_and_status_management.json + WC08_phase_1_closeout_and_status_management.md\n- WC09: WC09_prepare_figma_ui_design_handoff_package.json + WC09_prepare_figma_ui_design_handoff_package.md\n- WC10: WC10_implement_figma_ui_and_terminology_alignment.json + WC10_implement_figma_ui_and_terminology_alignment.md\n\n## Missing Or Warning Observations\n\n- Existing Closeout Report artifacts found. Latest filename: CLOSEOUT_REPORT_phase-01_phase_1_closeout.md.\n\n## Completed Items\n\nAll Work Cards, Fixes, and Repairs have been drafted, implemented, and validated.\n\n## Remaining Items\n\nNo Phase 1 Items remain\n\n## Known Risks\n\nNone recorded.\n\n## Operator Notes\n\nNone recorded.\n\n## Recommended Next Action\n\nNone recorded.\n\n## Generated Timestamp\n\n2026-07-02T15:18:31.605Z\n\n## Non-Mutating Note\n\nThis Phase Closeout record does not mutate Work Cards, change Work Card status or risk level, create release tags, push to GitHub, package the app, deploy anything, or start the next phase by itself.\n",
+    "data": {},
+    "kind": "supporting_document",
+    "title": "CLOSEOUT REPORT phase-01 phase 1 closeout 4"
   },
-  "closeoutSummary": "Phase 01 was completed before full buildout of application allowed for validating implementer reports and work cards. All validations were performed and WC, FIXES, and REPAIRS passed validation.  PHASE 01 is being marked as closed out to create a legacy document of this process. ",
-  "completedItems": "All Work Cards, Fixes, and Repairs have been drafted, implemented, and validated. ",
-  "remainingItems": "No Phase 1 Items remain",
-  "knownRisks": "",
-  "operatorNotes": "",
-  "recommendedNextAction": "",
-  "deterministicRecommendation": "Phase appears ready for closeout review. Closeout decision is recorded for human review; this record does not close Work Cards automatically.",
-  "createdAt": "2026-07-02T15:18:31.605Z"
+  "payloadHash": "sha256:31fbb113f2c7fafb6d92a8fa033a184820fe76cfdac511e7d709857ab0c16771",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-02T15:18:31.605Z"
 }

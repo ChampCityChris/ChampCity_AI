@@ -19,9 +19,9 @@
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
+      "champcity-ai/phase-06/architect_review/WC02",
       "champcity-ai/phase-06/operator_validation/WC02",
-      "champcity-ai/phase-06/architect_review/WC02"
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01"
     ],
     "supersedes": []
   },

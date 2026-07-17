@@ -9,7 +9,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report - WC02-PREFLIGHT Repo Safety Hygiene and Local Path Redaction"
   },
-  "payloadHash": "sha256:92ae6d456dda6dd5419470d48690da3007bbd5c37d280c93a8a77fe807708759",
+  "payloadHash": "sha256:6c404e7df81d20efc546ae0f44f1e0b6cdc8491b0ed27f5d492714071483d76c",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -82,7 +82,7 @@ None.
 ## Local Redaction Scan Commands
 
 - `rg -n "Local Path Redaction|Architect and Implementer|<PROJECT_REPO>" AGENTS.md`
-- `rg -n --pcre2 "(?:[A-Za-z]:(?:[\\\\]+|/)+Users(?:[\\\\]+|/)+|/(?:Users|home)/|~(?:/|[\\\\]+))" AGENTS.md planning/phases/phase-03 "Generic Docs/example_project_profile_champcity_v11.md"`
+- `rg -n --pcre2 "(?:[A-Za-z]:(?:[////]+|/)+Users(?:[////]+|/)+|/(?:Users|home)/|~(?:/|[////]+))" AGENTS.md planning/phases/phase-03 "Generic Docs/example_project_profile_champcity_v11.md"`
 - `git status --porcelain --untracked-files=all` with a local text-file filter, followed by the same `rg --pcre2` local-path regex over the changed text-like file list.
 
 ## Local Scan Results

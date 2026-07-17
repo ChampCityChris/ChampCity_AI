@@ -19,9 +19,9 @@
       "champcity-ai/phase-04/architect_review/WC03"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC03",
       "champcity-ai/phase-04/candidate_disposition/WC02",
-      "champcity-ai/phase-04/validation_report/WC02",
+      "champcity-ai/phase-04/operator_validation/WC02",
+      "champcity-ai/phase-04/work_card/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []

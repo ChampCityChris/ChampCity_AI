@@ -9,7 +9,7 @@
     "kind": "observation_register",
     "title": "Phase 03 Observation Register"
   },
-  "payloadHash": "sha256:24a4cafb0d5b4ee313e4fac1b2b96160a4e64f332e0a8cb627d177400a5157a9",
+  "payloadHash": "sha256:7faf1d2b1f0b88d02909d86833a8f80ec5c05759d115017956d50400d80eb7d0",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -108,7 +108,7 @@ Each future Work Card creation pass must review both the project-level and phase
 
 ### PH03-OBS-008 — Report review protocol and validation disposition role confusion
 
-- Source artifact: Operator discussion following WC08 validation report review; VALIDATION_REPORT_WC08_current_step_context_inspector.md
+- Source artifact: Operator discussion following WC08 operator validation review; VALIDATION_REPORT_WC08_current_step_context_inspector.md
 - Source Work Card: WC08
 - Date captured: 2026-07-14
 - Operator observation: Validation reports and Implementer Reports lack embedded Architect review instructions. The Operator Decision dropdown in validation reports creates role confusion because it asks the Operator to make workflow disposition decisions that should be made by the Architect after analyzing the report and evidence.
@@ -137,7 +137,7 @@ Each future Work Card creation pass must review both the project-level and phase
 - Source artifact: Architect review of amended WC08-REPAIR02 Human Validation Reports and the duplicate `_2` validation artifacts created by the application.
 - Source Work Card: WC08-REPAIR02 / WC08-REPAIR03
 - Date captured: 2026-07-14
-- Architect observation: The application currently creates a new suffixed validation artifact when an existing validation report is amended instead of updating, superseding, or otherwise identifying one authoritative revision. This leaves multiple durable reports for the same workflow event and forces routing or review logic to infer authority from filenames, timestamps, or filesystem order.
+- Architect observation: The application currently creates a new suffixed validation artifact when an existing operator validation is amended instead of updating, superseding, or otherwise identifying one authoritative revision. This leaves multiple durable reports for the same workflow event and forces routing or review logic to infer authority from filenames, timestamps, or filesystem order.
 - Architect disposition: Promote to project-level architectural governance and require explicit design before implementation.
 - Disposition rationale: Artifact identity and artifact revision are separate concepts. At any point in time, every workflow artifact must have exactly one authoritative revision. Historical revisions may exist, but authority must never be inferred from filename suffixes, filesystem ordering, creation timestamps, or directory enumeration. The workflow model must represent authority explicitly.
 - Architectural determination: ChampCity A/I shall distinguish artifact identity from artifact revision. One artifact represents one durable workflow event; revisions represent edits to that artifact. The application shall resolve exactly one authoritative revision for Work Cards, Implementer Reports, Validation Reports, Architect Reviews, Phase Planning Documents, and future durable workflow artifacts.

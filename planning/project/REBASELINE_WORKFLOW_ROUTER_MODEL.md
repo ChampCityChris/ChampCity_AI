@@ -9,7 +9,7 @@
     "kind": "supporting_document",
     "title": "Project Mapping Rebaseline: Workflow Router Model"
   },
-  "payloadHash": "sha256:eeb510ee2d97740ee021bada1adbc0d08b9f6d0e04c952875b29259c189ecd1b",
+  "payloadHash": "sha256:a1537844cf395df6539a9add786a3d2e512642f6f3f535d089bf8fcff08c145f",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -19,10 +19,10 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -36,7 +36,7 @@
 
 # Project Mapping Rebaseline: Workflow Router Model
 
-Status: Superseded as current roadmap authority by `champcity-ai/phase-05/roadmap_rebaseline/WC03`
+Status: Superseded as current roadmap authority by `champcity-ai/phase-05/project_roadmap/WC03`
 
 ## Disposition
 
@@ -44,7 +44,7 @@ This document remains historical context for the Phase 03 workflow-router correc
 
 ## Current Authority
 
-The current approved roadmap authority is `champcity-ai/phase-05/roadmap_rebaseline/WC03`, approved by `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`.
+The current approved roadmap authority is `champcity-ai/phase-05/project_roadmap/WC03`, approved by `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`.
 
 Phase 04 is closed as a stabilization bridge. Phase 05 roadmap rebaseline is approved. The next implementation phase is Phase 06: Workflow Kernel and Artifact Protocol Replacement.
 

@@ -5,6 +5,10 @@
   "createdAt": "2026-07-16T22:30:00.000Z",
   "jsonPath": "planning/phases/phase-05/Work_Cards/WC01_planning_corpus_review_and_clarifying_questions.json",
   "markdownPath": "planning/phases/phase-05/Work_Cards/WC01_planning_corpus_review_and_clarifying_questions.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Phase 05 WC01 Planning Corpus Review and Clarifying Questions"
+  },
   "payloadHash": "sha256:71c2f989f00544d5ee91c4c715e6e22eaf154ef36b1e32d1318ec261766ca471",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
@@ -22,11 +26,7 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-16T22:30:00.000Z",
-  "workCardId": "WC01",
-  "payload": {
-    "kind": "work_card",
-    "title": "Work Card: Phase 05 WC01 Planning Corpus Review and Clarifying Questions"
-  }
+  "workCardId": "WC01"
 }
 -->
 

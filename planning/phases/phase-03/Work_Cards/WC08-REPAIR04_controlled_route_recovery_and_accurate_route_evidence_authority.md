@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC08-REPAIR04 — Controlled Route Recovery and Accurate Route Evidence Authority"
   },
-  "payloadHash": "sha256:968063f8b3a253f84d68037b794f46a0838d798c497a47fd7c9c318425f296b1",
+  "payloadHash": "sha256:96881493263d1f60bc7ff571ea0e7e24c7d769bcd3daff524ae003822785945d",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -26,7 +26,7 @@
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR04"
     ],
     "sources": [
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR01",
       "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance"
     ],
     "supersedes": []
@@ -125,13 +125,13 @@ The evaluator must correctly interpret:
 
 - WC08-REPAIR02 Implementer Report;
 - WC08-REPAIR02 Architect Review;
-- WC08-REPAIR02 validation reports, including the amended `_2` validation report;
+- WC08-REPAIR02 validation reports, including the amended `_2` operator validation;
 - WC08-REPAIR03 Implementer Report;
-- WC08-REPAIR03 validation report;
+- WC08-REPAIR03 operator validation;
 - Architect dispositions already provided in Architect review output; and
 - any pending or missing durable disposition record.
 
-If the application lacks a durable place to store final Architect acceptance after reviewing a validation report, the route model must expose that as the missing/pending evidence instead of selecting an unrelated stale route.
+If the application lacks a durable place to store final Architect acceptance after reviewing a operator validation, the route model must expose that as the missing/pending evidence instead of selecting an unrelated stale route.
 
 Do not implement the full artifact authority/revision governance model from PH03-OBS-010 / PROJ-OBS-007 in this pass unless the minimum route fix requires a narrow authoritative-selection adapter for current-action evaluation. If a narrow adapter is needed, document its limitations and leave the broader architecture observation open.
 
@@ -229,7 +229,7 @@ Preserve all behavior that passed WC08-REPAIR01 validation:
 - Do not redesign the whole workflow rail or Supporting Tools menu.
 - Do not add another artifact browser.
 - Do not add a permanent left-panel inspector.
-- Do not mark any Work Card, repair, validation report, or Architect disposition as accepted.
+- Do not mark any Work Card, repair, operator validation, or Architect disposition as accepted.
 - Do not perform Operator validation.
 - Do not merge to `dev`.
 - Do not push to `master`.
@@ -343,7 +343,7 @@ Before editing:
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
 6. Read this WC08-REPAIR04 Work Card.
-7. Read the WC08-REPAIR01 validation report and evidence paths.
+7. Read the WC08-REPAIR01 operator validation and evidence paths.
 8. Read WC08, WC08-REPAIR01, WC08-REPAIR02, and WC08-REPAIR03 Work Cards, Implementer Reports, Architect Reviews, and Validation Reports.
 9. Read the Phase and Project Observation Registers.
 10. Inspect current-action evaluation, repair-chain discovery, validation/disposition parsing, duplicate validation handling, route context generation, and WorkflowRouterShell route recovery UI.

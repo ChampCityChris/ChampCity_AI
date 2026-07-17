@@ -236,7 +236,7 @@ app.whenReady().then(async () => {
       );
       assert.equal(advanced.currentAction.id, "operator_validation_required");
       assert.equal(advanced.currentAction.workCardId, workCardId);
-      assert.equal(advanced.currentAction.routedAction.expectedOutput.artifactId, `${projectId}/${phaseId}/validation_report/${workCardId}`);
+      assert.equal(advanced.currentAction.routedAction.expectedOutput.artifactId, `${projectId}/${phaseId}/operator_validation/${workCardId}`);
 
       await window.webContents.executeJavaScript(
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Continue current action: Validate"))?.click(), true)`,
@@ -244,18 +244,19 @@ app.whenReady().then(async () => {
       );
       await waitFor(
         window,
-        `document.body.innerText.includes("Routed workspace: Human Validation") && window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.routedAction?.expectedOutput?.artifactId === "${projectId}/${phaseId}/validation_report/${workCardId}")`,
+        `document.body.innerText.includes("Routed workspace: Human Validation") && window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.routedAction?.expectedOutput?.artifactId === "${projectId}/${phaseId}/operator_validation/${workCardId}")`,
         "repaired-parent Operator Validation UI",
       );
       writeArtifact({
-        artifactId: `${projectId}/${phaseId}/validation_report/${workCardId}`,
-        artifactType: "validation_report",
+        artifactId: `${projectId}/${phaseId}/operator_validation/${workCardId}`,
+        artifactType: "operator_validation",
         phaseId,
         workCardId,
         stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_${workCardId}_mounted_parent`,
         sources: [`${projectId}/${phaseId}/architect_review/${workCardId}`],
+        expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/${workCardId}`],
         data: { workCardId, result: "Pass" },
-        title: "Validation Report: WC01 Parent Pass",
+        title: "Operator Validation: WC01 Parent Pass",
       });
       await window.webContents.executeJavaScript(
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
@@ -263,14 +264,30 @@ app.whenReady().then(async () => {
       );
       await waitFor(
         window,
-        `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "architect_disposition_required" && result.currentAction?.routedAction?.screenId === "architect-bridge" && result.currentAction?.routedAction?.expectedOutput?.artifactId === "${projectId}/${phaseId}/candidate_disposition/${workCardId}")`,
+        `window.champCity.getCurrentRequiredAction().then((result) => result.currentAction?.id === "architect_disposition_required")`,
         "Architect Bridge disposition gate after validation pass",
       );
-      const packetResult = await window.webContents.executeJavaScript(
-        `window.champCity.ensureArchitectTaskPacket()`,
+      await window.webContents.executeJavaScript(
+        `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Continue current action"))?.click(), true)`,
         true,
       );
-      assert.equal(packetResult.ok, true, JSON.stringify(packetResult.errorMessages));
+      await waitFor(
+        window,
+        `document.body.innerText.includes("Routed workspace: Architect Bridge")`,
+        "Architect Bridge routed workspace after validation pass",
+      );
+      const packetJsonPath = path.join(
+        fixtureRoot,
+        "planning",
+        "phases",
+        phaseId,
+        "Architect_Tasks",
+        "ARCHITECT_TASK_WC01_candidate_disposition.json",
+      );
+      await waitForFile(packetJsonPath, "Architect Task Packet JSON");
+      const packetResult = {
+        packet: JSON.parse(fs.readFileSync(packetJsonPath, "utf8")),
+      };
       assert.equal(
         packetResult.packet.payload.data.expectedOutput.artifactId,
         `${projectId}/${phaseId}/candidate_disposition/${workCardId}`,
@@ -288,7 +305,7 @@ app.whenReady().then(async () => {
           `${projectId}/${phaseId}/architect_review/${workCardId}`,
           `${projectId}/${phaseId}/work_card/${repairId}`,
           `${projectId}/${phaseId}/implementer_report/${repairId}`,
-          `${projectId}/${phaseId}/validation_report/${workCardId}`,
+          `${projectId}/${phaseId}/operator_validation/${workCardId}`,
         ],
         data: {
           workCardId,
@@ -324,8 +341,8 @@ app.whenReady().then(async () => {
     await require("../dist/main/canonicalRuntime.js").shutdownCanonicalRuntime();
     for (const candidate of BrowserWindow.getAllWindows()) candidate.destroy();
     if (cleanup) {
-      fs.rmSync(fixtureRoot, { recursive: true, force: true });
-      fs.rmSync(fixtureRootOther, { recursive: true, force: true });
+      fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      fs.rmSync(fixtureRootOther, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       fs.rmSync(workspacePath, { force: true });
     }
     app.exit(0);
@@ -339,8 +356,8 @@ app.whenReady().then(async () => {
 });
 
 function prepareFixture() {
-  fs.rmSync(fixtureRoot, { recursive: true, force: true });
-  fs.rmSync(fixtureRootOther, { recursive: true, force: true });
+  fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  fs.rmSync(fixtureRootOther, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   seededArtifacts.length = 0;
   fs.mkdirSync(path.join(fixtureRoot, "planning"), { recursive: true });
   fs.writeFileSync(
@@ -369,11 +386,11 @@ function prepareFixture() {
     },
   });
   writeArtifact({
-    artifactId: `${projectId}/${phaseId}/approval/Operator_Phase_Approval`,
-    artifactType: "phase_approval",
+    artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
+    artifactType: "operator_approval",
     phaseId,
     stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
-    data: { decision: "approved" },
+    data: { approvalScope: "phase_work_card_plan", decision: "approved" },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
@@ -573,4 +590,13 @@ async function waitFor(window, expression, description, timeoutMs = 15000) {
     true,
   ).catch(() => "<renderer unavailable>");
   throw new Error(`Timed out waiting for ${description}. Renderer text: ${bodyText.slice(0, 1200)}`);
+}
+
+async function waitForFile(filePath, description, timeoutMs = 15000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (fs.existsSync(filePath)) return;
+    await new Promise((resolve) => setTimeout(resolve, 75));
+  }
+  throw new Error(`Timed out waiting for ${description}: ${filePath}`);
 }

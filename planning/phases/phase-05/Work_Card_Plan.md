@@ -5,6 +5,10 @@
   "createdAt": "2026-07-16T22:30:00.000Z",
   "jsonPath": "planning/phases/phase-05/Work_Card_Plan.json",
   "markdownPath": "planning/phases/phase-05/Work_Card_Plan.md",
+  "payload": {
+    "kind": "work_card_plan",
+    "title": "Work Card Plan: phase-05"
+  },
   "payloadHash": "sha256:a813ea8ff8af0a163592cda03d75933f2bd6cd02740645bf3b3ab014c075bc76",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
@@ -19,11 +23,7 @@
   "revision": 1,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-16T22:30:00.000Z",
-  "payload": {
-    "kind": "work_card_plan",
-    "title": "Work Card Plan: phase-05"
-  }
+  "updatedAt": "2026-07-16T22:30:00.000Z"
 }
 -->
 

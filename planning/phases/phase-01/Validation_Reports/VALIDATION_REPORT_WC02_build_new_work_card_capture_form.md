@@ -1,4 +1,31 @@
-# Human Validation Report - WC02 Build New Work Card capture form
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC02_build_new_work_card_capture_form",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:57:46.241Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC02 build new work card capture form"
+  },
+  "payloadHash": "sha256:8f50f648274d96619b375c8e26807bf9e2033fcc01225b4246dbdf4275131bea",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:57:46.241Z",
+  "workCardId": "WC02"
+}
+-->
+
+# Human Operator Validation - WC02 Build New Work Card capture form
 
 ## Work Card
 

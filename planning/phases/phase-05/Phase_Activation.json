@@ -7,12 +7,12 @@
   "payload": {
     "contentMarkdown": "# Phase Activation: phase-05\n\nStatus: Active\nDate: 2026-07-16\nActivation method: Architect / Operator directive outside the application\n\n## Reason\n\nPhase 04 is closed as a stabilization bridge phase after exposing that the current prompt-handoff foundation must be reconciled before further implementation.\n\nThe next controlled phase is reconciliation and release-candidate roadmap rebaseline.\n\n## Prior Phase Disposition\n\n- Prior phase: phase-04\n- Status: closed_with_rebaseline_required\n- Closure artifact: `champcity-ai/phase-04/phase_closeout/PHASE_04`\n- Key carry-forward issue: relationship-driven workflow kernel and integration-ready artifact protocol must be defined before further implementation phases.\n\n## Activated Phase\n\nphase-05 — Reconciliation and Roadmap Rebaseline\n\n## First Required Action\n\nExecute WC01 — Planning Corpus Review and Clarifying Questions.\n",
     "data": {
-      "status": "active",
+      "activationMethod": "architect_operator_directive_outside_application",
+      "firstRequiredAction": "WC01 Planning Corpus Review and Clarifying Questions",
       "phaseId": "phase-05",
       "priorPhaseId": "phase-04",
       "priorPhaseStatus": "closed_with_rebaseline_required",
-      "activationMethod": "architect_operator_directive_outside_application",
-      "firstRequiredAction": "WC01 Planning Corpus Review and Clarifying Questions"
+      "status": "active"
     },
     "kind": "phase_activation",
     "title": "Phase Activation: phase-05"

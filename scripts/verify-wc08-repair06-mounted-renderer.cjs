@@ -183,8 +183,8 @@ const operatorValidationAction = {
       "champcity-ai/phase-03/architect_review/WC08-REPAIR04",
     ],
     expectedOutput: {
-      artifactId: "champcity-ai/phase-03/validation_report/WC08-REPAIR04",
-      artifactType: "validation_report",
+      artifactId: "champcity-ai/phase-03/operator_validation/WC08-REPAIR04",
+      artifactType: "operator_validation",
     },
     stateRevision: 2,
     bindingSource: {

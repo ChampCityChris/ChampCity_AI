@@ -1,4 +1,31 @@
-# Human Validation Report - WC05 Generate Builder prompt
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC05_generate_builder_prompt",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:58:01.161Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC05 generate builder prompt"
+  },
+  "payloadHash": "sha256:68fac823fcbb39b5bafb3d1868052898c443c18833a180f6aa11013a72210d25",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:58:01.161Z",
+  "workCardId": "WC05"
+}
+-->
+
+# Human Operator Validation - WC05 Generate Builder prompt
 
 ## Work Card
 

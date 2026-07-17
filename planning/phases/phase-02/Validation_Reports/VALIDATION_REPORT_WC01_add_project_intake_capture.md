@@ -1,4 +1,31 @@
-# Human Validation Report - WC01 Add Project Intake capture
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC01_add_project_intake_capture",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T16:26:30.483Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC01 add project intake capture"
+  },
+  "payloadHash": "sha256:c0b59b0a7d6b4439c4001754705cf9f0730b79ddb3e1afe31e487db9d68af49e",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T16:26:30.483Z",
+  "workCardId": "WC01"
+}
+-->
+
+# Human Operator Validation - WC01 Add Project Intake capture
 
 ## Work Card
 

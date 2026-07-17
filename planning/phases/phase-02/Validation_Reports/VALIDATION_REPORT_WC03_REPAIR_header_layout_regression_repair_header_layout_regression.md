@@ -1,4 +1,31 @@
-# Human Validation Report - WC03_REPAIR_header_layout_regression Repair header layout regression
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T02:25:35.844Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC03 REPAIR header layout regression repair header layout regression"
+  },
+  "payloadHash": "sha256:6431d6baca8dc5fb32ad6ad1c11cccb8c037f2472a551895bd1f517d231a8942",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T02:25:35.844Z",
+  "workCardId": "WC03_REPAIR_header_layout_regression"
+}
+-->
+
+# Human Operator Validation - WC03_REPAIR_header_layout_regression Repair header layout regression
 
 ## Validation Target
 

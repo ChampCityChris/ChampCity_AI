@@ -27,10 +27,10 @@
     "children": [],
     "expectedOutputs": [],
     "sources": [
+      "champcity-ai/phase-04/candidate_disposition/WC02",
+      "champcity-ai/phase-04/operator_validation/WC02",
       "champcity-ai/phase-04/work_card/WC02",
-      "champcity-ai/phase-04/work_card/WC02-REPAIR02",
-      "champcity-ai/phase-04/validation_report/WC02",
-      "champcity-ai/phase-04/candidate_disposition/WC02"
+      "champcity-ai/phase-04/work_card/WC02-REPAIR02"
     ],
     "supersedes": []
   },

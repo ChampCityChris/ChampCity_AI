@@ -1,44 +1,45 @@
 {
-  "artifactId": "champcity-ai/phase-05/validation_report/WC03-LIVING-DOCS",
-  "artifactType": "validation_report",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03-LIVING-DOCS",
-  "parentArtifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+  "artifactId": "champcity-ai/phase-05/operator_validation/WC03-LIVING-DOCS",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-17T01:58:00.000Z",
-  "updatedAt": "2026-07-17T01:58:00.000Z",
   "jsonPath": "planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json",
   "markdownPath": "planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.md",
-  "payloadHash": "sha256:549575dc763428ade8cee16b38cd9d49e76eae51592d3b6738517e3a138afc61",
+  "parentArtifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+  "payload": {
+    "contentMarkdown": "# Operator Validation: WC03-LIVING-DOCS Living Document Update Pass\n\nStatus: Pass\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nValidation target: `champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS`\nValidated by: Operator\nValidation method: manual review after Architect acceptance\nValidation result: Pass\n\n## What Was Validated\n\nThe Operator manually validated the Phase 05 living-document update pass after Architect Review.\n\nManual validation confirmed:\n\n1. Project Roadmap reflects the approved Phase 05 roadmap and Phase 06 through Phase 15 sequence.\n2. Project State no longer says Phase 03 is active.\n3. Project Observation Register includes PROJ-OBS-010.\n4. Open Questions no longer keeps Phase 05 answered questions open.\n5. No source-code change was introduced by the living-document update pass.\n\n## Evidence Basis\n\nThis validation relies on the accepted Architect Review and the Operator's manual review statement.\n\nReviewed evidence chain:\n\n- Implementer Report: `champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass`\n- Architect Review: `champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS`\n- Approved roadmap: `champcity-ai/phase-05/project_roadmap/WC03`\n- Roadmap approval: `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`\n\n## Known Validation Caveat\n\nRepository validation still fails the old WC09 `git_changed_file_scope` rule because that gate is scoped to the Phase 03/04 WC09 branch baseline and treats approved Phase 05 artifacts as outside scope. Build and unit tests passed during Architect review, and canonical artifact-pair checks passed. This is not treated as a validation failure for this Phase 05 planning/living-document pass.\n\n## Operator Decision\n\nPassed.\n\n## Next Action\n\nThe living-document update pass is accepted. Phase 05 may proceed to closeout and next-phase activation planning for Phase 06.\n",
+    "data": {
+      "manualValidationCompleted": true,
+      "nextAction": "phase_05_closeout_and_phase_06_activation_planning",
+      "operatorDecision": "Passed",
+      "phaseId": "phase-05",
+      "sourceCodeChanged": false,
+      "validationResult": "Pass",
+      "validationScope": "work_card",
+      "validationTargetArtifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+      "workCardId": "WC03-LIVING-DOCS"
+    },
+    "kind": "operator_validation",
+    "title": "Operator Validation: WC03-LIVING-DOCS Living Document Update Pass"
+  },
+  "payloadHash": "sha256:c3f9f7e256820556e9f4ac89b68af3e162ec0442d0d734ebf2d8eb9d6d277ab7",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
-      "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-05/candidate_disposition/WC03-LIVING-DOCS"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
+      "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: WC03-LIVING-DOCS Living Document Update Pass",
-    "contentMarkdown": "# Validation Report: WC03-LIVING-DOCS Living Document Update Pass\n\nStatus: Pass\nPhase: phase-05 — Reconciliation and Roadmap Rebaseline\nValidation target: `champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS`\nValidated by: Operator\nValidation method: manual review after Architect acceptance\nValidation result: Pass\n\n## What Was Validated\n\nThe Operator manually validated the Phase 05 living-document update pass after Architect Review.\n\nManual validation confirmed:\n\n1. Project Roadmap reflects the approved Phase 05 roadmap and Phase 06 through Phase 15 sequence.\n2. Project State no longer says Phase 03 is active.\n3. Project Observation Register includes PROJ-OBS-010.\n4. Open Questions no longer keeps Phase 05 answered questions open.\n5. No source-code change was introduced by the living-document update pass.\n\n## Evidence Basis\n\nThis validation relies on the accepted Architect Review and the Operator's manual review statement.\n\nReviewed evidence chain:\n\n- Implementer Report: `champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass`\n- Architect Review: `champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS`\n- Approved roadmap: `champcity-ai/phase-05/roadmap_rebaseline/WC03`\n- Roadmap approval: `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`\n\n## Known Validation Caveat\n\nRepository validation still fails the old WC09 `git_changed_file_scope` rule because that gate is scoped to the Phase 03/04 WC09 branch baseline and treats approved Phase 05 artifacts as outside scope. Build and unit tests passed during Architect review, and canonical artifact-pair checks passed. This is not treated as a validation failure for this Phase 05 planning/living-document pass.\n\n## Operator Decision\n\nPassed.\n\n## Next Action\n\nThe living-document update pass is accepted. Phase 05 may proceed to closeout and next-phase activation planning for Phase 06.\n",
-    "data": {
-      "phaseId": "phase-05",
-      "workCardId": "WC03-LIVING-DOCS",
-      "validationTargetArtifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
-      "validationResult": "Pass",
-      "operatorDecision": "Passed",
-      "manualValidationCompleted": true,
-      "sourceCodeChanged": false,
-      "nextAction": "phase_05_closeout_and_phase_06_activation_planning"
-    }
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:58:00.000Z",
+  "workCardId": "WC03-LIVING-DOCS"
 }

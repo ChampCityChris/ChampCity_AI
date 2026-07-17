@@ -5,6 +5,10 @@
   "createdAt": "2026-07-16T22:30:00.000Z",
   "jsonPath": "planning/phases/phase-05/Phase_Planning.json",
   "markdownPath": "planning/phases/phase-05/Phase_Planning.md",
+  "payload": {
+    "kind": "phase_planning",
+    "title": "Phase Planning: phase-05"
+  },
   "payloadHash": "sha256:ea2a84ed66985325ebe04f10c985281622454c0e2f174fe640fb562fdebf913c",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
@@ -22,11 +26,7 @@
   "revision": 1,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-16T22:30:00.000Z",
-  "payload": {
-    "kind": "phase_planning",
-    "title": "Phase Planning: phase-05"
-  }
+  "updatedAt": "2026-07-16T22:30:00.000Z"
 }
 -->
 

@@ -15,17 +15,17 @@
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC01"
+      "champcity-ai/phase-03/operator_validation/WC01"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC01"
+      "champcity-ai/phase-03/operator_validation/WC01"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC01",
       "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
       "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
       "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
       "champcity-ai/project/supporting_document/PROJECT_STATE"
     ],
     "supersedes": []

@@ -1,3 +1,40 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-05/phase_closeout/PHASE_05",
+  "artifactType": "phase_closeout",
+  "createdAt": "2026-07-17T02:05:00.000Z",
+  "jsonPath": "planning/phases/phase-05/Phase_Closeouts/PHASE_05_CLOSEOUT_reconciliation_and_roadmap_rebaseline.json",
+  "markdownPath": "planning/phases/phase-05/Phase_Closeouts/PHASE_05_CLOSEOUT_reconciliation_and_roadmap_rebaseline.md",
+  "payload": {
+    "kind": "phase_closeout",
+    "title": "Phase 05 Closeout: Reconciliation and Roadmap Rebaseline"
+  },
+  "payloadHash": "sha256:cf0105ad367b485f537af5183244ea01557b6fac9d075d51c63c0d1a9237c119",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/phase_activation/phase-06"
+    ],
+    "sources": [
+      "champcity-ai/phase-05/candidate_disposition/WC03-LIVING-DOCS",
+      "champcity-ai/phase-05/operator_approval/WC02",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_validation/WC03-LIVING-DOCS",
+      "champcity-ai/phase-05/project_roadmap/WC03",
+      "champcity-ai/phase-05/reconciliation_review/WC01",
+      "champcity-ai/phase-05/reconciliation_review/WC02"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T02:05:00.000Z"
+}
+-->
+
 # Phase 05 Closeout: Reconciliation and Roadmap Rebaseline
 
 Status: closed
@@ -15,7 +52,7 @@ Phase 05 completed the required reconciliation work after Phase 04 exposed that 
 The approved current roadmap authority is:
 
 ```text
-champcity-ai/phase-05/roadmap_rebaseline/WC03
+champcity-ai/phase-05/project_roadmap/WC03
 ```
 
 ## Completed Phase 05 Outcomes

@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC05",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC05",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-13T11:45:22.026Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC05 Subordinate Navigation and Manual Fallback Preservation"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC05 Subordinate Navigation and Manual Fallback Preservation"
   },
-  "payloadHash": "sha256:1cdf9bb45939a6e22a4019ebc608f456a10a7b074515e6ed11bf68b4b5668122",
+  "payloadHash": "sha256:8521d3ebd9bb120e5254879c9e57233ab4f64d778a503e84b96d07af892611d4",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Human Validation Report - WC05 Subordinate Navigation and Manual Fallback Preservation
+# Human Operator Validation - WC05 Subordinate Navigation and Manual Fallback Preservation
 
 ## Validation Target
 

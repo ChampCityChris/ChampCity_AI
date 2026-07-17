@@ -10,20 +10,20 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC06-REPAIR01 Current Action Validation Route After Architect Review"
   },
-  "payloadHash": "sha256:1ff7b21afa8bd59380ddaa56b8e5f755f09dc0a562c996498df1063842eee4fb",
+  "payloadHash": "sha256:ca63b99cb1af1d8fef7c784de65fa4edf2715a747e6539194efc4144d82f2f2e",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC06-REPAIR01"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC06-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-03/work_card/WC06-REPAIR01",
-      "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
+      "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility",
+      "champcity-ai/phase-03/work_card/WC06-REPAIR01"
     ],
     "supersedes": []
   },
@@ -65,7 +65,7 @@ Verified approved repo root before editing.
 
 ## Implementation Summary
 
-WC06 now remains the durable current Work Card and routes to `operator_validation_required` after its Implementer Report and ready-for-validation Architect Review exist and before a passing WC06 validation report exists. The current action is owned by the Operator, has `needs_validation` status, and continues to map to the existing Human Validation workspace.
+WC06 now remains the durable current Work Card and routes to `operator_validation_required` after its Implementer Report and ready-for-validation Architect Review exist and before a passing WC06 operator validation exists. The current action is owned by the Operator, has `needs_validation` status, and continues to map to the existing Human Validation workspace.
 
 The reader now accepts the WC06 structured Work Card shape, which uses `id` and `phaseId`, alongside the existing `workCardId` / `work_card_id` and `phase` / `phase_id` compatibility forms. It therefore loads both WC06 Work Card artifacts and can continue through matching Implementer Report, Architect Review, and validation evidence instead of falsely treating the mapped candidate as missing.
 
@@ -97,7 +97,7 @@ The failed WC06 validation record documents that validation itself could not be 
 ### Files Intentionally Not Created or Modified
 
 - No WC07-WC15 implementation, route-specific workspace, or future Work Card artifact.
-- No WC06 Work Card, Implementer Report, Architect Review, failed validation report, or passing Operator validation report.
+- No WC06 Work Card, Implementer Report, Architect Review, failed operator validation, or passing Operator operator validation.
 - No workflow-guide redesign and no change to `src/shared/workCards/workflowVisibility.ts`.
 - No support-navigation product-code change and no change to `src/shared/workCards/supportNavigation.ts`.
 - No renderer screen-map change; the existing Operator-validation-to-Human-Validation map was verified by fixture.
@@ -154,7 +154,7 @@ No support-navigation product code was changed. The WC05 fixture confirms routed
 
 - Repository root, branch, clean worktree, base branch, upstream, and remote verification - passed.
 - `git switch -c feature/phase-03-wc06-repair01-validation-route` - passed from base commit `1c7e826`.
-- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC06-REPAIR01, the failed WC06 validation report, WC06 Work Card, WC06 Implementer Report, and WC06 Architect Review - completed before editing.
+- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, WC06-REPAIR01, the failed WC06 operator validation, WC06 Work Card, WC06 Implementer Report, and WC06 Architect Review - completed before editing.
 - Source inspection of current-action evaluation, repository artifact matching, Architect Review detection, validation detection, workflow visibility, renderer route mapping, and support navigation - completed.
 - Baseline current-action probe - reproduced `WC06 / full_work_card_creation_required / architect / available`.
 - `node --check scripts/verify-wc06-repair01-validation-route.mjs` - passed.

@@ -9,21 +9,21 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC02-REPAIR01 Architect Bridge Contract Alignment and Task Packet Generation Repair"
   },
-  "payloadHash": "sha256:71817009146288169b41cd9584ecad8919bebd85a9ed64d4d182c88168db4268",
+  "payloadHash": "sha256:dfb178f8569e331758be5b2d01ae54d25851efce5a39af31785f45e2637d83cb",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC02",
-      "champcity-ai/phase-04/validation_report/WC01",
       "champcity-ai/phase-04/architect_review/WC01",
-      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/candidate_disposition/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
-      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
-      "champcity-ai/phase-04/candidate_disposition/WC01"
+      "champcity-ai/phase-04/operator_validation/WC01",
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
+      "champcity-ai/phase-04/work_card/WC02"
     ],
     "supersedes": []
   },
@@ -58,7 +58,7 @@ The repaired-parent projector now routes missing WC01 candidate disposition to a
 - src/main/workflow/processIpcPolicy.ts still authorized workCards:ensureArchitectTaskPacket for architect_disposition_required using screen architect-disposition and expected output type architect_disposition, while the route table and UI used architect-bridge.
 - src/shared/workflow/processContract.ts still defined the runtime Architect disposition screen/output as architect-disposition / architect_disposition.
 - src/main/workflow/evidenceDerivedWorkflowProjector.ts routed the repaired-parent validation-pass/missing-disposition state to Operator candidate_disposition_required instead of Architect Bridge, and the source bundle did not expose the complete required parent/repair chain as the routed source list.
-- The projector only read validation report shorthand field result; the real WC01 validation artifact uses validationResult.
+- The projector only read operator validation shorthand field result; the real WC01 validation artifact uses validationResult.
 - The WC01 and WC02 mounted regressions still encoded the old Operator candidate-disposition or repair-decision expectations.
 - The real candidate_disposition/WC01 Markdown envelope had non-canonical relationship key ordering, making the pair invalid to the scanner even though the JSON payload was the intended completed-via-repair disposition.
 
@@ -106,7 +106,7 @@ For repaired-parent WC01, the current routed action and packet now resolve:
 - Expected artifact id: champcity-ai/phase-04/candidate_disposition/WC01
 - Expected artifact type: candidate_disposition
 - Requested action: review_validation_report_and_write_candidate_disposition
-- Default decision rule: Validation Report = Pass plus parent completed after authorized repair chain means write completed_via_repair.
+- Default decision rule: Operator Validation = Pass plus parent completed after authorized repair chain means write completed_via_repair.
 
 The actual repo projection check after the fix returned zero graph blockers, WC01 status completed_via_repair, active candidate WC02, and current action work_card_authoring_required targeting champcity-ai/phase-04/work_card_plan/Work_Card_Plan with expected output champcity-ai/phase-04/work_card/WC02.
 
@@ -114,7 +114,7 @@ The actual repo projection check after the fix returned zero graph blockers, WC0
 
 The repaired-parent Architect Bridge routed source list now includes the full chain:
 
-- champcity-ai/phase-04/validation_report/WC01
+- champcity-ai/phase-04/operator_validation/WC01
 - champcity-ai/phase-04/architect_review/WC01
 - champcity-ai/phase-04/work_card/WC01
 - champcity-ai/phase-04/implementer_report/WC01

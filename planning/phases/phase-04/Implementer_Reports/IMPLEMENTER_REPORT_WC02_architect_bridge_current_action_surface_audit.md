@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC02 Architect Bridge Current-Action Surface Audit"
   },
-  "payloadHash": "sha256:841341741a3c0a3fddbca0c8d7968e24ac08eceee9110efd9bc08698a168a422",
+  "payloadHash": "sha256:4d20ae9ab6e6391b378357d85f1db186d70288c4e6112cd536aa0bc886947a27",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,13 +19,13 @@
       "champcity-ai/phase-04/architect_review/WC02"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC01",
-      "champcity-ai/phase-04/candidate_disposition/WC01",
-      "champcity-ai/phase-04/validation_report/WC01",
       "champcity-ai/phase-04/architect_review/WC01",
+      "champcity-ai/phase-04/candidate_disposition/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
-      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
-      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority"
+      "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
+      "champcity-ai/phase-04/operator_validation/WC01",
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01"
     ],
     "supersedes": []
   },
@@ -88,21 +88,21 @@ The packet writer is routed and non-transitioning. It is authorized only for Arc
 | --- | --- | --- | --- | --- |
 | project_intake_required | operator | project-intake | project_intake | correct |
 | project_interview_required | architect | project-architect-interview | architect_interview | correct |
-| reconciliation_review_required | architect | repository-reconciliation | repository_reconciliation | correct |
+| reconciliation_review_required | architect | repository-reconciliation | reconciliation_review | correct |
 | project_mapping_required | architect | project-roadmap | roadmap | correct |
-| operator_project_approval_required | operator | project-planning-documents | project_approval | mapped |
+| operator_project_approval_required | operator | project-planning-documents | operator_approval | mapped |
 | phase_mapping_required | architect | phase-map | phase_map | correct |
-| operator_phase_approval_required | operator | phase-planning-documents | phase_approval | mapped |
+| operator_phase_approval_required | operator | phase-planning-documents | operator_approval | mapped |
 | work_card_authoring_required | architect | new-work-card | work_card | correct |
-| operator_work_card_approval_required | operator | work-card-plan-review | work_card_approval | mapped |
+| operator_work_card_approval_required | operator | work-card-plan-review | operator_approval | mapped |
 | implementer_execution_required | implementer | implementer-report-capture | implementer_report | correct |
 | architect_review_of_implementer_report_required | architect | architect-review | architect_review | preserved; task packet operation added |
-| operator_validation_required | operator | human-validation | validation_report | correct |
+| operator_validation_required | operator | human-validation | operator_validation | correct |
 | architect_disposition_required | architect | architect-bridge | architect_task | fixed from human-validation |
 | repair_work_card_required | architect | new-work-card | work_card | correct |
 | candidate_disposition_required | operator | candidate-disposition | candidate_disposition | correct |
 | phase_closeout_required | architect | phase-closeout | phase_closeout | correct |
-| operator_phase_closeout_approval_required | operator | phase-closeout | phase_closeout_approval | mapped |
+| operator_phase_closeout_approval_required | operator | phase-closeout | operator_approval | mapped |
 | roadmap_update_required | architect | project-planning-documents | roadmap | mapped |
 | next_phase_activation_required | operator | phase-map | phase_activation | mapped |
 | repeat_phase_mapping_and_work_card_loop_required | application | phase-map | workflow_iteration | mapped |

@@ -9,14 +9,14 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC04-REPAIR03 — Validation Target Context and Panel Simplification"
   },
-  "payloadHash": "sha256:fa4c7180dcefe4868d682dac7c0de39099d7f73e5af590fced6e3fcd768efc3b",
+  "payloadHash": "sha256:d3cef6a6cbb1b9320cf8082ec815713126eccf63256d78f16529e98ae8540afb",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR03",
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR03",
       "champcity-ai/phase-03/work_card/WC05"
     ],
     "expectedOutputs": [],
@@ -57,7 +57,7 @@ Supporting sources:
 
 ## Validation Result Being Repaired
 
-The Operator validation report for WC04-REPAIR01 records:
+The Operator operator validation for WC04-REPAIR01 records:
 
 - Validation Result: `Partial`
 - Operator Decision: `Failed - repair needed`
@@ -137,7 +137,7 @@ For each target where validation records exist, show at least:
 - associated report filename;
 - timestamp when available.
 
-If multiple records exist for a target, prefer the newest durable validation report by timestamp or deterministic filename/date ordering.
+If multiple records exist for a target, prefer the newest durable operator validation by timestamp or deterministic filename/date ordering.
 
 ### 4. Fix Architect guidance source behavior
 
@@ -292,9 +292,9 @@ Before editing:
 3. Create and switch to feature/phase-03-wc04-repair03-validation-target-context from feature/phase-03-wc04-repair02-routing-gate.
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
-6. Read the WC04-REPAIR01 validation report.
+6. Read the WC04-REPAIR01 operator validation.
 7. Read WC04-REPAIR02 Implementer Report and Architect Review.
-8. Inspect validation target loading, validation report loading, checklist source selection, WorkflowRouterShell, and screenshot evidence UI code.
+8. Inspect validation target loading, operator validation loading, checklist source selection, WorkflowRouterShell, and screenshot evidence UI code.
 
 When complete:
 - run required validation;

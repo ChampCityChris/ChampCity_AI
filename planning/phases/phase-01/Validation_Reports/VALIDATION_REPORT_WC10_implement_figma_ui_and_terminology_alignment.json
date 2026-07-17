@@ -1,19 +1,28 @@
 {
-  "validationId": "VALIDATION_WC10_20260630135826",
-  "workCardId": "WC10",
-  "workCardTitle": "Implement Figma UI and terminology alignment",
-  "phase": "phase-01",
-  "builderReportFile": "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
-  "validationResult": "Pass",
-  "testedItems": "",
-  "passedItems": "",
-  "failedItems": "",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "",
-  "commandsRun": "",
-  "observedErrors": "",
-  "additionalOperatorObservations": "",
-  "operatorDecision": "Passed - proceed",
-  "recommendedNextAction": "",
-  "createdAt": "2026-06-30T13:58:26.878Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:58:26.878Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC10 Implement Figma UI and terminology alignment\n\n## Work Card\n\n- Work Card ID: WC10\n- Work Card title: Implement Figma UI and terminology alignment\n- Phase: phase-01\n- Associated Implementer Report: BUILDER_REPORT_WC01_work_card_schema_renderer.md\n\n## Validation Result\n\nPass\n\n## What Was Tested?\n\nNone recorded.\n\n## What Passed?\n\nNone recorded.\n\n## What Failed?\n\nNone recorded.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\nNone recorded.\n\n## Additional Operator Observations\n\nNone recorded.\n\n## Operator Decision\n\nPassed - proceed\n\n## Recommended Next Action\n\nNone recorded.\n\n## Generated Timestamp\n\n2026-06-30T13:58:26.878Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC10 implement figma ui and terminology alignment"
+  },
+  "payloadHash": "sha256:85ddba9d416b60b22a6928d9f1dd11a258948e19177cd255bfb4c40e5af8b0d1",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:58:26.878Z",
+  "workCardId": "WC10"
 }

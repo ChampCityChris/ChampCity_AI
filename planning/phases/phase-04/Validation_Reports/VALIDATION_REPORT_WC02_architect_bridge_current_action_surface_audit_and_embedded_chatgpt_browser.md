@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-04/validation_report/WC02",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-04/operator_validation/WC02",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-16T17:20:00.000Z",
   "jsonPath": "planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.json",
   "markdownPath": "planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "WC02 Validation Report"
+    "kind": "operator_validation",
+    "title": "WC02 Operator Validation"
   },
-  "payloadHash": "sha256:2a20ffb0c91458a5b9c81571fb3f255db872521f9f0c9c580945613594b7b8bd",
+  "payloadHash": "sha256:9f46d23abbc232a30d01583440aad0ff58d790c43f91adda93827a504bfb87d4",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Human Validation Report - WC02 Work Card: WC02 Architect Bridge, Current-Action Surface Audit, and Embedded ChatGPT Browser
+# Human Operator Validation - WC02 Work Card: WC02 Architect Bridge, Current-Action Surface Audit, and Embedded ChatGPT Browser
 
 ## Validation Target
 
@@ -52,7 +52,7 @@ Confirm the application progresses to Operator Validation for WC02.
 Confirm Refresh Repository State no longer leaves WC02 blocked on Architect Review.
 Confirm selected project remains available enough to route to Operator Validation.
 Confirm the validation target is WC02 parent Work Card.
-Confirm expected output is champcity-ai/phase-04/validation_report/WC02.
+Confirm expected output is champcity-ai/phase-04/operator_validation/WC02.
 
 ## What Passed?
 

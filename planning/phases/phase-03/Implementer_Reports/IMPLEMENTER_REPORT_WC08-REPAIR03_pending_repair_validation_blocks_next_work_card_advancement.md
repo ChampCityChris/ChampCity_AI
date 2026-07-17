@@ -10,12 +10,12 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC08-REPAIR03 Pending Repair Validation Blocks Next Work Card Advancement"
   },
-  "payloadHash": "sha256:06c5b6ec8be1000b796f02256dd9d35c35f230a27ebc3c72fa8c78c61a3cbf5a",
+  "payloadHash": "sha256:483291a5f0026782bbca6ad1490670fbce086440382aa9c6d39234e3d629caa4",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR03"
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR03"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC08-REPAIR03"
@@ -89,8 +89,8 @@ Candidate resolution then accepted the original WC08 validation's raw legacy `Va
 
 ## Architect Disposition and Legacy Compatibility
 
-- `Architect Disposition: Pending Architect review` remains non-passing and routes to Architect review of the repair Validation Report.
-- A new-style numeric repair Validation Report with neither Architect disposition nor legacy Operator Decision is marked as missing required disposition and remains unresolved.
+- `Architect Disposition: Pending Architect review` remains non-passing and routes to Architect review of the repair Operator Validation.
+- A new-style numeric repair Operator Validation with neither Architect disposition nor legacy Operator Decision is marked as missing required disposition and remains unresolved.
 - A final accepted/pass/mergeable Architect disposition remains the controlling resolution signal when present.
 - Legacy `operatorDecision`, `operator_decision`, or legacy `decision` remains advisory context only; its value is not copied into the controlling disposition field.
 - Historical repair Validation Reports that predate Architect disposition and contain legacy Operator Decision retain result-based read compatibility, preserving earlier WC04/WC05/WC06/WC07 behavior.
@@ -127,7 +127,7 @@ The live focused fixture also confirms that Human Validation target resolution s
 - No WC08-REPAIR01 implementation, Implementer Report, validation record, or route-context UI change.
 - No WC08-REPAIR02 validation record or acceptance claim.
 - No WC09 Work Card or WC09-WC15 implementation.
-- No Work Card Plan, Roadmap, Observation Register, historical Validation Report, or historical Architect Review change.
+- No Work Card Plan, Roadmap, Observation Register, historical Operator Validation, or historical Architect Review change.
 - No Human Validation acceptance, Operator decision, Work Card acceptance, phase closeout, merge, release tag, or deployment action.
 - No dependency, package manifest, lockfile, authentication, database, cloud, provider SDK, MCP, connector, or renderer filesystem change.
 
@@ -135,7 +135,7 @@ The live focused fixture also confirms that Human Validation target resolution s
 
 - Repository path, branch, worktree, base branch, and remote inspection - passed; approved repo root and expected remote verified.
 - `git switch -c feature/phase-03-wc08-repair03-pending-repair-validation-routing` - passed after approved Git metadata access.
-- Required `Get-Content` and `rg` inspections - passed; AGENTS rules, validation lane, WC08-REPAIR03, WC08-REPAIR02 Work Card/Implementer Report/Architect Review, WC08 validation report, WC08-REPAIR01, current-action evaluation, repair parsing, validation parsing, workflow visibility, Human Validation selection, and focused fixtures were inspected.
+- Required `Get-Content` and `rg` inspections - passed; AGENTS rules, validation lane, WC08-REPAIR03, WC08-REPAIR02 Work Card/Implementer Report/Architect Review, WC08 operator validation, WC08-REPAIR01, current-action evaluation, repair parsing, validation parsing, workflow visibility, Human Validation selection, and focused fixtures were inspected.
 - `node --check` for every modified/new fixture script - passed.
 - `git diff --check` - passed; line-ending normalization warnings only.
 - `npm run validate:codex` - passed in the approved normal Windows lane. `npm test`/TypeScript no-emit validation and `npm run build` completed successfully. No sandbox-only failure occurred.
@@ -188,7 +188,7 @@ After Architect review authorizes Operator validation, the Operator must:
 2. Confirm the current-action panel identifies `WC08-REPAIR02`, not `WC09`.
 3. Confirm the action is repair/Operator validation required and opens Human Validation, not Ad Hoc Work Card Capture.
 4. Confirm Human Validation automatically selects the WC08-REPAIR02 target and the WC08-REPAIR02 Implementer Report.
-5. Confirm the expected output is a WC08-REPAIR02 Validation Report.
+5. Confirm the expected output is a WC08-REPAIR02 Operator Validation.
 6. Perform only the Architect-prescribed WC08-REPAIR02 validation steps and save the actual Operator evidence.
 7. Confirm the resulting pending Architect disposition does not advance to WC09 before Architect review.
 
@@ -233,13 +233,13 @@ None.
 ## Residual Risks
 
 - Final usability acceptance still requires the Operator to confirm the routed screen and target selection in the packaged Electron interaction.
-- A pending repair Validation Report intentionally routes to Architect disposition rather than advancing. The Architect must complete that durable disposition before the parent can resolve.
+- A pending repair Operator Validation intentionally routes to Architect disposition rather than advancing. The Architect must complete that durable disposition before the parent can resolve.
 - The paused WC08-REPAIR01 remains unimplemented. It will not preempt WC08-REPAIR02 unless it later acquires the complete reviewed-and-ready validation obligation defined by this repair.
 - The historical Phase 01 WC01 Markdown parity mismatch remains outside scope and continues to stop the full Work Card fixture suite after a successful build.
 
 ## Recommended Next Implementer Task
 
-Do not begin WC08-REPAIR01 or WC09-WC15 from this pass. Commit and push only the WC08-REPAIR03 repair branch, request Architect review of this report and source changes, then have the Operator validate WC08-REPAIR02 through the repaired Human Validation route. The resulting WC08-REPAIR02 Validation Report must receive Architect disposition before any next Work Card advancement.
+Do not begin WC08-REPAIR01 or WC09-WC15 from this pass. Commit and push only the WC08-REPAIR03 repair branch, request Architect review of this report and source changes, then have the Operator validate WC08-REPAIR02 through the repaired Human Validation route. The resulting WC08-REPAIR02 Operator Validation must receive Architect disposition before any next Work Card advancement.
 
 ## Architect Review Instructions
 

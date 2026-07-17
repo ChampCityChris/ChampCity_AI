@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR06",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC08-REPAIR06",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
   "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: WC08-REPAIR06 — Current Action Architect Review Binding Authority"
+    "kind": "operator_validation",
+    "title": "Operator Validation: WC08-REPAIR06 — Current Action Architect Review Binding Authority"
   },
-  "payloadHash": "sha256:e2d95ca1336b276f52cf1840f0b7133301df83fe0211e66db2eecbcd69063ba8",
+  "payloadHash": "sha256:0b5994ae0b8335836b9e197a6f3fc6e5e3a89d2733c7f1e06f08fbffa3ac49a7",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -31,7 +31,7 @@
 }
 -->
 
-# Validation Report: WC08-REPAIR06 — Current Action Architect Review Binding Authority
+# Operator Validation: WC08-REPAIR06 — Current Action Architect Review Binding Authority
 
 Validation Result: Blocked / Failed
 Date: 2026-07-14

@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
-  "artifactType": "roadmap",
+  "artifactId": "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
+  "artifactType": "project_roadmap",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json",
   "markdownPath": "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md",
   "payload": {
-    "kind": "roadmap",
+    "kind": "project_roadmap",
     "title": "Project Roadmap: ChampCity A/I"
   },
-  "payloadHash": "sha256:762215788150a1868d3f3a1fd56375166c9e07d507c2a96f08179f69a58aeb35",
+  "payloadHash": "sha256:c5c127b80015128f253c5cce37551d92162b22f854fb536c13d5927984b42533",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -19,10 +19,10 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -37,7 +37,7 @@
 # Project Roadmap: ChampCity A/I
 
 Status: Living master roadmap
-Current approved roadmap authority: `champcity-ai/phase-05/roadmap_rebaseline/WC03`
+Current approved roadmap authority: `champcity-ai/phase-05/project_roadmap/WC03`
 Updated for: Phase 05 approved roadmap rebaseline
 
 ## Rebaseline Decision
@@ -48,8 +48,8 @@ This roadmap is planning authority. It does not authorize source-code implementa
 
 ## Current Roadmap Authority
 
-- Approved roadmap: `champcity-ai/phase-05/roadmap_rebaseline/WC03`
-- Operator approval: `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`
+- Approved roadmap: `champcity-ai/phase-05/project_roadmap/WC03`
+- Operator approval: `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`
 - Current-state baseline: `champcity-ai/phase-05/reconciliation_review/WC02`
 - Phase 04 closeout: `champcity-ai/phase-04/phase_closeout/PHASE_04`
 

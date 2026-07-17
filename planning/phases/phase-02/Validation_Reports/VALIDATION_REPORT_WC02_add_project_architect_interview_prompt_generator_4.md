@@ -1,4 +1,31 @@
-# Human Validation Report - WC02 Add Project Architect Interview prompt generator
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T02:25:47.550Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC02 add project architect interview prompt generator 4"
+  },
+  "payloadHash": "sha256:42ee0f59fba92c165c7a6df646f5bf9c69f31ba0d45544b9001ab22e24078f1d",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T02:25:47.550Z",
+  "workCardId": "WC02"
+}
+-->
+
+# Human Operator Validation - WC02 Add Project Architect Interview prompt generator
 
 ## Validation Target
 

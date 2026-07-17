@@ -7,7 +7,7 @@ export type ArtifactReviewGroupId =
   | "work_card"
   | "implementer_report"
   | "architect_review"
-  | "validation_report"
+  | "operator_validation"
   | "repair"
   | "source_evidence"
   | "other_support";
@@ -102,8 +102,8 @@ const groupDefinitions: Array<
     description: "Architecture review decision and validation guidance.",
   },
   {
-    id: "validation_report",
-    label: "Validation Report",
+    id: "operator_validation",
+    label: "Operator Validation",
     description: "Operator validation outcome and decision record.",
   },
   {
@@ -317,8 +317,12 @@ export function inferArtifactGroup(
     return "architect_review";
   }
 
-  if (role.includes("validation report") || artifactPath.includes("/validation_reports/")) {
-    return "validation_report";
+  if (
+    role.includes("operator validation") ||
+    role.includes("validation report") ||
+    artifactPath.includes("/validation_reports/")
+  ) {
+    return "operator_validation";
   }
 
   if (
@@ -412,7 +416,7 @@ function inferArtifactRole(artifactPath: string): string {
   }
 
   if (normalized.includes("/validation_reports/")) {
-    return normalized.includes("repair") ? "Repair Validation Report" : "Validation Report";
+    return normalized.includes("repair") ? "Repair Operator Validation" : "Operator Validation";
   }
 
   if (normalized.includes("/work_cards/")) {

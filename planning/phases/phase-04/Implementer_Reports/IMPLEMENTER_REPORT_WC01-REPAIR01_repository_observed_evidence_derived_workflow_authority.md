@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC01-REPAIR01 Repository-Observed Evidence-Derived Workflow Authority"
   },
-  "payloadHash": "sha256:6bd4df4d06c0a79698fc352a2c8ab8e993e7139fa3ac8cc8b73d3bcca6c04504",
+  "payloadHash": "sha256:de9ffb0bd93701683bc3c0dcf79630c5aca791c8b5116b74cd1930be711f1fdf",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,12 +19,12 @@
       "champcity-ai/phase-04/architect_review/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC01",
-      "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/architect_review/WC01",
-      "champcity-ai/phase-04/work_card/WC01-REPAIR01",
       "champcity-ai/phase-04/architecture_decision/WC01",
-      "champcity-ai/phase-04/diagnostic_report/WC01"
+      "champcity-ai/phase-04/diagnostic_report/WC01",
+      "champcity-ai/phase-04/implementer_report/WC01",
+      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/work_card/WC01-REPAIR01"
     ],
     "supersedes": [
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01"
@@ -86,13 +86,13 @@ The Architect Review UI identifies parent WC01, WC01-REPAIR01, final-repair clas
 
 ## Parent validation routing
 
-A combined WC01 review that authorizes validation derives operator_validation_required with target champcity-ai/phase-04/work_card/WC01, source champcity-ai/phase-04/architect_review/WC01, and expected output champcity-ai/phase-04/validation_report/WC01. Repair-specific validation evidence cannot complete the parent.
+A combined WC01 review that authorizes validation derives operator_validation_required with target champcity-ai/phase-04/work_card/WC01, source champcity-ai/phase-04/architect_review/WC01, and expected output champcity-ai/phase-04/operator_validation/WC01. Repair-specific validation evidence cannot complete the parent.
 
-The Operator Validation UI identifies the repaired parent, completed-via-repair path, combined scope, exact refresh/project-switch/stale-state/legacy-authority checks, and the requirement that the Validation Report identify workCardId WC01.
+The Operator Validation UI identifies the repaired parent, completed-via-repair path, combined scope, exact refresh/project-switch/stale-state/legacy-authority checks, and the requirement that the Operator Validation identify workCardId WC01.
 
 ## completed_via_repair disposition behavior
 
-A passing parent WC01 Validation Report no longer activates the next Work Card. It derives the Operator-owned candidate_disposition_required action for WC01. The new canonical disposition operation requires a rationale and exact parent validation plus repair evidence, then atomically writes planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01.{md,json} with status completed_via_repair through the canonical artifact service.
+A passing parent WC01 Operator Validation no longer activates the next Work Card. It derives the Operator-owned candidate_disposition_required action for WC01. The new canonical disposition operation requires a rationale and exact parent validation plus repair evidence, then atomically writes planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01.{md,json} with status completed_via_repair through the canonical artifact service.
 
 Only a single valid completed_via_repair disposition with the full parent and repair evidence set resolves WC01. Missing disposition keeps the next candidate inactive; duplicate or incomplete controlling dispositions block visibly. Failed parent validation and rejected combined review route to Architect disposition without creating another numbered repair.
 
@@ -118,11 +118,11 @@ The actual selected repository projects with zero blockers:
 - Sources: champcity-ai/phase-04/implementer_report/WC01; champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority; champcity-ai/phase-04/architect_review/WC01; champcity-ai/phase-04/work_card/WC01-REPAIR01
 - Expected output: champcity-ai/phase-04/architect_review/WC01
 
-No Architect Review revision, Validation Report, or completed_via_repair disposition was created on behalf of the Architect or Operator.
+No Architect Review revision, Operator Validation, or completed_via_repair disposition was created on behalf of the Architect or Operator.
 
 ## Electron, restart, and project-switch results
 
-The real built main/preload/renderer verifier begins before the repair report is detected. It proves repair Implementer Execution, writes an external synchronized repair report without import, manually refreshes, opens the combined parent review UI, previews and saves a parent WC01 review revision, reaches parent WC01 Operator Validation, detects an external passing parent Validation Report, blocks next-candidate activation at candidate_disposition_required, and invokes the real canonical disposition IPC to record completed_via_repair.
+The real built main/preload/renderer verifier begins before the repair report is detected. It proves repair Implementer Execution, writes an external synchronized repair report without import, manually refreshes, opens the combined parent review UI, previews and saves a parent WC01 review revision, reaches parent WC01 Operator Validation, detects an external passing parent Operator Validation, blocks next-candidate activation at candidate_disposition_required, and invokes the real canonical disposition IPC to record completed_via_repair.
 
 Only after the durable disposition does WC02 become current. The same process switches to an isolated second configured project and back, reconstructing WC02 without leakage. A separately launched Electron process then reconstructs the same post-disposition WC02 route from repository evidence. Both processes exited successfully.
 
@@ -167,7 +167,7 @@ One initial canonical service write in the restricted sandbox produced EPERM whi
 
 ## Validation skipped and reason
 
-- Operator acceptance, manual visual/usability judgment, final Validation Report, completed_via_repair decision, and parent acceptance were not performed because Implementer authority excludes Operator acceptance.
+- Operator acceptance, manual visual/usability judgment, final Operator Validation, completed_via_repair decision, and parent acceptance were not performed because Implementer authority excludes Operator acceptance.
 - No release tag or merge to dev/master was performed because this feature-branch correction does not authorize them.
 
 ## Manual validation required
@@ -188,8 +188,8 @@ No secrets, tokens, credentials, API keys, .env files, authentication, database,
 ## Files intentionally not created
 
 - WC01-REPAIR02
-- Repair-specific controlling Architect Review or Validation Report
-- Parent WC01 Validation Report
+- Repair-specific controlling Architect Review or Operator Validation
+- Parent WC01 Operator Validation
 - completed_via_repair disposition
 - Workflow State authority snapshot
 - Release tag or merge commit

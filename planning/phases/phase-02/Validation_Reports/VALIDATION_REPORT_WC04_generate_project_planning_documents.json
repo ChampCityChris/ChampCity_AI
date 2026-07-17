@@ -1,24 +1,28 @@
 {
-  "validationId": "VALIDATION_WC04_20260701202021",
-  "workCardId": "WC04",
-  "workCardTitle": "Generate Project Planning Documents",
-  "validationTargetId": "WC04",
-  "validationTargetKind": "work_card",
-  "validationTargetTitle": "Generate Project Planning Documents",
-  "validationTargetSourceJsonFile": "WC04_generate_project_planning_documents.json",
-  "validationTargetSourceMarkdownFile": "WC04_generate_project_planning_documents.md",
-  "phase": "phase-02",
-  "builderReportFile": "BUILDER_REPORT_WC04_generate_project_planning_documents.md",
-  "validationResult": "Fail",
-  "testedItems": "1. Project Planning Documents screen exists and opens.\n\n2. Saved Project Intake source can be selected.\n\n3. Saved Project Architect Interview Prompt source can be selected.\n\n4. Completed Architect interview output can be pasted into the screen.\n\n5. Planning document preview is generated.\n\n6. Save creates or updates PROJECT_PROFILE.md.\n\n7. Save creates or updates PROJECT_STATE.md with Alpha app development wording.\n\n8. Save creates or updates WORK_CARD_BACKLOG.md with the reconciled PH02 sequence.\n\n9. Save creates or updates OPEN_QUESTIONS.md, RISKS.md, and DECISIONS.md when relevant.\n\n10. Existing Project Intake screen still works.\n\n11. Existing Project Architect Interview screen still works.\n\n12. Existing Validate screen still works.",
-  "passedItems": "10. Existing Project Intake screen still works.\n12. Existing Validate screen still works.",
-  "failedItems": "1. Project Planning Documents screen exists and opens.\n2. Saved Project Intake source can be selected.\n3. Saved Project Architect Interview Prompt source can be selected.\n4. Completed Architect interview output can be pasted into the screen.\n5. Planning document preview is generated.\n6. Save creates or updates PROJECT_PROFILE.md.\n7. Save creates or updates PROJECT_STATE.md with Alpha app development wording.\n8. Save creates or updates WORK_CARD_BACKLOG.md with the reconciled PH02 sequence.\n9. Save creates or updates OPEN_QUESTIONS.md, RISKS.md, and DECISIONS.md when relevant.\n11. Existing Project Architect Interview screen still works.\n\n",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "",
-  "commandsRun": "npm start",
-  "observedErrors": "Project Architect Interview screen for new projects does not exist.  Project Planning Documents screen does not exist",
-  "additionalOperatorObservations": "",
-  "operatorDecision": "Failed - repair needed",
-  "recommendedNextAction": "WC04 - FIX",
-  "createdAt": "2026-07-01T20:20:21.745Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC04_generate_project_planning_documents",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-01T20:20:21.745Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC04 Generate Project Planning Documents\n\n## Validation Target\n\n- Validation Target ID: WC04\n- Validation Target kind: work_card\n- Validation Target title: Generate Project Planning Documents\n- Phase: phase-02\n- Source JSON file: WC04_generate_project_planning_documents.json\n- Source Markdown file: WC04_generate_project_planning_documents.md\n- Associated Implementer Report: BUILDER_REPORT_WC04_generate_project_planning_documents.md\n\n## Validation Result\n\nFail\n\n## What Was Tested?\n\n1. Project Planning Documents screen exists and opens.\n\n2. Saved Project Intake source can be selected.\n\n3. Saved Project Architect Interview Prompt source can be selected.\n\n4. Completed Architect interview output can be pasted into the screen.\n\n5. Planning document preview is generated.\n\n6. Save creates or updates PROJECT_PROFILE.md.\n\n7. Save creates or updates PROJECT_STATE.md with Alpha app development wording.\n\n8. Save creates or updates WORK_CARD_BACKLOG.md with the reconciled PH02 sequence.\n\n9. Save creates or updates OPEN_QUESTIONS.md, RISKS.md, and DECISIONS.md when relevant.\n\n10. Existing Project Intake screen still works.\n\n11. Existing Project Architect Interview screen still works.\n\n12. Existing Validate screen still works.\n\n## What Passed?\n\n10. Existing Project Intake screen still works.\n12. Existing Validate screen still works.\n\n## What Failed?\n\n1. Project Planning Documents screen exists and opens.\n2. Saved Project Intake source can be selected.\n3. Saved Project Architect Interview Prompt source can be selected.\n4. Completed Architect interview output can be pasted into the screen.\n5. Planning document preview is generated.\n6. Save creates or updates PROJECT_PROFILE.md.\n7. Save creates or updates PROJECT_STATE.md with Alpha app development wording.\n8. Save creates or updates WORK_CARD_BACKLOG.md with the reconciled PH02 sequence.\n9. Save creates or updates OPEN_QUESTIONS.md, RISKS.md, and DECISIONS.md when relevant.\n11. Existing Project Architect Interview screen still works.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nnpm start\n\n## Observed Errors\n\nProject Architect Interview screen for new projects does not exist.  Project Planning Documents screen does not exist\n\n## Additional Operator Observations\n\nNone recorded.\n\n## Operator Decision\n\nFailed - repair needed\n\n## Recommended Next Action\n\nWC04 - FIX\n\n## Generated Timestamp\n\n2026-07-01T20:20:21.745Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC04 generate project planning documents"
+  },
+  "payloadHash": "sha256:f944c8b0aca47c76aed2f39e19d070ffc4ada58a43599b44256a71d763fb59ba",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-01T20:20:21.745Z",
+  "workCardId": "WC04"
 }

@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC09-REPAIR02 Locked Process Contract and Evidence Precedence Correction"
   },
-  "payloadHash": "sha256:08511772b8a798d40119b71750eec3559a021d45377d7d1d374558fc29031d3f",
+  "payloadHash": "sha256:660616cb7ffccd53b25773dbf45bc32cc7721335f56c98ed46b50698feb0e3aa",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {

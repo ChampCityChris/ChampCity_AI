@@ -1,37 +1,37 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-  "artifactType": "roadmap_rebaseline",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 2,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03",
-  "parentArtifactId": "champcity-ai/phase-05/work_card/WC03",
+  "artifactId": "champcity-ai/phase-05/project_roadmap/WC03",
+  "artifactType": "project_roadmap",
   "createdAt": "2026-07-17T01:15:00.000Z",
-  "updatedAt": "2026-07-17T01:20:00.000Z",
   "jsonPath": "planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.json",
   "markdownPath": "planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.md",
-  "payloadHash": "sha256:4a1c847c39afec9c2f8138137adebdd49bb81929505d466fee5851949c019ded",
+  "parentArtifactId": "champcity-ai/phase-05/work_card/WC03",
+  "payload": {
+    "kind": "project_roadmap",
+    "title": "Roadmap Rebaseline: Public Downloadable Beta Candidate"
+  },
+  "payloadHash": "sha256:9db3d01522664e0ddd8e6fe73c88c0a3a6d8f0c223c49a5bbbeb5850e0b0ab57",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-05/work_card/WC03",
-      "champcity-ai/phase-05/approval/WC03",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/operator_approval/WC03",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-05/work_card/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
-    "expectedOutputs": [],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "roadmap_rebaseline",
-    "title": "Roadmap Rebaseline: Public Downloadable Beta Candidate"
-  }
+  "revision": 2,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:20:00.000Z",
+  "workCardId": "WC03"
 }
 -->
 

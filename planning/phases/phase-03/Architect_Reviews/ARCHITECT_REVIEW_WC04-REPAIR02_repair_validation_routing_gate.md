@@ -10,17 +10,17 @@
     "kind": "architect_review",
     "title": "Architect Review: WC04-REPAIR02 Repair Validation Routing Gate"
   },
-  "payloadHash": "sha256:197df2b11d9b515cda186adb1a98cbc852085eb2426d309b49a3867de7d4b1a4",
+  "payloadHash": "sha256:401b2787a0e128fe559b36637dcae072d7c820e6e9275784f5ae002de4a4e59c",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR03",
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR02"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR02"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR02"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC04-REPAIR02",
@@ -76,7 +76,7 @@ The required fix was to prevent unresolved parent validation and unresolved repa
 
 The Implementer Report states that `Deferred - not validated yet`, `Deferred`, `Not validated yet`, and equivalent normalized Operator decisions are now treated as unresolved. A raw validation result of `Pass` no longer resolves the Work Card when the Operator decision is deferred or otherwise unresolved.
 
-This directly addresses the deferred WC04 validation report conflict.
+This directly addresses the deferred WC04 operator validation conflict.
 
 ### Pass: Operator decision takes precedence over raw result
 

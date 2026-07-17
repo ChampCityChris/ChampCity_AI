@@ -1,4 +1,31 @@
-# Human Validation Report - WC07 Human validation and repair loop
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC07_human_validation_and_repair_loop",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:58:10.066Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC07 human validation and repair loop"
+  },
+  "payloadHash": "sha256:8cdefa362f3b738c715c5a40ad1db24b57e289e142cda826dcda362063666537",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:58:10.066Z",
+  "workCardId": "WC07"
+}
+-->
+
+# Human Operator Validation - WC07 Human validation and repair loop
 
 ## Work Card
 

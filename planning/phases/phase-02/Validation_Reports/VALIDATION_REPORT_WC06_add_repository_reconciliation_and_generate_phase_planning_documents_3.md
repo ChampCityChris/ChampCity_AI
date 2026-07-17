@@ -1,4 +1,31 @@
-# Human Validation Report - WC06 Add Repository Reconciliation and Generate Phase Planning Documents
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-02T15:14:05.954Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC06 add repository reconciliation and generate phase planning documents 3"
+  },
+  "payloadHash": "sha256:e86cfab4cb8b0e5601bac6c88181c567e547ca197e3ca90fe99c10b0217ee450",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-02T15:14:05.954Z",
+  "workCardId": "WC06"
+}
+-->
+
+# Human Operator Validation - WC06 Add Repository Reconciliation and Generate Phase Planning Documents
 
 ## Validation Target
 

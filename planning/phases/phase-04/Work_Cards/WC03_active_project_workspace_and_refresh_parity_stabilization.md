@@ -5,7 +5,11 @@
   "createdAt": "2026-07-16T20:05:00.000Z",
   "jsonPath": "planning/phases/phase-04/Work_Cards/WC03_active_project_workspace_and_refresh_parity_stabilization.json",
   "markdownPath": "planning/phases/phase-04/Work_Cards/WC03_active_project_workspace_and_refresh_parity_stabilization.md",
-  "payloadHash": "sha256:9d97c2d03588fca72405e9469eb349d94bd5bab09c502c8cefe1f2d2da22872b",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: WC03 Active Project Workspace and Refresh Parity Stabilization"
+  },
+  "payloadHash": "sha256:079bc6ab0c2dce605bde9a558bd05187992961a88a4186ce1f33e0639db8fc7e",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -14,11 +18,11 @@
       "champcity-ai/phase-04/implementer_report/WC03-active-project-workspace-and-refresh-parity-stabilization"
     ],
     "sources": [
+      "champcity-ai/phase-04/architect_review/WC02-REPAIR02",
       "champcity-ai/phase-04/candidate_disposition/WC02",
-      "champcity-ai/phase-04/validation_report/WC02",
-      "champcity-ai/project/observation/PROJ-OBS-010",
+      "champcity-ai/phase-04/operator_validation/WC02",
       "champcity-ai/phase-04/work_card/WC02",
-      "champcity-ai/phase-04/architect_review/WC02-REPAIR02"
+      "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
   },
@@ -26,11 +30,7 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-16T20:05:00.000Z",
-  "workCardId": "WC03",
-  "payload": {
-    "kind": "work_card",
-    "title": "Work Card: WC03 Active Project Workspace and Refresh Parity Stabilization"
-  }
+  "workCardId": "WC03"
 }
 -->
 
@@ -104,7 +104,7 @@ The Operator must not need to understand Git, branch mechanics, repository inter
    - Refresh must not use stale renderer binding, stale lastScanResult, stale reference navigation, stale selected-project cache, or stale Workflow State artifact as route authority.
 
 5. Preserve the WC02 evidence regression.
-   - With committed WC02 Validation Report and Candidate Disposition evidence present, cold start and manual refresh must both advance to the same disposition / next-step route.
+   - With committed WC02 Operator Validation and Candidate Disposition evidence present, cold start and manual refresh must both advance to the same disposition / next-step route.
    - The app must not require rebuild to progress after a new canonical artifact is committed or written.
 
 6. Support multiple dogfood workspaces at a minimal level.

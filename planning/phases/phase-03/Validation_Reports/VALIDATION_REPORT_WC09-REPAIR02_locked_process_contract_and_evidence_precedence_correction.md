@@ -1,25 +1,25 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC09-REPAIR02",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC09-REPAIR02",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-15T18:00:00.000Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC09",
   "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: WC09-REPAIR02 Locked Process Contract and Evidence Precedence Correction"
+    "kind": "operator_validation",
+    "title": "Operator Validation: WC09-REPAIR02 Locked Process Contract and Evidence Precedence Correction"
   },
-  "payloadHash": "sha256:e4c1d2ced9794156beb570dcbe8c21566fd9b89014467180ab386872b7690146",
+  "payloadHash": "sha256:0106abed8271b89453bd08d15d458e3513c2515e602d0041b58761f57290fd83",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-03/work_card/WC09-REPAIR02",
+      "champcity-ai/phase-03/architect_review/WC09-REPAIR02",
       "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
-      "champcity-ai/phase-03/architect_review/WC09-REPAIR02"
+      "champcity-ai/phase-03/work_card/WC09-REPAIR02"
     ],
     "supersedes": []
   },
@@ -31,7 +31,7 @@
 }
 -->
 
-# Validation Report: WC09-REPAIR02 — Locked Process Contract and Evidence Precedence Correction
+# Operator Validation: WC09-REPAIR02 — Locked Process Contract and Evidence Precedence Correction
 
 Status: Failed / WC09 blocked
 Phase: phase-03

@@ -8,9 +8,9 @@
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
   "payload": {
     "kind": "operator_validation",
-    "title": "Validation Report: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04"
+    "title": "Operator Validation: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04"
   },
-  "payloadHash": "sha256:188711726eefe1fda693e1d46615bdf8b09e4e1ea3ecc19d3418ad03f7d05acb",
+  "payloadHash": "sha256:b079cb1e157f72489725b3e6892f750c1a5ce0b050b2f27e7daae1f5ceb2f45a",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,25 +19,25 @@
       "champcity-ai/phase-06/work_card/WC02-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-04/phase_closeout/PHASE_04",
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-05/phase_closeout/PHASE_05",
       "champcity-ai/phase-06/architect_review/WC02",
       "champcity-ai/phase-06/implementer_report/WC02",
-      "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/phase_closeout/PHASE_05",
       "champcity-ai/phase-06/phase_activation/phase-06",
-      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
+      "champcity-ai/phase-06/work_card/WC02"
     ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "blocked",
-  "updatedAt": "2026-07-17T17:35:00.000Z",
+  "updatedAt": "2026-07-17T23:38:21.891Z",
   "workCardId": "WC02"
 }
 -->
 
-# Validation Report: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04
+# Operator Validation: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04
 
 Status: failed
 Phase: phase-06

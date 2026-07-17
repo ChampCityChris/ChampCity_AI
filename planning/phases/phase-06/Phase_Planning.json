@@ -1,39 +1,39 @@
 {
   "artifactId": "champcity-ai/phase-06/phase_planning/Phase_Planning",
   "artifactType": "phase_planning",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
   "createdAt": "2026-07-17T02:05:00.000Z",
-  "updatedAt": "2026-07-17T02:05:00.000Z",
   "jsonPath": "planning/phases/phase-06/Phase_Planning.json",
   "markdownPath": "planning/phases/phase-06/Phase_Planning.md",
-  "payloadHash": "sha256:dada5e7a76b47069f0c37b09b16924f60157a16c880e2f7aa1388f9c559d35c2",
+  "payload": {
+    "contentMarkdown": "# Phase Planning: phase-06\n\nStatus: draft_for_operator_review\nProject: ChampCity A/I\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nPhase type: implementation foundation phase\n\n## Purpose\n\nReplace the current hard-coded evidence projector and prompt-handoff assumptions with an integration-ready workflow kernel and canonical artifact protocol.\n\nPhase 06 exists because Phase 04 and Phase 05 proved that patching the existing projector creates more debt. The next implementation pass must build the durable kernel that future Architect Bridge, dogfooding, validation, Git automation, and release-candidate work can consume.\n\n## Source Authority\n\nPrimary sources:\n\n- `champcity-ai/phase-05/project_roadmap/WC03`\n- `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`\n- `champcity-ai/phase-05/phase_closeout/PHASE_05`\n- `champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i`\n- `champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL`\n- `docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md`\n\n## In Scope\n\n- Relationship-driven workflow kernel.\n- Canonical artifact protocol for workflow state transitions.\n- Removal or replacement of wrong old projector assumptions.\n- Exact artifact identity and expected-output resolution.\n- Repair lineage and repaired-parent completion rules represented as data/rules, not WC-specific branches.\n- Artifact Registry and Workflow State as diagnostic/cache until the new kernel explicitly defines their target role.\n- Real Phase 04/05 replay fixtures.\n- Repository gates that reject synthetic IDs, filename inference, timestamp inference, suffix inference, stale Workflow State authority, and runtime legacy fallback.\n- Kernel-to-current-action adapter.\n- Minimal UI affordance needed to prove the current action is understandable and usable.\n\n## Out of Scope\n\n- Full Architect Bridge UI implementation.\n- ChatGPT DOM automation.\n- Provider API model execution.\n- Release packaging.\n- Full multi-project dogfooding.\n- Full validation/evidence UI redesign.\n- Git automation implementation.\n- Broad visual redesign beyond what is required to validate the kernel-derived current action.\n\n## Old-Foundation Rule\n\nWrong old foundations must be replaced or migrated. They must not be kept alive by runtime compatibility fallbacks merely because they exist.\n\nEvery implementation Work Card in this phase must state:\n\n- existing implementation classification: Preserve, Migrate, or Replace;\n- named compatibility consumers, if any;\n- migration strategy;\n- deletion/removal plan;\n- tests proving old and new authority paths are not both active;\n- UI impact when touching Operator workflow.\n\nDefault for unreleased Alpha is:\n\n```text\nReplace wrong foundations with durable-data migration only.\n```\n\n## Required Success Criteria\n\nPhase 06 succeeds when:\n\n1. One workflow kernel computes the current required action from verified artifact relationships.\n2. The kernel does not invent synthetic artifact IDs.\n3. The kernel resolves expected outputs from declared artifact relationships.\n4. The kernel blocks ambiguity visibly instead of guessing.\n5. Phase 04 and Phase 05 replay from repository evidence without WC-specific special cases.\n6. Artifact Registry and Workflow State cannot override verified graph evidence.\n7. Existing projector assumptions are removed or made non-authoritative.\n8. Kernel-derived current action can be rendered through the current UI path in a way the Operator can understand.\n9. Automated tests and repository gates prove the no-fallback rule.\n10. Operator validation confirms that the current action is accurate and understandable.\n\n## Exit Condition\n\nPhase 06 exits when the Operator validates that ChampCity_AI repository evidence projects through the new kernel to the correct current action, with no reliance on old projector fallback, stale workflow snapshots, filename ordering, suffixes, or synthetic IDs.\n\nPhase 06 exit does not mean the app is fully ready for dogfooding. Application-led dogfooding resumes in Phase 08 after Phase 07 Architect Bridge work is also complete.\n",
+    "data": {
+      "implementationAuthorized": false,
+      "operatorApprovalRequired": true,
+      "phaseId": "phase-06",
+      "phaseTitle": "Workflow Kernel and Artifact Protocol Replacement",
+      "status": "draft_for_operator_review"
+    },
+    "kind": "phase_planning",
+    "title": "Phase Planning: phase-06"
+  },
+  "payloadHash": "sha256:90dd8e79d5a33d2d12acc90fbf439f33e2faed283da233e38c15bf86fd538af8",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-06/phase_activation/phase-06",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
-      "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-05/project_roadmap/WC03",
+      "champcity-ai/phase-06/phase_activation/phase-06",
+      "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "phase_planning",
-    "title": "Phase Planning: phase-06",
-    "contentMarkdown": "# Phase Planning: phase-06\n\nStatus: draft_for_operator_review\nProject: ChampCity A/I\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nPhase type: implementation foundation phase\n\n## Purpose\n\nReplace the current hard-coded evidence projector and prompt-handoff assumptions with an integration-ready workflow kernel and canonical artifact protocol.\n\nPhase 06 exists because Phase 04 and Phase 05 proved that patching the existing projector creates more debt. The next implementation pass must build the durable kernel that future Architect Bridge, dogfooding, validation, Git automation, and release-candidate work can consume.\n\n## Source Authority\n\nPrimary sources:\n\n- `champcity-ai/phase-05/roadmap_rebaseline/WC03`\n- `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`\n- `champcity-ai/phase-05/phase_closeout/PHASE_05`\n- `champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i`\n- `champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL`\n- `docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md`\n\n## In Scope\n\n- Relationship-driven workflow kernel.\n- Canonical artifact protocol for workflow state transitions.\n- Removal or replacement of wrong old projector assumptions.\n- Exact artifact identity and expected-output resolution.\n- Repair lineage and repaired-parent completion rules represented as data/rules, not WC-specific branches.\n- Artifact Registry and Workflow State as diagnostic/cache until the new kernel explicitly defines their target role.\n- Real Phase 04/05 replay fixtures.\n- Repository gates that reject synthetic IDs, filename inference, timestamp inference, suffix inference, stale Workflow State authority, and runtime legacy fallback.\n- Kernel-to-current-action adapter.\n- Minimal UI affordance needed to prove the current action is understandable and usable.\n\n## Out of Scope\n\n- Full Architect Bridge UI implementation.\n- ChatGPT DOM automation.\n- Provider API model execution.\n- Release packaging.\n- Full multi-project dogfooding.\n- Full validation/evidence UI redesign.\n- Git automation implementation.\n- Broad visual redesign beyond what is required to validate the kernel-derived current action.\n\n## Old-Foundation Rule\n\nWrong old foundations must be replaced or migrated. They must not be kept alive by runtime compatibility fallbacks merely because they exist.\n\nEvery implementation Work Card in this phase must state:\n\n- existing implementation classification: Preserve, Migrate, or Replace;\n- named compatibility consumers, if any;\n- migration strategy;\n- deletion/removal plan;\n- tests proving old and new authority paths are not both active;\n- UI impact when touching Operator workflow.\n\nDefault for unreleased Alpha is:\n\n```text\nReplace wrong foundations with durable-data migration only.\n```\n\n## Required Success Criteria\n\nPhase 06 succeeds when:\n\n1. One workflow kernel computes the current required action from verified artifact relationships.\n2. The kernel does not invent synthetic artifact IDs.\n3. The kernel resolves expected outputs from declared artifact relationships.\n4. The kernel blocks ambiguity visibly instead of guessing.\n5. Phase 04 and Phase 05 replay from repository evidence without WC-specific special cases.\n6. Artifact Registry and Workflow State cannot override verified graph evidence.\n7. Existing projector assumptions are removed or made non-authoritative.\n8. Kernel-derived current action can be rendered through the current UI path in a way the Operator can understand.\n9. Automated tests and repository gates prove the no-fallback rule.\n10. Operator validation confirms that the current action is accurate and understandable.\n\n## Exit Condition\n\nPhase 06 exits when the Operator validates that ChampCity_AI repository evidence projects through the new kernel to the correct current action, with no reliance on old projector fallback, stale workflow snapshots, filename ordering, suffixes, or synthetic IDs.\n\nPhase 06 exit does not mean the app is fully ready for dogfooding. Application-led dogfooding resumes in Phase 08 after Phase 07 Architect Bridge work is also complete.\n",
-    "data": {
-      "phaseId": "phase-06",
-      "phaseTitle": "Workflow Kernel and Artifact Protocol Replacement",
-      "status": "draft_for_operator_review",
-      "implementationAuthorized": false,
-      "operatorApprovalRequired": true
-    }
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T02:05:00.000Z"
 }

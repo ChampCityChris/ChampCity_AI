@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report - WC08-REPAIR04 Controlled Route Recovery and Accurate Route Evidence Authority"
   },
-  "payloadHash": "sha256:e56072bcf1c190b261bb3d6a7d8fd3baa2cacda232e38292f4a491b20351f6ae",
+  "payloadHash": "sha256:220234491dd9b7067f494d2554277f8d0c0955bc0322981f1125c1494d25ebf2",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -26,7 +26,7 @@
     ],
     "sources": [
       "champcity-ai/phase-03/observation_register/Observation_Register",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR01",
       "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
       "champcity-ai/phase-03/work_card/WC08-REPAIR04",
       "champcity-ai/project/observation_register/Project_Observation_Register"
@@ -182,7 +182,7 @@ There is no copyable Architect/LLM prompt and no unrestricted Operator override.
 
 ## Pre-Existing Source Artifacts Preserved
 
-The following Architect/Operator source artifacts were already present in the working tree before the Implementer code edits. They were not authored or reinterpreted as accepted by this pass. Two trailing spaces in the supplied Markdown validation report were removed only to satisfy the staged diff whitespace check:
+The following Architect/Operator source artifacts were already present in the working tree before the Implementer code edits. They were not authored or reinterpreted as accepted by this pass. Two trailing spaces in the supplied Markdown operator validation were removed only to satisfy the staged diff whitespace check:
 
 - `planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json`
 - `planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.md`
@@ -292,4 +292,4 @@ None for this Implementer pass.
 
 ## Recommended Next Implementer Task
 
-No additional Implementer task should begin yet. The Architect owns review of this Implementer Report and the source changes. If the Architect authorizes Operator validation, the Operator owns the 18 item-level checks above. The Architect then reviews the resulting validation report and decides whether WC08 is resolved or another exact-scope repair is required. WC09 remains blocked until that decision.
+No additional Implementer task should begin yet. The Architect owns review of this Implementer Report and the source changes. If the Architect authorizes Operator validation, the Operator owns the 18 item-level checks above. The Architect then reviews the resulting operator validation and decides whether WC08 is resolved or another exact-scope repair is required. WC09 remains blocked until that decision.

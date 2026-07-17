@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
     assert.equal(initial.currentAction.workCardId, workCardId);
     assert.equal(
       initial.currentAction.routedAction.expectedOutput.artifactId,
-      `${projectId}/${phaseId}/validation_report/${workCardId}`,
+      `${projectId}/${phaseId}/operator_validation/${workCardId}`,
     );
     assert.equal(initial.currentAction.routedAction.bindingSource.kind, "relationship_resolver");
 
@@ -86,7 +86,7 @@ app.whenReady().then(async () => {
     await require("../dist/main/canonicalRuntime.js").shutdownCanonicalRuntime();
     for (const candidate of BrowserWindow.getAllWindows()) candidate.destroy();
     if (cleanup) {
-      fs.rmSync(fixtureRoot, { recursive: true, force: true });
+      fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       fs.rmSync(workspacePath, { force: true });
     }
     app.exit(0);
@@ -111,7 +111,7 @@ app.whenReady().then(async () => {
 });
 
 function prepareFixture() {
-  fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   fs.mkdirSync(path.join(fixtureRoot, "planning"), { recursive: true });
   fs.mkdirSync(path.join(fixtureRoot, ".git"), { recursive: true });
   fs.writeFileSync(
@@ -142,11 +142,11 @@ function prepareFixture() {
     },
   });
   writeArtifact({
-    artifactId: `${projectId}/${phaseId}/approval/Operator_Phase_Approval`,
-    artifactType: "phase_approval",
+    artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
+    artifactType: "operator_approval",
     phaseId,
     stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
-    data: { decision: "approved" },
+    data: { approvalScope: "phase_work_card_plan", decision: "approved" },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
@@ -208,7 +208,7 @@ function prepareFixture() {
     workCardId: repairId,
     stem: `planning/phases/${phaseId}/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair`,
     sources: [repairReportId],
-    expectedOutputs: [`${projectId}/${phaseId}/validation_report/${repairId}`],
+    expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${repairId}`],
     data: { decision: "Ready for Operator validation", operatorValidationAuthorized: true },
   });
   writeArtifact({
@@ -224,7 +224,7 @@ function prepareFixture() {
       `${projectId}/${phaseId}/work_card/${workCardId}`,
       `${projectId}/${phaseId}/work_card/${repairId}`,
     ],
-    expectedOutputs: [`${projectId}/${phaseId}/validation_report/${workCardId}`],
+    expectedOutputs: [`${projectId}/${phaseId}/operator_validation/${workCardId}`],
     data: {
       workCardId,
       decision: "Ready for Operator validation",

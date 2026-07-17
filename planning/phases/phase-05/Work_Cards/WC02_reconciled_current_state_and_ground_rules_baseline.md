@@ -5,6 +5,10 @@
   "createdAt": "2026-07-16T23:45:00.000Z",
   "jsonPath": "planning/phases/phase-05/Work_Cards/WC02_reconciled_current_state_and_ground_rules_baseline.json",
   "markdownPath": "planning/phases/phase-05/Work_Cards/WC02_reconciled_current_state_and_ground_rules_baseline.md",
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Phase 05 WC02 Reconciled Current-State and Ground-Rules Baseline"
+  },
   "payloadHash": "sha256:147e7c55f229bef5412222d8001d0093bafafd4c958d11561ec824c1d146be23",
   "phaseId": "phase-05",
   "projectId": "champcity-ai",
@@ -23,11 +27,7 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-16T23:45:00.000Z",
-  "workCardId": "WC02",
-  "payload": {
-    "kind": "work_card",
-    "title": "Work Card: Phase 05 WC02 Reconciled Current-State and Ground-Rules Baseline"
-  }
+  "workCardId": "WC02"
 }
 -->
 

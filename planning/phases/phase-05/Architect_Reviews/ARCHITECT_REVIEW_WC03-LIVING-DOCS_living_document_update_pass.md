@@ -2,37 +2,37 @@
 {
   "artifactId": "champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS",
   "artifactType": "architect_review",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03-LIVING-DOCS",
-  "parentArtifactId": "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
   "createdAt": "2026-07-17T01:50:00.000Z",
-  "updatedAt": "2026-07-17T01:50:00.000Z",
   "jsonPath": "planning/phases/phase-05/Architect_Reviews/ARCHITECT_REVIEW_WC03-LIVING-DOCS_living_document_update_pass.json",
   "markdownPath": "planning/phases/phase-05/Architect_Reviews/ARCHITECT_REVIEW_WC03-LIVING-DOCS_living_document_update_pass.md",
-  "payloadHash": "sha256:55089062afee5427256b66c9a206ee02c19b64d8914fc690ef7e6e3047a5500a",
+  "parentArtifactId": "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
+  "payload": {
+    "kind": "architect_review",
+    "title": "Architect Review: WC03-LIVING-DOCS Living Document Update Pass"
+  },
+  "payloadHash": "sha256:405720561d188c965f077c4f8af689ca98d5a78b290a77a0052e5b0ff6800e42",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
   "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-05/operator_validation/WC03-LIVING-DOCS"
+    ],
     "sources": [
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
       "champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
-    "expectedOutputs": [
-      "champcity-ai/phase-05/validation_report/WC03-LIVING-DOCS"
-    ],
-    "supersedes": [],
-    "children": []
+    "supersedes": []
   },
-  "payload": {
-    "kind": "architect_review",
-    "title": "Architect Review: WC03-LIVING-DOCS Living Document Update Pass"
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:50:00.000Z",
+  "workCardId": "WC03-LIVING-DOCS"
 }
 -->
 
@@ -48,7 +48,7 @@ Reviewed Implementer Report `champcity-ai/phase-05/implementer_report/WC03-LIVIN
 
 ## Findings
 
-The living-document update pass is accepted for Operator validation. The updated Project Roadmap now identifies `champcity-ai/phase-05/roadmap_rebaseline/WC03` as the current approved roadmap authority, marks Phase 06 as the next implementation phase, and carries Phase 06 through Phase 15 from the approved roadmap.
+The living-document update pass is accepted for Operator validation. The updated Project Roadmap now identifies `champcity-ai/phase-05/project_roadmap/WC03` as the current approved roadmap authority, marks Phase 06 as the next implementation phase, and carries Phase 06 through Phase 15 from the approved roadmap.
 
 Project State no longer claims Phase 03 is active. It states Phase 04 is closed as a stabilization bridge, Phase 05 roadmap rebaseline is approved, Phase 06 is next, Artifact Registry and Workflow State are diagnostic/cache, and the application is not the reliable workflow controller until Phase 08 re-entry criteria are met.
 

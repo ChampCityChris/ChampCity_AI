@@ -9,20 +9,20 @@
     "kind": "architect_review",
     "title": "Architect Review: WC02-REPAIR02 Executable Transition Engine and Refresh Authority Rebuild"
   },
-  "payloadHash": "sha256:3982b36c75bf571dcf52790b7fcfb611749c82877648d1fded076452a2fd0cfc",
+  "payloadHash": "sha256:e95da47dc84ab9587a0bb58e8a5be32973fe8562c35fd85121a47deaf8aec90b",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/validation_report/WC02"
+      "champcity-ai/phase-04/operator_validation/WC02"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC02-REPAIR02",
-      "champcity-ai/phase-04/implementer_report/WC02-REPAIR02-executable-transition-engine-and-refresh-authority-rebuild",
-      "champcity-ai/phase-04/work_card/WC02",
       "champcity-ai/phase-04/architect_review/WC02",
-      "champcity-ai/phase-04/migration_manifest/WC02-REPAIR02-active-pair-canonicalization"
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR02-executable-transition-engine-and-refresh-authority-rebuild",
+      "champcity-ai/phase-04/migration_manifest/WC02-REPAIR02-active-pair-canonicalization",
+      "champcity-ai/phase-04/work_card/WC02",
+      "champcity-ai/phase-04/work_card/WC02-REPAIR02"
     ],
     "supersedes": []
   },
@@ -46,7 +46,7 @@ Reviewed the WC02-REPAIR02 Implementer Report, the reported source changes, the 
 
 ## Findings
 
-The implementation addresses the live blocker sufficiently for Operator validation. The current WC02 evidence shape is now covered by unit and mounted Electron regressions, and the reported live projection resolves to `operator_validation_required` for parent WC02 with expected output `champcity-ai/phase-04/validation_report/WC02`.
+The implementation addresses the live blocker sufficiently for Operator validation. The current WC02 evidence shape is now covered by unit and mounted Electron regressions, and the reported live projection resolves to `operator_validation_required` for parent WC02 with expected output `champcity-ai/phase-04/operator_validation/WC02`.
 
 The pass also corrected the selected-project refresh failure mode by resolving the latest enabled project from the workspace registry during refresh, and it adds branch display from the selected project's latest scan result.
 
@@ -73,7 +73,7 @@ The Implementer Report still says commit creation was pending, but git history s
 5. Click Refresh Repository State.
 6. Confirm WC02 no longer remains blocked on Architect Review when `architect_review/WC02` exists.
 7. Confirm the next required action is Operator Validation for WC02.
-8. Confirm expected output is `champcity-ai/phase-04/validation_report/WC02`.
+8. Confirm expected output is `champcity-ai/phase-04/operator_validation/WC02`.
 9. Restart the app and confirm the same route is reconstructed.
 10. Switch away and back to the project if available and confirm the route remains stable.
 

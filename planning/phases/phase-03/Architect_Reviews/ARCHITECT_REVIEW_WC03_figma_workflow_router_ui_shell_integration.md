@@ -9,15 +9,15 @@
     "kind": "architect_review",
     "title": "Architect Review: WC03 Figma Workflow Router UI Shell Integration"
   },
-  "payloadHash": "sha256:dbab6d4f6442c049c13f90d6fa111e588cdc5844434486b7cc4a2848aa769162",
+  "payloadHash": "sha256:fe3314e19a19fc315bbb1d44e71ba671f4c66142e11929fd0a967f20451c4922",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC03"
+      "champcity-ai/phase-03/operator_validation/WC03"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC03"
+      "champcity-ai/phase-03/operator_validation/WC03"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC03",
@@ -163,4 +163,4 @@ No WC03 repair is required before Operator validation.
 
 ## Recommended Next Action
 
-Operator validates WC03 from the pushed feature branch. If passed, Architect/Operator may merge the approved feature branch into `dev` and record the WC03 validation report.
+Operator validates WC03 from the pushed feature branch. If passed, Architect/Operator may merge the approved feature branch into `dev` and record the WC03 operator validation.

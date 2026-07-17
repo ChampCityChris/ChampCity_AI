@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC01-REPAIR01 Routed Architect Review UI Binding"
   },
-  "payloadHash": "sha256:2db6f04530afc96d21a6107ad5829791a3547cad63a684e03f04ad1b317668ec",
+  "payloadHash": "sha256:f1789f6ff6d754139b40f1d10ae71ab5fadb3b98c0f97a080940d9b868eb622c",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,10 +19,10 @@
       "champcity-ai/phase-04/architect_review/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC01",
+      "champcity-ai/phase-04/architect_review/WC01",
       "champcity-ai/phase-04/implementer_report/WC01",
       "champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority",
-      "champcity-ai/phase-04/architect_review/WC01",
+      "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/phase-04/work_card/WC01-REPAIR01"
     ],
     "supersedes": []
@@ -103,7 +103,7 @@ Renderer state is only form state. Preview and save still call the existing IPC 
 
 - No WC01-REPAIR02 Work Card.
 - No Architect Review acceptance artifact.
-- No Operator Validation Report.
+- No Operator Operator Validation.
 - No completed_via_repair disposition.
 - No Workflow State rewrite.
 - No release tag, merge, provider SDK, authentication, database, cloud, connector, MCP, or deployment integration.
@@ -135,7 +135,7 @@ Renderer state is only form state. Preview and save still call the existing IPC 
 
 ## Current route after the fix
 
-In the mounted validation fixture, saving the Architect Review with decision Ready for Operator validation advances to operator_validation_required and the expected output becomes mounted-project/phase-04/validation_report/WC01.
+In the mounted validation fixture, saving the Architect Review with decision Ready for Operator validation advances to operator_validation_required and the expected output becomes mounted-project/phase-04/operator_validation/WC01.
 
 The actual selected project was not advanced by this Implementer pass. It remains awaiting the governed combined Architect Review and Operator manual validation sequence.
 
@@ -143,11 +143,11 @@ The actual selected project was not advanced by this Implementer pass. It remain
 
 No required automated Implementer validation was skipped.
 
-Operator acceptance, manual visual/usability judgment, final Human Validation acceptance, parent WC01 Validation Report creation, completed_via_repair disposition, merge, and release tag were skipped because Implementer authority does not include Operator acceptance or phase closeout.
+Operator acceptance, manual visual/usability judgment, final Human Validation acceptance, parent WC01 Operator Validation creation, completed_via_repair disposition, merge, and release tag were skipped because Implementer authority does not include Operator acceptance or phase closeout.
 
 ## Manual validation required
 
-The Operator should still launch ChampCity A/I from the approved repository root, open the current routed Architect Review screen, confirm Associated Implementer Report: none is absent, confirm the routed Implementer Report and combined evidence are already bound, confirm Reference Phase and Reference Card changes do not alter the routed binding, save the Architect Review with Ready for Operator validation if the Architect authorizes it, and confirm the app advances to the WC01 Operator Validation screen with expected output champcity-ai/phase-04/validation_report/WC01.
+The Operator should still launch ChampCity A/I from the approved repository root, open the current routed Architect Review screen, confirm Associated Implementer Report: none is absent, confirm the routed Implementer Report and combined evidence are already bound, confirm Reference Phase and Reference Card changes do not alter the routed binding, save the Architect Review with Ready for Operator validation if the Architect authorizes it, and confirm the app advances to the WC01 Operator Validation screen with expected output champcity-ai/phase-04/operator_validation/WC01.
 
 ## Residual risks
 

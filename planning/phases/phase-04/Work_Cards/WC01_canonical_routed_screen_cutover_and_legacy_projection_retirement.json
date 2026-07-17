@@ -27,9 +27,9 @@
       "champcity-ai/phase-04/implementer_report/WC01"
     ],
     "sources": [
+      "champcity-ai/phase-03/operator_validation/WC09-REPAIR02",
       "champcity-ai/phase-04/phase_planning/Phase_Planning",
-      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan"
     ],
     "supersedes": []
   },

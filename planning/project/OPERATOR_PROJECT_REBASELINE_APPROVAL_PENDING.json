@@ -1,6 +1,6 @@
 {
-  "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
-  "artifactType": "approval",
+  "artifactId": "champcity-ai/project/operator_approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
   "markdownPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
@@ -10,16 +10,17 @@
       "approvalScope": "Approve Project Mapping Rebaseline to supersede screen-picker assumptions and adopt workflow-router model.",
       "approvalStatement": "Pending. Do not treat as approved until Operator explicitly approves.",
       "approved": false,
+      "decision": "pending_operator_approval",
       "id": "OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
       "project": "ChampCity A/I",
       "rebaselineArtifact": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.md",
       "rebaselineJson": "planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json",
       "status": "pending_operator_approval"
     },
-    "kind": "approval",
+    "kind": "operator_approval",
     "title": "Operator Project Rebaseline Approval"
   },
-  "payloadHash": "sha256:8de0bbd422a2aa5e7bd371db256854316e626bb9fc6783cf2cdda115947ed4cf",
+  "payloadHash": "sha256:9bbbc9b8226340468dd07600d7a02e71b3dcaeb6b34d676cee2f0a34e3f41446",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],

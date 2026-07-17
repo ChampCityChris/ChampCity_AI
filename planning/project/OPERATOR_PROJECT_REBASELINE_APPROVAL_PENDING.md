@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
-  "artifactType": "approval",
+  "artifactId": "champcity-ai/project/operator_approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json",
   "markdownPath": "planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.md",
   "payload": {
-    "kind": "approval",
+    "kind": "operator_approval",
     "title": "Operator Project Rebaseline Approval"
   },
-  "payloadHash": "sha256:8de0bbd422a2aa5e7bd371db256854316e626bb9fc6783cf2cdda115947ed4cf",
+  "payloadHash": "sha256:9bbbc9b8226340468dd07600d7a02e71b3dcaeb6b34d676cee2f0a34e3f41446",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],

@@ -15,24 +15,24 @@
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC01",
-      "champcity-ai/phase-03/validation_report/WC01"
+      "champcity-ai/phase-03/operator_validation/WC01"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-03/approval/Operator_Phase_Approval",
-      "champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING",
       "champcity-ai/phase-03/architect_interview/Phase_Interview",
       "champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG",
-      "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-03/operator_approval/Operator_Phase_Approval_PENDING",
       "champcity-ai/phase-03/phase_planning/Phase_Planning",
-      "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
-      "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents",
       "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents",
+      "champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation",
       "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
       "champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i",
-      "champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i",
       "champcity-ai/project/supporting_document/PROJECT_STATE",
       "champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL"
     ],

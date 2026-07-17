@@ -1,19 +1,28 @@
 {
-  "validationId": "VALIDATION_WC03_20260630135752",
-  "workCardId": "WC03",
-  "workCardTitle": "Add Architect framing prompt composer",
-  "phase": "phase-01",
-  "builderReportFile": "BUILDER_REPORT_WC01_work_card_schema_renderer.md",
-  "validationResult": "Pass",
-  "testedItems": "",
-  "passedItems": "",
-  "failedItems": "",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "",
-  "commandsRun": "",
-  "observedErrors": "",
-  "additionalOperatorObservations": "",
-  "operatorDecision": "Passed - proceed",
-  "recommendedNextAction": "",
-  "createdAt": "2026-06-30T13:57:52.738Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:57:52.738Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC03 Add Architect framing prompt composer\n\n## Work Card\n\n- Work Card ID: WC03\n- Work Card title: Add Architect framing prompt composer\n- Phase: phase-01\n- Associated Implementer Report: BUILDER_REPORT_WC01_work_card_schema_renderer.md\n\n## Validation Result\n\nPass\n\n## What Was Tested?\n\nNone recorded.\n\n## What Passed?\n\nNone recorded.\n\n## What Failed?\n\nNone recorded.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\nNone recorded.\n\n## Additional Operator Observations\n\nNone recorded.\n\n## Operator Decision\n\nPassed - proceed\n\n## Recommended Next Action\n\nNone recorded.\n\n## Generated Timestamp\n\n2026-06-30T13:57:52.738Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC03 add architect framing prompt composer"
+  },
+  "payloadHash": "sha256:f9572f81e8152edffd81c5691aae007855795348f8ef28adc8aba14307f61718",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:57:52.738Z",
+  "workCardId": "WC03"
 }

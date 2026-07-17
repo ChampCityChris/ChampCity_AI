@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC02-REPAIR02 Executable Transition Engine and Refresh Authority Rebuild"
   },
-  "payloadHash": "sha256:7b5c7475f0482a7b6ae7fc1ce1142e38def73d4994f0636f78f0bda37fa57a9a",
+  "payloadHash": "sha256:722f4b45295b2bd97231873de56e60233a58704d0f8a0127b84caa37dd7dba1c",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,14 +19,14 @@
       "champcity-ai/phase-04/architect_review/WC02-REPAIR02"
     ],
     "sources": [
-      "champcity-ai/phase-04/work_card/WC02-REPAIR02",
-      "champcity-ai/phase-04/work_card/WC02",
-      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
       "champcity-ai/phase-04/architect_review/WC02",
-      "champcity-ai/phase-04/work_card/WC02-REPAIR01",
-      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
       "champcity-ai/phase-04/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-04/migration_manifest/WC02-REPAIR02-active-pair-canonicalization"
+      "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
+      "champcity-ai/phase-04/migration_manifest/WC02-REPAIR02-active-pair-canonicalization",
+      "champcity-ai/phase-04/work_card/WC02",
+      "champcity-ai/phase-04/work_card/WC02-REPAIR01",
+      "champcity-ai/phase-04/work_card/WC02-REPAIR02"
     ],
     "supersedes": []
   },
@@ -61,7 +61,7 @@ Commit hash: pending until commit is created under the same-commit hash rule
 
 ## RCA
 
-1. WC02 remained blocked even when architect_review/WC02 existed because EvidenceDerivedWorkflowProjector had hand-coded Work Card loop branching that considered active child WC02-REPAIR## artifacts before honoring the controlling parent Architect Review's exact expected output. The active WC02-REPAIR02 repair Work Card could therefore pull WC02 back toward repair handling even though architect_review/WC02 revision 3 explicitly expects validation_report/WC02.
+1. WC02 remained blocked even when architect_review/WC02 existed because EvidenceDerivedWorkflowProjector had hand-coded Work Card loop branching that considered active child WC02-REPAIR## artifacts before honoring the controlling parent Architect Review's exact expected output. The active WC02-REPAIR02 repair Work Card could therefore pull WC02 back toward repair handling even though architect_review/WC02 revision 3 explicitly expects operator_validation/WC02.
 2. Refresh could report Configured project champcity-ai was not found because RepositoryRefreshService held a constructor-time ConfiguredProject while observer/manual refresh status writes went through the latest ProjectWorkspaceRegistry document. The refresh service now resolves the latest enabled project from the registry on each scan and returns a clear recovery error only when the project is truly unavailable.
 3. Branch/project UI could become stale because the renderer showed project-list lastScanResult data while current action came from a separate authority read. The project bar now includes branch from the selected project's latest scan result, alongside observer, blockers, and action from the same scan record.
 4. Current tests passed while the live app remained blocked because existing regressions did not include the current WC02 graph shape: slugged parent Implementer Report, accepted combined parent Architect Review, WC02-REPAIR01 evidence, and a later active WC02-REPAIR02 Work Card.
@@ -73,7 +73,7 @@ Commit hash: pending until commit is created under the same-commit hash rule
 
 - Added registry-backed project refresh resolution so manual refresh, observer refresh, restart, and project switch use the same latest configured project record.
 - Exposed executable transition rules from the locked process contract and made projector step creation require a rule from that model.
-- Changed accepted Architect Review projection so exact validation_report expected output is honored before unrelated repair children can influence route selection.
+- Changed accepted Architect Review projection so exact operator_validation expected output is honored before unrelated repair children can influence route selection.
 - Preserved repaired-parent post-validation routing to Architect disposition for completed_via_repair evidence.
 - Added branch display from the selected project's latest scan result.
 - Added unit and mounted Electron regressions for the live WC02 blocker shape.
@@ -154,7 +154,7 @@ Execution lane: approved normal Windows validation lane for child-process/build/
 - npm run validate:codex:unit: passed, 50 tests.
 - npm run test:repository: passed all repository gates after implementation and again after migration manifest creation.
 - npm run test:renderer:built: passed WC01 initial, WC01 restart, WC02 Architect Bridge, and WC02 transition-authority mounted scripts. Electron emitted cache/GPU warnings but scripts exited 0.
-- Live repository projection probe: passed; blockers 0, current action operator_validation_required, target champcity-ai/phase-04/work_card/WC02, expected output champcity-ai/phase-04/validation_report/WC02.
+- Live repository projection probe: passed; blockers 0, current action operator_validation_required, target champcity-ai/phase-04/work_card/WC02, expected output champcity-ai/phase-04/operator_validation/WC02.
 - npm run validate:codex: passed full build, unit, repository, and mounted renderer suite.
 
 ## Validation Skipped And Reason
@@ -165,7 +165,7 @@ Execution lane: approved normal Windows validation lane for child-process/build/
 
 ## Current WC02 Blocker Resolution
 
-Resolved in code and current repo evidence. After canonical pair correction, the live repository projection returns zero blockers and routes WC02 to operator_validation_required with expected output champcity-ai/phase-04/validation_report/WC02.
+Resolved in code and current repo evidence. After canonical pair correction, the live repository projection returns zero blockers and routes WC02 to operator_validation_required with expected output champcity-ai/phase-04/operator_validation/WC02.
 
 ## Manual Validation Required
 

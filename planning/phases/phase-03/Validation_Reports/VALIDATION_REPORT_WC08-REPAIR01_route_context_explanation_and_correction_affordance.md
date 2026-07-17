@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC08-REPAIR01",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC08-REPAIR01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T20:06:06.385Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC08",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC08-REPAIR01 Route Context Explanation and Correction Affordance"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC08-REPAIR01 Route Context Explanation and Correction Affordance"
   },
-  "payloadHash": "sha256:b17f619bd0e2441f86092cb17184ee782330e2b03af85906266cf5a381eb31c1",
+  "payloadHash": "sha256:13c6ace1844891fa448bfe8338851eb69aaff6995a8fd13f2bd56ecf6f3cd2d7",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -33,7 +33,7 @@
 }
 -->
 
-# Human Validation Report - WC08-REPAIR01 Route Context Explanation and Correction Affordance
+# Human Operator Validation - WC08-REPAIR01 Route Context Explanation and Correction Affordance
 
 ## Validation Target
 
@@ -122,7 +122,7 @@ None recorded.
 ## Observed Errors
 
 1. App opened to Phase 3 WC01 but could be moved to WC08-REPAIR01 for validation testing
-2. Architect review of validation report for WC08-REPAIR02 has already occurred. The application has incorrectly identified the next step requiring completion which should be WC08-REPAIR01 Validation
+2. Architect review of operator validation for WC08-REPAIR02 has already occurred. The application has incorrectly identified the next step requiring completion which should be WC08-REPAIR01 Validation
 3. Partial here as some evidence is identified a missing correctly but some is incorrectly indentified as missing/pending
 4. "This Look Wrong" guidance is confusing and does not offer an in app route to move to the correct next action.
 5. The fix here shouldn't be telling the LLM to fix it. I'm not sure what the architect is trying to accomplish with this.  Things should be happening within the application when ever possible.

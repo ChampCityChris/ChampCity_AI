@@ -1,16 +1,16 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC04-REPAIR02",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC04-REPAIR02",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-13T01:06:01.821Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.md",
   "parentArtifactId": "champcity-ai/phase-03/work_card/WC04",
   "payload": {
-    "kind": "validation_report",
-    "title": "Human Validation Report - WC04-REPAIR02 Repair Validation Routing Gate"
+    "kind": "operator_validation",
+    "title": "Human Operator Validation - WC04-REPAIR02 Repair Validation Routing Gate"
   },
-  "payloadHash": "sha256:df07ae860b7a6b82835c42a815ed49c8da800567d80ba390f3d98db0248c6fc5",
+  "payloadHash": "sha256:6a960d16ece9f5506a9d0c96501e7daa7b43a3cf223dcaedede84163f9b7b394",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -33,7 +33,7 @@
 }
 -->
 
-# Human Validation Report - WC04-REPAIR02 Repair Validation Routing Gate
+# Human Operator Validation - WC04-REPAIR02 Repair Validation Routing Gate
 
 ## Validation Target
 

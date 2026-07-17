@@ -1,19 +1,28 @@
 {
-  "validationId": "VALIDATION_WC02_20260630195321",
-  "workCardId": "WC02",
-  "workCardTitle": "Add Project Architect Interview prompt generator",
-  "phase": "phase-02",
-  "builderReportFile": "BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md",
-  "validationResult": "Not Tested",
-  "testedItems": "",
-  "passedItems": "",
-  "failedItems": "",
-  "evidenceReferences": "",
-  "screenshotOrFileReferences": "planning/phases/phase-02/Validation_Evidence/WC02_add_project_architect_interview_prompt_generator/screenshot_2026_06_29_114214.png",
-  "commandsRun": "",
-  "observedErrors": "",
-  "additionalOperatorObservations": "",
-  "operatorDecision": "Deferred - not validated yet",
-  "recommendedNextAction": "",
-  "createdAt": "2026-06-30T19:53:21.737Z"
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T19:53:21.737Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.md",
+  "payload": {
+    "contentMarkdown": "# Human Operator Validation - WC02 Add Project Architect Interview prompt generator\n\n## Work Card\n\n- Work Card ID: WC02\n- Work Card title: Add Project Architect Interview prompt generator\n- Phase: phase-02\n- Associated Implementer Report: BUILDER_REPORT_WC02_add_project_architect_interview_prompt_generator.md\n\n## Validation Result\n\nNot Tested\n\n## What Was Tested?\n\nNone recorded.\n\n## What Passed?\n\nNone recorded.\n\n## What Failed?\n\nNone recorded.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nplanning/phases/phase-02/Validation_Evidence/WC02_add_project_architect_interview_prompt_generator/screenshot_2026_06_29_114214.png\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\nNone recorded.\n\n## Additional Operator Observations\n\nNone recorded.\n\n## Operator Decision\n\nDeferred - not validated yet\n\n## Recommended Next Action\n\nNone recorded.\n\n## Generated Timestamp\n\n2026-06-30T19:53:21.737Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "validationScope": "work_card"
+    },
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC02 add project architect interview prompt generator 2"
+  },
+  "payloadHash": "sha256:508f1f4dec6e7e938919dd3b44d5860ea9b0bbfb2099fb0e89350e432b5910d9",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T19:53:21.737Z",
+  "workCardId": "WC02"
 }

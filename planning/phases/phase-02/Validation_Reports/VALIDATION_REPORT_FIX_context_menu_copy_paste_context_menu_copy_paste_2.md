@@ -1,4 +1,31 @@
-# Human Validation Report - FIX_context_menu_copy_paste Context menu copy paste
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-02T00:15:15.122Z",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT FIX context menu copy paste context menu copy paste 2"
+  },
+  "payloadHash": "sha256:6d6dd3d61c94626d922ae84ac579dcf6a9b6a7a7703f8b0d67f01290d29a868f",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-02T00:15:15.122Z",
+  "workCardId": "FIX_context_menu_copy_paste"
+}
+-->
+
+# Human Operator Validation - FIX_context_menu_copy_paste Context menu copy paste
 
 ## Validation Target
 

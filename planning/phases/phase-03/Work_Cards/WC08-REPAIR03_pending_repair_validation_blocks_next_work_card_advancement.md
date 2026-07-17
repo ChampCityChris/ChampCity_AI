@@ -10,13 +10,13 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC08-REPAIR03 — Pending Repair Validation Blocks Next Work Card Advancement"
   },
-  "payloadHash": "sha256:509ba0a71921c9ca2e7e985ff3193f76a5f4048323014628792da7d7b0f2f58b",
+  "payloadHash": "sha256:ac50487dc368e6bcc237f9d2395c7b29e4a8353cb4157979b6b86ae30da8500d",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR03",
-      "champcity-ai/phase-03/validation_report/WC08-REPAIR03"
+      "champcity-ai/phase-03/operator_validation/WC08-REPAIR03"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR03"
@@ -24,10 +24,10 @@
     "sources": [
       "champcity-ai/phase-03/architect_review/WC08-REPAIR02",
       "champcity-ai/phase-03/implementer_report/WC08-REPAIR02",
-      "champcity-ai/phase-03/validation_report/WC08",
+      "champcity-ai/phase-03/operator_validation/WC08",
+      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector",
       "champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance",
-      "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance",
-      "champcity-ai/phase-03/work_card/WC08_current_step_context_inspector"
+      "champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance"
     ],
     "supersedes": []
   },
@@ -106,7 +106,7 @@ A repair validation obligation is unresolved when all of these are true:
 1. A repair Work Card exists.
 2. A repair Implementer Report exists.
 3. A repair Architect Review exists and indicates ready for Operator validation.
-4. No repair validation report exists with a final accepted/pass/mergeable Architect disposition or equivalent resolved state.
+4. No repair operator validation exists with a final accepted/pass/mergeable Architect disposition or equivalent resolved state.
 
 When those conditions are present, the current action must be:
 
@@ -132,7 +132,7 @@ Given current Phase 03 state, the app must route to:
 Work Card: WC08-REPAIR02
 Current action: repair_validation_required or Operator validation required for repair
 Routed screen: Human Validation
-Expected output: validation report for WC08-REPAIR02
+Expected output: operator validation for WC08-REPAIR02
 ```
 
 It must not route to:
@@ -174,7 +174,7 @@ The only goal of this pass is to make the application route correctly so WC08-RE
 - Do not implement WC09-WC15.
 - Do not create WC09.
 - Do not modify the Work Card Plan.
-- Do not create or fake a WC08-REPAIR02 validation report.
+- Do not create or fake a WC08-REPAIR02 operator validation.
 - Do not mark WC08-REPAIR02 as passed.
 - Do not alter historical validation reports except through read-compatible parsing if needed.
 - Do not redesign the UI.
@@ -274,7 +274,7 @@ Before editing:
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
 6. Read this WC08-REPAIR03 Work Card.
 7. Read WC08-REPAIR02 Work Card, Implementer Report, and Architect Review.
-8. Read the WC08 validation report and the WC08-REPAIR01 Work Card to understand unresolved parent repair state.
+8. Read the WC08 operator validation and the WC08-REPAIR01 Work Card to understand unresolved parent repair state.
 9. Inspect current-action evaluation, validation disposition parsing, repair state parsing, current-action fixtures, workflow visibility, and Human Validation routing.
 
 Required repair:

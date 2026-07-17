@@ -17,8 +17,8 @@
     "children": [],
     "expectedOutputs": [],
     "sources": [
-      "champcity-ai/phase-04/architect_review/WC02-REPAIR01",
       "champcity-ai/phase-04/architect_review/WC02",
+      "champcity-ai/phase-04/architect_review/WC02-REPAIR01",
       "champcity-ai/phase-04/reconciliation_review/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW",
       "champcity-ai/phase-04/work_card/WC02-REPAIR02"
     ],

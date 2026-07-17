@@ -1,4 +1,31 @@
-# Human Validation Report - WC04 Add Risk Router
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC04_add_risk_router",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-06-30T13:57:56.515Z",
+  "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.json",
+  "markdownPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.md",
+  "payload": {
+    "kind": "operator_validation",
+    "title": "VALIDATION REPORT WC04 add risk router"
+  },
+  "payloadHash": "sha256:e475d339ad85e75d86cc513e3a523c4b2ae7cd600bf6f20acbd7bf0b07c2033b",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-06-30T13:57:56.515Z",
+  "workCardId": "WC04"
+}
+-->
+
+# Human Operator Validation - WC04 Add Risk Router
 
 ## Work Card
 

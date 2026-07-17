@@ -1,30 +1,34 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-05/approval/WC03",
-  "artifactType": "approval",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-05",
-  "workCardId": "WC03",
+  "artifactId": "champcity-ai/phase-05/operator_approval/WC03",
+  "artifactType": "operator_approval",
   "createdAt": "2026-07-17T01:15:00.000Z",
-  "updatedAt": "2026-07-17T01:15:00.000Z",
   "jsonPath": "planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_release_candidate_roadmap_rebaseline.json",
   "markdownPath": "planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_release_candidate_roadmap_rebaseline.md",
-  "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/work_card/WC03",
-      "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/approval/WC02"
-    ],
-    "expectedOutputs": [
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
-    ],
-    "supersedes": [],
-    "children": []
+  "payload": {
+    "kind": "operator_approval",
+    "title": "Operator Approval: PH05 WC03 Release-Candidate Roadmap Rebaseline"
   },
-  "payloadHash": "sha256:13bd73983a3ed2281285316da1273db0039aa78f53650deebc17b0247b41ff0b"
+  "payloadHash": "sha256:54922ff69bae89ef1ce0b0648166936a70d16f3593a24069a59074d5cc209a9e",
+  "phaseId": "phase-05",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "sources": [
+      "champcity-ai/phase-05/operator_approval/WC02",
+      "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-05/work_card/WC03"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T01:15:00.000Z",
+  "workCardId": "WC03"
 }
 -->
 
@@ -52,4 +56,4 @@ The roadmap must define a specific phase where development of ChampCity_AI retur
 
 ## Authorized Output
 
-`champcity-ai/phase-05/roadmap_rebaseline/WC03`
+`champcity-ai/phase-05/project_roadmap/WC03`

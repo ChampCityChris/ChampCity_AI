@@ -9,7 +9,7 @@
     "kind": "design_document",
     "title": "Phase Map and Phase Planning Flow"
   },
-  "payloadHash": "sha256:08e3b55ed4becb8c53683193615f7e5b10068042c566576b3e5c2d2829d462e0",
+  "payloadHash": "sha256:a470011c70d4829174a69844a1206f40f3a95253f0754ab96806dc3a37a9fad9",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -90,7 +90,7 @@ Project Planning Documents + Repository Reconciliation + Project Roadmap
 - Formal Work Cards = approved executable units saved under `Work_Cards/`.
 - Implementer Execution Packet = build instruction generated from an approved Formal Work Card.
 - Implementer Report = Implementer result.
-- Human Validation Report = Operator evidence and decision.
+- Human Operator Validation = Operator evidence and decision.
 - Closeout Report = phase-level acceptance and transition authority.
 
 ## Review And Activation Boundary

@@ -10,21 +10,21 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC04-REPAIR01 Validation Flow and Current Action Panel Usability"
   },
-  "payloadHash": "sha256:4cb2a62f79b22ec83ae265f4f7e0308eea2d8f9b8d47590a0ac22ade1b43cfba",
+  "payloadHash": "sha256:0569058f47890bd41fb2ec9724bea64495944dfed766ad7273ee386a3125d22c",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC04-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC04-REPAIR01"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC04-REPAIR01"
     ],
     "sources": [
       "champcity-ai/phase-03/architect_review/WC04",
-      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability",
-      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel"
+      "champcity-ai/phase-03/work_card/WC04_primary_current_action_panel",
+      "champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability"
     ],
     "supersedes": []
   },
@@ -154,7 +154,7 @@ The live repository-backed current-action diagnostic presently returns `WC05` wi
 ## Commands Run and Results
 
 - Repository path, branch, status, remote, and branch availability checks - passed; approved repo, clean WC04 base, and expected remote confirmed before editing.
-- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, the WC04 deferred validation report, WC04-REPAIR01 Work Card, WC04 Architect Review, and WC04 Implementer Report - completed before editing and validation.
+- Required reads of `AGENTS.md`, `docs/dev/VALIDATION_COMMAND_LANES.md`, the WC04 deferred operator validation, WC04-REPAIR01 Work Card, WC04 Architect Review, and WC04 Implementer Report - completed before editing and validation.
 - `git switch -c feature/phase-03-wc04-repair01-validation-flow feature/phase-03-wc04-current-action-panel` - passed.
 - `npm run validate:codex:unit` - passed in the approved normal Windows lane; `npm test`, `npm run typecheck`, and `tsc --noEmit` passed.
 - `npm run validate:codex:build` - passed in the approved normal Windows lane; TypeScript compilation, Vite production build, and renderer asset copying passed.

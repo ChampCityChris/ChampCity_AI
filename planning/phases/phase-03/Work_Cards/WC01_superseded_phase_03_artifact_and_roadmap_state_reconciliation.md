@@ -9,14 +9,14 @@
     "kind": "work_card",
     "title": "Work Card: Superseded Phase 03 Artifact and Roadmap State Reconciliation"
   },
-  "payloadHash": "sha256:54566209676104c9140419e3e0c0729af05357b17f94a451820aeae85763cf89",
+  "payloadHash": "sha256:c6a80f9bf77f9e9b6ec7e7fc6e0e6fb0efeecc7866e4bd8ab6979d12466b8daa",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC01",
       "champcity-ai/phase-03/implementer_report/WC01",
-      "champcity-ai/phase-03/validation_report/WC01"
+      "champcity-ai/phase-03/operator_validation/WC01"
     ],
     "expectedOutputs": [],
     "sources": [],
@@ -143,7 +143,7 @@ Also inspect app source only if necessary to identify static labels or default s
 
 ## Requirements
 
-- Verify the repository path before editing. Expected repository: `%USERPROFILE%\Projects\ChampCity_AI`.
+- Verify the repository path before editing. Expected repository: `%USERPROFILE%/Projects/ChampCity_AI`.
 - Verify Git root and remote before editing.
 - Read `AGENTS.md` before implementation.
 - Read `docs/dev/VALIDATION_COMMAND_LANES.md` before running child-process-heavy validation.
@@ -212,7 +212,7 @@ The Implementer may be Codex, Claude Code, Cursor, or another coding agent. Buil
 
 Before editing:
 
-1. Verify the repository path. Expected repository: `%USERPROFILE%\Projects\ChampCity_AI`.
+1. Verify the repository path. Expected repository: `%USERPROFILE%/Projects/ChampCity_AI`.
 2. Verify Git root and remote. Expected remote repository: `ChampCityChris/ChampCity_AI`.
 3. Read `AGENTS.md`.
 4. Read `docs/dev/VALIDATION_COMMAND_LANES.md`.
@@ -257,7 +257,7 @@ You are acting as Implementer for ChampCity A/I.
 
 Work Card: WC01 — Superseded Phase 03 Artifact and Roadmap State Reconciliation
 
-Repository: %USERPROFILE%\Projects\ChampCity_AI
+Repository: %USERPROFILE%/Projects/ChampCity_AI
 Expected remote: ChampCityChris/ChampCity_AI
 
 Goal:

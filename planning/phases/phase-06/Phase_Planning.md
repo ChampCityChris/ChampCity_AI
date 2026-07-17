@@ -1,3 +1,37 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-06/phase_planning/Phase_Planning",
+  "artifactType": "phase_planning",
+  "createdAt": "2026-07-17T02:05:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Phase_Planning.json",
+  "markdownPath": "planning/phases/phase-06/Phase_Planning.md",
+  "payload": {
+    "kind": "phase_planning",
+    "title": "Phase Planning: phase-06"
+  },
+  "payloadHash": "sha256:90dd8e79d5a33d2d12acc90fbf439f33e2faed283da233e38c15bf86fd538af8",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
+    ],
+    "sources": [
+      "champcity-ai/phase-05/project_roadmap/WC03",
+      "champcity-ai/phase-06/phase_activation/phase-06",
+      "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T02:05:00.000Z"
+}
+-->
+
 # Phase Planning: phase-06
 
 Status: draft_for_operator_review
@@ -15,10 +49,10 @@ Phase 06 exists because Phase 04 and Phase 05 proved that patching the existing 
 
 Primary sources:
 
-- `champcity-ai/phase-05/roadmap_rebaseline/WC03`
-- `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`
+- `champcity-ai/phase-05/project_roadmap/WC03`
+- `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`
 - `champcity-ai/phase-05/phase_closeout/PHASE_05`
-- `champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i`
+- `champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i`
 - `champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL`
 - `docs/architecture/WORKFLOW_AUTHORITY_CONTRACT.md`
 

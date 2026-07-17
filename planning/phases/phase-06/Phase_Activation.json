@@ -1,38 +1,38 @@
 {
   "artifactId": "champcity-ai/phase-06/phase_activation/phase-06",
   "artifactType": "phase_activation",
-  "schemaVersion": "champcity.artifact.v1",
-  "revision": 1,
-  "status": "active",
-  "projectId": "champcity-ai",
-  "phaseId": "phase-06",
   "createdAt": "2026-07-17T02:05:00.000Z",
-  "updatedAt": "2026-07-17T02:05:00.000Z",
   "jsonPath": "planning/phases/phase-06/Phase_Activation.json",
   "markdownPath": "planning/phases/phase-06/Phase_Activation.md",
-  "payloadHash": "sha256:db95308c9ff193ab232ab5742baa480b5f1f1692274e85590f6961e25a1e3ed4",
+  "payload": {
+    "contentMarkdown": "# Phase Activation: phase-06\n\nStatus: active_for_planning\nProject: ChampCity A/I\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nActivation date: 2026-07-17\n\n## Activation Decision\n\nPhase 06 planning is activated by the Phase 05 closeout.\n\nPhase 06 is the next implementation phase in the approved roadmap. It replaces the old evidence projector and artifact protocol boundary with a relationship-driven workflow kernel.\n\n## Activation Authority\n\nPrimary authority:\n\n- `champcity-ai/phase-05/phase_closeout/PHASE_05`\n- `champcity-ai/phase-05/project_roadmap/WC03`\n- `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`\n- `champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i`\n\n## Phase Intent\n\nPhase 06 must produce the durable workflow kernel and artifact protocol needed before Architect Bridge, in-app dogfooding re-entry, validation governance, Git automation, and release-candidate work can proceed safely.\n\n## Planning Boundary\n\nThis activation authorizes Phase 06 planning artifacts only. It does not authorize source-code implementation until the Phase 06 plan and Work Card Plan are approved and a just-in-time Work Card is created.\n",
+    "data": {
+      "implementationAuthorized": false,
+      "phaseId": "phase-06",
+      "phaseTitle": "Workflow Kernel and Artifact Protocol Replacement",
+      "status": "active_for_planning"
+    },
+    "kind": "phase_activation",
+    "title": "Phase Activation: phase-06"
+  },
+  "payloadHash": "sha256:cf4415a2480102bfc429b7dbd4bc363407daccb7bdf036dcb3bba5337c1959ab",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
   "relationships": {
-    "sources": [
-      "champcity-ai/phase-05/phase_closeout/PHASE_05",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline"
-    ],
+    "children": [],
     "expectedOutputs": [
       "champcity-ai/phase-06/phase_planning/Phase_Planning",
       "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
     ],
-    "supersedes": [],
-    "children": []
+    "sources": [
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/phase_closeout/PHASE_05",
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "supersedes": []
   },
-  "payload": {
-    "kind": "phase_activation",
-    "title": "Phase Activation: phase-06",
-    "contentMarkdown": "# Phase Activation: phase-06\n\nStatus: active_for_planning\nProject: ChampCity A/I\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nActivation date: 2026-07-17\n\n## Activation Decision\n\nPhase 06 planning is activated by the Phase 05 closeout.\n\nPhase 06 is the next implementation phase in the approved roadmap. It replaces the old evidence projector and artifact protocol boundary with a relationship-driven workflow kernel.\n\n## Activation Authority\n\nPrimary authority:\n\n- `champcity-ai/phase-05/phase_closeout/PHASE_05`\n- `champcity-ai/phase-05/roadmap_rebaseline/WC03`\n- `champcity-ai/phase-05/approval/WC03-roadmap-rebaseline`\n- `champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i`\n\n## Phase Intent\n\nPhase 06 must produce the durable workflow kernel and artifact protocol needed before Architect Bridge, in-app dogfooding re-entry, validation governance, Git automation, and release-candidate work can proceed safely.\n\n## Planning Boundary\n\nThis activation authorizes Phase 06 planning artifacts only. It does not authorize source-code implementation until the Phase 06 plan and Work Card Plan are approved and a just-in-time Work Card is created.\n",
-    "data": {
-      "phaseId": "phase-06",
-      "status": "active_for_planning",
-      "phaseTitle": "Workflow Kernel and Artifact Protocol Replacement",
-      "implementationAuthorized": false
-    }
-  }
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-17T02:05:00.000Z"
 }

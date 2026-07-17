@@ -9,17 +9,17 @@
     "kind": "architect_review",
     "title": "Architect Review: WC02 Architect Bridge Current-Action Surface Audit and Embedded ChatGPT Browser"
   },
-  "payloadHash": "sha256:15e7b93aedfcd813940acd7fbabb272554338e8643f02c6675a8f0f7ca5e7a22",
+  "payloadHash": "sha256:c68371d0aa160a04672dd73cacfaa166c2b28a54dffeb86c7a777c9a953fb25f",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-04/validation_report/WC02"
+      "champcity-ai/phase-04/operator_validation/WC02"
     ],
     "sources": [
-      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
       "champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit",
+      "champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair",
       "champcity-ai/phase-04/work_card/WC02",
       "champcity-ai/phase-04/work_card/WC02-REPAIR01"
     ],
@@ -61,7 +61,7 @@ Automated validation passed after the missing Work Card and review artifacts wer
 
 Operator validation is authorized for the parent WC02 acceptance target. The expected validation output is:
 
-`champcity-ai/phase-04/validation_report/WC02`
+`champcity-ai/phase-04/operator_validation/WC02`
 
 ## Required Repair
 
@@ -71,6 +71,6 @@ No additional numbered repair is authorized for WC02. WC02-REPAIR01 is the final
 
 1. Refresh repository state in ChampCity A/I.
 2. Confirm the current action routes to Operator Validation for WC02.
-3. Confirm the expected output is `champcity-ai/phase-04/validation_report/WC02`.
+3. Confirm the expected output is `champcity-ai/phase-04/operator_validation/WC02`.
 4. Confirm the previous Architect Review route for WC02 is no longer presented.
 5. Complete Operator validation against the restored WC02 and WC02-REPAIR01 evidence chain.

@@ -28,11 +28,11 @@
       "champcity-ai/phase-06/work_card/WC01"
     ],
     "sources": [
-      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-06/phase_planning/Phase_Planning",
-      "champcity-ai/phase-06/phase_activation/phase-06",
       "champcity-ai/phase-05/phase_closeout/PHASE_05",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03"
+      "champcity-ai/phase-05/project_roadmap/WC03",
+      "champcity-ai/phase-06/phase_activation/phase-06",
+      "champcity-ai/phase-06/phase_planning/Phase_Planning",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
     ],
     "supersedes": []
   },

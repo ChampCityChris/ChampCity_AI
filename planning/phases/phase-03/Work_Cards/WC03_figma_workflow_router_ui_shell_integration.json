@@ -87,7 +87,7 @@
     "children": [
       "champcity-ai/phase-03/architect_review/WC03",
       "champcity-ai/phase-03/implementer_report/WC03",
-      "champcity-ai/phase-03/validation_report/WC03"
+      "champcity-ai/phase-03/operator_validation/WC03"
     ],
     "expectedOutputs": [],
     "sources": [],

@@ -53,7 +53,7 @@
       "champcity-ai/phase-03/work_card/WC09-REPAIR01"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC09"
+      "champcity-ai/phase-03/operator_validation/WC09"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC09",

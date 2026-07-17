@@ -9,7 +9,7 @@
     "kind": "supporting_document",
     "title": "Project State"
   },
-  "payloadHash": "sha256:f853e9d9c260a50043285c64bf4dcd2b4117fce267f6816e934091ffd757cb24",
+  "payloadHash": "sha256:3b9fecf08da9c6ae77e567c69128ef7c540b81a16d15b57bed6afb7df0b5444d",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -19,10 +19,10 @@
     "expectedOutputs": [],
     "sources": [
       "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-05/approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline",
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
@@ -51,13 +51,13 @@ Phase 04 is closed as a stabilization bridge. Phase 05 roadmap rebaseline is app
 Current roadmap authority:
 
 ```text
-champcity-ai/phase-05/roadmap_rebaseline/WC03
+champcity-ai/phase-05/project_roadmap/WC03
 ```
 
 Operator approval:
 
 ```text
-champcity-ai/phase-05/approval/WC03-roadmap-rebaseline
+champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline
 ```
 
 ## Current Authority Summary

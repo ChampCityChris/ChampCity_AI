@@ -9,15 +9,15 @@
     "kind": "architect_review",
     "title": "Architect Review: WC02 Durable Current Required Action Model"
   },
-  "payloadHash": "sha256:5a1ee641227a8f020a5bd633b8a5e11e71c3847051caa0c1154e914498fd53c2",
+  "payloadHash": "sha256:77dc203f9130dd14c52e79873778db03be3409ff38236ad93ce33e2c4fc8571c",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC02"
+      "champcity-ai/phase-03/operator_validation/WC02"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC02"
+      "champcity-ai/phase-03/operator_validation/WC02"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC02",
@@ -181,4 +181,4 @@ No WC02 repair is required at this time.
 
 ## Recommended Next Action
 
-Operator validates WC02. If passed, Architect records the WC02 Validation Report and then creates WC03 just in time from the approved Phase 03 Work Card Plan.
+Operator validates WC02. If passed, Architect records the WC02 Operator Validation and then creates WC03 just in time from the approved Phase 03 Work Card Plan.

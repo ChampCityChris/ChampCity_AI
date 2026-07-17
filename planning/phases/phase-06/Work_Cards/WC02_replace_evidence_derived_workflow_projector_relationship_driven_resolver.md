@@ -10,7 +10,7 @@
     "kind": "work_card",
     "title": "Work Card: Phase 06 WC02 — Replace EvidenceDerivedWorkflowProjector with Relationship-Driven Resolver"
   },
-  "payloadHash": "sha256:2a9a6d90c2f071972b46509f2e71c050eee80781b6a7a3090675036d1edf2486",
+  "payloadHash": "sha256:e6269aec6d6047f605ba39bcad03ea311ef94acd1bb61f3d7b796f403a0a6015",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -19,17 +19,17 @@
       "champcity-ai/phase-06/implementer_report/WC02"
     ],
     "sources": [
+      "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-06/candidate_disposition/WC01",
       "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
-      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
-      "champcity-ai/phase-06/operator_approval/WC02"
+      "champcity-ai/phase-06/operator_approval/WC02",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
     ],
     "supersedes": []
   },
   "revision": 4,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "approved_for_implementer_execution",
+  "status": "active",
   "updatedAt": "2026-07-17T13:40:00.000Z",
   "workCardId": "WC02"
 }

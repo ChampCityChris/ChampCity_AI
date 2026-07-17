@@ -10,20 +10,20 @@
     "kind": "work_card",
     "title": "Repair Work Card: WC06-REPAIR01 — Current Action Validation Route After Architect Review"
   },
-  "payloadHash": "sha256:2ffba47f4c2812d3b07d0377e0d82e803a6d7f64640c163597f3f7acb6111843",
+  "payloadHash": "sha256:d62d1c59a8552b834baa75e70d62b81e4a39807c2ef68671d096b377b77bfac1",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC06-REPAIR01",
       "champcity-ai/phase-03/implementer_report/WC06-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC06-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC06-REPAIR01"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/implementer_report/WC06-REPAIR01"
     ],
     "sources": [
-      "champcity-ai/phase-03/validation_report/WC06",
+      "champcity-ai/phase-03/operator_validation/WC06",
       "champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility"
     ],
     "supersedes": []
@@ -74,7 +74,7 @@ Correct current-action routing after Architect Review so WC06 routes to Operator
 1. a full WC06 Work Card exists;
 2. a WC06 Implementer Report exists;
 3. a WC06 Architect Review exists and says ready for Operator validation;
-4. no passing WC06 Operator validation report exists yet.
+4. no passing WC06 Operator operator validation exists yet.
 
 The correct current action should route to WC06 Operator validation, not ad hoc Work Card creation.
 
@@ -162,7 +162,7 @@ Add or update focused fixture coverage for this exact scenario:
 - WC06 Work Card exists;
 - WC06 Implementer Report exists;
 - WC06 Architect Review exists and is ready for Operator validation;
-- WC06 validation report is absent or failed;
+- WC06 operator validation is absent or failed;
 - current action must route to Operator validation for WC06;
 - current action must not route to full Work Card creation;
 - current action must not route to WC07.
@@ -174,7 +174,7 @@ The fixture should catch the defect shown in the Operator screenshot.
 - Do not implement WC07-WC15.
 - Do not redesign the left-to-right workflow guide.
 - Do not perform a full screen-by-screen UI rework.
-- Do not create a passing Operator validation report.
+- Do not create a passing Operator operator validation.
 - Do not close Phase 03.
 - Do not merge to `dev`.
 - Do not push to `master`.
@@ -183,7 +183,7 @@ The fixture should catch the defect shown in the Operator screenshot.
 ## Acceptance Criteria
 
 - Current action no longer routes WC06 to `Full Work Card creation required` when the WC06 Work Card exists.
-- Current action routes WC06 to Operator validation after the WC06 Architect Review exists and before a passing WC06 validation report exists.
+- Current action routes WC06 to Operator validation after the WC06 Architect Review exists and before a passing WC06 operator validation exists.
 - The routed/support workspace for WC06 validation is Human Validation, not Ad Hoc Work Card Capture.
 - The visible current-action panel and workflow guide agree on the WC06 validation state.
 - WC06 does not advance to WC07 before WC06 validation passes.
@@ -257,7 +257,7 @@ Do not push to master.
 Do not perform Operator validation.
 
 Primary objective:
-Repair the current-action route after WC06 Architect Review. WC06 must route to Operator validation, not Full Work Card creation / Ad Hoc Work Card Capture, when the WC06 Work Card, Implementer Report, and Architect Review already exist and no passing WC06 validation report exists.
+Repair the current-action route after WC06 Architect Review. WC06 must route to Operator validation, not Full Work Card creation / Ad Hoc Work Card Capture, when the WC06 Work Card, Implementer Report, and Architect Review already exist and no passing WC06 operator validation exists.
 
 Before editing:
 1. Confirm current repo and remote.
@@ -267,9 +267,9 @@ Before editing:
    feature/phase-03-wc06-repair01-validation-route
 4. Read AGENTS.md.
 5. Read docs/dev/VALIDATION_COMMAND_LANES.md.
-6. Read the WC06 failed validation report.
+6. Read the WC06 failed operator validation.
 7. Read the WC06 Work Card, Implementer Report, and Architect Review.
-8. Inspect current-action routing code, Work Card artifact matching, Architect Review detection, validation report detection, workflow visibility, and support-navigation mapping.
+8. Inspect current-action routing code, Work Card artifact matching, Architect Review detection, operator validation detection, workflow visibility, and support-navigation mapping.
 
 Required repairs:
 1. Recognize the existing WC06 Work Card artifacts.

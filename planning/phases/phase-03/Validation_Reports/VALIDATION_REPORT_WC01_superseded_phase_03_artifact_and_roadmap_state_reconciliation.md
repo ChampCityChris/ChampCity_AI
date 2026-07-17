@@ -1,15 +1,15 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/phase-03/validation_report/WC01",
-  "artifactType": "validation_report",
+  "artifactId": "champcity-ai/phase-03/operator_validation/WC01",
+  "artifactType": "operator_validation",
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json",
   "markdownPath": "planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.md",
   "payload": {
-    "kind": "validation_report",
-    "title": "Validation Report: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation"
+    "kind": "operator_validation",
+    "title": "Operator Validation: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation"
   },
-  "payloadHash": "sha256:3f08dc366b5963e2cc5d556bfaa824ebe528cd15c3e8f2a909a343d5d77526ee",
+  "payloadHash": "sha256:ca42226e2eb67f4df3ee2f365ca3120b7bd1078cad508d34126b1a817941adfe",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
@@ -30,7 +30,7 @@
 }
 -->
 
-# Validation Report: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation
+# Operator Validation: WC01 Superseded Phase 03 Artifact and Roadmap State Reconciliation
 
 Status: Pass
 Project: ChampCity A/I

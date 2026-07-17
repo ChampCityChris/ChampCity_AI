@@ -168,7 +168,7 @@ async function main() {
 
   for (const requiredGroup of [
     "work_card",
-    "validation_report",
+    "operator_validation",
     "repair",
     "source_evidence",
   ]) {

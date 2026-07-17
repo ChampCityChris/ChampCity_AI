@@ -10,13 +10,13 @@
     "kind": "implementer_report",
     "title": "Implementer Report: WC07-REPAIR01 Artifact Workspace UI Simplification and Preview Usability"
   },
-  "payloadHash": "sha256:190f3afca83debcc61a2f10be00e14545d5950a185f04231ecb052025a556e54",
+  "payloadHash": "sha256:6b2769d961aadb8098c5c3f2310901a719b2f7cf845455ddf7d4f269c614aad3",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
       "champcity-ai/phase-03/architect_review/WC07-REPAIR01",
-      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC07-REPAIR01"
     ],
     "expectedOutputs": [
       "champcity-ai/phase-03/architect_review/WC07-REPAIR01"
@@ -112,7 +112,7 @@ The one artifact list displays these applicable groups in stable order:
 2. Work Card
 3. Implementer Report
 4. Architect Review
-5. Validation Report
+5. Operator Validation
 6. Repair
 7. Source Evidence
 8. Other Support
@@ -143,7 +143,7 @@ The shared artifact model computes one interaction state for each row. Buttons a
 
 The repair preserves the WC07 current-action artifact derivation and improves how it is presented:
 
-- Operator validation exposes Work Card, Implementer Report, Architect Review, expected Validation Report, prior validation/evidence where present, and the `Complete current action` Human Validation form.
+- Operator validation exposes Work Card, Implementer Report, Architect Review, expected Operator Validation, prior validation/evidence where present, and the `Complete current action` Human Validation form.
 - Architect review exposes Work Card, Implementer Report, expected Architect Review output, and the current routed review/report screen.
 - Repair validation exposes parent Work Card, failed parent validation, repair Work Card, repair Implementer Report when present, expected repair validation output, and referenced evidence.
 
@@ -232,7 +232,7 @@ After Architect review, the Operator must determine acceptance by confirming:
 1. The left panel is a compact summary and does not act as an artifact browser.
 2. The center shows one artifact list and one readable preview.
 3. `Artifacts` and `Complete current action` are obvious and the validation form is easy to reach.
-4. Work Card, Implementer Report, Architect Review, expected Validation Report, repair records, source evidence, and missing evidence appear in the correct route contexts.
+4. Work Card, Implementer Report, Architect Review, expected Operator Validation, repair records, source evidence, and missing evidence appear in the correct route contexts.
 5. Every row clearly shows `Preview`, `Open support screen`, `Not previewable`, or `Missing`.
 6. Markdown content is readable at the Operator's normal window size.
 7. Supporting-screen mode contains no current-action artifact list, preview, or expected-output panel and offers `Return to current action`.

@@ -15,17 +15,17 @@
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
-      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC07-REPAIR01"
     ],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC07-REPAIR01"
+      "champcity-ai/phase-03/operator_validation/WC07-REPAIR01"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC07-REPAIR01",
       "champcity-ai/phase-03/observation_register/Observation_Register",
-      "champcity-ai/phase-03/validation_report/WC07",
-      "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability",
-      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace"
+      "champcity-ai/phase-03/operator_validation/WC07",
+      "champcity-ai/phase-03/work_card/WC07_artifact_review_workspace",
+      "champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability"
     ],
     "supersedes": []
   },

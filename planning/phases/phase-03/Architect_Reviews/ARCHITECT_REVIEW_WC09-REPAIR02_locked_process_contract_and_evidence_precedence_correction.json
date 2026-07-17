@@ -22,7 +22,7 @@
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-03/validation_report/WC09-REPAIR02"
+      "champcity-ai/phase-03/operator_validation/WC09-REPAIR02"
     ],
     "sources": [
       "champcity-ai/phase-03/implementer_report/WC09-REPAIR02",
