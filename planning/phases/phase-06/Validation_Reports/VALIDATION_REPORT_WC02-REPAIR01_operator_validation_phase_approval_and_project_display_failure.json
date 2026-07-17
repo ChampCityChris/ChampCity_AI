@@ -1,0 +1,43 @@
+{
+  "artifactId": "champcity-ai/phase-06/validation_report/WC02-REPAIR01",
+  "artifactType": "validation_report",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "failed",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-06",
+  "workCardId": "WC02-REPAIR01",
+  "parentArtifactId": "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
+  "createdAt": "2026-07-17T20:00:00.000Z",
+  "updatedAt": "2026-07-17T20:00:00.000Z",
+  "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.md",
+  "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json",
+  "payloadHash": "sha256:89bdc7f6426598660e574f01ec6f15e9037466c46dcc26774b6b864f34cd00f8",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR01",
+      "champcity-ai/phase-06/approval/WC02-REPAIR01",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
+      "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
+      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
+      "champcity-ai/project/supporting_document/PROJECT_PROFILE"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
+    ],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "validation_report",
+    "title": "Validation Report: Phase 06 WC02-REPAIR01 — Operator Validation Failure",
+    "contentMarkdown": "# Validation Report: Phase 06 WC02-REPAIR01 — Operator Validation Failure\n\nStatus: failed\nPhase: phase-06\nWork Card: WC02-REPAIR01\nResult: failed with partial pass\n\n## Result\n\nThe original stale Phase 04 route appears repaired: the app no longer shows `phase-04`, no longer shows Phase 04 `work_card_authoring_required`, and does not route to Ad Hoc Work Card Capture for stale Phase 04 `WC04`.\n\nOperator validation still fails because the app now shows `phase-06` with `operator_phase_approval_required` even though Phase 06 Operator Phase Approval already exists at `champcity-ai/phase-06/approval/Operator_Phase_Approval`.\n\n## Architect RCA\n\nThe resolver checks for Phase approval using `graph.byType(\"phase_approval\", phaseId)`. The current Phase 06 Operator Phase Approval artifact is canonical `artifactType: \"approval\"`, not `phase_approval`. This artifact-type mismatch causes the resolver to treat completed Phase 06 approval as missing.\n\nThe active project dropdown also shows `Project Profile` because `projectWorkspaceRegistry.ts` uses `PROJECT_PROFILE.payload.title`. In this repo that title is the generic document title, while the real project name/public brand is in the profile body.\n\n## Required Repair\n\nCreate WC02-REPAIR02 to align phase approval recognition with canonical approval artifacts and repair project display-name derivation.\n",
+    "data": {
+      "result": "failed",
+      "phaseId": "phase-06",
+      "workCardId": "WC02-REPAIR01",
+      "rootCauseSummary": "resolver expects phase_approval while current Phase 06 approval is canonical approval; workspace display name uses generic Project Profile title",
+      "repairWorkCardId": "WC02-REPAIR02"
+    }
+  }
+}
