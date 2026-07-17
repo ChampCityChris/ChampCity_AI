@@ -1,0 +1,157 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-06/work_card/WC01",
+  "artifactType": "work_card",
+  "schemaVersion": "champcity.artifact.v1",
+  "revision": 1,
+  "status": "draft_for_operator_review",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-06",
+  "workCardId": "WC01",
+  "createdAt": "2026-07-17T02:20:00.000Z",
+  "updatedAt": "2026-07-17T02:20:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Work_Cards/WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json",
+  "markdownPath": "planning/phases/phase-06/Work_Cards/WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+  "payloadHash": "sha256:7d7b040d6f8d8ba1edda8825dc6edb4a69d63cec40038a02ce97f66e986fd449",
+  "relationships": {
+    "sources": [
+      "champcity-ai/phase-06/approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/phase_planning/Phase_Planning",
+      "champcity-ai/phase-05/roadmap_rebaseline/WC03",
+      "champcity-ai/project/observation_register/Project_Observation_Register"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/implementer_report/WC01"
+    ],
+    "supersedes": [],
+    "children": []
+  },
+  "payload": {
+    "kind": "work_card",
+    "title": "Work Card: Phase 06 WC01 — Kernel Contract, Artifact Protocol, and Source Authority Replacement Inventory"
+  }
+}
+-->
+
+# Work Card: Phase 06 WC01 — Kernel Contract, Artifact Protocol, and Source Authority Replacement Inventory
+
+Status: draft_for_operator_review
+Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
+Work Card: WC01
+Owner: Implementer
+Risk: critical
+Change strategy: Review and classify only; no source-code changes authorized
+
+## Purpose
+
+Define the target workflow kernel contract and artifact-transition protocol before replacement implementation begins.
+
+WC01 must also complete a source-code authority review and produce a Replacement Inventory so later implementation Work Cards do not preserve wrong old authority paths merely because they exist.
+
+## Scope
+
+WC01 includes:
+
+1. Target workflow kernel contract.
+2. Artifact-transition protocol.
+3. Supported artifact types and required artifact relationships.
+4. Transition inputs and transition outputs.
+5. Blocking model and ambiguity handling.
+6. No-fallback invariants.
+7. Source-code authority review.
+8. Replacement Inventory for current workflow-authority code paths.
+
+## Minimum Source Review Scope
+
+Review, at minimum:
+
+- `src/main/workflow/`
+- `src/shared/workflow/`
+- `src/main/workCards/`
+- `src/shared/workCards/`
+- `src/main/repository/`
+- `src/main/projects/`
+- relevant IPC, preload, and renderer current-action bindings
+- repository gates and tests under `scripts/` and `test/`
+
+Do not assume this list is exhaustive. If additional workflow-authority files are discovered, include them in the inventory.
+
+## Replacement Inventory Requirements
+
+For each affected module or code path, record:
+
+- existing file/module
+- current responsibility
+- current authority problem, if any
+- classification: Preserve, Migrate, Replace, Delete, or Defer
+- named supported consumer, if preserving compatibility
+- migration requirement
+- deletion/removal requirement
+- tests or gates needed to prevent old/new dual authority
+- later Work Card that owns the implementation change
+
+## No-Source-Change Boundary
+
+WC01 does not authorize source-code edits, source deletions, runtime fallbacks, compatibility shims, provider integration, UI rewrites, or test rewrites.
+
+Source-code inspection is required. Source-code modification is prohibited.
+
+## Required Output
+
+Create a synchronized design document pair:
+
+`planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.{json,md}`
+
+Canonical artifact ID:
+
+`champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory`
+
+Create a synchronized Implementer Report pair:
+
+`planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.{json,md}`
+
+Canonical artifact ID:
+
+`champcity-ai/phase-06/implementer_report/WC01`
+
+## Required Design Document Contents
+
+The design document must include:
+
+1. Target kernel contract.
+2. Artifact-transition protocol.
+3. Supported artifact types.
+4. Required relationships and authority rules.
+5. Transition input and output schema.
+6. Blocking and ambiguity model.
+7. No-fallback invariants.
+8. Replacement Inventory.
+9. WC02/WC03/WC04/WC05 implementation ownership mapping.
+10. Validation and repository gate recommendations.
+
+## Acceptance Criteria
+
+- Full source-authority inventory is present.
+- Every reviewed code path is classified Preserve, Migrate, Replace, Delete, or Defer.
+- No source code is changed.
+- No runtime fallback is introduced.
+- No old/new dual authority is authorized.
+- WC02 has enough information to begin replacement without rediscovering the architecture during coding.
+- The Implementer Report lists inspected files, findings, validation, and final git status.
+
+## Validation
+
+Run artifact-pair validation if available. Verify no source code changed. Do not run broad implementation validation unless required by repository rules for documentation-only changes.
+
+## Manual Validation After Implementer
+
+Operator/Architect validation should confirm:
+
+1. The source review covered all known workflow-authority surfaces.
+2. The Replacement Inventory is specific enough to drive WC02–WC05.
+3. No source-code changes were made.
+4. Old-foundation replacement rules are reflected in the inventory.
+5. The output does not authorize compatibility fallbacks without a named supported consumer and sunset plan.
