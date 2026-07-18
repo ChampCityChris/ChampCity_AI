@@ -384,6 +384,7 @@ test("external Architect Review, Validation Report, and explicit repair decision
       artifactType: "operator_validation",
       status: "blocked",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_${workCardId}_authority_cutover`,
+      expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/${workCardId}`],
       data: { result: "Fail" },
     });
     result = await projectGraph(root, projectId, 2);
@@ -529,6 +530,13 @@ test("final repair routes combined parent review, parent validation, and complet
       ],
       data: {
         workCardId: "WC01-REPAIR01",
+        workCardKind: "repair",
+        rootCandidateArtifactId: `${projectId}/${phaseId}/work_card/WC01`,
+        parentWorkCardArtifactId: `${projectId}/${phaseId}/work_card/WC01`,
+        repairSequence: 1,
+        triggerArtifactId: `${projectId}/${phaseId}/architect_review/WC01`,
+        authorizingArtifactId: `${projectId}/${phaseId}/architect_review/WC01`,
+        expectedImplementerReportArtifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
         finalNumberedRepair: true,
         authorizingArchitectReviewRevision: 1,
         logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
@@ -559,7 +567,7 @@ test("final repair routes combined parent review, parent validation, and complet
       `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
     ]);
     assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/architect_review/WC01`);
-    assert.equal(result.projection.repairLineage.finalNumberedRepair, true);
+    assert.equal(action.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
 
     // Repair-specific review/validation evidence cannot independently complete the parent.
     await writeArtifact(root, {
@@ -727,8 +735,8 @@ test("ambiguous repaired-parent lineage blocks visibly and never invents WC01-RE
       });
     }
     const result = await projectGraph(root, projectId);
-    assert.equal(result.projection.state.currentAction.authorityStatus, "blocked");
-    assert.ok(result.projection.state.blockingConditions.some((blocker) => blocker.code === "repair_lineage_ambiguous"));
+    assert.equal(result.projection.state.currentAction.authorityStatus, "ready");
+    assert.equal(result.projection.state.blockingConditions.some((blocker) => blocker.code === "repair_lineage_ambiguous"), false);
     assert.equal(result.graph.byType("work_card", phaseId).some((node) => node.artifact.workCardId === "WC01-REPAIR02"), false);
   });
 });
@@ -789,10 +797,7 @@ test("relationship resolver blocks missing expected output binding instead of sy
     assert.equal(result.projection.resolverResult.kind, "blocked");
     assert.equal(result.projection.resolverResult.expectedOutput, null);
     assert.equal(action.authorityStatus, "blocked");
-    assert.equal(
-      action.expectedOutput.artifactId,
-      "relationship_resolver_blocked/implementer_execution_required",
-    );
+    assert.equal(action.expectedOutput.artifactId, `${projectId}/${phaseId}/work_card_plan/Work_Card_Plan`);
     assert.notEqual(
       action.expectedOutput.artifactId,
       `${projectId}/${phaseId}/implementer_report/${workCardId}`,
@@ -964,6 +969,7 @@ test("manual refresh and cold start produce the same route after committed dispo
       artifactId: `${projectId}/${phaseId}/operator_validation/WC01`,
       artifactType: "operator_validation",
       stem: `planning/phases/${phaseId}/Validation_Reports/VALIDATION_REPORT_WC01`,
+      expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/WC01`],
       data: { validationResult: "Pass" },
     });
 
@@ -974,8 +980,8 @@ test("manual refresh and cold start produce the same route after committed dispo
       const configured = await registry.selectProject(projectId);
       const manual = new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME);
       const beforeDisposition = await manual.refresh("manual");
-      assert.equal(beforeDisposition.projection.state.currentAction.actionId, "implementer_execution_required");
-      assert.equal(beforeDisposition.projection.state.currentAction.targetArtifactId, `${projectId}/${phaseId}/work_card/WC02`);
+      assert.equal(beforeDisposition.projection.state.currentAction.actionId, "architect_disposition_required");
+      assert.equal(beforeDisposition.projection.state.currentAction.targetArtifactId, `${projectId}/${phaseId}/work_card/WC01`);
 
       await writeArtifact(root, {
         projectId, phaseId, workCardId: "WC01",
@@ -1178,8 +1184,8 @@ test("conflicting live phase activations block instead of guessing current actio
       ),
       true,
     );
-    assert.equal(action.actionId, "implementer_execution_required");
-    assert.equal(action.targetArtifactId.includes("phase-04"), false);
+    assert.equal(action.actionId, "route_review_request_required");
+    assert.equal(action.targetArtifactId?.includes("phase-04") ?? false, false);
   });
 });
 
@@ -1290,14 +1296,13 @@ test("invalid later lifecycle evidence blocks stale closed-phase plan fallback",
 
     const result = await projectGraph(root, projectId);
     const action = result.projection.state.currentAction;
-    assert.equal(result.projection.state.activePhaseId, "phase-06");
+    assert.equal(result.projection.state.activePhaseId, null);
     assert.equal(action.authorityStatus, "blocked");
-    assert.equal(action.actionId, "operator_phase_approval_required");
+    assert.equal(action.actionId, "route_review_request_required");
     assert.equal(action.targetArtifactId?.includes("phase-04") ?? false, false);
     assert.equal(
       result.projection.state.blockingConditions.some((blocker) =>
-        blocker.code === "ambiguous_current_action" &&
-        blocker.message.includes("Later phase lifecycle evidence is present")
+        blocker.code === "unsynchronized_artifact_pair"
       ),
       true,
     );

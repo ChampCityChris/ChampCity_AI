@@ -105,30 +105,10 @@ const output = (artifactType: string): ProcessExpectedOutput => ({
   authority: "canonical_registered_pair",
 });
 
-function runtimeAction(
+function runtimeActionsFor(
   processId: CanonicalWorkflowSpineStep,
-  actionId: string,
-  stage: WorkflowStage,
-  role: WorkflowRole,
-  screenId: WorkflowScreenId,
-  expectedOutputArtifactType: string,
-  success: string | null,
-  failure: string | null = null,
-  repair: string | null = null,
-  processClassification: ProcessClassification = "top_level",
-  advancesWorkflowState = true,
-): WorkflowActionTemplate {
-  return {
-    actionId,
-    processId,
-    processClassification,
-    advancesWorkflowState,
-    stage,
-    role,
-    screenId,
-    expectedOutputArtifactType,
-    routes: { success, failure, repair },
-  };
+): readonly WorkflowActionTemplate[] {
+  return workflowActionTemplates.filter((action) => action.processId === processId);
 }
 
 export const lockedProcessContract: readonly ProcessContractItem[] = [
@@ -143,7 +123,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("project_intake"),
     routes: { success: "project_interview", failure: null, repair: null },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("project_intake", "project_intake_required", "capture", "operator", "project-intake", "project_intake", "project_interview_required")],
+    runtimeActions: runtimeActionsFor("project_intake"),
   },
   {
     processId: "project_interview",
@@ -156,7 +136,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("architect_interview"),
     routes: { success: "reconciliation_review", failure: "project_interview", repair: "project_interview" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("project_interview", "project_interview_required", "frame", "architect", "project-architect-interview", "architect_interview", "reconciliation_review_required", "project_interview_required", "project_interview_required")],
+    runtimeActions: runtimeActionsFor("project_interview"),
   },
   {
     processId: "reconciliation_review",
@@ -169,7 +149,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("reconciliation_review"),
     routes: { success: "project_mapping", failure: "project_interview", repair: "project_interview" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("reconciliation_review", "reconciliation_review_required", "plan", "architect", "repository-reconciliation", "reconciliation_review", "project_mapping_required", "project_interview_required", "project_interview_required")],
+    runtimeActions: runtimeActionsFor("reconciliation_review"),
   },
   {
     processId: "project_mapping",
@@ -182,7 +162,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("project_roadmap"),
     routes: { success: "operator_project_approval", failure: "project_mapping", repair: "project_mapping" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("project_mapping", "project_mapping_required", "plan", "architect", "project-mapping", "project_roadmap", "operator_project_approval_required", "project_mapping_required", "project_mapping_required")],
+    runtimeActions: runtimeActionsFor("project_mapping"),
   },
   {
     processId: "operator_project_approval",
@@ -195,7 +175,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("operator_approval"),
     routes: { success: "phase_mapping", failure: "project_mapping", repair: "project_mapping" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("operator_project_approval", "operator_project_approval_required", "plan", "operator", "operator-project-approval", "operator_approval", "phase_mapping_required", "project_mapping_required", "project_mapping_required")],
+    runtimeActions: runtimeActionsFor("operator_project_approval"),
   },
   {
     processId: "phase_mapping",
@@ -208,7 +188,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("phase_map"),
     routes: { success: "operator_phase_approval", failure: "phase_mapping", repair: "phase_mapping" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("phase_mapping", "phase_mapping_required", "plan", "architect", "phase-mapping", "phase_map", "operator_phase_approval_required", "phase_mapping_required", "phase_mapping_required")],
+    runtimeActions: runtimeActionsFor("phase_mapping"),
   },
   {
     processId: "operator_phase_approval",
@@ -221,7 +201,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("operator_approval"),
     routes: { success: "work_card_loop", failure: "phase_mapping", repair: "phase_mapping" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("operator_phase_approval", "operator_phase_approval_required", "plan", "operator", "operator-phase-approval", "operator_approval", "work_card_authoring_required", "phase_mapping_required", "phase_mapping_required")],
+    runtimeActions: runtimeActionsFor("operator_phase_approval"),
   },
   {
     processId: "work_card_loop",
@@ -234,17 +214,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("candidate_resolution_evidence"),
     routes: { success: "phase_closeout", failure: "work_card_loop", repair: "work_card_loop" },
     advancesWorkflowState: true,
-    runtimeActions: [
-      runtimeAction("work_card_loop", "work_card_authoring_required", "plan", "architect", "work-card-authoring", "work_card", "operator_work_card_approval_required"),
-      runtimeAction("work_card_loop", "operator_work_card_approval_required", "build", "operator", "operator-work-card-approval", "operator_approval", "implementer_execution_required", "candidate_disposition_required", "work_card_authoring_required"),
-      runtimeAction("work_card_loop", "implementer_execution_required", "build", "implementer", "implementer-execution", "implementer_report", "architect_review_of_implementer_report_required"),
-      runtimeAction("work_card_loop", "architect_review_of_implementer_report_required", "prove", "architect", "architect-review", "architect_review", "operator_validation_required", "architect_review_of_implementer_report_required", "architect_disposition_required"),
-      runtimeAction("work_card_loop", "operator_validation_required", "prove", "operator", "operator-validation", "operator_validation", "work_card_authoring_required", "architect_disposition_required", "architect_disposition_required"),
-      runtimeAction("work_card_loop", "architect_disposition_required", "prove", "architect", "architect-bridge", "candidate_disposition", "operator_validation_required", "repair_work_card_required", "repair_work_card_required"),
-      runtimeAction("work_card_loop", "repair_work_card_required", "plan", "architect", "repair-work-card-authoring", "work_card", "operator_work_card_approval_required"),
-      runtimeAction("work_card_loop", "candidate_disposition_required", "prove", "operator", "candidate-disposition", "candidate_disposition", "work_card_authoring_required", "work_card_authoring_required", "work_card_authoring_required"),
-      runtimeAction("work_card_loop", "route_review_request_required", "prove", "operator", "route-review-request", "route_review_request", null, null, null, "subordinate", false),
-    ],
+    runtimeActions: runtimeActionsFor("work_card_loop"),
   },
   {
     processId: "phase_closeout",
@@ -257,7 +227,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("phase_closeout"),
     routes: { success: "operator_phase_closeout_approval", failure: "phase_closeout", repair: "work_card_loop" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("phase_closeout", "phase_closeout_required", "prove", "architect", "phase-closeout", "phase_closeout", "operator_phase_closeout_approval_required", "phase_closeout_required", "work_card_authoring_required")],
+    runtimeActions: runtimeActionsFor("phase_closeout"),
   },
   {
     processId: "operator_phase_closeout_approval",
@@ -270,7 +240,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("operator_approval"),
     routes: { success: "roadmap_update", failure: "phase_closeout", repair: "phase_closeout" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("operator_phase_closeout_approval", "operator_phase_closeout_approval_required", "prove", "operator", "operator-closeout-approval", "operator_approval", "roadmap_update_required", "phase_closeout_required", "phase_closeout_required")],
+    runtimeActions: runtimeActionsFor("operator_phase_closeout_approval"),
   },
   {
     processId: "roadmap_update",
@@ -283,7 +253,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("project_roadmap"),
     routes: { success: "next_phase_activation", failure: "roadmap_update", repair: "roadmap_update" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("roadmap_update", "roadmap_update_required", "prove", "architect", "roadmap-update", "project_roadmap", "next_phase_activation_required", "roadmap_update_required", "roadmap_update_required")],
+    runtimeActions: runtimeActionsFor("roadmap_update"),
   },
   {
     processId: "next_phase_activation",
@@ -296,7 +266,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("phase_activation"),
     routes: { success: "repeat_phase_mapping_and_work_card_loop", failure: "next_phase_activation", repair: "roadmap_update" },
     advancesWorkflowState: true,
-    runtimeActions: [runtimeAction("next_phase_activation", "next_phase_activation_required", "capture", "operator", "next-phase-activation", "phase_activation", "repeat_phase_mapping_and_work_card_loop_required", "next_phase_activation_required", "roadmap_update_required")],
+    runtimeActions: runtimeActionsFor("next_phase_activation"),
   },
   {
     processId: "repeat_phase_mapping_and_work_card_loop",
@@ -309,10 +279,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     expectedOutput: output("workflow_iteration"),
     routes: { success: null, failure: "phase_mapping", repair: "phase_mapping" },
     advancesWorkflowState: true,
-    runtimeActions: [
-      runtimeAction("repeat_phase_mapping_and_work_card_loop", "repeat_phase_mapping_and_work_card_loop_required", "capture", "application", "workflow-complete", "workflow_iteration", "workflow_complete", "phase_mapping_required", "phase_mapping_required"),
-      runtimeAction("repeat_phase_mapping_and_work_card_loop", "workflow_complete", "prove", "application", "workflow-complete", "workflow_completion", null, null, null, "subordinate", true),
-    ],
+    runtimeActions: runtimeActionsFor("repeat_phase_mapping_and_work_card_loop"),
   },
   ...([
     ["project_planning", "Project Planning", "project_mapping", "architect", "project_planning"],

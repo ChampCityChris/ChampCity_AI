@@ -124,7 +124,15 @@ export class CanonicalRoutedScreenAdapter {
       });
       return null;
     }
-    const entry = matches[0];
+    const entry = onlyValue(matches);
+    if (!entry) {
+      blockers.push({
+        code: "ambiguous_authority",
+        message: `Canonical ${role} authority ${artifactId} could not be selected exactly.`,
+        artifactIds: [artifactId],
+      });
+      return null;
+    }
     if (!entry.synchronized) {
       blockers.push({
         code: "unsynchronized_pair",
@@ -308,4 +316,11 @@ function canonicalNewOutputLocation(
 
 function plainError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function onlyValue<T>(values: readonly T[]): T | null {
+  if (values.length !== 1) return null;
+  let selected: T | null = null;
+  for (const value of values) selected = value;
+  return selected;
 }

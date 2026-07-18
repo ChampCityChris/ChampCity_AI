@@ -8,68 +8,66 @@
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
   "payload": {
     "kind": "candidate_disposition",
-    "title": "Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild"
+    "title": "Architect Disposition: Phase 06 WC02 Superseded by Replacement Candidate WC03"
   },
-  "payloadHash": "sha256:64e04ce57e64b5b34da005f1673ce0756742687225220c97263b098549715b46",
+  "payloadHash": "sha256:53b34237f5737a14649a7e68d33aff020bb804596955403f4cf21cab524fdfde",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR03"
+      "champcity-ai/phase-06/work_card/WC03"
     ],
     "sources": [
-      "champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review",
+      "champcity-ai/phase-06/architect_review/WC02-REPAIR03",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR03",
       "champcity-ai/phase-06/operator_validation/WC02",
       "champcity-ai/phase-06/work_card/WC02",
-      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
+      "champcity-ai/phase-06/work_card/WC02-REPAIR03"
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-18T02:52:00.000Z",
+  "updatedAt": "2026-07-18T08:30:00.000Z",
   "workCardId": "WC02"
 }
 -->
 
-# Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild
+# Architect Disposition: Phase 06 WC02 Superseded by Replacement Candidate WC03
 
-Status: repair_required
+Status: terminal_superseded
 Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
-Parent Work Card: WC02
+Candidate: WC02
 Disposition owner: Architect
-Decision: authorize WC02-REPAIR03
+Decision: superseded_by_replacement_candidate
+Replacement candidate: WC03
 
-## Validation Disposition
+## Terminal Candidate Disposition
 
-WC02-REPAIR02 passed its bounded migration and repository-folder naming correction.
+WC02 is not accepted as the completed Phase 06 workflow foundation.
 
-The same Operator validation demonstrated that parent WC02 remains unresolved because the live application still routes to WC02-REPAIR01 Work Card authoring and Ad Hoc Work Card Capture.
+WC02-REPAIR01 and WC02-REPAIR02 remain passed within their bounded scopes. WC02-REPAIR03 remains not accepted. WC02-REPAIR04 was drafted but superseded before approval because the required work is a replacement foundation rather than a fourth repair.
 
-The additional observation is blocking for parent WC02 but does not reverse the WC02-REPAIR02 pass.
+WC02 now receives the explicit terminal disposition:
 
-## Architect Review Result
+`superseded_by_replacement_candidate`
 
-The top-to-bottom review confirms that the failure is systemic. Workflow semantics are duplicated across resolver, transition, IPC, route, projection, and renderer modules. The existing foundation is not suitable for another narrow repair.
+The exact replacement candidate is:
 
-## Authorized Follow-Up
+`champcity-ai/phase-06/work_card/WC03`
 
-Authorize:
+## Governance Effect
 
-`champcity-ai/phase-06/work_card/WC02-REPAIR03`
+- WC02 is no longer the active implementation candidate.
+- WC02 is not recorded as successfully completed.
+- No additional repair may be attached to WC02 under the current Phase 06 plan.
+- WC03 owns the complete deterministic workflow domain and kernel replacement.
+- Historical repair outcomes remain unchanged.
+- Phase closeout remains blocked until WC03 is implemented, reviewed, validated, and dispositioned.
+- WC03 requires its own exact Operator Approval before implementation.
 
-WC02-REPAIR03 is one comprehensive rebuild and absorbs the previously planned resolver-foundation scopes of WC03 through WC06.
+## Required Output
 
-## Parent Candidate State
-
-- WC02-REPAIR01 remains passed.
-- WC02-REPAIR02 remains passed.
-- Parent WC02 remains unresolved.
-- WC02-REPAIR03 is the active authorized repair.
-- No later candidate or phase closeout is authorized until WC02-REPAIR03 is reviewed, validated, and dispositioned.
-
-## Expected Output
-
-`champcity-ai/phase-06/work_card/WC02-REPAIR03`
+`champcity-ai/phase-06/work_card/WC03`

@@ -29,9 +29,7 @@ const graph = await scanVerifiedArtifactGraph(project, () => "2026-07-18T04:00:0
 const projection = new RelationshipDrivenWorkflowResolver().resolve(project, graph, 1);
 const summary = {
   phase: projection.state.activePhaseId,
-  workCard:
-    projection.state.currentAction?.targetArtifactId?.split("/").at(-1) ??
-    null,
+  workCard: projection.state.phaseExecution.activeCandidateId,
   action: projection.state.currentActionId,
   screen: projection.state.currentAction?.screenId ?? null,
   target: projection.state.authoritativeTargetArtifactId,
@@ -42,12 +40,17 @@ const summary = {
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 
 if (process.argv.includes("--expect-final")) {
+  const reportExists = projection.graph.controlling("champcity-ai/phase-06/implementer_report/WC03") !== null;
   const expected = {
     phase: "phase-06",
-    workCard: "WC02-REPAIR03",
-    action: "architect_review_of_implementer_report_required",
-    screen: "architect-review",
-    expectedOutput: "champcity-ai/phase-06/architect_review/WC02-REPAIR03",
+    workCard: "WC03",
+    action: reportExists
+      ? "architect_review_of_implementer_report_required"
+      : "implementer_execution_required",
+    screen: reportExists ? "architect-review" : "implementer-execution",
+    expectedOutput: reportExists
+      ? "champcity-ai/phase-06/architect_review/WC03"
+      : "champcity-ai/phase-06/implementer_report/WC03",
   };
   const mismatches = Object.entries(expected)
     .filter(([key, value]) => summary[key] !== value)

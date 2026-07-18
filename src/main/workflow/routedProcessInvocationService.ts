@@ -85,13 +85,16 @@ export class RoutedProcessInvocationService {
     }
     assertRendererBinding(rendererBinding, routedAction);
 
-    const variant = policy.variants.find(
+    const variants = policy.variants.filter(
       (candidate) => candidate.actionId === routedAction.actionId,
     );
+    const variant = onlyValue(variants);
     if (!variant) {
       throw new RoutedProcessInvocationError(
         "action_not_permitted",
-        `Current action ${routedAction.actionId} does not authorize ${policy.channel}.`,
+        variants.length > 1
+          ? `Current action ${routedAction.actionId} has ambiguous ${policy.channel} variants.`
+          : `Current action ${routedAction.actionId} does not authorize ${policy.channel}.`,
       );
     }
     if (variant.screenId !== routedAction.screenId) {
@@ -265,4 +268,11 @@ function plainError(error: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function onlyValue<T>(values: readonly T[]): T | null {
+  if (values.length !== 1) return null;
+  let selected: T | null = null;
+  for (const value of values) selected = value;
+  return selected;
 }

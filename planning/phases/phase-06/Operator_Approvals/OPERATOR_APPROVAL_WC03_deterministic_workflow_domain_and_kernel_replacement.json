@@ -1,0 +1,49 @@
+{
+  "artifactId": "champcity-ai/phase-06/operator_approval/WC03",
+  "artifactType": "operator_approval",
+  "createdAt": "2026-07-18T08:50:12.000Z",
+  "jsonPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC03_deterministic_workflow_domain_and_kernel_replacement.json",
+  "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC03_deterministic_workflow_domain_and_kernel_replacement.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC03",
+  "payload": {
+    "contentMarkdown": "# Operator Approval: Phase 06 WC03\n\nStatus: approved\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nWork Card: WC03\nKind: replacement_candidate\nApproved revision: 2\nDecision: approved for Implementer execution\nPush authorized: no\n\nThe Operator approves WC03 revision 2 for one complete Implementer execution pass.\n\nThis approval is exact and applies only to:\n\n`champcity-ai/phase-06/work_card/WC03`\n\nWC03 replaces the superseded WC02 foundation. It is not a repair of WC02 and does not authorize any implicit child Work Card.\n\nImplementation must follow the complete WC03 scope, including:\n\n- hard-set project, phase, Work Card, repair, replacement, action, and output identities;\n- code-owned Work Card taxonomy;\n- explicit typed hierarchy and relationships;\n- no workflow meaning derived from regex, IDs, filenames, titles, paths, suffixes, numbers, timestamps, ordering, aliases, renderer state, or LLM reasoning;\n- a separate normalized workflow domain;\n- a pure workflow kernel;\n- one executable action authority;\n- thin non-authoritative adapters;\n- exact approval and compiled Implementer assignment;\n- deterministic Phase 04–06 corpus migration required by WC03;\n- real-repository, mounted Electron, parity, isolation, and no-fallback validation.\n\nNo narrowing, deferral, compatibility authority, fallback, alias, synthetic identity, additional WC02 repair, implicit child Work Card, Operator acceptance, or push is authorized.\n\nExpected output:\n\n`champcity-ai/phase-06/implementer_report/WC03`\n",
+    "data": {
+      "approvalScope": "work_card",
+      "approvedArtifactId": "champcity-ai/phase-06/work_card/WC03",
+      "approvedRevision": 2,
+      "decision": "approved",
+      "implementationAuthorized": true,
+      "phaseId": "phase-06",
+      "pushAuthorized": false,
+      "replacementCandidateAuthorized": true,
+      "singleCompletePassRequired": true,
+      "sourceCodeChangesAuthorized": true,
+      "workCardId": "WC03",
+      "workCardKind": "replacement_candidate"
+    },
+    "kind": "operator_approval",
+    "title": "Operator Approval: Phase 06 WC03"
+  },
+  "payloadHash": "sha256:bd13483da978fe6cc38289880b743b4dd0f3755237fe178b29c326c0f0ec1a57",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/implementer_report/WC03"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/architect_review/WC02-REPAIR03",
+      "champcity-ai/phase-06/candidate_disposition/WC02",
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/work_card/WC03",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T08:50:12.000Z",
+  "workCardId": "WC03"
+}

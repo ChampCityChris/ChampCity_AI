@@ -37,31 +37,47 @@ async function liveProjection() {
   return new RelationshipDrivenWorkflowResolver().resolve(configured, graph, 1);
 }
 
-test("real Phase 04-06 corpus routes WC02-REPAIR03 through exact existing-output traversal", async () => {
+test("real Phase 04-06 corpus routes the WC03 replacement candidate through exact approval", async () => {
   const projection = await liveProjection();
   assert.equal(projection.state.activePhaseId, "phase-06");
-  assert.equal(projection.state.phaseExecution.activeCandidateId, "WC02");
-  assert.equal(projection.state.phaseExecution.activeRepairArtifactId, "champcity-ai/phase-06/work_card/WC02-REPAIR03");
+  assert.equal(projection.domain.project.projectId, "champcity-ai");
+  assert.equal(projection.domain.project.repositoryBindingId, "champcity-ai");
+  assert.equal(projection.state.phaseExecution.activeCandidateId, "WC03");
+  assert.equal(projection.state.phaseExecution.activeRepairArtifactId, null);
   assert.deepEqual(projection.state.blockingConditions, []);
 
-  const expectedReportId = "champcity-ai/phase-06/implementer_report/WC02-REPAIR03";
+  const wc02 = projection.domain.candidates.find((candidate) => candidate.planCandidateId === "WC02");
+  const wc03 = projection.domain.candidates.find((candidate) => candidate.planCandidateId === "WC03");
+  assert.equal(wc02.resolutionStatus, "superseded_by_replacement_candidate");
+  assert.equal(wc03.workCardKind, "replacement_candidate");
+  assert.equal(wc03.planOrder, 3);
+  assert.equal(
+    projection.domain.replacements[0].replacesWorkCardArtifactId,
+    "champcity-ai/phase-06/work_card/WC02",
+  );
+
+  const expectedReportId = "champcity-ai/phase-06/implementer_report/WC03";
   const reportExists = projection.graph.controlling(expectedReportId) !== null;
   if (reportExists) {
     assert.equal(projection.state.currentActionId, "architect_review_of_implementer_report_required");
     assert.equal(projection.state.currentAction?.screenId, "architect-review");
-    assert.equal(projection.state.expectedOutput?.artifactId, "champcity-ai/phase-06/architect_review/WC02-REPAIR03");
+    assert.equal(projection.state.expectedOutput?.artifactId, "champcity-ai/phase-06/architect_review/WC03");
   } else {
     assert.equal(projection.state.currentActionId, "implementer_execution_required");
     assert.equal(projection.state.currentAction?.screenId, "implementer-execution");
     assert.equal(projection.state.expectedOutput?.artifactId, expectedReportId);
+    assert.equal(
+      projection.implementerAssignment.operatorApprovalArtifactId,
+      "champcity-ai/phase-06/operator_approval/WC03",
+    );
   }
 });
 
-test("repairs remain explicit sequential lineage, not Work Card Plan candidates", async () => {
+test("repairs remain explicit sequential lineage and WC03 is the only replacement candidate", async () => {
   const projection = await liveProjection();
   const plan = projection.graph.controlling("champcity-ai/phase-06/work_card_plan/Work_Card_Plan");
   const planCandidates = plan.artifact.payload.data.candidates.map((candidate) => candidate.id);
-  assert.deepEqual(planCandidates, ["WC01", "WC02"]);
+  assert.deepEqual(planCandidates, ["WC01", "WC02", "WC03"]);
 
   const repair = projection.graph.controlling("champcity-ai/phase-06/work_card/WC02-REPAIR03");
   assert.equal(repair.artifact.parentArtifactId, "champcity-ai/phase-06/work_card/WC02");
@@ -74,6 +90,19 @@ test("repairs remain explicit sequential lineage, not Work Card Plan candidates"
     repair.artifact.payload.data.authorizingDispositionArtifactId,
     "champcity-ai/phase-06/candidate_disposition/WC02",
   );
+  assert.equal(
+    projection.domain.repairs.some((item) => item.repairWorkCardArtifactId === repair.artifact.artifactId),
+    true,
+  );
+  assert.equal(
+    projection.domain.candidates.some((candidate) => candidate.workCardArtifactId === repair.artifact.artifactId),
+    false,
+  );
+  const repair04Matches = projection.graph.nodes.filter(
+    (node) => node.artifact.artifactId === "champcity-ai/phase-06/work_card/WC02-REPAIR04",
+  );
+  assert.equal(repair04Matches.length, 1);
+  assert.equal(repair04Matches[0].classification, "historical");
 });
 
 test("catalog contains no routed Ad Hoc Work Card Capture action", () => {

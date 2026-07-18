@@ -1,5 +1,7 @@
 export * from "./workflowContracts";
 export * from "./workflowActionCatalog";
+export * from "./workflowDomain";
+export * from "./workflowKernel";
 export * from "./processContract";
 export * from "./evidencePrecedence";
 export * from "./roleGates";

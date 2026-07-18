@@ -245,11 +245,15 @@ export function createMissingPhaseExecutionState(): PhaseExecutionState {
 export function selectEarliestUnresolvedCandidate(
   candidates: readonly WorkCardCandidateExecutionState[],
 ): WorkCardCandidateExecutionState | null {
-  return (
-    [...candidates]
-      .sort((left, right) => left.order - right.order || left.candidateId.localeCompare(right.candidateId))
-      .find((candidate) => candidate.resolutionStatus === "unresolved") ?? null
-  );
+  const unresolved = [...candidates]
+    .filter((candidate) => candidate.resolutionStatus === "unresolved")
+    .sort((left, right) => left.order - right.order || left.candidateId.localeCompare(right.candidateId));
+  if (unresolved.length === 0) return null;
+  let selected: WorkCardCandidateExecutionState | null = null;
+  for (const candidate of unresolved) {
+    if (!selected || candidate.order < selected.order) selected = candidate;
+  }
+  return selected;
 }
 
 export function evaluatePhaseCloseoutEligibility(input: {
