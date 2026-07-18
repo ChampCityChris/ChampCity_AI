@@ -8,99 +8,84 @@
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
   "payload": {
     "kind": "operator_validation",
-    "title": "Operator Validation: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04"
+    "title": "Operator Validation: Phase 06 WC02 via WC02-REPAIR02 — Bounded Repair Passed, Parent Remains Unresolved"
   },
-  "payloadHash": "sha256:b079cb1e157f72489725b3e6892f750c1a5ce0b050b2f27e7daae1f5ceb2f45a",
+  "payloadHash": "sha256:8fcffa78da9babce10b060309c3a39d854028cc389f01855b35e21744ecc2991",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-06/work_card/WC02-REPAIR01"
+      "champcity-ai/phase-06/candidate_disposition/WC02"
     ],
     "sources": [
-      "champcity-ai/phase-04/phase_closeout/PHASE_04",
-      "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
-      "champcity-ai/phase-05/phase_closeout/PHASE_05",
-      "champcity-ai/phase-06/architect_review/WC02",
-      "champcity-ai/phase-06/implementer_report/WC02",
-      "champcity-ai/phase-06/phase_activation/phase-06",
-      "champcity-ai/phase-06/work_card/WC02"
+      "champcity-ai/phase-06/architect_review/WC02-REPAIR02",
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
     ],
     "supersedes": []
   },
-  "revision": 3,
+  "revision": 4,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "blocked",
-  "updatedAt": "2026-07-17T23:38:21.891Z",
+  "status": "active",
+  "updatedAt": "2026-07-18T02:40:00.000Z",
   "workCardId": "WC02"
 }
 -->
 
-# Operator Validation: PH06 WC02 Operator Validation Failure — Current Action Routed to Phase 04
+# Operator Validation: Phase 06 WC02 via WC02-REPAIR02 — Bounded Repair Passed, Parent Remains Unresolved
 
-Status: failed
+Status: passed_with_additional_blocking_observation
 Phase: phase-06
-Work Card: WC02
-Validation type: Operator visual validation
-Validator: Operator
-Result: failed
+Parent Work Card: WC02
+Validated Repair Work Card: WC02-REPAIR02
+Validation type: Operator visible application validation
+Result for WC02-REPAIR02: passed
+Parent WC02 resolved: no
 
-## Corrected Failure Statement
+## Validation Result
 
-The WC02 validation failure is not that the Operator could not or would not create Markdown/JSON artifact pairs. The prior validation instructions were too technical and are not an acceptable nontechnical Operator validation path.
+WC02-REPAIR02 passed the bounded acceptance criteria authorized by its revised Work Card.
 
-The Operator-visible failure is that the application displayed `phase-04` with current action `work_card_authoring_required` and opened Ad Hoc Work Card Capture for a suggested `WC04`, even though Phase 04 has closeout evidence, Phase 05 has closeout evidence, and Phase 06 is the active implementation phase.
+The Operator confirmed that the project naming correction works and reported all other bounded REPAIR02 validation checks as passing except for the live Phase 06 routed workspace described below.
 
-## Operator-Visible Evidence
+## Passed Checks
 
-The screenshots show:
+- The active project displays as `ChampCity_AI`.
+- The ChampCity GPT repository displays as `ChampCity_GPT`.
+- Project names do not display `Project Profile`, package descriptions, product names, or other long metadata text.
+- The application remains in Phase 06 rather than routing backward to Phase 01, Phase 04, or Phase 06 Operator Phase Approval.
+- No failure was observed in the bounded document-restoration or repository-folder-name correction behavior.
 
-- current phase displayed as `phase-04`;
-- current action displayed as `work_card_authoring_required`;
-- expected output displayed as `work_card`;
-- source evidence displayed from `Work Card Plan` and `Operator Phase Approval`;
-- center routed screen displayed as Ad Hoc Work Card Capture;
-- the app suggested a manual/ad hoc Work Card path.
+## Additional Blocking Observation Against Parent WC02
 
-This is not acceptable WC02 validation behavior. A nontechnical Operator must not be asked to repair workflow state by manually creating artifact pairs or by using ad hoc Work Card Capture to compensate for stale routing.
+The live application still resolves the current action incorrectly inside Phase 06:
 
-## Architect Evidence Review
+- current action: `work_card_authoring_required`;
+- displayed target: `WC02-REPAIR01`;
+- routed workspace: `Ad Hoc Work Card Capture`;
+- the screen proposes authoring another Work Card even though WC02-REPAIR01 and WC02-REPAIR02 already exist.
 
-After the report, the Architect inspected the relevant repository evidence and code. Evidence reviewed included:
+This is not a failure of the bounded WC02-REPAIR02 migration and project-name correction. Resolver and current-action behavior were explicitly outside that correction pass.
 
-- Phase 04 Work Card Plan;
-- Phase 04 closeout;
-- Phase 05 activation and closeout;
-- Phase 06 activation and Work Card Plan;
-- `relationshipDrivenWorkflowResolver.ts`;
-- `verifiedArtifactGraph.ts`;
-- `projectWorkspaceRegistry.ts`.
+The observation prevents parent WC02 from being accepted as resolved.
 
-## Corrected RCA Status
+## Operator Evidence
 
-The screenshot alone does not prove the exact root cause.
+The Operator supplied a screenshot showing:
 
-The confirmed defect is that the application allowed a closed historical phase to appear as live current-action authority. The plausible cause is an interaction between stale active Phase 04 planning evidence, active phase selection, and missing closed-phase exclusion in the current-action path. This must be proven by the repair pass before implementation changes are made.
+- active project `ChampCity_AI`;
+- Phase 06 selected;
+- Work Card Loop current;
+- `work card authoring required WC02-REPAIR01`;
+- Ad Hoc Work Card Capture as the routed current-action screen.
 
-Confirmed facts:
+## Disposition Required
 
-1. Phase 04 has a controlling closeout artifact.
-2. Phase 05 has activation and closeout artifacts.
-3. Phase 06 has an activation artifact and current Work Card Plan.
-4. Phase 04 Work Card Plan remains a controlling artifact and still lists later candidates including WC04.
-5. The UI surfaced Phase 04 Work Card authoring instead of a Phase 06 action or an operator-readable blocker.
-
-## Required Repair Direction
-
-The repair must start with a true RCA. It must determine whether the cause is closed-phase handling, stale Work Card Plan status, active phase selection, selected workspace configuration, stale built application code, graph blockers, or another code path.
-
-The repair must not assume the Phase 04 Work Card Plan is the sole root cause until reproduced from code and evidence.
-
-## Operator Validation Standard
-
-Future Operator validation must be visible and nontechnical: launch/refresh the app, verify displayed phase/current action, verify readable source and expected output, verify reference navigation does not retarget current action, and verify blockers are understandable.
-
-## Decision
-
-WC02 is not accepted. Repair is required.
+- Record WC02-REPAIR02 as passed.
+- Keep parent WC02 unresolved.
+- Do not create WC02-REPAIR03 from this validation alone.
+- Proceed with the previously identified Architect-owned top-to-bottom review of the new workflow resolver foundation before authorizing another implementation card.
