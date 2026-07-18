@@ -1,5 +1,37 @@
 <!-- champcity-artifact-envelope
-{"artifactId":"champcity-ai/phase-06/candidate_disposition/WC02","artifactType":"candidate_disposition","createdAt":"2026-07-18T02:52:00.000Z","jsonPath":"planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02_authorize_full_resolver_foundation_rebuild.json","markdownPath":"planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02_authorize_full_resolver_foundation_rebuild.md","parentArtifactId":"champcity-ai/phase-06/work_card/WC02","payload":{"kind":"candidate_disposition","title":"Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild"},"payloadHash":"sha256:64e04ce57e64b5b34da005f1673ce0756742687225220c97263b098549715b46","phaseId":"phase-06","projectId":"champcity-ai","relationships":{"children":[],"expectedOutputs":["champcity-ai/phase-06/work_card/WC02-REPAIR03"],"sources":["champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review","champcity-ai/phase-06/operator_validation/WC02","champcity-ai/phase-06/work_card/WC02","champcity-ai/phase-06/work_card/WC02-REPAIR02"],"supersedes":[]},"revision":1,"schemaVersion":"champcity.artifact.v1","status":"active","updatedAt":"2026-07-18T02:52:00.000Z","workCardId":"WC02"}
+{
+  "artifactId": "champcity-ai/phase-06/candidate_disposition/WC02",
+  "artifactType": "candidate_disposition",
+  "createdAt": "2026-07-18T02:52:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02_authorize_full_resolver_foundation_rebuild.json",
+  "markdownPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02_authorize_full_resolver_foundation_rebuild.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
+  "payload": {
+    "kind": "candidate_disposition",
+    "title": "Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild"
+  },
+  "payloadHash": "sha256:64e04ce57e64b5b34da005f1673ce0756742687225220c97263b098549715b46",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR03"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review",
+      "champcity-ai/phase-06/operator_validation/WC02",
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T02:52:00.000Z",
+  "workCardId": "WC02"
+}
 -->
 
 # Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild

@@ -1,3 +1,4 @@
+import { getWorkflowActionCatalogEntry } from "../workflow";
 import {
   lockedWorkflowSteps,
   type CurrentRequiredAction,
@@ -245,21 +246,20 @@ const actionIdToWorkflowStep: Readonly<Record<string, LockedWorkflowStep>> = {
   operator_project_approval_required: "Operator Project Approval",
   phase_mapping_required: "Phase Mapping",
   operator_phase_approval_required: "Operator Phase Approval",
-  full_work_card_creation_required: "Work Card Loop",
-  operator_work_card_review_required: "Work Card Loop",
-  implementer_handoff_required: "Work Card Loop",
-  implementer_report_required: "Work Card Loop",
+  work_card_authoring_required: "Work Card Loop",
+  operator_work_card_approval_required: "Work Card Loop",
+  implementer_execution_required: "Work Card Loop",
   architect_review_of_implementer_report_required: "Work Card Loop",
-  architect_review_of_validation_report_required: "Work Card Loop",
   operator_validation_required: "Work Card Loop",
-  repair_sub_card_creation_required: "Work Card Loop",
-  repair_implementer_handoff_required: "Work Card Loop",
-  repair_validation_required: "Work Card Loop",
+  architect_disposition_required: "Work Card Loop",
+  repair_work_card_required: "Work Card Loop",
+  candidate_disposition_required: "Work Card Loop",
   phase_closeout_required: "Phase Closeout",
   operator_phase_closeout_approval_required: "Operator Phase Closeout Approval",
   roadmap_update_required: "Roadmap Update",
   next_phase_activation_required: "Next Phase Activation",
-  project_complete: "Repeat Phase Mapping / Work Card Loop",
+  repeat_phase_mapping_and_work_card_loop_required: "Repeat Phase Mapping / Work Card Loop",
+  workflow_complete: "Repeat Phase Mapping / Work Card Loop",
 };
 
 const workCardLoopStageDefinitions = [
@@ -272,16 +272,14 @@ const workCardLoopStageDefinitions = [
 ] as const;
 
 const actionIdToWorkCardLoopStage: Readonly<Record<string, string>> = {
-  full_work_card_creation_required: "work-card",
-  operator_work_card_review_required: "work-card",
-  implementer_handoff_required: "work-card",
-  implementer_report_required: "implementer",
+  work_card_authoring_required: "work-card",
+  operator_work_card_approval_required: "work-card",
+  implementer_execution_required: "implementer",
   architect_review_of_implementer_report_required: "architect-review",
-  architect_review_of_validation_report_required: "architect-review",
   operator_validation_required: "operator-validation",
-  repair_sub_card_creation_required: "repair",
-  repair_implementer_handoff_required: "repair",
-  repair_validation_required: "validation-again",
+  architect_disposition_required: "architect-review",
+  repair_work_card_required: "repair",
+  candidate_disposition_required: "validation-again",
 };
 
 export function resolveWorkflowVisibility(
@@ -364,6 +362,10 @@ function resolveLockedWorkflowStep(
 ): LockedWorkflowStep | undefined {
   if (actionIdToWorkflowStep[actionId]) {
     return actionIdToWorkflowStep[actionId];
+  }
+  const catalogEntry = getWorkflowActionCatalogEntry(actionId);
+  if (catalogEntry?.processId === "work_card_loop") {
+    return "Work Card Loop";
   }
 
   const normalizedWorkflowStep = normalizeWorkflowStep(currentAction.workflowStep);

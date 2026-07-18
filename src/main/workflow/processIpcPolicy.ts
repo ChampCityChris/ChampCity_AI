@@ -3,6 +3,7 @@ import type {
   WorkflowScreenId,
   WorkflowTransitionRoute,
 } from "../../shared/workflow";
+import { getWorkflowActionCatalogEntry } from "../../shared/workflow";
 
 export type ProcessIpcOperation =
   | "preview"
@@ -54,12 +55,30 @@ const route = (
   role: WorkflowRole,
   screenId: WorkflowScreenId,
   expectedOutputArtifactType: string,
-): RoutedProcessVariant => ({
-  actionId,
-  role,
-  screenId,
-  expectedOutputArtifactType,
-});
+): RoutedProcessVariant => {
+  const variant = catalogVariant(actionId);
+  if (
+    variant.role !== role ||
+    variant.screenId !== screenId ||
+    variant.expectedOutputArtifactType !== expectedOutputArtifactType
+  ) {
+    throw new Error(`Routed IPC policy for ${actionId} does not match the workflow action catalog.`);
+  }
+  return variant;
+};
+
+function catalogVariant(actionId: string): RoutedProcessVariant {
+  const entry = getWorkflowActionCatalogEntry(actionId);
+  if (!entry) {
+    throw new Error(`Routed IPC policy references unsupported workflow action ${actionId}.`);
+  }
+  return {
+    actionId: entry.actionId,
+    role: entry.role,
+    screenId: entry.screenId,
+    expectedOutputArtifactType: entry.expectedOutputArtifactType,
+  };
+}
 
 const routedPair = (
   prefix: string,
@@ -265,12 +284,6 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
       ),
       route(
         "architect_disposition_required",
-        "architect",
-        "architect-bridge",
-        "candidate_disposition",
-      ),
-      route(
-        "architect_review_of_validation_report_required",
         "architect",
         "architect-bridge",
         "candidate_disposition",

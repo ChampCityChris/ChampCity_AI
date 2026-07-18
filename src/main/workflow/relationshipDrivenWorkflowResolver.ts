@@ -311,12 +311,27 @@ function deriveWorkCardStep(
       );
     }
     const validationResult = validationResultFor(validation);
+    const expectedDispositionId = exactExpectedOutput(validation, "candidate_disposition");
+    const disposition = expectedDispositionId ? activeEvidence(graph.controlling(expectedDispositionId)) : null;
+    if (disposition) {
+      return deriveDispositionStep(
+        projectId,
+        phaseId,
+        graph,
+        workCard,
+        report,
+        review,
+        validation,
+        disposition,
+        visited,
+      );
+    }
     if (["pass", "passed", "success", "completed"].includes(validationResult)) {
       return step(
-        "work_card_authoring_required",
+        "architect_disposition_required",
         workCard.artifact.artifactId,
         [validation.artifact.artifactId],
-        exactExpectedOutput(validation, "work_card"),
+        expectedDispositionId,
         [workCard, report, review, validation],
         workCard,
       );
@@ -340,7 +355,7 @@ function deriveWorkCardStep(
       "architect_disposition_required",
       workCard.artifact.artifactId,
       [validation.artifact.artifactId],
-      exactExpectedOutput(validation, "candidate_disposition"),
+      expectedDispositionId,
       [workCard, report, review, validation],
       workCard,
     );
@@ -365,16 +380,6 @@ function deriveWorkCardStep(
     );
   }
   if (decision.includes("repair")) {
-    if (repairLimitReached(workCard)) {
-      return step(
-        "architect_disposition_required",
-        workCard.artifact.artifactId,
-        [review.artifact.artifactId],
-        exactExpectedOutput(review, "candidate_disposition"),
-        [workCard, report, review],
-        workCard,
-      );
-    }
     const expectedRepairId = exactExpectedOutput(review, "work_card");
     const repair = expectedRepairId ? activeEvidence(graph.controlling(expectedRepairId)) : null;
     if (!repair) {
@@ -407,6 +412,143 @@ interface RepairLineageResolution {
   blockers: WorkflowBlocker[];
 }
 
+function deriveDispositionStep(
+  projectId: string,
+  phaseId: string,
+  graph: VerifiedArtifactGraph,
+  parentWorkCard: VerifiedArtifactNode,
+  parentReport: VerifiedArtifactNode,
+  parentReview: VerifiedArtifactNode,
+  validation: VerifiedArtifactNode,
+  disposition: VerifiedArtifactNode,
+  visited: Set<string>,
+): ProjectedStep {
+  const dispositionData = recordData(disposition);
+  const decision = text(dispositionData.decision).toLowerCase();
+  const status = text(dispositionData.status).toLowerCase();
+  const authorizesRepair =
+    decision === "authorize_repair" ||
+    decision.includes("repair") ||
+    status === "repair_required";
+  if (!authorizesRepair) {
+    return step(
+      "architect_disposition_required",
+      parentWorkCard.artifact.artifactId,
+      [validation.artifact.artifactId],
+      exactExpectedOutput(validation, "candidate_disposition"),
+      [parentWorkCard, parentReport, parentReview, validation, disposition],
+      parentWorkCard,
+    );
+  }
+
+  const expectedRepairId =
+    text(dispositionData.authorizedRepairWorkCardArtifactId) ||
+    exactExpectedOutput(disposition, "work_card");
+  const repair = expectedRepairId ? activeEvidence(graph.controlling(expectedRepairId)) : null;
+  const blockers = validateDispositionRepairAuthority(
+    parentWorkCard,
+    validation,
+    disposition,
+    repair,
+    expectedRepairId,
+  );
+  if (!repair) {
+    return step(
+      "repair_work_card_required",
+      parentWorkCard.artifact.artifactId,
+      [disposition.artifact.artifactId, validation.artifact.artifactId],
+      expectedRepairId,
+      [parentWorkCard, parentReport, parentReview, validation, disposition],
+      parentWorkCard,
+      blockers,
+    );
+  }
+  if (blockers.length > 0) {
+    return step(
+      "architect_disposition_required",
+      parentWorkCard.artifact.artifactId,
+      [disposition.artifact.artifactId, validation.artifact.artifactId],
+      exactExpectedOutput(validation, "candidate_disposition"),
+      [parentWorkCard, parentReport, parentReview, validation, disposition, repair],
+      parentWorkCard,
+      blockers,
+    );
+  }
+  return deriveWorkCardStep(projectId, phaseId, graph, repair, visited);
+}
+
+function validateDispositionRepairAuthority(
+  parentWorkCard: VerifiedArtifactNode,
+  validation: VerifiedArtifactNode,
+  disposition: VerifiedArtifactNode,
+  repair: VerifiedArtifactNode | null,
+  expectedRepairId: string | null,
+): WorkflowBlocker[] {
+  const blockers: WorkflowBlocker[] = [];
+  const data = recordData(disposition);
+  if (!expectedRepairId) {
+    blockers.push(lineageBlocker(
+      "missing_expected_output_binding",
+      "The Architect disposition authorizes repair but does not name the exact expected repair Work Card artifact.",
+      [disposition.artifact.artifactId],
+    ));
+    return blockers;
+  }
+  if (!disposition.artifact.relationships.expectedOutputs.includes(expectedRepairId)) {
+    blockers.push(lineageBlocker(
+      "repair_authorization_mismatch",
+      "The authorized repair Work Card must be listed as an exact disposition expected output.",
+      [disposition.artifact.artifactId, expectedRepairId],
+    ));
+  }
+  if (!disposition.artifact.relationships.sources.includes(validation.artifact.artifactId)) {
+    blockers.push(lineageBlocker(
+      "repair_authorization_missing",
+      "The disposition must cite the validation or observation that triggered the repair.",
+      [disposition.artifact.artifactId, validation.artifact.artifactId],
+    ));
+  }
+  if (repair && repair.artifact.parentArtifactId !== parentWorkCard.artifact.artifactId) {
+    blockers.push(lineageBlocker(
+      "repair_parent_invalid",
+      "The repair Work Card must name the exact parent Work Card artifact.",
+      [repair.artifact.artifactId, parentWorkCard.artifact.artifactId],
+    ));
+  }
+  if (repair && repair.artifact.artifactId !== expectedRepairId) {
+    blockers.push(lineageBlocker(
+      "repair_authorization_mismatch",
+      "The located repair Work Card does not match the exact disposition expected output.",
+      [repair.artifact.artifactId, expectedRepairId],
+    ));
+  }
+  if (repair) {
+    const repairData = recordData(repair);
+    const sequence = typeof repairData.repairSequence === "number"
+      ? repairData.repairSequence
+      : typeof data.repairSequence === "number"
+        ? data.repairSequence
+        : null;
+    const priorRepairId = text(repairData.priorRepairWorkCardArtifactId) ||
+      text(data.priorRepairWorkCardArtifactId);
+    if (sequence !== null && sequence > 1 && !priorRepairId) {
+      blockers.push(lineageBlocker(
+        "repair_lineage_ambiguous",
+        "Sequential repairs after the first must name the previous repair artifact explicitly.",
+        [repair.artifact.artifactId],
+      ));
+    }
+    if (sequence !== null && sequence < 1) {
+      blockers.push(lineageBlocker(
+        "repair_lineage_ambiguous",
+        "Repair sequence must be a positive integer.",
+        [repair.artifact.artifactId],
+      ));
+    }
+  }
+  return blockers;
+}
+
 function resolveRepairLineage(
   projectId: string,
   phaseId: string,
@@ -418,6 +560,7 @@ function resolveRepairLineage(
   const parentId = parentWorkCard.artifact.artifactId;
   const reviewData = recordData(parentReview);
   const requestedRepairId = requiredRepairId(parentReview);
+  const dispositionRepairId = authorizedRepairIdFromDispositions(graph, phaseId, parentWorkCard);
   const childRepairs = graph.byType("work_card", phaseId).filter((node) => {
     if (!node.artifact.workCardId?.match(/-REPAIR\d+$/i)) return false;
     if (node.artifact.parentArtifactId) return node.artifact.parentArtifactId === parentId;
@@ -428,16 +571,38 @@ function resolveRepairLineage(
     return { detected: false, lineage: null, repairWorkCard: null, repairReport: null, blockers: [] };
   }
   const blockers: WorkflowBlocker[] = [];
-  if (childRepairs.length !== 1) {
+  const expectedRepairArtifactId =
+    dispositionRepairId ||
+    (requestedRepairId
+      ? `${projectId}/${phaseId}/work_card/${requestedRepairId}`
+      : exactExpectedOutput(parentReview, "work_card"));
+  const explicitlyAuthorizedRepairs = expectedRepairArtifactId
+    ? childRepairs.filter((node) => node.artifact.artifactId === expectedRepairArtifactId)
+    : [];
+  const unlinkedActiveRepairs = childRepairs.filter((node) => {
+    if (expectedRepairArtifactId && node.artifact.artifactId === expectedRepairArtifactId) return false;
+    const data = recordData(node);
+    return (
+      !text(data.authorizingDispositionArtifactId) &&
+      !text(data.priorRepairWorkCardArtifactId) &&
+      !node.artifact.relationships.sources.some((artifactId) => artifactId.includes("/candidate_disposition/"))
+    );
+  });
+  if (childRepairs.length > 1 && explicitlyAuthorizedRepairs.length !== 1) {
     blockers.push(lineageBlocker(
       "repair_lineage_ambiguous",
-      `Parent ${parentId} must have exactly one controlling repair Work Card; found ${childRepairs.length}.`,
+      `Parent ${parentId} has multiple repairs, but none is identified by exact active disposition authority.`,
       [parentId, ...childRepairs.map((node) => node.artifact.artifactId)],
     ));
   }
-  const repairWorkCard = childRepairs[0] ?? (requestedRepairId
-    ? selectSingle(graph.forWorkCard("work_card", phaseId, requestedRepairId))
-    : null);
+  if (unlinkedActiveRepairs.length > 0) {
+    blockers.push(lineageBlocker(
+      "repair_lineage_ambiguous",
+      "One or more active repair Work Cards are not linked by explicit disposition or prior-repair lineage.",
+      unlinkedActiveRepairs.map((node) => node.artifact.artifactId),
+    ));
+  }
+  const repairWorkCard = explicitlyAuthorizedRepairs[0] ?? childRepairs[0] ?? null;
   if (!repairWorkCard) {
     return { detected: true, lineage: null, repairWorkCard: null, repairReport: null, blockers };
   }
@@ -465,24 +630,36 @@ function resolveRepairLineage(
       [parentReview.artifact.artifactId, repairWorkCard.artifact.artifactId, expectedRepairId],
     ));
   }
-  if (!repairWorkCard.artifact.relationships.sources.includes(parentReview.artifact.artifactId)) {
+  if (
+    reviewRequestsRepair &&
+    !repairWorkCard.artifact.relationships.sources.includes(parentReview.artifact.artifactId)
+  ) {
     blockers.push(lineageBlocker(
       "repair_authorization_missing",
       "The repair Work Card does not cite the parent Architect Review that authorized it.",
       [repairWorkCard.artifact.artifactId, parentReview.artifact.artifactId],
     ));
   }
-  const maximumRepairCount = numericRepairLimit(parentWorkCard) ?? 1;
+  const maximumRepairCount = numericRepairLimit(parentWorkCard) ?? Number.POSITIVE_INFINITY;
   const repairNumber = Number(repairId.match(/-REPAIR(\d+)$/i)?.[1] ?? 0);
   const finalNumberedRepair =
     repairData.finalNumberedRepair === true ||
     text(repairData.repairLimit).toLowerCase() === "only_and_final" ||
     (repairNumber > 0 && repairNumber === maximumRepairCount);
-  if (!finalNumberedRepair || repairNumber < 1 || repairNumber > maximumRepairCount) {
+  if (repairNumber < 1 || repairNumber > maximumRepairCount) {
     blockers.push(lineageBlocker(
       "repair_limit_invalid",
-      `Repair ${repairId} must be the final permitted repair within maximum count ${maximumRepairCount}.`,
+      `Repair ${repairId} has an invalid repair sequence for parent ${parentId}.`,
       [repairWorkCard.artifact.artifactId, parentId],
+    ));
+  }
+  const explicitSequence = typeof repairData.repairSequence === "number" ? repairData.repairSequence : repairNumber;
+  const previousRepairId = text(repairData.priorRepairWorkCardArtifactId);
+  if (explicitSequence > 1 && !previousRepairId) {
+    blockers.push(lineageBlocker(
+      "repair_lineage_ambiguous",
+      "Sequential repair lineage must name the previous repair artifact.",
+      [repairWorkCard.artifact.artifactId],
     ));
   }
   const physicalReportId =
@@ -515,10 +692,30 @@ function resolveRepairLineage(
     authorizingArchitectReviewArtifactId: parentReview.artifact.artifactId,
     authorizingArchitectReviewRevision: authorizingRevision,
     finalNumberedRepair,
-    maximumRepairCount,
+    maximumRepairCount: Number.isFinite(maximumRepairCount) ? maximumRepairCount : repairNumber,
     finalParentAcceptanceTargetArtifactId: parentId,
   };
   return { detected: true, lineage, repairWorkCard, repairReport, blockers };
+}
+
+function authorizedRepairIdFromDispositions(
+  graph: VerifiedArtifactGraph,
+  phaseId: string,
+  parentWorkCard: VerifiedArtifactNode,
+): string | null {
+  const dispositions = graph.forWorkCard(
+    "candidate_disposition",
+    phaseId,
+    parentWorkCard.artifact.workCardId ?? "",
+  );
+  const repairIds = dispositions
+    .map((disposition) => {
+      const data = recordData(disposition);
+      return text(data.authorizedRepairWorkCardArtifactId) ||
+        exactExpectedOutput(disposition, "work_card");
+    })
+    .filter((value): value is string => Boolean(value));
+  return repairIds.length === 1 ? repairIds[0] : null;
 }
 
 function deriveRepairedParentStep(
@@ -1140,15 +1337,6 @@ function repairLineageForStep(
     parentReport,
     parentReview,
   ).lineage;
-}
-
-function repairLimitReached(workCard: VerifiedArtifactNode): boolean {
-  const data = recordData(workCard);
-  if (data.finalNumberedRepair === true) return true;
-  const workCardId = workCard.artifact.workCardId ?? "";
-  const currentRepairNumber = Number(workCardId.match(/-REPAIR(\d+)$/i)?.[1] ?? 0);
-  const maximum = numericRepairLimit(workCard);
-  return maximum !== null && currentRepairNumber >= maximum;
 }
 
 function activeEvidence(node: VerifiedArtifactNode | null): VerifiedArtifactNode | null {

@@ -1,5 +1,38 @@
 <!-- champcity-artifact-envelope
-{"artifactId":"champcity-ai/phase-06/work_card_plan/Work_Card_Plan","artifactType":"work_card_plan","createdAt":"2026-07-17T02:05:00.000Z","jsonPath":"planning/phases/phase-06/Work_Card_Plan.json","markdownPath":"planning/phases/phase-06/Work_Card_Plan.md","payload":{"kind":"work_card_plan","title":"Work Card Plan: phase-06 — Consolidated Resolver Foundation Completion"},"payloadHash":"sha256:7fa6299767b8901f7116f636d4cd0e9d8ceb93bd01ecbbb79f2d45f2c5b31a33","phaseId":"phase-06","projectId":"champcity-ai","relationships":{"children":[],"expectedOutputs":["champcity-ai/phase-06/operator_approval/Operator_Phase_Approval","champcity-ai/phase-06/work_card/WC01","champcity-ai/phase-06/work_card/WC02"],"sources":["champcity-ai/phase-05/project_roadmap/WC03","champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review","champcity-ai/phase-06/operator_validation/WC02","champcity-ai/phase-06/phase_activation/phase-06","champcity-ai/phase-06/phase_planning/Phase_Planning"],"supersedes":[]},"revision":5,"schemaVersion":"champcity.artifact.v1","status":"active","updatedAt":"2026-07-18T02:52:00.000Z"}
+{
+  "artifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+  "artifactType": "work_card_plan",
+  "createdAt": "2026-07-17T02:05:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Work_Card_Plan.json",
+  "markdownPath": "planning/phases/phase-06/Work_Card_Plan.md",
+  "payload": {
+    "kind": "work_card_plan",
+    "title": "Work Card Plan: phase-06 — Consolidated Resolver Foundation Completion"
+  },
+  "payloadHash": "sha256:7fa6299767b8901f7116f636d4cd0e9d8ceb93bd01ecbbb79f2d45f2c5b31a33",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/phase-06/work_card/WC01",
+      "champcity-ai/phase-06/work_card/WC02"
+    ],
+    "sources": [
+      "champcity-ai/phase-05/project_roadmap/WC03",
+      "champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review",
+      "champcity-ai/phase-06/operator_validation/WC02",
+      "champcity-ai/phase-06/phase_activation/phase-06",
+      "champcity-ai/phase-06/phase_planning/Phase_Planning"
+    ],
+    "supersedes": []
+  },
+  "revision": 5,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T02:52:00.000Z"
+}
 -->
 
 # Work Card Plan: phase-06 — Consolidated Resolver Foundation Completion

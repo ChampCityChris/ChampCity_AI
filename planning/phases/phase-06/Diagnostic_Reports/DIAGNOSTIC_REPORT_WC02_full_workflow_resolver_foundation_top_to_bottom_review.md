@@ -1,5 +1,36 @@
 <!-- champcity-artifact-envelope
-{"artifactId":"champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review","artifactType":"diagnostic_report","createdAt":"2026-07-18T02:52:00.000Z","jsonPath":"planning/phases/phase-06/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC02_full_workflow_resolver_foundation_top_to_bottom_review.json","markdownPath":"planning/phases/phase-06/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC02_full_workflow_resolver_foundation_top_to_bottom_review.md","parentArtifactId":"champcity-ai/phase-06/work_card/WC02","payload":{"kind":"diagnostic_report","title":"Diagnostic Report: Phase 06 WC02 Resolver Foundation Review"},"payloadHash":"sha256:f360db6fa9c89b92520688b151f1c20d4a67724c1b5bf747843be97ba4ff774c","phaseId":"phase-06","projectId":"champcity-ai","relationships":{"children":[],"expectedOutputs":["champcity-ai/phase-06/work_card/WC02-REPAIR03"],"sources":["champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory","champcity-ai/phase-06/operator_validation/WC02","champcity-ai/phase-06/work_card/WC02","champcity-ai/phase-06/work_card_plan/Work_Card_Plan"],"supersedes":[]},"revision":1,"schemaVersion":"champcity.artifact.v1","status":"active","updatedAt":"2026-07-18T02:52:00.000Z"}
+{
+  "artifactId": "champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review",
+  "artifactType": "diagnostic_report",
+  "createdAt": "2026-07-18T02:52:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC02_full_workflow_resolver_foundation_top_to_bottom_review.json",
+  "markdownPath": "planning/phases/phase-06/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC02_full_workflow_resolver_foundation_top_to_bottom_review.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
+  "payload": {
+    "kind": "diagnostic_report",
+    "title": "Diagnostic Report: Phase 06 WC02 Resolver Foundation Review"
+  },
+  "payloadHash": "sha256:f360db6fa9c89b92520688b151f1c20d4a67724c1b5bf747843be97ba4ff774c",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR03"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/operator_validation/WC02",
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T02:52:00.000Z"
+}
 -->
 
 # Diagnostic Report: Phase 06 WC02 Resolver Foundation Review
@@ -59,7 +90,7 @@ Implement four one-way layers:
 
 1. verified artifact graph for structural verification only;
 2. normalized workflow domain for lifecycle, candidates, validations, observations, dispositions, and repairs;
-3. one pure workflow kernel that returns one current action or one blocker;
+3. one pure kernel that returns one current action or one blocker;
 4. thin IPC, writer, projection, and renderer adapters that cannot reinterpret the kernel.
 
 The kernel must own each action's role, screen, output type, sources, target, and transition.

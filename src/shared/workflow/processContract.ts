@@ -5,6 +5,7 @@ import type {
   WorkflowScreenId,
   WorkflowStage,
 } from "./workflowContracts";
+import { workflowActionTemplates } from "./workflowActionCatalog";
 
 export const processClassifications = ["top_level", "subordinate"] as const;
 export type ProcessClassification = (typeof processClassifications)[number];
@@ -340,7 +341,7 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
 ] as const satisfies readonly ProcessContractItem[];
 
 export const defaultLifecycleActionTemplates: readonly WorkflowActionTemplate[] =
-  lockedProcessContract.flatMap((item) => item.runtimeActions);
+  workflowActionTemplates;
 
 export interface ProcessConformanceResult {
   conforms: boolean;

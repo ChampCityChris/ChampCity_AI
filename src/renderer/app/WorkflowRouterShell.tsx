@@ -60,7 +60,8 @@ type WorkflowState =
   | "operator-validation"
   | "repair-subcard"
   | "phase-closeout"
-  | "next-phase";
+  | "next-phase"
+  | "blocked";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -112,46 +113,6 @@ const workflowStepToState: Record<string, WorkflowState> = {
   "repeat phase mapping work card loop": "next-phase",
 };
 
-const actionIdToState: Record<string, WorkflowState> = {
-  project_intake_required: "project-intake",
-  project_architect_interview_required: "project-interview",
-  project_planning_required: "project-mapping",
-  repository_reconciliation_required: "reconciliation",
-  project_roadmap_required: "project-mapping",
-  project_interview_required: "project-interview",
-  reconciliation_review_required: "reconciliation",
-  project_mapping_required: "project-mapping",
-  operator_project_approval_required: "project-mapping",
-  phase_mapping_required: "phase-mapping",
-  phase_intake_required: "phase-mapping",
-  phase_architect_interview_required: "phase-mapping",
-  phase_planning_required: "phase-mapping",
-  work_card_plan_review_required: "work-card-review",
-  operator_phase_approval_required: "phase-mapping",
-  full_work_card_creation_required: "work-card-review",
-  work_card_authoring_required: "work-card-review",
-  operator_work_card_approval_required: "work-card-review",
-  operator_work_card_review_required: "work-card-review",
-  implementer_handoff_required: "work-card-review",
-  implementer_report_required: "implementer-active",
-  implementer_execution_required: "implementer-active",
-  architect_review_of_implementer_report_required: "architect-review",
-  architect_review_of_validation_report_required: "architect-review",
-  operator_validation_required: "operator-validation",
-  repair_sub_card_creation_required: "repair-subcard",
-  architect_disposition_required: "architect-review",
-  repair_work_card_required: "repair-subcard",
-  repair_implementer_handoff_required: "repair-subcard",
-  repair_validation_required: "repair-subcard",
-  phase_closeout_required: "phase-closeout",
-  operator_phase_closeout_approval_required: "phase-closeout",
-  operator_closeout_approval_required: "phase-closeout",
-  roadmap_update_required: "next-phase",
-  next_phase_activation_required: "next-phase",
-  repeat_phase_mapping_and_work_card_loop_required: "next-phase",
-  candidate_disposition_required: "work-card-review",
-};
-
 const workflowStateToManualScreen: Record<WorkflowState, string> = {
   "project-intake": "project-intake",
   "project-interview": "project-architect-interview",
@@ -165,46 +126,7 @@ const workflowStateToManualScreen: Record<WorkflowState, string> = {
   "repair-subcard": "architect-prompt-composer",
   "phase-closeout": "phase-closeout",
   "next-phase": "phase-map",
-};
-
-const actionIdToManualScreen: Record<string, string> = {
-  project_intake_required: "project-intake",
-  project_architect_interview_required: "project-architect-interview",
-  project_planning_required: "project-planning-documents",
-  repository_reconciliation_required: "repository-reconciliation",
-  project_roadmap_required: "project-roadmap",
-  project_interview_required: "project-architect-interview",
-  reconciliation_review_required: "repository-reconciliation",
-  project_mapping_required: "project-roadmap",
-  operator_project_approval_required: "project-planning-documents",
-  phase_mapping_required: "phase-map",
-  phase_intake_required: "phase-intake",
-  phase_architect_interview_required: "phase-architect-interview",
-  phase_planning_required: "phase-planning-documents",
-  work_card_plan_review_required: "work-card-plan-review",
-  operator_phase_approval_required: "phase-planning-documents",
-  full_work_card_creation_required: "new-work-card",
-  work_card_authoring_required: "new-work-card",
-  operator_work_card_approval_required: "work-card-plan-review",
-  operator_work_card_review_required: "work-card-plan-review",
-  implementer_handoff_required: "implementer-execution-packet",
-  implementer_report_required: "implementer-report-capture",
-  implementer_execution_required: "implementer-report-capture",
-  architect_review_of_implementer_report_required: "architect-review",
-  architect_review_of_validation_report_required: "human-validation",
-  operator_validation_required: "human-validation",
-  repair_sub_card_creation_required: "architect-prompt-composer",
-  architect_disposition_required: "architect-bridge",
-  repair_work_card_required: "new-work-card",
-  repair_implementer_handoff_required: "implementer-execution-packet",
-  repair_validation_required: "human-validation",
-  phase_closeout_required: "phase-closeout",
-  operator_phase_closeout_approval_required: "phase-closeout",
-  operator_closeout_approval_required: "phase-closeout",
-  roadmap_update_required: "project-planning-documents",
-  next_phase_activation_required: "phase-map",
-  repeat_phase_mapping_and_work_card_loop_required: "phase-map",
-  candidate_disposition_required: "candidate-disposition",
+  blocked: "unsupported-kernel-action",
 };
 
 function cn(...parts: Array<string | false | null | undefined>): string {
@@ -231,9 +153,10 @@ function getWorkflowStateForAction(
   action: ChampCityCurrentRequiredAction | undefined,
 ): WorkflowState {
   const actionId = normalizeKey(action?.id);
+  const route = getCurrentActionSurfaceRoute(actionId);
 
-  if (actionId && actionIdToState[actionId]) {
-    return actionIdToState[actionId];
+  if (route) {
+    return workflowStateForScreen(route.uiSurface);
   }
 
   const workflowStep = normalizeWorkflowStep(action?.workflowStep);
@@ -242,15 +165,7 @@ function getWorkflowStateForAction(
     return workflowStepToState[workflowStep];
   }
 
-  if (action?.responsibleRole === "implementer") {
-    return "implementer-active";
-  }
-
-  if (action?.responsibleRole === "operator") {
-    return "operator-validation";
-  }
-
-  return "work-card-review";
+  return action ? "blocked" : "work-card-review";
 }
 
 function getManualScreenForWorkflowState(state: WorkflowState): string {
@@ -267,11 +182,47 @@ export function getManualScreenForCurrentAction(
     return route.manualScreenId;
   }
 
-  if (actionId && actionIdToManualScreen[actionId]) {
-    return actionIdToManualScreen[actionId];
-  }
-
   return getManualScreenForWorkflowState(getWorkflowStateForAction(action));
+}
+
+function workflowStateForScreen(screenId: string): WorkflowState {
+  switch (screenId) {
+    case "project-intake":
+      return "project-intake";
+    case "project-architect-interview":
+      return "project-interview";
+    case "repository-reconciliation":
+      return "reconciliation";
+    case "project-mapping":
+    case "operator-project-approval":
+      return "project-mapping";
+    case "phase-mapping":
+    case "operator-phase-approval":
+      return "phase-mapping";
+    case "implementer-execution":
+      return "implementer-active";
+    case "architect-review":
+    case "architect-bridge":
+      return "architect-review";
+    case "operator-validation":
+      return "operator-validation";
+    case "repair-work-card-authoring":
+      return "repair-subcard";
+    case "phase-closeout":
+    case "operator-closeout-approval":
+      return "phase-closeout";
+    case "roadmap-update":
+    case "next-phase-activation":
+    case "workflow-complete":
+      return "next-phase";
+    case "work-card-authoring":
+    case "operator-work-card-approval":
+    case "candidate-disposition":
+    case "route-review-request":
+      return "work-card-review";
+    default:
+      return "blocked";
+  }
 }
 
 export function WorkflowRouterShell({
@@ -3408,6 +3359,7 @@ function stateLabel(state: WorkflowState): string {
     "repair-subcard": "Repair Sub-Card",
     "phase-closeout": "Phase Closeout",
     "next-phase": "Next Phase Activation",
+    blocked: "Workflow Blocked",
   };
 
   return labels[state];

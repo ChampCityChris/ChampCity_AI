@@ -73,6 +73,8 @@ type AppScreen =
   | "repository-reconciliation"
   | "phase-planning-documents"
   | "work-card-plan-review"
+  | "work-card-authoring"
+  | "repair-work-card-authoring"
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
@@ -295,6 +297,26 @@ const workflowSteps: WorkflowStep[] = [
 ];
 
 const routedOnlyWorkflowScreens: WorkflowStep[] = [
+  {
+    id: "work-card-authoring",
+    label: "Work Card Authoring",
+    mode: "architect",
+    shortDesc: "Planned Work Card",
+    screenTitle: "Planned Work Card Builder",
+    nextAction:
+      "Create the exact planned Work Card authorized by the active Work Card Plan.",
+    Icon: FileText,
+  },
+  {
+    id: "repair-work-card-authoring",
+    label: "Repair Work Card",
+    mode: "architect",
+    shortDesc: "Authorized repair",
+    screenTitle: "Repair Work Card Builder",
+    nextAction:
+      "Create the exact repair Work Card authorized by Architect disposition.",
+    Icon: FileText,
+  },
   {
     id: "architect-review",
     label: "Architect Review",
@@ -766,12 +788,31 @@ export default function App() {
         onNavigate={setActiveScreen}
       />
     ),
+    "work-card-authoring": (
+      <NewWorkCardScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        mode="planned"
+      />
+    ),
+    "repair-work-card-authoring": (
+      <NewWorkCardScreen
+        phase={phase}
+        phaseOptions={phaseOptions}
+        onPhaseChange={handlePhaseChange}
+        onActiveCardChange={setActiveCard}
+        mode="repair"
+      />
+    ),
     "new-work-card": (
       <NewWorkCardScreen
         phase={phase}
         phaseOptions={phaseOptions}
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
+        mode="ad-hoc"
       />
     ),
     "architect-prompt-composer": (
@@ -5172,7 +5213,55 @@ function NewWorkCardScreen({
   phaseOptions,
   onPhaseChange,
   onActiveCardChange,
-}: ScreenProps) {
+  mode = "ad-hoc",
+}: ScreenProps & { mode?: "ad-hoc" | "planned" | "repair" }) {
+  const copy = {
+    "ad-hoc": {
+      title: "Ad Hoc Work Card Capture",
+      description:
+        "Capture one-off, repair, emergency, or operator-discovered work outside the planned phase execution path.",
+      status: "Ad hoc draft status: ready_for_architect",
+      preview: "Markdown preview refreshed. Ad hoc draft requires Architect review.",
+      saved: "Ad hoc Work Card draft saved for Architect review.",
+      notice:
+        "This is not the normal next step after Phase Planning. Planned phase execution waits for Work Card Plan review and Formal Work Card approval.",
+      warning:
+        "Manual/ad hoc mode is active. The Work Card ID, title, and phase fields below are authoritative for preview and save; the header Work Card selector is hidden on this screen to avoid mixing a selected Formal Work Card with a new ad hoc draft.",
+      phaseLabel: "Manual/ad hoc phase",
+      target:
+        "This will create a new ad hoc draft Work Card {id} under planning/phases/{phase}/Work_Cards/. It will not link to a mapped phase, Work Card Plan, or planned Work Card proposal.",
+    },
+    planned: {
+      title: "Planned Work Card Builder",
+      description:
+        "Create the exact planned Work Card authorized by the active Work Card Plan and current routed action.",
+      status: "Planned Work Card status: routed authoring ready",
+      preview: "Markdown preview refreshed for the routed planned Work Card.",
+      saved: "Planned Work Card draft saved for routed review.",
+      notice:
+        "Planned mode is active. The routed current action remains authoritative; supporting navigation cannot retarget this Work Card.",
+      warning:
+        "Use this builder only for the current planned Work Card identity shown in the Current Action panel.",
+      phaseLabel: "Planned phase",
+      target:
+        "This will create the planned Work Card {id} under planning/phases/{phase}/Work_Cards/ using the current routed action binding.",
+    },
+    repair: {
+      title: "Repair Work Card Builder",
+      description:
+        "Create the exact repair Work Card authorized by Architect disposition and explicit repair lineage.",
+      status: "Repair Work Card status: routed authoring ready",
+      preview: "Markdown preview refreshed for the routed repair Work Card.",
+      saved: "Repair Work Card draft saved for routed review.",
+      notice:
+        "Repair mode is active. The repair must keep its explicit parent, sequence, trigger, and authorizing disposition evidence.",
+      warning:
+        "Do not use ad hoc capture for routed repairs; the current action controls the repair identity and evidence bundle.",
+      phaseLabel: "Repair phase",
+      target:
+        "This will create the routed repair Work Card {id} under planning/phases/{phase}/Work_Cards/ using the authorized repair lineage.",
+    },
+  }[mode];
   const [form, setForm] = useState<ChampCityWorkCardDraftInput>({
     ...initialWorkCardForm,
     phase,
@@ -5182,7 +5271,7 @@ function NewWorkCardScreen({
   const [previewMarkdown, setPreviewMarkdown] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    "Ad hoc draft status: ready_for_architect",
+    copy.status,
   );
   const [saveResult, setSaveResult] =
     useState<ChampCityWorkCardSaveResult | null>(null);
@@ -5253,9 +5342,7 @@ function NewWorkCardScreen({
     }
 
     setPreviewMarkdown(result.markdown);
-    setStatusMessage(
-      "Markdown preview refreshed. Ad hoc draft requires Architect review.",
-    );
+    setStatusMessage(copy.preview);
   }
 
   async function saveWorkCard() {
@@ -5281,34 +5368,27 @@ function NewWorkCardScreen({
 
     setPreviewMarkdown(result.markdown);
     setSaveResult(result);
-    setStatusMessage("Ad hoc Work Card draft saved for Architect review.");
+    setStatusMessage(copy.saved);
     if (result.workCard) {
       onActiveCardChange(toUiWorkCardSummary(result.workCard));
     }
   }
 
-  const adHocSaveTarget = `This will create a new ad hoc draft Work Card ${form.workCardId || "(missing ID)"} under planning/phases/${form.phase || "(missing phase)"}/Work_Cards/. It will not link to a mapped phase, Work Card Plan, or planned Work Card proposal.`;
+  const saveTarget = copy.target
+    .replace("{id}", form.workCardId || "(missing ID)")
+    .replace("{phase}", form.phase || "(missing phase)");
 
   return (
     <ScreenLayout
       left={
         <div className="flex h-full flex-col gap-5 p-4">
           <ScreenIntro
-            title="Ad Hoc Work Card Capture"
-            description="Capture one-off, repair, emergency, or operator-discovered work outside the planned phase execution path."
+            title={copy.title}
+            description={copy.description}
             badge="ready_for_architect"
           />
-          <Notice type="info">
-            This is not the normal next step after Phase Planning. Planned
-            phase execution waits for Work Card Plan review and Formal Work
-            Card approval.
-          </Notice>
-          <Notice type="warning">
-            Manual/ad hoc mode is active. The Work Card ID, title, and phase
-            fields below are authoritative for preview and save; the header
-            Work Card selector is hidden on this screen to avoid mixing a
-            selected Formal Work Card with a new ad hoc draft.
-          </Notice>
+          <Notice type="info">{copy.notice}</Notice>
+          <Notice type="warning">{copy.warning}</Notice>
           <ErrorList errors={errors} />
           <FieldGroup title="Identity">
             <FieldRow>
@@ -5327,7 +5407,7 @@ function NewWorkCardScreen({
             </FieldRow>
             <FieldRow>
               <TextField
-                label="Manual/ad hoc phase"
+                label={copy.phaseLabel}
                 value={form.phase}
                 onChange={(value) => updateField("phase", value)}
                 required
@@ -5346,7 +5426,7 @@ function NewWorkCardScreen({
                 </select>
               </Field>
             </FieldRow>
-            <Notice type="info">{adHocSaveTarget}</Notice>
+            <Notice type="info">{saveTarget}</Notice>
           </FieldGroup>
           <FieldGroup title="Intent">
             <TextAreaField
@@ -5417,7 +5497,7 @@ function NewWorkCardScreen({
             onSave={() => void saveWorkCard()}
             saveLabel="Save Ad Hoc Work Card"
             saveDisabled={isBusy}
-            statusMessage={`${statusMessage} ${adHocSaveTarget}`}
+            statusMessage={`${statusMessage} ${saveTarget}`}
             statusType={errors.length > 0 ? "error" : "success"}
           />
         </div>
@@ -11313,7 +11393,8 @@ function useSelectedWorkCard(
 
 function getWorkflowStep(activeScreen: AppScreen) {
   return (
-    workflowSteps.find((step) => step.id === activeScreen) ?? workflowSteps[0]
+    availableWorkflowScreens.find((step) => step.id === activeScreen) ??
+    workflowSteps[0]
   );
 }
 

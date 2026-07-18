@@ -93,11 +93,12 @@ test("architect disposition task packet IPC policy is an Architect Bridge suppor
   assert.equal(dispositionVariant.screenId, "architect-bridge");
   assert.equal(dispositionVariant.expectedOutputArtifactType, "candidate_disposition");
 
-  const validationReviewVariant = policy.variants.find(
-    (variant) => variant.actionId === "architect_review_of_validation_report_required",
+  assert.equal(
+    policy.variants.some(
+      (variant) => variant.actionId === "architect_review_of_validation_report_required",
+    ),
+    false,
   );
-  assert.ok(validationReviewVariant);
-  assert.equal(validationReviewVariant.screenId, "architect-bridge");
 });
 
 test("current-action route table inventories every locked current-action family", () => {
