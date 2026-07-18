@@ -8,9 +8,9 @@
   "parentArtifactId": "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
   "payload": {
     "kind": "architect_review",
-    "title": "Architect Review: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
+    "title": "Architect Review: Phase 06 WC02-REPAIR02 — Bounded Correction Scope Directive"
   },
-  "payloadHash": "sha256:7691f78ac7ae174ff95183b1332f119e6a5ae45ee457fb30cbf042e9b574bf72",
+  "payloadHash": "sha256:05950b8169e3d0953b76b54256a30fc85d891796d4f71842302e286a2e62d0af",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -20,7 +20,7 @@
     ],
     "sources": [
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source_authority_replacement_inventory",
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
       "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
       "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
@@ -28,95 +28,99 @@
     ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "blocked",
-  "updatedAt": "2026-07-18T00:30:00.000Z",
+  "updatedAt": "2026-07-18T01:00:00.000Z",
   "workCardId": "WC02-REPAIR02"
 }
 -->
 
-# Architect Review: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair
+# Architect Review: Phase 06 WC02-REPAIR02 — Bounded Correction Scope Directive
 
 Status: corrections_required
-Phase: phase-06 - Workflow Kernel and Artifact Protocol Replacement
+Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
 Work Card: WC02-REPAIR02
 Reviewed Implementer Report: `champcity-ai/phase-06/implementer_report/WC02-REPAIR02`
 Reviewed implementation commit: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`
+Controlling Work Card revision: 5
 Decision: corrections required; Operator validation is not authorized
 
-## Review Outcome
+## Correction To Prior Review
 
-WC02-REPAIR02 is not approved for Operator validation.
+The prior Architect Review described WC02-REPAIR01 as a failed Operator Validation. That description was incorrect.
 
-The implementation now completes most of the intended runtime protocol cutover, repairs the project display name, provides a broad migration inventory, and passes all fixed automated validation lanes. Direct artifact inspection nevertheless found material governance defects that the structural tests do not detect.
+WC02-REPAIR01 passed its own bounded acceptance criteria. Operator testing confirmed that its stale Phase 04 routing defect was corrected. The same validation session produced additional observations concerning Phase 06 approval recognition and project display naming. Those observations prompted WC02-REPAIR02 and kept parent WC02 unresolved.
 
-## Positive Findings
+The WC02-REPAIR01 record is Operator Validation evidence. It is not Operator Approval evidence. The remaining correction must preserve that distinction.
 
-- The project workspace display-name logic no longer treats generic `Project Profile` text as the project identity and is covered by a passing test.
-- The relationship-driven resolver uses the target protocol families and routes the live repository to Phase 06 WC02-REPAIR02 Architect Review rather than stale Phase 01 or Phase 04 work.
-- The fixed build, unit, repository, and mounted-renderer validation lanes pass. Unit validation reports 64 passed and 0 failed.
-- Persisted old artifact type and ID-path scans pass for the structural protocol fields.
-- The Implementer Report pair has been finalized in place as revision 3 and now records implementation commit `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
+## Current Decision
 
-## Blocking Finding 1 - Literal Undefined Bodies Remain
+The implementation at `ca4e9a072a4f3e3c121831f0a861ea659f89b62f` is not approved for Operator validation.
 
-Two canonical Markdown artifacts still contain the literal body `undefined` after their envelopes:
+WC02-REPAIR02 remains open only for the bounded correction work defined by Work Card revision 5:
 
-- `planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.md`
-- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.md`
+1. restore artifact bodies and historical meaning damaged by the migration;
+2. rebuild the migration inventory from immutable Git evidence;
+3. correct the WC02-REPAIR01 validation record to pass with additional observations;
+4. add canonical human-readable-body validation;
+5. replace project display-name inference with repository-root folder basename only;
+6. normalize persisted project names to repository-root folder basenames.
 
-A synchronized envelope and payload hash do not make an undefined human-readable body acceptable. These artifacts are governing evidence and must retain meaningful content.
+## Scope Lock
 
-## Blocking Finding 2 - Migration Inventory Is Not Reliable As A Pre/Post Audit
+No further resolver implementation is authorized under WC02-REPAIR02.
 
-The report's inventory frequently labels already-migrated IDs and types as the values that existed before migration. It therefore does not reliably demonstrate the actual source-to-target transformation.
+The Implementer must not modify workflow resolution, process contracts, transition routing, validation disposition, candidate resolution, repair lineage, project onboarding, phase lifecycle selection, or renderer navigation.
 
-The clearest material misclassification is:
+The Implementer has no authority to infer a better design, add flexibility, add fallbacks, preserve metadata precedence, create a new repair card, or substitute a narrower or broader solution.
 
-- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json`
+The sole display-name rule is:
 
-The report classifies this failed Operator Validation evidence as a work-card approval that should become `operator_approval`. The actual artifact remains `operator_validation`, which is the correct semantic family for the recorded failure. The inventory must distinguish approval authority from validation evidence instead of inferring gate role from surrounding workflow context.
+```ts
+const displayName = path.basename(repositoryRoot);
+```
 
-## Blocking Finding 3 - Bulk Replacement Corrupted Controlling Prose
+There is no profile lookup, package metadata lookup, request override, precedence rule, configurable alias, or fallback.
 
-The migration altered quoted historical terminology and explanatory prose inside controlling artifacts, including the approved WC02-REPAIR02 Work Card and the prior Architect Review. Several passages now describe old terms using the new terms, repeat the same target family on both sides of a migration statement, or otherwise lose the old-versus-target distinction.
+## Migration Corrections Still Required
 
-This is a semantic preservation failure. Protocol migration may change canonical metadata, IDs, relationships, and current terminology, but it must not rewrite the historical facts or approved intent needed to understand what was migrated.
+The following governing pairs must be restored from immutable pre-migration evidence and regenerated through the canonical serializer:
 
-## Root Cause Analysis
+- `planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.{json,md}`
+- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.{json,md}`
+- `planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}`
 
-The correction pass used broad text substitutions across both canonical metadata and payload prose. That crossed the boundary between machine-governing fields and human-governing content.
+The migration inventory must use `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2` for true pre-migration values and must not classify the WC02-REPAIR01 Operator Validation as approval evidence.
 
-The canonical renderer also accepted missing or undefined source body content, and the current repository gates verify structural pairing, hashes, target types, and runtime routing without rejecting literal `undefined` bodies or checking semantic preservation of controlling prose.
+Blind terminology replacement over `payload.contentMarkdown` is prohibited. Historical quotations, old-versus-target comparisons, findings, and approved instructions must retain their original meaning.
 
-## Required Corrections
+## Display-Name Correction Still Required
 
-1. Restore meaningful synchronized content for the two artifacts whose Markdown bodies are literal `undefined`; regenerate both JSON and Markdown through the canonical serializer.
-2. Rebuild the migration inventory from immutable pre-migration evidence, using the approved baseline and implementation commits to show true before and after IDs, types, gate roles, classifications, actions, and reasons.
-3. Correct the WC02-REPAIR01 failure-validation inventory row so it remains Operator Validation evidence rather than approval authority.
-4. Restore controlling Work Card, approval, validation, and Architect Review prose where broad replacement erased the old-versus-target distinction. Preserve the approved intent while keeping migrated canonical metadata.
-5. Add a repository regression gate that rejects required canonical artifacts with missing, empty, `undefined`, or `null` human-readable bodies.
-6. Add focused semantic-preservation checks for the controlling WC02-REPAIR02 Work Card and migration inventory.
-7. Rerun typecheck, build, all unit tests, repository gates, mounted renderer checks, and the direct live resolver probe.
-8. Update the existing Implementer Report pair in place with the corrected inventory and final results.
+`src/main/projects/projectWorkspaceRegistry.ts` currently derives project display names from profile and package metadata. That implementation is rejected.
 
-## Validation Reviewed
+The correction must:
 
-Architect reran the final fixed test lane after report finalization:
+- derive display name only from `path.basename(repositoryRoot)`;
+- delete code used only for alternate display-name sources;
+- ignore request-supplied display names;
+- normalize all persisted configured names during registry initialization;
+- prove `ChampCity_AI` displays exactly `ChampCity_AI`;
+- prove `ChampCity_GPT` displays exactly `ChampCity_GPT`;
+- prove package descriptions and other metadata cannot affect the name.
 
-- build: passed
-- unit tests: 64 passed, 0 failed
-- repository gates: passed
-- mounted renderer smoke checks: passed
-- full `npm test`: passed
+## Validation Requirement
 
-Electron emitted cache and GPU-cache access warnings during mounted smoke execution, but the smoke checks completed successfully. Those warnings are not the basis for this rejection.
+The Implementer must run the exact validation specified in Work Card revision 5 and must demonstrate that no prohibited workflow-authority file changed.
+
+Automated success does not override the scope and semantic-preservation requirements.
 
 ## Disposition
 
-WC02-REPAIR02 remains open for correction under its existing approved scope.
+WC02-REPAIR02 returns to the Implementer under its existing Operator-approved authority and the exact limits of Work Card revision 5.
 
-Operator validation is not authorized, and no visible Operator validation steps are issued.
+No WC02-REPAIR03 is authorized.
 
-A new repair Work Card is not required unless the correction discovers a genuine scope change outside WC02-REPAIR02.
+The separate end-to-end workflow-authority audit remains Architect-owned and is not part of this correction pass. No implementation based on that audit is authorized until the audit is completed and separately dispositioned.
+
+Operator validation is not authorized. No Operator validation steps are issued.

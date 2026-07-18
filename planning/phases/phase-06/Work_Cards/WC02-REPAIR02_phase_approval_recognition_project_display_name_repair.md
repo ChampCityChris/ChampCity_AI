@@ -8,36 +8,35 @@
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
   "payload": {
     "kind": "work_card",
-    "title": "Work Card: Phase 06 WC02-REPAIR02 — Full Gating Artifact Protocol Migration and Project Display Name Repair"
+    "title": "Work Card: Phase 06 WC02-REPAIR02 — Bounded Protocol Migration Correction and Repository Folder Name Repair"
   },
-  "payloadHash": "sha256:77f8b71b05791881fe664945bc985f3e11e015b7232b13e8ebc5b27cd16c8753",
+  "payloadHash": "sha256:afc632964bc7cae78c0857cf6c69c2860df907f0d2677c8caa2442846cac469f",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02",
-      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02"
+      "champcity-ai/phase-06/implementer_report/WC02-REPAIR02"
     ],
     "sources": [
       "champcity-ai/phase-06/architect_review/WC02-REPAIR01",
-      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
+      "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source_authority_replacement_inventory",
       "champcity-ai/phase-06/implementer_report/WC02-REPAIR01",
       "champcity-ai/phase-06/operator_approval/Operator_Phase_Approval",
-      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01",
-      "champcity-ai/project/supporting_document/PROJECT_PROFILE"
+      "champcity-ai/phase-06/operator_approval/WC02-REPAIR02",
+      "champcity-ai/phase-06/operator_validation/WC02-REPAIR01"
     ],
     "supersedes": []
   },
-  "revision": 4,
+  "revision": 5,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-17T21:05:00.000Z",
+  "updatedAt": "2026-07-18T01:00:00.000Z",
   "workCardId": "WC02-REPAIR02"
 }
 -->
 
-# Work Card: Phase 06 WC02-REPAIR02 — Full Gating Artifact Protocol Migration and Project Display Name Repair
+# Work Card: Phase 06 WC02-REPAIR02 — Bounded Protocol Migration Correction and Repository Folder Name Repair
 
 Status: approved_for_implementer_execution
 Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
@@ -45,158 +44,233 @@ Work Card: WC02-REPAIR02
 Parent Work Card: WC02
 Owner: Implementer
 Risk: critical
-Change strategy: protocol migration, not compatibility fallback
+Instruction mode: exact execution; no discretionary scope expansion
 
-## Purpose
+## Controlling Direction
 
-Repair the WC02/WC02-REPAIR01 validation failures by migrating all process-gating artifacts from Project Intake through current Phase 06 to the Phase 06 resolver protocol. This is not a narrow Phase 06 approval recognition patch. The resolver, process contract, governing artifacts, and tests must use one target protocol so the app can walk the process map without falling backward to Phase 01 planning, stale Phase 04 work, or an already-completed Phase 06 approval gate.
+This revision governs the remaining WC02-REPAIR02 correction pass.
 
-Also repair the active project dropdown so this repository does not display as `Project Profile`.
+Execute only the work explicitly listed below. Do not infer adjacent requirements, redesign workflow behavior, or improve unrelated code. A technically possible alternative is not authorized merely because the Implementer considers it cleaner, safer, or more flexible.
 
-## Corrected Architect RCA
+If an exact instruction cannot be completed, stop before making substitute changes and report the specific contradiction. Do not narrow, broaden, reinterpret, defer, or replace the approved work.
 
-WC01 documented the old authority surfaces and defined the target Phase 06 artifact protocol. WC02 replaced the old projector but did not complete migration of all process-gating artifact terms and controlling historical artifacts to that target protocol.
+## Historical Clarification
 
-Current mismatch:
+WC02-REPAIR01 passed the acceptance criteria of WC02-REPAIR01. Operator testing confirmed that the stale Phase 04 route, stale Phase 04 Work Card authoring, and Ad Hoc Work Card continuation were repaired.
 
-- `src/shared/workflow/processContract.ts` still uses old gate terms such as `operator_approval`, `operator_approval`, `operator_approval`, and `operator_approval`.
-- Current repository artifacts use generic `approval` artifacts, including `champcity-ai/phase-06/operator_approval/Operator_Phase_Approval`.
-- WC01 target protocol identifies operator approval evidence as `operator_approval`.
+The same Operator session produced additional observations:
 
-The correct repair is to complete the target protocol migration. Do not create duplicate compatibility artifacts. Do not preserve old artifact terms as resolver fallback authority. Do not mark controlling gate artifacts historical to bypass the resolver.
+- Phase 06 Operator Phase Approval was not recognized.
+- The active project name displayed incorrectly.
 
-The project display-name issue is separate: `src/main/projects/projectWorkspaceRegistry.ts` derives the display name from `PROJECT_PROFILE.payload.title`, which is the generic document title `Project Profile`, not the project or repository name.
+Those observations prompted WC02-REPAIR02 and kept parent WC02 unresolved. They did not convert WC02-REPAIR01 into a failed repair.
 
-## Migration Policy
+The WC02-REPAIR01 validation artifact must remain Operator Validation evidence. It is not Operator Approval evidence.
 
-1. Migrate controlling process-gating artifacts in place by default.
-2. Do not create compatibility shadow artifacts.
-3. Do not mark required gating artifacts historical merely to bypass resolver gates.
-4. Use historical or superseded status only for duplicate, abandoned, or non-controlling artifacts after a valid controlling artifact exists.
-5. Do not preserve old artifact terms as fallback authority.
-6. Do not create duplicate artifacts for the same gate to satisfy both old and new protocol names.
-7. Repair Work Cards remain `work_card` artifacts with repair identity expressed through `workCardId`, `parentArtifactId`, and repair metadata unless WC01 is explicitly revised by an approved design artifact.
+## Remaining Objective
 
-## Target Process-Gating Artifact Terms
+Complete only these two bounded outcomes:
 
-Project-level gates:
-- Project Intake: `project_intake`
-- Project Interview / Profile completion: `architect_interview`
-- Reconciliation Review: `reconciliation_review`
-- Project Roadmap / Project Mapping: `project_roadmap`
-- Operator Project Approval: `operator_approval` with project approval scope
+1. Correct defects introduced by the WC02-REPAIR02 artifact-protocol migration and restore trustworthy migration evidence.
+2. Make every configured project display name equal to the final folder name of its repository root.
 
-Phase setup gates:
-- Phase Activation: `phase_activation`
-- Phase Map / Phase Mapping: `phase_map`
-- Phase Planning: `phase_planning`
-- Work Card Plan: `work_card_plan`
-- Operator Phase Approval: `operator_approval` with phase/work-card-plan approval scope
+No broader resolver work is authorized by this revision.
 
-Work Card loop gates:
-- Work Card Authoring: `work_card`
-- Repair Work Card: `work_card` with repair `workCardId`, parent linkage, and repair metadata
-- Operator Work Card Approval: `operator_approval` with work-card approval scope
-- Implementer Execution: `implementer_report`
-- Architect Review: `architect_review`
-- Operator Validation: `operator_validation`
-- Candidate Disposition: `candidate_disposition`
+## Authorized Change Set
 
-Phase closeout and next-phase gates:
-- Phase Closeout: `phase_closeout`
-- Operator Phase Closeout Approval: `operator_approval` with phase-closeout approval scope
-- Roadmap Update / Rebaseline: migrate to `project_roadmap` unless `project_roadmap` is explicitly formalized in protocol and resolver rules
-- Next Phase Activation: `phase_activation`
+### A. Migration correction
 
-Non-gating evidence must not advance the process map by itself: `supporting_document`, `design_document`, `project_state`, `project_observation_register`, `artifact_registry`, and `workflow_state`.
+1. Restore complete, meaningful synchronized content for these three governing artifact pairs:
 
-## Required Artifact Migration Scope
+   - `planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.{json,md}`
+   - `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.{json,md}`
+   - `planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}`
 
-Inspect and migrate all process-gating artifacts required to resolve the current project state from Project Intake through the current Phase 06 Work Card chain. At minimum inspect:
+2. Use commit `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2` as the immutable pre-migration source for their human-readable bodies. Preserve their historical meaning. Apply only canonical envelope, artifact-type, ID, relationship, and current-status corrections already required by the approved target protocol.
 
-- `planning/project/`
-- `planning/phases/phase-01/`
-- `planning/phases/phase-02/`
-- `planning/phases/phase-03/`
-- `planning/phases/phase-04/`
-- `planning/phases/phase-05/`
-- `planning/phases/phase-06/`
+3. Correct the WC02-REPAIR01 Operator Validation pair in place:
 
-The Implementer Report must include a migration inventory table with current path, current artifact ID, current artifact type, current gate role, target artifact type, controlling/duplicate/abandoned/non-gating classification, action taken, and reason.
+   - artifact family remains `operator_validation`;
+   - validation outcome records that WC02-REPAIR01 passed its own acceptance criteria;
+   - the phase-approval and project-name findings are recorded as additional Operator observations;
+   - the record identifies WC02-REPAIR02 as the follow-up repair for parent WC02;
+   - the record must not say WC02-REPAIR01 failed, partially failed, or supplied approval authority.
 
-## Required Code Migration Scope
+4. Rebuild the Implementer Report migration inventory from immutable Git evidence:
 
-Inspect and update as needed:
+   - “before” values come from `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2`;
+   - implementation changes are compared against `999104d7151bf6b7733ea6788836f7b7b751f654` and `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`;
+   - each row must contain path, true pre-migration artifact ID, true pre-migration artifact type, gate role, resulting artifact ID, resulting artifact type, classification, exact action, and reason;
+   - the WC02-REPAIR01 validation row must be classified as Operator Validation evidence, not approval evidence.
+
+5. Repair human-readable prose changed by blind terminology replacement:
+
+   - compare each migration-modified `payload.contentMarkdown` body with its pre-migration body at `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2`;
+   - restore historical quotations, old-versus-target comparisons, findings, and approved instructions where their meaning was changed;
+   - do not run global or recursive terminology replacement over `payload.contentMarkdown`;
+   - do not alter historical facts merely to remove old terminology from prose;
+   - machine-governing IDs, types, statuses, and relationships remain on the approved target protocol.
+
+6. Add a repository gate that fails when a required canonical artifact has:
+
+   - missing `payload.contentMarkdown`;
+   - an empty or whitespace-only body;
+   - the literal body `undefined` or `null`;
+   - a Markdown representation whose human-readable body is empty, `undefined`, or `null`.
+
+7. Update the existing WC02-REPAIR02 Implementer Report pair in place. Do not create a second report, suffix copy, compatibility report, or replacement artifact.
+
+### B. Repository folder display name
+
+The project display-name rule is exactly:
+
+```ts
+const displayName = path.basename(repositoryRoot);
+```
+
+Required changes:
+
+1. In `src/main/projects/projectWorkspaceRegistry.ts`, derive `displayName` only from the final folder name of the resolved repository root.
+2. Delete every code path used only to derive a project display name from:
+
+   - `PROJECT_PROFILE`;
+   - Markdown headings;
+   - project metadata fields;
+   - `package.json.productName`;
+   - `package.json.description`;
+   - `package.json.name`;
+   - request-supplied display names;
+   - any other metadata or fallback source.
+
+3. Do not add a precedence chain. Do not add a fallback. Do not add a configurable alternate name.
+4. Do not change project ID derivation except where code must be separated from deleted display-name logic.
+5. During `ProjectWorkspaceRegistry.initialize`, before returning the registry, rewrite every persisted configured project's `displayName` to `path.basename(project.repositoryRoot)` and persist the registry atomically when any name changed.
+6. New project registration must persist the same repository-folder basename.
+7. Required regression cases:
+
+   - repository root ending in `ChampCity_AI` displays exactly `ChampCity_AI`;
+   - repository root ending in `ChampCity_GPT` displays exactly `ChampCity_GPT`;
+   - package description, package name, product name, profile title, profile body, and request display name cannot change the displayed name;
+   - an already-persisted long package-description name is corrected on initialization.
+
+## Authorized Files
+
+Production source changes are limited to:
+
+- `src/main/projects/projectWorkspaceRegistry.ts`
+
+Test and validation changes are limited to:
+
+- existing project-workspace registry tests;
+- the repository gate that validates canonical human-readable bodies and the focused migration-preservation checks;
+- the existing migration utility only when required to prevent recurrence of body/prose corruption.
+
+Planning changes are limited to:
+
+- the artifact pairs explicitly named in this Work Card;
+- migration-modified governing pairs that require semantic restoration from the immutable baseline;
+- the existing WC02-REPAIR02 Implementer Report pair;
+- registry/index artifacts that must be synchronized because an authorized canonical pair changed.
+
+## Explicitly Prohibited Changes
+
+Do not modify:
 
 - `src/main/workflow/relationshipDrivenWorkflowResolver.ts`
 - `src/shared/workflow/processContract.ts`
-- `src/shared/workflow/workflowContracts.ts`
-- `src/main/repository/verifiedArtifactGraph.ts`
-- `src/main/repository/repositoryRefreshService.ts`
-- `src/main/projects/projectWorkspaceRegistry.ts`
-- current-action main/preload/renderer surfaces that display or route gate names
-- relevant tests under `test/`
-- repository gates under `scripts/` if they encode old artifact-type names
+- `src/shared/workflow/transitionEngine.ts`
+- `src/shared/workCards/currentActionRouteTable.ts`
+- `src/main/workflow/processIpcPolicy.ts`
+- validation routing semantics
+- observation-disposition semantics
+- candidate-resolution semantics
+- repair-lineage semantics
+- project onboarding behavior
+- current-action selection behavior
+- phase lifecycle selection behavior
+- renderer navigation or layout
 
-## Required Implementation
+Do not:
 
-1. Inventory every process-gating artifact from Project Intake through current Phase 06.
-2. Migrate controlling gating artifacts in place to the target protocol.
-3. Correct relationships and expected outputs so the chain resolves without old-term fallback.
-4. Update process contract terms to the target protocol.
-5. Update the relationship resolver to consume target protocol terms only.
-6. Ensure old gate terms do not remain live resolver authority.
-7. Ensure generic `approval` is not retained as unbounded compatibility fallback.
-8. Ensure `operator_approval` carries enough scope/decision metadata for project, phase, Work Card, and phase-closeout approvals.
-9. Ensure `operator_validation` replaces old validation gate terminology for live resolver decisions.
-10. Decide and document whether existing `project_roadmap` artifacts are migrated to `project_roadmap` or formally added to supported protocol.
-11. Fix workspace display-name derivation so generic document titles such as `Project Profile` are not shown as project names.
-12. Stop and report the exact artifact/contradiction if a controlling gate cannot be migrated safely.
+- create WC02-REPAIR03;
+- create any new Work Card;
+- create compatibility aliases, shadows, duplicate artifacts, or fallback readers;
+- mark a controlling artifact historical to make a test pass;
+- use first-match, newest-file, title, filename, suffix, timestamp, or directory-order inference;
+- change a requirement because a tool command is rejected;
+- substitute a narrower or broader implementation;
+- perform unrelated cleanup or refactoring;
+- push any commit.
 
-## Required Tests
+## Stop Conditions
 
-Add or update automated tests proving:
+Stop and report before further edits if:
 
-- resolver can resolve the governing chain from Project Intake through current Phase 06 without falling back to Phase 01 planning, stale Phase 04 Work Card authoring, or Phase 06 Operator Phase Approval when migrated evidence proves those gates complete;
-- old terms such as `operator_approval`, `operator_approval`, `operator_approval`, and `operator_approval` are not accepted as live resolver authority after migration;
-- generic `approval` is not accepted as unscoped approval authority;
-- scoped `operator_approval` advances project, phase, Work Card, and closeout approval gates when relationships and decision data are valid;
-- controlling validation gates use `operator_validation`;
-- repair Work Cards use `work_card` plus repair metadata, not a separate live `work_card` type;
-- no gating artifact is marked historical merely to bypass a resolver gate;
-- duplicate or abandoned artifacts may be superseded only when a valid controlling artifact remains;
-- current Phase 06 state resolves to the correct next Work Card loop state or a true blocker;
-- active project dropdown does not display `Project Profile` when better project/repository identity is available.
+- the immutable baseline lacks the source body needed to restore a named artifact;
+- two baseline artifacts claim the same controlling identity;
+- an exact authorized change would require modification of a prohibited workflow module;
+- the repository root folder basename cannot be obtained from `repositoryRoot`;
+- validation reveals a separate resolver or product-design defect.
 
-## Required Implementer Report
+A stop condition does not authorize an alternative implementation.
 
-Create:
+## Required Validation
+
+Use the documented normal Windows validation lane.
+
+Run:
+
+- `npm run typecheck`
+- `npm run build`
+- `npm run test:unit`
+- `npm run test:repository`
+- `npm run test:renderer:built`
+- `npm test`
+
+Also verify:
+
+- all three named restored pairs have meaningful synchronized bodies;
+- the WC02-REPAIR01 validation records a pass with additional observations;
+- the migration inventory uses true pre-migration evidence;
+- no package/profile/request metadata can affect project display names;
+- persisted bad names are corrected to repository-folder basenames;
+- no prohibited workflow file changed.
+
+## Required Implementer Report Update
+
+Revise only:
 
 `planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.{json,md}`
 
-Artifact ID:
+The revised report must include:
 
-`champcity-ai/phase-06/implementer_report/WC02-REPAIR02`
+- reviewed baseline and implementation commits;
+- exact files changed;
+- restored artifact bodies;
+- corrected WC02-REPAIR01 validation semantics;
+- corrected migration inventory;
+- project display-name code removed;
+- persisted-name normalization behavior;
+- tests added or changed;
+- all command results;
+- any stop condition encountered;
+- final Git status;
+- implementation commit hash after commit creation.
 
-The report must include repo/branch/remote verification, Work Card and approval artifacts read, migration inventory, artifacts migrated in place, artifacts superseded or marked historical with proof they were not controlling gates, artifacts left unchanged as non-gating evidence, code files changed, tests added or updated, validation commands/results, residual risks, final git status, and commit hash.
+Do not describe unperformed work as complete. Do not request Operator validation. Architect review remains required.
 
 ## Acceptance Criteria
 
-- All controlling process-gating artifacts from Project Intake through current Phase 06 use the target protocol.
-- No required gate is bypassed by marking a controlling artifact historical.
-- The resolver and process contract consume target protocol terms, not old terms or generic fallback terms.
-- The resolver does not route backward to Phase 01 planning, Phase 04 Work Card authoring, or Phase 06 Operator Phase Approval when migrated evidence proves those gates complete.
-- The app reaches the correct current Work Card loop state or blocks for a true unresolved migrated-protocol defect.
-- The active project dropdown no longer displays `Project Profile` for this repository.
-- Operator validation remains visible-only and requires no Markdown/JSON editing.
-
-## Manual Validation After Implementer
-
-1. Launch or refresh ChampCity_AI.
-2. Confirm the selected project displays a meaningful project/repository name, not `Project Profile`.
-3. Confirm the current action does not route backward to Phase 01 planning.
-4. Confirm the current action does not route backward to stale Phase 04 work.
-5. Confirm the current action does not ask for Phase 06 Operator Phase Approval if migrated approval evidence exists.
-6. Confirm the app shows the correct current Work Card loop state or a clear true blocker.
-7. Confirm no Ad Hoc Work Card Capture is presented as normal recovery for migrated historical evidence.
-8. Confirm no manual Markdown/JSON artifact editing is required for validation.
+- The three named governing pairs contain meaningful synchronized human-readable bodies.
+- Historical and approved prose retains its original meaning.
+- The migration inventory is a truthful pre/post audit based on immutable Git evidence.
+- WC02-REPAIR01 is recorded as passed with additional observations and remains `operator_validation`.
+- Required canonical bodies cannot be missing, empty, `undefined`, or `null` without failing repository validation.
+- Every configured project displays exactly the basename of its repository root.
+- `ChampCity_AI` displays as `ChampCity_AI`.
+- `ChampCity_GPT` displays as `ChampCity_GPT`.
+- No metadata, request value, precedence rule, or fallback can alter a project display name.
+- Persisted incorrect names are corrected during registry initialization.
+- No prohibited workflow-authority file or behavior is changed.
+- The existing Implementer Report pair is revised in place.
+- The repository is clean after the report-only finalization commit.
