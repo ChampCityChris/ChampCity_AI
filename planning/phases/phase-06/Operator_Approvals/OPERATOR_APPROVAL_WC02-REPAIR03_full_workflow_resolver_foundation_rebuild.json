@@ -6,7 +6,7 @@
   "markdownPath": "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR03_full_workflow_resolver_foundation_rebuild.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR03",
   "payload": {
-    "contentMarkdown": "# Operator Approval: Phase 06 WC02-REPAIR03\n\nStatus: approved\nPhase: phase-06\nWork Card: WC02-REPAIR03\nDecision: approved for Implementer execution\n\nWC02-REPAIR03 is authorized as the single comprehensive resolver-foundation implementation pass. The former WC03 through WC06 resolver scopes are included. No partial handoff or push is authorized.\n\nExpected output: `champcity-ai/phase-06/implementer_report/WC02-REPAIR03`\n",
+    "contentMarkdown": "# Operator Approval: Phase 06 WC02-REPAIR03\n\nStatus: approved\nPhase: phase-06\nWork Card: WC02-REPAIR03\nApproved revision: 2\nDecision: approved for Implementer execution\n\nThe Operator approves WC02-REPAIR03 revision 2 as the single comprehensive resolver-foundation implementation pass.\n\nThis approval includes the explicit absorbed requirements corresponding to the former WC03, WC04, WC05, and WC06 candidate scopes:\n\n- real Phase 04–06 replay and no-fallback repository gates;\n- Registry, Workflow State, refresh, and verified-graph authority boundaries;\n- kernel-to-UI, IPC, routed-write, and screen integration;\n- integrated automated, mounted, live-repository, parity, isolation, and closeout-readiness validation.\n\nEvery absorbed section is mandatory. No partial handoff, deferred resolver pass, additional repair card, compatibility authority, fallback, or push is authorized.\n\nExpected output:\n\n`champcity-ai/phase-06/implementer_report/WC02-REPAIR03`\n",
     "data": {
       "absorbedPlannedCandidates": [
         "WC03",
@@ -14,9 +14,10 @@
         "WC05",
         "WC06"
       ],
+      "absorbedScopeRequirementsExplicit": true,
       "approvalScope": "work_card",
       "approvedArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR03",
-      "approvedRevision": 1,
+      "approvedRevision": 2,
       "authorizingDispositionArtifactId": "champcity-ai/phase-06/candidate_disposition/WC02",
       "decision": "approved",
       "implementationAuthorized": true,
@@ -30,7 +31,7 @@
     "kind": "operator_approval",
     "title": "Operator Approval: Phase 06 WC02-REPAIR03"
   },
-  "payloadHash": "sha256:3b92426290a83fe3c6967569fb66c96f4b9d690faae1dbeab63ec8e7ed17d108",
+  "payloadHash": "sha256:621a54467b9edcb8ae3e7050bcd2062201398d8c1e669c298053c1a4a7e96fae",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -47,9 +48,9 @@
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-18T02:52:00.000Z",
+  "updatedAt": "2026-07-18T03:25:00.000Z",
   "workCardId": "WC02-REPAIR03"
 }
