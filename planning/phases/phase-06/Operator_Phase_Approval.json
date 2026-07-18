@@ -6,38 +6,43 @@
   "markdownPath": "planning/phases/phase-06/Operator_Phase_Approval.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
   "payload": {
-    "contentMarkdown": "# Operator Phase Approval: Phase 06 Work Card Plan\n\nStatus: approved\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nApproval type: Work Card Plan approval\nDecision: approve Phase 06 Work Card Plan revision 3\n\n## Approved Scope\n\nThe Operator approves the Phase 06 Work Card Plan as the planning authority for just-in-time Work Card creation.\n\nApproved candidate sequence:\n\n1. WC01 — Kernel Contract, Artifact Protocol, and Source Authority Replacement Inventory\n2. WC02 — Replace EvidenceDerivedWorkflowProjector with Relationship-Driven Resolver\n3. WC03 — Real Phase 04/05 Replay Fixture and No-Fallback Repository Gates\n4. WC04 — Artifact Registry and Workflow State Diagnostic Boundary\n5. WC05 — Kernel-to-UI Current Action Adapter\n6. WC06 — Operator Validation of Kernel-Derived Current Action and Phase Closeout Readiness\n\n## Approval Boundary\n\nThis approval authorizes the Architect to create just-in-time Work Cards from the approved plan. It does not authorize source-code implementation by itself.\n\nEach formal Work Card still requires its own review/approval before Implementer execution.\n\n## Controlling Requirements\n\nWC01 must include the source-code authority review and Replacement Inventory. WC02 through WC05 must begin with scoped code-review checkpoints against the WC01 Replacement Inventory. WC06 remains validation and evidence review unless validation exposes a specific defect.\n",
+    "contentMarkdown": "# Operator Phase Approval: Phase 06 Consolidated Work Card Plan\n\nStatus: approved\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nDecision: Phase 06 Work Card Plan revision 5 approved\n\nThe Operator approved the revised plan that keeps WC01 and WC02 as the only Phase 06 candidates.\n\nWC02-REPAIR03 is the single remaining implementation pass. The resolver-foundation work previously listed under WC03, WC04, WC05, and WC06 is included in WC02-REPAIR03 and will not be implemented through separate Work Cards.\n\nAfter the complete pass, the workflow returns once for Architect Review and visible Operator validation.\n\nExpected output:\n\n`champcity-ai/phase-06/work_card/WC02-REPAIR03`\n",
     "data": {
+      "absorbedCandidateIds": [
+        "WC03",
+        "WC04",
+        "WC05",
+        "WC06"
+      ],
       "approvalScope": "phase_work_card_plan",
       "approvedArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
-      "approvedRevision": 3,
+      "approvedRevision": 5,
+      "consolidatedImplementationAuthorized": true,
       "decision": "approved",
       "implementationAuthorized": false,
       "justInTimeWorkCardCreationAuthorized": true,
       "phaseId": "phase-06"
     },
     "kind": "operator_approval",
-    "title": "Operator Phase Approval: Phase 06 Work Card Plan"
+    "title": "Operator Phase Approval: Phase 06 Consolidated Work Card Plan"
   },
-  "payloadHash": "sha256:3f008ce7a0861da624116f883ab524106ae02b8f2516da14fafad0afcb50ea58",
+  "payloadHash": "sha256:b7010716061ca04286ce52b8d1b08f08da8f266ad6ef7d1df72964723695c026",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [
-      "champcity-ai/phase-06/work_card/WC01"
+      "champcity-ai/phase-06/work_card/WC02-REPAIR03"
     ],
     "sources": [
-      "champcity-ai/phase-05/phase_closeout/PHASE_05",
-      "champcity-ai/phase-05/project_roadmap/WC03",
-      "champcity-ai/phase-06/phase_activation/phase-06",
-      "champcity-ai/phase-06/phase_planning/Phase_Planning",
+      "champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review",
+      "champcity-ai/phase-06/operator_validation/WC02",
       "champcity-ai/phase-06/work_card_plan/Work_Card_Plan"
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-17T02:20:00.000Z"
+  "updatedAt": "2026-07-18T02:52:00.000Z"
 }

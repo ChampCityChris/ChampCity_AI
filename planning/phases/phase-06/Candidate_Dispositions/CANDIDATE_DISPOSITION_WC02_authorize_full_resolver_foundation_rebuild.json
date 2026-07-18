@@ -1,0 +1,49 @@
+{
+  "artifactId": "champcity-ai/phase-06/candidate_disposition/WC02",
+  "artifactType": "candidate_disposition",
+  "createdAt": "2026-07-18T02:52:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02_authorize_full_resolver_foundation_rebuild.json",
+  "markdownPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02_authorize_full_resolver_foundation_rebuild.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC02",
+  "payload": {
+    "contentMarkdown": "# Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild\n\nStatus: repair_required\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nParent Work Card: WC02\nDisposition owner: Architect\nDecision: authorize WC02-REPAIR03\n\n## Validation Disposition\n\nWC02-REPAIR02 passed its bounded migration and repository-folder naming correction.\n\nThe same Operator validation demonstrated that parent WC02 remains unresolved because the live application still routes to WC02-REPAIR01 Work Card authoring and Ad Hoc Work Card Capture.\n\nThe additional observation is blocking for parent WC02 but does not reverse the WC02-REPAIR02 pass.\n\n## Architect Review Result\n\nThe top-to-bottom review confirms that the failure is systemic. Workflow semantics are duplicated across resolver, transition, IPC, route, projection, and renderer modules. The existing foundation is not suitable for another narrow repair.\n\n## Authorized Follow-Up\n\nAuthorize:\n\n`champcity-ai/phase-06/work_card/WC02-REPAIR03`\n\nWC02-REPAIR03 is one comprehensive rebuild and absorbs the previously planned resolver-foundation scopes of WC03 through WC06.\n\n## Parent Candidate State\n\n- WC02-REPAIR01 remains passed.\n- WC02-REPAIR02 remains passed.\n- Parent WC02 remains unresolved.\n- WC02-REPAIR03 is the active authorized repair.\n- No later candidate or phase closeout is authorized until WC02-REPAIR03 is reviewed, validated, and dispositioned.\n\n## Expected Output\n\n`champcity-ai/phase-06/work_card/WC02-REPAIR03`\n",
+    "data": {
+      "authorizedRepairWorkCardArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR03",
+      "authorizedRepairWorkCardId": "WC02-REPAIR03",
+      "blockingObservation": "live resolver routes to existing WC02-REPAIR01 authoring and Ad Hoc Work Card Capture",
+      "decision": "authorize_repair",
+      "parentCandidateResolved": false,
+      "parentWorkCardId": "WC02",
+      "phaseId": "phase-06",
+      "priorRepairWorkCardArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR02",
+      "repairSequence": 3,
+      "status": "repair_required",
+      "validatedRepairOutcome": "passed",
+      "validatedRepairWorkCardId": "WC02-REPAIR02",
+      "workCardId": "WC02"
+    },
+    "kind": "candidate_disposition",
+    "title": "Architect Disposition: Phase 06 WC02 Requires Full Resolver Foundation Rebuild"
+  },
+  "payloadHash": "sha256:64e04ce57e64b5b34da005f1673ce0756742687225220c97263b098549715b46",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC02-REPAIR03"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/diagnostic_report/WC02-full-workflow-resolver-foundation-top-to-bottom-review",
+      "champcity-ai/phase-06/operator_validation/WC02",
+      "champcity-ai/phase-06/work_card/WC02",
+      "champcity-ai/phase-06/work_card/WC02-REPAIR02"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T02:52:00.000Z",
+  "workCardId": "WC02"
+}
