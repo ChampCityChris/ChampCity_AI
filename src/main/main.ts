@@ -105,7 +105,10 @@ import type {
   CurrentContextPacketExportRequest,
   CurrentContextPacketPreviewRequest,
 } from "../shared/contextPackets/contextPacket";
-import type { ExecutionRunLookupRequest } from "../shared/executionRuns";
+import type {
+  ExecutionRunLookupRequest,
+  ExecutionRunStartRequest,
+} from "../shared/executionRuns";
 import type {
   AddProjectWorkspaceRequest,
   ProjectFolderSelectionResult,
@@ -116,11 +119,13 @@ import {
   currentContextPacketCompiler,
   executionRunService,
   initializeCanonicalRuntime,
+  listEligibleExecutionRunWorkCards,
   listProjectWorkspaces,
   refreshSelectedRepository,
   refreshSelectedRepositoryOnFocus,
   routedProcessInvocationService,
   selectProjectWorkspace,
+  startExecutionRunFromWorkCard,
   shutdownCanonicalRuntime,
   subscribeToRepositoryProjection,
 } from "./canonicalRuntime";
@@ -128,7 +133,11 @@ import { requireProcessIpcPolicy } from "./workflow";
 
 const appName = "ChampCity A/I";
 const repositoryRoot = path.resolve(__dirname, "..", "..");
-const electronRuntimeRoot = path.join(repositoryRoot, "tmp", "electron-runtime");
+const electronRuntimeRoot = process.env.CHAMPCITY_ELECTRON_RUNTIME_ROOT
+  ? path.resolve(process.env.CHAMPCITY_ELECTRON_RUNTIME_ROOT)
+  : path.join(repositoryRoot, "tmp", "electron-runtime");
+const allowRepositoryTmpProjects =
+  process.env.CHAMPCITY_ALLOW_REPOSITORY_TMP_PROJECTS === "1";
 let architectBrowserView: BrowserView | null = null;
 let architectBrowserOwner: BrowserWindow | null = null;
 
@@ -328,6 +337,7 @@ app.whenReady().then(async () => {
   await initializeCanonicalRuntime({
     defaultRepositoryRoot: repositoryRoot,
     workspaceStoragePath: path.join(app.getPath("userData"), "project-workspaces.json"),
+    allowRepositoryTmpProjects,
   });
   registerWorkCardIpc();
   registerArchitectBrowserIpc();
@@ -609,6 +619,14 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:getCurrentRequiredAction", () =>
     getCurrentRequiredAction(),
+  );
+  ipcMain.handle("executionRuns:listEligibleWorkCards", () =>
+    listEligibleExecutionRunWorkCards(),
+  );
+  ipcMain.handle(
+    "executionRuns:start",
+    (_event, input: ExecutionRunStartRequest) =>
+      startExecutionRunFromWorkCard(input),
   );
   ipcMain.handle(
     "executionRuns:load",

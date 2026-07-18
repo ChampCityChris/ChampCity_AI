@@ -126,9 +126,11 @@ import type {
   CurrentContextPacketPreviewResult,
 } from "../shared/contextPackets/contextPacket";
 import type {
+  EligibleExecutionRunWorkCardsResult,
   ExecutionJobPreviewResult,
   ExecutionRunLookupRequest,
   ExecutionRunOperationResult,
+  ExecutionRunStartRequest,
 } from "../shared/executionRuns";
 import type { RoutedActionContract } from "../shared/workflow";
 import type {
@@ -427,6 +429,13 @@ const api = {
     ipcRenderer.invoke("workCards:getPhaseCloseoutSummary", phase),
   getCurrentRequiredAction: (): Promise<CurrentRequiredActionResult> =>
     refreshCurrentRequiredAction(),
+  listEligibleExecutionRunWorkCards:
+    (): Promise<EligibleExecutionRunWorkCardsResult> =>
+      ipcRenderer.invoke("executionRuns:listEligibleWorkCards"),
+  startExecutionRun: (
+    input: ExecutionRunStartRequest,
+  ): Promise<ExecutionRunOperationResult> =>
+    ipcRenderer.invoke("executionRuns:start", input),
   loadExecutionRun: (
     input: ExecutionRunLookupRequest,
   ): Promise<ExecutionRunOperationResult> =>

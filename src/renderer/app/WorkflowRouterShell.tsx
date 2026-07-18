@@ -1770,6 +1770,315 @@ function CurrentContextPacketControls() {
   );
 }
 
+export function ExecutionRunsWorkspace() {
+  const [listResult, setListResult] =
+    useState<ChampCityEligibleExecutionRunWorkCardsResult | null>(null);
+  const [selectedArtifactId, setSelectedArtifactId] = useState("");
+  const [runResult, setRunResult] =
+    useState<ChampCityExecutionRunOperationResult | ChampCityExecutionJobPreviewResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("Load eligible Work Cards from canonical Registry authority.");
+
+  const selected = listResult?.workCards.find(
+    (workCard) => workCard.workCardArtifactId === selectedArtifactId,
+  );
+
+  useEffect(() => {
+    void refreshEligible();
+  }, []);
+
+  async function refreshEligible() {
+    setBusy(true);
+    const next = await window.champCity.listEligibleExecutionRunWorkCards();
+    setBusy(false);
+    setListResult(next);
+    const preferred =
+      next.workCards.find(
+        (workCard) =>
+          workCard.workCardArtifactId ===
+          "champcity-ai/phase-06/work_card/WC06",
+      ) ?? next.workCards[0];
+    setSelectedArtifactId((current) =>
+      current && next.workCards.some((workCard) => workCard.workCardArtifactId === current)
+        ? current
+        : preferred?.workCardArtifactId ?? "",
+    );
+    setStatus(
+      next.ok
+        ? next.workCards.length > 0
+          ? "Eligible approved Work Cards loaded."
+          : "No eligible approved Work Cards were found. A card needs exact synchronized Work Card, Operator Approval, dependency, project, and phase authority before it can start."
+        : next.errorMessages?.join(" ") ?? "Eligible Work Cards could not be loaded.",
+    );
+  }
+
+  async function startSelectedRun() {
+    if (!selected) return;
+    setBusy(true);
+    const next = await window.champCity.startExecutionRun({
+      workCardArtifactId: selected.workCardArtifactId,
+      workCardRevision: selected.workCardRevision,
+    });
+    setBusy(false);
+    setRunResult(next);
+    setStatus(
+      next.ok
+        ? "Execution Run is active from trusted main-process authority."
+        : next.errorMessages?.join(" ") ?? "Execution Run start blocked.",
+    );
+    await refreshEligible();
+  }
+
+  async function openSelectedRun() {
+    if (!selected) return;
+    setBusy(true);
+    const next = await window.champCity.loadExecutionRun({
+      phaseId: selected.phaseId,
+      workCardId: selected.workCardId,
+    });
+    setBusy(false);
+    setRunResult(next);
+    setStatus(
+      next.ok
+        ? "Execution Run opened from synchronized canonical artifacts."
+        : next.errorMessages?.join(" ") ?? "Execution Run is not started or exact authority is missing.",
+    );
+  }
+
+  async function previewSelectedPacket() {
+    if (!selected) return;
+    setBusy(true);
+    const next = await window.champCity.previewNextExecutionJob({
+      phaseId: selected.phaseId,
+      workCardId: selected.workCardId,
+    });
+    setBusy(false);
+    setRunResult(next);
+    setStatus(
+      next.ok
+        ? "Bounded next packet preview compiled from synchronized authority."
+        : next.errorMessages?.join(" ") ?? "Packet preview is blocked.",
+    );
+  }
+
+  const run = runResult?.run ?? selected?.run;
+  const job = runResult && "job" in runResult ? runResult.job : undefined;
+  const currentPass = run?.passes.find((pass) => pass.passId === run.currentPassId);
+  const selectedHasRun = Boolean(selected?.run || run);
+
+  return (
+    <div className="h-full overflow-y-auto bg-background/75 p-5">
+      <div className="mb-4 flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/65">
+            Supporting Tools
+          </div>
+          <h2 className="mt-1 text-lg font-semibold text-foreground">
+            Execution Runs
+          </h2>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground/75">
+            Start or reopen governed Execution Runs from approved Work Card authority. Runner transport, verifier decisions, completion, and Operator acceptance remain deferred.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void refreshEligible()}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+        >
+          <RefreshCw size={12} />
+          Refresh
+        </button>
+      </div>
+
+      {!listResult ? (
+        <Notice type="info">Loading eligible approved Work Cards.</Notice>
+      ) : !listResult.ok ? (
+        <Notice type="error">
+          {listResult.errorMessages?.join(" ") ?? "Eligible Work Cards could not be loaded."}
+        </Notice>
+      ) : listResult.workCards.length === 0 ? (
+        <Notice type="warning">
+          No eligible approved Work Cards are available. Execution Runs require exact synchronized Work Card authority, matching Operator Approval, accepted dependency authority, selected project identity, and structured execution definition data.
+        </Notice>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[minmax(260px,360px)_1fr]">
+          <section className="min-w-0 rounded-lg border border-border bg-card/30 p-4">
+            <PanelLabel>Eligible approved Work Cards</PanelLabel>
+            <div className="flex flex-col gap-2">
+              {listResult.workCards.map((workCard) => (
+                <button
+                  key={workCard.workCardArtifactId}
+                  type="button"
+                  onClick={() => {
+                    setSelectedArtifactId(workCard.workCardArtifactId);
+                    setRunResult(null);
+                  }}
+                  className={cn(
+                    "min-w-0 rounded-md border px-3 py-2 text-left transition-colors",
+                    selectedArtifactId === workCard.workCardArtifactId
+                      ? "border-primary/35 bg-primary/10"
+                      : "border-border bg-background/35 hover:bg-white/[0.04]",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-foreground/85">
+                      {workCard.workCardId}
+                    </span>
+                    <Badge
+                      className={
+                        workCard.run
+                          ? "border-emerald-400/20 bg-emerald-400/8 text-emerald-300"
+                          : "border-border bg-card/40 text-muted-foreground/70"
+                      }
+                    >
+                      {workCard.run ? "Started" : "Not started"}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground/75">
+                    {workCard.title}
+                  </div>
+                  <div className="mt-1 text-[10px] text-muted-foreground/45">
+                    Revision {workCard.workCardRevision} · {workCard.phaseId}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="min-w-0 rounded-lg border border-border bg-card/30 p-4">
+            {!selected ? (
+              <Notice type="warning">Select an eligible Work Card to continue.</Notice>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <PanelLabel>Selected Work Card</PanelLabel>
+                    <h3 className="break-anywhere text-base font-semibold text-foreground">
+                      {selected.title}
+                    </h3>
+                    <div className="mt-1 text-[11px] text-muted-foreground/60">
+                      {selected.workCardArtifactId} · revision {selected.workCardRevision}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={busy || selectedHasRun}
+                      onClick={() => void startSelectedRun()}
+                      className="rounded-md bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      Start Execution Run
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || !selectedHasRun}
+                      onClick={() => void openSelectedRun()}
+                      className="rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+                    >
+                      Open Execution Run
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || !selectedHasRun}
+                      onClick={() => void previewSelectedPacket()}
+                      className="rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+                    >
+                      Preview next packet
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground/75">
+                  {status}
+                </p>
+
+                {run ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-4">
+                    <ContextMetadataCard label="Run status" value={run.status} />
+                    <ContextMetadataCard
+                      label="Current pass"
+                      value={currentPass ? `${currentPass.passId} - ${currentPass.title}` : "none"}
+                    />
+                    <ContextMetadataCard
+                      label="Attempts"
+                      value={`${currentPass?.attempts.length ?? 0}`}
+                    />
+                    <ContextMetadataCard label="Runner transport" value="deferred" />
+                  </div>
+                ) : (
+                  <Notice type="info">
+                    This Work Card is eligible but no Execution Run has been started yet.
+                  </Notice>
+                )}
+
+                {run?.operatorAttentionReasons.length ? (
+                  <div className="mt-3 rounded-md border border-red-400/20 bg-red-400/[0.05] px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-red-300/80">
+                      Operator attention required
+                    </div>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-red-100/75">
+                      {run.operatorAttentionReasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {run ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {run.passes.map((pass) => (
+                      <span
+                        key={pass.passId}
+                        className={cn(
+                          "rounded border px-2 py-1 text-[10px] font-semibold",
+                          pass.status === "verified"
+                            ? "border-emerald-400/25 bg-emerald-400/[0.06] text-emerald-300"
+                            : pass.passId === run.currentPassId
+                              ? "border-primary/30 bg-primary/[0.08] text-primary"
+                              : "border-border bg-background/30 text-muted-foreground/65",
+                        )}
+                      >
+                        {pass.passId} - {pass.status} - {pass.attempts.length} attempt
+                        {pass.attempts.length === 1 ? "" : "s"}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {job ? (
+                  <div className="mt-4 rounded-md border border-primary/20 bg-primary/[0.035] p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-primary">
+                        Next packet: {job.role.replaceAll("_", " ")}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/60">
+                        {job.passId} - attempt {job.attempt} - {job.estimatedTokens}/
+                        {job.budgetTokens} estimated tokens
+                      </span>
+                    </div>
+                    <details className="mt-2 text-[10px] text-muted-foreground/60" open>
+                      <summary className="cursor-pointer">Bounded packet preview</summary>
+                      <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/45 p-3 leading-relaxed">
+                        {job.markdown}
+                      </pre>
+                    </details>
+                    {job.overBudget ? (
+                      <div className="mt-3 rounded border border-amber-400/20 bg-amber-400/[0.05] px-3 py-2 text-[11px] text-amber-100/75">
+                        This preview exceeds its configured packet budget. Dispatch authorization is deferred.
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExecutionRunControllerPanel({
   phaseId,
   workCardId,

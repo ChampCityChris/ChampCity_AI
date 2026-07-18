@@ -1,0 +1,312 @@
+{
+  "artifactId": "champcity-ai/phase-06/work_card/WC06",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-18T20:38:31.415Z",
+  "jsonPath": "planning/phases/phase-06/Work_Cards/WC06_trusted_execution_run_activation_workspace_test_fixture_isolation.json",
+  "markdownPath": "planning/phases/phase-06/Work_Cards/WC06_trusted_execution_run_activation_workspace_test_fixture_isolation.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+  "payload": {
+    "contentMarkdown": "# Work Card: Phase 06 WC06 - Trusted Execution Run Activation Workspace and Test-Fixture Isolation\n\nStatus: approved_for_implementer_execution\nOwner: Implementer\nRisk: high\nBranch: feature/phase-04-wc01-repair01-evidence-derived-workflow\nBaseline checkpoint: 8801ac0b60a5ad227bc68ba9397f10be461a6e85\nPush authorized: no\nExpected output: champcity-ai/phase-06/implementer_report/WC06\n\n## Purpose\n\nMake the recovered Execution Run foundation usable through Supporting Tools without adding runner transport. The Operator can open Execution Runs, select an eligible approved Work Card, start or open the run, review status and the bounded next packet, then restart and reopen the same run.\n\n## Structured Execution Run Definition\n\nSchema version: champcity.execution-run-definition.v1\n\n### Global Invariants\n\n- INV-ROLE-SEPARATION: Architect defines authority; Implementer changes production code; verifier and Operator decisions remain separate.\n- INV-TRUSTED-MAIN-AUTHORITY: Renderer intent cannot supply canonical Contract, Plan, lifecycle event, result, or decision data.\n- INV-HUMAN-OPERATOR-AUTHORITY: No agent or UI grants final human Operator acceptance.\n\n### Passes\n\n#### P01 - Trusted activation compiler and authority\n\nCompile strict structured WC06 authority into deterministic Acceptance Contract and Execution Pass Plan records, then start or open exact Execution Runs through trusted main-process authority.\n\nRequirements:\n- R01-DEFINITION-SCHEMA: Strict structured definitions compile deterministically. Unknown or missing fields block. Parsing Markdown, titles, or filenames is prohibited.\n- R02-EXACT-AUTHORITY: Activation resolves exact synchronized Work Card, revision, approval, dependency, project, and phase authority. Artifact existence alone is insufficient.\n- R03-IDEMPOTENT-START: Starting the exact same run twice returns the existing run without semantic mutation. A conflicting existing run blocks.\n\nAllowed paths:\n- src/shared/executionRuns\n- src/main/executionRuns\n- src/main/artifacts\n- src/main/canonicalRuntime.ts\n- test/wc06\n\nRequired tests:\n- focused WC06 schema/compiler/authority tests\n- WC05 execution-run regression tests\n- Registry load and synchronization verification\n\nExpected outputs:\n- strict execution-definition schema and compiler\n- trusted eligible-list operation\n- trusted start/open operation\n- canonical Acceptance Contract, Execution Pass Plan, and Execution Run pairs\n\n#### P02 - Execution Runs supporting workspace\n\nExpose a Supporting Tools Execution Runs workspace with eligible Work Cards, Start/Open actions, status, blockers, and bounded packet preview while preserving read-only deferred transport boundaries.\n\nRequirements:\n- R04-SUPPORTING-WORKSPACE: Supporting Tools provides an Execution Runs workspace with eligible Work Cards, Start/Open actions, status, and bounded packet preview.\n- R05-PLAIN-STATES: Empty and blocked states explain the missing exact authority in plain language.\n- R06-READ-ONLY-BOUNDARY: No queue, process, raw-event, completion, verifier-decision, or Operator-acceptance controls may exist, including dormant or feature-flagged versions.\n\nAllowed paths:\n- src/main/main.ts\n- src/preload/index.ts\n- src/renderer\n- src/shared/executionRuns\n- test/wc06\n\nRequired tests:\n- focused WC06 renderer/preload IPC tests\n- mounted Execution Runs visibility validation\n\nExpected outputs:\n- Supporting Tools Execution Runs workspace\n- eligible approved Work Card listing\n- Start/Open controls\n- status and bounded packet preview\n- plain empty and blocked states\n\n#### P03 - Test-fixture isolation and end-to-end proof\n\nIsolate mounted Electron tests from normal project persistence, purge repository-internal tmp fixture projects, preserve external projects, and prove restart persistence for the Execution Runs workflow.\n\nRequirements:\n- R07-TEST-ISOLATION: Mounted Electron tests use isolated project-workspace persistence and clean up their fixture projects.\n- R08-CONTAMINATION-REPAIR: Normal startup removes project roots contained under the host ChampCity_AI repository's tmp directory while preserving external user projects. Do not use a hard-coded fixture-name blacklist.\n- R09-END-TO-END-PROOF: The normal application demonstrates Start Execution Run, persistent status, and bounded packet preview without transport controls.\n- R10-PRESERVE-ROUTING: Existing workflow routing and current-action semantics must remain unchanged.\n\nAllowed paths:\n- src/main/projects\n- src/main/canonicalRuntime.ts\n- src/main/main.ts\n- scripts\n- test/wc06\n- package.json\n\nRequired tests:\n- mounted test-isolation validation\n- normal application activation and restart validation\n- existing workflow routing regressions\n\nExpected outputs:\n- isolated mounted Electron persistence\n- normal registry contamination repair\n- visible workflow and restart persistence evidence\n\n## Prohibited Scope\n\nDo not reintroduce Codex CLI or Runner Transport, implement Independent Verifier Agent, implement Operator Validation Agent, broaden unrelated workflow routing, perform Operator acceptance, push, merge, tag, or release.\n",
+    "data": {
+      "approvedBy": "champcity-ai/phase-06/operator_approval/WC06",
+      "approvedRevision": 1,
+      "baselineCommit": "8801ac0b60a5ad227bc68ba9397f10be461a6e85",
+      "executionRunDefinition": {
+        "globalInvariants": [
+          {
+            "invariantId": "INV-ROLE-SEPARATION",
+            "statement": "Architect defines authority; Implementer changes production code; verifier and Operator decisions remain separate."
+          },
+          {
+            "invariantId": "INV-TRUSTED-MAIN-AUTHORITY",
+            "statement": "Renderer intent cannot supply canonical Contract, Plan, lifecycle event, result, or decision data."
+          },
+          {
+            "invariantId": "INV-HUMAN-OPERATOR-AUTHORITY",
+            "statement": "No agent or UI grants final human Operator acceptance."
+          }
+        ],
+        "passes": [
+          {
+            "allowedRepositoryPaths": [
+              "src/shared/executionRuns",
+              "src/main/executionRuns",
+              "src/main/artifacts",
+              "src/main/canonicalRuntime.ts",
+              "test/wc06"
+            ],
+            "expectedOutputs": [
+              "strict execution-definition schema and compiler",
+              "trusted eligible-list operation",
+              "trusted start/open operation",
+              "canonical Acceptance Contract, Execution Pass Plan, and Execution Run pairs"
+            ],
+            "globalInvariantIds": [
+              "INV-ROLE-SEPARATION",
+              "INV-TRUSTED-MAIN-AUTHORITY",
+              "INV-HUMAN-OPERATOR-AUTHORITY"
+            ],
+            "objective": "Compile strict structured WC06 authority into deterministic Acceptance Contract and Execution Pass Plan records, then start or open exact Execution Runs through trusted main-process authority.",
+            "passId": "P01",
+            "prerequisitePassIds": [],
+            "requiredTests": [
+              "focused WC06 schema/compiler/authority tests",
+              "WC05 execution-run regression tests",
+              "Registry load and synchronization verification"
+            ],
+            "requirements": [
+              {
+                "noncompliantSubstitutions": [
+                  "Markdown parsing",
+                  "title parsing",
+                  "filename parsing",
+                  "directory-order inference",
+                  "legacy field fallback"
+                ],
+                "requiredBehavioralTests": [
+                  "Valid definitions compile deterministically.",
+                  "Unknown definition fields block.",
+                  "Missing definition fields block."
+                ],
+                "requirementId": "R01-DEFINITION-SCHEMA",
+                "statement": "Strict structured definitions compile deterministically. Unknown or missing fields block. Parsing Markdown, titles, or filenames is prohibited.",
+                "type": "required_behavior"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Loose file lookup",
+                  "unregistered pair authority",
+                  "wrong-revision approval",
+                  "wrong-project or wrong-phase activation"
+                ],
+                "requiredBehavioralTests": [
+                  "Wrong Work Card blocks.",
+                  "Wrong revision blocks.",
+                  "Wrong approval blocks.",
+                  "Wrong project or phase blocks.",
+                  "Unsatisfied dependency blocks."
+                ],
+                "requirementId": "R02-EXACT-AUTHORITY",
+                "statement": "Activation resolves exact synchronized Work Card, revision, approval, dependency, project, and phase authority. Artifact existence alone is insufficient.",
+                "type": "required_behavior"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Overwrite existing run",
+                  "create duplicate run",
+                  "mutate exact existing run on repeat start"
+                ],
+                "requiredBehavioralTests": [
+                  "Exact repeat start is idempotent.",
+                  "Conflicting existing run blocks."
+                ],
+                "requirementId": "R03-IDEMPOTENT-START",
+                "statement": "Starting the exact same run twice returns the existing run without semantic mutation. A conflicting existing run blocks.",
+                "type": "required_behavior"
+              }
+            ],
+            "title": "Trusted activation compiler and authority"
+          },
+          {
+            "allowedRepositoryPaths": [
+              "src/main/main.ts",
+              "src/preload/index.ts",
+              "src/renderer",
+              "src/shared/executionRuns",
+              "test/wc06"
+            ],
+            "expectedOutputs": [
+              "Supporting Tools Execution Runs workspace",
+              "eligible approved Work Card listing",
+              "Start/Open controls",
+              "status and bounded packet preview",
+              "plain empty and blocked states"
+            ],
+            "globalInvariantIds": [
+              "INV-ROLE-SEPARATION",
+              "INV-TRUSTED-MAIN-AUTHORITY",
+              "INV-HUMAN-OPERATOR-AUTHORITY"
+            ],
+            "objective": "Expose a Supporting Tools Execution Runs workspace with eligible Work Cards, Start/Open actions, status, blockers, and bounded packet preview while preserving read-only deferred transport boundaries.",
+            "passId": "P02",
+            "prerequisitePassIds": [
+              "P01"
+            ],
+            "requiredTests": [
+              "focused WC06 renderer/preload IPC tests",
+              "mounted Execution Runs visibility validation"
+            ],
+            "requirements": [
+              {
+                "noncompliantSubstitutions": [
+                  "Developer-only route",
+                  "current-action-only hidden panel",
+                  "manual packet copy as the primary workflow"
+                ],
+                "requiredBehavioralTests": [
+                  "UI lists eligible Work Cards.",
+                  "UI exposes Start Execution Run and Open Execution Run.",
+                  "UI previews bounded next packet."
+                ],
+                "requirementId": "R04-SUPPORTING-WORKSPACE",
+                "statement": "Supporting Tools provides an Execution Runs workspace with eligible Work Cards, Start/Open actions, status, and bounded packet preview.",
+                "type": "required_behavior"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Raw exception-only UI",
+                  "silent disabled controls"
+                ],
+                "requiredBehavioralTests": [
+                  "Empty state explains no eligible cards.",
+                  "Blocked state identifies missing exact authority."
+                ],
+                "requirementId": "R05-PLAIN-STATES",
+                "statement": "Empty and blocked states explain the missing exact authority in plain language.",
+                "type": "required_behavior"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Dormant queue control",
+                  "feature-flagged completion control",
+                  "renderer lifecycle event mutation"
+                ],
+                "requiredBehavioralTests": [
+                  "UI and preload do not expose queue, process, completion, verifier-decision, or acceptance controls."
+                ],
+                "requirementId": "R06-READ-ONLY-BOUNDARY",
+                "statement": "No queue, process, raw-event, completion, verifier-decision, or Operator-acceptance controls may exist, including dormant or feature-flagged versions.",
+                "type": "prohibition"
+              }
+            ],
+            "title": "Execution Runs supporting workspace"
+          },
+          {
+            "allowedRepositoryPaths": [
+              "src/main/projects",
+              "src/main/canonicalRuntime.ts",
+              "src/main/main.ts",
+              "scripts",
+              "test/wc06",
+              "package.json"
+            ],
+            "expectedOutputs": [
+              "isolated mounted Electron persistence",
+              "normal registry contamination repair",
+              "visible workflow and restart persistence evidence"
+            ],
+            "globalInvariantIds": [
+              "INV-ROLE-SEPARATION",
+              "INV-TRUSTED-MAIN-AUTHORITY",
+              "INV-HUMAN-OPERATOR-AUTHORITY"
+            ],
+            "objective": "Isolate mounted Electron tests from normal project persistence, purge repository-internal tmp fixture projects, preserve external projects, and prove restart persistence for the Execution Runs workflow.",
+            "passId": "P03",
+            "prerequisitePassIds": [
+              "P01",
+              "P02"
+            ],
+            "requiredTests": [
+              "mounted test-isolation validation",
+              "normal application activation and restart validation",
+              "existing workflow routing regressions"
+            ],
+            "requirements": [
+              {
+                "noncompliantSubstitutions": [
+                  "Normal userData reuse in mounted tests",
+                  "fixture roots left selected after test run"
+                ],
+                "requiredBehavioralTests": [
+                  "Mounted tests use isolated persistence.",
+                  "Mounted tests clean fixture projects in finally or cleanup paths."
+                ],
+                "requirementId": "R07-TEST-ISOLATION",
+                "statement": "Mounted Electron tests use isolated project-workspace persistence and clean up their fixture projects.",
+                "type": "required_behavior"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Hard-coded fixture-name blacklist",
+                  "purging external user projects",
+                  "leaving repo tmp roots selectable"
+                ],
+                "requiredBehavioralTests": [
+                  "Internal repository tmp roots are purged from normal registry.",
+                  "External user projects are preserved.",
+                  "Real ChampCity_AI is selected after repair."
+                ],
+                "requirementId": "R08-CONTAMINATION-REPAIR",
+                "statement": "Normal startup removes project roots contained under the host ChampCity_AI repository's tmp directory while preserving external user projects. Do not use a hard-coded fixture-name blacklist.",
+                "type": "required_behavior"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Unit-only proof",
+                  "transport controls hidden by CSS only"
+                ],
+                "requiredBehavioralTests": [
+                  "Mounted visible workflow starts WC06 run.",
+                  "Restart reopens same run.",
+                  "No transport or acceptance controls are present."
+                ],
+                "requirementId": "R09-END-TO-END-PROOF",
+                "statement": "The normal application demonstrates Start Execution Run, persistent status, and bounded packet preview without transport controls.",
+                "type": "required_evidence"
+              },
+              {
+                "noncompliantSubstitutions": [
+                  "Broad workflow reroute",
+                  "bypassing current-action obligations"
+                ],
+                "requiredBehavioralTests": [
+                  "Existing WC04, WC05, and WC09 regression coverage remains present and passing."
+                ],
+                "requirementId": "R10-PRESERVE-ROUTING",
+                "statement": "Existing workflow routing and current-action semantics must remain unchanged.",
+                "type": "required_behavior"
+              }
+            ],
+            "title": "Test-fixture isolation and end-to-end proof"
+          }
+        ],
+        "schemaVersion": "champcity.execution-run-definition.v1"
+      },
+      "expectedImplementerReportArtifactId": "champcity-ai/phase-06/implementer_report/WC06",
+      "implementationBranch": "feature/phase-04-wc01-repair01-evidence-derived-workflow",
+      "owner": "Implementer",
+      "planOrder": 6,
+      "pushAuthorized": false,
+      "risk": "high",
+      "sourceCodeChangesAuthorized": true,
+      "status": "approved_for_implementer_execution",
+      "workCardKind": "planned_candidate"
+    },
+    "kind": "work_card",
+    "title": "Work Card: Phase 06 WC06 - Trusted Execution Run Activation Workspace and Test-Fixture Isolation"
+  },
+  "payloadHash": "sha256:e1c39d7ab394da7f1dee32d49162ec33a6db1a7af9d44f9d822ba014595de4bb",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-06/operator_approval/WC06",
+      "champcity-ai/phase-06/implementer_report/WC06"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/implementer_report/WC06"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/architect_review/WC05",
+      "docs/handoffs/WC06_APPROVED_AUTHORITY_BOOTSTRAP",
+      "docs/handoffs/IMPLEMENTER_HANDOFF_PHASE06_WC06_trusted_execution_run_activation_workspace_test_fixture_isolation"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T20:38:31.415Z",
+  "workCardId": "WC06"
+}

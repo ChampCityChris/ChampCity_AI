@@ -1,0 +1,154 @@
+{
+  "artifactId": "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1",
+  "artifactType": "execution_pass_plan",
+  "createdAt": "2026-07-18T20:45:59.613Z",
+  "jsonPath": "planning/phases/phase-06/Execution_Runs/WC06/EXECUTION_PASS_PLAN.json",
+  "markdownPath": "planning/phases/phase-06/Execution_Runs/WC06/EXECUTION_PASS_PLAN.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC06",
+  "payload": {
+    "contentMarkdown": "# Execution Pass Plan - champcity-ai/phase-06/work_card/WC06\n\n- Plan ID: champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1\n- Work Card revision: 1\n- Approval: champcity-ai/phase-06/operator_approval/WC06\n- Acceptance Contract: champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1\n- Implementation branch: feature/phase-04-wc01-repair01-evidence-derived-workflow\n- Pass token budget: 5000\n\n## Passes\n\n### P01 - Trusted activation compiler and authority\n\nCompile strict structured WC06 authority into deterministic Acceptance Contract and Execution Pass Plan records, then start or open exact Execution Runs through trusted main-process authority.\n\n- Requirements: R01-DEFINITION-SCHEMA, R02-EXACT-AUTHORITY, R03-IDEMPOTENT-START\n- Global invariants: INV-ROLE-SEPARATION, INV-TRUSTED-MAIN-AUTHORITY, INV-HUMAN-OPERATOR-AUTHORITY\n- Prerequisites: none\n- Allowed paths: src/shared/executionRuns, src/main/executionRuns, src/main/artifacts, src/main/canonicalRuntime.ts, test/wc06\n- Required tests: focused WC06 schema/compiler/authority tests; WC05 execution-run regression tests; Registry load and synchronization verification\n- Expected outputs: strict execution-definition schema and compiler; trusted eligible-list operation; trusted start/open operation; canonical Acceptance Contract, Execution Pass Plan, and Execution Run pairs\n\n### P02 - Execution Runs supporting workspace\n\nExpose a Supporting Tools Execution Runs workspace with eligible Work Cards, Start/Open actions, status, blockers, and bounded packet preview while preserving read-only deferred transport boundaries.\n\n- Requirements: R04-SUPPORTING-WORKSPACE, R05-PLAIN-STATES, R06-READ-ONLY-BOUNDARY\n- Global invariants: INV-ROLE-SEPARATION, INV-TRUSTED-MAIN-AUTHORITY, INV-HUMAN-OPERATOR-AUTHORITY\n- Prerequisites: P01\n- Allowed paths: src/main/main.ts, src/preload/index.ts, src/renderer, src/shared/executionRuns, test/wc06\n- Required tests: focused WC06 renderer/preload IPC tests; mounted Execution Runs visibility validation\n- Expected outputs: Supporting Tools Execution Runs workspace; eligible approved Work Card listing; Start/Open controls; status and bounded packet preview; plain empty and blocked states\n\n### P03 - Test-fixture isolation and end-to-end proof\n\nIsolate mounted Electron tests from normal project persistence, purge repository-internal tmp fixture projects, preserve external projects, and prove restart persistence for the Execution Runs workflow.\n\n- Requirements: R07-TEST-ISOLATION, R08-CONTAMINATION-REPAIR, R09-END-TO-END-PROOF, R10-PRESERVE-ROUTING\n- Global invariants: INV-ROLE-SEPARATION, INV-TRUSTED-MAIN-AUTHORITY, INV-HUMAN-OPERATOR-AUTHORITY\n- Prerequisites: P01, P02\n- Allowed paths: src/main/projects, src/main/canonicalRuntime.ts, src/main/main.ts, scripts, test/wc06, package.json\n- Required tests: mounted test-isolation validation; normal application activation and restart validation; existing workflow routing regressions\n- Expected outputs: isolated mounted Electron persistence; normal registry contamination repair; visible workflow and restart persistence evidence\n",
+    "data": {
+      "acceptanceContractId": "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1",
+      "approvalArtifactId": "champcity-ai/phase-06/operator_approval/WC06",
+      "implementationBranch": "feature/phase-04-wc01-repair01-evidence-derived-workflow",
+      "passes": [
+        {
+          "allowedRepositoryPaths": [
+            "src/shared/executionRuns",
+            "src/main/executionRuns",
+            "src/main/artifacts",
+            "src/main/canonicalRuntime.ts",
+            "test/wc06"
+          ],
+          "expectedOutputs": [
+            "strict execution-definition schema and compiler",
+            "trusted eligible-list operation",
+            "trusted start/open operation",
+            "canonical Acceptance Contract, Execution Pass Plan, and Execution Run pairs"
+          ],
+          "globalInvariantIds": [
+            "INV-ROLE-SEPARATION",
+            "INV-TRUSTED-MAIN-AUTHORITY",
+            "INV-HUMAN-OPERATOR-AUTHORITY"
+          ],
+          "objective": "Compile strict structured WC06 authority into deterministic Acceptance Contract and Execution Pass Plan records, then start or open exact Execution Runs through trusted main-process authority.",
+          "passId": "P01",
+          "prerequisitePassIds": [],
+          "requiredTests": [
+            "focused WC06 schema/compiler/authority tests",
+            "WC05 execution-run regression tests",
+            "Registry load and synchronization verification"
+          ],
+          "requirementIds": [
+            "R01-DEFINITION-SCHEMA",
+            "R02-EXACT-AUTHORITY",
+            "R03-IDEMPOTENT-START"
+          ],
+          "title": "Trusted activation compiler and authority"
+        },
+        {
+          "allowedRepositoryPaths": [
+            "src/main/main.ts",
+            "src/preload/index.ts",
+            "src/renderer",
+            "src/shared/executionRuns",
+            "test/wc06"
+          ],
+          "expectedOutputs": [
+            "Supporting Tools Execution Runs workspace",
+            "eligible approved Work Card listing",
+            "Start/Open controls",
+            "status and bounded packet preview",
+            "plain empty and blocked states"
+          ],
+          "globalInvariantIds": [
+            "INV-ROLE-SEPARATION",
+            "INV-TRUSTED-MAIN-AUTHORITY",
+            "INV-HUMAN-OPERATOR-AUTHORITY"
+          ],
+          "objective": "Expose a Supporting Tools Execution Runs workspace with eligible Work Cards, Start/Open actions, status, blockers, and bounded packet preview while preserving read-only deferred transport boundaries.",
+          "passId": "P02",
+          "prerequisitePassIds": [
+            "P01"
+          ],
+          "requiredTests": [
+            "focused WC06 renderer/preload IPC tests",
+            "mounted Execution Runs visibility validation"
+          ],
+          "requirementIds": [
+            "R04-SUPPORTING-WORKSPACE",
+            "R05-PLAIN-STATES",
+            "R06-READ-ONLY-BOUNDARY"
+          ],
+          "title": "Execution Runs supporting workspace"
+        },
+        {
+          "allowedRepositoryPaths": [
+            "src/main/projects",
+            "src/main/canonicalRuntime.ts",
+            "src/main/main.ts",
+            "scripts",
+            "test/wc06",
+            "package.json"
+          ],
+          "expectedOutputs": [
+            "isolated mounted Electron persistence",
+            "normal registry contamination repair",
+            "visible workflow and restart persistence evidence"
+          ],
+          "globalInvariantIds": [
+            "INV-ROLE-SEPARATION",
+            "INV-TRUSTED-MAIN-AUTHORITY",
+            "INV-HUMAN-OPERATOR-AUTHORITY"
+          ],
+          "objective": "Isolate mounted Electron tests from normal project persistence, purge repository-internal tmp fixture projects, preserve external projects, and prove restart persistence for the Execution Runs workflow.",
+          "passId": "P03",
+          "prerequisitePassIds": [
+            "P01",
+            "P02"
+          ],
+          "requiredTests": [
+            "mounted test-isolation validation",
+            "normal application activation and restart validation",
+            "existing workflow routing regressions"
+          ],
+          "requirementIds": [
+            "R07-TEST-ISOLATION",
+            "R08-CONTAMINATION-REPAIR",
+            "R09-END-TO-END-PROOF",
+            "R10-PRESERVE-ROUTING"
+          ],
+          "title": "Test-fixture isolation and end-to-end proof"
+        }
+      ],
+      "passTokenBudget": 5000,
+      "planId": "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1",
+      "workCardArtifactId": "champcity-ai/phase-06/work_card/WC06",
+      "workCardRevision": 1
+    },
+    "kind": "execution_pass_plan",
+    "title": "Execution Pass Plan - WC06"
+  },
+  "payloadHash": "sha256:3fab36e12652d6d2c5ffd15f23e1a8cace21709c7c8d92d44164bd518f1ccc8c",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-06/work_card/WC06/execution_run/revision-1"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC06/execution_run/revision-1"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC06",
+      "champcity-ai/phase-06/operator_approval/WC06",
+      "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T20:45:59.613Z",
+  "workCardId": "WC06"
+}

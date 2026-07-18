@@ -5,6 +5,8 @@ import {
   createExecutionRun,
   validateExecutionPassPlan,
   type ExecutionAgentJob,
+  type EligibleExecutionRunWorkCard,
+  type EligibleExecutionRunWorkCardsResult,
   type ExecutionJobPreviewResult,
   type ExecutionPacketSourceSummary,
   type ExecutionPassPlan,
@@ -14,18 +16,23 @@ import {
   type ExecutionRunArtifactPaths,
   type ExecutionRunLookupRequest,
   type ExecutionRunOperationResult,
+  type ExecutionRunStartRequest,
   type ExecutionRunStatusPreviewResult,
   type TrustedExecutionRunInitializeRequest,
   type WorkCardAcceptanceContract,
 } from "../../shared/executionRuns";
+import { compileExecutionRunDefinitionV1 } from "../../shared/executionRuns";
 import type { CanonicalArtifact, JsonValue } from "../../shared/artifacts";
 import {
   ArtifactPairService,
+  ArtifactPairServiceError,
   locationFromPairPaths,
 } from "../artifacts";
 
 const WC04_WORK_CARD_ARTIFACT_ID = "champcity-ai/phase-06/work_card/WC04";
 const WC04_ARCHITECT_REVIEW_ARTIFACT_ID = "champcity-ai/phase-06/architect_review/WC04";
+const WC05_WORK_CARD_ARTIFACT_ID = "champcity-ai/phase-06/work_card/WC05";
+const WC05_ARCHITECT_REVIEW_ARTIFACT_ID = "champcity-ai/phase-06/architect_review/WC05";
 
 export interface TrustedImplementerResultRequest extends ExecutionRunLookupRequest {
   passId: string;
@@ -74,6 +81,8 @@ export class ExecutionRunPersistenceService {
       await this.validateOperatorApprovalAuthority(approval, request.contract);
       const paths = executionRunArtifactPaths(request.phaseId, request.workCardId);
       const run = createExecutionRun(request.plan, request.contract, this.now());
+      const existing = await this.tryLoadExistingRun(request);
+      if (existing) return existing;
       await this.artifactPairs.commitArtifactsBatch([
         acceptanceContractCommitRequest(request, paths),
         passPlanCommitRequest(request, paths, run),
@@ -91,6 +100,35 @@ export class ExecutionRunPersistenceService {
     } catch (error) {
       return executionOperationFailure(error);
     }
+  }
+
+  async listExactAuthoritativeArtifactsByType(
+    artifactType: string,
+  ): Promise<CanonicalArtifact[]> {
+    const registry = await this.artifactPairs.loadRegistry();
+    if (!registry) throw new Error("Canonical Artifact Registry is unavailable.");
+    const artifacts: CanonicalArtifact[] = [];
+    for (const entry of registry.entries) {
+      if (
+        entry.artifactType !== artifactType ||
+        !entry.authoritative ||
+        !entry.synchronized
+      ) {
+        continue;
+      }
+      const pair = await this.artifactPairs.readArtifactByPaths(
+        entry.jsonPath,
+        entry.markdownPath,
+      );
+      if (!pair.verification.synchronized) {
+        throw new Error(`Canonical artifact ${entry.artifactId} is not synchronized.`);
+      }
+      if (pair.artifact.artifactId !== entry.artifactId) {
+        throw new Error(`Canonical artifact ${entry.artifactId} path resolved conflicting identity.`);
+      }
+      artifacts.push(pair.artifact);
+    }
+    return artifacts;
   }
 
   async load(
@@ -259,6 +297,24 @@ export class ExecutionRunPersistenceService {
     }
   }
 
+  private async tryLoadExistingRun(
+    request: TrustedExecutionRunInitializeRequest,
+  ): Promise<ExecutionRunOperationResult | null> {
+    try {
+      const existing = await this.readBundle(request);
+      if (
+        stableExecutionJson(existing.contract) !== stableExecutionJson(request.contract) ||
+        stableExecutionJson(existing.plan) !== stableExecutionJson(request.plan)
+      ) {
+        throw new Error("A conflicting Execution Run bundle already exists for this Work Card.");
+      }
+      return { ok: true, ...existing };
+    } catch (error) {
+      if (isExecutionPairNotFound(error)) return null;
+      throw error;
+    }
+  }
+
   private async validateExecutionCondition(
     executionCondition: string,
     contract: WorkCardAcceptanceContract,
@@ -301,6 +357,40 @@ export class ExecutionRunAuthorityService {
     request: TrustedExecutionRunInitializeRequest,
   ): Promise<ExecutionRunOperationResult> {
     return this.persistence.initializeTrusted(request);
+  }
+
+  async listEligibleWorkCards(): Promise<EligibleExecutionRunWorkCardsResult> {
+    try {
+      const workCards = await this.persistence.listExactAuthoritativeArtifactsByType("work_card");
+      const eligible: EligibleExecutionRunWorkCard[] = [];
+      for (const workCard of workCards) {
+        const candidate = await this.eligibleWorkCard(workCard);
+        if (candidate.eligible) eligible.push(candidate);
+      }
+      eligible.sort((left, right) =>
+        `${left.phaseId}/${left.workCardId}`.localeCompare(`${right.phaseId}/${right.workCardId}`),
+      );
+      return { ok: true, workCards: eligible };
+    } catch (error) {
+      return { ok: false, workCards: [], errorMessages: [plainExecutionError(error)] };
+    }
+  }
+
+  async startFromWorkCardAuthority(
+    request: ExecutionRunStartRequest,
+  ): Promise<ExecutionRunOperationResult> {
+    try {
+      const workCard = await this.persistence.readExactAuthoritativeArtifact(
+        request.workCardArtifactId,
+      );
+      if (workCard.revision !== request.workCardRevision) {
+        throw new Error("Selected Work Card revision does not match canonical authority.");
+      }
+      const compiled = await this.compileTrustedStart(workCard);
+      return this.persistence.initializeTrusted(compiled);
+    } catch (error) {
+      return executionOperationFailure(error);
+    }
   }
 
   loadStatus(
@@ -433,6 +523,161 @@ export class ExecutionRunAuthorityService {
     throw new Error(
       `Execution Pass ${ledger.passId} is ${ledger.status}; no packet preview is available.`,
     );
+  }
+
+  private async eligibleWorkCard(
+    workCard: CanonicalArtifact,
+  ): Promise<EligibleExecutionRunWorkCard> {
+    const reasons: string[] = [];
+    let approvalArtifactId = "";
+    let approvedRevision = 0;
+    let run: ExecutionRun | undefined;
+    try {
+      const data = executionRecord(workCard.payload.data);
+      approvalArtifactId = requiredExecutionString(data.approvedBy, "approvedBy");
+      approvedRevision = requiredExecutionNumber(data.approvedRevision, "approvedRevision");
+      await this.compileTrustedStart(workCard);
+      if (workCard.phaseId && workCard.workCardId) {
+        const loaded = await this.persistence.load({
+          phaseId: workCard.phaseId,
+          workCardId: workCard.workCardId,
+        });
+        if (loaded.ok && loaded.run) run = loaded.run;
+      }
+    } catch (error) {
+      reasons.push(plainExecutionError(error));
+    }
+    return {
+      workCardArtifactId: workCard.artifactId,
+      workCardRevision: workCard.revision,
+      phaseId: workCard.phaseId ?? "",
+      workCardId: workCard.workCardId ?? "",
+      title: workCard.payload.title,
+      status: String(executionRecord(workCard.payload.data).status ?? workCard.status),
+      approvalArtifactId,
+      approvedRevision,
+      eligible: reasons.length === 0,
+      reasons,
+      ...(run ? { run } : {}),
+    };
+  }
+
+  private async compileTrustedStart(
+    workCard: CanonicalArtifact,
+  ): Promise<TrustedExecutionRunInitializeRequest> {
+    if (workCard.artifactType !== "work_card") {
+      throw new Error("Execution Run start requires a Work Card artifact.");
+    }
+    if (!workCard.phaseId || !workCard.workCardId) {
+      throw new Error("Execution Run Work Card must declare phase and Work Card IDs.");
+    }
+    if (workCard.projectId !== this.projectId) {
+      throw new Error("Execution Run Work Card belongs to another project.");
+    }
+    const data = executionRecord(workCard.payload.data);
+    if (data.status !== "approved_for_implementer_execution") {
+      throw new Error("Work Card is not approved for Implementer execution.");
+    }
+    if (data.sourceCodeChangesAuthorized !== true) {
+      throw new Error("Work Card does not authorize source-code changes.");
+    }
+    if (data.pushAuthorized !== false) {
+      throw new Error("Work Card must explicitly keep push unauthorized for this run.");
+    }
+    if (data.expectedImplementerReportArtifactId !== `champcity-ai/${workCard.phaseId}/implementer_report/${workCard.workCardId}`) {
+      throw new Error("Work Card expected Implementer Report identity is not exact.");
+    }
+    const approvalArtifactId = requiredExecutionString(data.approvedBy, "approvedBy");
+    const approvalRevision = requiredExecutionNumber(data.approvedRevision, "approvedRevision");
+    const approval = await this.persistence.readExactAuthoritativeArtifact(approvalArtifactId);
+    if (approval.revision !== approvalRevision) {
+      throw new Error("Operator Approval revision does not match Work Card authority.");
+    }
+    await this.validateWc05AcceptedDependency(workCard);
+    const { contract, plan } = compileExecutionRunDefinitionV1({
+      definition: data.executionRunDefinition,
+      workCardArtifactId: workCard.artifactId,
+      workCardRevision: workCard.revision,
+      approvalArtifactId,
+      implementationBranch: requiredExecutionString(
+        data.implementationBranch,
+        "implementationBranch",
+      ),
+      passTokenBudget: 5_000,
+    });
+    await this.validateCompiledApproval(approval, workCard, contract, plan);
+    return {
+      projectId: workCard.projectId,
+      phaseId: workCard.phaseId,
+      workCardId: workCard.workCardId,
+      contract,
+      plan,
+    };
+  }
+
+  private async validateCompiledApproval(
+    approval: CanonicalArtifact,
+    workCard: CanonicalArtifact,
+    contract: WorkCardAcceptanceContract,
+    plan: ExecutionPassPlan,
+  ): Promise<void> {
+    const data = executionRecord(approval.payload.data);
+    if (approval.artifactType !== "operator_approval") {
+      throw new Error("Execution Run authority must resolve an Operator Approval artifact.");
+    }
+    if (approval.parentArtifactId !== workCard.artifactId) {
+      throw new Error("Operator Approval parent does not bind to the selected Work Card.");
+    }
+    if (!approval.relationships.sources.includes(workCard.artifactId)) {
+      throw new Error("Operator Approval source relationship does not bind to the selected Work Card.");
+    }
+    if (data.authorizationGranted !== true || data.sourceCodeChangesAuthorized !== true) {
+      throw new Error("Operator Approval does not explicitly authorize source-code execution.");
+    }
+    if (data.authorizedWorkCardArtifactId !== workCard.artifactId) {
+      throw new Error("Operator Approval authorizes a different Work Card.");
+    }
+    if (data.authorizedRevision !== workCard.revision) {
+      throw new Error("Operator Approval authorizes a different Work Card revision.");
+    }
+    if (data.pushAuthorized !== false) {
+      throw new Error("Operator Approval must explicitly keep push unauthorized.");
+    }
+    const authorizedPasses = data.executionPassesAuthorized;
+    if (!Array.isArray(authorizedPasses)) {
+      throw new Error("Operator Approval must declare authorized execution passes.");
+    }
+    const planPasses = plan.passes.map((pass) => pass.passId);
+    if (stableExecutionJson(authorizedPasses) !== stableExecutionJson(planPasses)) {
+      throw new Error("Operator Approval authorized passes do not match the compiled Execution Pass Plan.");
+    }
+    if (
+      contract.workCardArtifactId !== workCard.artifactId ||
+      contract.workCardRevision !== workCard.revision
+    ) {
+      throw new Error("Compiled Acceptance Contract does not bind to the selected Work Card.");
+    }
+  }
+
+  private async validateWc05AcceptedDependency(workCard: CanonicalArtifact): Promise<void> {
+    if (workCard.artifactId !== "champcity-ai/phase-06/work_card/WC06") return;
+    const review = await this.persistence.readExactAuthoritativeArtifact(
+      WC05_ARCHITECT_REVIEW_ARTIFACT_ID,
+    );
+    if (review.artifactType !== "architect_review") {
+      throw new Error("WC06 dependency authority is not an Architect Review.");
+    }
+    if (!review.relationships.sources.includes(WC05_WORK_CARD_ARTIFACT_ID)) {
+      throw new Error("WC06 dependency authority does not source the exact WC05 Work Card.");
+    }
+    const data = executionRecord(review.payload.data);
+    if (
+      data.reviewedWorkCardArtifactId !== WC05_WORK_CARD_ARTIFACT_ID ||
+      data.decision !== "accepted_for_operator_validation" ||
+      data.foundationAccepted !== true
+    ) {
+      throw new Error("WC05 Architect Review has not accepted the execution-run foundation.");
+    }
   }
 
   private async implementerSources(
@@ -814,4 +1059,45 @@ function safeExecutionPathSegment(value: string, label: string): string {
     throw new Error(`${label} is not a valid fixed execution path segment.`);
   }
   return value;
+}
+
+function requiredExecutionString(value: JsonValue, label: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Execution Run authority requires ${label}.`);
+  }
+  return value;
+}
+
+function requiredExecutionNumber(value: JsonValue, label: string): number {
+  if (!Number.isInteger(value) || (value as number) < 1) {
+    throw new Error(`Execution Run authority requires positive integer ${label}.`);
+  }
+  return value as number;
+}
+
+function plainExecutionError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isExecutionPairNotFound(error: unknown): boolean {
+  if (error instanceof ArtifactPairServiceError && error.code === "not_found") {
+    return true;
+  }
+  if (error instanceof Error && /Canonical artifact pair does not exist/.test(error.message)) {
+    return true;
+  }
+  return false;
+}
+
+function stableExecutionJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableExecutionJson).join(",")}]`;
+  }
+  if (typeof value === "object" && value !== null) {
+    return `{${Object.keys(value as Record<string, unknown>)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableExecutionJson((value as Record<string, unknown>)[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }

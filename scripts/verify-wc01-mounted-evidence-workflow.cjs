@@ -14,7 +14,10 @@ const {
 const repositoryRoot = path.resolve(__dirname, "..");
 const fixtureRoot = path.join(repositoryRoot, "tmp", "wc01-repair01-electron-project");
 const fixtureRootOther = path.join(repositoryRoot, "tmp", "wc01-repair01-electron-other-project");
-const userDataRoot = path.join(repositoryRoot, "tmp", "electron-runtime", "user-data");
+const mountedRuntimeRoot = path.join(repositoryRoot, "tmp", "mounted-electron-runtime", "wc01-repair01");
+process.env.CHAMPCITY_ELECTRON_RUNTIME_ROOT = mountedRuntimeRoot;
+process.env.CHAMPCITY_ALLOW_REPOSITORY_TMP_PROJECTS = "1";
+const userDataRoot = path.join(mountedRuntimeRoot, "user-data");
 const workspacePath = path.join(userDataRoot, "project-workspaces.json");
 const projectId = "mounted-project";
 const phaseId = "phase-04";
@@ -341,9 +344,9 @@ app.whenReady().then(async () => {
     await require("../dist/main/canonicalRuntime.js").shutdownCanonicalRuntime();
     for (const candidate of BrowserWindow.getAllWindows()) candidate.destroy();
     if (cleanup) {
-      fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-      fs.rmSync(fixtureRootOther, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-      fs.rmSync(workspacePath, { force: true });
+      cleanupPath(fixtureRoot);
+      cleanupPath(fixtureRootOther);
+      cleanupPath(workspacePath);
     }
     app.exit(0);
   } catch (error) {
@@ -508,6 +511,14 @@ function prepareFixture() {
     `${JSON.stringify({ schemaVersion: "champcity.project-workspaces.v1", selectedProjectId: projectId, projects: [configured, otherConfigured] }, null, 2)}\n`,
     "utf8",
   );
+}
+
+function cleanupPath(targetPath) {
+  try {
+    fs.rmSync(targetPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  } catch (error) {
+    console.warn(`Deferred cleanup for ${path.basename(targetPath)}: ${error.code || error.message}`);
+  }
 }
 
 function writeArtifact(input) {

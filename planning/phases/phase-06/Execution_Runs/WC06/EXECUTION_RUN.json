@@ -1,0 +1,70 @@
+{
+  "artifactId": "champcity-ai/phase-06/work_card/WC06/execution_run/revision-1",
+  "artifactType": "execution_run",
+  "createdAt": "2026-07-18T20:45:59.613Z",
+  "jsonPath": "planning/phases/phase-06/Execution_Runs/WC06/EXECUTION_RUN.json",
+  "markdownPath": "planning/phases/phase-06/Execution_Runs/WC06/EXECUTION_RUN.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC06",
+  "payload": {
+    "contentMarkdown": "# Execution Run - champcity-ai/phase-06/work_card/WC06\n\n- Run ID: champcity-ai/phase-06/work_card/WC06/execution_run/revision-1\n- Work Card revision: 1\n- Status: planned\n- Current pass: P01\n- Implementation branch: feature/phase-04-wc01-repair01-evidence-derived-workflow\n- Created: 2026-07-18T20:45:59.611Z\n- Updated: 2026-07-18T20:45:59.611Z\n- Completed: no\n\n## Pass Ledger\n\n### P01 - Trusted activation compiler and authority\n\n- Status: planned\n- Attempts: 0\n- Verified: no\n\n### P02 - Execution Runs supporting workspace\n\n- Status: planned\n- Attempts: 0\n- Verified: no\n\n### P03 - Test-fixture isolation and end-to-end proof\n\n- Status: planned\n- Attempts: 0\n- Verified: no\n\n## Operator Attention\n\n- None.\n",
+    "data": {
+      "acceptanceContractId": "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1",
+      "approvalArtifactId": "champcity-ai/phase-06/operator_approval/WC06",
+      "completedAt": null,
+      "createdAt": "2026-07-18T20:45:59.611Z",
+      "currentPassId": "P01",
+      "implementationBranch": "feature/phase-04-wc01-repair01-evidence-derived-workflow",
+      "operatorAttentionReasons": [],
+      "passes": [
+        {
+          "attempts": [],
+          "passId": "P01",
+          "status": "planned",
+          "title": "Trusted activation compiler and authority",
+          "verifiedAt": null
+        },
+        {
+          "attempts": [],
+          "passId": "P02",
+          "status": "planned",
+          "title": "Execution Runs supporting workspace",
+          "verifiedAt": null
+        },
+        {
+          "attempts": [],
+          "passId": "P03",
+          "status": "planned",
+          "title": "Test-fixture isolation and end-to-end proof",
+          "verifiedAt": null
+        }
+      ],
+      "planId": "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1",
+      "runId": "champcity-ai/phase-06/work_card/WC06/execution_run/revision-1",
+      "status": "planned",
+      "updatedAt": "2026-07-18T20:45:59.611Z",
+      "workCardArtifactId": "champcity-ai/phase-06/work_card/WC06",
+      "workCardRevision": 1
+    },
+    "kind": "execution_run",
+    "title": "Execution Run - WC06"
+  },
+  "payloadHash": "sha256:ee524d94f8895d33e34f99ba96b4e877e4cb0dadb013055732eafbb68905c89b",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC06",
+      "champcity-ai/phase-06/operator_approval/WC06",
+      "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1",
+      "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T20:45:59.613Z",
+  "workCardId": "WC06"
+}

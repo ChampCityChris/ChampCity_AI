@@ -14,10 +14,12 @@ const WORKSPACE_SCHEMA_VERSION = "champcity.project-workspaces.v1" as const;
 
 export interface ProjectWorkspaceRegistryOptions {
   storagePath: string;
+  allowRepositoryTmpProjects?: boolean;
   clock?: () => string;
 }
 export class ProjectWorkspaceRegistry {
   private readonly storagePath: string;
+  private readonly allowRepositoryTmpProjects: boolean;
   private readonly clock: () => string;
   private writeTail: Promise<void> = Promise.resolve();
 
@@ -26,11 +28,15 @@ export class ProjectWorkspaceRegistry {
       throw new TypeError("Project workspace storage path must be absolute.");
     }
     this.storagePath = path.resolve(options.storagePath);
+    this.allowRepositoryTmpProjects = options.allowRepositoryTmpProjects ?? false;
     this.clock = options.clock ?? (() => new Date().toISOString());
   }
 
   async initialize(defaultRepositoryRoot?: string): Promise<ProjectWorkspaceRegistryDocument> {
-    const current = await this.normalizePersistedDisplayNames();
+    let current = await this.normalizePersistedDisplayNames();
+    if (defaultRepositoryRoot && !this.allowRepositoryTmpProjects) {
+      current = await this.purgeHostRepositoryTmpProjects(defaultRepositoryRoot);
+    }
     if (current.projects.length > 0 || !defaultRepositoryRoot) return current;
     const added = await this.addProject({ repositoryRoot: defaultRepositoryRoot });
     await this.selectProject(added.projectId);
@@ -173,6 +179,32 @@ export class ProjectWorkspaceRegistry {
           project.updatedAt = now;
         }
       }
+      return structuredClone(document);
+    });
+  }
+
+  private async purgeHostRepositoryTmpProjects(
+    defaultRepositoryRoot: string,
+  ): Promise<ProjectWorkspaceRegistryDocument> {
+    const hostRoot = path.resolve(defaultRepositoryRoot);
+    const hostTmpRoot = path.join(hostRoot, "tmp");
+    return this.mutate((document) => {
+      const before = document.projects.length;
+      document.projects = document.projects.filter(
+        (project) => !isPathContainedBy(project.repositoryRoot, hostTmpRoot),
+      );
+      if (document.projects.length === before) return structuredClone(document);
+      const selectedStillPresent = document.projects.some(
+        (project) => project.projectId === document.selectedProjectId && project.enabled,
+      );
+      if (!selectedStillPresent) {
+        const hostProject = document.projects.find(
+          (project) => pathKey(project.repositoryRoot) === pathKey(hostRoot) && project.enabled,
+        );
+        document.selectedProjectId = hostProject?.projectId ?? null;
+      }
+      const now = this.clock();
+      for (const project of document.projects) project.updatedAt = now;
       return structuredClone(document);
     });
   }
@@ -353,6 +385,11 @@ function normalizeId(value: string): string {
 
 function pathKey(value: string): string {
   return process.platform === "win32" ? path.resolve(value).toLowerCase() : path.resolve(value);
+}
+
+function isPathContainedBy(candidatePath: string, parentPath: string): boolean {
+  const relative = path.relative(path.resolve(parentPath), path.resolve(candidatePath));
+  return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

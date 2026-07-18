@@ -58,6 +58,7 @@ import {
 } from "../../shared/workCards/architectReviewRecord";
 import type { ArchitectTaskPacketSaveResult } from "../../shared/workCards/architectTaskPacket";
 import {
+  ExecutionRunsWorkspace,
   getManualScreenForCurrentAction,
   WorkflowRouterShell,
 } from "./WorkflowRouterShell";
@@ -78,6 +79,7 @@ type AppScreen =
   | "new-work-card"
   | "architect-prompt-composer"
   | "risk-router"
+  | "execution-runs"
   | "implementer-execution-packet"
   | "implementer-report-capture"
   | "architect-review"
@@ -257,6 +259,15 @@ const workflowSteps: WorkflowStep[] = [
     screenTitle: "Risk Router",
     nextAction: "Check risk flags without mutating the Work Card.",
     Icon: ShieldAlert,
+  },
+  {
+    id: "execution-runs",
+    label: "Execution Runs",
+    mode: "implementer",
+    shortDesc: "Start governed runs",
+    screenTitle: "Execution Runs",
+    nextAction: "Start or reopen governed Execution Runs from exact Work Card authority.",
+    Icon: ListChecks,
   },
   {
     id: "implementer-execution-packet",
@@ -831,6 +842,7 @@ export default function App() {
         onActiveCardChange={setActiveCard}
       />
     ),
+    "execution-runs": <ExecutionRunsWorkspace />,
     "implementer-execution-packet": (
       <ImplementerExecutionPacketGeneratorScreen
         phase={phase}

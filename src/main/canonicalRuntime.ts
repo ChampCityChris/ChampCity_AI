@@ -6,6 +6,11 @@ import type {
   ProjectWorkspaceMutationResult,
   RefreshRepositoryStateResult,
 } from "../shared/projects";
+import type {
+  EligibleExecutionRunWorkCardsResult,
+  ExecutionRunOperationResult,
+  ExecutionRunStartRequest,
+} from "../shared/executionRuns";
 import {
   CurrentContextPacketCompiler,
 } from "./contextPackets/currentContextPacketCompiler";
@@ -63,8 +68,12 @@ export const executionRunService = forwardingProxy<ExecutionRunAuthorityService>
 export async function initializeCanonicalRuntime(input: {
   defaultRepositoryRoot: string;
   workspaceStoragePath: string;
+  allowRepositoryTmpProjects?: boolean;
 }): Promise<void> {
-  workspaces = new ProjectWorkspaceRegistry({ storagePath: input.workspaceStoragePath });
+  workspaces = new ProjectWorkspaceRegistry({
+    storagePath: input.workspaceStoragePath,
+    allowRepositoryTmpProjects: input.allowRepositoryTmpProjects,
+  });
   const document = await workspaces.initialize(input.defaultRepositoryRoot);
   const selectedProjectId = document.selectedProjectId;
   if (!selectedProjectId) return;
@@ -155,6 +164,26 @@ export async function refreshSelectedRepositoryOnFocus(): Promise<void> {
     await requireActive().refresh.refresh("application-focus");
   } catch {
     // Focus refresh is opportunistic; explicit refresh/list IPC exposes recovery state.
+  }
+}
+
+export async function listEligibleExecutionRunWorkCards(): Promise<EligibleExecutionRunWorkCardsResult> {
+  try {
+    await ensureActiveSelectedProject();
+    return requireActive().executionRuns.listEligibleWorkCards();
+  } catch (error) {
+    return { ok: false, workCards: [], errorMessages: [plainError(error)] };
+  }
+}
+
+export async function startExecutionRunFromWorkCard(
+  request: ExecutionRunStartRequest,
+): Promise<ExecutionRunOperationResult> {
+  try {
+    await ensureActiveSelectedProject();
+    return requireActive().executionRuns.startFromWorkCardAuthority(request);
+  } catch (error) {
+    return { ok: false, errorMessages: [plainError(error)] };
   }
 }
 

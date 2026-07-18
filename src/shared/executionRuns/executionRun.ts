@@ -157,6 +157,33 @@ export interface ExecutionRunLookupRequest {
   workCardId: string;
 }
 
+export interface ExecutionRunWorkCardIdentity {
+  workCardArtifactId: string;
+  workCardRevision: number;
+}
+
+export interface ExecutionRunStartRequest extends ExecutionRunWorkCardIdentity {}
+
+export interface EligibleExecutionRunWorkCard {
+  workCardArtifactId: string;
+  workCardRevision: number;
+  phaseId: string;
+  workCardId: string;
+  title: string;
+  status: string;
+  approvalArtifactId: string;
+  approvedRevision: number;
+  eligible: boolean;
+  reasons: string[];
+  run?: ExecutionRun;
+}
+
+export interface EligibleExecutionRunWorkCardsResult {
+  ok: boolean;
+  workCards: EligibleExecutionRunWorkCard[];
+  errorMessages?: string[];
+}
+
 export type ExecutionJobPreviewRequest =
   | (ExecutionRunLookupRequest & {
       role: "implementer";

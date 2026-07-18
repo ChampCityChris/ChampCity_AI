@@ -1,0 +1,228 @@
+{
+  "artifactId": "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1",
+  "artifactType": "acceptance_contract",
+  "createdAt": "2026-07-18T20:45:59.613Z",
+  "jsonPath": "planning/phases/phase-06/Execution_Runs/WC06/ACCEPTANCE_CONTRACT.json",
+  "markdownPath": "planning/phases/phase-06/Execution_Runs/WC06/ACCEPTANCE_CONTRACT.md",
+  "parentArtifactId": "champcity-ai/phase-06/work_card/WC06",
+  "payload": {
+    "contentMarkdown": "# Acceptance Contract - champcity-ai/phase-06/work_card/WC06\n\n- Contract ID: champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1\n- Work Card revision: 1\n\n## Global Invariants\n\n- INV-ROLE-SEPARATION: Architect defines authority; Implementer changes production code; verifier and Operator decisions remain separate.\n- INV-TRUSTED-MAIN-AUTHORITY: Renderer intent cannot supply canonical Contract, Plan, lifecycle event, result, or decision data.\n- INV-HUMAN-OPERATOR-AUTHORITY: No agent or UI grants final human Operator acceptance.\n\n## Requirements\n\n### R01-DEFINITION-SCHEMA - required_behavior\n\nStrict structured definitions compile deterministically. Unknown or missing fields block. Parsing Markdown, titles, or filenames is prohibited.\n\n- Authorized passes: P01\n- Noncompliant substitutions: Markdown parsing; title parsing; filename parsing; directory-order inference; legacy field fallback\n- Required behavioral tests: Valid definitions compile deterministically.; Unknown definition fields block.; Missing definition fields block.\n\n### R02-EXACT-AUTHORITY - required_behavior\n\nActivation resolves exact synchronized Work Card, revision, approval, dependency, project, and phase authority. Artifact existence alone is insufficient.\n\n- Authorized passes: P01\n- Noncompliant substitutions: Loose file lookup; unregistered pair authority; wrong-revision approval; wrong-project or wrong-phase activation\n- Required behavioral tests: Wrong Work Card blocks.; Wrong revision blocks.; Wrong approval blocks.; Wrong project or phase blocks.; Unsatisfied dependency blocks.\n\n### R03-IDEMPOTENT-START - required_behavior\n\nStarting the exact same run twice returns the existing run without semantic mutation. A conflicting existing run blocks.\n\n- Authorized passes: P01\n- Noncompliant substitutions: Overwrite existing run; create duplicate run; mutate exact existing run on repeat start\n- Required behavioral tests: Exact repeat start is idempotent.; Conflicting existing run blocks.\n\n### R04-SUPPORTING-WORKSPACE - required_behavior\n\nSupporting Tools provides an Execution Runs workspace with eligible Work Cards, Start/Open actions, status, and bounded packet preview.\n\n- Authorized passes: P02\n- Noncompliant substitutions: Developer-only route; current-action-only hidden panel; manual packet copy as the primary workflow\n- Required behavioral tests: UI lists eligible Work Cards.; UI exposes Start Execution Run and Open Execution Run.; UI previews bounded next packet.\n\n### R05-PLAIN-STATES - required_behavior\n\nEmpty and blocked states explain the missing exact authority in plain language.\n\n- Authorized passes: P02\n- Noncompliant substitutions: Raw exception-only UI; silent disabled controls\n- Required behavioral tests: Empty state explains no eligible cards.; Blocked state identifies missing exact authority.\n\n### R06-READ-ONLY-BOUNDARY - prohibition\n\nNo queue, process, raw-event, completion, verifier-decision, or Operator-acceptance controls may exist, including dormant or feature-flagged versions.\n\n- Authorized passes: P02\n- Noncompliant substitutions: Dormant queue control; feature-flagged completion control; renderer lifecycle event mutation\n- Required behavioral tests: UI and preload do not expose queue, process, completion, verifier-decision, or acceptance controls.\n\n### R07-TEST-ISOLATION - required_behavior\n\nMounted Electron tests use isolated project-workspace persistence and clean up their fixture projects.\n\n- Authorized passes: P03\n- Noncompliant substitutions: Normal userData reuse in mounted tests; fixture roots left selected after test run\n- Required behavioral tests: Mounted tests use isolated persistence.; Mounted tests clean fixture projects in finally or cleanup paths.\n\n### R08-CONTAMINATION-REPAIR - required_behavior\n\nNormal startup removes project roots contained under the host ChampCity_AI repository's tmp directory while preserving external user projects. Do not use a hard-coded fixture-name blacklist.\n\n- Authorized passes: P03\n- Noncompliant substitutions: Hard-coded fixture-name blacklist; purging external user projects; leaving repo tmp roots selectable\n- Required behavioral tests: Internal repository tmp roots are purged from normal registry.; External user projects are preserved.; Real ChampCity_AI is selected after repair.\n\n### R09-END-TO-END-PROOF - required_evidence\n\nThe normal application demonstrates Start Execution Run, persistent status, and bounded packet preview without transport controls.\n\n- Authorized passes: P03\n- Noncompliant substitutions: Unit-only proof; transport controls hidden by CSS only\n- Required behavioral tests: Mounted visible workflow starts WC06 run.; Restart reopens same run.; No transport or acceptance controls are present.\n\n### R10-PRESERVE-ROUTING - required_behavior\n\nExisting workflow routing and current-action semantics must remain unchanged.\n\n- Authorized passes: P03\n- Noncompliant substitutions: Broad workflow reroute; bypassing current-action obligations\n- Required behavioral tests: Existing WC04, WC05, and WC09 regression coverage remains present and passing.\n",
+    "data": {
+      "contractId": "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1",
+      "globalInvariants": [
+        {
+          "invariantId": "INV-ROLE-SEPARATION",
+          "statement": "Architect defines authority; Implementer changes production code; verifier and Operator decisions remain separate."
+        },
+        {
+          "invariantId": "INV-TRUSTED-MAIN-AUTHORITY",
+          "statement": "Renderer intent cannot supply canonical Contract, Plan, lifecycle event, result, or decision data."
+        },
+        {
+          "invariantId": "INV-HUMAN-OPERATOR-AUTHORITY",
+          "statement": "No agent or UI grants final human Operator acceptance."
+        }
+      ],
+      "requirements": [
+        {
+          "noncompliantSubstitutions": [
+            "Markdown parsing",
+            "title parsing",
+            "filename parsing",
+            "directory-order inference",
+            "legacy field fallback"
+          ],
+          "passIds": [
+            "P01"
+          ],
+          "requiredBehavioralTests": [
+            "Valid definitions compile deterministically.",
+            "Unknown definition fields block.",
+            "Missing definition fields block."
+          ],
+          "requirementId": "R01-DEFINITION-SCHEMA",
+          "statement": "Strict structured definitions compile deterministically. Unknown or missing fields block. Parsing Markdown, titles, or filenames is prohibited.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Loose file lookup",
+            "unregistered pair authority",
+            "wrong-revision approval",
+            "wrong-project or wrong-phase activation"
+          ],
+          "passIds": [
+            "P01"
+          ],
+          "requiredBehavioralTests": [
+            "Wrong Work Card blocks.",
+            "Wrong revision blocks.",
+            "Wrong approval blocks.",
+            "Wrong project or phase blocks.",
+            "Unsatisfied dependency blocks."
+          ],
+          "requirementId": "R02-EXACT-AUTHORITY",
+          "statement": "Activation resolves exact synchronized Work Card, revision, approval, dependency, project, and phase authority. Artifact existence alone is insufficient.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Overwrite existing run",
+            "create duplicate run",
+            "mutate exact existing run on repeat start"
+          ],
+          "passIds": [
+            "P01"
+          ],
+          "requiredBehavioralTests": [
+            "Exact repeat start is idempotent.",
+            "Conflicting existing run blocks."
+          ],
+          "requirementId": "R03-IDEMPOTENT-START",
+          "statement": "Starting the exact same run twice returns the existing run without semantic mutation. A conflicting existing run blocks.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Developer-only route",
+            "current-action-only hidden panel",
+            "manual packet copy as the primary workflow"
+          ],
+          "passIds": [
+            "P02"
+          ],
+          "requiredBehavioralTests": [
+            "UI lists eligible Work Cards.",
+            "UI exposes Start Execution Run and Open Execution Run.",
+            "UI previews bounded next packet."
+          ],
+          "requirementId": "R04-SUPPORTING-WORKSPACE",
+          "statement": "Supporting Tools provides an Execution Runs workspace with eligible Work Cards, Start/Open actions, status, and bounded packet preview.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Raw exception-only UI",
+            "silent disabled controls"
+          ],
+          "passIds": [
+            "P02"
+          ],
+          "requiredBehavioralTests": [
+            "Empty state explains no eligible cards.",
+            "Blocked state identifies missing exact authority."
+          ],
+          "requirementId": "R05-PLAIN-STATES",
+          "statement": "Empty and blocked states explain the missing exact authority in plain language.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Dormant queue control",
+            "feature-flagged completion control",
+            "renderer lifecycle event mutation"
+          ],
+          "passIds": [
+            "P02"
+          ],
+          "requiredBehavioralTests": [
+            "UI and preload do not expose queue, process, completion, verifier-decision, or acceptance controls."
+          ],
+          "requirementId": "R06-READ-ONLY-BOUNDARY",
+          "statement": "No queue, process, raw-event, completion, verifier-decision, or Operator-acceptance controls may exist, including dormant or feature-flagged versions.",
+          "type": "prohibition"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Normal userData reuse in mounted tests",
+            "fixture roots left selected after test run"
+          ],
+          "passIds": [
+            "P03"
+          ],
+          "requiredBehavioralTests": [
+            "Mounted tests use isolated persistence.",
+            "Mounted tests clean fixture projects in finally or cleanup paths."
+          ],
+          "requirementId": "R07-TEST-ISOLATION",
+          "statement": "Mounted Electron tests use isolated project-workspace persistence and clean up their fixture projects.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Hard-coded fixture-name blacklist",
+            "purging external user projects",
+            "leaving repo tmp roots selectable"
+          ],
+          "passIds": [
+            "P03"
+          ],
+          "requiredBehavioralTests": [
+            "Internal repository tmp roots are purged from normal registry.",
+            "External user projects are preserved.",
+            "Real ChampCity_AI is selected after repair."
+          ],
+          "requirementId": "R08-CONTAMINATION-REPAIR",
+          "statement": "Normal startup removes project roots contained under the host ChampCity_AI repository's tmp directory while preserving external user projects. Do not use a hard-coded fixture-name blacklist.",
+          "type": "required_behavior"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Unit-only proof",
+            "transport controls hidden by CSS only"
+          ],
+          "passIds": [
+            "P03"
+          ],
+          "requiredBehavioralTests": [
+            "Mounted visible workflow starts WC06 run.",
+            "Restart reopens same run.",
+            "No transport or acceptance controls are present."
+          ],
+          "requirementId": "R09-END-TO-END-PROOF",
+          "statement": "The normal application demonstrates Start Execution Run, persistent status, and bounded packet preview without transport controls.",
+          "type": "required_evidence"
+        },
+        {
+          "noncompliantSubstitutions": [
+            "Broad workflow reroute",
+            "bypassing current-action obligations"
+          ],
+          "passIds": [
+            "P03"
+          ],
+          "requiredBehavioralTests": [
+            "Existing WC04, WC05, and WC09 regression coverage remains present and passing."
+          ],
+          "requirementId": "R10-PRESERVE-ROUTING",
+          "statement": "Existing workflow routing and current-action semantics must remain unchanged.",
+          "type": "required_behavior"
+        }
+      ],
+      "workCardArtifactId": "champcity-ai/phase-06/work_card/WC06",
+      "workCardRevision": 1
+    },
+    "kind": "acceptance_contract",
+    "title": "Acceptance Contract - WC06"
+  },
+  "payloadHash": "sha256:40f92b8dc4c6d7c26878e8d002b8f128abbaa70b39e384d21274c95697145aee",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/work_card/WC06"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T20:45:59.613Z",
+  "workCardId": "WC06"
+}

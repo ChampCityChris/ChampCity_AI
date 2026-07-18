@@ -138,6 +138,15 @@ async function writeCandidatePairs(root, options = {}) {
       title: "Operator Approval - Phase 06 WC04",
     },
     {
+      artifactId: "champcity-ai/phase-06/architect_review/WC04",
+      artifactType: "architect_review",
+      revision: 1,
+      pathStem:
+        "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC04_artifact_registry_schema_repair_and_recovery_candidate_registration",
+      parentArtifactId: "champcity-ai/phase-06/implementer_report/WC04",
+      title: "Architect Review - Phase 06 WC04",
+    },
+    {
       artifactId: "champcity-ai/phase-06/work_card/WC05",
       artifactType: "work_card",
       revision: 3,
@@ -196,12 +205,13 @@ test("WC04 registry migration converts legacy registry data, registers verified 
     });
     assert.equal(applied.changed, true);
     assert.equal(applied.before.entryCount, 1);
-    assert.equal(applied.after.entryCount, 5);
+    assert.equal(applied.after.entryCount, 6);
     assert.equal(applied.after.registryValidation.valid, true);
     assert.equal(applied.after.registryVersion, 1);
     assert.equal(applied.after.hasSynchronizationFailures, false);
     assert.equal(applied.loadRegistrySucceeded, true);
     assert.deepEqual(applied.registeredCandidates.sort(), [
+      "champcity-ai/phase-06/architect_review/WC04",
       "champcity-ai/phase-06/operator_approval/WC04",
       "champcity-ai/phase-06/operator_approval/WC05",
       "champcity-ai/phase-06/work_card/WC04",
@@ -212,14 +222,14 @@ test("WC04 registry migration converts legacy registry data, registers verified 
     const service = new ArtifactPairService({ projectRoot: root });
     const registry = await service.loadRegistry();
     assert.equal(validateArtifactRegistry(registry).valid, true);
-    assert.equal(registry.entries.length, 5);
+    assert.equal(registry.entries.length, 6);
 
     const second = await repair.applyRegistryMigration(root, {
       timestamp: TIMESTAMP,
       backupDir: BACKUP_DIR,
     });
     assert.equal(second.changed, false);
-    assert.equal(second.after.entryCount, 5);
+    assert.equal(second.after.entryCount, 6);
   });
 });
 
