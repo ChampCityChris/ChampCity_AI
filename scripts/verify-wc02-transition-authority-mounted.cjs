@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
     const window = await waitForWindow();
     await waitFor(
       window,
-      `document.body.innerText.includes("WC02 Transition Authority Project") && document.body.innerText.includes("Refresh project state") && document.body.innerText.includes("Add local project") && !document.body.innerText.includes("Repository directory")`,
+      `document.body.innerText.includes("wc02-transition-authority-project") && document.body.innerText.includes("Refresh project state") && document.body.innerText.includes("Add local project") && !document.body.innerText.includes("Repository directory")`,
       "selected WC02 transition fixture",
     );
     await waitFor(
@@ -260,7 +260,7 @@ function prepareFixture() {
   fs.mkdirSync(userDataRoot, { recursive: true });
   const configured = {
     projectId,
-    displayName: "WC02 Transition Authority Project",
+    displayName: path.basename(fixtureRoot),
     repositoryRoot: fixtureRoot,
     planningRoot: path.join(fixtureRoot, "planning"),
     branchBehavior: { mode: "observe-current" },

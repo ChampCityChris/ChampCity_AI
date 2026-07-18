@@ -30,7 +30,7 @@ export class ProjectWorkspaceRegistry {
   }
 
   async initialize(defaultRepositoryRoot?: string): Promise<ProjectWorkspaceRegistryDocument> {
-    const current = await this.load();
+    const current = await this.normalizePersistedDisplayNames();
     if (current.projects.length > 0 || !defaultRepositoryRoot) return current;
     const added = await this.addProject({ repositoryRoot: defaultRepositoryRoot });
     await this.selectProject(added.projectId);
@@ -162,7 +162,22 @@ export class ProjectWorkspaceRegistry {
       release();
     }
   }
+
+  private async normalizePersistedDisplayNames(): Promise<ProjectWorkspaceRegistryDocument> {
+    return this.mutate((document) => {
+      const now = this.clock();
+      for (const project of document.projects) {
+        const displayName = displayNameForRepositoryRoot(project.repositoryRoot);
+        if (project.displayName !== displayName) {
+          project.displayName = displayName;
+          project.updatedAt = now;
+        }
+      }
+      return structuredClone(document);
+    });
+  }
 }
+
 async function validateProjectRepository(
   request: AddProjectWorkspaceRequest,
 ): Promise<Pick<ConfiguredProject, "projectId" | "displayName" | "repositoryRoot" | "planningRoot">> {
@@ -192,8 +207,7 @@ async function validateProjectRepository(
   }
   const metadata = await readProjectMetadata(repositoryRoot, planningRoot);
   const projectId = normalizeId(request.projectId || metadata.projectId || path.basename(repositoryRoot));
-  const displayName = (request.displayName || metadata.displayName || projectId).trim();
-  if (!displayName) throw new Error("Configured project display name is required.");
+  const displayName = displayNameForRepositoryRoot(repositoryRoot);
   return { projectId, displayName, repositoryRoot, planningRoot };
 }
 
@@ -227,23 +241,13 @@ async function isConfiguredProjectReachable(project: ConfiguredProject): Promise
 async function readProjectMetadata(
   repositoryRoot: string,
   planningRoot: string,
-): Promise<{ projectId?: string; displayName?: string }> {
+): Promise<{ projectId?: string }> {
   const profilePath = path.join(planningRoot, "project", "PROJECT_PROFILE.json");
   const packageMetadata = await readPackageMetadata(repositoryRoot);
   try {
     const profile = JSON.parse(await readFile(profilePath, "utf8"));
-    const profileTitle =
-      typeof profile.payload?.title === "string"
-        ? profile.payload.title.replace(/^Project Profile:\s*/i, "").trim()
-        : undefined;
     return {
       projectId: typeof profile.projectId === "string" ? profile.projectId : undefined,
-      displayName:
-        explicitProjectDisplayName(profile) ??
-        (profileTitle && !isGenericProjectProfileTitle(profileTitle) ? profileTitle : undefined) ??
-        packageMetadata.displayName ??
-        packageMetadata.projectId ??
-        path.basename(repositoryRoot),
     };
   } catch (error) {
     if (!isMissing(error)) throw new Error(`Project profile is invalid: ${plainError(error)}`);
@@ -253,49 +257,15 @@ async function readProjectMetadata(
 
 async function readPackageMetadata(
   repositoryRoot: string,
-): Promise<{ projectId?: string; displayName?: string }> {
+): Promise<{ projectId?: string }> {
   const packageJson = JSON.parse(await readFile(path.join(repositoryRoot, "package.json"), "utf8"));
   return {
     projectId: typeof packageJson.name === "string" ? packageJson.name : undefined,
-    displayName:
-      typeof packageJson.productName === "string"
-        ? packageJson.productName
-        : typeof packageJson.description === "string" && packageJson.description.trim()
-          ? packageJson.description.trim()
-          : undefined,
   };
 }
 
-function explicitProjectDisplayName(profile: unknown): string | undefined {
-  if (!isRecord(profile)) return undefined;
-  const payload = isRecord(profile.payload) ? profile.payload : {};
-  const data = isRecord(payload.data) ? payload.data : {};
-  for (const value of [
-    data.projectName,
-    data.displayName,
-    data.publicBrand,
-    data.name,
-    extractMarkdownHeadingValue(payload.contentMarkdown, "Project Name"),
-    extractMarkdownHeadingValue(payload.contentMarkdown, "Public Brand"),
-  ]) {
-    if (typeof value === "string" && value.trim() && !isGenericProjectProfileTitle(value)) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function extractMarkdownHeadingValue(value: unknown, heading: string): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const lines = value.replace(/\r\n?/g, "\n").split("\n");
-  const headingLine = `## ${heading}`.toLowerCase();
-  const index = lines.findIndex((line) => line.trim().toLowerCase() === headingLine);
-  if (index === -1) return undefined;
-  return lines.slice(index + 1).find((line) => line.trim() && !line.trim().startsWith("#"))?.trim();
-}
-
-function isGenericProjectProfileTitle(value: string): boolean {
-  return /^project profile$/i.test(value.trim());
+function displayNameForRepositoryRoot(repositoryRoot: string): string {
+  return path.basename(repositoryRoot);
 }
 
 async function persistDocument(

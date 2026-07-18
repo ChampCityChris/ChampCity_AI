@@ -6,7 +6,7 @@
   "markdownPath": "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
   "payload": {
-    "contentMarkdown": "undefined\n",
+    "contentMarkdown": "# Candidate Disposition: Phase 06 WC01 Accepted via WC01-REPAIR01\n\nStatus: accepted\nPhase: phase-06\nCandidate Work Card: WC01\nRepair Work Card: WC01-REPAIR01\nDisposition: completed_via_repair\n\n## Decision\n\nWC01 is accepted as complete via WC01-REPAIR01.\n\nThe original WC01 Architect Review required repair. WC01-REPAIR01 corrected the inventory and metadata defects, passed Architect re-review, and passed Operator visual validation. The repaired WC01 Design Document is now the controlling source-authority baseline for WC02 through WC05.\n\n## Accepted Outputs\n\n- `champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory`\n- `champcity-ai/phase-06/implementer_report/WC01`\n- `champcity-ai/phase-06/implementer_report/WC01-REPAIR01`\n- `champcity-ai/phase-06/architect_review/WC01-REPAIR01`\n- `champcity-ai/phase-06/validation_report/WC01-REPAIR01`\n\n## Completion Basis\n\nWC01 is complete because:\n\n- the target workflow kernel contract is defined;\n- the artifact-transition protocol is defined;\n- supported artifact types and authority rules are defined;\n- no-fallback invariants are defined;\n- the source-authority Replacement Inventory includes current responsibility for every reviewed code path;\n- Preserve entries name supported consumers;\n- WC02 through WC05 implementation ownership is mapped;\n- no source-code changes were made in WC01 or WC01-REPAIR01.\n\n## Carry-Forward Rules\n\nWC02 through WC05 must use the repaired WC01 Design Document as the starting authority. Any newly discovered workflow-authority path must be added or amended in the relevant Implementer Report rather than silently preserved.\n\nWC02 is authorized for creation as the next Work Card draft. WC02 implementation is not authorized until WC02 receives Operator approval.\n",
     "data": {
       "acceptedControllingOutput": "champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory",
       "disposition": "completed_via_repair",
@@ -21,7 +21,7 @@
     "kind": "candidate_disposition",
     "title": "Candidate Disposition: Phase 06 WC01 Accepted via WC01-REPAIR01"
   },
-  "payloadHash": "sha256:4c123cf057bddf501c696cdaa2570d339bdc0c3e581d4ecae56632bbc0312a0f",
+  "payloadHash": "sha256:f1565465fd26894b348317a89ff88c57b647a42607aa97f9d4a4ff2501439a08",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {

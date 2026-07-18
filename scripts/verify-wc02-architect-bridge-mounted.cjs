@@ -270,7 +270,7 @@ function prepareFixture() {
   fs.mkdirSync(userDataRoot, { recursive: true });
   const configured = {
     projectId,
-    displayName: "Architect Bridge Project",
+    displayName: path.basename(fixtureRoot),
     repositoryRoot: fixtureRoot,
     planningRoot: path.join(fixtureRoot, "planning"),
     branchBehavior: { mode: "observe-current" },

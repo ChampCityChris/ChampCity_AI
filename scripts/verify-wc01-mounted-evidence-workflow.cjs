@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
     const window = await waitForWindow();
     await waitFor(
       window,
-      `document.body.innerText.includes("Mounted Evidence Project") && document.body.innerText.includes("Refresh project state") && document.body.innerText.includes("Add local project") && !document.body.innerText.includes("Repository directory")`,
+      `document.body.innerText.includes("wc01-repair01-electron-project") && document.body.innerText.includes("Refresh project state") && document.body.innerText.includes("Add local project") && !document.body.innerText.includes("Repository directory")`,
       "selected project workspace bar",
     );
     await waitFor(
@@ -477,7 +477,7 @@ function prepareFixture() {
   fs.mkdirSync(userDataRoot, { recursive: true });
   const configured = {
     projectId,
-    displayName: "Mounted Evidence Project",
+    displayName: path.basename(fixtureRoot),
     repositoryRoot: fixtureRoot,
     planningRoot: path.join(fixtureRoot, "planning"),
     branchBehavior: { mode: "observe-current" },
@@ -492,7 +492,7 @@ function prepareFixture() {
   const otherConfigured = {
     ...configured,
     projectId: otherProjectId,
-    displayName: "Mounted Other Project",
+    displayName: path.basename(fixtureRootOther),
     repositoryRoot: fixtureRootOther,
     planningRoot: path.join(fixtureRootOther, "planning"),
   };

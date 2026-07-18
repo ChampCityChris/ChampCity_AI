@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
   },
-  "payloadHash": "sha256:859a78f4f091c0a44f838e451bdf89906d2df92908fe9c770694d0d2a01c5cfb",
+  "payloadHash": "sha256:9cf1d84f2a72a42134c23e13129929cda34b1d7ec323699c9e280afd8f7187e1",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -35,16 +35,16 @@
 }
 -->
 
-# Implementer Report: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair
+# Implementer Report: Phase 06 WC02-REPAIR02 Bounded Correction Pass
 
 Status: completed
-Pass type: numbered repair Work Card
+Pass type: numbered repair Work Card correction
 Phase: phase-06
 Work Card: WC02-REPAIR02
 Canonical artifact ID: champcity-ai/phase-06/implementer_report/WC02-REPAIR02
 Branch: feature/phase-04-wc01-repair01-evidence-derived-workflow
-Intended commit message: Complete WC02-REPAIR02 protocol migration
-Reviewed implementation commit: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
+Intended commit message: Rework WC02-REPAIR02 bounded correction
+Commit hash: pending until commit is created
 
 ## Repository Path Inspected
 
@@ -54,400 +54,164 @@ Verified approved repo root. Concrete local machine paths are intentionally omit
 
 - Branch verified: feature/phase-04-wc01-repair01-evidence-derived-workflow.
 - Remote verified: origin points to the approved ChampCity_AI GitHub repository.
-- The branch had one existing unpushed partial commit before this corrective pass.
+- Current branch contained the rejected implementation commit `ca4e9a072a4f3e3c121831f0a861ea659f89b62f` plus revised Work Card and Architect Review correction commits before this pass.
+- Push was not performed; the revised Work Card explicitly prohibits push.
 
-## Work Card And Approval Artifacts Read
+## Work Card And Review Artifacts Read
 
 - planning/phases/phase-06/Work_Cards/WC02-REPAIR02_phase_approval_recognition_project_display_name_repair.{json,md}
+- planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.{json,md}
 - planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.{json,md}
 - planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.{json,md}
-- planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR01_active_phase_lifecycle_resolution_closed_phase_plan_demotion.{json,md}
-- planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.{json,md}
-- AGENTS.md
 - docs/dev/VALIDATION_COMMAND_LANES.md
+
+## Baseline And Implementation Commits Reviewed
+
+- Immutable pre-migration baseline for restored human-readable bodies: `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2`.
+- Prior implementation comparison commit: `999104d7151bf6b7733ea6788836f7b7b751f654`.
+- Rejected implementation commit reviewed by Architect: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
+- Revised Work Card / review commit present before this pass: `283d943`.
 
 ## Implementation Summary
 
-- Completed the broad process-gating artifact protocol migration across planning/project and planning/phases/phase-01 through phase-06, then synchronized planning/system/Artifact_Registry to the migrated metadata required by repository gates.
-- Migrated old persisted gate artifact terms in place: repository_reconciliation to reconciliation_review, roadmap/roadmap_rebaseline to project_roadmap, old approval variants to scoped operator_approval, validation_report to operator_validation, and repair_work_card to work_card with repair metadata.
-- Repaired Phase 06 candidate metadata and exact expected-output relationships so the resolver can select the current Work Card loop from verified evidence.
-- Corrected WC01 and WC02 repaired-parent validation/disposition metadata so completed_via_repair and failed-validation repair routing are represented by target protocol fields.
-- Updated the resolver so failed Operator Validation with an exact work_card expected output follows the governed repair Work Card instead of blocking at an unrelated candidate disposition path.
-- Repaired project display-name derivation so the selected repository resolves to ChampCity A/I instead of the generic Project Profile document title.
-- Updated runtime code, route tables, artifact review grouping, migration tooling, mounted smoke fixtures, repository gates, and tests to use target protocol artifact types.
+- Restored meaningful synchronized bodies for the three explicitly named governing artifact pairs using the pre-migration Markdown bodies from `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2`.
+- Corrected WC02-REPAIR01 Operator Validation semantics in place: the artifact remains `operator_validation`, records `result: passed`, records the Phase 06 approval-recognition and project-display issues as additional observations, and identifies WC02-REPAIR02 as the follow-up repair for parent WC02.
+- Added repository validation for missing, empty, `undefined`, and `null` canonical human-readable bodies in required canonical artifacts.
+- Added a focused WC02-REPAIR02 correction gate that checks the restored governing pairs, WC02-REPAIR01 validation semantics, and migration-inventory classification.
+- Replaced project display-name inference with the exact repository-root basename rule in `src/main/projects/projectWorkspaceRegistry.ts`.
+- Added initialization-time normalization so already-persisted configured project names are rewritten to `path.basename(project.repositoryRoot)` and persisted atomically.
+- Added regression coverage for `ChampCity_AI`, `ChampCity_GPT`, ignored metadata/request display names, and persisted bad-name correction.
+- Updated mounted Electron validation fixtures so they expect repository-folder basenames instead of product/profile display names.
 
-## Current State Probe
+## Restored Artifact Bodies
 
-A direct built resolver probe against the repository reported:
+- `planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.{json,md}`: restored the WC01 accepted-via-repair disposition body from the immutable baseline and retained the approved target canonical metadata.
+- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.{json,md}`: restored the Operator visual validation body from the immutable baseline and retained the approved target canonical metadata.
+- `planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}`: restored the complete WC02 Work Card body from the immutable baseline and retained the approved target canonical metadata.
 
-- Graph blockers: none.
-- Active phase: phase-06.
-- Current action: architect_review_of_implementer_report_required.
-- Authority status: ready.
-- Active Work Card: champcity-ai/phase-06/work_card/WC02-REPAIR02.
-- Expected output: champcity-ai/phase-06/architect_review/WC02-REPAIR02.
-- Blocking conditions: none.
+## Corrected WC02-REPAIR01 Validation Semantics
 
-This means the app no longer routes backward to Phase 01 planning, stale Phase 04 Work Card authoring, or Phase 06 Operator Phase Approval when migrated evidence proves those gates complete.
+The WC02-REPAIR01 validation pair now records that WC02-REPAIR01 passed its own bounded acceptance criteria. The phase-approval recognition issue and active project display-name issue are recorded as additional Operator observations that kept parent WC02 unresolved and prompted WC02-REPAIR02. The record no longer characterizes WC02-REPAIR01 as a failed or partially passed repair, and it does not classify the validation artifact as approval evidence.
 
-## Migration Inventory
+## Corrected Migration Inventory
 
-| Current path | Current artifact ID before migration | Current artifact type before migration | Gate role | Target artifact type | Classification | Action taken | Reason |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4.json | champcity-ai/supporting_document/CLOSEOUT_REPORT_phase-01_phase_1_closeout_4 | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.json | champcity-ai/supporting_document/CLOSEOUT_REPORT_phase-01_phase_1_closeout | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC02_build_new_work_card_capture_form.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC02_build_new_work_card_capture_form | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC04_add_risk_router | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC05_generate_builder_prompt.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC05_generate_builder_prompt | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC06_capture_builder_report | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC07_human_validation_and_repair_loop.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC07_human_validation_and_repair_loop | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-01/Work_Cards/WC01_define_work_card_schema_and_markdown_renderer.json | champcity-ai/phase-01/work_card/WC01 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC02_build_new_work_card_capture_form.json | champcity-ai/phase-01/work_card/WC02 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC03_add_architect_framing_prompt_composer.json | champcity-ai/phase-01/work_card/WC03 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC04_add_risk_router.json | champcity-ai/phase-01/work_card/WC04 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC05_generate_builder_prompt.json | champcity-ai/phase-01/work_card/WC05 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC06_capture_builder_report.json | champcity-ai/phase-01/work_card/WC06 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC07_human_validation_and_repair_loop.json | champcity-ai/phase-01/work_card/WC07 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC08_phase_1_closeout_and_status_management.json | champcity-ai/phase-01/work_card/WC08 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC09_prepare_figma_ui_design_handoff_package.json | champcity-ai/phase-01/work_card/WC09 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-01/Work_Cards/WC10_implement_figma_ui_and_terminology_alignment.json | champcity-ai/phase-01/work_card/WC10 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Closeout_Reports/CLOSEOUT_REPORT_phase-02_phase_2_closeout.json | champcity-ai/supporting_document/CLOSEOUT_REPORT_phase-02_phase_2_closeout | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.json | champcity-ai/operator_validation/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC01_add_project_intake_capture_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture_3.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC01_add_project_intake_capture_3 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC01_add_project_intake_capture.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC01_add_project_intake_capture | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_3 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator_4 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC02_add_project_architect_interview_prompt_generator | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC03_REPAIR_header_layout_regression_repair_header_layout_regression | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC03_REPAIR_validation_and_evidence_ui_repair_validation_and_evidence_ui | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents_2.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC04_generate_project_planning_documents_2 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC04_generate_project_planning_documents | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3 | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.json | champcity-ai/operator_validation/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator | supporting_document | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-02/Work_Cards/WC01_add_project_intake_capture.json | champcity-ai/phase-02/work_card/WC01 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC02_add_project_architect_interview_prompt_generator.json | champcity-ai/phase-02/work_card/WC02 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC03_repair_validation_and_evidence_ui.json | champcity-ai/phase-02/work_card/WC03 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC04_generate_project_planning_documents.json | champcity-ai/phase-02/work_card/WC04 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC05_add_phase_intake_and_phase_interview_prompt_generator.json | champcity-ai/phase-02/work_card/WC05 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json | champcity-ai/phase-02/work_card/WC06 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC07_split_phase_map_builder_and_phase_planning_documents_generator.json | champcity-ai/phase-02/work_card/WC07 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-02/Work_Cards/WC08_phase_transition_work_card_plan_review_artifact_authority_model.json | champcity-ai/phase-02/work_card/WC08 | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json | champcity-ai/phase-03/architect_review/WC01 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02_durable_current_required_action_model.json | champcity-ai/phase-03/architect_review/WC02 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json | champcity-ai/phase-03/architect_review/ARCHITECT_REVIEW_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | architect_review | architect_review | architect_review | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC03_figma_workflow_router_ui_shell_integration.json | champcity-ai/phase-03/architect_review/WC03 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04_primary_current_action_panel.json | champcity-ai/phase-03/architect_review/WC04 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json | champcity-ai/phase-03/architect_review/WC04-REPAIR01 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR02_repair_validation_routing_gate.json | champcity-ai/phase-03/architect_review/WC04-REPAIR02 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC04-REPAIR03_validation_target_context_and_panel_simplification.json | champcity-ai/phase-03/architect_review/WC04-REPAIR03 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC05_subordinate_navigation_and_manual_fallback_preservation.json | champcity-ai/phase-03/architect_review/WC05 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06_left_to_right_workflow_visibility.json | champcity-ai/phase-03/architect_review/WC06 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC06-REPAIR01_current_action_validation_route_after_architect_review.json | champcity-ai/phase-03/architect_review/WC06-REPAIR01 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07_artifact_review_workspace.json | champcity-ai/phase-03/architect_review/WC07 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json | champcity-ai/phase-03/architect_review/WC07-REPAIR01 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08_current_step_context_inspector.json | champcity-ai/phase-03/architect_review/WC08 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json | champcity-ai/phase-03/architect_review/WC08-REPAIR02 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC08-REPAIR06_current_action_architect_review_binding_authority.json | champcity-ai/phase-03/architect_review/WC08-REPAIR06 | architect_review | architect_review | architect_review | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json | champcity-ai/phase-03/architect_review/WC09 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json | champcity-ai/phase-03/architect_review/WC09-REPAIR01 | architect_review | architect_review | architect_review | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Architect_Reviews/ARCHITECT_REVIEW_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json | champcity-ai/phase-03/architect_review/WC09-REPAIR02 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json | champcity-ai/phase-03/implementer_report/WC01 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02_durable_current_required_action_model.json | champcity-ai/phase-03/implementer_report/WC02 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json | champcity-ai/phase-03/implementer_report/IMPLEMENTER_REPORT_WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC03_figma_workflow_router_ui_shell_integration.json | champcity-ai/phase-03/implementer_report/WC03 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04_primary_current_action_panel.json | champcity-ai/phase-03/implementer_report/WC04 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json | champcity-ai/phase-03/implementer_report/WC04-REPAIR01 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json | champcity-ai/phase-03/implementer_report/WC04-REPAIR02 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json | champcity-ai/phase-03/implementer_report/WC04-REPAIR03 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json | champcity-ai/phase-03/implementer_report/WC05 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06_left_to_right_workflow_visibility.json | champcity-ai/phase-03/implementer_report/WC06 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json | champcity-ai/phase-03/implementer_report/WC06-REPAIR01 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07_artifact_review_workspace.json | champcity-ai/phase-03/implementer_report/WC07 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json | champcity-ai/phase-03/implementer_report/WC07-REPAIR01 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08_current_step_context_inspector.json | champcity-ai/phase-03/implementer_report/WC08 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json | champcity-ai/phase-03/implementer_report/WC08-REPAIR01 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json | champcity-ai/phase-03/implementer_report/WC08-REPAIR02 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json | champcity-ai/phase-03/implementer_report/WC08-REPAIR03 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json | champcity-ai/phase-03/implementer_report/WC08-REPAIR04 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json | champcity-ai/phase-03/implementer_report/WC08-REPAIR05 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json | champcity-ai/phase-03/implementer_report/WC08-REPAIR06 | implementer_report | implementer_report | implementer_report | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json | champcity-ai/phase-03/implementer_report/WC09 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json | champcity-ai/phase-03/implementer_report/WC09-REPAIR01 | implementer_report | implementer_report | implementer_report | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Implementer_Reports/IMPLEMENTER_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json | champcity-ai/phase-03/implementer_report/WC09-REPAIR02 | implementer_report | implementer_report | implementer_report | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Migration_Manifests/MIGRATION_MANIFEST_WC09_cross_process_workflow_authority.json | champcity-ai/phase-03/migration_manifest/WC09 | migration_manifest | migration_manifest | migration_manifest | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Observation_Register.json | champcity-ai/phase-03/observation_register/Observation_Register | observation_register | observation_register | observation_register | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Operator_Phase_Approval_PENDING.json | champcity-ai/phase-03/approval/Operator_Phase_Approval_PENDING | approval | phase_closeout approval | operator_approval | historical_or_superseded | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-03/Operator_Phase_Approval.json | champcity-ai/phase-03/approval/Operator_Phase_Approval | approval | phase_work_card_plan approval | operator_approval | historical_or_superseded | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-03/Phase_Interview.json | champcity-ai/phase-03/architect_interview/Phase_Interview | architect_interview | architect_interview | architect_interview | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Phase_Planning_Documents/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents.json | champcity-ai/phase-03/phase_planning/PHASE_PLANNING_DOCUMENTS_repository_reconciliation_and_phase_planning_documents | phase_planning | phase_planning | phase_planning | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Phase_Planning.json | champcity-ai/phase-03/phase_planning/Phase_Planning | phase_planning | phase_planning | phase_planning | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Repair_Prompts/REPAIR_PROMPT_WC08_current_step_context_inspector.json | champcity-ai/phase-03/repair_record/WC08 | repair_record | repair_record | repair_record | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json | champcity-ai/phase-03/validation_report/WC01 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC02_durable_current_required_action_model.json | champcity-ai/phase-03/validation_report/WC02 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC03_figma_workflow_router_ui_shell_integration.json | champcity-ai/phase-03/validation_report/WC03 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04_primary_current_action_panel.json | champcity-ai/phase-03/validation_report/WC04 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json | champcity-ai/phase-03/validation_report/WC04-REPAIR01 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR02_repair_validation_routing_gate.json | champcity-ai/phase-03/validation_report/WC04-REPAIR02 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC04-REPAIR03_validation_target_context_and_panel_simplification.json | champcity-ai/phase-03/validation_report/WC04-REPAIR03 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC05_subordinate_navigation_and_manual_fallback_preservation.json | champcity-ai/phase-03/validation_report/WC05 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06_left_to_right_workflow_visibility.json | champcity-ai/phase-03/validation_report/WC06 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC06-REPAIR01_current_action_validation_route_after_architect_review.json | champcity-ai/phase-03/validation_report/WC06-REPAIR01 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07_artifact_review_workspace.json | champcity-ai/phase-03/validation_report/WC07 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC07-REPAIR01_artifact_workspace_layout_ownership_and_preview_usability.json | champcity-ai/phase-03/validation_report/WC07-REPAIR01 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08_current_step_context_inspector.json | champcity-ai/phase-03/validation_report/WC08 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR01_route_context_explanation_and_correction_affordance.json | champcity-ai/phase-03/validation_report/WC08-REPAIR01 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json | champcity-ai/phase-03/validation_report/WC08-REPAIR03 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC08-REPAIR06_current_action_architect_review_binding_authority.json | champcity-ai/phase-03/validation_report/WC08-REPAIR06 | validation_report | work_card validation | operator_validation | historical_or_superseded | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/Validation_Reports/VALIDATION_REPORT_WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json | champcity-ai/phase-03/validation_report/WC09-REPAIR02 | validation_report | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-03/WORK_CARD_BACKLOG.json | champcity-ai/phase-03/backlog/WORK_CARD_BACKLOG | backlog | backlog | backlog | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Card_Plan.json | champcity-ai/phase-03/work_card_plan/Work_Card_Plan | work_card_plan | work_card_plan | work_card_plan | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Card_Plans/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents.json | champcity-ai/phase-03/work_card_plan/WORK_CARD_PLAN_repository_reconciliation_and_phase_planning_documents | work_card_plan | work_card_plan | work_card_plan | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation.json | champcity-ai/phase-03/work_card/WC01_superseded_phase_03_artifact_and_roadmap_state_reconciliation | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.json | champcity-ai/phase-03/work_card/WC02_durable_current_required_action_model | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction.json | champcity-ai/phase-03/work_card/WC02-PREFLIGHT_repo_safety_hygiene_and_local_path_redaction | work_card | work_card | work_card | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC03_figma_workflow_router_ui_shell_integration.json | champcity-ai/phase-03/work_card/WC03_figma_workflow_router_ui_shell_integration | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC04_primary_current_action_panel.json | champcity-ai/phase-03/work_card/WC04_primary_current_action_panel | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC04-REPAIR01_validation_flow_and_current_action_panel_usability.json | champcity-ai/phase-03/work_card/WC04-REPAIR01_validation_flow_and_current_action_panel_usability | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC04-REPAIR02_repair_validation_routing_gate.json | champcity-ai/phase-03/work_card/WC04-REPAIR02_repair_validation_routing_gate | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC04-REPAIR03_validation_target_context_and_panel_simplification.json | champcity-ai/phase-03/work_card/WC04-REPAIR03_validation_target_context_and_panel_simplification | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC05_subordinate_navigation_and_manual_fallback_preservation.json | champcity-ai/phase-03/work_card/WC05 | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC06_left_to_right_workflow_visibility.json | champcity-ai/phase-03/work_card/WC06_left_to_right_workflow_visibility | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC06-REPAIR01_current_action_validation_route_after_architect_review.json | champcity-ai/phase-03/work_card/WC06-REPAIR01 | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC07_artifact_review_workspace.json | champcity-ai/phase-03/work_card/WC07_artifact_review_workspace | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability.json | champcity-ai/phase-03/work_card/WC07-REPAIR01_artifact_workspace_ui_simplification_and_preview_usability | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08_current_step_context_inspector.json | champcity-ai/phase-03/work_card/WC08_current_step_context_inspector | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08-REPAIR01_route_context_explanation_and_correction_affordance.json | champcity-ai/phase-03/work_card/WC08-REPAIR01_route_context_explanation_and_correction_affordance | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance.json | champcity-ai/phase-03/work_card/WC08-REPAIR02_report_review_protocol_and_validation_disposition_governance | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08-REPAIR03_pending_repair_validation_blocks_next_work_card_advancement.json | champcity-ai/phase-03/work_card/WC08-REPAIR03 | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08-REPAIR04_controlled_route_recovery_and_accurate_route_evidence_authority.json | champcity-ai/phase-03/work_card/WC08-REPAIR04 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08-REPAIR05_architect_review_route_and_repair_work_card_association.json | champcity-ai/phase-03/work_card/WC08-REPAIR05 | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC08-REPAIR06_current_action_architect_review_binding_authority.json | champcity-ai/phase-03/work_card/WC08-REPAIR06 | work_card | work_card | work_card | historical_or_superseded | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC09_cross_process_workflow_authority_artifact_pair_migration_and_context_packet_foundation.json | champcity-ai/phase-03/work_card/WC09 | work_card | work_card | work_card | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC09-REPAIR01_canonical_lifecycle_alignment_and_multi_work_card_loop_completion.json | champcity-ai/phase-03/work_card/WC09-REPAIR01 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-03/Work_Cards/WC09-REPAIR02_locked_process_contract_and_evidence_precedence_correction.json | champcity-ai/phase-03/work_card/WC09-REPAIR02 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json | champcity-ai/phase-04/architect_review/WC01 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.json | champcity-ai/phase-04/architect_review/WC02 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC02_architect_bridge_current_action_surface_audit.json | champcity-ai/phase-04/architect_review/WC02 | architect_review | architect_review | architect_review | historical_or_superseded | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair.json | champcity-ai/phase-04/architect_review/WC02-REPAIR01 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR02_executable_transition_engine_and_refresh_authority_rebuild.json | champcity-ai/phase-04/architect_review/WC02-REPAIR02 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architect_Reviews/ARCHITECT_REVIEW_WC03_active_project_workspace_and_refresh_parity_stabilization.json | champcity-ai/phase-04/architect_review/WC03 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Architecture_Decisions/ARCHITECTURE_DECISION_WC01_repository_observed_evidence_derived_multi_project_workflow.json | champcity-ai/phase-04/architecture_decision/WC01 | architecture_decision | architecture_decision | architecture_decision | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01.json | champcity-ai/phase-04/candidate_disposition/WC01 | candidate_disposition | candidate_disposition | candidate_disposition | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC02.json | champcity-ai/phase-04/candidate_disposition/WC02 | candidate_disposition | candidate_disposition | candidate_disposition | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_repository_architecture_and_root_cause_analysis.json | champcity-ai/phase-04/diagnostic_report/WC01 | diagnostic_report | diagnostic_report | diagnostic_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_FIX01_phase04_artifact_hash_synchronization.json | champcity-ai/phase-04/implementer_report/FIX01-phase04-artifact-hash-synchronization | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json | champcity-ai/phase-04/implementer_report/WC01 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_governed_implementer_report_transition_and_state_reconciliation.json | champcity-ai/phase-04/implementer_report/WC01-REPAIR01 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_remove_legacy_saved_work_card_schema_and_canonicalize_artifacts.json | champcity-ai/phase-04/implementer_report/WC01-REPAIR01-legacy-saved-work-card-schema-retirement | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.json | champcity-ai/phase-04/implementer_report/WC01-REPAIR01-repository-observed-evidence-derived-workflow-authority | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_routed_architect_review_ui_binding.json | champcity-ai/phase-04/implementer_report/WC01-REPAIR01-routed-architect-review-ui-binding | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC02_architect_bridge_current_action_surface_audit.json | champcity-ai/phase-04/implementer_report/WC02-architect-bridge-current-action-surface-audit | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair.json | champcity-ai/phase-04/implementer_report/WC02-REPAIR01-architect-bridge-contract-alignment-task-packet-generation-repair | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR02_executable_transition_engine_and_refresh_authority_rebuild.json | champcity-ai/phase-04/implementer_report/WC02-REPAIR02-executable-transition-engine-and-refresh-authority-rebuild | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Implementer_Reports/IMPLEMENTER_REPORT_WC03_active_project_workspace_and_refresh_parity_stabilization.json | champcity-ai/phase-04/implementer_report/WC03-active-project-workspace-and-refresh-parity-stabilization | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Migration_Manifests/MIGRATION_MANIFEST_WC02-REPAIR02_active_pair_canonicalization.json | champcity-ai/phase-04/migration_manifest/WC02-REPAIR02-active-pair-canonicalization | migration_manifest | migration_manifest | migration_manifest | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Operator_Phase_Approval.json | champcity-ai/phase-04/approval/Operator_Phase_Approval | phase_approval | phase_work_card_plan approval | operator_approval | controlling | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-04/Phase_Activation.json | champcity-ai/phase-04/phase_activation/phase-04 | phase_activation | phase_activation | phase_activation | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Phase_Closeouts/PHASE_04_CLOSEOUT_stabilization_bridge_and_foundation_rebaseline.json | champcity-ai/phase-04/phase_closeout/PHASE_04 | phase_closeout | phase_closeout | phase_closeout | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Phase_Planning.json | champcity-ai/phase-04/phase_planning/Phase_Planning | phase_planning | phase_planning | phase_planning | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Reconciliation_Reviews/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW.json | champcity-ai/phase-04/reconciliation_review/PHASE_04_RECONCILIATION_AND_CLOSEOUT_READINESS_REVIEW | reconciliation_review | reconciliation review | reconciliation_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC01_work_card_wc01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json | champcity-ai/phase-04/validation_report/WC01 | validation_report | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-04/Validation_Reports/VALIDATION_REPORT_WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.json | champcity-ai/phase-04/validation_report/WC02 | validation_report | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-04/Work_Card_Plan.json | champcity-ai/phase-04/work_card_plan/Work_Card_Plan | work_card_plan | work_card_plan | work_card_plan | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Work_Cards/WC01_canonical_routed_screen_cutover_and_legacy_projection_retirement.json | champcity-ai/phase-04/work_card/WC01 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Work_Cards/WC01-REPAIR01_repository_observed_evidence_derived_workflow_authority.json | champcity-ai/phase-04/work_card/WC01-REPAIR01 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Work_Cards/WC02_architect_bridge_current_action_surface_audit_and_embedded_chatgpt_browser.json | champcity-ai/phase-04/work_card/WC02 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Work_Cards/WC02-REPAIR01_architect_bridge_contract_alignment_task_packet_generation_repair.json | champcity-ai/phase-04/work_card/WC02-REPAIR01 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Work_Cards/WC02-REPAIR02_executable_transition_engine_and_refresh_authority_rebuild.json | champcity-ai/phase-04/work_card/WC02-REPAIR02 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-04/Work_Cards/WC03_active_project_workspace_and_refresh_parity_stabilization.json | champcity-ai/phase-04/work_card/WC03 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Architect_Reviews/ARCHITECT_REVIEW_WC03-LIVING-DOCS_living_document_update_pass.json | champcity-ai/phase-05/architect_review/WC03-LIVING-DOCS | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC03-LIVING-DOCS_living_document_update_pass.json | champcity-ai/phase-05/candidate_disposition/WC03-LIVING-DOCS | candidate_disposition | candidate_disposition | candidate_disposition | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Implementer_Reports/IMPLEMENTER_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json | champcity-ai/phase-05/implementer_report/WC03-LIVING-DOCS-living-document-update-pass | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC02_reconciled_current_state_and_ground_rules_baseline.json | champcity-ai/phase-05/approval/WC02 | approval | work_card approval | operator_approval | controlling | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_release_candidate_roadmap_rebaseline.json | champcity-ai/phase-05/approval/WC03 | approval | work_card approval | operator_approval | controlling | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_roadmap_rebaseline.json | champcity-ai/phase-05/approval/WC03-roadmap-rebaseline | approval | work_card approval | operator_approval | controlling | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-05/Phase_Activation.json | champcity-ai/phase-05/phase_activation/phase-05 | phase_activation | phase_activation | phase_activation | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Phase_Closeouts/PHASE_05_CLOSEOUT_reconciliation_and_roadmap_rebaseline.json | champcity-ai/phase-05/phase_closeout/PHASE_05 | phase_closeout | phase_closeout | phase_closeout | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Phase_Planning.json | champcity-ai/phase-05/phase_planning/Phase_Planning | phase_planning | phase_planning | phase_planning | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC01_planning_corpus_inventory_and_questions.json | champcity-ai/phase-05/reconciliation_review/WC01 | reconciliation_review | reconciliation review | reconciliation_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Reconciliation_Reviews/RECONCILIATION_REVIEW_WC02_reconciled_current_state_and_ground_rules_baseline.json | champcity-ai/phase-05/reconciliation_review/WC02 | reconciliation_review | reconciliation review | reconciliation_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.json | champcity-ai/phase-05/roadmap_rebaseline/WC03 | roadmap_rebaseline | roadmap/project mapping | project_roadmap | controlling | migrated in place | Roadmap/rebaseline is represented by project_roadmap under WC02-REPAIR02. |
-| planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json | champcity-ai/phase-05/validation_report/WC03-LIVING-DOCS | validation_report | work_card validation | operator_validation | controlling | migrated in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-05/Work_Card_Plan.json | champcity-ai/phase-05/work_card_plan/Work_Card_Plan | work_card_plan | work_card_plan | work_card_plan | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Work_Cards/WC01_planning_corpus_review_and_clarifying_questions.json | champcity-ai/phase-05/work_card/WC01 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Work_Cards/WC02_reconciled_current_state_and_ground_rules_baseline.json | champcity-ai/phase-05/work_card/WC02 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-05/Work_Cards/WC03_release_candidate_roadmap_rebaseline.json | champcity-ai/phase-05/work_card/WC03 | work_card | work_card | work_card | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json | champcity-ai/phase-06/architect_review/WC01 | architect_review | architect_review | architect_review | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json | champcity-ai/phase-06/architect_review/WC01-REPAIR01 | architect_review | architect_review | architect_review | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02_replace_evidence_derived_projector_relationship_driven_resolver.json | champcity-ai/phase-06/architect_review/WC02 | architect_review | architect_review | architect_review | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR01_active_phase_lifecycle_resolution_closed_phase_plan_demotion.json | champcity-ai/phase-06/architect_review/WC02-REPAIR01 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.json | champcity-ai/phase-06/architect_review/WC02-REPAIR02 | architect_review | architect_review | architect_review | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.json | champcity-ai/phase-06/candidate_disposition/WC01 | candidate_disposition | candidate_disposition | candidate_disposition | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json | champcity-ai/phase-06/design_document/WC01-kernel-contract-artifact-protocol-source-authority-replacement-inventory | design_document | design_document | design_document | non-gating | migrated in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json | champcity-ai/phase-06/implementer_report/WC01 | implementer_report | implementer_report | implementer_report | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json | champcity-ai/phase-06/implementer_report/WC01-REPAIR01 | implementer_report | implementer_report | implementer_report | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02_replace_evidence_derived_projector_relationship_driven_resolver.json | champcity-ai/phase-06/implementer_report/WC02 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR01_active_phase_lifecycle_resolution_closed_phase_plan_demotion.json | champcity-ai/phase-06/implementer_report/WC02-REPAIR01 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.json | champcity-ai/phase-06/implementer_report/WC02-REPAIR02 | implementer_report | implementer_report | implementer_report | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json | champcity-ai/phase-06/operator_approval/WC01 | operator_approval | work_card approval | operator_approval | controlling | canonicalized in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json | champcity-ai/phase-06/operator_approval/WC01-REPAIR01 | operator_approval | work_card approval | operator_approval | controlling | canonicalized in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json | champcity-ai/phase-06/operator_approval/WC02 | operator_approval | work_card approval | operator_approval | controlling | canonicalized in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR01_active_phase_lifecycle_resolution_closed_phase_plan_demotion.json | champcity-ai/phase-06/operator_approval/WC02-REPAIR01 | operator_approval | work_card approval | operator_approval | controlling | canonicalized in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.json | champcity-ai/phase-06/operator_approval/WC02-REPAIR02 | operator_approval | work_card approval | operator_approval | controlling | canonicalized in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Operator_Phase_Approval.json | champcity-ai/phase-06/operator_approval/Operator_Phase_Approval | operator_approval | phase_work_card_plan approval | operator_approval | controlling | canonicalized in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Phase_Activation.json | champcity-ai/phase-06/phase_activation/phase-06 | phase_activation | phase_activation | phase_activation | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Phase_Planning.json | champcity-ai/phase-06/phase_planning/Phase_Planning | phase_planning | phase_planning | phase_planning | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.json | champcity-ai/phase-06/operator_validation/WC01-REPAIR01 | operator_validation | work_card validation | operator_validation | controlling | canonicalized in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02_failed_current_action_stale_phase04_living_plan.json | champcity-ai/phase-06/operator_validation/WC02 | operator_validation | work_card validation | operator_validation | controlling | canonicalized in place | Validation gate requires operator_validation authority. |
-| planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json | champcity-ai/phase-06/operator_validation/WC02-REPAIR01 | operator_validation | work_card approval | operator_approval | controlling | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/phases/phase-06/Work_Card_Plan.json | champcity-ai/phase-06/work_card_plan/Work_Card_Plan | work_card_plan | work_card_plan | work_card_plan | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Work_Cards/WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.json | champcity-ai/phase-06/work_card/WC01 | work_card | work_card | work_card | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Work_Cards/WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.json | champcity-ai/phase-06/work_card/WC01-REPAIR01 | work_card | work_card | work_card | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json | champcity-ai/phase-06/work_card/WC02 | work_card | work_card | work_card | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Work_Cards/WC02-REPAIR01_living_work_card_plan_closeout_active_phase_resolution.json | champcity-ai/phase-06/work_card/WC02-REPAIR01 | work_card | work_card | work_card | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/phases/phase-06/Work_Cards/WC02-REPAIR02_phase_approval_recognition_project_display_name_repair.json | champcity-ai/phase-06/work_card/WC02-REPAIR02 | work_card | work_card | work_card | controlling | migrated in place | Process-gating artifact inspected for target protocol. |
-| planning/project/CHANGE_LOG.json | champcity-ai/project/supporting_document/CHANGE_LOG | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/DECISIONS.json | champcity-ai/project/supporting_document/DECISIONS | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/Design_Documents/ARTIFACT_AUTHORITY_MODEL.json | champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | design_document | design_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/Design_Documents/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN.json | champcity-ai/project/design_document/CHAMPCITY_AI_RUNNER_ARCHITECTURE_DESIGN | design_document | design_document | design_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.json | champcity-ai/project/design_document/PHASE_MAP_AND_PHASE_PLANNING_FLOW | design_document | design_document | design_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/ENVIRONMENT.json | champcity-ai/project/supporting_document/ENVIRONMENT | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/GLOSSARY.json | champcity-ai/project/supporting_document/GLOSSARY | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/MVP_SCOPE.json | champcity-ai/project/supporting_document/MVP_SCOPE | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/OPEN_QUESTIONS.json | champcity-ai/project/supporting_document/OPEN_QUESTIONS | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING.json | champcity-ai/project/approval/OPERATOR_PROJECT_REBASELINE_APPROVAL_PENDING | approval | Approve Project Mapping Rebaseline to supersede screen-picker assumptions and adopt workflow-router model. approval | operator_approval | controlling | migrated in place | Approval gate requires scoped operator_approval authority. |
-| planning/project/Phase_Map/PHASE_MAP_champcity_a_i.json | champcity-ai/project/phase_map/PHASE_MAP_champcity_a_i | phase_map | phase_map | phase_map | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i.json | champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | architect_interview | architect_interview | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.json | champcity-ai/project/project_intake/PROJECT_INTAKE_champcity_a_i | project_intake | project_intake | project_intake | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_manual_validation.json | champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_manual_validation | project_intake | project_intake | project_intake | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Intake/PROJECT_INTAKE_layout_repair_narrow_validation.json | champcity-ai/project/project_intake/PROJECT_INTAKE_layout_repair_narrow_validation | project_intake | project_intake | project_intake | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Observation_Register.json | champcity-ai/project/observation_register/Project_Observation_Register | observation_register | observation_register | observation_register | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Observations/PROJ_OBS_010_git_process_automation_and_operator_abstraction.json | champcity-ai/project/observation/PROJ-OBS-010 | project_observation | project_observation | project_observation | controlling | canonicalized in place | Process-gating artifact inspected for target protocol. |
-| planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_champcity_a_i.json | champcity-ai/project/project_planning/PROJECT_PLANNING_DOCUMENTS_champcity_a_i | project_planning | project_planning | project_planning | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
-| planning/project/PROJECT_PROFILE.json | champcity-ai/project/supporting_document/PROJECT_PROFILE | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.json | champcity-ai/project/roadmap/PROJECT_ROADMAP_champcity_a_i | roadmap | roadmap/project mapping | project_roadmap | controlling | migrated in place | Roadmap/rebaseline is represented by project_roadmap under WC02-REPAIR02. |
-| planning/project/PROJECT_STATE.json | champcity-ai/project/supporting_document/PROJECT_STATE | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/REBASELINE_WORKFLOW_ROUTER_MODEL.json | champcity-ai/project/supporting_document/REBASELINE_WORKFLOW_ROUTER_MODEL | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/RELEASE_POLICY.json | champcity-ai/project/supporting_document/RELEASE_POLICY | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/Repository_Reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i.json | champcity-ai/project/repository_reconciliation/REPOSITORY_RECONCILIATION_champcity_a_i | repository_reconciliation | reconciliation review | reconciliation_review | controlling | migrated in place | Old gate type migrated to target protocol. |
-| planning/project/RISKS.json | champcity-ai/project/supporting_document/RISKS | supporting_document | supporting_document | supporting_document | non-gating | canonicalized in place | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/SECURITY_POLICY.json | champcity-ai/project/supporting_document/SECURITY_POLICY | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/VALIDATION_POLICY.json | champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | supporting_document | supporting_document | non-gating | inspected unchanged | Non-gating evidence canonicalized but not used to advance process map. |
-| planning/project/WORK_CARD_BACKLOG.json | champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | backlog | backlog | controlling | inspected unchanged | Process-gating artifact inspected for target protocol. |
+| Path | True pre-migration artifact ID | True pre-migration artifact type | Gate role | Resulting artifact ID | Resulting artifact type | Classification | Exact action | Reason |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.json | champcity-ai/phase-06/candidate_disposition/WC01 | candidate_disposition | candidate disposition | champcity-ai/phase-06/candidate_disposition/WC01 | candidate_disposition | controlling disposition evidence | restored baseline Markdown body and regenerated canonical pair | Prior migration left the required human-readable body as `undefined`; WC02-REPAIR02 revision 5 requires meaningful synchronized content. |
+| planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.json | champcity-ai/phase-06/validation_report/WC01-REPAIR01 | validation_report | Operator validation | champcity-ai/phase-06/operator_validation/WC01 | operator_validation | Operator Validation evidence | restored baseline Markdown body and retained target protocol metadata | Target protocol represents validation gates as `operator_validation`; the human-readable body must retain the original WC01-REPAIR01 visual validation meaning. |
+| planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json | champcity-ai/phase-06/work_card/WC02 | work_card | work card execution | champcity-ai/phase-06/work_card/WC02 | work_card | controlling Work Card | restored baseline Markdown body and regenerated canonical pair | Prior migration left the approved WC02 instructions as `undefined`; the Work Card body is the durable source of scope. |
+| planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json | champcity-ai/phase-06/validation_report/WC02-REPAIR01 | validation_report | Operator validation | champcity-ai/phase-06/operator_validation/WC02-REPAIR01 | operator_validation | Operator Validation evidence | corrected result to passed with additional observations and retained WC02-REPAIR02 as follow-up repair | Architect review corrected the prior interpretation: WC02-REPAIR01 passed its own acceptance criteria; the observed Phase 06 approval and display-name issues belong to WC02-REPAIR02. |
+
+## Project Display-Name Code Removed
+
+Removed code paths used only to derive display names from `PROJECT_PROFILE`, Markdown headings, profile metadata fields, package product name, package description, package name, and request-supplied display names.
+
+The sole display-name rule is now:
+
+`const displayName = path.basename(repositoryRoot);`
+
+Project ID derivation remains separated from display-name derivation. Package name and profile project ID can still influence project ID where the existing registry behavior already allowed it, but they cannot influence display name.
+
+## Persisted-Name Normalization Behavior
+
+During `ProjectWorkspaceRegistry.initialize`, every persisted configured project is normalized to `path.basename(project.repositoryRoot)`. If a stored display name differs, the registry updates the display name, refreshes `updatedAt`, and persists through the existing atomic registry write path before returning.
+
+## Tests Added Or Changed
+
+- Updated project workspace registry tests in `test/wc01-repair01/evidence-workflow.test.cjs` for exact repository-folder basename display names.
+- Added `ChampCity_AI` and `ChampCity_GPT` regression cases.
+- Added coverage proving package description, package name, product name, profile title/body/data, and request-supplied display names cannot alter the displayed name.
+- Added coverage proving an already-persisted long package-description name is corrected during initialization.
+- Added repository-gate coverage in `scripts/verify-wc09-repository-gates.mjs` for canonical human-readable body integrity and WC02-REPAIR02 correction artifacts.
+- Updated mounted renderer validation fixture expectations in the existing WC01/WC02 validation scripts to match repository-folder basename display names.
 
 ## Files Created
 
-No new standalone artifact path was created in this corrective pass. The required WC02-REPAIR02 Implementer Report pair already existed from the earlier partial pass and was updated in place at the required paths.
+No new Work Card, report copy, compatibility artifact, shadow artifact, or suffix-copy artifact was created.
 
 ## Files Modified
 
-- planning/project/** synchronized artifacts
-- planning/phases/phase-01/** synchronized artifacts
-- planning/phases/phase-02/** synchronized artifacts
-- planning/phases/phase-03/** synchronized artifacts
-- planning/phases/phase-04/** synchronized artifacts
-- planning/phases/phase-05/** synchronized artifacts
-- planning/phases/phase-06/** synchronized artifacts, including WC01/WC02 repaired validation/disposition/current-state bindings
-- planning/system/Artifact_Registry/ARTIFACT_REGISTRY.{json,md}
-- scripts/migration/wc09/migrate-artifacts.mjs
+- planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.{json,md}
+- planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.{json,md}
+- planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}
+- planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.{json,md}
+- planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.{json,md}
 - scripts/verify-wc01-mounted-evidence-workflow.cjs
 - scripts/verify-wc02-architect-bridge-mounted.cjs
 - scripts/verify-wc02-transition-authority-mounted.cjs
-- scripts/verify-wc07-artifact-workspace.mjs
 - scripts/verify-wc09-repository-gates.mjs
 - src/main/projects/projectWorkspaceRegistry.ts
-- src/main/workflow/relationshipDrivenWorkflowResolver.ts
-- src/shared/workCards/artifactReviewWorkspace.ts
-- src/shared/workflow/evidencePrecedence.ts
-- test/wc09/evidence-precedence.test.cjs
-
-Additional runtime/code/test files updated in the prior partial commit remain part of the WC02-REPAIR02 implementation scope: process contract, transition engine, current-action route table, IPC policy, context packet compiler, Work Card file store, task packet generation, and workflow tests.
+- test/wc01-repair01/evidence-workflow.test.cjs
 
 ## Files Intentionally Not Created
 
-- No compatibility shadow artifacts for old approval, validation_report, roadmap, repository_reconciliation, or repair_work_card protocol names.
-- No authentication, database, cloud service, deployment automation, MCP integration, connector integration, or provider-specific LLM SDK.
-- No final Operator validation or Human Validation acceptance artifact.
-- No local screenshots, archives, build outputs, or generated junk intended for commit.
+- No WC02-REPAIR03.
+- No new Work Card.
+- No duplicate Implementer Report or compatibility report.
+- No compatibility aliases, fallback readers, or shadow artifacts.
+- No Operator validation acceptance record.
+- No push artifact or release/tag artifact.
 
 ## Commands Run And Results
 
-- Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before validation.
-- Bulk artifact migration over planning/project and phase-01 through phase-06: 410 files rewritten and 253 inventory rows recorded.
-- Scoped code/artifact repairs for registry sync, Phase 06 candidate metadata, repaired-parent validation/disposition authority, failed-validation repair routing, and mounted renderer fixtures.
-- node --check scripts/verify-wc09-repository-gates.mjs: passed.
-- node --check test/wc01-repair01/evidence-workflow.test.cjs: passed.
-- npm run validate:codex:build: passed in documented normal Windows validation lane.
-- npm run validate:codex:unit: passed in documented normal Windows validation lane; 64 tests passed, 0 failed.
-- npm run test:repository: passed in documented normal Windows lane; all repository gates ok.
-- npm run test:renderer:built: passed in documented normal Windows lane; mounted evidence workflow, architect bridge, and transition-authority smoke checks passed.
-- npm run validate:codex: passed in documented normal Windows lane; build, unit, repository, and renderer checks passed.
-- Direct built resolver probe: passed; current action is ready for Architect Review of WC02-REPAIR02.
-
-Sandbox note: a Node bulk rewrite hit sandbox EPERM when writing inside the approved workspace. Following the validation lane rule, the same scoped write was rerun with require_escalated. That was not an Operator rejection and not a project blocker.
+- `pwd`: confirmed approved repo root.
+- `git status --short --branch`: confirmed current branch and clean starting worktree.
+- `Get-Content docs/dev/VALIDATION_COMMAND_LANES.md`: read before validation.
+- `git show f71c98b7b3f033656a1266f04a5dd9b9802fb2b2:<artifact>`: reviewed immutable baseline JSON/Markdown for restored artifact bodies.
+- `node --check scripts/verify-wc09-repository-gates.mjs`: passed.
+- `node --check test/wc01-repair01/evidence-workflow.test.cjs`: passed.
+- `npm run typecheck`: passed in documented normal Windows validation lane.
+- `npm run build`: passed in documented normal Windows validation lane.
+- `npm run test:unit`: passed in documented normal Windows validation lane; 65 tests passed, 0 failed.
+- `npm run test:repository`: passed in documented normal Windows validation lane; all gates passed, including `canonical_human_readable_bodies` and `wc02_repair02_correction_artifacts`.
+- `npm run test:renderer:built`: first run exposed an old fixture display-name expectation; after updating the existing fixture scripts, rerun passed. Electron emitted cache/GPU warnings but the command exited successfully and all four mounted checks reported passed.
+- `npm test`: passed in documented normal Windows validation lane; build, 65 unit tests, repository gates, and built renderer checks passed.
+- `git diff --name-only`: confirmed no prohibited workflow-authority file changed.
+- Safety scan through repository gates: passed secret assignment, concrete local path, generated junk, provider SDK dependency, and changed-file scope gates.
 
 ## Validation Performed
 
-Execution lane: documented normal Windows validation lane through scripts/codex-validate.ps1 for build/unit/full validation and direct normal Windows execution for repository/renderer/probe commands.
+Execution lane: documented normal Windows validation lane for npm build/test/renderer commands. No validation result is based on a sandbox-only child-process failure.
 
 Passed validation:
 
-- npm run validate:codex:build
-- npm run validate:codex:unit
-- npm run test:repository
-- npm run test:renderer:built
-- npm run validate:codex
-- Direct resolver current-state probe
-- Planning protocol scan found no persisted old artifactType values or old ID path segments across planning/project and phases 01-06.
-- Repository gates reported ok for canonical registry pairs, migration manifest durability, runtime legacy/migration boundary, routed screen authority boundary, single relationship resolver authority, active project workspace authority, strict legacy role/path checks, active artifact naming, secret assignments, concrete local paths, generated junk, provider SDK dependencies, and changed-file scope.
+- `npm run typecheck`
+- `npm run build`
+- `npm run test:unit`
+- `npm run test:repository`
+- `npm run test:renderer:built`
+- `npm test`
+- Focused check: all three named restored pairs have meaningful synchronized bodies.
+- Focused check: WC02-REPAIR01 validation records pass with additional observations and remains `operator_validation`.
+- Focused check: migration inventory row for WC02-REPAIR01 is classified as Operator Validation evidence.
+- Focused check: package/profile/request metadata cannot affect display names.
+- Focused check: persisted bad names are normalized to repository-folder basenames during initialization.
+- Focused check: no prohibited workflow-authority file changed.
 
 ## Validation Skipped And Reason
 
-- No Operator manual validation was performed. Operator acceptance is explicitly outside Implementer authority.
-- No final Human Validation acceptance record was created.
+No required automated validation was skipped.
+
+Operator manual validation was not performed because Architect review remains required and Operator acceptance is outside Implementer authority.
 
 ## Manual Validation Required
 
-Operator manual validation remains required after Architect Review:
-
-1. Refresh or launch ChampCity A/I.
-2. Confirm the project selector displays ChampCity A/I rather than Project Profile.
-3. Confirm the current action does not route backward to Phase 01 planning.
-4. Confirm the current action does not route backward to stale Phase 04 work.
-5. Confirm Phase 06 does not ask for Operator Phase Approval when migrated approval evidence exists.
-6. Confirm the visible current action is WC02-REPAIR02 Architect Review or a later valid action after subsequent artifacts are created.
-7. Confirm no Ad Hoc Work Card Capture is presented as normal recovery for migrated historical evidence.
-8. Confirm no manual Markdown/JSON artifact editing is required for validation.
+No Operator validation is requested by this Implementer report. Architect review remains required before any Operator validation can be authorized.
 
 ## Residual Risks
 
-- This pass performs a broad in-place canonical/protocol migration and therefore has a large planning diff. The repository gates and full validation pass, but Architect review should inspect the scope carefully.
-- Historical prose may still describe retired protocol names as quoted history or background. Runtime authority, persisted artifact types, and expected-output IDs were migrated.
-- Operator visual validation is still required to confirm the Electron UI presents the repaired state clearly.
+- The correction intentionally preserves historical human-readable prose in the restored bodies even where the target machine protocol has migrated to `operator_validation`. This is required by the revised Work Card but should be reviewed carefully.
+- Electron cache/GPU warnings appeared during renderer validation, but the mounted checks completed successfully and the commands exited 0.
 
 ## Git Actions Performed
 
-- Reviewed implementation commit: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
-- Commit subject: `Complete WC02-REPAIR02 protocol migration`.
-- Tag: none.
-- Push: not performed as part of Architect report finalization.
+- Commit created: no; pending staging and local commit.
+- Commit hash: pending until commit is created.
+- Push: not performed and not authorized by this Work Card.
 
 ## Security And Secret-Safety Notes
 
-Repository gates passed secret assignment, concrete local path, generated junk, and provider SDK dependency checks. No secrets, credentials, API keys, tokens, .env files, local screenshots, archives, or build outputs were intentionally created or staged.
+Repository gates passed secret assignment, concrete local path, generated junk, and provider SDK dependency checks. No secrets, credentials, API keys, tokens, .env files, local screenshots, archives, build outputs, or provider SDK dependencies were intentionally created. Local machine paths are omitted from this durable report.
 
 ## Blocking Questions
 
@@ -455,4 +219,4 @@ None.
 
 ## Recommended Next Implementer Task
 
-Architect Review of WC02-REPAIR02, then Operator visual validation of the repaired current-action state.
+Architect Review of WC02-REPAIR02 should verify the bounded correction scope before any Operator validation is authorized.

@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import {
   isCanonicalArtifact,
   normalizeRepoPath,
+  parseCanonicalMarkdown,
   resolveInsideRoot,
   sha256Tagged,
   stableStringify,
@@ -30,6 +31,15 @@ const ACTIVE_PLANNING_PREFIXES = [
   "planning/project/",
   "planning/phases/phase-03/",
   "planning/phases/phase-04/",
+  "planning/system/",
+  "planning/work/",
+];
+const BODY_REQUIRED_PREFIXES = [
+  "planning/project/",
+  "planning/phases/phase-03/",
+  "planning/phases/phase-04/",
+  "planning/phases/phase-05/",
+  "planning/phases/phase-06/",
   "planning/system/",
   "planning/work/",
 ];
@@ -320,6 +330,133 @@ async function canonicalRegistryGate(root) {
   } catch (error) {
     fail(gate, "canonical-registry-verification", registryJsonPath, String(error?.message ?? error));
   }
+  return finishGate(gate);
+}
+
+async function canonicalHumanReadableBodyGate(root, repoFiles) {
+  const gate = makeGate("canonical_human_readable_bodies");
+  const requiredStatuses = new Set(["active", "pending", "blocked"]);
+  const candidates = repoFiles.filter(
+    (file) =>
+      file.endsWith(".json") &&
+      BODY_REQUIRED_PREFIXES.some((prefix) => file.startsWith(prefix)),
+  );
+
+  for (const file of candidates) {
+    gate.checked += 1;
+    try {
+      const artifact = JSON.parse(await readFile(resolveInsideRoot(root, file), "utf8"));
+      if (!isCanonicalArtifact(artifact) || !requiredStatuses.has(artifact.status)) continue;
+
+      const body = artifact.payload?.contentMarkdown;
+      if (typeof body !== "string") {
+        fail(gate, "payload-content-markdown-missing", file, artifact.artifactId);
+      } else if (isInvalidHumanReadableBody(body)) {
+        fail(gate, "payload-content-markdown-empty-or-literal", file, artifact.artifactId);
+      }
+
+      const markdownPath = normalizeRepoPath(artifact.markdownPath);
+      const markdown = await readFile(resolveInsideRoot(root, markdownPath), "utf8");
+      const parsed = parseCanonicalMarkdown(markdown);
+      if (isInvalidHumanReadableBody(parsed.contentMarkdown)) {
+        fail(gate, "markdown-human-readable-body-empty-or-literal", markdownPath, artifact.artifactId);
+      }
+    } catch (error) {
+      fail(gate, "canonical-human-body-verification", file, String(error?.message ?? error));
+    }
+  }
+  return finishGate(gate);
+}
+
+function isInvalidHumanReadableBody(value) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return (
+    normalized.length === 0 ||
+    normalized.toLowerCase() === "undefined" ||
+    normalized.toLowerCase() === "null"
+  );
+}
+
+async function wc02Repair02CorrectionGate(root) {
+  const gate = makeGate("wc02_repair02_correction_artifacts");
+  const restoredBodies = [
+    {
+      path: "planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.json",
+      heading: "# Candidate Disposition: Phase 06 WC01 Accepted via WC01-REPAIR01",
+    },
+    {
+      path: "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.json",
+      heading: "# Validation Report: Phase 06 WC01-REPAIR01 Visual Validation",
+    },
+    {
+      path: "planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.json",
+      heading: "# Work Card: Phase 06 WC02",
+    },
+  ];
+
+  for (const item of restoredBodies) {
+    gate.checked += 1;
+    try {
+      const artifact = JSON.parse(await readFile(resolveInsideRoot(root, item.path), "utf8"));
+      const markdown = await readFile(resolveInsideRoot(root, artifact.markdownPath), "utf8");
+      verifyCanonicalPair({
+        artifact,
+        markdown,
+        expectedJsonPath: item.path,
+        expectedMarkdownPath: artifact.markdownPath,
+      });
+      const body = artifact.payload?.contentMarkdown;
+      if (typeof body !== "string" || !body.includes(item.heading)) {
+        fail(gate, "restored-baseline-body-missing", item.path, item.heading);
+      }
+    } catch (error) {
+      fail(gate, "restored-pair-verification", item.path, String(error?.message ?? error));
+    }
+  }
+
+  const validationPath =
+    "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json";
+  gate.checked += 1;
+  try {
+    const validation = JSON.parse(await readFile(resolveInsideRoot(root, validationPath), "utf8"));
+    const body = String(validation.payload?.contentMarkdown ?? "");
+    const data = validation.payload?.data ?? {};
+    if (validation.artifactType !== "operator_validation") {
+      fail(gate, "wc02-repair01-validation-type", validationPath, validation.artifactType);
+    }
+    if (data.result !== "passed" || data.validationResult !== "passed") {
+      fail(gate, "wc02-repair01-validation-result", validationPath, stableStringify(data, 0));
+    }
+    if (data.followUpRepairWorkCardId !== "WC02-REPAIR02") {
+      fail(gate, "wc02-repair01-follow-up-missing", validationPath);
+    }
+    if (/\bfailed\b|partial\s+pass|partially\s+failed|supplied approval authority/i.test(body)) {
+      fail(gate, "wc02-repair01-forbidden-validation-prose", validationPath);
+    }
+  } catch (error) {
+    fail(gate, "wc02-repair01-validation-verification", validationPath, String(error?.message ?? error));
+  }
+
+  const reportPath =
+    "planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC02-REPAIR02_full_gating_artifact_protocol_migration_project_display_name_repair.json";
+  gate.checked += 1;
+  try {
+    const report = JSON.parse(await readFile(resolveInsideRoot(root, reportPath), "utf8"));
+    const body = String(report.payload?.contentMarkdown ?? "");
+    const row = body
+      .split("\n")
+      .find((line) =>
+        line.includes("VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json"),
+      );
+    if (!row) {
+      fail(gate, "migration-inventory-validation-row-missing", reportPath);
+    } else if (!row.includes("Operator Validation evidence") || row.includes("work_card approval")) {
+      fail(gate, "migration-inventory-validation-row-classification", reportPath, row);
+    }
+  } catch (error) {
+    fail(gate, "migration-inventory-verification", reportPath, String(error?.message ?? error));
+  }
+
   return finishGate(gate);
 }
 
@@ -1026,6 +1163,8 @@ async function main() {
 
     const gates = [];
     gates.push(await canonicalRegistryGate(root));
+    gates.push(await canonicalHumanReadableBodyGate(root, repoFiles));
+    gates.push(await wc02Repair02CorrectionGate(root));
     gates.push(await migrationManifestDurabilityGate(root));
     gates.push(await runtimeBoundaryGate(root, repoFiles));
     gates.push(await routedAuthorityBoundaryGate(root));

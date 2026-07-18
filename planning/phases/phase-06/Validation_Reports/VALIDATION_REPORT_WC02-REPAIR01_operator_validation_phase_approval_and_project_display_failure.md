@@ -8,9 +8,9 @@
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC02-REPAIR01",
   "payload": {
     "kind": "operator_validation",
-    "title": "Operator Validation: Phase 06 WC02-REPAIR01 Failure"
+    "title": "Operator Validation: Phase 06 WC02-REPAIR01 Passed With Additional Observations"
   },
-  "payloadHash": "sha256:1125f7125bdb2308a6177a4cb873756f6261182001fbc044085314346153eea7",
+  "payloadHash": "sha256:6b899096ee24db985bfa4573915fffae1605b567e14acb273250000c65e8a3e3",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -31,43 +31,37 @@
   },
   "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "blocked",
+  "status": "active",
   "updatedAt": "2026-07-17T23:38:21.903Z",
   "workCardId": "WC02-REPAIR01"
 }
 -->
 
-# Operator Validation: Phase 06 WC02-REPAIR01 — Operator Validation Failure
+# Operator Validation: Phase 06 WC02-REPAIR01 Passed With Additional Observations
 
-Status: failed
+Status: passed_with_additional_observations
 Phase: phase-06
 Work Card: WC02-REPAIR01
-Result: failed with partial pass
+Result: passed
+Follow-up repair for parent WC02: WC02-REPAIR02
 
 ## Result
 
-The original stale Phase 04 route appears repaired. The app no longer shows `phase-04`, no longer shows Phase 04 `work_card_authoring_required`, and does not route to Ad Hoc Work Card Capture for stale Phase 04 `WC04`.
+WC02-REPAIR01 passed its own bounded acceptance criteria. Operator testing confirmed that the stale Phase 04 route, stale Phase 04 Work Card authoring, and Ad Hoc Work Card continuation were repaired.
 
-Operator validation still fails because the app now shows `phase-06` with `operator_phase_approval_required` even though Phase 06 Operator Phase Approval already exists at `champcity-ai/phase-06/operator_approval/Operator_Phase_Approval`.
+## Additional Operator Observations
 
-The active project dropdown also displays `Project Profile` instead of a usable workspace/project name.
+The same Operator validation session produced two additional observations that kept parent WC02 unresolved:
 
-## Corrected Architect RCA
+- Phase 06 Operator Phase Approval was not recognized.
+- The active project name displayed incorrectly.
 
-The failure is not merely that the resolver should recognize an existing `approval` artifact as if it were a `operator_approval`.
+Those observations prompted WC02-REPAIR02 as the follow-up repair for parent WC02. They did not change the WC02-REPAIR01 validation result.
 
-WC01 defined the Phase 06 target artifact protocol and listed `operator_approval` as the supported operator approval evidence type. The current system is inconsistent across three surfaces:
+## Evidence Classification
 
-- `processContract.ts` still expects `operator_approval` for `operator_phase_approval_required`;
-- the existing Phase 06 Operator Phase Approval artifact is typed as generic `approval`;
-- WC01 target protocol lists `operator_approval`.
+This artifact is Operator Validation evidence for WC02-REPAIR01. It records the Operator validation result and follow-up observations. It is not approval evidence for any Work Card.
 
-This is an incomplete migration from old/process-contract artifact language and existing generic approval artifacts into the Phase 06 target resolver protocol. The correct repair is to align the process contract, resolver, and governing approval artifacts to the WC01 target artifact protocol, not to preserve `operator_approval` or blindly treat generic `approval` as the final target model.
+## Follow-Up Direction
 
-The project dropdown issue is separate. `projectWorkspaceRegistry.ts` uses `PROJECT_PROFILE.payload.title`; in this repo that field is the document title `Project Profile`, not the workspace/project display name. The registry must derive a human-usable project display name from explicit metadata or safe fallbacks, not from generic document titles.
-
-## Required Repair Direction
-
-Create WC02-REPAIR02 to complete the target artifact-protocol migration for phase/operator approvals and to repair project display-name derivation.
-
-The repair must not create a duplicate `operator_approval` artifact as a workaround. It must not preserve old artifact language in the resolver. It must resolve the target artifact type and migrate the code/artifacts/tests accordingly.
+WC02-REPAIR02 is the governed follow-up repair for the parent WC02 observations. It must address the Phase 06 approval-recognition issue and the project display-name issue under its own approved Work Card authority.

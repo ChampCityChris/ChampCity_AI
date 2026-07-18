@@ -6,7 +6,7 @@
   "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.md",
   "parentArtifactId": "champcity-ai/phase-06/work_card/WC01",
   "payload": {
-    "contentMarkdown": "undefined\n",
+    "contentMarkdown": "# Validation Report: Phase 06 WC01-REPAIR01 Visual Validation\n\nStatus: passed\nPhase: phase-06\nParent Work Card: WC01\nRepair Work Card: WC01-REPAIR01\nValidation type: Operator visual artifact validation\nValidated by: Operator\n\n## Validation Statement\n\nOperator visual validation passed for WC01-REPAIR01. The repaired WC01 output is accepted for disposition.\n\n## Artifacts Reviewed Visually\n\n- `planning/phases/phase-06/Design_Documents/DESIGN_DOCUMENT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md`\n- `planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01_kernel_contract_artifact_protocol_source_authority_replacement_inventory.md`\n- `planning/phases/phase-06/Implementer_Reports/IMPLEMENTER_REPORT_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.md`\n- `planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC01-REPAIR01_wc01_design_document_metadata_and_inventory_completion.md`\n\n## Visual Checks Confirmed\n\n- WC01 Design Document shows repaired artifact metadata and no obvious future-dated metadata.\n- Source Authorities Reviewed separates canonical artifact sources from supporting documents.\n- Replacement Inventory includes the `Current responsibility` column.\n- Every inventory row includes current responsibility text.\n- Detailed inventory entries include `Current responsibility` and `Named supported consumer`.\n- Preserve entries use named consumers instead of generic preserve-consumer language.\n- Original WC01 Implementer Report records reviewed WC01 implementation commit `9c06b3f21d15be1b62bb79d6d2daa43696057873`.\n- WC01-REPAIR01 Implementer Report lists only the six approved changed files and confirms no source, test, script, package, lockfile, build, config, Workflow State, or Artifact Registry changes.\n- WC01-REPAIR01 Architect Review is accepted for Operator validation.\n\n## Runtime/UI Validation\n\nNo runtime UI validation was required for WC01-REPAIR01 because the repair was documentation/artifact-only and did not change source code, renderer code, Electron runtime behavior, tests, scripts, packages, lockfiles, Workflow State, or Artifact Registry.\n\n## Decision\n\nWC01-REPAIR01 visual validation passed. Repaired WC01 may be accepted as complete by candidate disposition.\n",
     "data": {
       "decision": "passed_accept_for_disposition",
       "parentWorkCardId": "WC01",
@@ -23,7 +23,7 @@
     "kind": "operator_validation",
     "title": "Operator Validation: Phase 06 WC01 Accepted via WC01-REPAIR01"
   },
-  "payloadHash": "sha256:9809f2ce6fbd7e4d9e0365edeec66f706bc5d8e4594fe4d7218d9aea515518ed",
+  "payloadHash": "sha256:4d983c887e5c1835fee01b6028c7d65de707e47c88a0e677b23e08eb241c6ffd",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {

@@ -43,6 +43,18 @@ async function temporaryRoot(prefix, run) {
   }
 }
 
+async function temporaryNamedRoot(folderName, packageJson, run) {
+  const parent = await mkdtemp(path.join(os.tmpdir(), "champcity-named-root-"));
+  const root = path.join(parent, folderName);
+  try {
+    await mkdir(path.join(root, "planning"), { recursive: true });
+    await writeFile(path.join(root, "package.json"), JSON.stringify(packageJson), "utf8");
+    return await run(root);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+}
+
 function project(root, projectId = "project-alpha") {
   return {
     projectId,
@@ -202,8 +214,12 @@ test("project registration rejects duplicate roots, duplicate IDs, and invalid f
   });
 });
 
-test("project registration does not use generic Project Profile as display name", async () => {
-  await temporaryRoot("champcity-project-profile-name-", async (root) => {
+test("project display names always use the repository folder basename", async () => {
+  await temporaryNamedRoot("ChampCity_AI", {
+    name: "metadata-package-name",
+    productName: "Metadata Product Name",
+    description: "Metadata package description must not display",
+  }, async (root) => {
     const storage = path.join(os.tmpdir(), `champcity-workspaces-profile-${process.pid}-${Date.now()}.json`);
     try {
       await mkdir(path.join(root, "planning", "project"), { recursive: true });
@@ -214,16 +230,73 @@ test("project registration does not use generic Project Profile as display name"
           payload: {
             title: "Project Profile",
             contentMarkdown: "# Project Profile\n\n## Project Name\n\nChampCity A/I\n",
-            data: {},
+            data: {
+              projectName: "Profile Project Name",
+              displayName: "Profile Display Name",
+              publicBrand: "Profile Public Brand",
+              name: "Profile Data Name",
+            },
           },
         }),
         "utf8",
       );
       const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
-      const configured = await registry.addProject({ repositoryRoot: root });
+      const configured = await registry.addProject({
+        repositoryRoot: root,
+        displayName: "Request Display Name",
+      });
       assert.equal(configured.projectId, "champcity-ai");
-      assert.equal(configured.displayName, "ChampCity A/I");
+      assert.equal(configured.displayName, "ChampCity_AI");
+      assert.notEqual(configured.displayName, "Request Display Name");
+      assert.notEqual(configured.displayName, "Metadata Product Name");
+      assert.notEqual(configured.displayName, "Metadata package description must not display");
+      assert.notEqual(configured.displayName, "Profile Project Name");
       assert.notEqual(configured.displayName, "Project Profile");
+    } finally {
+      await rm(storage, { force: true });
+    }
+  });
+});
+
+test("initialize normalizes persisted project display names to repository folder basenames", async () => {
+  await temporaryNamedRoot("ChampCity_GPT", {
+    name: "package-name-cannot-display",
+    productName: "Package Product Cannot Display",
+    description: "Already persisted long package-description name",
+  }, async (root) => {
+    const storage = path.join(os.tmpdir(), `champcity-workspaces-normalize-${process.pid}-${Date.now()}.json`);
+    try {
+      const created = `${FIXED_TIME}`;
+      await writeFile(
+        storage,
+        JSON.stringify({
+          schemaVersion: "champcity.project-workspaces.v1",
+          selectedProjectId: "champcity-gpt",
+          projects: [{
+            projectId: "champcity-gpt",
+            displayName: "Already persisted long package-description name",
+            repositoryRoot: root,
+            planningRoot: path.join(root, "planning"),
+            branchBehavior: { mode: "observe-current" },
+            enabled: true,
+            createdAt: created,
+            updatedAt: created,
+            lastOpenedAt: null,
+            lastScanAt: null,
+            lastScanResult: null,
+            observerStatus: "stopped",
+          }],
+        }, null, 2),
+        "utf8",
+      );
+
+      const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => "2026-07-15T22:00:00.000Z" });
+      const initialized = await registry.initialize();
+      assert.equal(initialized.projects[0].displayName, "ChampCity_GPT");
+      assert.equal(initialized.projects[0].updatedAt, "2026-07-15T22:00:00.000Z");
+      assert.equal((await registry.getSelected()).displayName, "ChampCity_GPT");
+      const stored = JSON.parse(await readFile(storage, "utf8"));
+      assert.equal(stored.projects[0].displayName, "ChampCity_GPT");
     } finally {
       await rm(storage, { force: true });
     }
