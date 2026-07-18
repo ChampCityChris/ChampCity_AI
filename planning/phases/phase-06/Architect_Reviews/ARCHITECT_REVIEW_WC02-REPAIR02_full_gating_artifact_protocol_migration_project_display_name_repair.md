@@ -10,7 +10,7 @@
     "kind": "architect_review",
     "title": "Architect Review: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
   },
-  "payloadHash": "sha256:06ffec5111bcb75d6a3af043a2e784d0f2488f05f7e1b0aee84b5107b2e58bc4",
+  "payloadHash": "sha256:7691f78ac7ae174ff95183b1332f119e6a5ae45ee457fb30cbf042e9b574bf72",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -28,168 +28,95 @@
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "blocked",
-  "updatedAt": "2026-07-17T23:10:00.000Z",
+  "updatedAt": "2026-07-18T00:30:00.000Z",
   "workCardId": "WC02-REPAIR02"
 }
 -->
 
-# Architect Review: Phase 06 WC02-REPAIR02 — Full Gating Artifact Protocol Migration and Project Display Name Repair
+# Architect Review: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair
 
-Status: changes_required
-Phase: phase-06 — Workflow Kernel and Artifact Protocol Replacement
+Status: corrections_required
+Phase: phase-06 - Workflow Kernel and Artifact Protocol Replacement
 Work Card: WC02-REPAIR02
 Reviewed Implementer Report: `champcity-ai/phase-06/implementer_report/WC02-REPAIR02`
-Reviewed implementation commit: `999104d7151bf6b7733ea6788836f7b7b751f654`
-Approved implementation baseline: `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2`
-Decision: changes required; Operator validation is not authorized
+Reviewed implementation commit: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`
+Decision: corrections required; Operator validation is not authorized
 
-## Review Summary
+## Review Outcome
 
-WC02-REPAIR02 is not accepted for Operator validation.
+WC02-REPAIR02 is not approved for Operator validation.
 
-The runtime protocol and project-display changes are directionally correct and their focused automated tests pass. The implementation nevertheless fails the controlling Work Card because it omitted the mandatory Project Intake through Phase 05 artifact migration, replaced the required per-artifact migration inventory with an aggregate Phase 06 summary, and committed destructive governance-artifact regressions.
+The implementation now completes most of the intended runtime protocol cutover, repairs the project display name, provides a broad migration inventory, and passes all fixed automated validation lanes. Direct artifact inspection nevertheless found material governance defects that the structural tests do not detect.
 
-No separate repair Work Card is required. The approved WC02-REPAIR02 scope already authorizes the necessary corrections. The Implementer must complete the approved scope and revise the existing Implementer Report pair in place.
+## Positive Findings
 
-## Repository And Commit Verification
+- The project workspace display-name logic no longer treats generic `Project Profile` text as the project identity and is covered by a passing test.
+- The relationship-driven resolver uses the target protocol families and routes the live repository to Phase 06 WC02-REPAIR02 Architect Review rather than stale Phase 01 or Phase 04 work.
+- The fixed build, unit, repository, and mounted-renderer validation lanes pass. Unit validation reports 64 passed and 0 failed.
+- Persisted old artifact type and ID-path scans pass for the structural protocol fields.
+- The Implementer Report pair has been finalized in place as revision 3 and now records implementation commit `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
 
-MCP verified:
+## Blocking Finding 1 - Literal Undefined Bodies Remain
 
-- repository: `ChampCityChris/ChampCity_AI`;
-- branch: `feature/phase-04-wc01-repair01-evidence-derived-workflow`;
-- reviewed HEAD: `999104d7151bf6b7733ea6788836f7b7b751f654`;
-- reviewed commit parent: `f71c98b7b3f033656a1266f04a5dd9b9802fb2b2`;
-- working tree after Architect validation: clean.
+Two canonical Markdown artifacts still contain the literal body `undefined` after their envelopes:
 
-## Blocking Finding 1 — Mandatory Migration Scope Was Not Completed
+- `planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.md`
+- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.md`
 
-The approved Work Card explicitly requires migration of all controlling process-gating artifacts from Project Intake through current Phase 06 and requires inspection of:
+A synchronized envelope and payload hash do not make an undefined human-readable body acceptable. These artifacts are governing evidence and must retain meaningful content.
 
-- `planning/project/`;
-- `planning/phases/phase-01/`;
-- `planning/phases/phase-02/`;
-- `planning/phases/phase-03/`;
-- `planning/phases/phase-04/`;
-- `planning/phases/phase-05/`;
-- `planning/phases/phase-06/`.
+## Blocking Finding 2 - Migration Inventory Is Not Reliable As A Pre/Post Audit
 
-The Implementer Report instead states:
+The report's inventory frequently labels already-migrated IDs and types as the values that existed before migration. It therefore does not reliably demonstrate the actual source-to-target transformation.
 
-- `Project Intake through Phase 05 historical artifacts | 0 in this pass | Not migrated`;
-- the full Project Intake through Phase 05 migration was not performed;
-- a purported narrower Phase 06 migration was used after a broad write escalation was rejected.
+The clearest material misclassification is:
 
-No Operator approval artifact narrowed WC02-REPAIR02. A tool or sandbox approval failure does not amend an approved Work Card. The correct response was to stop and report the exact blocker, not to complete a materially narrower implementation and label it completed.
+- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC02-REPAIR01_operator_validation_phase_approval_and_project_display_failure.json`
 
-Commit `999104d7151bf6b7733ea6788836f7b7b751f654` changes Phase 06 planning artifacts and runtime/test files but does not migrate the required `planning/project/` or Phase 01–05 controlling gate artifacts.
+The report classifies this failed Operator Validation evidence as a work-card approval that should become `operator_approval`. The actual artifact remains `operator_validation`, which is the correct semantic family for the recorded failure. The inventory must distinguish approval authority from validation evidence instead of inferring gate role from surrounding workflow context.
 
-## Blocking Finding 2 — Old Protocol Terms Remain In The Governing Chain
+## Blocking Finding 3 - Bulk Replacement Corrupted Controlling Prose
 
-MCP inspection confirms Phase 05 still contains live old-protocol artifacts, including:
+The migration altered quoted historical terminology and explanatory prose inside controlling artifacts, including the approved WC02-REPAIR02 Work Card and the prior Architect Review. Several passages now describe old terms using the new terms, repeat the same target family on both sides of a migration statement, or otherwise lose the old-versus-target distinction.
 
-- `planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC02_reconciled_current_state_and_ground_rules_baseline.json` with artifact type `approval`;
-- `planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_release_candidate_roadmap_rebaseline.json` with artifact type `approval`;
-- `planning/phases/phase-05/Operator_Approvals/OPERATOR_APPROVAL_WC03_roadmap_rebaseline.json` with artifact type `approval`;
-- `planning/phases/phase-05/Validation_Reports/VALIDATION_REPORT_WC03-LIVING-DOCS_living_document_update_pass.json` with artifact type `operator_validation`;
-- `planning/phases/phase-05/Roadmap_Rebaseline/ROADMAP_REBASELINE_WC03_release_candidate_roadmap.json` with artifact type `project_roadmap`.
+This is a semantic preservation failure. Protocol migration may change canonical metadata, IDs, relationships, and current terminology, but it must not rewrite the historical facts or approved intent needed to understand what was migrated.
 
-Phase 06 relationships also continue to cite `champcity-ai/phase-05/project_roadmap/WC03`. The Work Card required either migration to `project_roadmap` or explicit formalization of `project_roadmap` in the target protocol. The implementation did neither for the controlling historical chain.
+## Root Cause Analysis
 
-This is the defect WC02-REPAIR02 was approved to correct. Deferring it to a separate future Work Card is not acceptable.
+The correction pass used broad text substitutions across both canonical metadata and payload prose. That crossed the boundary between machine-governing fields and human-governing content.
 
-## Blocking Finding 3 — Required Migration Inventory Is Missing
+The canonical renderer also accepted missing or undefined source body content, and the current repository gates verify structural pairing, hashes, target types, and runtime routing without rejecting literal `undefined` bodies or checking semantic preservation of controlling prose.
 
-The Work Card requires a per-artifact migration inventory containing:
+## Required Corrections
 
-- current path;
-- current artifact ID;
-- current artifact type;
-- current gate role;
-- target artifact type;
-- controlling, duplicate, abandoned, or non-gating classification;
-- action taken;
-- reason.
+1. Restore meaningful synchronized content for the two artifacts whose Markdown bodies are literal `undefined`; regenerate both JSON and Markdown through the canonical serializer.
+2. Rebuild the migration inventory from immutable pre-migration evidence, using the approved baseline and implementation commits to show true before and after IDs, types, gate roles, classifications, actions, and reasons.
+3. Correct the WC02-REPAIR01 failure-validation inventory row so it remains Operator Validation evidence rather than approval authority.
+4. Restore controlling Work Card, approval, validation, and Architect Review prose where broad replacement erased the old-versus-target distinction. Preserve the approved intent while keeping migrated canonical metadata.
+5. Add a repository regression gate that rejects required canonical artifacts with missing, empty, `undefined`, or `null` human-readable bodies.
+6. Add focused semantic-preservation checks for the controlling WC02-REPAIR02 Work Card and migration inventory.
+7. Rerun typecheck, build, all unit tests, repository gates, mounted renderer checks, and the direct live resolver probe.
+8. Update the existing Implementer Report pair in place with the corrected inventory and final results.
 
-The Implementer Report provides only aggregated counts by broad scope. It does not identify each artifact, prove which artifacts are controlling, justify unchanged artifacts, or demonstrate that no required gate was bypassed.
+## Validation Reviewed
 
-The required inventory must be added to both the JSON payload data and the Markdown report.
+Architect reran the final fixed test lane after report finalization:
 
-## Blocking Finding 4 — Three Governance Artifact Pairs Were Corrupted
+- build: passed
+- unit tests: 64 passed, 0 failed
+- repository gates: passed
+- mounted renderer smoke checks: passed
+- full `npm test`: passed
 
-Commit `999104d7151bf6b7733ea6788836f7b7b751f654` removed required `payload.contentMarkdown` from three JSON artifacts and replaced their Markdown bodies with literal `undefined`:
-
-- `planning/phases/phase-06/Candidate_Dispositions/CANDIDATE_DISPOSITION_WC01_accept_repaired_wc01_kernel_contract_inventory.{json,md}`;
-- `planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC01-REPAIR01_visual_validation_repaired_wc01.{json,md}`;
-- `planning/phases/phase-06/Work_Cards/WC02_replace_evidence_derived_workflow_projector_relationship_driven_resolver.{json,md}`.
-
-These are not harmless formatting changes. They destroy the human-readable disposition, Operator validation record, and original WC02 Work Card while leaving envelopes that appear superficially paired.
-
-The Implementer Report states that historical content was preserved except for protocol references. That statement is false for these artifacts.
-
-Restore the complete pre-migration body content from the approved baseline, apply only the required protocol-reference changes, rebuild payload hashes, and regenerate synchronized Markdown envelopes and bodies.
-
-## Blocking Finding 5 — Implementer Report Is Not Final
-
-The committed Implementer Report still says:
-
-- `Commit hash: pending until commit is created`;
-- `Commit created: pending until commit is created`;
-- `Push: pending after commit unless blocked`;
-- `Blocking Questions: None`.
-
-The actual implementation commit is `999104d7151bf6b7733ea6788836f7b7b751f654`. The report must be revised in place to record the actual commit, final repository status, exact validation results, and the material scope blocker. It must not describe an incomplete implementation as completed.
-
-## Automated Validation Reviewed
-
-Architect reran the fixed validation lanes against commit `999104d7151bf6b7733ea6788836f7b7b751f654`.
-
-Passed:
-
-- `npm run typecheck`;
-- `npm run build`;
-- all 64 unit tests;
-- substantive repository gates, including target-protocol runtime checks, relationship-resolver authority, workspace display-name authority, migration durability, legacy-role checks, secret/path checks, and generated-junk checks.
-
-Failed:
-
-- full `npm test` only because the known legacy WC09 `git_changed_file_scope` gate remains pinned to the older WC09 base and reports accumulated Phase 05/06 files outside that historical scope.
-
-The known WC09 gate failure is not an independent WC02-REPAIR02 blocker. The scope omission and governance-artifact corruption are independent blockers established by direct repository inspection.
-
-The current `canonical_registry_pairs` gate passing does not establish content preservation. It did not reject the three artifacts whose Markdown bodies are literal `undefined` and whose JSON payloads omit `contentMarkdown`. Correction must include a focused regression test or repository gate preventing this failure mode.
-
-## Partial Findings Accepted For Rework
-
-The following implementation portions may be retained if they remain correct after the full migration:
-
-- `src/main/projects/projectWorkspaceRegistry.ts` no longer accepts generic `Project Profile` as the workspace display name when better identity exists;
-- runtime target protocol checks use scoped `operator_approval` and `operator_validation`;
-- old generic phase approval is rejected as live resolver authority;
-- focused resolver, transition, context-packet, and workspace tests pass;
-- stale Phase 04 routing regression coverage passes.
-
-These partial findings do not authorize Operator validation because the governing artifact chain remains incomplete and damaged.
-
-## Required Corrections Under WC02-REPAIR02
-
-1. Restore the three corrupted governance artifact pairs with complete human-readable content and synchronized canonical payloads.
-2. Complete the approved artifact migration from `planning/project/` through Phase 06, including all controlling Project Intake, approval, validation, roadmap/rebaseline, phase setup, Work Card loop, closeout, and next-phase evidence required to resolve current state.
-3. Migrate controlling artifacts in place. Do not create compatibility shadows or duplicate old/new gate artifacts.
-4. Resolve every remaining controlling `approval`, `operator_validation`, and `project_roadmap` artifact according to the approved target protocol.
-5. Correct all relationships and expected outputs that still cite retired artifact IDs or types.
-6. Add the required per-artifact migration inventory with all mandated columns and classifications.
-7. Add validation that fails when a canonical JSON payload loses `contentMarkdown` or rendered Markdown contains literal `undefined`.
-8. Rerun typecheck, build, unit tests, repository gates, and a live repository projection probe against the fully migrated chain.
-9. Revise the existing Implementer Report pair at its fixed path and canonical ID. Record the actual implementation commit hash and final clean status.
-10. Do not request Operator validation until the strict verified graph can resolve the governing chain through current Phase 06 or reports only a true, specifically documented blocker permitted by the Work Card.
+Electron emitted cache and GPU-cache access warnings during mounted smoke execution, but the smoke checks completed successfully. Those warnings are not the basis for this rejection.
 
 ## Disposition
 
-WC02-REPAIR02 remains open and returns to the Implementer for correction under its existing Operator-approved scope.
+WC02-REPAIR02 remains open for correction under its existing approved scope.
 
-Operator validation is not authorized. No visible Operator test steps are issued.
+Operator validation is not authorized, and no visible Operator validation steps are issued.
 
-A new repair Work Card is not required unless correction discovers a scope change outside WC02-REPAIR02. Any such scope change requires Architect RCA and Operator approval before implementation.
+A new repair Work Card is not required unless the correction discovers a genuine scope change outside WC02-REPAIR02.

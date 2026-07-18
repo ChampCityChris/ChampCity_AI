@@ -10,7 +10,7 @@
     "kind": "implementer_report",
     "title": "Implementer Report: Phase 06 WC02-REPAIR02 Full Gating Artifact Protocol Migration and Project Display Name Repair"
   },
-  "payloadHash": "sha256:f2c974f91791dceffaa104ce59a742a4e619ee8a4ba9bf1f4d3f1cf396c00ccd",
+  "payloadHash": "sha256:859a78f4f091c0a44f838e451bdf89906d2df92908fe9c770694d0d2a01c5cfb",
   "phaseId": "phase-06",
   "projectId": "champcity-ai",
   "relationships": {
@@ -27,10 +27,10 @@
     ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-17T23:41:20.093Z",
+  "updatedAt": "2026-07-18T00:25:09.302Z",
   "workCardId": "WC02-REPAIR02"
 }
 -->
@@ -44,7 +44,7 @@ Work Card: WC02-REPAIR02
 Canonical artifact ID: champcity-ai/phase-06/implementer_report/WC02-REPAIR02
 Branch: feature/phase-04-wc01-repair01-evidence-derived-workflow
 Intended commit message: Complete WC02-REPAIR02 protocol migration
-Commit hash: pending until commit is created, because this report is committed with the implementation.
+Reviewed implementation commit: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
 
 ## Repository Path Inspected
 
@@ -440,10 +440,10 @@ Operator manual validation remains required after Architect Review:
 
 ## Git Actions Performed
 
-- Commit created: pending until commit is created.
-- Commit hash: pending until commit is created, because this report is part of the same commit.
+- Reviewed implementation commit: `ca4e9a072a4f3e3c121831f0a861ea659f89b62f`.
+- Commit subject: `Complete WC02-REPAIR02 protocol migration`.
 - Tag: none.
-- Push: pending after commit.
+- Push: not performed as part of Architect report finalization.
 
 ## Security And Secret-Safety Notes
 
