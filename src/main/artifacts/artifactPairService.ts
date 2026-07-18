@@ -8,6 +8,7 @@ import {
   buildCanonicalArtifact,
   canonicalPrettyStringify,
   isAuthorityEligibleStatus,
+  renderArtifactRegistryContentMarkdown,
   renderArtifactMarkdown,
   verifyArtifactPair,
   type ArtifactPairVerificationResult,
@@ -440,6 +441,96 @@ export class ArtifactPairService {
     return this.readPair<TPayload>(jsonPath, markdownPath);
   }
 
+  async registerExistingArtifactPairByPaths<
+    TPayload extends ArtifactPayload = ArtifactPayload,
+  >(
+    jsonPath: string,
+    markdownPath: string,
+  ): Promise<CanonicalArtifactCommitResult<TPayload>> {
+    const release = await this.acquireCommitLock();
+    try {
+      assertExactPairPaths(jsonPath, markdownPath);
+      const existing = await this.readPair<TPayload>(jsonPath, markdownPath);
+      this.assertNotRegistryIdentity(
+        existing.artifact.artifactId,
+        existing.artifact.artifactType,
+        { jsonPath, markdownPath },
+      );
+      const current = await this.tryReadRegistry();
+      if (!current) {
+        throw new ArtifactPairServiceError(
+          "registry_sync_failure",
+          "An existing canonical pair cannot be registered without Registry authority.",
+        );
+      }
+      if (current.artifact.projectId !== existing.artifact.projectId) {
+        throw new ArtifactPairServiceError(
+          "registry_project_mismatch",
+          `Registry project ${current.artifact.projectId} cannot accept ${existing.artifact.projectId}.`,
+        );
+      }
+      const registered = current.registry.entries.find(
+        (entry) => entry.artifactId === existing.artifact.artifactId,
+      );
+      if (
+        registered &&
+        (registered.artifactType !== existing.artifact.artifactType ||
+          registered.projectId !== existing.artifact.projectId ||
+          registered.jsonPath !== jsonPath ||
+          registered.markdownPath !== markdownPath ||
+          registered.revision !== existing.artifact.revision ||
+          registered.payloadHash !== existing.artifact.payloadHash ||
+          !registered.synchronized)
+      ) {
+        throw new ArtifactPairServiceError(
+          "registry_sync_failure",
+          "The existing Registry entry does not match the verified canonical pair.",
+        );
+      }
+      const timestamp = canonicalTimestamp(this.clock());
+      await this.inject("before_registry_update", "registry", existing.artifact.artifactId, {
+        jsonPath: ARTIFACT_REGISTRY_JSON_PATH,
+        markdownPath: ARTIFACT_REGISTRY_MARKDOWN_PATH,
+      });
+      const registryWrite = await this.updateRegistryInternal(existing.artifact, timestamp);
+      await this.inject(
+        "after_registry_update",
+        "registry",
+        existing.artifact.artifactId,
+        {
+          jsonPath: ARTIFACT_REGISTRY_JSON_PATH,
+          markdownPath: ARTIFACT_REGISTRY_MARKDOWN_PATH,
+        },
+        registryWrite.handle.transactionId,
+      );
+      try {
+        await registryWrite.handle.finalize();
+      } catch (error) {
+        const rollback = await rollbackPendingWrites(registryWrite.handle);
+        throw new ArtifactPartialWriteError(
+          `Canonical Registry registration failed: ${errorMessage(error)}`,
+          registryWrite.handle.transactionId,
+          ARTIFACT_REGISTRY_JSON_PATH,
+          ARTIFACT_REGISTRY_MARKDOWN_PATH,
+          rollback,
+          { cause: error },
+        );
+      }
+      return {
+        artifact: existing.artifact,
+        verification: existing.verification,
+        registry: registryWrite.registry,
+        registryRevision: registryWrite.artifact.revision,
+        pairVerified: true,
+        registryCommitted: true,
+        payloadHash: existing.artifact.payloadHash,
+        transactionId: registryWrite.handle.transactionId,
+      };
+    } finally {
+      release();
+    }
+  }
+
   async loadRegistry(): Promise<ArtifactRegistry | null> {
     return (await this.tryReadRegistry())?.registry ?? null;
   }
@@ -508,7 +599,7 @@ export class ArtifactPairService {
       payload: {
         kind: ARTIFACT_REGISTRY_ARTIFACT_TYPE,
         title: "Canonical Artifact Registry",
-        contentMarkdown: renderRegistryMarkdown(registry),
+        contentMarkdown: renderArtifactRegistryContentMarkdown(registry),
         data: registry as unknown as JsonValue,
       },
     });
@@ -932,23 +1023,6 @@ function canonicalTimestamp(value: string): string {
   const timestamp = new Date(value);
   if (!Number.isFinite(timestamp.valueOf())) throw new TypeError("Clock returned an invalid timestamp.");
   return timestamp.toISOString();
-}
-
-function renderRegistryMarkdown(registry: ArtifactRegistry): string {
-  const rows = registry.entries.map(
-    (entry) =>
-      `| ${entry.artifactId} | ${entry.artifactType} | ${entry.revision} | ${entry.status} | ${entry.authoritative ? "yes" : "no"} | ${entry.synchronized ? "yes" : "no"} |`,
-  );
-  return [
-    "# Canonical Artifact Registry",
-    "",
-    `Entries: ${registry.entries.length}`,
-    "",
-    "| Artifact ID | Type | Revision | Status | Authority | Synchronized |",
-    "| --- | --- | ---: | --- | --- | --- |",
-    ...rows,
-    "",
-  ].join("\n");
 }
 
 function cloneRegistryEntry<T extends ArtifactRegistry["entries"][number]>(entry: T): T {

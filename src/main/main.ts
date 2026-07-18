@@ -105,6 +105,7 @@ import type {
   CurrentContextPacketExportRequest,
   CurrentContextPacketPreviewRequest,
 } from "../shared/contextPackets/contextPacket";
+import type { ExecutionRunLookupRequest } from "../shared/executionRuns";
 import type {
   AddProjectWorkspaceRequest,
   ProjectFolderSelectionResult,
@@ -113,6 +114,7 @@ import {
   addProjectWorkspace,
   contextPacketService,
   currentContextPacketCompiler,
+  executionRunService,
   initializeCanonicalRuntime,
   listProjectWorkspaces,
   refreshSelectedRepository,
@@ -607,6 +609,16 @@ function registerWorkCardIpc(): void {
   );
   ipcMain.handle("workCards:getCurrentRequiredAction", () =>
     getCurrentRequiredAction(),
+  );
+  ipcMain.handle(
+    "executionRuns:load",
+    (_event, input: ExecutionRunLookupRequest) =>
+      executionRunService.loadStatus(input),
+  );
+  ipcMain.handle(
+    "executionRuns:previewNextPacket",
+    (_event, input: ExecutionRunLookupRequest) =>
+      executionRunService.previewNextPacket(input),
   );
   registerProcessIpc(
     "contextPackets:previewCurrent",

@@ -198,6 +198,11 @@ import type {
   CurrentContextPacketPreviewResult,
 } from "../shared/contextPackets/contextPacket";
 import type {
+  ExecutionJobPreviewResult,
+  ExecutionRunLookupRequest,
+  ExecutionRunOperationResult,
+} from "../shared/executionRuns";
+import type {
   AddProjectWorkspaceRequest,
   ProjectFolderSelectionResult,
   ProjectScanResult,
@@ -416,6 +421,8 @@ declare global {
   type ChampCityCurrentContextPacketPreviewResult =
     CurrentContextPacketPreviewResult;
   type ChampCityContextPacketExportResult = ContextPacketExportResult;
+  type ChampCityExecutionRunOperationResult = ExecutionRunOperationResult;
+  type ChampCityExecutionJobPreviewResult = ExecutionJobPreviewResult;
 
   interface Window {
     champCity: {
@@ -604,6 +611,12 @@ declare global {
         phase: string,
       ) => Promise<PhaseCloseoutSummaryResult>;
       getCurrentRequiredAction: () => Promise<CurrentRequiredActionResult>;
+      loadExecutionRun: (
+        input: ExecutionRunLookupRequest,
+      ) => Promise<ExecutionRunOperationResult>;
+      previewNextExecutionJob: (
+        input: ExecutionRunLookupRequest,
+      ) => Promise<ExecutionJobPreviewResult>;
       previewCurrentContextPacket: (
         input: CurrentContextPacketPreviewRequest,
       ) => Promise<CurrentContextPacketPreviewResult>;

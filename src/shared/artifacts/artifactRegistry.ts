@@ -101,6 +101,24 @@ export function buildArtifactRegistry(input: ArtifactRegistryInput): ArtifactReg
   return registry;
 }
 
+export function renderArtifactRegistryContentMarkdown(registry: ArtifactRegistry): string {
+  assertArtifactRegistry(registry);
+  const rows = registry.entries.map(
+    (entry) =>
+      `| ${entry.artifactId} | ${entry.artifactType} | ${entry.revision} | ${entry.status} | ${entry.authoritative ? "yes" : "no"} | ${entry.synchronized ? "yes" : "no"} |`,
+  );
+  return [
+    "# Canonical Artifact Registry",
+    "",
+    `Entries: ${registry.entries.length}`,
+    "",
+    "| Artifact ID | Type | Revision | Status | Authority | Synchronized |",
+    "| --- | --- | ---: | --- | --- | --- |",
+    ...rows,
+    "",
+  ].join("\n");
+}
+
 export function validateArtifactRegistry(value: unknown): ArtifactRegistryValidationResult {
   const issues: ArtifactValidationIssue[] = [];
   const issue = (code: string, path: string, message: string): void => {

@@ -1560,6 +1560,10 @@ function ArtifactWorkspace({
           <div className="h-full overflow-y-auto">
             <CurrentStepContextInspector model={contextModel} />
             <CurrentContextPacketControls />
+            <ExecutionRunControllerPanel
+              phaseId={contextModel.route.phaseId}
+              workCardId={contextModel.route.workCardId}
+            />
           </div>
         </div>
       ) : null}
@@ -1766,6 +1770,173 @@ function CurrentContextPacketControls() {
   );
 }
 
+function ExecutionRunControllerPanel({
+  phaseId,
+  workCardId,
+}: {
+  phaseId?: string;
+  workCardId?: string;
+}) {
+  const [result, setResult] =
+    useState<ChampCityExecutionRunOperationResult | ChampCityExecutionJobPreviewResult | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setResult(null);
+    if (!phaseId || !workCardId) return;
+    void refreshStatus();
+  }, [phaseId, workCardId]);
+
+  async function refreshStatus() {
+    if (!phaseId || !workCardId) return;
+    setBusy(true);
+    const next = await window.champCity.loadExecutionRun({ phaseId, workCardId });
+    setBusy(false);
+    setResult(next);
+  }
+
+  async function previewNext() {
+    if (!phaseId || !workCardId) return;
+    setBusy(true);
+    const next = await window.champCity.previewNextExecutionJob({ phaseId, workCardId });
+    setBusy(false);
+    setResult(next);
+  }
+
+  if (!phaseId || !workCardId) return null;
+
+  const run = result?.run;
+  const job = result && "job" in result ? result.job : undefined;
+  const currentPass = run?.passes.find(
+    (pass) => pass.passId === run.currentPassId,
+  );
+  const verifiedCount =
+    run?.passes.filter((pass) => pass.status === "verified").length ?? 0;
+
+  return (
+    <section className="mx-5 mb-5 rounded-lg border border-border bg-card/35 p-4">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
+            Execution Run status
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground/75">
+            Bounded pass state and packet previews are loaded from synchronized
+            canonical authority. Runner transport and Operator acceptance are
+            deferred.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void refreshStatus()}
+          className="rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+        >
+          {busy ? "Working..." : "Refresh run"}
+        </button>
+      </div>
+
+      {!result ? (
+        <div className="mt-3 text-xs text-muted-foreground/65">
+          Loading canonical Execution Run state.
+        </div>
+      ) : !result.ok || !run ? (
+        <div className="mt-3 rounded-md border border-amber-400/20 bg-amber-400/[0.05] px-3 py-2 text-xs leading-relaxed text-amber-100/75">
+          {result.errorMessages?.join(" ") ??
+            "No canonical Execution Run is available for this Work Card."}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <ContextMetadataCard label="Run status" value={run.status} />
+            <ContextMetadataCard
+              label="Current pass"
+              value={currentPass ? `${currentPass.passId} - ${currentPass.title}` : "none"}
+            />
+            <ContextMetadataCard
+              label="Verified passes"
+              value={`${verifiedCount} of ${run.passes.length}`}
+            />
+            <ContextMetadataCard label="Runner transport" value="deferred" />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {run.passes.map((pass) => (
+              <span
+                key={pass.passId}
+                className={cn(
+                  "rounded border px-2 py-1 text-[10px] font-semibold",
+                  pass.status === "verified"
+                    ? "border-emerald-400/25 bg-emerald-400/[0.06] text-emerald-300"
+                    : pass.passId === run.currentPassId
+                      ? "border-primary/30 bg-primary/[0.08] text-primary"
+                      : pass.status === "changes_required" ||
+                          pass.status === "governance_contradiction" ||
+                          pass.status === "execution_failure"
+                        ? "border-amber-400/25 bg-amber-400/[0.06] text-amber-300"
+                        : "border-border bg-background/30 text-muted-foreground/65",
+                )}
+              >
+                {pass.passId} - {pass.status} - {pass.attempts.length} attempt
+                {pass.attempts.length === 1 ? "" : "s"}
+              </span>
+            ))}
+          </div>
+
+          {run.operatorAttentionReasons.length > 0 ? (
+            <div className="mt-3 rounded-md border border-red-400/20 bg-red-400/[0.05] px-3 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-red-300/80">
+                Operator attention required
+              </div>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-red-100/75">
+                {run.operatorAttentionReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {job ? (
+            <div className="mt-4 rounded-md border border-primary/20 bg-primary/[0.035] p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-primary">
+                  Next packet: {job.role.replaceAll("_", " ")}
+                </span>
+                <span className="text-[10px] text-muted-foreground/60">
+                  {job.passId} - attempt {job.attempt} - {job.estimatedTokens}/
+                  {job.budgetTokens} estimated tokens
+                </span>
+              </div>
+              <details className="mt-2 text-[10px] text-muted-foreground/60">
+                <summary className="cursor-pointer">Preview bounded packet</summary>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/45 p-3 leading-relaxed">
+                  {job.markdown}
+                </pre>
+              </details>
+              {job.overBudget ? (
+                <div className="mt-3 rounded border border-amber-400/20 bg-amber-400/[0.05] px-3 py-2 text-[11px] text-amber-100/75">
+                  This preview exceeds its configured packet budget. Dispatch
+                  authorization is deferred to a later transport Work Card.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void previewNext()}
+              className="rounded-md border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-50"
+            >
+              Preview next packet
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
 function workspaceTabClass(active: boolean): string {
   return cn(
     "flex items-center gap-2 rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors",
@@ -3364,3 +3535,4 @@ function stateLabel(state: WorkflowState): string {
 
   return labels[state];
 }
+

@@ -125,6 +125,11 @@ import type {
   CurrentContextPacketPreviewRequest,
   CurrentContextPacketPreviewResult,
 } from "../shared/contextPackets/contextPacket";
+import type {
+  ExecutionJobPreviewResult,
+  ExecutionRunLookupRequest,
+  ExecutionRunOperationResult,
+} from "../shared/executionRuns";
 import type { RoutedActionContract } from "../shared/workflow";
 import type {
   AddProjectWorkspaceRequest,
@@ -422,6 +427,14 @@ const api = {
     ipcRenderer.invoke("workCards:getPhaseCloseoutSummary", phase),
   getCurrentRequiredAction: (): Promise<CurrentRequiredActionResult> =>
     refreshCurrentRequiredAction(),
+  loadExecutionRun: (
+    input: ExecutionRunLookupRequest,
+  ): Promise<ExecutionRunOperationResult> =>
+    ipcRenderer.invoke("executionRuns:load", input),
+  previewNextExecutionJob: (
+    input: ExecutionRunLookupRequest,
+  ): Promise<ExecutionJobPreviewResult> =>
+    ipcRenderer.invoke("executionRuns:previewNextPacket", input),
   previewCurrentContextPacket: (
     input: CurrentContextPacketPreviewRequest,
   ): Promise<CurrentContextPacketPreviewResult> =>

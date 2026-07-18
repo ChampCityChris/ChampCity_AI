@@ -13,6 +13,10 @@ import {
   ArtifactPairContextPacketWriter,
   ContextPacketService,
 } from "./contextPackets/contextPacketService";
+import {
+  ExecutionRunAuthorityService,
+  ExecutionRunPersistenceService,
+} from "./executionRuns";
 import { ProjectWorkspaceRegistry } from "./projects";
 import {
   RepositoryObserver,
@@ -30,6 +34,7 @@ interface ActiveProjectRuntime {
   routedInvocation: RoutedProcessInvocationService;
   contextCompiler: CurrentContextPacketCompiler;
   contextService: ContextPacketService;
+  executionRuns: ExecutionRunAuthorityService;
 }
 
 let workspaces: ProjectWorkspaceRegistry | null = null;
@@ -50,6 +55,9 @@ export const currentContextPacketCompiler = forwardingProxy<CurrentContextPacket
 );
 export const contextPacketService = forwardingProxy<ContextPacketService>(
   () => requireActive().contextService,
+);
+export const executionRunService = forwardingProxy<ExecutionRunAuthorityService>(
+  () => requireActive().executionRuns,
 );
 
 export async function initializeCanonicalRuntime(input: {
@@ -195,6 +203,14 @@ async function activateProject(projectId: string): Promise<void> {
     new ArtifactPairContextPacketWriter(authority.artifactPairs),
     project.projectId,
   );
+  const executionPersistence = new ExecutionRunPersistenceService(
+    authority.artifactPairs,
+    project.projectId,
+  );
+  const executionRuns = new ExecutionRunAuthorityService(
+    executionPersistence,
+    project.projectId,
+  );
   const observer = new RepositoryObserver(project, registry, refresh);
   for (const listener of projectionListeners) refresh.subscribe(listener);
   for (const listener of projectRootListeners) {
@@ -208,6 +224,7 @@ async function activateProject(projectId: string): Promise<void> {
     routedInvocation,
     contextCompiler,
     contextService,
+    executionRuns,
   };
   await refresh.refresh("project-switch");
   await observer.start();

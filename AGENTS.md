@@ -172,3 +172,16 @@ This project has a known false-failure mode where sandboxed Codex execution can 
 Do not repeatedly retry these commands inside the sandbox. Use the approved validation wrapper/lane documented in `docs/dev/VALIDATION_COMMAND_LANES.md`.
 
 When reporting validation, state which execution lane was used. Do not mark validation as complete based only on a sandboxed command that failed with `spawn EPERM`.
+
+## Literal Compliance, Execution Passes, And Independent Verification
+
+- Implement Work Card requirements literally. Do not substitute a mechanism the Implementer considers equivalent when the Work Card requires or prohibits a specific architecture, authority path, schema, boundary, or test.
+- A passing end-to-end route or green test suite does not satisfy a requirement while a prohibited production mechanism remains.
+- Replacement-mode Work Cards default to deletion of superseded authority. Runtime compatibility readers, aliases, fallbacks, dual authority, and legacy-field interpretation are prohibited unless the Work Card explicitly preserves them.
+- Missing mandatory authority fields must block. Production runtime code must not act as a migration layer for legacy records.
+- Large implementation Work Cards must be executed through an approved Execution Pass Plan. Execution Passes are subordinate implementation procedure, not Work Cards, repairs, candidates, approvals, or acceptance decisions.
+- The application should compile bounded Implementer and Independent Verifier packets from the approved Work Card, Acceptance Contract, current repository state, and verified prior pass results. Routine packet transfer must not require Operator copy/paste.
+- Implementer-authored tests are necessary but not sufficient. Each material pass requires independent verification before the Execution Run advances.
+- Independent verification must inspect production code and run adversarial acceptance tests. It must not modify production code or treat the Implementer Report narrative as proof.
+- The Implementer must not perform final Operator acceptance. A Validation Agent may execute the approved Operator validation procedure and draft a report, but the human Operator retains approval, rejection, and observation authority.
+- Follow `docs/governance/EXECUTION_PASS_PROTOCOL.md`, `docs/governance/IMPLEMENTER_LITERAL_COMPLIANCE_PROTOCOL.md`, and `docs/governance/INDEPENDENT_VALIDATION_PROTOCOL.md`. If a required protocol is missing, unreadable, or contradicts the approved Work Card, stop and report the contradiction.
