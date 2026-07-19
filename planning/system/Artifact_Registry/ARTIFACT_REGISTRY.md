@@ -9,7 +9,7 @@
     "kind": "artifact_registry",
     "title": "Canonical Artifact Registry"
   },
-  "payloadHash": "sha256:227e6d0cf34df393b5538d2851a20fb3d9700e8fd197229e04be3e895b5b5783",
+  "payloadHash": "sha256:f8c46f4c9ff111b1a2f72082a0323741d7eee1edf98ff504d8473169da6cf678",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -122,6 +122,7 @@
       "champcity-ai/phase-04/work_card/WC01",
       "champcity-ai/phase-04/work_card/WC01-REPAIR01",
       "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/architect_review/WC03",
       "champcity-ai/phase-06/architect_review/WC04",
       "champcity-ai/phase-06/architect_review/WC05",
       "champcity-ai/phase-06/implementer_report/WC04",
@@ -130,12 +131,16 @@
       "champcity-ai/phase-06/operator_approval/WC04",
       "champcity-ai/phase-06/operator_approval/WC05",
       "champcity-ai/phase-06/operator_approval/WC06",
+      "champcity-ai/phase-06/operator_validation/WC03",
       "champcity-ai/phase-06/work_card/WC04",
       "champcity-ai/phase-06/work_card/WC05",
       "champcity-ai/phase-06/work_card/WC06",
       "champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1",
       "champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1",
       "champcity-ai/phase-06/work_card/WC06/execution_run/revision-1",
+      "champcity-ai/phase-07/phase_activation/phase-07",
+      "champcity-ai/phase-07/phase_planning/Phase_Planning",
+      "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
       "champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i",
       "champcity-ai/project/backlog/WORK_CARD_BACKLOG",
       "champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL",
@@ -168,16 +173,16 @@
     ],
     "supersedes": []
   },
-  "revision": 66,
+  "revision": 71,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-18T21:02:19.584Z"
+  "updatedAt": "2026-07-18T23:30:00.000Z"
 }
 -->
 
 # Canonical Artifact Registry
 
-Entries: 150
+Entries: 155
 
 | Artifact ID | Type | Revision | Status | Authority | Synchronized |
 | --- | --- | ---: | --- | --- | --- |
@@ -288,6 +293,7 @@ Entries: 150
 | champcity-ai/phase-04/work_card/WC01 | work_card | 1 | active | yes | yes |
 | champcity-ai/phase-04/work_card/WC01-REPAIR01 | work_card | 3 | active | yes | yes |
 | champcity-ai/phase-04/work_card_plan/Work_Card_Plan | work_card_plan | 1 | active | yes | yes |
+| champcity-ai/phase-06/architect_review/WC03 | architect_review | 1 | active | yes | yes |
 | champcity-ai/phase-06/architect_review/WC04 | architect_review | 1 | active | yes | yes |
 | champcity-ai/phase-06/architect_review/WC05 | architect_review | 2 | active | yes | yes |
 | champcity-ai/phase-06/implementer_report/WC04 | implementer_report | 3 | active | yes | yes |
@@ -296,12 +302,16 @@ Entries: 150
 | champcity-ai/phase-06/operator_approval/WC04 | operator_approval | 3 | active | yes | yes |
 | champcity-ai/phase-06/operator_approval/WC05 | operator_approval | 3 | active | yes | yes |
 | champcity-ai/phase-06/operator_approval/WC06 | operator_approval | 1 | active | yes | yes |
+| champcity-ai/phase-06/operator_validation/WC03 | operator_validation | 1 | active | yes | yes |
 | champcity-ai/phase-06/work_card/WC04 | work_card | 3 | active | yes | yes |
 | champcity-ai/phase-06/work_card/WC05 | work_card | 3 | active | yes | yes |
 | champcity-ai/phase-06/work_card/WC06 | work_card | 1 | active | yes | yes |
 | champcity-ai/phase-06/work_card/WC06/acceptance_contract/revision-1 | acceptance_contract | 1 | active | yes | yes |
 | champcity-ai/phase-06/work_card/WC06/execution_pass_plan/revision-1 | execution_pass_plan | 1 | active | yes | yes |
 | champcity-ai/phase-06/work_card/WC06/execution_run/revision-1 | execution_run | 1 | active | yes | yes |
+| champcity-ai/phase-07/phase_activation/phase-07 | phase_activation | 1 | active | yes | yes |
+| champcity-ai/phase-07/phase_planning/Phase_Planning | phase_planning | 2 | active | yes | yes |
+| champcity-ai/phase-07/work_card_plan/Work_Card_Plan | work_card_plan | 1 | active | yes | yes |
 | champcity-ai/project/architect_interview/PROJECT_ARCHITECT_INTERVIEW_PROMPT_champcity_a_i | architect_interview | 3 | active | yes | yes |
 | champcity-ai/project/backlog/WORK_CARD_BACKLOG | backlog | 2 | pending | yes | yes |
 | champcity-ai/project/design_document/ARTIFACT_AUTHORITY_MODEL | design_document | 3 | active | yes | yes |

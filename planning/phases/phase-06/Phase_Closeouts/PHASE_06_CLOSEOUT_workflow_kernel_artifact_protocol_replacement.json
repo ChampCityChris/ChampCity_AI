@@ -1,0 +1,45 @@
+{
+  "artifactId": "champcity-ai/phase-06/phase_closeout/PHASE_06",
+  "artifactType": "phase_closeout",
+  "createdAt": "2026-07-18T21:50:00.000Z",
+  "jsonPath": "planning/phases/phase-06/Phase_Closeouts/PHASE_06_CLOSEOUT_workflow_kernel_artifact_protocol_replacement.json",
+  "markdownPath": "planning/phases/phase-06/Phase_Closeouts/PHASE_06_CLOSEOUT_workflow_kernel_artifact_protocol_replacement.md",
+  "payload": {
+    "contentMarkdown": "# Phase 06 Closeout: Workflow Kernel and Artifact Protocol Replacement\n\nStatus: closed\nProject: ChampCity A/I\nPhase: phase-06 — Workflow Kernel and Artifact Protocol Replacement\nCloseout date: 2026-07-18\nClosing commit: `7708682598bc9f66f3f4c8af8da61867aded56bb`\n\n## Closeout Decision\n\nPhase 06 is closed.\n\nThe Operator approved the Phase 06 foundation and authorized Phase 07 planning. Phase 07 implementation is not authorized by this closeout.\n\n## Completed Outcomes\n\n- Replaced the failed evidence-projector foundation with a deterministic workflow domain and relationship-driven kernel.\n- Established typed project, phase, Work Card, repair, replacement, and transition identities without filename, suffix, timestamp, or synthetic-ID authority.\n- Established the canonical artifact-pair protocol and repaired the Artifact Registry schema and registration path.\n- Preserved Workflow State as a derived projection rather than independent authority over verified artifacts.\n- Added exact Work Card and Operator Approval binding for trusted execution-run activation.\n- Added canonical Acceptance Contract, Execution Pass Plan, and Execution Run persistence.\n- Added a bounded Execution Runs supporting workspace with no queue, process, completion, verifier-decision, or acceptance mutation controls.\n- Added repository and mounted-renderer validation proving relationship-driven routing, no stale fallback, persistence, restart parity, and test-fixture isolation.\n- Closed the prior WC02 line through a terminal replacement path; WC03 established the replacement kernel foundation.\n- Completed the WC04 through WC06 recovery checkpoints needed to make Registry authority and execution-run activation durable.\n\n## Acceptance Evidence\n\n- WC03 deterministic workflow-domain and kernel replacement commit.\n- WC04 Registry schema repair and recovery-candidate registration acceptance.\n- WC05 execution-pass and independent-verification foundation acceptance.\n- WC06 trusted execution-run activation workspace acceptance.\n- WC06 committed state at `7708682598bc9f66f3f4c8af8da61867aded56bb`.\n- Independent typecheck passed at the closing commit.\n- WC06 Implementer Report records passing build, 78/78 unit tests, repository gate, and mounted renderer probes.\n- Operator validation approved Phase 06 closeout and Phase 07 planning activation.\n\n## Authority Disposition After Closeout\n\n- The Phase 06 relationship-driven kernel is the workflow-resolution foundation.\n- Canonical JSON/Markdown artifact pairs and exact Registry identity are durable authority inputs.\n- Artifact Registry is the canonical registry/index under the Phase 06 protocol.\n- Workflow State remains derived projection/cache and cannot override verified graph evidence.\n- The application is not yet the reliable primary workflow controller; that decision remains reserved for Phase 08 dogfooding re-entry.\n\n## Deferred Work Carried Forward\n\nThe following were intentionally not completed in Phase 06 and are not represented as Phase 06 defects:\n\n- ChatGPT.com browser-hosted Implementer Agent integration.\n- Independent Verifier Agent integration.\n- Operator Validation Agent integration.\n- Runner Transport and process-launch authority.\n- Retry limits, runner-failure escalation, and transport logging.\n- Automatic Git checkpoints and end-user Git abstraction.\n- Full validation/evidence governance.\n- In-application dogfooding re-entry.\n- Release packaging.\n\nPhase 07 planning must determine the MCP-first Architect Bridge boundary and the additional purpose-built tools required for browser-hosted agent roles. Later roadmap phases retain their existing implementation ownership unless Phase 07 planning explicitly rebaselines them with Operator approval.\n\n## Next Phase Activation Decision\n\nActivate Phase 07 planning.\n\nPhase 07 title:\n\n```text\nArchitect Bridge and MCP-First Integration\n```\n\nThe immediate next governed output is the Phase 07 planning bundle. No Phase 07 implementation Work Card is authorized until the Operator approves the Phase Planning and Work Card Plan.\n",
+    "data": {
+      "closingCommit": "7708682598bc9f66f3f4c8af8da61867aded56bb",
+      "decision": "close_phase_and_activate_phase_07_planning",
+      "implementationAuthorized": false,
+      "nextPhaseId": "phase-07",
+      "nextPhaseTitle": "Architect Bridge and MCP-First Integration",
+      "phaseId": "phase-06",
+      "status": "closed"
+    },
+    "kind": "phase_closeout",
+    "title": "Phase 06 Closeout: Workflow Kernel and Artifact Protocol Replacement"
+  },
+  "payloadHash": "sha256:b686d4d2a3a0258cecd6e2475f8e4e0f82ff79d2f4c3be845314df49004a3663",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-07/phase_activation/phase-07"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/operator_validation/WC06",
+      "champcity-ai/phase-06/architect_review/WC06",
+      "champcity-ai/phase-06/implementer_report/WC06",
+      "champcity-ai/phase-06/architect_review/WC05",
+      "champcity-ai/phase-06/architect_review/WC04",
+      "champcity-ai/phase-06/work_card/WC03",
+      "champcity-ai/phase-06/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-06/phase_activation/phase-06"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T21:50:00.000Z"
+}

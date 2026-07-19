@@ -1,0 +1,244 @@
+<!-- champcity-artifact-envelope
+{
+  "artifactId": "champcity-ai/phase-07/work_card/WC01",
+  "artifactType": "work_card",
+  "createdAt": "2026-07-18T22:58:48.627Z",
+  "jsonPath": "planning/phases/phase-07/Work_Cards/WC01_champcity_gpt_portability_review_shared_core_architecture_contract.json",
+  "markdownPath": "planning/phases/phase-07/Work_Cards/WC01_champcity_gpt_portability_review_shared_core_architecture_contract.md",
+  "parentArtifactId": "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
+  "payload": {
+    "contentMarkdown": "# Work Card: Phase 07 WC01 — ChampCity_GPT Portability Review and Shared-Core Architecture Contract\n\nStatus: pending_operator_approval\nOwner: Implementer for evidence collection and draft artifacts; Architect for review\nRisk: high\nPlan order: 1\nExpected report: `champcity-ai/phase-07/implementer_report/WC01`\n\n## Objective\n\nComplete the top-to-bottom ChampCity_GPT review and produce the accepted extraction contract before any shared-core repository, package, source migration, ChampCity_AI embedding, or ChatGPT role execution begins.\n\nApproved planning authority:\n\n- Phase Planning revision 2\n- Work Card Plan revision 1\n- Operator Phase Approval revision 1\n\nRepository baselines:\n\n- ChampCity_AI: `7708682598bc9f66f3f4c8af8da61867aded56bb`\n- ChampCity_GPT: `780217aa1046ad8d271d13887ba1121bba419362`, version `0.3.0`, branch `dev`\n\nThe ChampCity_AI Git branch name is historical plumbing and is not workflow authority.\n\n## Invariants\n\n- One shared MCP source of truth; no copied fork in ChampCity_AI.\n- ChampCity_GPT remains a standalone product.\n- ChampCity_AI retains workflow, role, canonical artifact, Registry, transition, and acceptance authority.\n- Standalone and embedded hosts use isolated runtime, OAuth, port, log, and audit state.\n- No extraction or embedding occurs in WC01.\n- Review coverage must distinguish full-text review, inventory-only review, and exclusions.\n\n## P01 — Authority reconciliation\n\nReconcile the Phase 06-to-Phase 07 baseline before architecture work is accepted.\n\nRequired:\n\n1. Register and reread the approved Phase Planning, Work Card Plan, and Operator Phase Approval pairs through existing canonical ChampCity_AI services.\n2. Register the current Project Roadmap and Project State revisions showing Phase 06 closed and Phase 07 active.\n3. Retire or replace the placeholder-grade WC03 Architect Review and Operator Validation records without treating them as acceptance evidence.\n4. Remove or explicitly supersede the incorrect WC06 P04/P05 handoff.\n5. Correct the stale lifecycle test so it validates the newest valid activation/closeout authority rather than hard-coding Phase 06 or Phase 07.\n6. Do not manually fabricate Registry entries. Stop and report if existing canonical services cannot perform the transaction.\n\nAllowed ChampCity_AI scope:\n\n- affected Phase 06 WC03 review/validation records;\n- Phase 06 closeout and Phase 07 planning records;\n- Project Roadmap and Project State;\n- canonical Artifact Registry;\n- the obsolete WC06 P04/P05 handoff;\n- `test/wc02-repair03/full-workflow-resolver-foundation.test.cjs`.\n\nNo production source changes.\n\n## P02 — Complete ChampCity_GPT review\n\nReview all first-party:\n\n- runtime source;\n- tests;\n- scripts;\n- package/build/Electron configuration;\n- MCP registration, transports, lifecycle, OAuth/DCR/PKCE, workspaces, runtime paths, tools, security, audit, diagnostics, packaging, and connector behavior;\n- current technical, security, setup, tool, and release documentation.\n\nInventory historical planning records and read those needed to establish current architectural intent. Exclude dependencies, generated output, binaries, logs, local configuration, and secrets.\n\nRequired outputs:\n\n- coverage accounting by category;\n- subsystem classification: `core_reuse`, `core_with_host_adapter`, `standalone_host_only`, `champcity_ai_host_replacement`, or `retire`;\n- dependency and runtime-assumption maps;\n- protected-subsystem and security-preservation matrix;\n- current gaps blocking extraction or embedding;\n- tests mapped to protected behavior;\n- documentation and runtime/version inconsistencies.\n\nChampCity_GPT is read-only in WC01.\n\n## P03 — Architecture and role contracts\n\nDefine:\n\n- the separately versioned shared-core boundary and dependencies;\n- host interfaces for configuration, runtime paths, workspaces, audit sink, validation profiles, process lifecycle, tool extensions, diagnostics, and version reporting;\n- preserved ChampCity_GPT standalone-host responsibilities;\n- ChampCity_AI managed-process host responsibilities;\n- package/repository versioning and local-development consumption;\n- proof that no copied or fallback MCP implementation remains;\n- isolated ports, stores, logs, OAuth records, audit records, process identity, and shutdown behavior.\n\nDefine role contracts for:\n\n- ChatGPT Architect Agent;\n- separate-conversation Independent Verifier Agent;\n- human-assisted Operator Validation Agent;\n- Codex as primary Implementer;\n- future browser Implementer requirements without implementation.\n\nProduce a role-to-tool matrix identifying each capability as existing shared-core tool, ChampCity_AI host adapter, missing tool, or prohibited capability. Define exact assignment, attempt, source-hash, expected-result, idempotency, wrong-role, stale-result, duplicate-result, and cross-project rules.\n\n## P04 — Migration and acceptance package\n\nDefine the WC02 execution plan:\n\n- shared repository/package creation;\n- source extraction;\n- ChampCity_GPT migration;\n- ChampCity_AI embedding;\n- fallback retirement;\n- rollback checkpoints;\n- dual-host regression;\n- OAuth and connector evidence;\n- packaging and release ownership;\n- risk register and unresolved Operator decisions.\n\nCreate synchronized outputs:\n\n- `planning/phases/phase-07/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_champcity_gpt_portability_extraction_review.{json,md}`\n- `planning/phases/phase-07/Design_Documents/DESIGN_DOCUMENT_WC01_shared_mcp_core_dual_host_architecture_contract.{json,md}`\n- `planning/phases/phase-07/Design_Documents/DESIGN_DOCUMENT_WC01_governed_role_tool_permission_matrix.{json,md}`\n- `planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC01_champcity_gpt_portability_review_shared_core_architecture.{json,md}`\n\nThe report must include exact coverage, classification, dependencies, gaps, security controls, host interfaces, role/tool matrix, migration, rollback, validation, unresolved decisions, file changes, command results, Registry state, and final Git status for both repositories.\n\n## Validation\n\nChampCity_AI:\n\n- typecheck;\n- focused lifecycle/artifact tests;\n- full test lane unless an unrelated documented harness failure remains;\n- Registry load and pair synchronization.\n\nChampCity_GPT:\n\n- independently confirm clean `dev`, version `0.3.0`, and exact baseline commit;\n- confirm no worktree mutation.\n\nNo packaging or live connector mutation is authorized.\n\n## Prohibited\n\n- creating or publishing `ChampCity_MCP_Core`;\n- moving or copying source;\n- changing ChampCity_GPT production code;\n- embedding MCP in ChampCity_AI;\n- implementing new tools or agent execution;\n- changing OAuth, transport, packaging, or endpoint behavior;\n- commit, merge, push, tag, release, Operator acceptance, or phase closeout.\n\n## Stop Conditions\n\nStop when exact authority cannot be verified, canonical reconciliation requires new production architecture, full review coverage cannot be demonstrated, source duplication would be required, standalone compatibility cannot be preserved, a protected subsystem change is required, or an unresolved Operator decision blocks the extraction contract.\n",
+    "data": {
+      "expectedImplementerReportArtifactId": "champcity-ai/phase-07/implementer_report/WC01",
+      "implementationBaselines": {
+        "champcityAiCommit": "7708682598bc9f66f3f4c8af8da61867aded56bb",
+        "champcityGptCommit": "780217aa1046ad8d271d13887ba1121bba419362",
+        "champcityGptVersion": "0.3.0"
+      },
+      "owner": "Implementer",
+      "reviewAuthority": "Architect",
+      "planOrder": 1,
+      "productionSourceCodeChangesAuthorized": false,
+      "sourceCodeChangesAuthorized": true,
+      "status": "pending_operator_approval",
+      "workCardKind": "planned_candidate",
+      "workspaces": [
+        "champcity_ai",
+        "champcity_gpt"
+      ],
+      "passes": [
+        {
+          "passId": "P01",
+          "title": "Authority reconciliation"
+        },
+        {
+          "passId": "P02",
+          "title": "Complete ChampCity_GPT review"
+        },
+        {
+          "passId": "P03",
+          "title": "Architecture and role contracts"
+        },
+        {
+          "passId": "P04",
+          "title": "Migration and acceptance package"
+        }
+      ]
+    },
+    "kind": "work_card",
+    "title": "Work Card: Phase 07 WC01 — ChampCity_GPT Portability Review and Shared-Core Architecture Contract"
+  },
+  "payloadHash": "sha256:3eba9bf883f4193ae4b8dd412cc8468653f25619e53a83b2211381fa98ad6fd7",
+  "phaseId": "phase-07",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [
+      "champcity-ai/phase-07/operator_approval/WC01",
+      "champcity-ai/phase-07/diagnostic_report/WC01",
+      "champcity-ai/phase-07/design_document/WC01-shared-mcp-core-dual-host-architecture",
+      "champcity-ai/phase-07/design_document/WC01-role-tool-permission-matrix",
+      "champcity-ai/phase-07/implementer_report/WC01"
+    ],
+    "expectedOutputs": [
+      "champcity-ai/phase-07/operator_approval/WC01",
+      "champcity-ai/phase-07/diagnostic_report/WC01",
+      "champcity-ai/phase-07/design_document/WC01-shared-mcp-core-dual-host-architecture",
+      "champcity-ai/phase-07/design_document/WC01-role-tool-permission-matrix",
+      "champcity-ai/phase-07/implementer_report/WC01"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/phase_closeout/PHASE_06",
+      "champcity-ai/phase-07/phase_activation/phase-07",
+      "champcity-ai/phase-07/phase_planning/Phase_Planning",
+      "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
+      "champcity-ai/phase-07/operator_approval/Operator_Phase_Approval",
+      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T22:58:48.627Z",
+  "workCardId": "WC01"
+}
+-->
+
+# Work Card: Phase 07 WC01 — ChampCity_GPT Portability Review and Shared-Core Architecture Contract
+
+Status: pending_operator_approval
+Owner: Implementer for evidence collection and draft artifacts; Architect for review
+Risk: high
+Plan order: 1
+Expected report: `champcity-ai/phase-07/implementer_report/WC01`
+
+## Objective
+
+Complete the top-to-bottom ChampCity_GPT review and produce the accepted extraction contract before any shared-core repository, package, source migration, ChampCity_AI embedding, or ChatGPT role execution begins.
+
+Approved planning authority:
+
+- Phase Planning revision 2
+- Work Card Plan revision 1
+- Operator Phase Approval revision 1
+
+Repository baselines:
+
+- ChampCity_AI: `7708682598bc9f66f3f4c8af8da61867aded56bb`
+- ChampCity_GPT: `780217aa1046ad8d271d13887ba1121bba419362`, version `0.3.0`, branch `dev`
+
+The ChampCity_AI Git branch name is historical plumbing and is not workflow authority.
+
+## Invariants
+
+- One shared MCP source of truth; no copied fork in ChampCity_AI.
+- ChampCity_GPT remains a standalone product.
+- ChampCity_AI retains workflow, role, canonical artifact, Registry, transition, and acceptance authority.
+- Standalone and embedded hosts use isolated runtime, OAuth, port, log, and audit state.
+- No extraction or embedding occurs in WC01.
+- Review coverage must distinguish full-text review, inventory-only review, and exclusions.
+
+## P01 — Authority reconciliation
+
+Reconcile the Phase 06-to-Phase 07 baseline before architecture work is accepted.
+
+Required:
+
+1. Register and reread the approved Phase Planning, Work Card Plan, and Operator Phase Approval pairs through existing canonical ChampCity_AI services.
+2. Register the current Project Roadmap and Project State revisions showing Phase 06 closed and Phase 07 active.
+3. Retire or replace the placeholder-grade WC03 Architect Review and Operator Validation records without treating them as acceptance evidence.
+4. Remove or explicitly supersede the incorrect WC06 P04/P05 handoff.
+5. Correct the stale lifecycle test so it validates the newest valid activation/closeout authority rather than hard-coding Phase 06 or Phase 07.
+6. Do not manually fabricate Registry entries. Stop and report if existing canonical services cannot perform the transaction.
+
+Allowed ChampCity_AI scope:
+
+- affected Phase 06 WC03 review/validation records;
+- Phase 06 closeout and Phase 07 planning records;
+- Project Roadmap and Project State;
+- canonical Artifact Registry;
+- the obsolete WC06 P04/P05 handoff;
+- `test/wc02-repair03/full-workflow-resolver-foundation.test.cjs`.
+
+No production source changes.
+
+## P02 — Complete ChampCity_GPT review
+
+Review all first-party:
+
+- runtime source;
+- tests;
+- scripts;
+- package/build/Electron configuration;
+- MCP registration, transports, lifecycle, OAuth/DCR/PKCE, workspaces, runtime paths, tools, security, audit, diagnostics, packaging, and connector behavior;
+- current technical, security, setup, tool, and release documentation.
+
+Inventory historical planning records and read those needed to establish current architectural intent. Exclude dependencies, generated output, binaries, logs, local configuration, and secrets.
+
+Required outputs:
+
+- coverage accounting by category;
+- subsystem classification: `core_reuse`, `core_with_host_adapter`, `standalone_host_only`, `champcity_ai_host_replacement`, or `retire`;
+- dependency and runtime-assumption maps;
+- protected-subsystem and security-preservation matrix;
+- current gaps blocking extraction or embedding;
+- tests mapped to protected behavior;
+- documentation and runtime/version inconsistencies.
+
+ChampCity_GPT is read-only in WC01.
+
+## P03 — Architecture and role contracts
+
+Define:
+
+- the separately versioned shared-core boundary and dependencies;
+- host interfaces for configuration, runtime paths, workspaces, audit sink, validation profiles, process lifecycle, tool extensions, diagnostics, and version reporting;
+- preserved ChampCity_GPT standalone-host responsibilities;
+- ChampCity_AI managed-process host responsibilities;
+- package/repository versioning and local-development consumption;
+- proof that no copied or fallback MCP implementation remains;
+- isolated ports, stores, logs, OAuth records, audit records, process identity, and shutdown behavior.
+
+Define role contracts for:
+
+- ChatGPT Architect Agent;
+- separate-conversation Independent Verifier Agent;
+- human-assisted Operator Validation Agent;
+- Codex as primary Implementer;
+- future browser Implementer requirements without implementation.
+
+Produce a role-to-tool matrix identifying each capability as existing shared-core tool, ChampCity_AI host adapter, missing tool, or prohibited capability. Define exact assignment, attempt, source-hash, expected-result, idempotency, wrong-role, stale-result, duplicate-result, and cross-project rules.
+
+## P04 — Migration and acceptance package
+
+Define the WC02 execution plan:
+
+- shared repository/package creation;
+- source extraction;
+- ChampCity_GPT migration;
+- ChampCity_AI embedding;
+- fallback retirement;
+- rollback checkpoints;
+- dual-host regression;
+- OAuth and connector evidence;
+- packaging and release ownership;
+- risk register and unresolved Operator decisions.
+
+Create synchronized outputs:
+
+- `planning/phases/phase-07/Diagnostic_Reports/DIAGNOSTIC_REPORT_WC01_champcity_gpt_portability_extraction_review.{json,md}`
+- `planning/phases/phase-07/Design_Documents/DESIGN_DOCUMENT_WC01_shared_mcp_core_dual_host_architecture_contract.{json,md}`
+- `planning/phases/phase-07/Design_Documents/DESIGN_DOCUMENT_WC01_governed_role_tool_permission_matrix.{json,md}`
+- `planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC01_champcity_gpt_portability_review_shared_core_architecture.{json,md}`
+
+The report must include exact coverage, classification, dependencies, gaps, security controls, host interfaces, role/tool matrix, migration, rollback, validation, unresolved decisions, file changes, command results, Registry state, and final Git status for both repositories.
+
+## Validation
+
+ChampCity_AI:
+
+- typecheck;
+- focused lifecycle/artifact tests;
+- full test lane unless an unrelated documented harness failure remains;
+- Registry load and pair synchronization.
+
+ChampCity_GPT:
+
+- independently confirm clean `dev`, version `0.3.0`, and exact baseline commit;
+- confirm no worktree mutation.
+
+No packaging or live connector mutation is authorized.
+
+## Prohibited
+
+- creating or publishing `ChampCity_MCP_Core`;
+- moving or copying source;
+- changing ChampCity_GPT production code;
+- embedding MCP in ChampCity_AI;
+- implementing new tools or agent execution;
+- changing OAuth, transport, packaging, or endpoint behavior;
+- commit, merge, push, tag, release, Operator acceptance, or phase closeout.
+
+## Stop Conditions
+
+Stop when exact authority cannot be verified, canonical reconciliation requires new production architecture, full review coverage cannot be demonstrated, source duplication would be required, standalone compatibility cannot be preserved, a protected subsystem change is required, or an unresolved Operator decision blocks the extraction contract.

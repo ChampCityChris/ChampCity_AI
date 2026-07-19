@@ -9,7 +9,7 @@
     "kind": "project_roadmap",
     "title": "Project Roadmap: ChampCity A/I"
   },
-  "payloadHash": "sha256:c5c127b80015128f253c5cce37551d92162b22f854fb536c13d5927984b42533",
+  "payloadHash": "sha256:cd9159cf3f0c506df62dd1d9a65094bb1f3174eb1a3421e14144e0762f9c5c39",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -23,14 +23,16 @@
       "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-06/phase_closeout/PHASE_06",
+      "champcity-ai/phase-07/phase_activation/phase-07",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
   },
-  "revision": 3,
+  "revision": 4,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-17T01:35:00.000Z"
+  "updatedAt": "2026-07-18T21:50:00.000Z"
 }
 -->
 
@@ -38,26 +40,29 @@
 
 Status: Living master roadmap
 Current approved roadmap authority: `champcity-ai/phase-05/project_roadmap/WC03`
-Updated for: Phase 05 approved roadmap rebaseline
+Updated for: Phase 06 closeout and Phase 07 planning activation
 
 ## Rebaseline Decision
 
-The Operator approved the Phase 05 release-candidate roadmap rebaseline. ChampCity A/I continues Alpha development from a rebuilt workflow-kernel foundation, not another patch pass over the current evidence projector. The target release is a public downloadable beta candidate, beginning with Windows.
+The Operator approved the Phase 05 release-candidate roadmap rebaseline. ChampCity A/I continues Alpha development from a rebuilt workflow-kernel foundation, not another patch pass over the former evidence projector. The target release is a public downloadable beta candidate, beginning with Windows.
 
-This roadmap is planning authority. It does not authorize source-code implementation by itself. Implementation resumes through the required next-phase planning and Work Card process.
+This roadmap is planning authority. It does not authorize source-code implementation by itself. Implementation proceeds through the required phase planning, Work Card Plan, just-in-time Work Card, and Operator Approval process.
 
 ## Current Roadmap Authority
 
 - Approved roadmap: `champcity-ai/phase-05/project_roadmap/WC03`
-- Operator approval: `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`
+- Roadmap Operator approval: `champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline`
 - Current-state baseline: `champcity-ai/phase-05/reconciliation_review/WC02`
-- Phase 04 closeout: `champcity-ai/phase-04/phase_closeout/PHASE_04`
+- Phase 06 closeout: `champcity-ai/phase-06/phase_closeout/PHASE_06`
+- Phase 07 activation: `champcity-ai/phase-07/phase_activation/phase-07`
 
 ## Current State
 
-Phase 04 is closed as a stabilization bridge. Phase 05 roadmap rebaseline is approved. The next implementation phase is Phase 06: Workflow Kernel and Artifact Protocol Replacement.
+Phase 06 is closed. The relationship-driven workflow kernel, canonical artifact protocol, Registry authority boundary, and trusted execution-run activation foundation are accepted.
 
-Artifact Registry and Workflow State are diagnostic/cache until the workflow kernel is rebuilt. The app is not currently the reliable workflow controller until Phase 08 re-entry criteria are met.
+Phase 07 planning is active. Phase 07 will make ChatGPT subscription plus ChampCity MCP the Alpha-core Architect integration path and define the purpose-built browser-hosted role boundary for Implementer, Independent Verifier, and Operator Validation agents.
+
+Artifact Registry is the canonical registry/index under the Phase 06 protocol. Workflow State remains a derived projection/cache and cannot override verified graph evidence. The application is not yet the reliable primary workflow controller; Phase 08 retains the dogfooding re-entry decision.
 
 ## Release Candidate Definition
 
@@ -93,19 +98,19 @@ Closed as stabilization bridge; it exposed the need to replace the old foundatio
 
 Status: approved
 
-Roadmap rebaseline approved by the Operator; source-code implementation not authorized by WC03 approval.
+Roadmap rebaseline approved by the Operator.
 
 ### phase-06: Workflow Kernel and Artifact Protocol Replacement
 
-Status: next implementation phase
+Status: closed
 
-Replace the hard-coded projector with a relationship-driven workflow kernel and canonical artifact protocol.
+The relationship-driven kernel, canonical artifact protocol, Registry boundary, and trusted execution-run activation foundation are accepted.
 
 ### phase-07: Architect Bridge and MCP-First Integration
 
-Status: planned
+Status: active for planning
 
-Make ChatGPT subscription plus ChampCity MCP the Alpha-core Architect integration path.
+Make ChatGPT subscription plus ChampCity MCP the Alpha-core Architect integration path and define the purpose-built browser-hosted agent-role boundary.
 
 ### phase-08: In-App Dogfooding Re-Entry
 
@@ -157,13 +162,15 @@ Produce the Windows-first public downloadable beta candidate with setup, onboard
 
 ## First Incomplete Phase
 
-Current first incomplete phase is phase-06.
+Current first incomplete phase is phase-07.
 
 Current next implementation phase:
 
 ```text
-phase-06: Workflow Kernel and Artifact Protocol Replacement
+phase-07: Architect Bridge and MCP-First Integration
 ```
+
+Phase 07 implementation is not yet authorized. The current governed activity is Phase 07 planning and Work Card Plan preparation.
 
 ## Old-Foundation Removal Rules
 
@@ -172,11 +179,12 @@ Every future implementation Work Card must state the existing implementation cla
 ## Superseded Assumptions
 
 - Phase 03 is the active implementation phase.
-- Phase 04 or Phase 05 should patch the existing evidence projector as the final workflow controller.
-- Artifact Registry or Workflow State is current independent runtime authority before the Phase 06 kernel rebuild.
+- Phase 04 or Phase 05 should patch the old evidence projector as the final workflow controller.
+- Artifact Registry or Workflow State may independently override verified graph evidence.
 - Implementer Execution Packet is a separate primary artifact overriding Work Card authority.
 - UI usability can be deferred as optional polish after data artifacts pass tests.
 - Git can remain a normal end-user responsibility for the release candidate.
+- Phase 07 may rely on generic command execution or hidden browser automation.
 
 ## Artifact Policy
 

@@ -1,0 +1,54 @@
+{
+  "artifactId": "champcity-ai/phase-06/operator_validation/WC03",
+  "artifactType": "operator_validation",
+  "createdAt": "2026-07-18T21:52:33.007Z",
+  "jsonPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC03_work_card_phase_06_wc03_deterministic_workflow_domain_and_kernel_replacement.json",
+  "markdownPath": "planning/phases/phase-06/Validation_Reports/VALIDATION_REPORT_WC03_work_card_phase_06_wc03_deterministic_workflow_domain_and_kernel_replacement.md",
+  "payload": {
+    "contentMarkdown": "# Human Validation Report - WC03 Work Card: Phase 06 WC03 — Deterministic Workflow Domain and Kernel Replacement\n\n## Validation Target\n\n- Validation Target ID: WC03\n- Validation Target kind: work_card\n- Validation Target title: Work Card: Phase 06 WC03 — Deterministic Workflow Domain and Kernel Replacement\n- Phase: phase-06\n- Parent Work Card ID: Work_Card_Plan\n- Source JSON file: WC03_deterministic_workflow_domain_and_kernel_replacement.json\n- Source Markdown file: WC03_deterministic_workflow_domain_and_kernel_replacement.md\n- Expected Implementer Report: IMPLEMENTER_REPORT_WC03_work_card_phase_06_wc03_deterministic_workflow_domain_and_kernel_replacement.md\n- Associated Implementer Report: None selected.\n\n## Validation Result\n\nPass\n\n## Acceptance-Criteria Item Result Guidance\n\nUse item-level results where feasible: Pass, Concern, Fail, Not tested, Not applicable. A Concern is non-blocking unless the evidence shows an acceptance criterion was not satisfied enough to pass.\n\n## What Was Tested?\n\nNone recorded.\n\n## What Passed?\n\nNone recorded.\n\n## What Failed?\n\nNone recorded.\n\n## Evidence References Or Paths\n\nNone recorded.\n\n## Screenshots Or Files Referenced By Path\n\nNone recorded.\n\n## Manual Commands Run\n\nNone recorded.\n\n## Observed Errors\n\nNone recorded.\n\n## Additional Operator Observations\n\nNone recorded.\n\n## Operator Suggested Follow-up (Advisory)\n\nNone recorded.\n\n## Field Semantics\n\nValidation Result answers: Did the implementation satisfy the Work Card acceptance criteria at a functional level?\n\nWhat Failed contains: Acceptance criteria that were not satisfied enough to pass.\n\nObserved Errors contains: Specific broken behavior or evidence supporting failed or partial items.\n\nAdditional Operator Observations contains: Usability, design, workflow, or future-scope feedback that may or may not block this Work Card.\n\nArchitect Disposition answers: What happens next after Architect review. It is pending until the Architect reviews this report.\n\n## Architect Review Instructions\n\nThe Architect must analyze this report using this order:\n\n1. Confirm the validation target.\n2. Compare Validation Result, What Failed, Observed Errors, Additional Operator Observations, and all referenced evidence.\n3. If legacy Operator Decision exists, treat it as advisory context only, not final routing authority.\n4. Review referenced screenshots/files as primary evidence.\n5. Classify each issue as:\n   - blocking repair item;\n   - non-blocking pass-with-observation;\n   - carry-forward observation;\n   - future-scope/product backlog;\n   - no action required.\n6. Do not automatically create repair solely because a report contains the word Partial.\n7. Do not ignore observations solely because the report result is Pass.\n8. Produce a consistent Architect analysis with mergeability, repair decision, observation-register impact, and next action.\n\n## Architect Disposition\n\nStatus: Pending Architect review\n\nRequired Architect output:\n- Mergeable:\n- Repair required:\n- Observation Register update required:\n- Next action:\n- Rationale:\n\n## Generated Timestamp\n\n2026-07-18T21:52:32.989Z\n\n## Non-Mutating Note\n\nThis Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.\n",
+    "data": {
+      "additionalOperatorObservations": "",
+      "architectDisposition": "Pending Architect review",
+      "commandsRun": "",
+      "createdAt": "2026-07-18T21:52:32.989Z",
+      "evidenceReferences": "",
+      "failedItems": "",
+      "observedErrors": "",
+      "parentWorkCardId": "Work_Card_Plan",
+      "passedItems": "",
+      "phase": "phase-06",
+      "recommendedNextAction": "",
+      "screenshotOrFileReferences": "",
+      "testedItems": "",
+      "validationId": "VALIDATION_WC03_20260718215232",
+      "validationResult": "Pass",
+      "validationTargetExpectedImplementerReportFile": "IMPLEMENTER_REPORT_WC03_work_card_phase_06_wc03_deterministic_workflow_domain_and_kernel_replacement.md",
+      "validationTargetId": "WC03",
+      "validationTargetKind": "work_card",
+      "validationTargetSourceJsonFile": "WC03_deterministic_workflow_domain_and_kernel_replacement.json",
+      "validationTargetSourceMarkdownFile": "WC03_deterministic_workflow_domain_and_kernel_replacement.md",
+      "validationTargetTitle": "Work Card: Phase 06 WC03 — Deterministic Workflow Domain and Kernel Replacement",
+      "workCardId": "WC03",
+      "workCardTitle": "Work Card: Phase 06 WC03 — Deterministic Workflow Domain and Kernel Replacement"
+    },
+    "kind": "operator_validation",
+    "title": "WC03 Validation Report"
+  },
+  "payloadHash": "sha256:632be4ddc141153a3f363cff9788aaca24f912fd9ade2e09835c81511c4ceb7d",
+  "phaseId": "phase-06",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [],
+    "sources": [
+      "champcity-ai/phase-06/architect_review/WC03",
+      "champcity-ai/phase-06/work_card/WC03"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T21:52:33.007Z",
+  "workCardId": "WC03"
+}

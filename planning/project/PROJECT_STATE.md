@@ -9,7 +9,7 @@
     "kind": "supporting_document",
     "title": "Project State"
   },
-  "payloadHash": "sha256:3b9fecf08da9c6ae77e567c69128ef7c540b81a16d15b57bed6afb7df0b5444d",
+  "payloadHash": "sha256:2fcc0b8e007fd8a8175a687b781d54ac0731ad0647dc80677b77285069fc2b15",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [
@@ -23,14 +23,16 @@
       "champcity-ai/phase-05/project_roadmap/WC03",
       "champcity-ai/phase-05/reconciliation_review/WC01",
       "champcity-ai/phase-05/reconciliation_review/WC02",
+      "champcity-ai/phase-06/phase_closeout/PHASE_06",
+      "champcity-ai/phase-07/phase_activation/phase-07",
       "champcity-ai/project/observation/PROJ-OBS-010"
     ],
     "supersedes": []
   },
-  "revision": 3,
+  "revision": 4,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-17T01:35:00.000Z"
+  "updatedAt": "2026-07-18T21:50:00.000Z"
 }
 -->
 
@@ -38,15 +40,15 @@
 
 ## Last Updated
 
-2026-07-17
+2026-07-18
 
 ## Current Stage
 
-Alpha app development after approved Phase 05 roadmap rebaseline.
+Alpha app development after accepted Phase 06 workflow-kernel replacement.
 
 ## Current Milestone
 
-Phase 04 is closed as a stabilization bridge. Phase 05 roadmap rebaseline is approved. The next implementation phase is Phase 06: Workflow Kernel and Artifact Protocol Replacement.
+Phase 06 is closed. Phase 07 planning is active for Architect Bridge and MCP-First Integration.
 
 Current roadmap authority:
 
@@ -54,30 +56,43 @@ Current roadmap authority:
 champcity-ai/phase-05/project_roadmap/WC03
 ```
 
-Operator approval:
+Current lifecycle authority:
 
 ```text
-champcity-ai/phase-05/operator_approval/WC03-roadmap-rebaseline
+champcity-ai/phase-06/phase_closeout/PHASE_06
+champcity-ai/phase-07/phase_activation/phase-07
 ```
 
 ## Current Authority Summary
 
 - Phase 01 and Phase 02 remain closed historical foundation work.
-- Phase 03 is interrupted/superseded by later stabilization evidence and is not the active implementation authority.
-- Phase 04 is closed as a stabilization bridge and foundation rebaseline trigger.
-- Phase 05 reconciled the planning corpus and approved the release-candidate roadmap rebaseline.
-- Phase 06 is the next implementation phase.
+- Phase 03 remains interrupted/superseded and is not active authority.
+- Phase 04 remains closed as a stabilization bridge.
+- Phase 05 remains the approved roadmap rebaseline.
+- Phase 06 is closed with the relationship-driven kernel, canonical artifact protocol, Registry authority boundary, and trusted execution-run activation foundation accepted.
+- Phase 07 is active for planning only. Source-code implementation is not authorized.
 
 ## Application Authority Status
 
-Artifact Registry and Workflow State are diagnostic/cache until the workflow kernel is rebuilt. They may assist inspection and audit, but they are not independent runtime authority during the rebaseline interval.
+The Phase 06 relationship-driven kernel is the workflow-resolution foundation.
 
-The app is not currently the reliable workflow controller. It must not be treated as the primary workflow authority again until Phase 08 in-app dogfooding re-entry criteria are met: accepted Phase 06 kernel, working Phase 07 Architect Bridge, reliable project registration and refresh, visible current action/source evidence/expected output/blockers, and explicit manual fallback.
+Artifact Registry is the canonical registry/index under the Phase 06 protocol. Workflow State remains a derived projection/cache and cannot override verified graph evidence.
+
+The application is not yet the reliable primary workflow controller. Phase 08 retains the in-application dogfooding re-entry decision. Re-entry requires the accepted Phase 06 kernel, a working Phase 07 Architect Bridge, reliable project registration and refresh, visible current action/source evidence/expected output/blockers, and explicit fallback behavior.
+
+## Current Phase 07 Planning Focus
+
+- Make ChatGPT subscription plus ChampCity MCP the Alpha-core Architect integration path.
+- Define bounded Architect assignments and canonical result artifacts.
+- Determine the additional purpose-built MCP tools required for Implementer, Independent Verifier, and Operator Validation roles in ChatGPT.com.
+- Preserve exact artifact, Work Card revision, Acceptance Contract, Pass Plan, pass, and attempt binding.
+- Keep role separation and Operator acceptance outside model self-approval.
+- Define explicit fallback when MCP capabilities are missing, denied, stale, or platform-blocked.
 
 ## Next Intended Milestone
 
-Begin Phase 06 planning and implementation through the approved Work Card process. Phase 06 must replace the old evidence projector and artifact protocol boundary rather than preserving wrong runtime paths through compatibility fallbacks.
+Complete and obtain Operator approval for the Phase 07 Phase Planning artifact and Work Card Plan. Then create the first just-in-time Phase 07 Work Card.
 
 ## Manual Validation Required
 
-Operator validation remains required for phase acceptance, Work Card acceptance, UI usability acceptance, and future return-to-application dogfooding acceptance.
+Operator approval remains required for the Phase 07 plan, Work Card Plan, each implementation Work Card, UI usability, phase acceptance, and future return-to-application dogfooding.

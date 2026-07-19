@@ -1,0 +1,38 @@
+{
+  "artifactId": "champcity-ai/phase-07/phase_activation/phase-07",
+  "artifactType": "phase_activation",
+  "createdAt": "2026-07-18T21:50:00.000Z",
+  "jsonPath": "planning/phases/phase-07/Phase_Activation.json",
+  "markdownPath": "planning/phases/phase-07/Phase_Activation.md",
+  "payload": {
+    "contentMarkdown": "# Phase Activation: phase-07\n\nStatus: active_for_planning\nProject: ChampCity A/I\nPhase: phase-07 — Architect Bridge and MCP-First Integration\nActivation date: 2026-07-18\n\n## Activation Decision\n\nPhase 07 planning is activated by the Phase 06 closeout and the Operator's explicit approval to begin Phase 07 planning.\n\nPhase 07 is the next implementation phase in the approved roadmap. Its purpose is to make ChatGPT subscription plus ChampCity MCP the Alpha-core Architect integration path and to define the governed browser-hosted role boundary for Implementer, Independent Verifier, and Operator Validation agents.\n\n## Activation Authority\n\nPrimary authority:\n\n- `champcity-ai/phase-06/phase_closeout/PHASE_06`\n- `champcity-ai/phase-06/operator_validation/WC06`\n- `champcity-ai/phase-05/project_roadmap/WC03`\n- `champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i`\n\n## Phase Intent\n\nPhase 07 must define and implement a bounded Architect Bridge that exposes exact source artifacts, target artifacts, expected outputs, blockers, MCP status, and explicit fallback behavior. It must use purpose-built tools and preserve role separation. It must not introduce hidden workflow authority, generic command execution, automatic acceptance, ChatGPT DOM automation, or provider API execution.\n\n## Planning Boundary\n\nThis activation authorizes Phase 07 planning artifacts only. It does not authorize source-code implementation. Implementation requires an approved Phase 07 Phase Planning artifact, an approved Work Card Plan, and an exact just-in-time Work Card with Operator Approval.\n",
+    "data": {
+      "implementationAuthorized": false,
+      "phaseId": "phase-07",
+      "phaseTitle": "Architect Bridge and MCP-First Integration",
+      "status": "active_for_planning"
+    },
+    "kind": "phase_activation",
+    "title": "Phase Activation: phase-07"
+  },
+  "payloadHash": "sha256:25b43ea61d1543c2dc93e81c9e35946e1abcbcd5fedf51161aecb26273ef9765",
+  "phaseId": "phase-07",
+  "projectId": "champcity-ai",
+  "relationships": {
+    "children": [],
+    "expectedOutputs": [
+      "champcity-ai/phase-07/phase_planning/Phase_Planning",
+      "champcity-ai/phase-07/work_card_plan/Work_Card_Plan"
+    ],
+    "sources": [
+      "champcity-ai/phase-06/phase_closeout/PHASE_06",
+      "champcity-ai/phase-06/operator_validation/WC06",
+      "champcity-ai/phase-05/project_roadmap/WC03"
+    ],
+    "supersedes": []
+  },
+  "revision": 1,
+  "schemaVersion": "champcity.artifact.v1",
+  "status": "active",
+  "updatedAt": "2026-07-18T21:50:00.000Z"
+}
