@@ -1,4 +1,5 @@
 import type { CurrentRequiredAction } from "./currentActionProjection";
+import type { RouteReviewRequestRecord } from "./routeReviewRequest";
 
 export const architectTaskArtifactType = "architect_task" as const;
 
@@ -19,6 +20,24 @@ export interface ArchitectTaskPacketData {
   writePolicy: "write_canonical_artifact_pair";
   mcpFetchInstruction: string;
   operatorInstruction: string;
+  governanceRepairSpecification?: {
+    requestArtifactId: string;
+    requestRevision: number;
+    requestJsonPath: string;
+    requestMarkdownPath: string;
+    targetArtifactId: string;
+    targetJsonPath: string;
+    targetMarkdownPath: string;
+    reasonDeterministicRepairUnavailable: string;
+    candidateFingerprint: string;
+    registryRevision: number;
+    expectedRepairWorkCardId: string;
+    expectedRepairWorkCardArtifactId: string;
+    requiredAcceptanceCriteria: string[];
+    requiredRollbackRequirements: string[];
+    requiredTests: string[];
+    prohibitions: string[];
+  };
 }
 
 export interface ArchitectTaskPacketPayload {
@@ -60,6 +79,13 @@ export interface ArchitectTaskPacketSaveResult {
 export function buildArchitectTaskPacket(
   action: CurrentRequiredAction,
   projectId = "champcity-ai",
+  routeReviewRequest?: {
+    artifactId: string;
+    revision: number;
+    jsonPath: string;
+    markdownPath: string;
+    record: RouteReviewRequestRecord;
+  },
 ): ArchitectTaskPacketBuildResult {
   const routedAction = action.routedAction;
   const phaseId = action.phaseId?.trim() || inferPhaseId(action) || "phase-unmapped";
@@ -91,7 +117,16 @@ export function buildArchitectTaskPacket(
   );
   const mcpFetchInstruction = `Use ChampCity MCP to fetch ${jsonRepoPath}.`;
   const operatorInstruction =
-    "Copy this prompt into ChatGPT.com, then refresh repository state after the Architect writes the expected canonical output.";
+    currentAction === "governance_repair_specification_required"
+      ? "Copy this prompt into ChatGPT.com. The Architect must produce the exact repair Work Card for separate Operator approval; do not repair the target in this step."
+      : "Copy this prompt into ChatGPT.com, then refresh repository state after the Architect writes the expected canonical output.";
+  const governanceRepairSpecification =
+    routeReviewRequest &&
+    routeReviewRequest.record.requestPurpose === "governance_repair_specification" &&
+    routeReviewRequest.record.governanceTargetSnapshot &&
+    routeReviewRequest.record.expectedRepairWorkCard
+      ? governanceRepairSpecificationData(routeReviewRequest)
+      : undefined;
   const data: ArchitectTaskPacketData = {
     role: "Architect",
     requestedAction,
@@ -104,6 +139,7 @@ export function buildArchitectTaskPacket(
     writePolicy: "write_canonical_artifact_pair",
     mcpFetchInstruction,
     operatorInstruction,
+    ...(governanceRepairSpecification ? { governanceRepairSpecification } : {}),
   };
   const contentMarkdown = renderArchitectTaskPacketMarkdown(title, data);
   const chatGptPrompt = [
@@ -152,6 +188,9 @@ export function renderArchitectTaskPacketMarkdown(
   const decisions = data.allowedDecisions.length > 0
     ? data.allowedDecisions.map((decision) => `- ${decision}`).join("\n")
     : "- Architect must apply the current workflow contract.";
+  const governance = data.governanceRepairSpecification
+    ? renderGovernanceRepairSpecificationPacket(data.governanceRepairSpecification)
+    : "";
 
   return `# ${title}
 
@@ -195,6 +234,52 @@ ${data.mcpFetchInstruction}
 ## Operator Instruction
 
 ${data.operatorInstruction}
+
+${governance}
+`;
+}
+
+function renderGovernanceRepairSpecificationPacket(
+  data: NonNullable<ArchitectTaskPacketData["governanceRepairSpecification"]>,
+): string {
+  return `## Governance Repair Specification
+
+- Request artifact ID: ${data.requestArtifactId}
+- Request revision: ${data.requestRevision}
+- Request JSON path: ${data.requestJsonPath}
+- Request Markdown path: ${data.requestMarkdownPath}
+- Target artifact ID: ${data.targetArtifactId}
+- Target JSON path: ${data.targetJsonPath}
+- Target Markdown path: ${data.targetMarkdownPath}
+- Reason deterministic repair is unavailable: ${data.reasonDeterministicRepairUnavailable}
+- Candidate fingerprint: ${data.candidateFingerprint}
+- Registry revision: ${data.registryRevision}
+- Expected repair Work Card ID: ${data.expectedRepairWorkCardId}
+- Expected repair Work Card artifact ID: ${data.expectedRepairWorkCardArtifactId}
+
+## Required Work Card Relationships
+
+- Parent: none for the request; target remains a source.
+- Sources must include the request artifact and selected target evidence.
+- Expected output must remain ${data.expectedRepairWorkCardArtifactId}.
+
+## Required Acceptance Criteria
+
+${data.requiredAcceptanceCriteria.map((item) => `- ${item}`).join("\n")}
+
+## Required Rollback Requirements
+
+${data.requiredRollbackRequirements.map((item) => `- ${item}`).join("\n")}
+
+## Required Tests
+
+${data.requiredTests.map((item) => `- ${item}`).join("\n")}
+
+## Prohibitions
+
+${data.prohibitions.map((item) => `- ${item}`).join("\n")}
+
+Produce one exact governance maintenance repair Work Card for the expected artifact ID. Do not repair the target in this Architect step. Do not grant implementation authority. The Work Card must return for separate Operator approval.
 `;
 }
 
@@ -203,6 +288,10 @@ function requestedActionFor(
   sourceArtifactIds: readonly string[],
 ): string {
   const actionId = normalizeActionId(action.id);
+
+  if (actionId === "governance_repair_specification_required") {
+    return "produce_governance_maintenance_repair_work_card";
+  }
 
   if (actionId === "architect_review_of_implementer_report_required") {
     return "review_implementer_report_and_write_architect_review";
@@ -283,6 +372,10 @@ function defaultDecisionRuleFor(
     return "If validation failed and repair capacity remains, write the existing workflow's repair decision or repair Work Card output; do not invent a numbered repair when the repair limit is exhausted.";
   }
 
+  if (requestedAction === "produce_governance_maintenance_repair_work_card") {
+    return "Produce one exact governance maintenance repair Work Card for the expected artifact ID. Do not repair the target in this Architect step. Do not grant implementation authority. The Work Card must return for separate Operator approval.";
+  }
+
   return "";
 }
 
@@ -309,6 +402,14 @@ function allowedDecisionsFor(requestedAction: string): string[] {
     ];
   }
 
+  if (requestedAction === "produce_governance_maintenance_repair_work_card") {
+    return [
+      "Write exact governance repair Work Card only",
+      "Return for separate Operator approval",
+      "Do not mutate target or authorize implementation",
+    ];
+  }
+
   return [];
 }
 
@@ -329,6 +430,10 @@ function titleFor(requestedAction: string, workCardId: string): string {
     "review_implementer_report_and_write_architect_review"
   ) {
     return `Architect Task: ${workCardId} Implementer Report Review`;
+  }
+
+  if (requestedAction === "produce_governance_maintenance_repair_work_card") {
+    return `Architect Task: ${workCardId} Governance Repair Specification`;
   }
 
   return `Architect Task: ${workCardId}`;
@@ -354,8 +459,58 @@ function inferPhaseId(action: CurrentRequiredAction): string | undefined {
 }
 
 function inferWorkCardId(action: CurrentRequiredAction): string | undefined {
+  if (normalizeActionId(action.id) === "governance_repair_specification_required") {
+    return action.routedAction?.expectedOutput.artifactId.split("/").pop();
+  }
   const fromTarget = action.routedAction?.targetArtifactId?.split("/").pop();
   return fromTarget && /^WC/i.test(fromTarget) ? fromTarget : undefined;
+}
+
+function governanceRepairSpecificationData(input: {
+  artifactId: string;
+  revision: number;
+  jsonPath: string;
+  markdownPath: string;
+  record: RouteReviewRequestRecord;
+}): NonNullable<ArchitectTaskPacketData["governanceRepairSpecification"]> {
+  const target = input.record.governanceTargetSnapshot!;
+  const expected = input.record.expectedRepairWorkCard!;
+  return {
+    requestArtifactId: input.artifactId,
+    requestRevision: input.revision,
+    requestJsonPath: input.jsonPath,
+    requestMarkdownPath: input.markdownPath,
+    targetArtifactId: target.targetArtifactId,
+    targetJsonPath: target.jsonPath,
+    targetMarkdownPath: target.markdownPath,
+    reasonDeterministicRepairUnavailable:
+      target.blockReason ?? target.verificationError,
+    candidateFingerprint: target.candidateFingerprint,
+    registryRevision: target.registryRevision,
+    expectedRepairWorkCardId: expected.workCardId,
+    expectedRepairWorkCardArtifactId: expected.artifactId,
+    requiredAcceptanceCriteria: [
+      "The Work Card specifies one bounded deterministic governance repair.",
+      "The Work Card preserves the selected target until separately approved.",
+      "The Work Card requires Governance Maintenance rescan after implementation.",
+    ],
+    requiredRollbackRequirements: [
+      "Rollback must restore the target pair and Artifact Registry to the pre-repair state.",
+      "Rollback must not delete the route review request authority.",
+    ],
+    requiredTests: [
+      "Adversarial stale snapshot test",
+      "Registry transaction rollback test",
+      "Target pair unchanged before approval test",
+      "Governance Maintenance rescan routing test",
+    ],
+    prohibitions: [
+      "Do not repair the target before Operator Work Card approval.",
+      "Do not create Operator approval.",
+      "Do not infer validation or workflow progression.",
+      "Do not authorize Implementer execution.",
+    ],
+  };
 }
 
 function normalizeActionId(value: string): string {

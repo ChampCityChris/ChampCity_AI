@@ -1796,6 +1796,8 @@ function migrationWorkflowBindings({
     architect_disposition_required: binding(workCard, [validation], disposition),
     repair_work_card_required: binding(workCard, [disposition], workCard),
     candidate_disposition_required: binding(workCard, [workCard, workCardApproval], candidateDisposition),
+    governance_integrity_repair_required: binding(workCard, [workCard], workCard),
+    operator_governance_approval_required: binding(workCard, [workCard], workCardApproval),
     phase_closeout_required: binding(phasePlanning, [phaseApproval, validation], closeout),
     operator_phase_closeout_approval_required: binding(closeout, [closeout], closeoutApproval),
     roadmap_update_required: binding(closeoutApproval, [closeoutApproval], roadmap),

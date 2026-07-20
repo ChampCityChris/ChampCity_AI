@@ -1,355 +1,340 @@
-<!-- champcity-artifact-envelope
-{
-  "artifactId": "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
-  "artifactType": "work_card_plan",
-  "createdAt": "2026-07-18T22:44:44.000Z",
-  "jsonPath": "planning/phases/phase-07/Work_Card_Plan.json",
-  "markdownPath": "planning/phases/phase-07/Work_Card_Plan.md",
-  "payload": {
-    "kind": "work_card_plan",
-    "title": "Work Card Plan: phase-07 — Shared MCP Core Extraction and Governed ChatGPT Role Integration"
-  },
-  "payloadHash": "sha256:4c2640e79bcc267ac945daee6e16b12054bac894ec88e88eff1e73ba2bf5c585",
-  "phaseId": "phase-07",
-  "projectId": "champcity-ai",
-  "relationships": {
-    "children": [],
-    "expectedOutputs": [
-      "champcity-ai/phase-07/operator_approval/Operator_Phase_Approval",
-      "champcity-ai/phase-07/work_card/WC01",
-      "champcity-ai/phase-07/work_card/WC02",
-      "champcity-ai/phase-07/work_card/WC03",
-      "champcity-ai/phase-07/work_card/WC04",
-      "champcity-ai/phase-07/work_card/WC05",
-      "champcity-ai/phase-07/work_card/WC06",
-      "champcity-ai/phase-07/work_card/WC07",
-      "champcity-ai/phase-07/work_card/WC08"
-    ],
-    "sources": [
-      "champcity-ai/phase-06/phase_closeout/PHASE_06",
-      "champcity-ai/phase-07/phase_activation/phase-07",
-      "champcity-ai/phase-07/phase_planning/Phase_Planning",
-      "champcity-ai/project/project_roadmap/PROJECT_ROADMAP_champcity_a_i"
-    ],
-    "supersedes": []
-  },
-  "revision": 1,
-  "schemaVersion": "champcity.artifact.v1",
-  "status": "active",
-  "updatedAt": "2026-07-18T22:44:44.000Z"
-}
--->
+# Work Card Plan — Phase 07 Operator-Centered Workflow Recovery, Historical Corpus Migration, and Live Development Map
 
-# Work Card Plan: phase-07 — Shared MCP Core Extraction and Governed ChatGPT Role Integration
+Status: pending Operator approval through ChatGPT
+Plan revision: 2
+Planning mode: off-application bootstrap phase
+Detailed Work Cards authored: none
 
-Status: draft_for_operator_review
-Phase: phase-07 — Architect Bridge and MCP-First Integration
-Revision: 1
-Plan strategy: review first, extract one shared core, embed it in ChampCity_AI, then integrate governed ChatGPT roles
+## Revision 2 Direction
 
-## Plan Decision
+The existing ChampCity_AI planning corpus is the dogfooding workload for the new approval model.
 
-Phase 07 will not connect ChampCity_AI to the standalone ChampCity_GPT desktop application as its permanent integration boundary.
+Historical records remain in normal stage-owned routing. They must be inventoried, deduplicated, migrated to the current schema, assigned `pending_operator_disposition`, and presented to the Operator through the application.
 
-ChampCity_GPT remains a standalone product. Its reusable MCP implementation will be extracted into one separately versioned shared core consumed by:
-
-- the existing ChampCity_GPT standalone host; and
-- a new ChampCity_AI embedded host.
-
-The plan prohibits copying the MCP implementation into ChampCity_AI as a divergent fork.
-
-Codex remains the primary Implementer. Phase 07 implements ChatGPT subscription roles for Architect, Independent Verifier, and Operator Validation.
-
-## Governing Sequence
+Phase 07 is not complete until the application shows a live roadmap-driven development history and starts at:
 
 ```text
-WC01 — Cross-repository review and extraction contract
-  ↓
-WC02 — Shared MCP core extraction and standalone-host migration
-  ↓
-WC03 — ChampCity_AI embedded host and managed process lifecycle
-  ↓
-WC04 — ChampCity_AI workflow, artifact, execution, and validation adapters
-  ↓
-WC05 — Architect Agent end-to-end integration
-  ↓
-WC06 — Independent Verifier Agent end-to-end integration
-  ↓
-WC07 — Operator Validation Agent end-to-end integration
-  ↓
-WC08 — Dual-host hardening and Phase 08 re-entry decision
+Project Planning — Operator Approval Required
 ```
 
-No downstream Work Card may bypass its predecessor's accepted evidence.
+The startup review must use the actual migrated Project Planning bundle.
 
-## Ordered Candidates
+## Control and Sequencing
 
-### WC01 — ChampCity_GPT Portability Review and Shared-Core Architecture Contract
+This is a plain repository planning record. It is not an application artifact and does not authorize implementation by itself. The Operator will approve the phase and each detailed Work Card through chat.
 
-Order: 1
-Kind: `planned_candidate`
-Existing implementation classification: `Preserve and classify before migration`
-Status: planned; first candidate after Phase 07 plan approval
-Implementation type: architecture, repository review, and bounded planning reconciliation
+No Git operation is authorized.
 
-Required outcomes:
+- Execute Work Cards in order unless the Operator explicitly changes the sequence.
+- Author one detailed Work Card at a time.
+- Do not absorb later scope into an earlier Work Card.
+- Revise rejected Work Cards under the same Work Card identity.
+- Use the same approval path for ordinary and repair Work Cards.
+- Inventory and verify duplicate groups before removing files.
+- Hold ambiguous duplicate groups for Operator disposition rather than guessing.
+- Use the real repository corpus as the primary fixture.
 
-- complete top-to-bottom ChampCity_GPT repository review;
-- subsystem classification as `core_reuse`, `core_with_host_adapter`, `standalone_host_only`, `champcity_ai_host_replacement`, or `retire`;
-- dependency graph and runtime-assumption inventory;
-- shared-core package/repository boundary;
-- host-neutral interfaces and host adapter contracts;
-- standalone compatibility contract;
-- ChampCity_AI embedded-host contract;
-- role-to-tool and role-to-permission matrix;
-- OAuth, runtime-store, port, audit, and process-isolation design;
-- migration, rollback, test, packaging, and release strategy;
-- exact decision on how the separately versioned `ChampCity_MCP_Core` source is created and consumed;
-- security review covering public tool exposure, scopes, path safety, result authority, and wrong-role submissions.
+## Ordered Work Cards
 
-WC01 must also reconcile the current Phase 07 planning baseline before extraction:
+### WC01 — Unified Operator Decision and Disposition Contract
 
-- update the stale lifecycle replay test that hard-codes Phase 06;
-- reconcile new Phase 06/07 lifecycle pairs with canonical Registry authority;
-- retire or replace placeholder-grade WC03 Architect Review and Operator Validation records;
-- retire the incorrect WC06 P04/P05 handoff;
-- confirm Project Roadmap and Project State are synchronized and authoritative.
+Dependencies: Phase 07 approval through chat.
 
-Prohibited:
-
-- production extraction;
-- new shared repository creation;
-- package publication;
-- ChampCity_AI embedding;
-- role execution.
-
-Acceptance requires an Architect-reviewed design document and exact extraction contract.
-
-### WC02 — Shared ChampCity MCP Core Extraction and ChampCity_GPT Host Migration
-
-Order: 2
-Kind: `planned_candidate`
-Existing implementation classification: `Migrate`
-Status: dependency-blocked by WC01
-Implementation type: cross-repository foundational refactor
+Purpose: Replace duplicated approval vocabulary with one exact decision and disposition contract for current and historical records.
 
 Required outcomes:
 
-- create the separately versioned shared MCP core approved by WC01;
-- move host-neutral MCP, OAuth, transport, security, workspace, audit, repository, Git, diagnostic, attachment, and schema infrastructure into the shared core;
-- replace direct ChampCity_GPT runtime assumptions with explicit host interfaces;
-- migrate ChampCity_GPT to consume the shared core;
-- preserve standalone setup, configuration, OAuth administration, packaging, and user behavior;
-- preserve the stable public tool surface unless WC01 explicitly approves a migration;
-- prove no second copied MCP implementation remains active;
-- provide rollback and compatibility evidence.
+- Bind decisions to one exact record revision or exact stage bundle.
+- Support `approved`, `revision_requested`, and `rejected` stage decisions.
+- Support historical dispositions including accepted as current, accepted as historical evidence, superseded, merged, deferred, cancelled, invalid, and revision required.
+- Define `pending_operator_disposition` for migrated records awaiting new-system review.
+- Preserve exact-target finality, idempotent retries, and conflict rejection.
+- Preserve legacy decisions as evidence without automatically treating them as current decisions.
+- Remove derived authority fields for implementation, source code, progression, route selection, just-in-time creation, push, and execution passes.
+- Add focused decision and disposition tests.
 
-Acceptance requires all ChampCity_GPT typecheck, build, test, MCP self-test, public-safety, release-safety, development-startup, packaged-startup, and live connector gates required by WC01.
+Acceptance: One decision model supports both new workflow actions and migrated historical review without a separate historical approval class.
 
-### WC03 — ChampCity_AI Embedded MCP Host and Managed Process Lifecycle
+### WC02 — Historical Corpus Inventory and Duplicate Resolution Manifest
 
-Order: 3
-Kind: `planned_candidate`
-Existing implementation classification: `New host using preserved shared core`
-Status: dependency-blocked by WC02
-Implementation type: ChampCity_AI host integration
+Dependencies: WC01 accepted.
+
+Purpose: Create a complete non-destructive inventory and migration manifest.
 
 Required outcomes:
 
-- package the shared MCP core with ChampCity_AI;
-- run it as a ChampCity_AI-managed internal process;
-- implement start, stop, restart, health, crash detection, bounded recovery, and shutdown;
-- isolate runtime configuration, OAuth stores, logs, audit state, ports, and process ownership from standalone ChampCity_GPT;
-- bind the initial host to the ChampCity_AI project without hard-coding future project internals;
-- provide an Operator-readable embedded MCP workspace;
-- expose connector version, shared-core version, health, scopes, workspace binding, and recovery status;
-- require no separately running ChampCity_GPT executable.
+- Inventory every governed planning file and Markdown/JSON pair.
+- Record identity, type, project, phase, Work Card, revision, hash, status, relationships, schema, and paths.
+- Identify incomplete pairs, malformed metadata, stale schemas, duplicate IDs, duplicate paths, exact duplicates, and semantic duplicates.
+- Group duplicates and propose a canonical survivor.
+- Identify unique evidence and provenance to preserve.
+- Identify inbound references that must be updated.
+- Separate safe merges from ambiguous groups requiring Operator review.
+- Produce machine-readable and human-readable reports with counts by type, phase, and defect class.
+- Make no destructive changes.
 
-Acceptance requires development and packaged lifecycle validation, restart persistence, crash recovery, and proof that standalone ChampCity_GPT and embedded ChampCity_AI can coexist without state or port collision.
+Acceptance: The complete migration and cleanup workload is known before corpus mutation begins.
 
-### WC04 — ChampCity_AI Workflow and Canonical Service Adapters
+### WC03 — Historical Artifact Migration and Duplicate Cleanup
 
-Order: 4
-Kind: `planned_candidate`
-Existing implementation classification: `Preserve ChampCity_AI authority; add adapters`
-Status: dependency-blocked by WC03
-Implementation type: host-service and authority integration
+Dependencies: WC02 accepted.
 
-Required outcomes:
-
-- current-assignment adapter;
-- exact role-packet adapter;
-- canonical artifact read adapter;
-- canonical result proposal and ingestion adapter;
-- Execution Run, pass, attempt, Work Card revision, Acceptance Contract, and expected-result binding;
-- validation-profile adapter;
-- evidence-bundle adapter;
-- audit provenance binding;
-- idempotent result submission and status;
-- wrong-role, wrong-assignment, stale-attempt, duplicate-result, and cross-project rejection;
-- explicit manual fallback state.
-
-The shared core may transport and validate host requests, but ChampCity_AI must perform canonical serialization, payload hashing, Markdown rendering, Registry transactions, workflow transitions, and acceptance decisions.
-
-Acceptance requires atomic canonical materialization through ChampCity_AI services and no independent MCP-side workflow or Registry authority.
-
-### WC05 — ChatGPT Architect Agent End-to-End Integration
-
-Order: 5
-Kind: `planned_candidate`
-Existing implementation classification: `Replace manual Architect handoff as primary path; preserve explicit fallback`
-Status: dependency-blocked by WC04
-Implementation type: governed role integration
+Purpose: Normalize the corpus and prepare every surviving record for application review.
 
 Required outcomes:
 
-- compile an exact Architect assignment from the current ChampCity_AI route;
-- allow one Architect ChatGPT conversation to claim and read the packet;
-- expose bounded repository, artifact, Git history, source-analysis, and evidence tools;
-- submit a typed Architect result;
-- materialize the expected canonical artifact through ChampCity_AI;
-- show ingestion status and resulting workflow transition;
-- reject wrong-role and stale assignment submissions;
-- preserve a visible manual handoff fallback.
+- Migrate surviving artifacts to the WC01 schema.
+- Assign correct project, phase, Work Card, stage, relationship, and routing metadata.
+- Set every record without a new-system decision to `pending_operator_disposition`.
+- Preserve prior approvals and validations as historical evidence.
+- Merge approved safe duplicate groups into canonical survivors.
+- Preserve unique content, evidence, timestamps, and provenance.
+- Update inbound references before obsolete duplicate files are removed.
+- Leave ambiguous groups intact and visible for Operator disposition.
+- Refresh indexes and derived projections after validation.
+- Produce before-and-after counts and migration evidence.
+- Prove that no verified evidence was silently discarded.
 
-The first proof must use a controlled real Architect-required action, not a synthetic success-only route.
+Acceptance: The surviving corpus is current-schema, traceable, reference-safe, and ready for Operator review.
 
-### WC06 — ChatGPT Independent Verifier Agent End-to-End Integration
+### WC04 — Project Planning Approval Workspace and Startup Route
 
-Order: 6
-Kind: `planned_candidate`
-Existing implementation classification: `New role integration using Phase 06 Execution Run foundation`
-Status: dependency-blocked by WC05 and an exact Implementer result
-Implementation type: independent verification integration
+Dependencies: WC03 accepted.
 
-Required outcomes:
-
-- separate fresh ChatGPT conversation and verifier assignment;
-- exact Implementer result, changed-file, commit, pass, attempt, and contract binding;
-- named focused and full validation profiles;
-- read-only implementation evidence;
-- typed `pass`, `fail`, `blocked`, or `pass_with_observations` result;
-- same-pass retry routing when verification fails;
-- prevention of self-verification and evidence mutation.
-
-Acceptance requires proof that the same conversation or assignment authority cannot act as both Implementer and Independent Verifier for the same pass.
-
-### WC07 — ChatGPT Operator Validation Agent End-to-End Integration
-
-Order: 7
-Kind: `planned_candidate`
-Existing implementation classification: `New human-assisted validation integration`
-Status: dependency-blocked by WC06
-Implementation type: human-in-the-loop role integration
+Purpose: Implement Project Planning review against the migrated real corpus.
 
 Required outcomes:
 
-- exact validation target and Architect-authorized checklist;
-- application-generated manual validation steps;
-- screenshot, log, and evidence review;
-- recording of human-confirmed observations;
-- missing-evidence and not-tested states;
-- draft Operator Validation result submission;
-- explicit human acceptance control outside the agent;
-- prohibition on autonomous Work Card acceptance or phase closeout.
+- Build the exact bundle from Project Intake, Project Interview documents, Project Roadmap, final Project Planning documents, and required reconciliation evidence.
+- Display legacy decisions and migration notes as evidence.
+- Allow exact approval, revision request, rejection, and valid dispositions.
+- Route approval to Phase Planning.
+- Route revision or rejection to the same bundle for revision.
+- Replace generic approval-queue ownership with a stage-owned Project Planning workspace.
+- Add startup routing capability and real-corpus tests.
 
-Acceptance requires proof that the agent cannot claim unconfirmed human actions or accept its own draft.
+Acceptance: The migrated Project Planning bundle can be reviewed through the new Operator decision model.
 
-### WC08 — Dual-Host Hardening and Phase 08 Dogfooding Re-Entry Decision
+### WC05 — Phase Planning Approval Routing
 
-Order: 8
-Kind: `planned_candidate`
-Existing implementation classification: `Harden`
-Status: dependency-blocked by WC02 through WC07
-Implementation type: integration validation and lifecycle closeout
+Dependencies: WC04 accepted.
+
+Purpose: Implement Phase Planning review for current and historical phase bundles.
 
 Required outcomes:
 
-- complete standalone ChampCity_GPT regression;
-- complete embedded ChampCity_AI regression;
-- shared-core version and compatibility verification;
-- connector rediscovery and OAuth reconnection;
-- restart, crash recovery, and process cleanup;
-- role concurrency and claim isolation;
-- wrong-role, stale-attempt, duplicate-result, and cross-project rejection;
-- audit completeness and redaction;
-- project switching without authority leakage;
-- explicit fallback and recovery;
-- Operator-visible role, source, expected output, and blocker status;
-- controlled Architect, Independent Verifier, and Operator Validation demonstrations;
-- Phase 08 dogfooding re-entry recommendation.
+- Bind approval to exact Phase Planning and Work Card Plan revisions.
+- Route approval directly to authoring the first unresolved Work Card.
+- Route revision or rejection back to the same phase bundle.
+- Remove `justInTimeWorkCardCreationAuthorized`, `phaseProgressionAuthorized`, and equivalent gates.
+- Present historical phase bundles in roadmap order through the same workspace.
+- Use approved Work Card Plan order to determine the next Work Card.
+- Test closed, interrupted, superseded, active, and planned phases from the real corpus.
 
-WC08 may recommend Phase 08 activation but may not perform Operator phase acceptance.
+Acceptance: Phase Planning approval is sufficient to begin Work Card authoring.
 
-## Shared-Core Ownership Rule
+### WC06 — Unified Work Card Approval and Revision Loop
 
-The shared core is the single source for reusable MCP behavior. Host-specific code must depend on explicit interfaces.
+Dependencies: WC05 accepted.
 
-Prohibited architectures:
+Purpose: Use one Work Card approval process for ordinary, repair, current, and historical Work Cards.
 
-- copied MCP source inside ChampCity_AI;
-- ChampCity_AI requiring the standalone ChampCity_GPT executable;
-- standalone ChampCity_GPT importing ChampCity_AI workflow modules;
-- shared core owning ChampCity_AI workflow state or Artifact Registry authority;
-- two active implementations of the same public tool behavior;
-- hidden compatibility fallback to the pre-extraction implementation.
+Required outcomes:
 
-## Role Authority Rule
+- Present one exact Work Card revision to the Operator.
+- Route approval to Implementer execution.
+- Route revision or rejection to a new revision of the same Work Card identity.
+- Keep Work Card Plan approval separate from detailed Work Card approval.
+- Treat `WCXX-REPAIRXX` as a normal Work Card with parent traceability.
+- Remove replacement-candidate handling created solely by rejection.
+- Remove `implementationAuthorized` as independent authority.
+- Route migrated historical Work Cards through the same workspace.
+- Show linked reports, reviews, and legacy decisions as evidence.
 
-- Architect, Independent Verifier, and Operator Validation roles use separate exact assignments.
-- One public connector may serve all roles.
-- Conversation labels and prompt text are not authority.
-- ChampCity_AI assignment records determine the permitted role and result type.
-- Codex remains the primary Implementer during Phase 07.
-- Human Operator acceptance remains outside agent authority.
+Acceptance: Work Card identity survives revision, and repair Work Cards use the normal approval path.
 
-## Validation Rule
+### WC07 — Advisory Architect Review and Operator Validation
 
-Every implementation Work Card must define:
+Dependencies: WC06 accepted.
 
-- focused validation;
-- shared-core tests;
-- standalone ChampCity_GPT regression;
-- embedded ChampCity_AI regression when applicable;
-- public tool exposure and OAuth checks when applicable;
-- process and runtime-store isolation checks;
-- canonical artifact and workflow authority checks;
-- manual Operator validation;
-- rollback evidence.
+Purpose: Restore correct authority after implementation.
 
-A passing host-specific test suite is not sufficient when the shared core or both hosts are touched.
+Required outcomes:
 
-## Implementation Authorization Gate
+- Architect Review records findings, risks, omissions, repair recommendations, and recommended visual or manual validation.
+- Architect Review cannot approve, reject, complete, or directly route implementation.
+- Every completed review routes to Operator Validation.
+- Operator outcomes include accepted, repair required, additional evidence required, deferred, cancelled, invalid, or another valid disposition.
+- Repair required routes to authoring the next `WCXX-REPAIRXX`.
+- Remove Architect Disposition and Candidate Disposition as required stages.
+- Preserve reports, reviews, screenshots, validation, and verifier evidence as linked evidence.
+- Route migrated historical implementation evidence through the same validation workspace.
 
-This Work Card Plan does not authorize implementation.
+Acceptance: Only the Operator determines implementation outcome, and Architect Review clearly guides validation.
 
-Implementation begins only after:
+### WC08 — Phase Closeout and Roadmap Progression
 
-1. the Operator reviews and approves the Phase 07 Planning and Work Card Plan pairs;
-2. the approval identifies the exact approved revisions;
-3. the Architect creates the next just-in-time Work Card;
-4. the Operator approves that exact Work Card where required;
-5. the repository and dependency preflight passes.
+Dependencies: WC07 accepted.
 
-## Completion Rule
+Purpose: Base closeout eligibility on unresolved Work Card Plan items.
 
-Phase 07 becomes eligible for closeout only when:
+Required outcomes:
 
-1. WC01 is accepted;
-2. WC02 is accepted and one shared core is authoritative;
-3. WC03 is accepted and the embedded process lifecycle is stable;
-4. WC04 is accepted and ChampCity_AI retains canonical authority;
-5. WC05 Architect integration passes;
-6. WC06 Independent Verifier integration passes;
-7. WC07 Operator Validation integration passes;
-8. WC08 dual-host hardening passes;
-9. no unresolved role, authority, extraction, compatibility, runtime-isolation, or connector blocker remains;
-10. the Operator approves the Phase 08 re-entry decision.
+- Permit closeout when every planned item has a resolved Operator outcome.
+- Keep items awaiting authoring, approval, implementation, review, validation, repair, or disposition unresolved.
+- Remove blockers based on Candidate Disposition, Architect Disposition, replacement lineage, repair bookkeeping, or unrelated defects.
+- Bind closeout approval to the exact closeout record and updated Roadmap.
+- Route approval to the next phase or project completion.
+- Route revision or rejection to the same closeout bundle.
+- Present migrated historical closeouts through the same workspace.
+- Update roadmap status from actual approved outcomes.
 
-## Next Governed Output
+Acceptance: Closeout is blocked only by unresolved planned work or a local failure affecting the closeout bundle.
 
-`champcity-ai/phase-07/operator_approval/Operator_Phase_Approval`
+### WC09 — Roadmap-Driven Development State and Operator UI
 
-After exact approval, the first just-in-time implementation candidate is:
+Dependencies: WC04 through WC08 accepted.
 
-`champcity-ai/phase-07/work_card/WC01`
+Purpose: Create the live map of development history, current state, pending review, and next action.
+
+Required outcomes:
+
+- Derive state from the Project Roadmap and migrated repository relationships.
+- Show Project Planning status and bundle.
+- Show phases in roadmap order with completed, active, interrupted, superseded, planned, and pending-disposition states.
+- Show each Work Card Plan, ordinary Work Card, repair Work Card, and Operator outcome.
+- Show linked Implementer Reports, Architect Reviews, validation evidence, closeouts, and migration notes.
+- Show pending disposition counts and locations.
+- Show the exact next action, why it is next, and the records affected.
+- Provide drill-down from Project to Phase to Work Card to evidence and disposition.
+- Keep current action prominent while retaining historical context.
+- Derive state from repository records rather than an independently authoritative Workflow State file.
+- Localize malformed records without hiding the rest of the project.
+
+Acceptance: The Operator can understand development to date and the next required review without manually reading the repository.
+
+### WC10 — Governance Maintenance Deauthorization and Localized Integrity
+
+Dependencies: WC09 accepted.
+
+Purpose: Prevent maintenance defects from globally suspending unrelated workflow.
+
+Required outcomes:
+
+- Remove Governance Repair as automatic top-level workflow preemption.
+- Make malformed, stale, duplicate, or unsynchronized records local blockers.
+- Preserve WC02/WC03 migration and historical disposition routes.
+- Treat the Artifact Registry as an index and diagnostic aid, not approval authority.
+- Preserve identity lookup, duplicate detection, atomic writes, stale-revision protection, containment, and pair synchronization.
+- Remove dormant bulk `repairAll()` behavior.
+- Retain bounded explicit repair utilities.
+- Display unresolved duplicate groups in the development map and normal disposition workflow.
+- Prove unrelated defects do not replace the valid current action.
+
+Acceptance: Integrity defects remain visible and actionable without becoming project-wide stop conditions.
+
+### WC11 — Routed IPC, Screen, and Write-Scope De-gating
+
+Dependencies: WC10 accepted.
+
+Purpose: Convert operation checks from parallel authority gates into local safety checks.
+
+Required outcomes:
+
+- Remove coded role labels, screen identity, and IPC policies as substitutes for Operator authority.
+- Stop requiring previews and saves to possess independent workflow authorization.
+- Retain local stale-view detection and exact output identity where needed.
+- Retain bounded output-type checks preventing cross-record corruption.
+- Convert renderer mismatch to a local refresh response.
+- Make write scope protect the attempted write rather than grant workflow authority.
+- Remove obsolete action-catalog authorization labels and dead policy paths.
+- Confirm historical review and state-map behavior through the simplified IPC boundary.
+
+Acceptance: Stage screens safely read and write their records without acting as a second approval system.
+
+### WC12 — Execution Run Authority Simplification
+
+Dependencies: WC11 accepted.
+
+Purpose: Make the approved Work Card the execution authority while retaining sequencing and evidence tracking.
+
+Required outcomes:
+
+- Start an Execution Run from one exact approved Work Card.
+- Read scope, paths, prohibitions, tests, and outputs from the approved Work Card or direct execution definition.
+- Remove approval-level `authorizationGranted`, `sourceCodeChangesAuthorized`, `pushAuthorized`, and `executionPassesAuthorized`.
+- Remove duplicated approval metadata where the exact current decision is directly resolvable.
+- Remove hard-coded Phase 06 Work Card dependencies from generic production code.
+- Keep Execution Run as an evidence and sequencing ledger.
+- Keep independent verification as evidence, not Operator acceptance authority.
+- Remove or collapse Acceptance Contract and Pass Plan duplication where they only restate the Work Card.
+- Preserve useful exact result targeting and ordered pass transitions.
+
+Acceptance: An exact approved Work Card can begin execution without duplicated authorization.
+
+### WC13 — End-to-End Dogfood Reconciliation and Startup Handoff
+
+Dependencies: WC01 through WC12 accepted.
+
+Purpose: Prove the migrated workflow and leave the application at the intended post-phase starting point.
+
+Required outcomes:
+
+- Remove obsolete fields, types, labels, branches, services, tests, and generic queue UI after consumers are gone.
+- Reconcile the Project Roadmap so it records the actual Phase 07 scope rather than the deleted prior Architect Bridge plan.
+- Confirm every surviving historical record is represented in the new schema and state map.
+- Confirm every undisposed record is reachable through a normal stage-owned workspace.
+- Confirm safe duplicate groups are merged and unresolved groups remain visible.
+- Run complete real-corpus routing and projection tests, typecheck, build, focused tests, and full tests.
+- Produce and execute a bounded Operator manual-validation checklist.
+- Do not approve the migrated Project Planning bundle during Phase 07 validation.
+- Configure or derive application startup so restart opens at:
+
+```text
+Project Planning — Operator Approval Required
+```
+
+- Display the actual migrated Project Planning bundle with pending disposition state.
+
+Acceptance: The application uses ChampCity_AI’s migrated history as proof of the new workflow and hands control back to the Operator at Project Planning approval.
+
+## Work Card Summary
+
+| Order | Work Card | Primary subsystem |
+| ---: | --- | --- |
+| 1 | WC01 — Unified Operator Decision and Disposition Contract | Decision model |
+| 2 | WC02 — Historical Corpus Inventory and Duplicate Resolution Manifest | Corpus analysis |
+| 3 | WC03 — Historical Artifact Migration and Duplicate Cleanup | Data migration |
+| 4 | WC04 — Project Planning Approval Workspace and Startup Route | Project Planning workflow |
+| 5 | WC05 — Phase Planning Approval Routing | Phase Planning workflow |
+| 6 | WC06 — Unified Work Card Approval and Revision Loop | Work Card workflow |
+| 7 | WC07 — Advisory Architect Review and Operator Validation | Review and validation |
+| 8 | WC08 — Phase Closeout and Roadmap Progression | Closeout and roadmap |
+| 9 | WC09 — Roadmap-Driven Development State and Operator UI | State projection and UI |
+| 10 | WC10 — Governance Maintenance Deauthorization and Localized Integrity | Maintenance and Registry |
+| 11 | WC11 — Routed IPC, Screen, and Write-Scope De-gating | Process invocation and writers |
+| 12 | WC12 — Execution Run Authority Simplification | Execution Runs |
+| 13 | WC13 — End-to-End Dogfood Reconciliation and Startup Handoff | Integrated validation and startup |
+
+## Phase Completion Rule
+
+Phase 07 is ready for closeout only when:
+
+1. WC01 through WC13 have resolved Operator outcomes.
+2. The full historical corpus has been inventoried.
+3. Safe duplicate groups are merged, obsolete files removed, and references updated.
+4. Every surviving historical record uses the new schema and has a disposition state.
+5. Every undisposed record is `pending_operator_disposition` and reachable through normal routing.
+6. The five Operator checkpoints are active.
+7. The roadmap-driven development map accurately displays repository history and current state.
+8. Obsolete authority fields and routes have no production consumers.
+9. Full automated and Operator manual validation pass.
+10. Application restart opens at `Project Planning — Operator Approval Required` with the migrated Project Planning bundle.
+
+## Next Step After Chat Approval
+
+Author only:
+
+`planning/phases/phase-07/Work_Cards/WC01_unified_operator_decision_and_disposition_contract.md`
+
+Do not author WC02 or later Work Cards until WC01 has been implemented, reviewed, and accepted by the Operator.

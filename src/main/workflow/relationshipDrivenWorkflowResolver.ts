@@ -5,6 +5,8 @@ import {
   materializeActionCatalog,
   projectRoutedAction,
   resolveWorkflowKernel,
+  actionIdentityFromCatalog,
+  getWorkflowActionCatalogEntry,
   workflowActionCatalog,
   type WorkflowActionBinding,
   type WorkflowBlocker,
@@ -14,6 +16,7 @@ import {
   type WorkflowStateIndex,
 } from "../../shared/workflow";
 import type { ConfiguredProject } from "../../shared/projects";
+import type { GovernanceMaintenanceSummary } from "../../shared/projects";
 import type { VerifiedArtifactGraph } from "../repository";
 import { normalizeWorkflowDomain } from "./normalizedWorkflowDomainAdapter";
 
@@ -76,22 +79,123 @@ export class RelationshipDrivenWorkflowResolver {
     project: ConfiguredProject,
     graph: VerifiedArtifactGraph,
     projectionRevision: number,
+    maintenance?: GovernanceMaintenanceSummary,
   ): RelationshipWorkflowProjection {
     const revision = Math.max(1, projectionRevision);
     const domain = normalizeWorkflowDomain(project, graph);
     const kernel = resolveWorkflowKernel(domain, revision);
-    const state = projectKernelState(project, graph, domain, kernel, revision);
-    const evidenceArtifactIds = routeEvidenceArtifactIds(domain, kernel.action);
+    const governingKernel = maintenanceKernel(project, maintenance, revision) ?? kernel;
+    const state = projectKernelState(project, graph, domain, governingKernel, revision);
+    const evidenceArtifactIds = routeEvidenceArtifactIds(domain, governingKernel.action);
     return {
       state,
       graph,
       evidenceArtifactIds,
-      repairLineage: repairLineageFor(domain, kernel.action?.targetWorkCardArtifactId ?? null),
-      resolverResult: buildKernelResolverResult(graph, kernel, state.blockingConditions),
+      repairLineage: repairLineageFor(domain, governingKernel.action?.targetWorkCardArtifactId ?? null),
+      resolverResult: buildKernelResolverResult(graph, governingKernel, state.blockingConditions),
       domain,
-      implementerAssignment: kernel.assignment,
+      implementerAssignment: governingKernel.assignment,
     };
   }
+}
+
+function maintenanceKernel(
+  project: ConfiguredProject,
+  maintenance: GovernanceMaintenanceSummary | undefined,
+  stateRevision: number,
+): WorkflowKernelResult | null {
+  const repairItems = maintenance?.repair.candidates ?? [];
+  if (repairItems.length > 0) {
+    const selected = firstValue(repairItems);
+    if (!selected) return null;
+    const existingRequest = selected.existingSpecificationRequest;
+    const action = existingRequest
+      ? maintenanceAction("governance_repair_specification_required", {
+          project,
+          stateRevision,
+          phaseId: selected.phaseId ?? null,
+          targetArtifactId: existingRequest.artifactId,
+          sourceArtifactIds: [existingRequest.artifactId],
+          expectedOutputArtifactId: existingRequest.expectedRepairWorkCardArtifactId,
+          expectedOutputArtifactType: "work_card",
+          expectedOutputRelationship: "artifact_creation_output",
+        })
+      : maintenanceAction("governance_integrity_repair_required", {
+      project,
+      stateRevision,
+      phaseId: selected.phaseId ?? null,
+      targetArtifactId: selected.artifactId,
+      sourceArtifactIds: repairItems.map((item) => item.artifactId),
+      expectedOutputArtifactId: selected.artifactId,
+      expectedOutputArtifactType: selected.artifactType,
+      expectedOutputRelationship: "in_place_mutation_target",
+      });
+    return {
+      kind: "current_action",
+      action,
+      assignment: null,
+      blockers: [],
+    } as WorkflowKernelResult;
+  }
+
+  const approvalItems = (maintenance?.approval.items ?? []).filter(
+    (item) => item.approvalStatus !== "exact",
+  );
+  if (approvalItems.length > 0) {
+    const selected = firstValue(approvalItems);
+    if (!selected) return null;
+    const action = maintenanceAction("operator_governance_approval_required", {
+      project,
+      stateRevision,
+      phaseId: selected.phaseId ?? null,
+      targetArtifactId: selected.targetArtifactId,
+      sourceArtifactIds: approvalItems.map((item) => item.targetArtifactId),
+      expectedOutputArtifactId: selected.approvalArtifactId,
+      expectedOutputArtifactType: "operator_approval",
+      expectedOutputRelationship: "artifact_creation_output",
+    });
+    return {
+      kind: "current_action",
+      action,
+      assignment: null,
+      blockers: [],
+    };
+  }
+
+  return null;
+}
+
+function maintenanceAction(
+  actionId:
+    | "governance_integrity_repair_required"
+    | "governance_repair_specification_required"
+    | "operator_governance_approval_required",
+  input: {
+    project: ConfiguredProject;
+    stateRevision: number;
+    phaseId: string | null;
+    targetArtifactId: string;
+    sourceArtifactIds: readonly string[];
+    expectedOutputArtifactId: string;
+    expectedOutputArtifactType?: string;
+    expectedOutputRelationship?: "artifact_creation_output" | "in_place_mutation_target";
+  },
+): WorkflowCurrentActionIdentity {
+  const catalogEntry = getWorkflowActionCatalogEntry(actionId);
+  if (!catalogEntry) {
+    throw new Error(`Workflow action ${actionId} is not present in the executable action catalog.`);
+  }
+  return actionIdentityFromCatalog(catalogEntry, {
+    projectId: input.project.projectId,
+    phaseId: input.phaseId,
+    targetArtifactId: input.targetArtifactId,
+    targetWorkCardArtifactId: null,
+    sourceArtifactIds: input.sourceArtifactIds,
+    expectedOutputArtifactId: input.expectedOutputArtifactId,
+    expectedOutputArtifactType: input.expectedOutputArtifactType,
+    expectedOutputRelationship: input.expectedOutputRelationship,
+    stateRevision: input.stateRevision,
+  });
 }
 
 function projectKernelState(
@@ -112,6 +216,8 @@ function projectKernelState(
             ? [...actionIdentity.sourceArtifactIds]
             : [],
         expectedOutputArtifactId: actionIdentity.expectedOutputArtifactId,
+        expectedOutputArtifactType: actionIdentity.expectedOutputArtifactType,
+        expectedOutputRelationship: actionIdentity.expectedOutputRelationship,
       },
     ]),
   ) as Readonly<Record<string, WorkflowActionBinding>>;
@@ -197,6 +303,7 @@ function fallbackBlockedAction(
     sourceArtifactIds: domain.planArtifactId ? [domain.planArtifactId] : [],
     expectedOutputArtifactId: exactExistingArtifactId,
     expectedOutputArtifactType: catalogEntry?.expectedOutputArtifactType ?? "route_review_request",
+    expectedOutputRelationship: "artifact_creation_output",
     authorizedOperations: catalogEntry?.authorizedOperations ?? [],
     stateRevision,
   };
@@ -333,4 +440,9 @@ function onlyValue<T>(values: readonly T[]): T | null {
   let selected: T | null = null;
   for (const value of values) selected = value;
   return selected;
+}
+
+function firstValue<T>(values: readonly T[]): T | null {
+  for (const value of values) return value;
+  return null;
 }

@@ -1,13 +1,17 @@
 const assert = require("node:assert/strict");
-const { mkdir, mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
+const { createHash } = require("node:crypto");
+const { mkdir, mkdtemp, readFile, readdir, rm, writeFile } = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
 const {
+  buildArtifactRegistry,
+  buildArtifactRegistryEntry,
   buildCanonicalArtifact,
   canonicalPrettyStringify,
   renderArtifactMarkdown,
+  renderArtifactRegistryContentMarkdown,
 } = require("../../dist/shared/artifacts");
 const {
   ProjectWorkspaceRegistry,
@@ -75,11 +79,7 @@ function project(root, projectId = "project-alpha") {
 async function writeArtifact(root, input) {
   const jsonPath = `${input.stem}.json`;
   const markdownPath = `${input.stem}.md`;
-  const data =
-    input.artifactType === "operator_approval" &&
-    input.artifactId.includes("/operator_approval/Operator_Phase_Approval")
-      ? { approvalScope: "phase_work_card_plan", decision: "approved", ...input.data }
-      : input.data ?? {};
+  const data = input.data ?? {};
   const artifact = buildCanonicalArtifact({
     artifactId: input.artifactId,
     artifactType: input.artifactType,
@@ -109,9 +109,149 @@ async function writeArtifact(root, input) {
   const absoluteJson = path.join(root, ...jsonPath.split("/"));
   const absoluteMarkdown = path.join(root, ...markdownPath.split("/"));
   await mkdir(path.dirname(absoluteJson), { recursive: true });
-  await writeFile(absoluteJson, canonicalPrettyStringify(artifact), "utf8");
+  await writeFile(absoluteJson, `${canonicalPrettyStringify(artifact)}\n`, "utf8");
   await writeFile(absoluteMarkdown, renderArtifactMarkdown(artifact), "utf8");
   return artifact;
+}
+
+async function seedArtifactRegistry(root, projectId) {
+  const planningRoot = path.join(root, "planning");
+  const artifacts = [];
+  async function visit(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(absolute);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+      try {
+        const value = JSON.parse(await readFile(absolute, "utf8"));
+        if (
+          value &&
+          typeof value === "object" &&
+          value.schemaVersion === "champcity.artifact.v1" &&
+          value.projectId === projectId &&
+          value.artifactType !== "artifact_registry"
+        ) {
+          artifacts.push(value);
+        }
+      } catch {
+        // Fixture registries only include parseable canonical artifact JSON.
+      }
+    }
+  }
+  await visit(planningRoot);
+  const entries = artifacts
+    .map((artifact) => buildArtifactRegistryEntry(artifact))
+    .sort((left, right) => left.artifactId.localeCompare(right.artifactId));
+  const registry = buildArtifactRegistry({
+    updatedAt: FIXED_TIME,
+    entries,
+  });
+  return writeArtifact(root, {
+    projectId,
+    artifactId: `${projectId}/system/artifact_registry`,
+    artifactType: "artifact_registry",
+    stem: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY",
+    sources: entries.map((entry) => entry.artifactId),
+    contentMarkdown: renderArtifactRegistryContentMarkdown(registry),
+    data: registry,
+  });
+}
+
+async function approveGovernanceQueue(root, projectId) {
+  const registryArtifact = JSON.parse(
+    await readFile(
+      path.join(root, "planning", "system", "Artifact_Registry", "ARTIFACT_REGISTRY.json"),
+      "utf8",
+    ),
+  );
+  const targets = registryArtifact.payload.data.entries.filter((entry) =>
+    ["phase_planning", "work_card_plan", "work_card"].includes(entry.artifactType),
+  );
+  const phaseBundles = new Set(
+    targets
+      .filter((target) => target.artifactType === "phase_planning" || target.artifactType === "work_card_plan")
+      .map((target) => target.phaseId),
+  );
+  for (const phaseId of phaseBundles) {
+    const bundleTargets = targets.filter(
+      (target) =>
+        target.phaseId === phaseId &&
+        (target.artifactType === "phase_planning" || target.artifactType === "work_card_plan"),
+    );
+    const parent = bundleTargets.find((target) => target.artifactType === "work_card_plan") ?? bundleTargets[0];
+    await writeArtifact(root, {
+      projectId,
+      phaseId,
+      parentArtifactId: parent.artifactId,
+      artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
+      artifactType: "operator_approval",
+      stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
+      sources: bundleTargets.map((target) => target.artifactId),
+      data: operatorDecisionRecordFromEntries("phase_planning", bundleTargets, {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
+    });
+  }
+  for (const target of targets.filter((entry) => entry.artifactType === "work_card")) {
+    const isWorkCard = target.artifactType === "work_card";
+    const approvalId = isWorkCard
+      ? `${projectId}/${target.phaseId}/operator_approval/${target.workCardId}`
+      : `${projectId}/${target.phaseId}/operator_approval/Operator_Phase_Approval`;
+    const stem = isWorkCard
+      ? `planning/phases/${target.phaseId}/Operator_Approvals/OPERATOR_APPROVAL_${target.workCardId}`
+      : `planning/phases/${target.phaseId}/Operator_Phase_Approval`;
+    await writeArtifact(root, {
+      projectId,
+      phaseId: target.phaseId,
+      ...(isWorkCard ? { workCardId: target.workCardId } : {}),
+      parentArtifactId: target.artifactId,
+      artifactId: approvalId,
+      artifactType: "operator_approval",
+      stem,
+      sources: [target.artifactId],
+      expectedOutputs: [`${projectId}/${target.phaseId}/implementer_report/${target.workCardId}`],
+      data: operatorDecisionRecordFromEntries("work_card", [target], {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
+    });
+  }
+  await seedArtifactRegistry(root, projectId);
+}
+
+function operatorDecisionRecordFromEntries(stage, targets, outcome, operatorReason) {
+  const bindings = targets.map((target) => ({
+    artifactId: target.artifactId,
+    artifactType: target.artifactType,
+    revision: target.revision,
+    payloadHash: target.payloadHash,
+  })).sort((left, right) => left.artifactId.localeCompare(right.artifactId));
+  const targetSetHash = createHash("sha256")
+    .update(JSON.stringify({ stage, targets: bindings }), "utf8")
+    .digest("hex");
+  const event = {
+    schemaVersion: "operator-decision-event.v1",
+    stage,
+    targets: bindings,
+    targetSetHash,
+    outcome,
+    ...(operatorReason ? { operatorReason } : {}),
+    decidedAt: FIXED_TIME,
+  };
+  return {
+    schemaVersion: "operator-decision-record.v1",
+    stage,
+    targets: bindings,
+    targetSetHash,
+    outcome,
+    ...(operatorReason ? { operatorReason } : {}),
+    decidedAt: FIXED_TIME,
+    decisionTimeline: [event],
+  };
 }
 
 async function seedWorkCardLoop(root, projectId, phaseId, workCardId, options = {}) {
@@ -123,7 +263,7 @@ async function seedWorkCardLoop(root, projectId, phaseId, workCardId, options = 
     stem: `planning/phases/${phaseId}/Phase_Activation`,
     data: { status: "active", phaseId },
   });
-  await writeArtifact(root, {
+  const workCardPlan = await writeArtifact(root, {
     projectId,
     phaseId,
     artifactId: `${projectId}/${phaseId}/work_card_plan/Work_Card_Plan`,
@@ -134,27 +274,52 @@ async function seedWorkCardLoop(root, projectId, phaseId, workCardId, options = 
       candidates: [{ id: options.candidateId ?? workCardId.replace(/-REPAIR\d+$/i, ""), title: "Authority cutover", order: 1 }],
     },
   });
-  await writeArtifact(root, {
+  const phaseApproval = await writeArtifact(root, {
     projectId,
     phaseId,
     artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
     artifactType: "operator_approval",
     stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
-    data: { decision: "approved" },
+    parentArtifactId: workCardPlan.artifactId,
+    sources: [workCardPlan.artifactId],
+    data: operatorDecisionRecordFromEntries("phase_planning", [workCardPlan], {
+      kind: "stage_decision",
+      decision: "approved",
+    }),
   });
-  return writeArtifact(root, {
+  const workCard = await writeArtifact(root, {
     projectId,
     phaseId,
     workCardId,
-      artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
-      artifactType: "work_card",
-      stem: `planning/phases/${phaseId}/Work_Cards/${workCardId}_authority_cutover`,
-      expectedOutputs: [
-        options.expectedImplementerReportId ??
-          `${projectId}/${phaseId}/implementer_report/${workCardId}`,
-      ],
-      data: { workCardId, status: "ready_for_implementer", ...options.workCardData },
-    });
+    artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
+    artifactType: "work_card",
+    stem: `planning/phases/${phaseId}/Work_Cards/${workCardId}_authority_cutover`,
+    sources: [workCardPlan.artifactId, phaseApproval.artifactId],
+    expectedOutputs: [
+      options.expectedImplementerReportId ??
+        `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+    ],
+    data: { workCardId, status: "ready_for_implementer", ...options.workCardData },
+  });
+  await writeArtifact(root, {
+    projectId,
+    phaseId,
+    workCardId,
+    artifactId: `${projectId}/${phaseId}/operator_approval/${workCardId}`,
+    artifactType: "operator_approval",
+    stem: `planning/phases/${phaseId}/Operator_Approvals/OPERATOR_APPROVAL_${workCardId}`,
+    parentArtifactId: workCard.artifactId,
+    sources: [workCard.artifactId, phaseApproval.artifactId],
+    expectedOutputs: [
+      options.expectedImplementerReportId ??
+        `${projectId}/${phaseId}/implementer_report/${workCardId}`,
+    ],
+    data: operatorDecisionRecordFromEntries("work_card", [workCard], {
+      kind: "stage_decision",
+      decision: "approved",
+    }),
+  });
+  return workCard;
 }
 
 async function projectGraph(root, projectId = "project-alpha", revision = 1) {
@@ -348,6 +513,7 @@ test("external Implementer Report advances WC01 to exact Architect Review route 
     assert.deepEqual(action.expectedOutput, {
       artifactId: `${projectId}/${phaseId}/architect_review/${workCardId}`,
       artifactType: "architect_review",
+      relationship: "artifact_creation_output",
     });
     assert.equal(action.bindingSource.kind, "relationship_resolver");
     assert.equal(result.graph.nodes.some((node) => node.artifact.artifactType === "artifact_registry"), false);
@@ -444,6 +610,8 @@ test("canonical Work Card artifacts never require retired Saved Work Card fields
 
     const storage = path.join(os.tmpdir(), `champcity-canonical-wc-${process.pid}-${Date.now()}.json`);
     try {
+      await seedArtifactRegistry(root, projectId);
+      await approveGovernanceQueue(root, projectId);
       const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
       await registry.addProject({ repositoryRoot: root, projectId });
       const configured = await registry.selectProject(projectId);
@@ -480,7 +648,7 @@ test("final repair routes combined parent review, parent validation, and complet
     await seedWorkCardLoop(root, projectId, phaseId, "WC01", {
       workCardData: { maxRepairCount: 1 },
     });
-    await writeArtifact(root, {
+    const revisedPlan = await writeArtifact(root, {
       projectId, phaseId,
       artifactId: `${projectId}/${phaseId}/work_card_plan/Work_Card_Plan`,
       artifactType: "work_card_plan",
@@ -495,12 +663,38 @@ test("final repair routes combined parent review, parent validation, and complet
       },
     });
     await writeArtifact(root, {
+      projectId,
+      phaseId,
+      artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
+      artifactType: "operator_approval",
+      stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
+      parentArtifactId: revisedPlan.artifactId,
+      sources: [revisedPlan.artifactId],
+      data: operatorDecisionRecordFromEntries("phase_planning", [revisedPlan], {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
+    });
+    const nextWorkCard = await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC02",
       artifactId: `${projectId}/${phaseId}/work_card/WC02`,
       artifactType: "work_card",
       stem: `planning/phases/${phaseId}/Work_Cards/WC02_next_candidate`,
       expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC02`],
       data: { workCardId: "WC02", status: "ready_for_implementer" },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC02",
+      artifactId: `${projectId}/${phaseId}/operator_approval/WC02`,
+      artifactType: "operator_approval",
+      stem: `planning/phases/${phaseId}/Operator_Approvals/OPERATOR_APPROVAL_WC02`,
+      parentArtifactId: nextWorkCard.artifactId,
+      sources: [nextWorkCard.artifactId],
+      expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC02`],
+      data: operatorDecisionRecordFromEntries("work_card", [nextWorkCard], {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
     });
     await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01",
@@ -517,7 +711,7 @@ test("final repair routes combined parent review, parent validation, and complet
       expectedOutputs: [`${projectId}/${phaseId}/work_card/WC01-REPAIR01`],
       data: { decision: "Repair required before Operator validation", requiredRepairId: "WC01-REPAIR01" },
     });
-    await writeArtifact(root, {
+    const repairWorkCard = await writeArtifact(root, {
       projectId, phaseId, workCardId: "WC01-REPAIR01",
       parentArtifactId: `${projectId}/${phaseId}/work_card/WC01`,
       artifactId: `${projectId}/${phaseId}/work_card/WC01-REPAIR01`,
@@ -542,6 +736,19 @@ test("final repair routes combined parent review, parent validation, and complet
         logicalRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
         controllingRepairReportArtifactId: `${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`,
       },
+    });
+    await writeArtifact(root, {
+      projectId, phaseId, workCardId: "WC01-REPAIR01",
+      artifactId: `${projectId}/${phaseId}/operator_approval/WC01-REPAIR01`,
+      artifactType: "operator_approval",
+      stem: `planning/phases/${phaseId}/Operator_Approvals/OPERATOR_APPROVAL_WC01-REPAIR01`,
+      parentArtifactId: repairWorkCard.artifactId,
+      sources: [repairWorkCard.artifactId],
+      expectedOutputs: [`${projectId}/${phaseId}/implementer_report/WC01-REPAIR01`],
+      data: operatorDecisionRecordFromEntries("work_card", [repairWorkCard], {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
     });
     let result = await projectGraph(root, projectId);
     assert.equal(result.projection.state.currentAction.actionId, "implementer_execution_required");
@@ -752,6 +959,8 @@ test("refresh is a no-op on identical evidence, recomputes after restart, and ig
       stem: "planning/system/Workflow_State/WORKFLOW_STATE_INDEX",
       data: { currentActionId: "project_intake_required", stateRevision: 999 },
     });
+    await seedArtifactRegistry(root, projectId);
+    await approveGovernanceQueue(root, projectId);
     const storage = path.join(os.tmpdir(), `champcity-refresh-${process.pid}-${Date.now()}.json`);
     try {
       const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
@@ -893,14 +1102,16 @@ test("repository refresh uses relationship resolver and ignores stale registry a
     });
     await writeArtifact(root, {
       projectId,
-      artifactId: `${projectId}/system/artifact_registry`,
-      artifactType: "artifact_registry",
+      artifactId: `${projectId}/system/artifact_registry_cache`,
+      artifactType: "artifact_registry_cache",
       stem: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY_INDEX",
       data: {
         currentActionId: "project_intake_required",
         expectedOutputArtifactId: `${projectId}/project/project_intake/current`,
       },
     });
+    await seedArtifactRegistry(root, projectId);
+    await approveGovernanceQueue(root, projectId);
 
     const storage = path.join(os.tmpdir(), `champcity-stale-cache-${process.pid}-${Date.now()}.json`);
     try {
@@ -972,6 +1183,8 @@ test("manual refresh and cold start produce the same route after committed dispo
       expectedOutputs: [`${projectId}/${phaseId}/candidate_disposition/WC01`],
       data: { validationResult: "Pass" },
     });
+    await seedArtifactRegistry(root, projectId);
+    await approveGovernanceQueue(root, projectId);
 
     const storage = path.join(os.tmpdir(), `champcity-parity-${process.pid}-${Date.now()}.json`);
     try {
@@ -991,6 +1204,8 @@ test("manual refresh and cold start produce the same route after committed dispo
         sources: [`${projectId}/${phaseId}/operator_validation/WC01`],
         data: { status: "completed", workCardId: "WC01" },
       });
+      await seedArtifactRegistry(root, projectId);
+      await approveGovernanceQueue(root, projectId);
 
       const afterManual = await manual.refresh("manual");
       const coldStart = await new RepositoryRefreshService(configured, registry, undefined, () => FIXED_TIME)
@@ -1012,6 +1227,10 @@ test("multiple configured projects refresh independently without route bleed", a
       try {
         await seedWorkCardLoop(rootA, "project-alpha", "phase-04", "WC01");
         await seedWorkCardLoop(rootB, "project-beta", "phase-04", "WC09");
+        await seedArtifactRegistry(rootA, "project-alpha");
+        await seedArtifactRegistry(rootB, "project-beta");
+        await approveGovernanceQueue(rootA, "project-alpha");
+        await approveGovernanceQueue(rootB, "project-beta");
         const registry = new ProjectWorkspaceRegistry({ storagePath: storage, clock: () => FIXED_TIME });
         await registry.addProject({ repositoryRoot: rootA, projectId: "project-alpha" });
         await registry.addProject({ repositoryRoot: rootB, projectId: "project-beta" });
@@ -1136,6 +1355,8 @@ test("closed phases and active_for_planning activation do not route stale Phase 
       expectedOutputs: [`${projectId}/phase-06/implementer_report/WC02-REPAIR01`],
       data: { workCardId: "WC02-REPAIR01", status: "ready_for_implementer" },
     });
+    await seedArtifactRegistry(root, projectId);
+    await approveGovernanceQueue(root, projectId);
 
     const storage = path.join(os.tmpdir(), `champcity-lifecycle-${process.pid}-${Date.now()}.json`);
     try {
@@ -1451,6 +1672,7 @@ test("live WC02 evidence routes to parent Operator Validation despite later repa
     assert.deepEqual(action.expectedOutput, {
       artifactId: `${projectId}/${phaseId}/operator_validation/${parentId}`,
       artifactType: "operator_validation",
+      relationship: "artifact_creation_output",
     });
     assert.equal(
       result.projection.state.blockingConditions.some((blocker) =>

@@ -135,6 +135,17 @@ import type {
 import type { RoutedActionContract } from "../shared/workflow";
 import type {
   AddProjectWorkspaceRequest,
+  GovernanceApprovalDecisionIntent,
+  GovernanceApprovalDecisionResult,
+  GovernanceApprovalQueueResult,
+  GovernanceMaintenanceSnapshotResult,
+  GovernanceRepairOperationResult,
+  GovernanceRepairPreviewResult,
+  GovernanceRepairIntent,
+  GovernanceRepairSpecificationCreateInput,
+  GovernanceRepairSpecificationRequestCreateResult,
+  GovernanceRepairSpecificationRequestPreview,
+  GovernanceRepairSpecificationPreviewInput,
   ProjectFolderSelectionResult,
   ProjectScanResult,
   ProjectWorkspaceListResult,
@@ -151,6 +162,17 @@ async function refreshCurrentRequiredAction(): Promise<CurrentRequiredActionResu
   currentRoutedActionBinding =
     result.ok && result.currentAction?.routedAction
       ? result.currentAction.routedAction
+      : null;
+  return result;
+}
+
+async function getCurrentGovernanceMaintenanceSnapshot(): Promise<GovernanceMaintenanceSnapshotResult> {
+  const result = await ipcRenderer.invoke(
+    "governanceMaintenance:getCurrent",
+  ) as GovernanceMaintenanceSnapshotResult;
+  currentRoutedActionBinding =
+    result.ok && result.currentRequiredAction?.currentAction?.routedAction
+      ? result.currentRequiredAction.currentAction.routedAction
       : null;
   return result;
 }
@@ -172,6 +194,28 @@ const api = {
     ipcRenderer.invoke("projects:select", projectId),
   refreshRepositoryState: (): Promise<RefreshRepositoryStateResult> =>
     ipcRenderer.invoke("projects:refresh"),
+  getCurrentGovernanceMaintenance: (): Promise<GovernanceMaintenanceSnapshotResult> =>
+    getCurrentGovernanceMaintenanceSnapshot(),
+  previewGovernanceRepair: (): Promise<GovernanceRepairPreviewResult> =>
+    ipcRenderer.invoke("governanceRepair:preview"),
+  repairGovernanceRecord: (
+    input: GovernanceRepairIntent,
+  ): Promise<GovernanceRepairOperationResult> =>
+    ipcRenderer.invoke("governanceRepair:repairSelected", input),
+  previewGovernanceRepairSpecificationRequest: (
+    input: GovernanceRepairSpecificationPreviewInput,
+  ): Promise<GovernanceRepairSpecificationRequestPreview> =>
+    invokeProcess("governanceRepair:previewSpecificationRequest", input),
+  createGovernanceRepairSpecificationRequest: (
+    input: GovernanceRepairSpecificationCreateInput,
+  ): Promise<GovernanceRepairSpecificationRequestCreateResult> =>
+    invokeProcess("governanceRepair:createSpecificationRequest", input),
+  listGovernanceApprovalQueue: (): Promise<GovernanceApprovalQueueResult> =>
+    ipcRenderer.invoke("governanceApproval:list"),
+  decideGovernanceApproval: (
+    input: GovernanceApprovalDecisionIntent,
+  ): Promise<GovernanceApprovalDecisionResult> =>
+    ipcRenderer.invoke("governanceApproval:decide", input),
   showArchitectBrowser: (bounds: {
     x: number;
     y: number;

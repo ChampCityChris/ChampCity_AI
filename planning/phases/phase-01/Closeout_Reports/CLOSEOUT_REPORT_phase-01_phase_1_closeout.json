@@ -1,5 +1,5 @@
 {
-  "artifactId": "champcity-ai/supporting_document/CLOSEOUT_REPORT_phase-01_phase_1_closeout",
+  "artifactId": "champcity-ai/phase-01/supporting_document/CLOSEOUT_REPORT_phase-01_phase_1_closeout",
   "artifactType": "supporting_document",
   "createdAt": "2026-07-02T15:27:30.312Z",
   "jsonPath": "planning/phases/phase-01/Closeout_Reports/CLOSEOUT_REPORT_phase-01_phase_1_closeout.json",
@@ -11,6 +11,7 @@
     "title": "CLOSEOUT REPORT phase-01 phase 1 closeout"
   },
   "payloadHash": "sha256:e1a3f82a4afe082c124bf79e3839649f4536debb6b7d58fd348d1e94aa15e764",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -18,8 +19,8 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
-  "status": "active",
-  "updatedAt": "2026-07-02T15:27:30.312Z"
+  "status": "historical",
+  "updatedAt": "2026-07-20T02:36:51.382Z"
 }

@@ -1,5 +1,5 @@
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC04_add_risk_router",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC04",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:57:56.515Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC04_add_risk_router.json",
@@ -13,16 +13,19 @@
     "title": "VALIDATION REPORT WC04 add risk router"
   },
   "payloadHash": "sha256:e475d339ad85e75d86cc513e3a523c4b2ae7cd600bf6f20acbd7bf0b07c2033b",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC04_add_risk_router"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:57:56.515Z",
+  "updatedAt": "2026-07-19T20:53:31.609Z",
   "workCardId": "WC04"
 }

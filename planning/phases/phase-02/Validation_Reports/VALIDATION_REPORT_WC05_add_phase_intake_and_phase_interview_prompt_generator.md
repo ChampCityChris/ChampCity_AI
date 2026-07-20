@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator",
+  "artifactId": "champcity-ai/phase-02/operator_validation/WC05",
   "artifactType": "operator_validation",
   "createdAt": "2026-07-02T00:15:25.046Z",
   "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator.json",
@@ -10,17 +10,20 @@
     "title": "VALIDATION REPORT WC05 add phase intake and phase interview prompt generator"
   },
   "payloadHash": "sha256:f04dc650ecffb80a2f88d18e8d6fef86b702f3d271d1a49d40925fd012107e42",
+  "phaseId": "phase-02",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC05_add_phase_intake_and_phase_interview_prompt_generator"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-02T00:15:25.046Z",
+  "updatedAt": "2026-07-19T20:53:44.686Z",
   "workCardId": "WC05"
 }
 -->

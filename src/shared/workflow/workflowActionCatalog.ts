@@ -1,7 +1,7 @@
 import type {
-  CanonicalWorkflowSpineStep,
   ProcessClassification,
   WorkflowActionTemplate,
+  WorkflowProcessStep,
 } from "./processContract";
 import type {
   RoutedActionRoutes,
@@ -26,6 +26,9 @@ export type WorkflowActionId =
   | "architect_disposition_required"
   | "repair_work_card_required"
   | "candidate_disposition_required"
+  | "governance_integrity_repair_required"
+  | "governance_repair_specification_required"
+  | "operator_governance_approval_required"
   | "route_review_request_required"
   | "phase_closeout_required"
   | "operator_phase_closeout_approval_required"
@@ -46,6 +49,7 @@ export type WorkflowActionTargetRule =
   | "parent_work_card"
   | "phase_closeout"
   | "project_roadmap"
+  | "governance_maintenance"
   | "workflow_iteration";
 
 export type WorkflowActionSourceRule =
@@ -61,6 +65,7 @@ export type WorkflowActionSourceRule =
   | "operator_validation"
   | "architect_disposition_and_validation"
   | "candidate_disposition_evidence"
+  | "governance_maintenance"
   | "phase_closeout"
   | "roadmap_update";
 
@@ -72,7 +77,7 @@ export type WorkflowExpectedOutputIdentityRule =
 
 export interface WorkflowActionCatalogEntry extends WorkflowActionTemplate {
   actionId: WorkflowActionId;
-  processId: CanonicalWorkflowSpineStep;
+  processId: WorkflowProcessStep;
   processClassification: ProcessClassification;
   targetRule: WorkflowActionTargetRule;
   requiredSourceRule: WorkflowActionSourceRule;
@@ -90,7 +95,7 @@ export interface WorkflowActionCatalogEntry extends WorkflowActionTemplate {
 
 function action(
   actionId: WorkflowActionId,
-  processId: CanonicalWorkflowSpineStep,
+  processId: WorkflowProcessStep,
   stage: WorkflowStage,
   role: WorkflowRole,
   screenId: WorkflowScreenId,
@@ -256,6 +261,36 @@ export const workflowActionCatalog = [
     success: "work_card_authoring_required",
     failure: "work_card_authoring_required",
     repair: "work_card_authoring_required",
+  }),
+  action("governance_integrity_repair_required", "governance_maintenance", "maintenance", "operator", "governance-repair", "governance_repair", {
+    targetRule: "governance_maintenance",
+    requiredSourceRule: "governance_maintenance",
+    expectedOutputIdentityRule: "kernel_bound_exact",
+    authorizedOperations: [
+      "governanceRepair:repairSelected",
+      "governanceRepair:previewSpecificationRequest",
+      "governanceRepair:createSpecificationRequest",
+    ],
+    processClassification: "subordinate",
+    advancesWorkflowState: false,
+    manualScreenId: "governance-repair",
+  }),
+  action("governance_repair_specification_required", "governance_maintenance", "maintenance", "architect", "architect-bridge", "work_card", {
+    targetRule: "governance_maintenance",
+    requiredSourceRule: "governance_maintenance",
+    expectedOutputIdentityRule: "kernel_bound_exact",
+    authorizedOperations: ["workCards:ensureArchitectTaskPacket"],
+    processClassification: "subordinate",
+    advancesWorkflowState: false,
+    manualScreenId: "architect-bridge",
+  }),
+  action("operator_governance_approval_required", "governance_maintenance", "maintenance", "operator", "governance-approval", "operator_approval", {
+    targetRule: "governance_maintenance",
+    requiredSourceRule: "governance_maintenance",
+    expectedOutputIdentityRule: "kernel_bound_exact",
+    processClassification: "subordinate",
+    advancesWorkflowState: false,
+    manualScreenId: "governance-approval",
   }),
   action("route_review_request_required", "work_card_loop", "prove", "operator", "route-review-request", "route_review_request", {
     targetRule: "workflow_iteration",

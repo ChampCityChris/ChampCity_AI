@@ -5,78 +5,40 @@
   "createdAt": "2026-07-14T00:00:00.000Z",
   "jsonPath": "planning/phases/phase-03/Operator_Phase_Approval.json",
   "markdownPath": "planning/phases/phase-03/Operator_Phase_Approval.md",
+  "parentArtifactId": "champcity-ai/phase-03/work_card_plan/Work_Card_Plan",
   "payload": {
     "kind": "operator_approval",
     "title": "Operator Phase Approval: phase-03"
   },
-  "payloadHash": "sha256:fdb00263c25774efc4fa22eb89f6a3efb4216f3add905a2c5bbde545db663212",
+  "payloadHash": "sha256:e1cd7040036687e5ac7d614f0e5833ef420dace5e87dacd351e5eb20d2431429",
   "phaseId": "phase-03",
   "projectId": "champcity-ai",
   "relationships": {
-    "children": [
-      "champcity-ai/phase-03/implementer_report/WC01"
-    ],
+    "children": [],
     "expectedOutputs": [],
-    "sources": [],
+    "sources": [
+      "champcity-ai/phase-03/phase_planning/Phase_Planning",
+      "champcity-ai/phase-03/work_card_plan/Work_Card_Plan"
+    ],
     "supersedes": []
   },
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "historical",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-19T01:47:12.899Z"
 }
 -->
 
 # Operator Phase Approval: phase-03
 
-Status: Approved
-Project: ChampCity A/I
-Phase: phase-03 — Workflow Router Screen Correction and Guided Current Action UI
-Approved by: Operator
-Approval date: 2026-07-03
-Executable Work Cards authorized: Yes, just in time only
+Status: approved
+Decision: approve exact canonical Phase Planning and Work Card Plan revisions for planning progression.
 
-## Approval Statement
+## Approved Authority
 
-```text
-I approve the revised Phase 03 Phase Mapping bundle for phase-03: Workflow Router Screen Correction and Guided Current Action UI, including WC03 — Figma Workflow Router UI Shell Integration. The Architect may begin creating executable Work Cards just in time from Work_Card_Plan.md, starting with WC01 unless I request a different order.
-```
+- champcity-ai/phase-03/phase_planning/Phase_Planning, revision 2, payload hash sha256:47943a29d406a39d7a1c64bbf96942d68ffc0f7a2140269eacf4c635f0257c85
+- champcity-ai/phase-03/work_card_plan/Work_Card_Plan, revision 2, payload hash sha256:f0336d1083bcba35964ea67a9f4a725bb4e50e0499ef626a2f6fdc850428fcad
 
-## Approved Phase Mapping Bundle
+## Authorization Boundary
 
-The approved Phase 03 bundle consists of:
-
-- `planning/phases/phase-03/Phase_Interview.md`
-- `planning/phases/phase-03/Phase_Planning.md`
-- `planning/phases/phase-03/Work_Card_Plan.md`
-- `planning/phases/phase-03/Operator_Phase_Approval.md`
-
-Historical note: `planning/phases/phase-03/Operator_Phase_Approval_PENDING.md` was the pending approval draft and is superseded by this approved record.
-
-## Approval Effect
-
-This approval authorizes the Architect to create executable Work Cards one at a time from the approved `Work_Card_Plan.md`.
-
-The first authorized just-in-time Work Card is:
-
-```text
-WC01 — Superseded Phase 03 Artifact and Roadmap State Reconciliation
-```
-
-## Boundaries
-
-This approval does not authorize:
-
-- creating every full Work Card at once
-- skipping Operator review of full Work Cards
-- treating Figma output as workflow authority
-- blindly replacing the app with the Figma prototype
-- creating a separate Implementer Execution Packet artifact as a primary handoff
-- skipping Architect review of Implementer Reports
-- skipping Operator validation records
-- skipping REPAIR sub-card routing after failed validation
-- performing release packaging or deployment
-
-## Current Next Action
-
-Architect creates executable WC01 as the next just-in-time Work Card.
+This approval authorizes just-in-time Work Card creation for the approved canonical phase authority. It does not authorize source-code implementation; each Work Card requires exact approval before Implementer execution.

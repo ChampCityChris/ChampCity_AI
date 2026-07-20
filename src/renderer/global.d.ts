@@ -206,6 +206,20 @@ import type {
 } from "../shared/executionRuns";
 import type {
   AddProjectWorkspaceRequest,
+  GovernanceApprovalDecisionAction,
+  GovernanceApprovalDecisionIntent,
+  GovernanceApprovalDecisionResult,
+  GovernanceApprovalQueueResult,
+  GovernanceMaintenanceSnapshotResult,
+  GovernanceRepairOperationResult,
+  GovernanceRepairPreviewResult,
+  GovernanceRepairIntent,
+  GovernanceRepairSpecificationCreateInput,
+  GovernanceRepairSpecificationRequestCreateResult,
+  GovernanceRepairSpecificationRequestPreview,
+  GovernanceRepairSpecificationPreviewInput,
+  DuplicateOperatorValidationDisposition,
+  NumberedLegacyPathDisposition,
   ProjectFolderSelectionResult,
   ProjectScanResult,
   ProjectWorkspaceListResult,
@@ -407,6 +421,32 @@ declare global {
     CurrentRequiredActionWarning;
   type ChampCityCurrentRequiredActionResult =
     CurrentRequiredActionResult;
+  type ChampCityGovernanceRepairPreviewResult =
+    GovernanceRepairPreviewResult;
+  type ChampCityGovernanceRepairOperationResult =
+    GovernanceRepairOperationResult;
+  type ChampCityGovernanceRepairIntent = GovernanceRepairIntent;
+  type ChampCityGovernanceRepairSpecificationPreviewInput =
+    GovernanceRepairSpecificationPreviewInput;
+  type ChampCityGovernanceRepairSpecificationCreateInput =
+    GovernanceRepairSpecificationCreateInput;
+  type ChampCityGovernanceRepairSpecificationRequestPreview =
+    GovernanceRepairSpecificationRequestPreview;
+  type ChampCityGovernanceRepairSpecificationRequestCreateResult =
+    GovernanceRepairSpecificationRequestCreateResult;
+  type ChampCityNumberedLegacyPathDisposition = NumberedLegacyPathDisposition;
+  type ChampCityDuplicateOperatorValidationDisposition =
+    DuplicateOperatorValidationDisposition;
+  type ChampCityGovernanceApprovalQueueResult =
+    GovernanceApprovalQueueResult;
+  type ChampCityGovernanceApprovalDecisionIntent =
+    GovernanceApprovalDecisionIntent;
+  type ChampCityGovernanceApprovalDecisionAction =
+    GovernanceApprovalDecisionAction;
+  type ChampCityGovernanceApprovalDecisionResult =
+    GovernanceApprovalDecisionResult;
+  type ChampCityGovernanceMaintenanceSnapshotResult =
+    GovernanceMaintenanceSnapshotResult;
   type ChampCityRouteReviewRequestInput = RouteReviewRequestInput;
   type ChampCityRouteReviewRequestRecord = RouteReviewRequestRecord;
   type ChampCityRouteReviewRequestSaveResult = RouteReviewRequestSaveResult;
@@ -439,6 +479,21 @@ declare global {
         projectId: string,
       ) => Promise<ProjectWorkspaceMutationResult>;
       refreshRepositoryState: () => Promise<RefreshRepositoryStateResult>;
+      getCurrentGovernanceMaintenance: () => Promise<GovernanceMaintenanceSnapshotResult>;
+      previewGovernanceRepair: () => Promise<GovernanceRepairPreviewResult>;
+      repairGovernanceRecord: (
+        input: GovernanceRepairIntent,
+      ) => Promise<GovernanceRepairOperationResult>;
+      previewGovernanceRepairSpecificationRequest: (
+        input: GovernanceRepairSpecificationPreviewInput,
+      ) => Promise<GovernanceRepairSpecificationRequestPreview>;
+      createGovernanceRepairSpecificationRequest: (
+        input: GovernanceRepairSpecificationCreateInput,
+      ) => Promise<GovernanceRepairSpecificationRequestCreateResult>;
+      listGovernanceApprovalQueue: () => Promise<GovernanceApprovalQueueResult>;
+      decideGovernanceApproval: (
+        input: GovernanceApprovalDecisionIntent,
+      ) => Promise<GovernanceApprovalDecisionResult>;
       showArchitectBrowser: (bounds: {
         x: number;
         y: number;

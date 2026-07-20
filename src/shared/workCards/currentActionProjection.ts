@@ -83,6 +83,7 @@ export interface CurrentRequiredAction {
   workflowStep: LockedWorkflowStep | string;
   title: string;
   summary: string;
+  maintenanceActionLabel?: string;
   responsibleRole: CurrentRequiredActionRole;
   phaseId?: string;
   phaseTitle?: string;

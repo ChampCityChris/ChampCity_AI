@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste",
+  "artifactId": "champcity-ai/phase-02/operator_validation/FIX_context_menu_copy_paste",
   "artifactType": "operator_validation",
   "createdAt": "2026-07-01T02:25:07.751Z",
   "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_FIX_context_menu_copy_paste_context_menu_copy_paste.json",
@@ -10,6 +10,7 @@
     "title": "VALIDATION REPORT FIX context menu copy paste context menu copy paste"
   },
   "payloadHash": "sha256:0af530ca2201a51f42051ec719e342c8365575834acb19a8be1896da127b6d6d",
+  "phaseId": "phase-02",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -17,10 +18,10 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-01T02:25:07.751Z",
+  "updatedAt": "2026-07-19T17:32:03.486Z",
   "workCardId": "FIX_context_menu_copy_paste"
 }
 -->

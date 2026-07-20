@@ -2,6 +2,17 @@ import path from "node:path";
 
 import type {
   AddProjectWorkspaceRequest,
+  GovernanceApprovalDecisionIntent,
+  GovernanceApprovalDecisionResult,
+  GovernanceApprovalQueueResult,
+  GovernanceMaintenanceSnapshotResult,
+  GovernanceRepairOperationResult,
+  GovernanceRepairPreviewResult,
+  GovernanceRepairIntent,
+  GovernanceRepairSpecificationCreateInput,
+  GovernanceRepairSpecificationRequestCreateResult,
+  GovernanceRepairSpecificationRequestPreview,
+  GovernanceRepairSpecificationPreviewInput,
   ProjectWorkspaceListResult,
   ProjectWorkspaceMutationResult,
   RefreshRepositoryStateResult,
@@ -26,8 +37,10 @@ import { ProjectWorkspaceRegistry } from "./projects";
 import {
   RepositoryObserver,
   RepositoryRefreshService,
+  type RepositoryProjectionSnapshot,
   type RepositoryProjectionListener,
 } from "./repository";
+import { GovernanceApprovalService, GovernanceRepairService } from "./artifacts";
 import { CanonicalWorkflowAuthority } from "./workCards/canonicalWorkflowAuthority";
 import { RoutedProcessInvocationService } from "./workflow";
 
@@ -165,6 +178,306 @@ export async function refreshSelectedRepositoryOnFocus(): Promise<void> {
   } catch {
     // Focus refresh is opportunistic; explicit refresh/list IPC exposes recovery state.
   }
+}
+
+export async function previewGovernanceRepair(): Promise<GovernanceRepairPreviewResult> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    const repair = new GovernanceRepairService(snapshot.project, current.authority.artifactPairs);
+    const preview = await repair.preview();
+    return { ...preview, currentAction: snapshot.projection.state.currentAction };
+  } catch (error) {
+    return {
+      ok: false,
+      blockedMessage: "Governance records require canonical repair.",
+      candidates: [],
+      repairableCount: 0,
+      payloadContentSummary:
+        "Payload impact could not be determined because governance analysis failed.",
+      errorMessages: [plainError(error)],
+    };
+  }
+}
+
+export async function previewGovernanceRepairSpecificationRequest(
+  input: GovernanceRepairSpecificationPreviewInput,
+): Promise<GovernanceRepairSpecificationRequestPreview> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    const repair = new GovernanceRepairService(snapshot.project, current.authority.artifactPairs);
+    return repair.previewSpecificationRequest(input, {
+      projectionRevision: snapshot.scanResult.projectionRevision,
+      maintenancePhaseId: snapshot.projection.domain.lifecycleActivePhaseId,
+      currentAction: snapshot.projection.state.currentAction,
+      registryRevision: registryRevisionFromSnapshot(snapshot),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      wouldMutate: false,
+      errorMessages: [plainError(error)],
+    };
+  }
+}
+
+export async function createGovernanceRepairSpecificationRequest(
+  input: GovernanceRepairSpecificationCreateInput,
+): Promise<GovernanceRepairSpecificationRequestCreateResult> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    const repair = new GovernanceRepairService(snapshot.project, current.authority.artifactPairs);
+    const result = await repair.createSpecificationRequest(input, {
+      projectionRevision: snapshot.scanResult.projectionRevision,
+      maintenancePhaseId: snapshot.projection.domain.lifecycleActivePhaseId,
+      currentAction: snapshot.projection.state.currentAction,
+      registryRevision: registryRevisionFromSnapshot(snapshot),
+    });
+    if (!result.ok) return result;
+    const refreshed = await current.refresh.refreshAfterMutation("governance-repair-specification-request");
+    const currentRequiredAction = await projectCurrentRequiredActionFromProjectionSnapshot(
+      current,
+      refreshed,
+    );
+    const maintenanceActionLabel = selectedMaintenanceActionLabel(refreshed);
+    if (currentRequiredAction?.currentAction && maintenanceActionLabel) {
+      currentRequiredAction.currentAction.maintenanceActionLabel = maintenanceActionLabel;
+    }
+    return {
+      ...result,
+      currentAction: refreshed.projection.state.currentAction,
+      maintenanceActionLabel,
+      currentRequiredAction,
+      maintenance: refreshed.maintenance,
+      scanResult: refreshed.scanResult,
+      projectionRevision: refreshed.scanResult.projectionRevision,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      created: false,
+      idempotent: false,
+      updated: false,
+      wouldMutate: false,
+      errorMessages: [plainError(error)],
+    };
+  }
+}
+
+export async function getCurrentGovernanceMaintenance(): Promise<GovernanceMaintenanceSnapshotResult> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    return governanceMaintenanceSnapshotResult(current, snapshot);
+  } catch (error) {
+    return {
+      ok: false,
+      selectedProjectId: null,
+      currentAction: null,
+      maintenance: emptyGovernanceMaintenanceSummary(),
+      errorMessages: [plainError(error)],
+    };
+  }
+}
+
+export async function repairGovernanceRecord(
+  intent: GovernanceRepairIntent,
+): Promise<GovernanceRepairOperationResult> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    const repair = new GovernanceRepairService(snapshot.project, current.authority.artifactPairs);
+    const result = await repair.repairOne(intent);
+    if (result.repairedArtifactIds.length === 0) {
+      throw new Error("Governance repair did not return a repaired artifact ID.");
+    }
+    const refreshed = await current.refresh.refreshAfterMutation("governance-repair");
+    const currentRequiredAction = await projectCurrentRequiredActionFromProjectionSnapshot(
+      current,
+      refreshed,
+    );
+    const maintenanceActionLabel = selectedMaintenanceActionLabel(refreshed);
+    if (currentRequiredAction?.currentAction && maintenanceActionLabel) {
+      currentRequiredAction.currentAction.maintenanceActionLabel = maintenanceActionLabel;
+    }
+    return {
+      ...refreshed.maintenance.repair,
+      repairedArtifactIds: result.repairedArtifactIds,
+      currentAction: refreshed.projection.state.currentAction,
+      maintenanceActionLabel,
+      currentRequiredAction,
+      maintenance: refreshed.maintenance,
+      scanResult: refreshed.scanResult,
+      projectionRevision: refreshed.scanResult.projectionRevision,
+      ...(result.registryRevision === undefined ? {} : { registryRevision: result.registryRevision }),
+      ...(result.cleanupWarnings?.length ? { cleanupWarnings: result.cleanupWarnings } : {}),
+    };
+  } catch (error) {
+    const snapshot = await getCurrentGovernanceMaintenance();
+    return {
+      ...snapshot.maintenance.repair,
+      ok: false,
+      repairedArtifactIds: [],
+      currentAction: snapshot.currentAction,
+      maintenanceActionLabel: snapshot.maintenanceActionLabel,
+      currentRequiredAction: snapshot.currentRequiredAction,
+      maintenance: snapshot.maintenance,
+      scanResult: snapshot.scanResult,
+      projectionRevision: snapshot.projectionRevision,
+      errorMessages: [...(snapshot.errorMessages ?? []), plainError(error)],
+    };
+  }
+}
+
+export async function listGovernanceApprovalQueue(): Promise<GovernanceApprovalQueueResult> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    const approval = new GovernanceApprovalService(
+      snapshot.project,
+      current.authority.artifactPairs,
+    );
+    return approval.listQueue();
+  } catch (error) {
+    return { ok: false, items: [], errorMessages: [plainError(error)] };
+  }
+}
+
+export async function decideGovernanceApproval(
+  intent: GovernanceApprovalDecisionIntent,
+): Promise<GovernanceApprovalDecisionResult> {
+  try {
+    await ensureActiveSelectedProject();
+    const current = requireActive();
+    const snapshot = await current.refresh.getProjectionSnapshot();
+    const approval = new GovernanceApprovalService(
+      snapshot.project,
+      current.authority.artifactPairs,
+    );
+    const result = await approval.decide(intent);
+    if (!result.ok) return result;
+    const refreshed = await current.refresh.refreshAfterMutation("stage-owned-approval-decision");
+    const currentRequiredAction = await projectCurrentRequiredActionFromProjectionSnapshot(
+      current,
+      refreshed,
+    );
+    return {
+      ...result,
+      selectedProjectId: refreshed.project.projectId,
+      currentAction: refreshed.projection.state.currentAction,
+      currentRequiredAction,
+      maintenance: refreshed.maintenance,
+      scanResult: refreshed.scanResult,
+      projectionRevision: refreshed.scanResult.projectionRevision,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      selectedProjectId: null,
+      currentAction: null,
+      maintenance: emptyGovernanceMaintenanceSummary(),
+      errorMessages: [plainError(error)],
+    };
+  }
+}
+
+async function governanceMaintenanceSnapshotResult(
+  current: ActiveProjectRuntime,
+  snapshot: RepositoryProjectionSnapshot,
+): Promise<GovernanceMaintenanceSnapshotResult> {
+  const currentRequiredAction = await projectCurrentRequiredActionFromProjectionSnapshot(
+    current,
+    snapshot,
+  );
+  const maintenanceActionLabel = selectedMaintenanceActionLabel(snapshot);
+  if (currentRequiredAction?.currentAction && maintenanceActionLabel) {
+    currentRequiredAction.currentAction.maintenanceActionLabel = maintenanceActionLabel;
+  }
+  return {
+    ok: true,
+    selectedProjectId: snapshot.project.projectId,
+    currentAction: snapshot.projection.state.currentAction,
+    ...(maintenanceActionLabel ? { maintenanceActionLabel } : {}),
+    currentRequiredAction,
+    maintenance: snapshot.maintenance,
+    scanResult: snapshot.scanResult,
+    projectionRevision: snapshot.scanResult.projectionRevision,
+  };
+}
+
+async function projectCurrentRequiredActionFromProjectionSnapshot(
+  current: ActiveProjectRuntime,
+  snapshot: RepositoryProjectionSnapshot,
+): Promise<GovernanceMaintenanceSnapshotResult["currentRequiredAction"]> {
+  return current.authority.projectCurrentRequiredActionFromSnapshot({
+    state: snapshot.projection.state,
+    routedAction: snapshot.projection.state.currentAction,
+    registry: snapshot.registry,
+    nodes: snapshot.graph.nodes,
+  });
+}
+
+function selectedMaintenanceActionLabel(
+  snapshot: RepositoryProjectionSnapshot,
+): string | undefined {
+  const action = snapshot.projection.state.currentAction;
+  if (!action) return undefined;
+  if (action.actionId === "operator_governance_approval_required") {
+    return "Governance Approval";
+  }
+  if (action.actionId === "governance_repair_specification_required") {
+    return "Architect repair specification";
+  }
+  if (action.actionId !== "governance_integrity_repair_required") {
+    return undefined;
+  }
+  const targetArtifactId = action.targetArtifactId;
+  const candidate = snapshot.maintenance.repair.candidates.find(
+    (item) => item.artifactId === targetArtifactId,
+  );
+  if (!candidate) return "Repair specification required";
+  if (candidate.repairKind === "canonical_serialization_repair") {
+    return "Canonicalize pair";
+  }
+  if (candidate.repairKind === "missing_registry_registration") {
+    return "Register canonical pair";
+  }
+  if (candidate.semanticProposal?.duplicateReconciliation) {
+    return "Duplicate Artifact Cleanup";
+  }
+  if (candidate.repairKind === "semantic_identity_repair") {
+    return "Review semantic repair";
+  }
+  return "Repair specification required";
+}
+
+function registryRevisionFromSnapshot(snapshot: RepositoryProjectionSnapshot): number {
+  const registryId = `${snapshot.project.projectId}/system/artifact_registry`;
+  return snapshot.graph.controlling(registryId)?.artifact.revision ?? 0;
+}
+
+function emptyGovernanceMaintenanceSummary(): GovernanceMaintenanceSnapshotResult["maintenance"] {
+  return {
+    repair: {
+      ok: false,
+      blockedMessage: "Governance records require canonical repair.",
+      candidates: [],
+      repairableCount: 0,
+      payloadContentSummary: "Payload impact could not be determined because governance analysis failed.",
+    },
+    approval: {
+      ok: false,
+      items: [],
+    },
+  };
 }
 
 export async function listEligibleExecutionRunWorkCards(): Promise<EligibleExecutionRunWorkCardsResult> {

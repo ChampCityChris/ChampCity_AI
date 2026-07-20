@@ -1,3 +1,8 @@
+import type {
+  GovernanceRepairSpecificationGovernanceFlags,
+  GovernanceRepairSpecificationTargetSnapshot,
+} from "../projects";
+
 export interface RouteReviewEvidenceSnapshot {
   acceptedOrControlling: string[];
   presentPendingDisposition: string[];
@@ -21,8 +26,9 @@ export interface RouteReviewRequestInput {
 
 export interface RouteReviewRequestRecord {
   artifactType: "route_review_request";
+  requestPurpose: "workflow_route_review" | "governance_repair_specification";
   requestId: string;
-  status: "pending_architect_review";
+  status: "pending_architect_review" | "pending_architect_specification";
   phase: string;
   createdAt: string;
   currentRoute: {
@@ -36,6 +42,11 @@ export interface RouteReviewRequestRecord {
   operatorConcern: string;
   operatorExpectedRoute?: string;
   evidenceSnapshot: RouteReviewEvidenceSnapshot;
+  governanceTargetSnapshot?: GovernanceRepairSpecificationTargetSnapshot;
+  expectedRepairWorkCard?: {
+    workCardId: string;
+    artifactId: string;
+  };
   ownership: {
     reportedBy: "Operator";
     dispositionOwner: "Architect";
@@ -48,6 +59,7 @@ export interface RouteReviewRequestRecord {
     skipsValidation: false;
     advancesWorkflow: false;
   };
+  governanceRepairFlags?: GovernanceRepairSpecificationGovernanceFlags;
 }
 
 export interface RouteReviewRequestSaveResult {
@@ -149,6 +161,7 @@ export function buildRouteReviewRequest(
 
   return {
     artifactType: "route_review_request",
+    requestPurpose: "workflow_route_review",
     requestId,
     status: "pending_architect_review",
     phase: input.phase.trim(),
@@ -192,6 +205,9 @@ export function buildRouteReviewRequest(
 export function renderRouteReviewRequestMarkdown(
   record: RouteReviewRequestRecord,
 ): string {
+  if (record.requestPurpose === "governance_repair_specification") {
+    return renderGovernanceRepairSpecificationMarkdown(record);
+  }
   return [
     `# Route Review Request - ${record.currentRoute.workCardId ?? record.currentRoute.actionId}`,
     "",
@@ -244,6 +260,94 @@ export function renderRouteReviewRequestMarkdown(
     "- Architect reviews the request and decides which evidence or disposition controls.",
     "- Implementer repairs the evaluator or artifact model only when the Architect assigns that work.",
     "- This request does not change the current route, approve evidence, complete work, skip validation, or advance workflow state.",
+    "",
+  ].join("\n");
+}
+
+function renderGovernanceRepairSpecificationMarkdown(
+  record: RouteReviewRequestRecord,
+): string {
+  const target = record.governanceTargetSnapshot;
+  const flags = record.governanceRepairFlags;
+  const expected = record.expectedRepairWorkCard;
+  return [
+    `# Governance Repair Specification Request - ${record.requestId}`,
+    "",
+    "## Request Status",
+    "",
+    "Status: Pending Architect specification",
+    `Request ID: ${record.requestId}`,
+    `Phase: ${record.phase}`,
+    `Created: ${record.createdAt}`,
+    "",
+    "## Selected Governance Target",
+    "",
+    `- Artifact ID: ${target?.targetArtifactId ?? "Unavailable"}`,
+    `- Artifact type: ${target?.artifactType ?? "Unavailable"}`,
+    `- Status: ${target?.status ?? "Unavailable"}`,
+    `- Revision: ${target?.revision ?? "Unavailable"}`,
+    `- JSON path: ${target?.jsonPath ?? "Unavailable"}`,
+    `- Markdown path: ${target?.markdownPath ?? "Unavailable"}`,
+    `- Candidate fingerprint: ${target?.candidateFingerprint ?? "Unavailable"}`,
+    `- Projection revision: ${target?.projectionRevision ?? "Unavailable"}`,
+    `- Registry revision: ${target?.registryRevision ?? "Unavailable"}`,
+    "",
+    "## Repair Block",
+    "",
+    `- Repair kind: ${target?.repairKind ?? "Unavailable"}`,
+    `- Issue type: ${target?.issueType ?? "Unavailable"}`,
+    `- Item status: ${target?.itemStatus ?? "Unavailable"}`,
+    `- Repair status: ${target?.repairStatus ?? "Unavailable"}`,
+    `- Operation label: ${target?.operationLabel ?? "Unavailable"}`,
+    `- Block reason: ${target?.blockReason ?? "Unavailable"}`,
+    `- Verification error: ${target?.verificationError ?? "Unavailable"}`,
+    `- Registry status: ${target?.registryStatus ?? "Unavailable"}`,
+    "",
+    "## Expected Repair Work Card",
+    "",
+    `- Work Card ID: ${expected?.workCardId ?? "Unavailable"}`,
+    `- Artifact ID: ${expected?.artifactId ?? "Unavailable"}`,
+    "",
+    "## Operator Concern",
+    "",
+    record.operatorConcern,
+    "",
+    "## Expected Route",
+    "",
+    record.operatorExpectedRoute ?? "Not specified by the Operator.",
+    "",
+    ...renderEvidenceSection(
+      "Accepted Or Controlling Evidence",
+      record.evidenceSnapshot.acceptedOrControlling,
+    ),
+    ...renderEvidenceSection(
+      "Evidence Present But Pending Architect Disposition",
+      record.evidenceSnapshot.presentPendingDisposition,
+    ),
+    ...renderEvidenceSection(
+      "Missing And Required Evidence",
+      record.evidenceSnapshot.missingRequired,
+    ),
+    ...renderEvidenceSection(
+      "Stale, Historical, Superseded, Or Non-Controlling Evidence",
+      record.evidenceSnapshot.nonControlling,
+    ),
+    ...renderEvidenceSection(
+      "Duplicate Or Ambiguous Evidence",
+      record.evidenceSnapshot.ambiguityWarnings,
+    ),
+    "## Governance Effects",
+    "",
+    ...(flags
+      ? Object.entries(flags).map(([key, value]) => `- ${key}: ${String(value)}`)
+      : ["- Governance effects unavailable."]),
+    "",
+    "## Ownership And Governance",
+    "",
+    "- Operator reports the governance repair concern.",
+    "- Architect owns the bounded repair specification.",
+    "- Implementer performs work only after one exact approved Work Card exists.",
+    "- This request does not repair the target, create a Work Card, approve evidence, authorize implementation, or advance normal workflow.",
     "",
   ].join("\n");
 }

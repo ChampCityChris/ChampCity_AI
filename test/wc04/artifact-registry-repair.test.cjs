@@ -7,7 +7,9 @@ const test = require("node:test");
 
 const {
   buildArtifactRegistryEntry,
+  buildMarkdownArtifactEnvelope,
   buildCanonicalArtifact,
+  canonicalStringify,
   canonicalPrettyStringify,
   renderArtifactMarkdown,
   validateArtifactRegistry,
@@ -16,6 +18,7 @@ const {
   ARTIFACT_REGISTRY_JSON_PATH,
   ARTIFACT_REGISTRY_MARKDOWN_PATH,
   ArtifactPairService,
+  GovernanceRepairService,
 } = require("../../dist/main/artifacts");
 
 const TIMESTAMP = "2026-07-18T19:20:00.000Z";
@@ -297,3 +300,421 @@ test("WC04 repair does not add a runtime compatibility reader", async () => {
     assert.equal(/phase-04-fix01-artifact-hash-synchronization/.test(content), false);
   }
 });
+
+test("governance repair canonicalizes a noncanonical envelope, registers it, and is idempotent", async () => {
+  await withTemporaryRoot(async (root) => {
+    const service = new ArtifactPairService({
+      projectRoot: root,
+      clock: () => TIMESTAMP,
+    });
+    await service.commitArtifact({
+      artifactId: "champcity-ai/phase-07/work_card/SEED",
+      artifactType: "work_card",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      workCardId: "SEED",
+      relationships: {},
+      payload: {
+        title: "Seed",
+        contentMarkdown: "# Seed\n",
+        data: { workCardId: "SEED" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07/Work_Cards",
+        fileStem: "SEED",
+      },
+      expectedRevision: null,
+    });
+    const activation = artifact({
+      artifactId: "champcity-ai/phase-07/phase_activation/Phase_Activation",
+      artifactType: "phase_activation",
+      revision: 1,
+      phaseId: "phase-07",
+      workCardId: undefined,
+      markdownPath: "planning/phases/phase-07/Phase_Activation.md",
+      jsonPath: "planning/phases/phase-07/Phase_Activation.json",
+      payload: {
+        kind: "phase_activation",
+        title: "Phase 07 Activation",
+        contentMarkdown: "# Phase 07 Activation\n",
+        data: { phaseId: "phase-07", status: "active" },
+      },
+    });
+    const jsonPath = path.join(root, ...activation.jsonPath.split("/"));
+    const markdownPath = path.join(root, ...activation.markdownPath.split("/"));
+    await mkdir(path.dirname(jsonPath), { recursive: true });
+    await writeFile(jsonPath, `${canonicalPrettyStringify(activation)}\n`, "utf8");
+    await writeFile(
+      markdownPath,
+      `<!-- champcity-artifact-envelope\n${canonicalStringify(buildMarkdownArtifactEnvelope(activation))}\n-->\n\n${activation.payload.contentMarkdown}`,
+      "utf8",
+    );
+
+    const repair = new GovernanceRepairService(testProject(root), service);
+    const preview = await repair.preview();
+    assert.equal(preview.repairableCount, 1);
+    assert.equal(preview.payloadContentSummary, "Payload content unchanged.");
+    assert.equal(preview.candidates[0].repairKind, "canonical_serialization_repair");
+    assert.equal(preview.candidates[0].payloadContentWouldChange, false);
+
+    const applied = await repair.repairAll();
+    assert.deepEqual(applied.repairedArtifactIds, [activation.artifactId]);
+    const reread = await service.readArtifactByPaths(activation.jsonPath, activation.markdownPath);
+    assert.equal(reread.artifact.artifactId, activation.artifactId);
+    assert.equal(reread.markdownContent, renderArtifactMarkdown(activation));
+    const registry = await service.loadRegistry();
+    assert.equal(registry.entries.some((entry) => entry.artifactId === activation.artifactId), true);
+
+    const second = await repair.repairAll();
+    assert.deepEqual(second.repairedArtifactIds, []);
+    assert.equal(second.preview.candidates.length, 0);
+  });
+});
+
+test("governance repair registers a canonical pair missing from the registry", async () => {
+  await withTemporaryRoot(async (root) => {
+    const service = new ArtifactPairService({
+      projectRoot: root,
+      clock: () => TIMESTAMP,
+    });
+    await service.commitArtifact({
+      artifactId: "champcity-ai/phase-07/work_card/SEED",
+      artifactType: "work_card",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      workCardId: "SEED",
+      relationships: {},
+      payload: {
+        title: "Seed",
+        contentMarkdown: "# Seed\n",
+        data: { workCardId: "SEED" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07/Work_Cards",
+        fileStem: "SEED",
+      },
+      expectedRevision: null,
+    });
+    await service.commitArtifact({
+      artifactId: "champcity-ai/phase-07/phase_activation/phase-07",
+      artifactType: "phase_activation",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      relationships: {},
+      payload: {
+        title: "Phase 07 Activation",
+        contentMarkdown: "# Phase 07 Activation\n",
+        data: { phaseId: "phase-07", phaseSequence: 7 },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07",
+        fileStem: "Phase_Activation",
+      },
+      expectedRevision: null,
+    });
+    const plan = artifact({
+      artifactId: "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
+      artifactType: "work_card_plan",
+      revision: 1,
+      phaseId: "phase-07",
+      workCardId: undefined,
+      markdownPath: "planning/phases/phase-07/Work_Card_Plan.md",
+      jsonPath: "planning/phases/phase-07/Work_Card_Plan.json",
+      payload: {
+        kind: "work_card_plan",
+        title: "Phase 07 Work Card Plan",
+        contentMarkdown: "# Phase 07 Work Card Plan\n",
+        data: { phaseId: "phase-07", status: "approved" },
+      },
+    });
+    await writeArtifactPair(root, plan);
+
+    const repair = new GovernanceRepairService(testProject(root), service);
+    const preview = await repair.preview();
+    assert.equal(preview.repairableCount, 1);
+    assert.equal(preview.candidates[0].repairKind, "missing_registry_registration");
+
+    const applied = await repair.repairAll();
+    assert.deepEqual(applied.repairedArtifactIds, [plan.artifactId]);
+    const registry = await service.loadRegistry();
+    assert.equal(registry.entries.some((entry) => entry.artifactId === plan.artifactId), true);
+  });
+});
+
+test("governance repair surfaces missing registrations from historical phases", async () => {
+  await withTemporaryRoot(async (root) => {
+    const service = new ArtifactPairService({
+      projectRoot: root,
+      clock: () => TIMESTAMP,
+    });
+    await service.commitArtifact({
+      artifactId: "champcity-ai/phase-07/work_card/SEED",
+      artifactType: "work_card",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      workCardId: "SEED",
+      relationships: {},
+      payload: {
+        title: "Seed",
+        contentMarkdown: "# Seed\n",
+        data: { workCardId: "SEED" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07/Work_Cards",
+        fileStem: "SEED",
+      },
+      expectedRevision: null,
+    });
+    const historical = artifact({
+      artifactId: "champcity-ai/phase-01/work_card/WC01",
+      artifactType: "work_card",
+      revision: 1,
+      status: "historical",
+      phaseId: "phase-01",
+      workCardId: "WC01",
+      markdownPath: "planning/phases/phase-01/Work_Cards/WC01_historical.md",
+      jsonPath: "planning/phases/phase-01/Work_Cards/WC01_historical.json",
+      payload: {
+        kind: "work_card",
+        title: "Historical WC01",
+        contentMarkdown: "# Historical WC01\n",
+        data: { workCardId: "WC01" },
+      },
+    });
+    await writeArtifactPair(root, historical);
+
+    const repair = new GovernanceRepairService(testProject(root), service);
+    const preview = await repair.preview();
+    const candidate = preview.candidates.find(
+      (item) => item.artifactId === historical.artifactId,
+    );
+    assert.equal(candidate.registryStatus, "missing_registration");
+    assert.equal(candidate.repairKind, "missing_registry_registration");
+    assert.equal(candidate.safelyRepairable, true);
+  });
+});
+
+test("governance repair keeps scanner independent from active-phase resolution and shares repair rules", async () => {
+  const repairService = await readFile(
+    path.resolve("src/main/artifacts/governanceRepairService.ts"),
+    "utf8",
+  );
+  const artifactPairService = await readFile(
+    path.resolve("src/main/artifacts/artifactPairService.ts"),
+    "utf8",
+  );
+  const repairAnalysis = await readFile(
+    path.resolve("src/main/artifacts/governanceRepairAnalysis.ts"),
+    "utf8",
+  );
+  assert.equal(repairService.includes("deriveActivePhaseId"), false);
+  assert.equal(repairService.includes("repairableMissingRegistrationScope"), false);
+  assert.equal(repairService.includes("activePhase"), false);
+  assert.equal(artifactPairService.includes("analyzeGovernancePairRepair"), true);
+  assert.equal(artifactPairService.includes("repairEnvelopeMatchesArtifact"), false);
+  assert.equal(repairAnalysis.includes("repairEnvelopeMatchesArtifact"), false);
+});
+
+test("governance repair applies multiple records atomically through one registry revision", async () => {
+  await withTemporaryRoot(async (root) => {
+    const initialService = new ArtifactPairService({
+      projectRoot: root,
+      clock: () => TIMESTAMP,
+    });
+    await initialService.commitArtifact({
+      artifactId: "champcity-ai/phase-07/work_card/SEED",
+      artifactType: "work_card",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      workCardId: "SEED",
+      relationships: {},
+      payload: {
+        title: "Seed",
+        contentMarkdown: "# Seed\n",
+        data: { workCardId: "SEED" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07/Work_Cards",
+        fileStem: "SEED",
+      },
+      expectedRevision: null,
+    });
+    const first = artifact({
+      artifactId: "champcity-ai/phase-07/phase_activation/Phase_Activation",
+      artifactType: "phase_activation",
+      revision: 1,
+      phaseId: "phase-07",
+      workCardId: undefined,
+      markdownPath: "planning/phases/phase-07/Phase_Activation.md",
+      jsonPath: "planning/phases/phase-07/Phase_Activation.json",
+      payload: {
+        kind: "phase_activation",
+        title: "Phase 07 Activation",
+        contentMarkdown: "# Phase 07 Activation\n",
+        data: { phaseId: "phase-07" },
+      },
+    });
+    const second = artifact({
+      artifactId: "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
+      artifactType: "work_card_plan",
+      revision: 1,
+      phaseId: "phase-07",
+      workCardId: undefined,
+      markdownPath: "planning/phases/phase-07/Work_Card_Plan.md",
+      jsonPath: "planning/phases/phase-07/Work_Card_Plan.json",
+      payload: {
+        kind: "work_card_plan",
+        title: "Phase 07 Work Card Plan",
+        contentMarkdown: "# Phase 07 Work Card Plan\n",
+        data: { phaseId: "phase-07" },
+      },
+    });
+    await writeMalformedMarkdownPair(root, first);
+    await writeMalformedMarkdownPair(root, second);
+    const firstMarkdownPath = path.join(root, ...first.markdownPath.split("/"));
+    const secondMarkdownPath = path.join(root, ...second.markdownPath.split("/"));
+    const firstBefore = await readFile(firstMarkdownPath, "utf8");
+    const secondBefore = await readFile(secondMarkdownPath, "utf8");
+    const registryBefore = await initialService.loadRegistry();
+
+    const failingService = new ArtifactPairService({
+      projectRoot: root,
+      clock: () => TIMESTAMP,
+      failureInjector: (point, context) => {
+        if (point === "after_registry_update" && context.operation === "registry") {
+          throw new Error("Injected registry failure.");
+        }
+      },
+    });
+    await assert.rejects(
+      new GovernanceRepairService(testProject(root), failingService).repairAll(),
+      /Injected registry failure/,
+    );
+    assert.equal(await readFile(firstMarkdownPath, "utf8"), firstBefore);
+    assert.equal(await readFile(secondMarkdownPath, "utf8"), secondBefore);
+    assert.deepEqual(await initialService.loadRegistry(), registryBefore);
+
+    const repair = new GovernanceRepairService(testProject(root), initialService);
+    const applied = await repair.repairAll();
+    assert.deepEqual(applied.repairedArtifactIds.sort(), [
+      first.artifactId,
+      second.artifactId,
+    ]);
+    assert.equal(typeof applied.registryRevision, "number");
+    const registry = await initialService.loadRegistry();
+    assert.equal(registry.entries.some((entry) => entry.artifactId === first.artifactId), true);
+    assert.equal(registry.entries.some((entry) => entry.artifactId === second.artifactId), true);
+    assert.equal(await readFile(firstMarkdownPath, "utf8"), renderArtifactMarkdown(first));
+    assert.equal(await readFile(secondMarkdownPath, "utf8"), renderArtifactMarkdown(second));
+  });
+});
+
+test("governance repair blocks semantic markdown-body mismatches", async () => {
+  await withTemporaryRoot(async (root) => {
+    const service = new ArtifactPairService({
+      projectRoot: root,
+      clock: () => TIMESTAMP,
+    });
+    await service.commitArtifact({
+      artifactId: "champcity-ai/phase-07/work_card/SEED",
+      artifactType: "work_card",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      workCardId: "SEED",
+      relationships: {},
+      payload: {
+        title: "Seed",
+        contentMarkdown: "# Seed\n",
+        data: { workCardId: "SEED" },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07/Work_Cards",
+        fileStem: "SEED",
+      },
+      expectedRevision: null,
+    });
+    await service.commitArtifact({
+      artifactId: "champcity-ai/phase-07/phase_activation/phase-07",
+      artifactType: "phase_activation",
+      status: "active",
+      projectId: "champcity-ai",
+      phaseId: "phase-07",
+      relationships: {},
+      payload: {
+        title: "Phase 07 Activation",
+        contentMarkdown: "# Phase 07 Activation\n",
+        data: { phaseId: "phase-07", phaseSequence: 7 },
+      },
+      location: {
+        directoryPath: "planning/phases/phase-07",
+        fileStem: "Phase_Activation",
+      },
+      expectedRevision: null,
+    });
+    const plan = artifact({
+      artifactId: "champcity-ai/phase-07/work_card_plan/Work_Card_Plan",
+      artifactType: "work_card_plan",
+      revision: 1,
+      phaseId: "phase-07",
+      workCardId: undefined,
+      markdownPath: "planning/phases/phase-07/Work_Card_Plan.md",
+      jsonPath: "planning/phases/phase-07/Work_Card_Plan.json",
+      payload: {
+        kind: "work_card_plan",
+        title: "Phase 07 Work Card Plan",
+        contentMarkdown: "# Phase 07 Work Card Plan\n",
+        data: { phaseId: "phase-07", status: "approved" },
+      },
+    });
+    await writeArtifactPair(root, plan);
+    await writeFile(
+      path.join(root, ...plan.markdownPath.split("/")),
+      renderArtifactMarkdown(plan).replace("# Phase 07 Work Card Plan", "# Different body"),
+      "utf8",
+    );
+
+    const repair = new GovernanceRepairService(testProject(root), service);
+    const preview = await repair.preview();
+    assert.equal(preview.candidates.length, 1);
+    assert.equal(preview.candidates[0].safelyRepairable, false);
+    assert.equal(preview.candidates[0].payloadContentWouldChange, true);
+    const applied = await repair.repairAll();
+    assert.deepEqual(applied.repairedArtifactIds, []);
+    assert.equal(applied.preview.candidates[0].safelyRepairable, false);
+  });
+});
+
+async function writeMalformedMarkdownPair(root, target) {
+  const jsonPath = path.join(root, ...target.jsonPath.split("/"));
+  const markdownPath = path.join(root, ...target.markdownPath.split("/"));
+  await mkdir(path.dirname(jsonPath), { recursive: true });
+  await writeFile(jsonPath, `${canonicalPrettyStringify(target)}\n`, "utf8");
+  await writeFile(
+    markdownPath,
+    `<!-- champcity-artifact-envelope\n${canonicalStringify(buildMarkdownArtifactEnvelope(target))}\n-->\n\n${target.payload.contentMarkdown}`,
+    "utf8",
+  );
+}
+
+function testProject(root) {
+  return {
+    projectId: "champcity-ai",
+    displayName: "ChampCity A/I",
+    repositoryRoot: root,
+    planningRoot: path.join(root, "planning"),
+    branchBehavior: { mode: "observe-current" },
+    enabled: true,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    lastOpenedAt: TIMESTAMP,
+    lastScanAt: null,
+    lastScanResult: null,
+    observerStatus: "stopped",
+  };
+}

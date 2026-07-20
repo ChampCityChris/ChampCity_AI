@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC06_capture_builder_report",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC06",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:58:05.183Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC06_capture_builder_report.json",
@@ -10,17 +10,20 @@
     "title": "VALIDATION REPORT WC06 capture builder report"
   },
   "payloadHash": "sha256:d6f11c5314cc6380a6281d03d85d0114ed5c42b7fb8f932bf8d225a531d0ecb8",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC06_capture_builder_report"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:58:05.183Z",
+  "updatedAt": "2026-07-19T20:53:52.381Z",
   "workCardId": "WC06"
 }
 -->

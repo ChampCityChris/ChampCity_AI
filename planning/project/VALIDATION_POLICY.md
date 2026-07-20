@@ -9,7 +9,7 @@
     "kind": "supporting_document",
     "title": "Validation Policy"
   },
-  "payloadHash": "sha256:ce0b33a8318443a65badcf498dfdb10302442c1a4463945ad8442fccd51fae06",
+  "payloadHash": "sha256:341371af70269fba5623d62c5e42c6224a234b479ebffc057f7ef9560d0693a4",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -17,10 +17,10 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-20T02:02:10.353Z"
 }
 -->
 
@@ -46,6 +46,15 @@
 - `npm run build`
 - `npm test`
 - `npm run test:work-cards` when the build environment allows it.
+
+## Repository Code, Test, and Migration Boundary
+
+- Production behavior belongs under `src/` or another explicitly approved runtime package.
+- Tests remain in the source repository but do not ship as runtime code.
+- Tests should be organized by stable capability, not permanently by Work Card.
+- Work-Card-specific tests and abandoned migrations must not track unrelated future production changes.
+- Every Work Card must identify its capability tests, temporary fixtures, migration obligations, and package impact.
+- Boundary authority: `docs/architecture/REPOSITORY_CODE_TEST_AND_MIGRATION_BOUNDARY.md`.
 
 ## WC08 Validation Note
 

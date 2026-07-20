@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator",
+  "artifactId": "champcity-ai/phase-02/operator_validation/WC07",
   "artifactType": "operator_validation",
   "createdAt": "2026-07-02T18:24:53.048Z",
   "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator.json",
@@ -10,17 +10,20 @@
     "title": "VALIDATION REPORT WC07 split phase map builder and phase planning documents generator"
   },
   "payloadHash": "sha256:07a0f92265e7cc008eac3ea666086befd840b153526c5045a67c770dca87e080",
+  "phaseId": "phase-02",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC07_split_phase_map_builder_and_phase_planning_documents_generator"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-02T18:24:53.048Z",
+  "updatedAt": "2026-07-19T20:54:04.607Z",
   "workCardId": "WC07"
 }
 -->

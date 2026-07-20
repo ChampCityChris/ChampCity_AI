@@ -59,6 +59,7 @@ type WorkflowState =
   | "architect-review"
   | "operator-validation"
   | "repair-subcard"
+  | "maintenance"
   | "phase-closeout"
   | "next-phase"
   | "blocked";
@@ -124,6 +125,7 @@ const workflowStateToManualScreen: Record<WorkflowState, string> = {
   "architect-review": "architect-review",
   "operator-validation": "human-validation",
   "repair-subcard": "architect-prompt-composer",
+  maintenance: "governance-repair",
   "phase-closeout": "phase-closeout",
   "next-phase": "phase-map",
   blocked: "unsupported-kernel-action",
@@ -147,6 +149,12 @@ function normalizeWorkflowStep(value: string | undefined): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function isGovernanceMaintenanceAction(actionId: string | undefined): boolean {
+  const normalized = normalizeKey(actionId);
+  return normalized === "governance_integrity_repair_required" ||
+    normalized === "operator_governance_approval_required";
 }
 
 function getWorkflowStateForAction(
@@ -206,6 +214,10 @@ function workflowStateForScreen(screenId: string): WorkflowState {
       return "architect-review";
     case "operator-validation":
       return "operator-validation";
+    case "governance-repair":
+      return "maintenance";
+    case "governance-approval":
+      return "maintenance";
     case "repair-work-card-authoring":
       return "repair-subcard";
     case "phase-closeout":
@@ -320,6 +332,9 @@ export function WorkflowRouterShell({
             routedActionAvailable && supportNavigation.routedScreenResolved
               ? openSuggestedFallback
               : undefined
+          }
+          isRoutedScreenActive={
+            routedActionAvailable && supportNavigation.isViewingRoutedScreen
           }
           routedScreenLabel={suggestedManualItem?.label ?? suggestedManualScreen}
           unresolvedRouteMessage={unresolvedRouteMessage}
@@ -635,6 +650,10 @@ function ProcessRail({
   const routedScreenId = loadState === "ready" && action
     ? getManualScreenForCurrentAction(action)
     : undefined;
+  const maintenanceAction =
+    loadState === "ready" && action && isGovernanceMaintenanceAction(action.id)
+      ? action.maintenanceActionLabel ?? "Governance Maintenance"
+      : null;
   const positionMessage =
     loadState === "loading"
       ? "Loading the durable current action. Step history is not inferred while the route is loading."
@@ -687,6 +706,21 @@ function ProcessRail({
           ))}
         </div>
       </div>
+      {maintenanceAction ? (
+        <div className="border-b border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-xs text-amber-100/85">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <span>
+              <strong>Application mode</strong>: Governance Maintenance
+            </span>
+            <span>
+              <strong>Current maintenance action</strong>: {maintenanceAction}
+            </span>
+            <span>
+              <strong>Normal workflow status</strong>: Paused until governance maintenance is complete
+            </span>
+          </div>
+        </div>
+      ) : null}
       <div className="overflow-x-auto px-4 pb-2 pt-2">
         <div className="flex min-w-[1748px] items-end">
           {workflowGuideGroups.map((group, groupIndex) => {
@@ -1006,6 +1040,7 @@ function CurrentRequiredActionPanel({
   error,
   onRefreshCurrentAction,
   onOpenRoutedScreen,
+  isRoutedScreenActive,
   routedScreenLabel,
   unresolvedRouteMessage,
 }: {
@@ -1014,6 +1049,7 @@ function CurrentRequiredActionPanel({
   error?: string;
   onRefreshCurrentAction: () => void | Promise<void>;
   onOpenRoutedScreen?: () => void;
+  isRoutedScreenActive: boolean;
   routedScreenLabel: string;
   unresolvedRouteMessage?: string;
 }) {
@@ -1156,7 +1192,12 @@ function CurrentRequiredActionPanel({
         ) : null}
       </div>
       <div className="flex flex-col gap-2 border-t border-border px-5 pb-5 pt-4">
-        {onOpenRoutedScreen ? (
+        {isRoutedScreenActive ? (
+          <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-4 py-2.5 text-xs font-semibold text-primary/85">
+            <CheckCircle size={12} />
+            Current workspace: {routedScreenLabel}
+          </div>
+        ) : onOpenRoutedScreen ? (
           <button
             type="button"
             onClick={onOpenRoutedScreen}
@@ -3837,6 +3878,7 @@ function stateLabel(state: WorkflowState): string {
     "architect-review": "Architect Report Review",
     "operator-validation": "Operator Validation",
     "repair-subcard": "Repair Sub-Card",
+    maintenance: "Governance Maintenance",
     "phase-closeout": "Phase Closeout",
     "next-phase": "Next Phase Activation",
     blocked: "Workflow Blocked",

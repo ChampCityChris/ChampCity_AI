@@ -144,6 +144,13 @@ const phaseMappingVariant = route(
   "phase_map",
 );
 
+const governanceRepairVariant = route(
+  "governance_integrity_repair_required",
+  "operator",
+  "governance-repair",
+  "governance_repair",
+);
+
 /**
  * Complete inventory for IPC operations that preview or write process data.
  * Registering one of these handlers without a policy is a startup error.
@@ -288,8 +295,30 @@ export const processIpcPolicies: readonly ProcessIpcPolicy[] = [
         "architect-bridge",
         "candidate_disposition",
       ),
+      route(
+        "governance_repair_specification_required",
+        "architect",
+        "architect-bridge",
+        "work_card",
+      ),
     ],
     allowedAuxiliaryArtifactTypes: ["architect_task"],
+    transition: { mode: "none" },
+  },
+  {
+    kind: "routed",
+    channel: "governanceRepair:previewSpecificationRequest",
+    operation: "preview",
+    variants: [governanceRepairVariant],
+    allowedAuxiliaryArtifactTypes: [],
+    transition: { mode: "none" },
+  },
+  {
+    kind: "routed",
+    channel: "governanceRepair:createSpecificationRequest",
+    operation: "supporting-write",
+    variants: [governanceRepairVariant],
+    allowedAuxiliaryArtifactTypes: ["route_review_request"],
     transition: { mode: "none" },
   },
   ...routedPair(

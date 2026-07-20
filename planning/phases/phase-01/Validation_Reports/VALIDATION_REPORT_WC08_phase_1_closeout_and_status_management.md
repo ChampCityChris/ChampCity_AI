@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC08",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:58:14.343Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC08_phase_1_closeout_and_status_management.json",
@@ -10,6 +10,7 @@
     "title": "VALIDATION REPORT WC08 phase 1 closeout and status management"
   },
   "payloadHash": "sha256:90f023b2abda0cd2a2fd8ce8f43f4144da8e227c4cd41be66cffe5f1770bb439",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -17,10 +18,10 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:58:14.343Z",
+  "updatedAt": "2026-07-19T21:44:02.344Z",
   "workCardId": "WC08"
 }
 -->

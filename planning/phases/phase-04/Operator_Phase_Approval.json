@@ -4,26 +4,32 @@
   "createdAt": "2026-07-15T18:00:00.000Z",
   "jsonPath": "planning/phases/phase-04/Operator_Phase_Approval.json",
   "markdownPath": "planning/phases/phase-04/Operator_Phase_Approval.md",
+  "parentArtifactId": "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
   "payload": {
-    "contentMarkdown": "# Operator Phase Approval: phase-04\n\nDecision: Approved and manually activated\nDate: 2026-07-15\nOperator direction: Begin the stabilization phase.\n\n## Approval Scope\n\nThe Operator approves the Phase 04 planning authority, ordered candidate plan, manual activation because the application cannot safely process the transition, priority treatment of governed Operator recovery/override, application enforcement of repair-chain limits, and preservation of failed Phase 03/WC09 evidence without another WC09 repair.\n\n## Conditions\n\n- Phase 03 remains blocked; it is not retroactively accepted.\n- No WC09-REPAIR03 may be created.\n- Full Phase 04 Work Cards are created just in time.\n- Operator override must be gated and auditable; it may not become a general skip mechanism.\n- The first Work Card must address canonical routed-screen cutover before broader recovery behavior.\n",
+    "contentMarkdown": "# Operator Phase Approval: phase-04\n\nStatus: approved\nDecision: approve exact canonical Phase Planning and Work Card Plan revisions for planning progression.\n\n## Approved Authority\n\n- champcity-ai/phase-04/phase_planning/Phase_Planning, revision 1, payload hash sha256:b87ee990357f1a038086e1740ee442c1e5a7676544ba56e7884a933f3489edd7\n- champcity-ai/phase-04/work_card_plan/Work_Card_Plan, revision 1, payload hash sha256:1e781dc01671f76cec45de482531c6db2ec8057cd06fa110aad6be40ef88e9f1\n\n## Authorization Boundary\n\nThis approval authorizes just-in-time Work Card creation for the approved canonical phase authority. It does not authorize source-code implementation; each Work Card requires exact approval before Implementer execution.\n",
     "data": {
-      "approvalScope": "phase_work_card_plan",
-      "conditions": [
-        "Phase 03 remains blocked",
-        "No WC09-REPAIR03",
-        "Just-in-time Work Cards",
-        "Override is gated and auditable",
-        "WC01 addresses canonical cutover first"
-      ],
-      "date": "2026-07-15",
-      "decision": "approved_and_manually_activated",
-      "operatorDirection": "Begin the stabilization phase",
-      "phaseId": "phase-04"
+      "approvalClassification": "canonical_phase",
+      "approvalScope": "phase_planning_and_work_card_plan",
+      "approvedArtifactId": "champcity-ai/phase-04/phase_planning/Phase_Planning",
+      "approvedPayloadHash": "sha256:b87ee990357f1a038086e1740ee442c1e5a7676544ba56e7884a933f3489edd7",
+      "approvedPhasePlanningArtifactId": "champcity-ai/phase-04/phase_planning/Phase_Planning",
+      "approvedPhasePlanningPayloadHash": "sha256:b87ee990357f1a038086e1740ee442c1e5a7676544ba56e7884a933f3489edd7",
+      "approvedPhasePlanningRevision": 1,
+      "approvedRevision": 1,
+      "approvedTargetArtifactType": "phase_planning",
+      "approvedWorkCardPlanArtifactId": "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
+      "approvedWorkCardPlanPayloadHash": "sha256:1e781dc01671f76cec45de482531c6db2ec8057cd06fa110aad6be40ef88e9f1",
+      "approvedWorkCardPlanRevision": 1,
+      "decision": "approved",
+      "implementationAuthorized": false,
+      "justInTimeWorkCardCreationAuthorized": true,
+      "phaseId": "phase-04",
+      "phaseProgressionAuthorized": true
     },
     "kind": "operator_approval",
     "title": "Operator Phase Approval: phase-04"
   },
-  "payloadHash": "sha256:4edb53bc5d7f386efed17385e9ffc7cb89cfa2d993d11d8bc4313bb7fed39867",
+  "payloadHash": "sha256:da179c298c643b9c83860a89d1e12946f36c2e5bc639dcb51ffafd4d27472890",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -35,8 +41,8 @@
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T18:00:00.000Z"
+  "updatedAt": "2026-07-20T02:41:02.536Z"
 }

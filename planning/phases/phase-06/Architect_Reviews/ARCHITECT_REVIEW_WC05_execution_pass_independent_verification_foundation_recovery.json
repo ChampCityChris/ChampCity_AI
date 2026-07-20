@@ -6,14 +6,17 @@
   "markdownPath": "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC05_execution_pass_independent_verification_foundation_recovery.md",
   "parentArtifactId": "champcity-ai/phase-06/implementer_report/WC05",
   "payload": {
-    "kind": "architect_review",
-    "title": "Architect Review: Phase 06 WC05 — Accepted with Observations",
     "contentMarkdown": "# Architect Review: Phase 06 WC05 — Accepted with Observations\n\nStatus: accepted_with_observations\nReviewed Work Card: WC05 revision 3\nReviewed Implementer Report: champcity-ai/phase-06/implementer_report/WC05 revision 3\nDecision: accepted_for_operator_validation\nNew Work Card required: no\nOperator validation authorized: yes\n\n## Decision\n\nWC05 is accepted as the recovered Execution Pass and Independent Verification foundation.\n\nThe correction pass resolved all four prior findings:\n\n1. Trusted initialization now validates explicit Operator Approval content, exact Work Card and revision binding, parent/source relationships, and declared execution-condition authority.\n2. The accepted WC04 Architect Review is registered as synchronized canonical authority.\n3. The unrelated WC09 context-packet and live-compiler regression suite is restored, while WC05 tests are separated into dedicated focused suites.\n4. Renderer mojibake and unexpected UTF-8 BOMs are removed.\n\nThe retained foundation now provides:\n\n- strict Acceptance Contract and Execution Pass Plan identity validation;\n- bounded Implementer and Independent Verifier packet compilation;\n- pure Execution Run transitions;\n- exact Implementer-result binding;\n- independent-verification gating before advancement;\n- same-pass correction;\n- governance-contradiction blocking;\n- canonical Contract, Plan, and Run persistence;\n- trusted main-process mutation authority;\n- read-only renderer status and packet preview;\n- no production Codex runner transport;\n- no agent or UI authority to grant Operator acceptance.\n\n## Independent Review Evidence\n\n- Independent typecheck passed in the approved normal Windows lane.\n- Independent validation confirmed all 73 unit tests passed.\n- The repository workflow gate passed.\n- The Implementer recorded a complete passing build, unit, repository, and mounted-renderer lane.\n- One independent rerun reached the mounted Electron restart probe and timed out after all 73 unit tests and the repository gate had passed. This is recorded as a non-blocking harness observation because the same mounted lane passed in the Implementer run and no WC05 acceptance criterion depends on that transient restart timing.\n- A second independent rerun was blocked by the platform before execution.\n\n## Observations\n\n- The repository remains an intentionally dirty recovery tree and requires a governed checkpoint before unrelated implementation resumes.\n- Runner Transport, Independent Verifier Agent integration, Operator Validation Agent execution, retry limits, runner-failure escalation, and automatic git checkpoints remain deferred.\n- The current acceptance authorizes Operator manual validation; it does not grant Operator acceptance automatically.\n\n## Operator Manual Validation\n\nVerify that the Execution Run panel:\n\n1. is read-only;\n2. displays run status, current pass, attempts, and bounded packet preview;\n3. has no queue, completion, dispatch, process, or log controls;\n4. cannot advance from Implementer completion without independent verification;\n5. represents same-pass retry and governance contradiction states;\n6. launches no Codex process;\n7. creates no Operator acceptance.\n\n## Next Boundary\n\nAfter Operator validation, preserve this recovery baseline in an authorized checkpoint before creating the Independent Verifier Agent and Operator Validation Agent implementation Work Cards.\n",
     "data": {
       "acceptanceResult": "accepted_governing_acceptance_criteria",
       "decision": "accepted_for_operator_validation",
       "foundationAccepted": true,
       "newWorkCardRequired": false,
+      "nextRequiredOutputArtifactId": "champcity-ai/phase-06/operator_validation/WC05",
+      "observations": [
+        "independent_mounted_renderer_restart_probe_timed_out_once_after_all_unit_and_repository_checks_passed",
+        "second_independent_validation_rerun_blocked_by_platform_before_execution"
+      ],
       "operatorValidationAuthorized": true,
       "phaseId": "phase-06",
       "reviewedImplementerReportArtifactId": "champcity-ai/phase-06/implementer_report/WC05",
@@ -21,13 +24,10 @@
       "reviewedWorkCardArtifactId": "champcity-ai/phase-06/work_card/WC05",
       "reviewedWorkCardRevision": 3,
       "status": "accepted_with_observations",
-      "workCardId": "WC05",
-      "observations": [
-        "independent_mounted_renderer_restart_probe_timed_out_once_after_all_unit_and_repository_checks_passed",
-        "second_independent_validation_rerun_blocked_by_platform_before_execution"
-      ],
-      "nextRequiredOutputArtifactId": "champcity-ai/phase-06/operator_validation/WC05"
-    }
+      "workCardId": "WC05"
+    },
+    "kind": "architect_review",
+    "title": "Architect Review: Phase 06 WC05 — Accepted with Observations"
   },
   "payloadHash": "sha256:d3192751001eef316db1894e780b74b0e4cc93f321630a880ebd2bb2735bd2a2",
   "phaseId": "phase-06",

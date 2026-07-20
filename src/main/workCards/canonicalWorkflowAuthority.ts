@@ -27,6 +27,7 @@ import {
 } from "../artifacts";
 import {
   CanonicalRoutedScreenAdapter,
+  type CanonicalRoutedScreenSnapshotNode,
   type CanonicalRoutedScreenResolution,
   RoutedActionService,
   type WorkflowAuthorityProvider,
@@ -90,89 +91,30 @@ export class CanonicalWorkflowAuthority {
 
   async projectCurrentRequiredAction(): Promise<CurrentRequiredActionResult> {
     const snapshot = await this.routedActions.getAuthoritySnapshot();
-    const action = snapshot.routedAction;
-    if (!action) {
-      return {
-        ok: true,
-        currentAction: {
-          id: "workflow_complete",
-          workflowStep: "Repeat Phase Mapping / Work Card Loop",
-          title: "No current action",
-          summary: "The canonical workflow-state index records completion.",
-          responsibleRole: "app_system",
-          status: "complete",
-          reason: "No routed action remains in canonical workflow state.",
-          sourceArtifacts: [],
-          missingArtifacts: [],
-          warnings: [],
-        },
-        workflowSteps: lockedWorkflowSteps,
-      };
-    }
+    return this.projectCurrentRequiredActionFromSnapshot({
+      state: snapshot.state,
+      routedAction: snapshot.routedAction,
+    });
+  }
 
-    const resolution = await this.routedScreens.resolve(snapshot.state, action);
-    const routedScreen = resolution.viewModel;
-    const target = routedScreen.target;
-    const sources = routedScreen.sources;
-    const workCardId = target?.workCardId;
-    const workCardTitle = target?.displayTitle;
-    const expectedPath = routedScreen.expectedOutput.markdownPath ?? undefined;
-
-    const currentAction: CurrentRequiredAction = {
-      id: action.actionId,
-      workflowStep: workflowStepFor(action.actionId),
-      title: titleFor(action.actionId, workCardId),
-      summary: summaryFor(action.actionId, workCardId),
-      responsibleRole: toCurrentActionRole(action.role),
-      ...(snapshot.state.activePhaseId
-        ? { phaseId: snapshot.state.activePhaseId }
-        : {}),
-      ...(workCardId ? { workCardId } : {}),
-      ...(workCardTitle ? { workCardTitle } : {}),
-      status: statusFor(action),
-      reason:
-        "The selected project's verified artifact graph and locked process contract are the sole routed authority.",
-      sourceArtifacts: sources.map((source) => ({
-        path: source.markdownPath,
-        role: source.artifactType.replaceAll("_", " "),
-        exists: true,
-      })),
-      missingArtifacts: [],
-      expectedOutput: {
-        ...(expectedPath ? { path: expectedPath } : {}),
-        artifactType: action.expectedOutput.artifactType,
-        description: `Create ${action.expectedOutput.artifactId}; a stable repository refresh advances only after its canonical pair is verified.`,
-      },
-      successRoute: action.routes.success ?? undefined,
-      failureRoute: action.routes.failure ?? undefined,
-      repairRoute: action.routes.repair ?? undefined,
-      warnings: [
-        ...action.blockers.map((blocker) => ({
-          code: blocker.code,
-          message: blocker.message,
-          severity: "blocking" as const,
-        })),
-        ...routedScreen.blockers.map((blocker) => ({
-          code: blocker.code,
-          message: blocker.message,
-          severity: "blocking" as const,
-        })),
-      ],
-      routedAction: action,
-    };
-
-    return {
-      ok: true,
-      currentAction,
-      routedScreen,
-      ...(action.actionId === "architect_review_of_implementer_report_required"
-        ? {
-            routedArchitectReviewBinding:
-              architectReviewBindingFromResolution(snapshot.state, resolution),
-          }
-        : {}),
-      workflowSteps: lockedWorkflowSteps,
-    };
+  async projectCurrentRequiredActionFromSnapshot(input: {
+    state: WorkflowStateIndex;
+    routedAction: RoutedActionContract | null;
+    registry?: import("../../shared/artifacts").ArtifactRegistry;
+    nodes?: readonly CanonicalRoutedScreenSnapshotNode[];
+  }): Promise<CurrentRequiredActionResult> {
+    const action = input.routedAction;
+    if (!action) return workflowCompleteCurrentAction();
+    const resolution =
+      input.registry && input.nodes
+        ? await this.routedScreens.resolveFromSnapshot({
+            state: input.state,
+            action,
+            registry: input.registry,
+            nodes: input.nodes,
+          })
+        : await this.routedScreens.resolve(input.state, action);
+    return currentRequiredActionFromResolution(input.state, action, resolution);
   }
 
   async authorizeArchitectReview(
@@ -256,7 +198,7 @@ export class CanonicalWorkflowAuthority {
       expectedOutputArtifactId: routedAction.expectedOutput.artifactId,
       expectedOutputJsonPath: binding.expectedOutputPath.replace(/\.md$/i, ".json"),
       expectedOutputMarkdownPath: binding.expectedOutputPath,
-      expectedOutputFileName: binding.expectedOutputFileName,
+      expectedOutputFileName: path.posix.basename(binding.expectedOutputPath),
       binding,
     };
   }
@@ -375,6 +317,96 @@ export class CanonicalWorkflowAuthority {
     return { pairCommit, state: projectedState };
   }
 
+}
+
+function workflowCompleteCurrentAction(): CurrentRequiredActionResult {
+  return {
+    ok: true,
+    currentAction: {
+      id: "workflow_complete",
+      workflowStep: "Repeat Phase Mapping / Work Card Loop",
+      title: "No current action",
+      summary: "The canonical workflow-state index records completion.",
+      responsibleRole: "app_system",
+      status: "complete",
+      reason: "No routed action remains in canonical workflow state.",
+      sourceArtifacts: [],
+      missingArtifacts: [],
+      warnings: [],
+    },
+    workflowSteps: lockedWorkflowSteps,
+  };
+}
+
+function currentRequiredActionFromResolution(
+  state: WorkflowStateIndex,
+  action: RoutedActionContract,
+  resolution: CanonicalRoutedScreenResolution,
+): CurrentRequiredActionResult {
+  const routedScreen = resolution.viewModel;
+  const target = routedScreen.target;
+  const sources = routedScreen.sources;
+  const workCardId = target?.workCardId;
+  const workCardTitle = target?.displayTitle;
+  const expectedPath = routedScreen.expectedOutput.markdownPath ?? undefined;
+
+  const currentAction: CurrentRequiredAction = {
+    id: action.actionId,
+    workflowStep: workflowStepFor(action.actionId),
+    title: titleFor(action.actionId, workCardId),
+    summary: summaryFor(action.actionId, workCardId),
+    responsibleRole: toCurrentActionRole(action.role),
+    ...(state.activePhaseId
+      ? { phaseId: state.activePhaseId }
+      : {}),
+    ...(workCardId ? { workCardId } : {}),
+    ...(workCardTitle ? { workCardTitle } : {}),
+    status: statusFor(action),
+    reason:
+      "The selected project's verified artifact graph and locked process contract are the sole routed authority.",
+    sourceArtifacts: sources.map((source) => ({
+      path: source.markdownPath,
+      role: source.artifactType.replaceAll("_", " "),
+      exists: true,
+    })),
+    missingArtifacts: [],
+    expectedOutput: {
+      ...(expectedPath ? { path: expectedPath } : {}),
+      artifactType: action.expectedOutput.artifactType,
+      description: action.expectedOutput.relationship === "in_place_mutation_target"
+        ? `Repair ${action.expectedOutput.artifactId} in place; a stable repository refresh advances only after its canonical pair is verified.`
+        : `Create ${action.expectedOutput.artifactId}; a stable repository refresh advances only after its canonical pair is verified.`,
+    },
+    successRoute: action.routes.success ?? undefined,
+    failureRoute: action.routes.failure ?? undefined,
+    repairRoute: action.routes.repair ?? undefined,
+    warnings: [
+      ...action.blockers.map((blocker) => ({
+        code: blocker.code,
+        message: blocker.message,
+        severity: "blocking" as const,
+      })),
+      ...routedScreen.blockers.map((blocker) => ({
+        code: blocker.code,
+        message: blocker.message,
+        severity: "blocking" as const,
+      })),
+    ],
+    routedAction: action,
+  };
+
+  return {
+    ok: true,
+    currentAction,
+    routedScreen,
+    ...(action.actionId === "architect_review_of_implementer_report_required"
+      ? {
+          routedArchitectReviewBinding:
+            architectReviewBindingFromResolution(state, resolution),
+        }
+      : {}),
+    workflowSteps: lockedWorkflowSteps,
+  };
 }
 
 function architectReviewBindingFromResolution(
@@ -520,6 +552,8 @@ function toCurrentActionRole(role: RoutedActionContract["role"]): CurrentRequire
 
 function statusFor(action: RoutedActionContract): CurrentRequiredActionStatus {
   if (action.authorityStatus === "blocked") return "blocked";
+  if (action.actionId === "governance_integrity_repair_required") return "needs_repair";
+  if (action.actionId === "governance_repair_specification_required") return "available";
   if (action.role === "operator") {
     return action.actionId === "operator_validation_required"
       ? "needs_validation"
@@ -531,6 +565,13 @@ function statusFor(action: RoutedActionContract): CurrentRequiredActionStatus {
 }
 
 function workflowStepFor(actionId: string): string {
+  if (
+    actionId === "governance_integrity_repair_required" ||
+    actionId === "governance_repair_specification_required" ||
+    actionId === "operator_governance_approval_required"
+  ) {
+    return "Governance Maintenance";
+  }
   if (actionId.startsWith("project_")) return "Project Mapping";
   if (actionId.includes("phase_closeout")) return "Phase Closeout";
   if (actionId.includes("roadmap")) return "Roadmap Update";
@@ -540,6 +581,12 @@ function workflowStepFor(actionId: string): string {
 
 function titleFor(actionId: string, workCardId?: string): string {
   const labels: Record<string, string> = {
+    governance_integrity_repair_required:
+      "governance integrity repair required",
+    governance_repair_specification_required:
+      "architect repair specification required",
+    operator_governance_approval_required:
+      "operator governance approval required",
     architect_review_of_implementer_report_required:
       "Architect review of repair Implementer Report required",
     operator_validation_required: "Operator Validation required",
@@ -548,6 +595,15 @@ function titleFor(actionId: string, workCardId?: string): string {
 }
 
 function summaryFor(actionId: string, workCardId?: string): string {
+  if (actionId === "governance_integrity_repair_required") {
+    return "Resolve the first unresolved governance integrity record before approval or normal workflow routing.";
+  }
+  if (actionId === "governance_repair_specification_required") {
+    return "Architect repair specification is required for the pending governance maintenance request; normal workflow remains paused.";
+  }
+  if (actionId === "operator_governance_approval_required") {
+    return "Approve the first unresolved exact governance target before normal workflow routing.";
+  }
   return actionId === "architect_review_of_implementer_report_required"
     ? `Review the exact authoritative Implementer Report for ${workCardId ?? "the routed Work Card"}.`
     : `Complete ${actionId.replaceAll("_", " ")} using the canonical routed-action contract.`;

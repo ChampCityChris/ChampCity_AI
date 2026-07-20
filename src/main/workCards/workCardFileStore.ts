@@ -12,6 +12,7 @@ import path from "node:path";
 
 import {
   assertCanonicalArtifact,
+  canonicalStringify,
   type CanonicalArtifact,
   type ArtifactRelationships,
   type ArtifactStatus,
@@ -161,6 +162,7 @@ import {
 } from "../../shared/workCards/validationTarget";
 import type {
   CurrentActionArtifactReference,
+  CurrentRequiredAction,
   CurrentRequiredActionResult,
 } from "../../shared/workCards/currentActionProjection";
 import {
@@ -168,6 +170,7 @@ import {
   buildRouteReviewRequestFileNames,
   renderRouteReviewRequestMarkdown,
   type RouteReviewRequestInput,
+  type RouteReviewRequestRecord,
   type RouteReviewRequestSaveResult,
 } from "../../shared/workCards/routeReviewRequest";
 import {
@@ -3133,21 +3136,36 @@ export async function ensureArchitectTaskPacket(): Promise<ArchitectTaskPacketSa
       );
     }
 
-    const packet = buildArchitectTaskPacket(action, configuredProjectId);
-    const targets = await saveCanonicalPlanningArtifact({
-      directory: resolveInside(repositoryRoot, ...packet.directoryPath.split("/")),
-      jsonFileName: packet.jsonFileName,
-      markdownFileName: packet.markdownFileName,
-      artifactType: packet.artifactType,
-      title: packet.payload.title,
-      contentMarkdown: packet.payload.contentMarkdown,
-      data: packet.payload.data,
-      phaseId: packet.phaseId,
-      workCardId: packet.workCardId,
-      parentArtifactId: packet.payload.data.targetArtifactId,
-      relationships: packet.relationships,
-      status: "active",
-    });
+    const governanceRequest = await readGovernanceRepairSpecificationRequestForAction(action);
+    const packet = buildArchitectTaskPacket(action, configuredProjectId, governanceRequest);
+    const existingPacket = await readExistingArchitectTaskPacket(packet);
+    if (existingPacket) {
+      return existingPacket;
+    }
+    let targets: CanonicalPlanningArtifactSaveResult;
+    try {
+      targets = await saveCanonicalPlanningArtifact({
+        directory: resolveInside(repositoryRoot, ...packet.directoryPath.split("/")),
+        jsonFileName: packet.jsonFileName,
+        markdownFileName: packet.markdownFileName,
+        artifactType: packet.artifactType,
+        artifactId: packet.artifactId,
+        title: packet.payload.title,
+        contentMarkdown: packet.payload.contentMarkdown,
+        data: packet.payload.data,
+        phaseId: packet.phaseId,
+        workCardId: packet.workCardId,
+        parentArtifactId: packet.payload.data.targetArtifactId,
+        relationships: packet.relationships,
+        status: "active",
+      });
+    } catch (error) {
+      if (error instanceof ArtifactPairServiceError && error.code === "stale_revision") {
+        const racedPacket = await waitForExistingArchitectTaskPacket(packet);
+        if (racedPacket) return racedPacket;
+      }
+      throw error;
+    }
 
     return {
       ok: true,
@@ -3163,6 +3181,108 @@ export async function ensureArchitectTaskPacket(): Promise<ArchitectTaskPacketSa
       errorMessages: [toPlainSaveError(error)],
     };
   }
+}
+
+async function readExistingArchitectTaskPacket(
+  packet: ReturnType<typeof buildArchitectTaskPacket>,
+): Promise<ArchitectTaskPacketSaveResult | undefined> {
+  try {
+    const existing = await canonicalWorkflowAuthority.artifactPairs.readArtifact({
+      directoryPath: packet.directoryPath,
+      fileStem: packet.fileStem,
+    });
+    if (
+      existing.artifact.artifactId !== packet.artifactId ||
+      existing.artifact.artifactType !== packet.artifactType
+    ) {
+      return undefined;
+    }
+    if (
+      canonicalStringify(existing.artifact.payload.data) !==
+      canonicalStringify(packet.payload.data)
+    ) {
+      return undefined;
+    }
+    const registry = await canonicalWorkflowAuthority.artifactPairs.loadRegistry();
+    const entry = registry?.entries.find(
+      (item) =>
+        item.artifactId === existing.artifact.artifactId &&
+        item.revision === existing.artifact.revision &&
+        item.payloadHash === existing.artifact.payloadHash &&
+        item.jsonPath === existing.artifact.jsonPath &&
+        item.markdownPath === existing.artifact.markdownPath &&
+        item.synchronized,
+    );
+    if (!entry) return undefined;
+    return {
+      ok: true,
+      packet,
+      jsonPath: existing.artifact.jsonPath,
+      markdownPath: existing.artifact.markdownPath,
+      markdown: packet.payload.contentMarkdown,
+      chatGptPrompt: packet.chatGptPrompt,
+    };
+  } catch (error) {
+    if (error instanceof ArtifactPairServiceError && error.code === "not_found") {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+async function waitForExistingArchitectTaskPacket(
+  packet: ReturnType<typeof buildArchitectTaskPacket>,
+): Promise<ArchitectTaskPacketSaveResult | undefined> {
+  const started = Date.now();
+  while (Date.now() - started < 2_000) {
+    const existing = await readExistingArchitectTaskPacket(packet);
+    if (existing) return existing;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return undefined;
+}
+
+async function readGovernanceRepairSpecificationRequestForAction(
+  action: CurrentRequiredAction,
+): Promise<
+  | {
+      artifactId: string;
+      revision: number;
+      jsonPath: string;
+      markdownPath: string;
+      record: RouteReviewRequestRecord;
+    }
+  | undefined
+> {
+  if (action.id !== "governance_repair_specification_required") return undefined;
+  const targetArtifactId = action.routedAction?.targetArtifactId;
+  if (!targetArtifactId) {
+    throw new Error("Governance repair specification action is missing its request target.");
+  }
+  const target = action.routedAction?.targetArtifactId;
+  const registry = await canonicalWorkflowAuthority.artifactPairs.loadRegistry();
+  const entry = registry?.entries.find((item) => item.artifactId === target);
+  if (!entry) {
+    throw new Error(`Governance repair request ${targetArtifactId} is not registered.`);
+  }
+  const pair = await canonicalWorkflowAuthority.artifactPairs.readArtifactByPaths(
+    entry.jsonPath,
+    entry.markdownPath,
+  );
+  const record = pair.artifact.payload.data as unknown as RouteReviewRequestRecord;
+  if (
+    record.requestPurpose !== "governance_repair_specification" ||
+    record.status !== "pending_architect_specification"
+  ) {
+    throw new Error("Routed request is not a pending governance repair specification request.");
+  }
+  return {
+    artifactId: pair.artifact.artifactId,
+    revision: pair.artifact.revision,
+    jsonPath: pair.artifact.jsonPath,
+    markdownPath: pair.artifact.markdownPath,
+    record,
+  };
 }
 
 export async function saveRouteReviewRequest(
@@ -6699,6 +6819,7 @@ interface CanonicalPlanningArtifactSaveInput {
   directory: string;
   jsonFileName?: string;
   markdownFileName: string;
+  artifactId?: string;
   artifactType: string;
   title?: string;
   contentMarkdown: string;
@@ -6759,6 +6880,7 @@ async function saveCanonicalPlanningArtifact(
   const artifactType = existing?.artifactType ?? input.artifactType;
   const artifactId =
     existing?.artifactId ??
+    input.artifactId?.trim() ??
     buildCanonicalArtifactId(phaseId, artifactType, workCardId ?? markdownStem);
   const relationships = mergeArtifactRelationships(
     existing?.relationships,

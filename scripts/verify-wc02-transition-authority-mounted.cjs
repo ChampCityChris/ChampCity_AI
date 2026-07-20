@@ -1,9 +1,12 @@
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
 
 const {
+  buildArtifactRegistry,
+  buildArtifactRegistryEntry,
   buildCanonicalArtifact,
   canonicalPrettyStringify,
   renderArtifactMarkdown,
@@ -26,6 +29,7 @@ const repairReportId = `${projectId}/${phaseId}/implementer_report/WC02-REPAIR01
 const fixedTime = "2026-07-16T18:45:00.000Z";
 const prepare = process.argv.includes("--prepare");
 const cleanup = process.argv.includes("--cleanup");
+const seededArtifacts = [];
 
 if (prepare) prepareFixture();
 
@@ -115,6 +119,7 @@ app.whenReady().then(async () => {
 
 function prepareFixture() {
   fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  seededArtifacts.length = 0;
   fs.mkdirSync(path.join(fixtureRoot, "planning"), { recursive: true });
   fs.mkdirSync(path.join(fixtureRoot, ".git"), { recursive: true });
   fs.writeFileSync(
@@ -143,13 +148,6 @@ function prepareFixture() {
       status: "approved",
       candidates: [{ id: workCardId, title: "WC02 transition authority", order: 1 }],
     },
-  });
-  writeArtifact({
-    artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
-    artifactType: "operator_approval",
-    phaseId,
-    stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
-    data: { approvalScope: "phase_work_card_plan", decision: "approved" },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
@@ -259,6 +257,8 @@ function prepareFixture() {
     ],
     data: { workCardId: repair02Id, status: "ready_for_implementer" },
   });
+  writeExactGovernanceApprovals();
+  writeRegistry();
 
   fs.mkdirSync(userDataRoot, { recursive: true });
   const configured = {
@@ -320,7 +320,101 @@ function writeArtifact(input) {
   const jsonPath = path.join(fixtureRoot, ...artifact.jsonPath.split("/"));
   const markdownPath = path.join(fixtureRoot, ...artifact.markdownPath.split("/"));
   fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-  fs.writeFileSync(jsonPath, canonicalPrettyStringify(artifact), "utf8");
+  fs.writeFileSync(jsonPath, `${canonicalPrettyStringify(artifact)}\n`, "utf8");
+  fs.writeFileSync(markdownPath, renderArtifactMarkdown(artifact), "utf8");
+  seededArtifacts.push(artifact);
+}
+
+function writeExactGovernanceApprovals() {
+  const targets = seededArtifacts.filter((artifact) =>
+    artifact.artifactType === "work_card_plan" || artifact.artifactType === "work_card",
+  );
+  for (const target of targets) {
+    const isWorkCard = target.artifactType === "work_card";
+    writeArtifact({
+      artifactId: isWorkCard
+        ? `${projectId}/${target.phaseId}/operator_approval/${target.workCardId}`
+        : `${projectId}/${target.phaseId}/operator_approval/Operator_Phase_Approval`,
+      artifactType: "operator_approval",
+      phaseId: target.phaseId,
+      ...(isWorkCard ? { workCardId: target.workCardId } : {}),
+      parentArtifactId: target.artifactId,
+      stem: isWorkCard
+        ? `planning/phases/${target.phaseId}/Operator_Approvals/OPERATOR_APPROVAL_${target.workCardId}`
+        : `planning/phases/${target.phaseId}/Operator_Phase_Approval`,
+      sources: [target.artifactId],
+      expectedOutputs: isWorkCard ? target.relationships.expectedOutputs : [],
+      data: operatorDecisionRecord(isWorkCard ? "work_card" : "phase_planning", [target], {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
+    });
+  }
+}
+
+function operatorDecisionRecord(stage, artifacts, outcome) {
+  const targets = artifacts.map((artifact) => ({
+    artifactId: artifact.artifactId,
+    artifactType: artifact.artifactType,
+    revision: artifact.revision,
+    payloadHash: artifact.payloadHash,
+  })).sort((left, right) => left.artifactId.localeCompare(right.artifactId));
+  const targetSetHash = createHash("sha256")
+    .update(JSON.stringify({ stage, targets }), "utf8")
+    .digest("hex");
+  const event = {
+    schemaVersion: "operator-decision-event.v1",
+    stage,
+    targets,
+    targetSetHash,
+    outcome,
+    decidedAt: fixedTime,
+  };
+  return {
+    schemaVersion: "operator-decision-record.v1",
+    stage,
+    targets,
+    targetSetHash,
+    outcome,
+    decidedAt: fixedTime,
+    decisionTimeline: [event],
+  };
+}
+
+function writeRegistry() {
+  const registry = buildArtifactRegistry({
+    updatedAt: fixedTime,
+    entries: seededArtifacts
+      .map((artifact) => buildArtifactRegistryEntry(artifact))
+      .sort((left, right) => left.artifactId.localeCompare(right.artifactId)),
+  });
+  const artifact = buildCanonicalArtifact({
+    artifactId: `${projectId}/system/artifact_registry`,
+    artifactType: "artifact_registry",
+    revision: 1,
+    status: "active",
+    projectId,
+    createdAt: fixedTime,
+    updatedAt: fixedTime,
+    jsonPath: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json",
+    markdownPath: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md",
+    relationships: {
+      sources: registry.entries.map((entry) => entry.artifactId),
+      expectedOutputs: [],
+      supersedes: [],
+      children: [],
+    },
+    payload: {
+      kind: "artifact_registry",
+      title: "Canonical Artifact Registry",
+      contentMarkdown: `# Canonical Artifact Registry\n\nMounted WC02 transition registry with ${registry.entries.length} entries.\n`,
+      data: registry,
+    },
+  });
+  const jsonPath = path.join(fixtureRoot, ...artifact.jsonPath.split("/"));
+  const markdownPath = path.join(fixtureRoot, ...artifact.markdownPath.split("/"));
+  fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
+  fs.writeFileSync(jsonPath, `${canonicalPrettyStringify(artifact)}\n`, "utf8");
   fs.writeFileSync(markdownPath, renderArtifactMarkdown(artifact), "utf8");
 }
 

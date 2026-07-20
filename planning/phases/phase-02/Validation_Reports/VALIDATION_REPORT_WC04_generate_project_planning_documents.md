@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC04_generate_project_planning_documents",
+  "artifactId": "champcity-ai/phase-02/operator_validation/WC04",
   "artifactType": "operator_validation",
   "createdAt": "2026-07-01T20:20:21.745Z",
   "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC04_generate_project_planning_documents.json",
@@ -10,6 +10,7 @@
     "title": "VALIDATION REPORT WC04 generate project planning documents"
   },
   "payloadHash": "sha256:f944c8b0aca47c76aed2f39e19d070ffc4ada58a43599b44256a71d763fb59ba",
+  "phaseId": "phase-02",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -17,10 +18,10 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-01T20:20:21.745Z",
+  "updatedAt": "2026-07-19T21:44:45.169Z",
   "workCardId": "WC04"
 }
 -->

@@ -14,6 +14,25 @@
 - Do not add dependencies without approval beyond the approved Electron + TypeScript foundation.
 - Do not add authentication, databases, cloud services, deployment automation, MCP integrations, connector integrations, or provider-specific LLM SDKs for the MVP foundation.
 
+## Repository Code, Test, and Migration Boundary
+
+Before adding or modifying production code, tests, scripts, migrations, fixtures, packaging, or test-lane configuration, read:
+
+`docs/architecture/REPOSITORY_CODE_TEST_AND_MIGRATION_BOUNDARY.md`
+
+Mandatory rules:
+
+- Production behavior and authority belong under `src/` or another explicitly approved runtime package.
+- Production code must not import from `test/`, temporary fixture directories, Work-Card-specific migration directories, or abandoned scripts.
+- Tests remain in the source repository after release but are not packaged application runtime.
+- Work Cards normally update capability-oriented test suites. Do not create a permanent Work-Card-specific test island unless the approved Work Card authorizes it.
+- Work-Card-specific migration utilities are presumed bounded to that Work Card. Do not expand them to mirror new production architecture without explicit promotion and relocation authority.
+- A historical or abandoned migration must not import and reproduce the live workflow catalog merely to keep an obsolete test passing.
+- Supported migrations must identify a current schema or release upgrade obligation and be versioned by that boundary.
+- Do not place production authority in test code or treat test fixtures as a second implementation of production behavior.
+- Do not add a new production feature to an abandoned script solely because a legacy test imports current production definitions.
+- If a Work Card omits the capability suite, migration obligation, temporary fixture boundary, or release-package impact needed to implement safely, stop and report the missing authority.
+
 ## Durable Project Decisions
 
 - Remote repository URL: `https://github.com/ChampCityChris/ChampCity_AI`.

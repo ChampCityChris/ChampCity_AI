@@ -26,9 +26,12 @@ export const canonicalWorkflowSpine = [
   "repeat_phase_mapping_and_work_card_loop",
 ] as const;
 export type CanonicalWorkflowSpineStep = (typeof canonicalWorkflowSpine)[number];
+export type WorkflowProcessStep =
+  | CanonicalWorkflowSpineStep
+  | "governance_maintenance";
 
 export type ProcessContractId =
-  | CanonicalWorkflowSpineStep
+  | WorkflowProcessStep
   | "project_planning"
   | "project_roadmap"
   | "phase_intake"
@@ -58,7 +61,7 @@ export interface ProcessExpectedOutput {
 
 export interface WorkflowActionTemplate {
   actionId: string;
-  processId: CanonicalWorkflowSpineStep;
+  processId: WorkflowProcessStep;
   processClassification: ProcessClassification;
   advancesWorkflowState: boolean;
   stage: WorkflowStage;
@@ -72,7 +75,7 @@ export interface ProcessContractItem {
   processId: ProcessContractId;
   displayName: string;
   classification: ProcessClassification;
-  parentProcessId: CanonicalWorkflowSpineStep | null;
+  parentProcessId: WorkflowProcessStep | null;
   owner: WorkflowRole;
   requiredSourceAuthority: readonly ProcessSourceAuthority[];
   conditionalSourceRequirements: readonly ConditionalProcessSourceRequirement[];
@@ -106,7 +109,7 @@ const output = (artifactType: string): ProcessExpectedOutput => ({
 });
 
 function runtimeActionsFor(
-  processId: CanonicalWorkflowSpineStep,
+  processId: WorkflowProcessStep,
 ): readonly WorkflowActionTemplate[] {
   return workflowActionTemplates.filter((action) => action.processId === processId);
 }
@@ -280,6 +283,19 @@ export const lockedProcessContract: readonly ProcessContractItem[] = [
     routes: { success: null, failure: "phase_mapping", repair: "phase_mapping" },
     advancesWorkflowState: true,
     runtimeActions: runtimeActionsFor("repeat_phase_mapping_and_work_card_loop"),
+  },
+  {
+    processId: "governance_maintenance",
+    displayName: "Governance Maintenance",
+    classification: "subordinate",
+    parentProcessId: null,
+    owner: "operator",
+    requiredSourceAuthority: [pair("artifact_registry")],
+    conditionalSourceRequirements: [],
+    expectedOutput: output("governance_maintenance"),
+    routes: { success: null, failure: null, repair: null },
+    advancesWorkflowState: false,
+    runtimeActions: runtimeActionsFor("governance_maintenance"),
   },
   ...([
     ["project_planning", "Project Planning", "project_mapping", "architect", "project_planning"],

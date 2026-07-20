@@ -77,6 +77,7 @@ export interface CanonicalArtifactCommitResult<
   registryCommitted: true;
   payloadHash: PayloadHash;
   transactionId: string;
+  cleanupWarnings?: string[];
 }
 
 export interface CanonicalArtifactBatchCommitResult {
@@ -93,7 +94,12 @@ export type ArtifactPairServiceFailurePoint =
   | "before_artifact_write"
   | "after_artifact_write"
   | "before_registry_update"
-  | "after_registry_update";
+  | "after_registry_update"
+  | "before_duplicate_delete"
+  | "after_duplicate_json_delete"
+  | "before_duplicate_backup_cleanup"
+  | "after_duplicate_delete"
+  | "before_semantic_finalize";
 
 export interface ArtifactPairServiceFailureContext {
   point: ArtifactPairServiceFailurePoint;
@@ -125,7 +131,8 @@ export class ArtifactPairServiceError extends Error {
       | "invalid_location"
       | "reserved_registry_identity"
       | "registry_project_mismatch"
-      | "registry_sync_failure",
+      | "registry_sync_failure"
+      | "unrepairable_pair",
     message: string,
     options?: ErrorOptions,
   ) {

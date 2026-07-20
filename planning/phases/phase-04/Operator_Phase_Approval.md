@@ -5,11 +5,12 @@
   "createdAt": "2026-07-15T18:00:00.000Z",
   "jsonPath": "planning/phases/phase-04/Operator_Phase_Approval.json",
   "markdownPath": "planning/phases/phase-04/Operator_Phase_Approval.md",
+  "parentArtifactId": "champcity-ai/phase-04/work_card_plan/Work_Card_Plan",
   "payload": {
     "kind": "operator_approval",
     "title": "Operator Phase Approval: phase-04"
   },
-  "payloadHash": "sha256:4edb53bc5d7f386efed17385e9ffc7cb89cfa2d993d11d8bc4313bb7fed39867",
+  "payloadHash": "sha256:da179c298c643b9c83860a89d1e12946f36c2e5bc639dcb51ffafd4d27472890",
   "phaseId": "phase-04",
   "projectId": "champcity-ai",
   "relationships": {
@@ -21,27 +22,23 @@
     ],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-15T18:00:00.000Z"
+  "updatedAt": "2026-07-20T02:41:02.536Z"
 }
 -->
 
 # Operator Phase Approval: phase-04
 
-Decision: Approved and manually activated
-Date: 2026-07-15
-Operator direction: Begin the stabilization phase.
+Status: approved
+Decision: approve exact canonical Phase Planning and Work Card Plan revisions for planning progression.
 
-## Approval Scope
+## Approved Authority
 
-The Operator approves the Phase 04 planning authority, ordered candidate plan, manual activation because the application cannot safely process the transition, priority treatment of governed Operator recovery/override, application enforcement of repair-chain limits, and preservation of failed Phase 03/WC09 evidence without another WC09 repair.
+- champcity-ai/phase-04/phase_planning/Phase_Planning, revision 1, payload hash sha256:b87ee990357f1a038086e1740ee442c1e5a7676544ba56e7884a933f3489edd7
+- champcity-ai/phase-04/work_card_plan/Work_Card_Plan, revision 1, payload hash sha256:1e781dc01671f76cec45de482531c6db2ec8057cd06fa110aad6be40ef88e9f1
 
-## Conditions
+## Authorization Boundary
 
-- Phase 03 remains blocked; it is not retroactively accepted.
-- No WC09-REPAIR03 may be created.
-- Full Phase 04 Work Cards are created just in time.
-- Operator override must be gated and auditable; it may not become a general skip mechanism.
-- The first Work Card must address canonical routed-screen cutover before broader recovery behavior.
+This approval authorizes just-in-time Work Card creation for the approved canonical phase authority. It does not authorize source-code implementation; each Work Card requires exact approval before Implementer execution.

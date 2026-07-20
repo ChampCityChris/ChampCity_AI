@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
@@ -82,6 +83,7 @@ app.whenReady().then(async () => {
         },
         title: `Implementer Report: ${repairId} Mounted Repair`,
       });
+      writeRegistry();
 
       await window.webContents.executeJavaScript(
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
@@ -261,6 +263,7 @@ app.whenReady().then(async () => {
         data: { workCardId, result: "Pass" },
         title: "Operator Validation: WC01 Parent Pass",
       });
+      writeRegistry();
       await window.webContents.executeJavaScript(
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
         true,
@@ -279,6 +282,11 @@ app.whenReady().then(async () => {
         `document.body.innerText.includes("Routed workspace: Architect Bridge")`,
         "Architect Bridge routed workspace after validation pass",
       );
+      const generatedPacket = await window.webContents.executeJavaScript(
+        `window.champCity.ensureArchitectTaskPacket()`,
+        true,
+      );
+      assert.equal(generatedPacket.ok, true, generatedPacket.errorMessages?.join("\n"));
       const packetJsonPath = path.join(
         fixtureRoot,
         "planning",
@@ -319,6 +327,7 @@ app.whenReady().then(async () => {
         },
         title: `Candidate Disposition: ${workCardId} completed_via_repair`,
       });
+      writeRegistry();
       await window.webContents.executeJavaScript(
         `([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Refresh project state"))?.click(), true)`,
         true,
@@ -387,13 +396,6 @@ function prepareFixture() {
         { id: "WC02", title: "Mounted next candidate", order: 2 },
       ],
     },
-  });
-  writeArtifact({
-    artifactId: `${projectId}/${phaseId}/operator_approval/Operator_Phase_Approval`,
-    artifactType: "operator_approval",
-    phaseId,
-    stem: `planning/phases/${phaseId}/Operator_Phase_Approval`,
-    data: { approvalScope: "phase_work_card_plan", decision: "approved" },
   });
   writeArtifact({
     artifactId: `${projectId}/${phaseId}/work_card/${workCardId}`,
@@ -477,6 +479,7 @@ function prepareFixture() {
     data: { workCardId: "WC02", status: "ready_for_implementer" },
     title: "Work Card: WC02 Mounted Next Candidate",
   });
+  writeExactGovernanceApprovals();
   writeRegistry();
   fs.mkdirSync(path.join(fixtureRootOther, "planning"), { recursive: true });
   fs.writeFileSync(
@@ -551,15 +554,79 @@ function writeArtifact(input) {
   const jsonPath = path.join(fixtureRoot, ...artifact.jsonPath.split("/"));
   const markdownPath = path.join(fixtureRoot, ...artifact.markdownPath.split("/"));
   fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-  fs.writeFileSync(jsonPath, canonicalPrettyStringify(artifact), "utf8");
+  fs.writeFileSync(jsonPath, `${canonicalPrettyStringify(artifact)}\n`, "utf8");
   fs.writeFileSync(markdownPath, renderArtifactMarkdown(artifact), "utf8");
   seededArtifacts.push(artifact);
 }
 
+function writeExactGovernanceApprovals() {
+  const targets = seededArtifacts.filter((artifact) =>
+    artifact.artifactType === "work_card_plan" || artifact.artifactType === "work_card",
+  );
+  for (const target of targets) {
+    const isWorkCard = target.artifactType === "work_card";
+    const approvalId = isWorkCard
+      ? `${projectId}/${target.phaseId}/operator_approval/${target.workCardId}`
+      : `${projectId}/${target.phaseId}/operator_approval/Operator_Phase_Approval`;
+    const stem = isWorkCard
+      ? `planning/phases/${target.phaseId}/Operator_Approvals/OPERATOR_APPROVAL_${target.workCardId}`
+      : `planning/phases/${target.phaseId}/Operator_Phase_Approval`;
+    writeArtifact({
+      artifactId: approvalId,
+      artifactType: "operator_approval",
+      phaseId: target.phaseId,
+      ...(isWorkCard ? { workCardId: target.workCardId } : {}),
+      parentArtifactId: target.artifactId,
+      stem,
+      sources: [target.artifactId],
+      expectedOutputs: isWorkCard ? target.relationships.expectedOutputs : [],
+      data: operatorDecisionRecord(isWorkCard ? "work_card" : "phase_planning", [target], {
+        kind: "stage_decision",
+        decision: "approved",
+      }),
+      title: isWorkCard
+        ? `Operator Approval: ${target.workCardId}`
+        : "Operator Phase Approval",
+    });
+  }
+}
+
+function operatorDecisionRecord(stage, artifacts, outcome) {
+  const targets = artifacts.map((artifact) => ({
+    artifactId: artifact.artifactId,
+    artifactType: artifact.artifactType,
+    revision: artifact.revision,
+    payloadHash: artifact.payloadHash,
+  })).sort((left, right) => left.artifactId.localeCompare(right.artifactId));
+  const targetSetHash = createHash("sha256")
+    .update(JSON.stringify({ stage, targets }), "utf8")
+    .digest("hex");
+  const event = {
+    schemaVersion: "operator-decision-event.v1",
+    stage,
+    targets,
+    targetSetHash,
+    outcome,
+    decidedAt: fixedTime,
+  };
+  return {
+    schemaVersion: "operator-decision-record.v1",
+    stage,
+    targets,
+    targetSetHash,
+    outcome,
+    decidedAt: fixedTime,
+    decisionTimeline: [event],
+  };
+}
+
 function writeRegistry() {
+  const artifacts = collectCanonicalArtifacts();
   const registry = buildArtifactRegistry({
     updatedAt: fixedTime,
-    entries: seededArtifacts.map((artifact) => buildArtifactRegistryEntry(artifact)),
+    entries: artifacts
+      .map((artifact) => buildArtifactRegistryEntry(artifact))
+      .sort((left, right) => left.artifactId.localeCompare(right.artifactId)),
   });
   const stem = "planning/system/Artifact_Registry/ARTIFACT_REGISTRY";
   const registryArtifact = buildCanonicalArtifact({
@@ -583,8 +650,37 @@ function writeRegistry() {
   const jsonPath = path.join(fixtureRoot, ...registryArtifact.jsonPath.split("/"));
   const markdownPath = path.join(fixtureRoot, ...registryArtifact.markdownPath.split("/"));
   fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-  fs.writeFileSync(jsonPath, canonicalPrettyStringify(registryArtifact), "utf8");
+  fs.writeFileSync(jsonPath, `${canonicalPrettyStringify(registryArtifact)}\n`, "utf8");
   fs.writeFileSync(markdownPath, renderArtifactMarkdown(registryArtifact), "utf8");
+}
+
+function collectCanonicalArtifacts() {
+  const planningRoot = path.join(fixtureRoot, "planning");
+  const artifacts = [];
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolute);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+      try {
+        const artifact = JSON.parse(fs.readFileSync(absolute, "utf8"));
+        if (
+          artifact &&
+          typeof artifact === "object" &&
+          artifact.schemaVersion === "champcity.artifact.v1" &&
+          artifact.projectId === projectId &&
+          artifact.artifactType !== "artifact_registry"
+        ) {
+          artifacts.push(artifact);
+        }
+      } catch {}
+    }
+  };
+  visit(planningRoot);
+  return artifacts;
 }
 
 async function waitForWindow(timeoutMs = 20000) {

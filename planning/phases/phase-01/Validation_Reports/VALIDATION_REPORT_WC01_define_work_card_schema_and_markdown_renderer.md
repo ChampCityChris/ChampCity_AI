@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC01",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:57:24.203Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer.json",
@@ -10,17 +10,20 @@
     "title": "VALIDATION REPORT WC01 define work card schema and markdown renderer"
   },
   "payloadHash": "sha256:45a51fff1ef99eda6563e035b926ee4f803b8203831975fb203dbdef942529ca",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC01_define_work_card_schema_and_markdown_renderer"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:57:24.203Z",
+  "updatedAt": "2026-07-19T20:53:04.337Z",
   "workCardId": "WC01"
 }
 -->

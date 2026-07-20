@@ -64,7 +64,7 @@ export interface WorkflowVisibilityModel {
 
 type WorkflowVisibilityAction = Pick<
   CurrentRequiredAction,
-  "id" | "status" | "warnings" | "workflowStep"
+  "id" | "status" | "warnings" | "workflowStep" | "maintenanceActionLabel"
 >;
 
 const captureSteps: readonly WorkflowGuideStepDefinition[] = [
@@ -292,6 +292,21 @@ export function resolveWorkflowVisibility(
   }
 
   const actionId = normalizeActionId(currentAction.id);
+  if (isGovernanceMaintenanceAction(actionId)) {
+    return {
+      steps: workflowGuideSteps.map((step, index) => ({
+        ...step,
+        index,
+        state: "unknown",
+      })),
+      positionKnown: false,
+      activeStepIndex: undefined,
+      activeStepLabel: undefined,
+      positionMessage:
+        `Application mode: Governance Maintenance. Current maintenance action: ${currentAction.maintenanceActionLabel ?? "Governance Maintenance"}. Normal workflow status: Paused until governance maintenance is complete.`,
+      workCardLoopStages: unknownWorkCardLoopStages(),
+    };
+  }
   const matchedStep = resolveLockedWorkflowStep(currentAction, actionId);
 
   if (!matchedStep) {
@@ -354,6 +369,12 @@ export function resolveWorkflowVisibility(
       isComplete,
     ),
   };
+}
+
+function isGovernanceMaintenanceAction(actionId: string): boolean {
+  return actionId === "governance_integrity_repair_required" ||
+    actionId === "governance_repair_specification_required" ||
+    actionId === "operator_governance_approval_required";
 }
 
 function resolveLockedWorkflowStep(

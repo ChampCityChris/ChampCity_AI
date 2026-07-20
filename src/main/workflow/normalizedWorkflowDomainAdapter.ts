@@ -56,8 +56,9 @@ export function normalizeWorkflowDomain(
   }
 
   const phases = normalizePhases(graph, relationships);
+  const lifecycleActivePhaseId = selectActivePhase(phases, blockers);
   const activePhaseId = blockers.length === 0
-    ? selectActivePhase(phases, blockers)
+    ? lifecycleActivePhaseId
     : null;
   const phasePlans = activePhaseId
     ? graph.byType("work_card_plan", activePhaseId)
@@ -87,6 +88,7 @@ export function normalizeWorkflowDomain(
       projectStatus: blockers.length === 0 ? "active" : "blocked",
     },
     phases,
+    lifecycleActivePhaseId,
     activePhaseId,
     planArtifactId: plan?.artifact.artifactId ?? null,
     candidates,
@@ -372,24 +374,63 @@ function normalizeReplacements(
 }
 
 function normalizeApprovals(graph: VerifiedArtifactGraph): WorkflowApprovalState[] {
-  return graph.byType("operator_approval").map((node) => {
+  return graph.byType("operator_approval").flatMap((node) => {
     const data = recordData(node);
-    return {
+    const bindings = exactApprovalBindings(data);
+    return bindings.map((binding) => ({
       artifactId: node.artifact.artifactId,
-      approvedArtifactId:
-        text(data.approvedArtifactId) ||
-        node.artifact.parentArtifactId ||
-        "",
-      approvalScope: text(data.approvalScope),
+      approvedArtifactId: binding.approvedArtifactId,
+      approvalScope: text(data.stage),
       phaseId: node.artifact.phaseId ?? null,
-      approvedRevision: number(data.approvedRevision),
+      decision: binding.decision,
+      approvedRevision: binding.approvedRevision,
+      approvedPayloadHash: binding.approvedPayloadHash,
       sourceArtifactIds: [...node.artifact.relationships.sources],
       expectedOutputArtifactIds: [...node.artifact.relationships.expectedOutputs],
       implementationAuthorized:
-        data.implementationAuthorized === true ||
-        data.sourceCodeChangesAuthorized === true ||
-        text(data.decision) === "approved",
-    };
+        data.stage === "work_card" &&
+        binding.decision === "approved" &&
+        node.artifact.relationships.expectedOutputs.some((artifactId) =>
+          artifactId.includes("/implementer_report/"),
+        ),
+      phaseProgressionAuthorized:
+        data.stage === "phase_planning" &&
+        binding.decision === "approved",
+    }));
+  });
+}
+
+function exactApprovalBindings(
+  data: Record<string, unknown>,
+): Array<{
+  approvedArtifactId: string;
+  approvedRevision: number | null;
+  approvedPayloadHash: string | null;
+  decision: string | null;
+}> {
+  if (data.schemaVersion !== "operator-decision-record.v1" || !isRecord(data.outcome)) return [];
+  const decision =
+    data.outcome.kind === "stage_decision"
+      ? text(data.outcome.decision) || null
+      : data.outcome.kind === "record_disposition"
+        ? text(data.outcome.disposition) || null
+        : null;
+  const targets = Array.isArray(data.targets) ? data.targets.filter(isRecord) : [];
+  const candidates = targets.map((target) => ({
+    approvedArtifactId: text(target.artifactId),
+    approvedRevision: number(target.revision),
+    approvedPayloadHash: text(target.payloadHash) || null,
+    decision,
+  })).filter((binding) => binding.approvedArtifactId.length > 0);
+  if (candidates.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  return candidates.filter((binding) => {
+    const key = `${binding.approvedArtifactId}\0${binding.approvedRevision ?? ""}\0${binding.approvedPayloadHash ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
 
@@ -465,6 +506,7 @@ function artifactState(node: VerifiedArtifactNode): WorkflowArtifactState {
     parentArtifactId: artifact.parentArtifactId ?? null,
     status: artifact.status,
     revision: artifact.revision,
+    payloadHash: artifact.payloadHash,
     title: artifact.payload.title,
     jsonPath: node.jsonPath,
     markdownPath: node.markdownPath,

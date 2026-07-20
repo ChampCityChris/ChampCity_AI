@@ -1,5 +1,5 @@
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC09",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:58:23.491Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package.json",
@@ -13,16 +13,19 @@
     "title": "VALIDATION REPORT WC09 prepare figma ui design handoff package"
   },
   "payloadHash": "sha256:2ac6de60b5d7903132c18ebff24f14c416e4f2aba2e0b616824e0e3e9dd42519",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC09_prepare_figma_ui_design_handoff_package"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:58:23.491Z",
+  "updatedAt": "2026-07-19T20:50:17.871Z",
   "workCardId": "WC09"
 }

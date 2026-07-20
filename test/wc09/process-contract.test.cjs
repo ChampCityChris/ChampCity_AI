@@ -123,6 +123,24 @@ test("operator gates use scoped target protocol artifact types only", () => {
   }
 });
 
+test("governance maintenance actions are outside the normal Work Card Loop", () => {
+  const repair = defaultLifecycleActionTemplates.find(
+    (item) => item.actionId === "governance_integrity_repair_required",
+  );
+  const approval = defaultLifecycleActionTemplates.find(
+    (item) => item.actionId === "operator_governance_approval_required",
+  );
+  for (const action of [repair, approval]) {
+    assert.ok(action);
+    assert.equal(action.processId, "governance_maintenance");
+    assert.equal(action.stage, "maintenance");
+    assert.equal(action.processClassification, "subordinate");
+    assert.equal(action.advancesWorkflowState, false);
+    assert.notEqual(action.processId, "work_card_loop");
+    assert.notEqual(action.stage, "prove");
+  }
+});
+
 test("conformance rejects a subordinate action promoted into the top-level process", () => {
   const catalog = materializeActionCatalog(
     defaultLifecycleActionTemplates,

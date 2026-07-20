@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC03",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:57:52.738Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer.json",
@@ -10,17 +10,20 @@
     "title": "VALIDATION REPORT WC03 add architect framing prompt composer"
   },
   "payloadHash": "sha256:f9572f81e8152edffd81c5691aae007855795348f8ef28adc8aba14307f61718",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_add_architect_framing_prompt_composer"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:57:52.738Z",
+  "updatedAt": "2026-07-19T20:53:24.495Z",
   "workCardId": "WC03"
 }
 -->

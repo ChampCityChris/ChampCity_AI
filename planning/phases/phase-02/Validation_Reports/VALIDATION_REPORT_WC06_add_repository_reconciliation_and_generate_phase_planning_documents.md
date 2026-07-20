@@ -1,26 +1,29 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3",
+  "artifactId": "champcity-ai/phase-02/operator_validation/WC06",
   "artifactType": "operator_validation",
   "createdAt": "2026-07-02T15:14:05.954Z",
-  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.json",
-  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3.md",
+  "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents.json",
+  "markdownPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents.md",
   "payload": {
     "kind": "operator_validation",
     "title": "VALIDATION REPORT WC06 add repository reconciliation and generate phase planning documents 3"
   },
   "payloadHash": "sha256:e86cfab4cb8b0e5601bac6c88181c567e547ca197e3ca90fe99c10b0217ee450",
+  "phaseId": "phase-02",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC06_add_repository_reconciliation_and_generate_phase_planning_documents_3"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-02T15:14:05.954Z",
+  "updatedAt": "2026-07-19T21:44:23.061Z",
   "workCardId": "WC06"
 }
 -->

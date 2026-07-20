@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment",
+  "artifactId": "champcity-ai/phase-01/operator_validation/WC10",
   "artifactType": "operator_validation",
   "createdAt": "2026-06-30T13:58:26.878Z",
   "jsonPath": "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment.json",
@@ -10,17 +10,20 @@
     "title": "VALIDATION REPORT WC10 implement figma ui and terminology alignment"
   },
   "payloadHash": "sha256:85ddba9d416b60b22a6928d9f1dd11a258948e19177cd255bfb4c40e5af8b0d1",
+  "phaseId": "phase-01",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
     "expectedOutputs": [],
     "sources": [],
-    "supersedes": []
+    "supersedes": [
+      "champcity-ai/operator_validation/VALIDATION_REPORT_WC10_implement_figma_ui_and_terminology_alignment"
+    ]
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-06-30T13:58:26.878Z",
+  "updatedAt": "2026-07-19T20:50:30.774Z",
   "workCardId": "WC10"
 }
 -->

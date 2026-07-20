@@ -7,6 +7,7 @@ import {
   actionIdentityFromCatalog,
   uniqueNonEmpty,
   workflowBlocker,
+  type WorkflowArtifactState,
   type WorkflowCandidateIdentity,
   type WorkflowCurrentActionIdentity,
   type WorkflowDomain,
@@ -51,7 +52,22 @@ export function resolveWorkflowKernel(
     );
   }
 
-  if (!phasePlanApproved(domain)) {
+  const phaseApproval = exactPhasePlanApproval(domain);
+  if (phaseApproval?.decision === "revision_requested" || phaseApproval?.decision === "rejected") {
+    const action = actionFor("phase_mapping_required", {
+      domain,
+      stateRevision,
+      targetArtifactId: domain.planArtifactId,
+      targetWorkCardArtifactId: null,
+      sourceArtifactIds: [phaseApproval.artifactId, domain.planArtifactId],
+      expectedOutputArtifactId: domain.planArtifactId,
+    });
+    return action
+      ? { kind: "current_action", action, assignment: null, blockers: [] }
+      : blocked(null, unknownActionBlocker("phase_mapping_required", [phaseApproval.artifactId]));
+  }
+
+  if (!phaseApproval?.phaseProgressionAuthorized) {
     const plan = domain.planArtifactId ? domain.artifacts.get(domain.planArtifactId) ?? null : null;
     const action = actionFor("operator_phase_approval_required", {
       domain,
@@ -128,6 +144,49 @@ export function resolveWorkflowKernel(
     );
   }
 
+  const approval = exactImplementationApproval(domain, workCard, reportId);
+  if (approval?.decision === "revision_requested") {
+    const action = actionFor("work_card_authoring_required", {
+      domain,
+      stateRevision,
+      targetArtifactId: workCard.artifactId,
+      targetWorkCardArtifactId: workCard.artifactId,
+      sourceArtifactIds: [workCard.artifactId, approval.artifactId],
+      expectedOutputArtifactId: workCard.artifactId,
+    });
+    return action
+      ? { kind: "current_action", action, assignment: null, blockers: [] }
+      : blocked(null, unknownActionBlocker("work_card_authoring_required", [workCard.artifactId]));
+  }
+  if (approval?.decision === "rejected") {
+    const action = workCardRejectionAction(domain, stateRevision, workCard, approval.artifactId);
+    return action
+      ? { kind: "current_action", action, assignment: null, blockers: [] }
+      : blocked(
+          null,
+          workflowBlocker(
+            "missing_expected_output_binding",
+            "A rejected Work Card approval requires an exact Candidate Disposition output.",
+            "operator",
+            [workCard.artifactId, approval.artifactId],
+          ),
+        );
+  }
+
+  if (!approval?.implementationAuthorized) {
+    const action = actionFor("operator_work_card_approval_required", {
+      domain,
+      stateRevision,
+      targetArtifactId: workCard.artifactId,
+      targetWorkCardArtifactId: workCard.artifactId,
+      sourceArtifactIds: [workCard.artifactId, ...approvalSourcesFor(domain, workCard.artifactId)],
+      expectedOutputArtifactId: expectedWorkCardApprovalId(domain, workCard),
+    });
+    return action
+      ? { kind: "current_action", action, assignment: null, blockers: [] }
+      : blocked(null, unknownActionBlocker("operator_work_card_approval_required", [workCard.artifactId]));
+  }
+
   const report = domain.artifacts.get(reportId) ?? null;
   if (!report) {
     const action = actionFor("implementer_execution_required", {
@@ -141,22 +200,10 @@ export function resolveWorkflowKernel(
     if (!action) {
       return blocked(null, unknownActionBlocker("implementer_execution_required", [workCard.artifactId]));
     }
-    const approval = exactImplementationApproval(domain, workCard.artifactId, reportId);
-    if (!approval && activeCandidate.workCardKind === "replacement_candidate") {
-      return blocked(
-        action,
-        workflowBlocker(
-          "missing_authority",
-          "Implementer execution requires exact active Operator Approval for the target Work Card.",
-          "operator",
-          [workCard.artifactId, reportId],
-        ),
-      );
-    }
     return {
       kind: "current_action",
       action,
-      assignment: implementerAssignment(domain, activeCandidate, action, approval?.artifactId ?? ""),
+      assignment: implementerAssignment(domain, activeCandidate, action, approval.artifactId),
       blockers: [],
     };
   }
@@ -216,6 +263,47 @@ export function resolveWorkflowKernel(
         ),
       );
     }
+    const repairApproval = exactImplementationApproval(domain, repairWorkCard, repairReportId);
+    if (repairApproval?.decision === "revision_requested") {
+      const action = actionFor("work_card_authoring_required", {
+        domain,
+        stateRevision,
+        targetArtifactId: repairWorkCard.artifactId,
+        targetWorkCardArtifactId: repairWorkCard.artifactId,
+        sourceArtifactIds: [repairWorkCard.artifactId, repairApproval.artifactId],
+        expectedOutputArtifactId: repairWorkCard.artifactId,
+      });
+      return action
+        ? { kind: "current_action", action, assignment: null, blockers: [] }
+        : blocked(null, unknownActionBlocker("work_card_authoring_required", [repairWorkCard.artifactId]));
+    }
+    if (repairApproval?.decision === "rejected") {
+      const action = workCardRejectionAction(domain, stateRevision, repairWorkCard, repairApproval.artifactId);
+      return action
+        ? { kind: "current_action", action, assignment: null, blockers: [] }
+        : blocked(
+            null,
+            workflowBlocker(
+              "missing_expected_output_binding",
+              "A rejected repair Work Card approval requires an exact Candidate Disposition output.",
+              "operator",
+              [repairWorkCard.artifactId, repairApproval.artifactId],
+            ),
+          );
+    }
+    if (!repairApproval?.implementationAuthorized) {
+      const action = actionFor("operator_work_card_approval_required", {
+        domain,
+        stateRevision,
+        targetArtifactId: repairWorkCard.artifactId,
+        targetWorkCardArtifactId: repairWorkCard.artifactId,
+        sourceArtifactIds: [repairWorkCard.artifactId, ...approvalSourcesFor(domain, repairWorkCard.artifactId)],
+        expectedOutputArtifactId: expectedWorkCardApprovalId(domain, repairWorkCard),
+      });
+      return action
+        ? { kind: "current_action", action, assignment: null, blockers: [] }
+        : blocked(null, unknownActionBlocker("operator_work_card_approval_required", [repairWorkCard.artifactId]));
+    }
     const repairReport = domain.artifacts.get(repairReportId) ?? null;
     if (!repairReport) {
       const action = actionFor("implementer_execution_required", {
@@ -223,7 +311,7 @@ export function resolveWorkflowKernel(
         stateRevision,
         targetArtifactId: repairWorkCard.artifactId,
         targetWorkCardArtifactId: repairWorkCard.artifactId,
-        sourceArtifactIds: [repairWorkCard.artifactId, review.artifactId],
+        sourceArtifactIds: [repairWorkCard.artifactId, repairApproval.artifactId, review.artifactId],
         expectedOutputArtifactId: repairReportId,
       });
       return action
@@ -333,6 +421,22 @@ export function resolveWorkflowKernel(
   );
 }
 
+function workCardRejectionAction(
+  domain: WorkflowDomain,
+  stateRevision: number,
+  workCard: WorkflowArtifactState,
+  approvalArtifactId: string,
+): WorkflowCurrentActionIdentity | null {
+  return actionFor("candidate_disposition_required", {
+    domain,
+    stateRevision,
+    targetArtifactId: workCard.artifactId,
+    targetWorkCardArtifactId: workCard.artifactId,
+    sourceArtifactIds: [workCard.artifactId, approvalArtifactId],
+    expectedOutputArtifactId: exactExpectedOutput(workCard, "candidate_disposition"),
+  });
+}
+
 function nextExecutableCandidate(domain: WorkflowDomain): WorkflowCandidateIdentity | null {
   const unresolved = domain.candidates.filter(
     (candidate) => !terminalCandidateStatuses.has(candidate.resolutionStatus),
@@ -429,40 +533,80 @@ function replacementFor(
 
 function exactImplementationApproval(
   domain: WorkflowDomain,
-  workCardArtifactId: string,
+  workCard: WorkflowArtifactState,
   expectedReportId: string,
-): { artifactId: string } | null {
+): { artifactId: string; decision: string | null; implementationAuthorized: boolean } | null {
   const approvals = domain.approvals.filter(
     (approval) =>
-      approval.approvedArtifactId === workCardArtifactId &&
+      approval.approvedArtifactId === workCard.artifactId &&
+      approval.approvedRevision === workCard.revision &&
+      approval.approvedPayloadHash === workCard.payloadHash &&
+      approval.decision === "approved" &&
       approval.implementationAuthorized &&
       approval.expectedOutputArtifactIds.includes(expectedReportId),
   );
   const approval = onlyValue(approvals);
-  return approval ? { artifactId: approval.artifactId } : null;
+  if (approval) {
+    return {
+      artifactId: approval.artifactId,
+      decision: approval.decision,
+      implementationAuthorized: approval.implementationAuthorized,
+    };
+  }
+  const dispositions = domain.approvals.filter(
+    (candidate) =>
+      candidate.approvedArtifactId === workCard.artifactId &&
+      candidate.approvedRevision === workCard.revision &&
+      candidate.approvedPayloadHash === workCard.payloadHash &&
+      (candidate.decision === "revision_requested" || candidate.decision === "rejected"),
+  );
+  const disposition = onlyValue(dispositions);
+  return disposition
+    ? {
+        artifactId: disposition.artifactId,
+        decision: disposition.decision,
+        implementationAuthorized: disposition.implementationAuthorized,
+      }
+    : null;
 }
 
-function phasePlanApproved(domain: WorkflowDomain): boolean {
-  if (!domain.planArtifactId) return false;
-  const planArtifactId = domain.planArtifactId;
+function exactPhasePlanApproval(domain: WorkflowDomain): {
+  artifactId: string;
+  decision: string | null;
+  phaseProgressionAuthorized: boolean;
+} | null {
+  if (!domain.planArtifactId) return null;
+  const plan = domain.artifacts.get(domain.planArtifactId) ?? null;
+  if (!plan) return null;
   const approvals = domain.approvals.filter(
     (approval) =>
-      approval.approvedArtifactId === planArtifactId ||
-      (approval.approvedArtifactId.length === 0 && approval.sourceArtifactIds.includes(planArtifactId)),
+      approval.approvedArtifactId === plan.artifactId &&
+      approval.approvedRevision === plan.revision &&
+      approval.approvedPayloadHash === plan.payloadHash,
   );
-  if (approvals.length === 1) return true;
-  const scoped = domain.approvals.filter(
-    (approval) =>
-      approval.approvalScope === "phase_work_card_plan" &&
-      approval.phaseId === domain.activePhaseId,
-  );
-  return scoped.length === 1;
+  const approval = onlyValue(approvals);
+  return approval
+    ? {
+        artifactId: approval.artifactId,
+        decision: approval.decision,
+        phaseProgressionAuthorized:
+          approval.decision === "approved" && approval.phaseProgressionAuthorized,
+      }
+    : null;
 }
 
 function approvalSourcesFor(domain: WorkflowDomain, workCardArtifactId: string): string[] {
   return domain.approvals
     .filter((approval) => approval.approvedArtifactId === workCardArtifactId)
     .map((approval) => approval.artifactId);
+}
+
+function expectedWorkCardApprovalId(
+  domain: WorkflowDomain,
+  workCard: WorkflowArtifactState,
+): string | null {
+  if (!workCard.phaseId || !workCard.workCardId) return null;
+  return `${domain.project.projectId}/${workCard.phaseId}/operator_approval/${workCard.workCardId}`;
 }
 
 function exactExpectedOutput(

@@ -117,12 +117,19 @@ import {
   addProjectWorkspace,
   contextPacketService,
   currentContextPacketCompiler,
+  decideGovernanceApproval,
   executionRunService,
+  getCurrentGovernanceMaintenance,
   initializeCanonicalRuntime,
+  createGovernanceRepairSpecificationRequest,
+  listGovernanceApprovalQueue,
   listEligibleExecutionRunWorkCards,
+  previewGovernanceRepairSpecificationRequest,
   listProjectWorkspaces,
+  previewGovernanceRepair,
   refreshSelectedRepository,
   refreshSelectedRepositoryOnFocus,
+  repairGovernanceRecord,
   routedProcessInvocationService,
   selectProjectWorkspace,
   startExecutionRunFromWorkCard,
@@ -387,6 +394,23 @@ function registerWorkCardIpc(): void {
     selectProjectWorkspace(projectId),
   );
   ipcMain.handle("projects:refresh", () => refreshSelectedRepository());
+  ipcMain.handle("governanceMaintenance:getCurrent", () =>
+    getCurrentGovernanceMaintenance(),
+  );
+  ipcMain.handle("governanceRepair:preview", () => previewGovernanceRepair());
+  ipcMain.handle("governanceRepair:repairSelected", (_event, input) =>
+    repairGovernanceRecord(input),
+  );
+  registerProcessIpc("governanceRepair:previewSpecificationRequest", (_event, input) =>
+    previewGovernanceRepairSpecificationRequest(input),
+  );
+  registerProcessIpc("governanceRepair:createSpecificationRequest", (_event, input) =>
+    createGovernanceRepairSpecificationRequest(input),
+  );
+  ipcMain.handle("governanceApproval:list", () => listGovernanceApprovalQueue());
+  ipcMain.handle("governanceApproval:decide", (_event, input) =>
+    decideGovernanceApproval(input),
+  );
   ipcMain.handle("workCards:listAvailablePhases", () =>
     listAvailablePhaseFolders(),
   );

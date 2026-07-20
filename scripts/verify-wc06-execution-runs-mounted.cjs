@@ -3,13 +3,23 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
+const {
+  buildArtifactRegistry,
+  buildArtifactRegistryEntry,
+  buildCanonicalArtifact,
+  canonicalPrettyStringify,
+  renderArtifactMarkdown,
+  renderArtifactRegistryContentMarkdown,
+} = require("../dist/shared/artifacts");
 
 const repositoryRoot = path.resolve(__dirname, "..");
 const runtimeRoot = path.join(repositoryRoot, "tmp", "mounted-electron-runtime", "wc06-execution-runs-normal");
 const userDataRoot = path.join(runtimeRoot, "user-data");
 const workspacePath = path.join(userDataRoot, "project-workspaces.json");
 const internalFixtureRoot = path.join(repositoryRoot, "tmp", "wc06-mounted-contamination-project");
+const mainFixtureRoot = path.join(os.tmpdir(), "champcity-wc06-main-project");
 const externalFixtureRoot = path.join(os.tmpdir(), "champcity-wc06-external-user-project");
+const selectedProjectId = "champcity-ai";
 const fixedTime = "2026-07-18T23:30:00.000Z";
 const prepare = process.argv.includes("--prepare");
 const restart = process.argv.includes("--restart");
@@ -28,11 +38,11 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript(visibleButtonsExpression(), true);
     await waitFor(
       window,
-      `window.champCity.listProjects().then((result) => result.ok && result.selectedProjectId === "champcity-ai" && result.projects.some((project) => project.projectId === "external-user-project") && result.projects.every((project) => !project.repositoryRoot.replaceAll("\\\\", "/").includes("/tmp/wc06-mounted-contamination-project")))`,
+      `window.champCity.listProjects().then((result) => result.ok && result.selectedProjectId === ${JSON.stringify(selectedProjectId)} && result.projects.some((project) => project.projectId === "external-user-project") && result.projects.every((project) => !project.repositoryRoot.replaceAll("\\\\", "/").includes("/tmp/wc06-mounted-contamination-project")))`,
       "normal startup contamination repair",
     );
     const projects = await window.webContents.executeJavaScript(`window.champCity.listProjects()`, true);
-    assert.equal(projects.selectedProjectId, "champcity-ai");
+    assert.equal(projects.selectedProjectId, selectedProjectId);
     assert.ok(projects.projects.some((project) => project.projectId === "external-user-project"));
     assert.equal(
       projects.projects.some((project) => project.projectId === "internal-tmp-fixture"),
@@ -121,6 +131,7 @@ app.whenReady().then(async () => {
     if (cleanup) {
       cleanupPath(internalFixtureRoot);
       cleanupPath(workspacePath);
+      cleanupPath(mainFixtureRoot);
       cleanupPath(externalFixtureRoot);
     }
     app.exit(0);
@@ -147,7 +158,8 @@ app.whenReady().then(async () => {
 function prepareContaminatedRegistry() {
   fs.rmSync(runtimeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   fs.rmSync(internalFixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-  for (const folder of [internalFixtureRoot, externalFixtureRoot]) {
+  fs.rmSync(mainFixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  for (const folder of [internalFixtureRoot, mainFixtureRoot, externalFixtureRoot]) {
     fs.mkdirSync(path.join(folder, "planning"), { recursive: true });
     fs.writeFileSync(
       path.join(folder, "package.json"),
@@ -155,19 +167,79 @@ function prepareContaminatedRegistry() {
       "utf8",
     );
   }
+  seedMainExecutionFixture();
   fs.mkdirSync(userDataRoot, { recursive: true });
-  const real = configured("champcity-ai", repositoryRoot);
+  const real = configured(selectedProjectId, mainFixtureRoot);
   const internal = configured("internal-tmp-fixture", internalFixtureRoot);
   const external = configured("external-user-project", externalFixtureRoot);
   fs.writeFileSync(
     workspacePath,
     `${JSON.stringify({
       schemaVersion: "champcity.project-workspaces.v1",
-      selectedProjectId: internal.projectId,
+      selectedProjectId: real.projectId,
       projects: [internal, external, real],
     }, null, 2)}\n`,
     "utf8",
   );
+}
+
+function seedMainExecutionFixture() {
+  const artifacts = [
+    copyCanonicalPairFromRepository(
+      "planning/phases/phase-06/Work_Cards/WC06_trusted_execution_run_activation_workspace_test_fixture_isolation.json",
+    ),
+    copyCanonicalPairFromRepository(
+      "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC06_trusted_execution_run_activation_workspace_test_fixture_isolation.json",
+    ),
+    copyCanonicalPairFromRepository(
+      "planning/phases/phase-06/Architect_Reviews/ARCHITECT_REVIEW_WC05_execution_pass_independent_verification_foundation_recovery.json",
+    ),
+  ];
+  const registry = buildArtifactRegistry({
+    updatedAt: fixedTime,
+    entries: artifacts.map((artifact) => buildArtifactRegistryEntry(artifact)),
+  });
+  const registryArtifact = buildCanonicalArtifact({
+    artifactId: `${selectedProjectId}/system/artifact_registry`,
+    artifactType: "artifact_registry",
+    revision: 1,
+    status: "active",
+    projectId: selectedProjectId,
+    createdAt: fixedTime,
+    updatedAt: fixedTime,
+    jsonPath: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.json",
+    markdownPath: "planning/system/Artifact_Registry/ARTIFACT_REGISTRY.md",
+    relationships: {
+      sources: registry.entries.map((entry) => entry.artifactId),
+      expectedOutputs: [],
+      supersedes: [],
+      children: [],
+    },
+    payload: {
+      kind: "artifact_registry",
+      title: "Canonical Artifact Registry",
+      contentMarkdown: renderArtifactRegistryContentMarkdown(registry),
+      data: registry,
+    },
+  });
+  writeFixturePair(registryArtifact, `${canonicalPrettyStringify(registryArtifact)}\n`, renderArtifactMarkdown(registryArtifact));
+}
+
+function copyCanonicalPairFromRepository(jsonPath) {
+  const artifact = JSON.parse(fs.readFileSync(path.join(repositoryRoot, ...jsonPath.split("/")), "utf8"));
+  const markdownPath = artifact.markdownPath;
+  const markdown = fs.readFileSync(path.join(repositoryRoot, ...markdownPath.split("/")), "utf8");
+  writeFixturePair(artifact, `${canonicalPrettyStringify(artifact)}\n`, markdown);
+  return artifact;
+}
+
+function writeFixturePair(artifact, jsonContent, markdownContent) {
+  const jsonPath = path.join(mainFixtureRoot, ...artifact.jsonPath.split("/"));
+  const markdownPath = path.join(mainFixtureRoot, ...artifact.markdownPath.split("/"));
+  fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
+  fs.mkdirSync(path.dirname(markdownPath), { recursive: true });
+  fs.writeFileSync(jsonPath, jsonContent, "utf8");
+  fs.writeFileSync(markdownPath, markdownContent, "utf8");
 }
 
 function cleanupPath(targetPath) {

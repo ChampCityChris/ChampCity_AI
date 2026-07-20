@@ -86,6 +86,11 @@ type AppScreen =
   | "architect-bridge"
   | "human-validation"
   | "candidate-disposition"
+  | "governance-repair"
+  | "governance-approval"
+  | "operator-phase-approval"
+  | "operator-work-card-approval"
+  | "historical-operator-review"
   | "phase-closeout";
 
 type NoticeType = "warning" | "error" | "info" | "success";
@@ -349,6 +354,51 @@ const routedOnlyWorkflowScreens: WorkflowStep[] = [
     Icon: MessageSquareText,
   },
   {
+    id: "governance-repair",
+    label: "Governance Repair",
+    mode: "implementer",
+    shortDesc: "Repair canonical integrity",
+    screenTitle: "Governance Integrity Repair",
+    nextAction: "Repair one selected canonical governance record before approval or normal routing resumes.",
+    Icon: ShieldAlert,
+  },
+  {
+    id: "governance-approval",
+    label: "Governance Approval",
+    mode: "implementer",
+    shortDesc: "Approve exact records",
+    screenTitle: "Governance Approval",
+    nextAction: "Approve one selected exact governance target before normal routing resumes.",
+    Icon: CheckSquare,
+  },
+  {
+    id: "operator-phase-approval",
+    label: "Phase Approval",
+    mode: "implementer",
+    shortDesc: "Stage-owned decision",
+    screenTitle: "Operator Phase Approval",
+    nextAction: "Decide the exact canonical phase authority revision.",
+    Icon: CheckSquare,
+  },
+  {
+    id: "operator-work-card-approval",
+    label: "Work Card Approval",
+    mode: "implementer",
+    shortDesc: "Stage-owned decision",
+    screenTitle: "Work Card Approval",
+    nextAction: "Decide the exact Work Card revision inside the Work Card loop.",
+    Icon: CheckSquare,
+  },
+  {
+    id: "historical-operator-review",
+    label: "Historical Review",
+    mode: "implementer",
+    shortDesc: "Non-routing review",
+    screenTitle: "Historical Operator Review",
+    nextAction: "Recognize or reject only the current historical repository revision.",
+    Icon: Eye,
+  },
+  {
     id: "candidate-disposition",
     label: "Parent Disposition",
     mode: "implementer",
@@ -529,9 +579,17 @@ export default function App() {
   const [currentActionError, setCurrentActionError] = useState<string>();
   const [projectWorkspaces, setProjectWorkspaces] =
     useState<ProjectWorkspaceListResult | null>(null);
+  const [governanceRepair, setGovernanceRepair] =
+    useState<ChampCityGovernanceRepairPreviewResult | null>(null);
+  const [governanceApprovalQueue, setGovernanceApprovalQueue] =
+    useState<ChampCityGovernanceApprovalQueueResult | null>(null);
+  const [approvalDecisionTarget, setApprovalDecisionTarget] = useState<
+    ChampCityGovernanceApprovalQueueResult["items"][number] | null
+  >(null);
   const [projectBusy, setProjectBusy] = useState(false);
   const [projectError, setProjectError] = useState<string>();
-  const hasAlignedInitialWorkspace = useRef(false);
+  const [projectNotice, setProjectNotice] = useState<string>();
+  const lastAlignedActionKey = useRef("");
   const { phases: availablePhases } = useAvailablePhases();
   const phaseOptions = useMemo(
     () => buildPhaseOptions(phase, availablePhases),
@@ -579,45 +637,227 @@ export default function App() {
     setActiveScreen(screenId as AppScreen);
   }, []);
 
-  const loadCurrentRequiredAction = useCallback(async () => {
-    setCurrentActionLoadState("loading");
-    setCurrentActionError(undefined);
-
-    try {
-      const result = await window.champCity.getCurrentRequiredAction();
-      setCurrentActionResult(result);
-      setCurrentActionLoadState(result.ok ? "ready" : "error");
-      setCurrentActionError(result.errorMessages?.join(" ") || undefined);
-    } catch (error) {
-      setCurrentActionResult(null);
-      setCurrentActionLoadState("error");
-      setCurrentActionError(
-        error instanceof Error
-          ? error.message
-          : "Current-action state could not be loaded.",
-      );
-    }
-  }, []);
-
   const loadProjectWorkspaces = useCallback(async () => {
     const result = await window.champCity.listProjects();
     setProjectWorkspaces(result);
     setProjectError(result.errorMessages?.join(" ") || undefined);
   }, []);
 
+  const applyGovernanceMaintenanceSnapshot = useCallback((snapshot: ChampCityGovernanceMaintenanceSnapshotResult) => {
+    setGovernanceRepair(snapshot.maintenance.repair);
+    setGovernanceApprovalQueue(snapshot.maintenance.approval);
+    if (snapshot.currentRequiredAction) {
+      setCurrentActionResult(snapshot.currentRequiredAction);
+      setCurrentActionLoadState(snapshot.currentRequiredAction.ok ? "ready" : "error");
+      setCurrentActionError(snapshot.currentRequiredAction.errorMessages?.join(" ") || undefined);
+    }
+    if (!snapshot.ok || !snapshot.maintenance.repair.ok || !snapshot.maintenance.approval.ok) {
+      setProjectError(
+        snapshot.errorMessages?.join(" ") ||
+          snapshot.maintenance.repair.errorMessages?.join(" ") ||
+          snapshot.maintenance.approval.errorMessages?.join(" ") ||
+          "Governance maintenance load failed.",
+      );
+    }
+  }, []);
+
+  const loadGovernanceMaintenance = useCallback(async () => {
+    setCurrentActionLoadState("loading");
+    try {
+      const snapshot = await window.champCity.getCurrentGovernanceMaintenance();
+      applyGovernanceMaintenanceSnapshot(snapshot);
+    } catch (error) {
+      setCurrentActionLoadState("error");
+      setCurrentActionError(error instanceof Error ? error.message : "Governance maintenance load failed.");
+      setProjectError(error instanceof Error ? error.message : "Governance maintenance load failed.");
+    }
+  }, [applyGovernanceMaintenanceSnapshot]);
+
+  const previewGovernanceRepair = useCallback(async () => {
+    setProjectBusy(true);
+    setProjectError(undefined);
+    try {
+      await loadGovernanceMaintenance();
+    } finally {
+      setProjectBusy(false);
+    }
+  }, [loadGovernanceMaintenance]);
+
+  const repairGovernanceRecord = useCallback(
+    async (
+      item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+      numberedLegacyDisposition?: ChampCityNumberedLegacyPathDisposition,
+      duplicateDisposition?: ChampCityDuplicateOperatorValidationDisposition,
+    ) => {
+      setProjectBusy(true);
+      setProjectError(undefined);
+      setProjectNotice(undefined);
+      try {
+        const result = await window.champCity.repairGovernanceRecord({
+          artifactId: item.artifactId,
+          jsonPath: item.jsonPath,
+          markdownPath: item.markdownPath,
+          repairKind: item.repairKind,
+          expectedRevision: item.revision,
+          ...(numberedLegacyDisposition ? { numberedLegacyDisposition } : {}),
+          ...(duplicateDisposition ? { duplicateDisposition } : {}),
+          ...(item.semanticProposal ? { semanticProposal: item.semanticProposal } : {}),
+        });
+        if (!result.ok && result.repairedArtifactIds.length === 0) {
+          throw new Error(result.errorMessages?.join(" ") || "Governance repair failed.");
+        }
+        if (result.maintenance && result.currentRequiredAction) {
+          applyGovernanceMaintenanceSnapshot({
+            ok: result.ok,
+            selectedProjectId: projectWorkspaces?.selectedProjectId ?? null,
+            currentAction: result.currentAction ?? null,
+            currentRequiredAction: result.currentRequiredAction,
+            maintenance: result.maintenance,
+            errorMessages: result.errorMessages,
+          });
+        } else {
+          await loadGovernanceMaintenance();
+        }
+        if (result.cleanupWarnings?.length) {
+          setProjectNotice(
+            `Governance cleanup committed with nonfatal cleanup warning: ${result.cleanupWarnings.join(" ")}`,
+          );
+        }
+        await loadProjectWorkspaces();
+      } catch (error) {
+        setProjectError(error instanceof Error ? error.message : "Governance repair failed.");
+      } finally {
+        setProjectBusy(false);
+      }
+    },
+    [applyGovernanceMaintenanceSnapshot, loadGovernanceMaintenance, loadProjectWorkspaces, projectWorkspaces?.selectedProjectId],
+  );
+
+  const createGovernanceRepairSpecificationRequest = useCallback(
+    async (
+      item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+      operatorNote: string,
+    ) => {
+      setProjectBusy(true);
+      setProjectError(undefined);
+      setProjectNotice(undefined);
+      try {
+        const projectionRevision =
+          governanceRepair?.currentAction?.stateRevision ??
+          currentActionResult?.currentAction?.routedAction?.stateRevision ??
+          currentActionResult?.currentAction?.routedAction?.bindingSource.stateRevision ??
+          0;
+        const result = await window.champCity.createGovernanceRepairSpecificationRequest({
+          artifactId: item.artifactId,
+          jsonPath: item.jsonPath,
+          markdownPath: item.markdownPath,
+          expectedCandidateRevision: item.revision,
+          expectedProjectionRevision: projectionRevision,
+          expectedCandidateFingerprint: item.candidateFingerprint,
+          operatorNote,
+          operatorConfirmed: true,
+        });
+        if (!result.ok) {
+          throw new Error(
+            result.errorMessages?.join(" ") || "Governance repair request could not be created.",
+          );
+        }
+        if (result.maintenance && result.currentRequiredAction) {
+          applyGovernanceMaintenanceSnapshot({
+            ok: true,
+            selectedProjectId: projectWorkspaces?.selectedProjectId ?? null,
+            currentAction: result.currentAction ?? null,
+            currentRequiredAction: result.currentRequiredAction,
+            maintenance: result.maintenance,
+          });
+        } else {
+          await loadGovernanceMaintenance();
+        }
+        setProjectNotice(
+          result.idempotent
+            ? "Repair request already exists for this candidate."
+            : result.updated
+              ? "Repair request updated with the latest Operator note."
+              : "Repair request created for Architect specification.",
+        );
+        await loadProjectWorkspaces();
+      } catch (error) {
+        setProjectError(error instanceof Error ? error.message : "Governance repair request failed.");
+      } finally {
+        setProjectBusy(false);
+      }
+    },
+    [
+      applyGovernanceMaintenanceSnapshot,
+      currentActionResult,
+      governanceRepair,
+      loadGovernanceMaintenance,
+      loadProjectWorkspaces,
+      projectWorkspaces?.selectedProjectId,
+    ],
+  );
+
+  const decideApprovalTarget = useCallback(
+    async (
+      item: ChampCityGovernanceApprovalQueueResult["items"][number],
+      decision: ChampCityGovernanceApprovalDecisionAction,
+      operatorReason: string,
+    ) => {
+      setProjectBusy(true);
+      setProjectError(undefined);
+      setProjectNotice(undefined);
+      try {
+        const result = await window.champCity.decideGovernanceApproval({
+          stage: item.decisionStage,
+          targets: item.targetBindings,
+          outcome: outcomeForDecision(decision, operatorReason, item),
+          operatorReason,
+        });
+        if (!result.ok) {
+          throw new Error(result.errorMessages?.join(" ") || "Operator decision failed.");
+        }
+        applyGovernanceMaintenanceSnapshot({
+          ok: true,
+          selectedProjectId: result.selectedProjectId,
+          currentAction: result.currentAction,
+          currentRequiredAction: result.currentRequiredAction,
+          maintenance: result.maintenance,
+          scanResult: result.scanResult,
+          projectionRevision: result.projectionRevision,
+        });
+        const updated = result.maintenance.approval.items.find(
+          (candidate) =>
+            candidate.targetArtifactId === item.targetArtifactId &&
+            candidate.revision === item.revision &&
+            candidate.payloadHash === item.payloadHash,
+        );
+        const nextTarget = updated ?? item;
+        setApprovalDecisionTarget(nextTarget);
+        setProjectNotice("Operator decision recorded for the exact revision.");
+        await loadProjectWorkspaces();
+        setActiveScreen(nextTarget.decisionWorkspaceScreenId);
+      } catch (error) {
+        setProjectError(error instanceof Error ? error.message : "Operator decision failed.");
+      } finally {
+        setProjectBusy(false);
+      }
+    },
+    [applyGovernanceMaintenanceSnapshot, loadProjectWorkspaces],
+  );
+
   useEffect(() => {
-    void loadCurrentRequiredAction();
     void loadProjectWorkspaces();
-  }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
+    void loadGovernanceMaintenance();
+  }, [loadGovernanceMaintenance, loadProjectWorkspaces]);
 
   useEffect(() => {
     return window.champCity.onRepositoryProjectionChanged(
       (_scanResult: ProjectScanResult) => {
-        void loadCurrentRequiredAction();
         void loadProjectWorkspaces();
+        void loadGovernanceMaintenance();
       },
     );
-  }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
+  }, [loadGovernanceMaintenance, loadProjectWorkspaces]);
 
   const handleProjectSelect = useCallback(
     async (projectId: string) => {
@@ -627,16 +867,16 @@ export default function App() {
         const result = await window.champCity.selectProject(projectId);
         setProjectWorkspaces(result);
         if (!result.ok) throw new Error(result.errorMessages?.join(" ") || "Project switch failed.");
-        hasAlignedInitialWorkspace.current = false;
+        lastAlignedActionKey.current = "";
         setActiveCard(null);
-        await loadCurrentRequiredAction();
+        await loadGovernanceMaintenance();
       } catch (error) {
         setProjectError(error instanceof Error ? error.message : "Project switch failed.");
       } finally {
         setProjectBusy(false);
       }
     },
-    [loadCurrentRequiredAction],
+    [loadGovernanceMaintenance],
   );
 
   const handleRepositoryRefresh = useCallback(async () => {
@@ -647,13 +887,16 @@ export default function App() {
       if (!result.ok && !result.scanResult) {
         throw new Error(result.errorMessages?.join(" ") || "Repository refresh failed.");
       }
-      await Promise.all([loadCurrentRequiredAction(), loadProjectWorkspaces()]);
+      await Promise.all([
+        loadProjectWorkspaces(),
+        loadGovernanceMaintenance(),
+      ]);
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Repository refresh failed.");
     } finally {
       setProjectBusy(false);
     }
-  }, [loadCurrentRequiredAction, loadProjectWorkspaces]);
+  }, [loadGovernanceMaintenance, loadProjectWorkspaces]);
 
   const handleAddProject = useCallback(async () => {
     setProjectBusy(true);
@@ -671,15 +914,15 @@ export default function App() {
       });
       setProjectWorkspaces(result);
       if (!result.ok) throw new Error(result.errorMessages?.join(" ") || "Project configuration failed.");
-      hasAlignedInitialWorkspace.current = false;
+      lastAlignedActionKey.current = "";
       setActiveCard(null);
-      await loadCurrentRequiredAction();
+      await loadGovernanceMaintenance();
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Project configuration failed.");
     } finally {
       setProjectBusy(false);
     }
-  }, [loadCurrentRequiredAction]);
+  }, [loadGovernanceMaintenance]);
 
   useEffect(() => {
     const currentAction = currentActionResult?.currentAction;
@@ -688,21 +931,25 @@ export default function App() {
       setPhase(currentAction.phaseId);
     }
 
-    if (!currentAction || hasAlignedInitialWorkspace.current) {
+    if (!currentAction) {
       return;
     }
 
     const suggestedScreen = getManualScreenForCurrentAction(currentAction);
+    const actionKey = [
+      currentAction.id,
+      currentAction.routedAction?.screenId ?? suggestedScreen,
+      currentAction.routedAction?.stateRevision ?? "",
+    ].join("::");
 
     if (
-      activeScreen === "project-intake" &&
+      lastAlignedActionKey.current !== actionKey &&
       suggestedScreen !== "project-intake" &&
       availableWorkflowScreens.some((step) => step.id === suggestedScreen)
     ) {
       setActiveScreen(suggestedScreen as AppScreen);
+      lastAlignedActionKey.current = actionKey;
     }
-
-    hasAlignedInitialWorkspace.current = true;
   }, [activeScreen, currentActionResult]);
 
   function handlePhaseChange(nextPhase: string) {
@@ -858,7 +1105,7 @@ export default function App() {
         onPhaseChange={handlePhaseChange}
         onActiveCardChange={setActiveCard}
         onWorkflowAdvanced={async (nextScreenId) => {
-          await loadCurrentRequiredAction();
+          await loadGovernanceMaintenance();
           if (nextScreenId === "architect-review") {
             setActiveScreen("architect-review");
           }
@@ -874,7 +1121,7 @@ export default function App() {
         routedReviewBinding={routedArchitectReviewBinding}
         routedWorkCardFileName={routedArchitectReviewWorkCardFileName}
         onWorkflowAdvanced={async (nextScreenId) => {
-          await loadCurrentRequiredAction();
+          await loadGovernanceMaintenance();
           if (nextScreenId === "operator-validation") {
             setActiveScreen("human-validation");
           }
@@ -936,7 +1183,59 @@ export default function App() {
     "candidate-disposition": (
       <CandidateDispositionScreen
         currentActionResult={currentActionResult}
-        onSaved={loadCurrentRequiredAction}
+        onSaved={loadGovernanceMaintenance}
+      />
+    ),
+    "governance-repair": (
+      <GovernanceRepairWorkspace
+        repair={governanceRepair}
+        currentActionResult={currentActionResult}
+        busy={projectBusy}
+        onRefresh={previewGovernanceRepair}
+        onRepair={repairGovernanceRecord}
+        onCreateSpecificationRequest={createGovernanceRepairSpecificationRequest}
+      />
+    ),
+    "governance-approval": (
+      <GovernanceApprovalWorkspace
+        queue={governanceApprovalQueue}
+        currentActionResult={currentActionResult}
+        busy={projectBusy}
+        onRefresh={loadGovernanceMaintenance}
+        onOpen={(item) => {
+          setApprovalDecisionTarget(item);
+          setActiveScreen(item.decisionWorkspaceScreenId);
+        }}
+      />
+    ),
+    "operator-phase-approval": (
+      <StageOwnedApprovalWorkspace
+        title="Operator Phase Approval"
+        allowedDecisions={["approved", "revision_requested", "rejected"]}
+        queue={governanceApprovalQueue}
+        target={approvalDecisionTarget}
+        busy={projectBusy}
+        onDecision={decideApprovalTarget}
+      />
+    ),
+    "operator-work-card-approval": (
+      <StageOwnedApprovalWorkspace
+        title="Work Card Approval"
+        allowedDecisions={["approved", "revision_requested", "rejected"]}
+        queue={governanceApprovalQueue}
+        target={approvalDecisionTarget}
+        busy={projectBusy}
+        onDecision={decideApprovalTarget}
+      />
+    ),
+    "historical-operator-review": (
+      <StageOwnedApprovalWorkspace
+        title="Historical Operator Disposition"
+        allowedDecisions={["accepted_as_historical_evidence", "revision_required", "invalid"]}
+        queue={governanceApprovalQueue}
+        target={approvalDecisionTarget}
+        busy={projectBusy}
+        onDecision={decideApprovalTarget}
       />
     ),
     "phase-closeout": (
@@ -960,7 +1259,7 @@ export default function App() {
       currentActionResult={currentActionResult}
       currentActionLoadState={currentActionLoadState}
       currentActionError={currentActionError}
-      onRefreshCurrentAction={loadCurrentRequiredAction}
+      onRefreshCurrentAction={loadGovernanceMaintenance}
       onManualScreenChange={handleSupportScreenChange}
       onPhaseChange={handlePhaseChange}
       onCardChange={handleHeaderCardChange}
@@ -969,9 +1268,12 @@ export default function App() {
           workspaces={projectWorkspaces}
           busy={projectBusy}
           error={projectError}
+          notice={projectNotice}
           onSelect={handleProjectSelect}
           onRefresh={handleRepositoryRefresh}
           onAdd={handleAddProject}
+          governanceRepair={governanceRepair}
+          governanceApprovalQueue={governanceApprovalQueue}
         />
       }
     >
@@ -6450,21 +6752,31 @@ function ProjectWorkspaceBar({
   workspaces,
   busy,
   error,
+  notice,
   onSelect,
   onRefresh,
   onAdd,
+  governanceRepair,
+  governanceApprovalQueue,
 }: {
   workspaces: ProjectWorkspaceListResult | null;
   busy: boolean;
   error?: string;
+  notice?: string;
   onSelect: (projectId: string) => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
   onAdd: () => void | Promise<void>;
+  governanceRepair: ChampCityGovernanceRepairPreviewResult | null;
+  governanceApprovalQueue: ChampCityGovernanceApprovalQueueResult | null;
 }) {
   const selected = workspaces?.projects.find((project) => project.selected);
   const projects = workspaces?.projects ?? [];
   const hasRecoveryState = Boolean(workspaces && !selected);
   const scan = selected?.lastScanResult;
+  const repairCandidates = governanceRepair?.candidates ?? [];
+  const approvalItems = (governanceApprovalQueue?.items ?? []).filter(
+    (item) => item.approvalStatus !== "exact",
+  );
   return (
     <div className="shrink-0 border-b border-border bg-card/55 px-4 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
@@ -6507,6 +6819,12 @@ function ProjectWorkspaceBar({
           <FolderOpen size={12} />
           Add local project
         </button>
+        <span className="rounded border border-amber-400/25 bg-amber-400/8 px-2 py-1 text-amber-200">
+          Repairs: {repairCandidates.length}
+        </span>
+        <span className="rounded border border-sky-400/25 bg-sky-400/8 px-2 py-1 text-sky-200">
+          Approvals: {repairCandidates.length > 0 ? 0 : approvalItems.length}
+        </span>
       </div>
       {hasRecoveryState ? (
         <div className="mt-1 text-[10px] text-amber-300">
@@ -6524,8 +6842,1572 @@ function ProjectWorkspaceBar({
         <span>Blockers: {scan?.blockers.length ?? 0}</span>
         <span>Action: {scan?.currentAction?.actionId ?? "unavailable"}</span>
       </div>
+      {notice ? <div className="mt-1 text-[10px] text-amber-200">{notice}</div> : null}
       {error ? <div className="mt-1 text-[10px] text-red-300">{error}</div> : null}
     </div>
+  );
+}
+
+function GovernanceRepairWorkspace({
+  repair,
+  currentActionResult,
+  busy,
+  onRefresh,
+  onRepair,
+  onCreateSpecificationRequest,
+}: {
+  repair: ChampCityGovernanceRepairPreviewResult | null;
+  currentActionResult: ChampCityCurrentRequiredActionResult | null;
+  busy: boolean;
+  onRefresh: () => void | Promise<void>;
+  onRepair: (
+    item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+    numberedLegacyDisposition?: ChampCityNumberedLegacyPathDisposition,
+    duplicateDisposition?: ChampCityDuplicateOperatorValidationDisposition,
+  ) => void | Promise<void>;
+  onCreateSpecificationRequest: (
+    item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+    operatorNote: string,
+  ) => void | Promise<void>;
+}) {
+  const items = repair?.candidates ?? [];
+  const routedTarget =
+    currentActionResult?.currentAction?.id === "governance_integrity_repair_required"
+      ? currentActionResult.currentAction.routedAction?.targetArtifactId ?? null
+      : null;
+  const [selectedKey, setSelectedKey] = useState<string>("");
+  const selected =
+    items.find((item) => repairKey(item) === selectedKey) ??
+    items[0] ??
+    null;
+  const [semanticReviewOpen, setSemanticReviewOpen] = useState(false);
+  const [numberedDisposition, setNumberedDisposition] =
+    useState<ChampCityNumberedLegacyPathDisposition | "">("");
+  const [duplicateDisposition, setDuplicateDisposition] =
+    useState<ChampCityDuplicateOperatorValidationDisposition | "">("");
+  const [requestPreview, setRequestPreview] =
+    useState<ChampCityGovernanceRepairSpecificationRequestPreview | null>(null);
+  const [requestNote, setRequestNote] = useState("");
+  const [requestAcknowledged, setRequestAcknowledged] = useState(false);
+  const [requestPreviewBusy, setRequestPreviewBusy] = useState(false);
+  const [requestPreviewError, setRequestPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!items.length) {
+      setSelectedKey("");
+      return;
+    }
+    const selectedStillExists = items.some((item) => repairKey(item) === selectedKey);
+    if (!selectedStillExists) {
+      const routed = items.find((item) => item.artifactId === routedTarget);
+      setSelectedKey(repairKey(routed ?? items[0]));
+    }
+  }, [items, routedTarget, selectedKey]);
+
+  useEffect(() => {
+    setSemanticReviewOpen(false);
+    setNumberedDisposition("");
+    setDuplicateDisposition("");
+    setRequestPreview(null);
+    setRequestNote("");
+    setRequestAcknowledged(false);
+    setRequestPreviewError(null);
+  }, [selectedKey]);
+
+  async function previewSpecificationRequest() {
+    if (!selected) return;
+    const projectionRevision =
+      repair?.currentAction?.stateRevision ??
+      currentActionResult?.currentAction?.routedAction?.stateRevision ??
+      currentActionResult?.currentAction?.routedAction?.bindingSource.stateRevision ??
+      0;
+    setRequestPreviewBusy(true);
+    setRequestPreviewError(null);
+    try {
+      const result = await window.champCity.previewGovernanceRepairSpecificationRequest({
+        artifactId: selected.artifactId,
+        jsonPath: selected.jsonPath,
+        markdownPath: selected.markdownPath,
+        expectedCandidateRevision: selected.revision,
+        expectedProjectionRevision: projectionRevision,
+        expectedCandidateFingerprint: selected.candidateFingerprint,
+        operatorNote: requestNote,
+      });
+      if (!result.ok) {
+        throw new Error(result.errorMessages?.join(" ") || "Repair request preview failed.");
+      }
+      setRequestPreview(result);
+      setSemanticReviewOpen(true);
+    } catch (error) {
+      setRequestPreviewError(error instanceof Error ? error.message : "Repair request preview failed.");
+    } finally {
+      setRequestPreviewBusy(false);
+    }
+  }
+
+  return (
+    <WorkflowScreen
+      title="Governance Integrity Repair"
+      subtitle="Canonical governance records are resolved before approval and normal workflow routing."
+    >
+      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+        <div className="flex w-[34%] min-w-[280px] flex-col overflow-hidden rounded-lg border border-border bg-card/25">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <div>
+              <div className="text-xs font-semibold text-foreground/80">
+                Repair queue
+              </div>
+              <div className="text-[10px] text-muted-foreground/55">
+                {items.length} unresolved item{items.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onRefresh()}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground/75 disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {items.length === 0 ? (
+              <EmptyState
+                message="No unresolved governance integrity records."
+                icon={<CheckCircle size={22} />}
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {items.map((item) => (
+                  <button
+                    key={repairKey(item)}
+                    type="button"
+                    onClick={() => setSelectedKey(repairKey(item))}
+                    className={cn(
+                      "w-full rounded-md border px-3 py-2 text-left transition-colors",
+                      selected && repairKey(selected) === repairKey(item)
+                        ? "border-primary/40 bg-primary/10"
+                        : "border-border bg-white/[0.02] hover:bg-white/[0.04]",
+                    )}
+                  >
+                    <div className="break-anywhere font-mono text-[10px] text-foreground/80">
+                      {item.artifactId}
+                    </div>
+                    <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground/65">
+                      <span>
+                        {item.artifactType} / {item.phaseId ?? "no phase"} /{" "}
+                        {item.workCardId ?? "no Work Card"} / rev {item.revision}
+                      </span>
+                      <span>Status: {item.status}</span>
+                      <span>Issue: {formatGovernanceIssue(item.issueClassification)}</span>
+                      <span>
+                        Repair:{" "}
+                        {formatGovernanceRepairState(
+                          item,
+                          Boolean(
+                            selected &&
+                              repairKey(selected) === repairKey(item) &&
+                              semanticReviewOpen,
+                          ),
+                          numberedDisposition,
+                          duplicateDisposition,
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 overflow-y-auto rounded-lg border border-border bg-card/25 p-4">
+          {selected ? (
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-foreground">
+                    {selected.operationLabel}
+                  </div>
+                  <div className="break-anywhere mt-1 font-mono text-xs text-muted-foreground/70">
+                    {selected.artifactId}
+                  </div>
+                </div>
+                <StatusBadge status={formatGovernanceItemStatus(selected.itemStatus)} />
+              </div>
+
+              <div className="grid gap-3">
+                <RepairInfoSection
+                  title="Why this record is here"
+                  body={whyGovernanceRecordIsHere(selected)}
+                />
+                <RepairInfoSection
+                  title="What is wrong"
+                  body={governanceDefectSummary(selected)}
+                />
+                {selected.semanticProposal?.duplicateReconciliation && selected.blockReason ? (
+                  <RepairInfoSection
+                    title="Diagnostic"
+                    body={selected.blockReason}
+                  />
+                ) : null}
+                <RepairInfoSection
+                  title="Serialization status"
+                  body={governanceSerializationStatus(selected)}
+                />
+                <RepairInfoSection
+                  title="Registry status"
+                  body={formatGovernanceRegistryStatus(selected.registryStatus)}
+                />
+                <RepairInfoSection
+                  title="What this operation will change"
+                  body={repairWillChange(selected)}
+                />
+                <RepairInfoSection
+                  title="What it will not change"
+                  body={repairWillNotChange(selected)}
+                />
+                <RepairInfoSection
+                  title="Required Operator decision"
+                  body={requiredOperatorDecision(selected)}
+                />
+              </div>
+
+              <div className="rounded-md border border-primary/20 bg-primary/[0.04] px-3 py-2 text-xs leading-relaxed text-primary/85">
+                <div className="font-semibold">What this repair does</div>
+                <div className="mt-1 text-primary/75">
+                  {repairScopeExplanation(selected)}
+                </div>
+              </div>
+
+              {selected.semanticProposal && semanticReviewOpen ? (
+                <SemanticRepairProposalPanel
+                  proposal={selected.semanticProposal}
+                  disposition={numberedDisposition}
+                  onDispositionChange={setNumberedDisposition}
+                  duplicateDisposition={duplicateDisposition}
+                  onDuplicateDispositionChange={setDuplicateDisposition}
+                />
+              ) : null}
+
+              {selected.deterministicRepairPlan && semanticReviewOpen ? (
+                <DeterministicRepairPlanPanel
+                  plan={selected.deterministicRepairPlan}
+                  duplicateDisposition={duplicateDisposition}
+                  onDuplicateDispositionChange={setDuplicateDisposition}
+                />
+              ) : null}
+
+              {!selected.safelyRepairable && selected.repairKind !== "semantic_identity_repair" ? (
+                <GovernanceRepairRequestPreviewPanel
+                  preview={requestPreview}
+                  existingRequest={selected.existingSpecificationRequest}
+                  operatorNote={requestNote}
+                  onOperatorNoteChange={(value) => {
+                    setRequestNote(value);
+                    setRequestPreview(null);
+                    setRequestAcknowledged(false);
+                  }}
+                  acknowledged={requestAcknowledged}
+                  onAcknowledgedChange={setRequestAcknowledged}
+                  error={requestPreviewError}
+                />
+              ) : null}
+
+              <details className="rounded-md border border-border bg-white/[0.02] px-3 py-2">
+                <summary className="cursor-pointer text-xs font-semibold text-foreground/80">
+                  Technical Details
+                </summary>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <DetailRow label="Artifact type" value={selected.artifactType} />
+                  <DetailRow label="Revision" value={String(selected.revision)} />
+                  <DetailRow label="Payload hash" value={selected.payloadHash} />
+                  <DetailRow label="Status" value={selected.status} />
+                  <DetailRow label="JSON path" value={selected.jsonPath} />
+                  <DetailRow label="Markdown path" value={selected.markdownPath} />
+                  <DetailRow label="Registry status" value={selected.registryStatus} />
+                  <DetailRow label="Verification result" value={selected.verificationError} />
+                  <DetailRow label="Payload impact" value={formatPayloadImpact(selected.payloadImpact)} />
+                  <DetailRow label="Unresolved reason" value={selected.blockReason ?? selected.verificationError} />
+                  <DetailRow label="Operation" value={selected.operationLabel} />
+                  <DetailRow label="Mutation target" value={selected.artifactId} />
+                  <DetailRow
+                    label="Can affect current routing"
+                    value={selected.canAffectCurrentRouting ? "yes" : "no"}
+                  />
+                </div>
+              </details>
+
+              {selected.deterministicRepairPlan ? (
+                <ActionBar
+                  onSave={() => {
+                    if (!semanticReviewOpen) {
+                      setSemanticReviewOpen(true);
+                      return;
+                    }
+                    void onRepair(
+                      selected,
+                      undefined,
+                      duplicateDisposition || undefined,
+                    );
+                  }}
+                  saveLabel={
+                    semanticReviewOpen
+                      ? selected.deterministicRepairPlan.requiresDuplicateDisposition &&
+                        duplicateDisposition === "keep_fixed_record_and_delete_duplicate"
+                        ? selected.deterministicRepairPlan.fixedRecordLabel ?? selected.operationLabel
+                        : selected.deterministicRepairPlan.requiresDuplicateDisposition &&
+                            duplicateDisposition === "use_numbered_record_as_next_canonical_revision"
+                          ? selected.deterministicRepairPlan.numberedRecordLabel ?? selected.operationLabel
+                          : selected.operationLabel
+                      : selected.operationLabel
+                  }
+                  saveDisabled={
+                    busy ||
+                    (semanticReviewOpen &&
+                      Boolean(selected.deterministicRepairPlan.requiresDuplicateDisposition) &&
+                      duplicateDisposition !== "keep_fixed_record_and_delete_duplicate" &&
+                      duplicateDisposition !== "use_numbered_record_as_next_canonical_revision")
+                  }
+                  statusMessage={
+                    semanticReviewOpen
+                      ? "Confirm the exact previewed files and Registry entries before execution."
+                      : "Preview the exact bounded repair before mutating files."
+                  }
+                  statusType="warning"
+                />
+              ) : selected.repairKind === "semantic_identity_repair" && selected.semanticProposal ? (
+                <ActionBar
+                  onSave={() => {
+                    if (!semanticReviewOpen) {
+                      setSemanticReviewOpen(true);
+                      return;
+                    }
+                    void onRepair(
+                      selected,
+                      numberedDisposition || undefined,
+                      duplicateDisposition || undefined,
+                    );
+                  }}
+                  saveLabel={
+                    semanticReviewOpen
+                      ? selected.semanticProposal.duplicateReconciliation
+                        ? duplicateDisposition === "keep_fixed_record_and_delete_duplicate"
+                          ? "Keep fixed validation and delete duplicate"
+                          : duplicateDisposition === "use_numbered_record_as_next_canonical_revision"
+                            ? "Use numbered validation as next revision"
+                            : "Apply duplicate cleanup"
+                        : "Apply canonical identity migration"
+                      : selected.semanticProposal.duplicateReconciliation
+                        ? "Review duplicate records"
+                        : "Review semantic repair"
+                  }
+                  saveDisabled={
+                    busy ||
+                    (semanticReviewOpen &&
+                      ((Boolean(selected.semanticProposal.collision) &&
+                        !selected.semanticProposal.duplicateReconciliation) ||
+                        selected.semanticProposal.conflictingCandidates.length > 0 ||
+                        Boolean(selected.semanticProposal.unresolvedReferenceMigration) ||
+                        (Boolean(selected.semanticProposal.duplicateReconciliation) &&
+                          duplicateDisposition !==
+                            "use_numbered_record_as_next_canonical_revision" &&
+                          duplicateDisposition !==
+                            "keep_fixed_record_and_delete_duplicate") ||
+                        (selected.semanticProposal.requiredDisposition === "numbered_legacy_path" &&
+                          !selected.semanticProposal.duplicateReconciliation &&
+                          numberedDisposition !== "migrate_to_canonical_fixed_path")))
+                  }
+                  statusMessage={
+                    semanticReviewOpen
+                      ? semanticApplyStatus(
+                          selected.semanticProposal,
+                          numberedDisposition,
+                          duplicateDisposition,
+                        )
+                      : selected.semanticProposal.basisSummary
+                  }
+                  statusType="warning"
+                />
+              ) : selected.safelyRepairable ? (
+                <ActionBar
+                  onSave={() => void onRepair(selected)}
+                  saveLabel={selected.operationLabel}
+                  saveDisabled={busy}
+                  statusMessage={repair?.payloadContentSummary ?? "Selected item is ready."}
+                  statusType="warning"
+                />
+              ) : (
+                <ActionBar
+                  onSave={() => {
+                    if (selected.existingSpecificationRequest) return;
+                    if (!requestPreview) {
+                      void previewSpecificationRequest();
+                      return;
+                    }
+                    void onCreateSpecificationRequest(selected, requestNote);
+                  }}
+                  saveLabel={
+                    selected.existingSpecificationRequest
+                      ? "Repair request already created"
+                      : requestPreview
+                        ? "Create repair request"
+                        : "Review repair request"
+                  }
+                  saveDisabled={
+                    busy ||
+                    requestPreviewBusy ||
+                    Boolean(selected.existingSpecificationRequest) ||
+                    (Boolean(requestPreview) && !requestAcknowledged)
+                  }
+                  statusMessage={
+                    selected.existingSpecificationRequest
+                      ? "Pending Architect specification request already exists for this exact candidate."
+                      : requestPreview
+                        ? "Confirm the non-authority acknowledgement before creating the durable request."
+                        : "Preview the exact Architect-owned request before writing any files."
+                  }
+                  statusType="warning"
+                />
+              )}
+            </div>
+          ) : (
+            <EmptyState
+              message="Governance integrity is clean."
+              icon={<CheckCircle size={22} />}
+            />
+          )}
+        </div>
+      </div>
+    </WorkflowScreen>
+  );
+}
+
+function GovernanceApprovalWorkspace({
+  queue,
+  currentActionResult,
+  busy,
+  onRefresh,
+  onOpen,
+}: {
+  queue: ChampCityGovernanceApprovalQueueResult | null;
+  currentActionResult: ChampCityCurrentRequiredActionResult | null;
+  busy: boolean;
+  onRefresh: () => void | Promise<void>;
+  onOpen: (
+    item: ChampCityGovernanceApprovalQueueResult["items"][number],
+  ) => void;
+}) {
+  const items = (queue?.items ?? []).filter((item) => item.approvalStatus !== "exact");
+  const routedTarget =
+    currentActionResult?.currentAction?.id === "operator_governance_approval_required"
+      ? currentActionResult.currentAction.routedAction?.targetArtifactId ?? null
+      : null;
+  const [selectedKey, setSelectedKey] = useState<string>("");
+  const selected =
+    items.find((item) => approvalKey(item) === selectedKey) ??
+    items[0] ??
+    null;
+
+  useEffect(() => {
+    if (!items.length) {
+      setSelectedKey("");
+      return;
+    }
+    const selectedStillExists = items.some((item) => approvalKey(item) === selectedKey);
+    if (!selectedStillExists) {
+      const routed = items.find((item) => item.targetArtifactId === routedTarget);
+      setSelectedKey(approvalKey(routed ?? items[0]));
+    }
+  }, [items, routedTarget, selectedKey]);
+
+  return (
+    <WorkflowScreen
+      title="Governance Approval"
+      subtitle="Unresolved approval and disposition index. Decisions happen only in the stage-owned workspace."
+    >
+      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+        <div className="flex w-[34%] min-w-[280px] flex-col overflow-hidden rounded-lg border border-border bg-card/25">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <div>
+              <div className="text-xs font-semibold text-foreground/80">
+                Approval queue
+              </div>
+              <div className="text-[10px] text-muted-foreground/55">
+                {items.length} unresolved item{items.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onRefresh()}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground/75 disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {items.length === 0 ? (
+              <EmptyState
+                message="No unresolved governance approvals."
+                icon={<CheckCircle size={22} />}
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {items.map((item) => (
+                  <button
+                    key={approvalKey(item)}
+                    type="button"
+                    onClick={() => setSelectedKey(approvalKey(item))}
+                    className={cn(
+                      "w-full rounded-md border px-3 py-2 text-left transition-colors",
+                      selected && approvalKey(selected) === approvalKey(item)
+                        ? "border-primary/40 bg-primary/10"
+                        : "border-border bg-white/[0.02] hover:bg-white/[0.04]",
+                    )}
+                  >
+                    <div className="break-anywhere font-mono text-[10px] text-foreground/80">
+                      {item.targetArtifactId}
+                    </div>
+                  <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground/65">
+                      <span>
+                        {item.artifactType} / {item.phaseId ?? "no phase"} /{" "}
+                        {item.workCardId ?? "no Work Card"} / rev {item.revision}
+                      </span>
+                      <span>Status: {item.status}</span>
+                      <span>Issue: {item.approvalStatus}</span>
+                      <span>Destination: {item.decisionWorkspaceLabel}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 overflow-y-auto rounded-lg border border-border bg-card/25 p-4">
+          {selected ? (
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-foreground">
+                    Open {selected.decisionWorkspaceLabel}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground/70">
+                    Governance Approval is navigation-only for this item.
+                  </div>
+                  <div className="break-anywhere mt-1 font-mono text-xs text-muted-foreground/70">
+                    {selected.targetArtifactId}
+                  </div>
+                </div>
+                <StatusBadge status={selected.approvalStatus} />
+              </div>
+              <Notice type="info">{selected.decisionEffect}</Notice>
+              <div className="grid gap-2 md:grid-cols-2">
+                <DetailRow label="Target ID" value={selected.targetArtifactId} />
+                <DetailRow label="Target type" value={selected.artifactType} />
+                <DetailRow label="Title" value={selected.title} />
+                <DetailRow label="Revision" value={String(selected.revision)} />
+                <DetailRow label="Payload hash" value={selected.payloadHash} />
+                <DetailRow label="JSON path" value={selected.jsonPath} />
+                <DetailRow label="Markdown path" value={selected.markdownPath} />
+                <DetailRow label="Registry status" value={selected.registryStatus} />
+                <DetailRow label="Approval status" value={selected.approvalStatus} />
+                <DetailRow label="Unresolved reason" value={selected.reason} />
+                <DetailRow label="Authorization boundary" value={selected.authorizationBoundary} />
+                <DetailRow label="Decision workspace" value={selected.decisionWorkspaceLabel} />
+                <DetailRow label="Decision workspace screen" value={selected.decisionWorkspaceScreenId} />
+                <DetailRow label="Decision record ID" value={selected.approvalArtifactId} />
+                <DetailRow
+                  label="Implementer authorization"
+                  value={selected.implementationAuthorizationAvailable ? "available only in stage approval" : "not available for this target"}
+                />
+              </div>
+              {selected.decisionStage === "phase_planning" ? (
+                <div className="grid gap-2 md:grid-cols-2">
+                  <DetailRow
+                    label="Canonical Phase Planning"
+                    value={`${selected.canonicalPhasePlanningArtifactId ?? "missing"} / rev ${selected.canonicalPhasePlanningRevision ?? "?"} / ${selected.canonicalPhasePlanningPayloadHash ?? "missing hash"}`}
+                  />
+                  <DetailRow
+                    label="Canonical Work Card Plan"
+                    value={`${selected.canonicalWorkCardPlanArtifactId ?? "missing"} / rev ${selected.canonicalWorkCardPlanRevision ?? "?"} / ${selected.canonicalWorkCardPlanPayloadHash ?? "missing hash"}`}
+                  />
+                </div>
+              ) : null}
+              <div className="rounded-md border border-border bg-white/[0.025] p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+                  Complete Markdown content
+                </div>
+                <pre className="mt-2 max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-black/20 p-3 text-xs leading-relaxed text-foreground/78">
+                  {selected.contentMarkdown}
+                </pre>
+              </div>
+              <Notice type="warning">
+                Use {selected.decisionWorkspaceLabel} for Approve exact revision, Request revision, or Reject exact revision. This index does not approve, reject, revise, or authorize implementation.
+              </Notice>
+              <ActionBar
+                onSave={() => onOpen(selected)}
+                saveLabel={`Open ${selected.decisionWorkspaceLabel}`}
+                saveDisabled={busy}
+                statusMessage="Navigation only. No decision is recorded by the queue."
+                statusType="success"
+              />
+            </div>
+          ) : (
+            <EmptyState
+              message="Governance approvals are complete."
+              icon={<CheckCircle size={22} />}
+            />
+          )}
+        </div>
+      </div>
+    </WorkflowScreen>
+  );
+}
+
+function StageOwnedApprovalWorkspace({
+  title,
+  allowedDecisions,
+  queue,
+  target,
+  busy,
+  onDecision,
+}: {
+  title: string;
+  allowedDecisions: ChampCityGovernanceApprovalDecisionAction[];
+  queue: ChampCityGovernanceApprovalQueueResult | null;
+  target: ChampCityGovernanceApprovalQueueResult["items"][number] | null;
+  busy: boolean;
+  onDecision: (
+    item: ChampCityGovernanceApprovalQueueResult["items"][number],
+    decision: ChampCityGovernanceApprovalDecisionAction,
+    operatorReason: string,
+  ) => void | Promise<void>;
+}) {
+  const current =
+    (target &&
+      (queue?.items ?? []).find(
+        (item) =>
+          item.targetArtifactId === target.targetArtifactId &&
+          item.revision === target.revision &&
+          item.payloadHash === target.payloadHash,
+      )) ||
+    target;
+  const [reason, setReason] = useState("");
+  const requiresReason = (decision: ChampCityGovernanceApprovalDecisionAction) =>
+    decision === "revision_requested" ||
+    decision === "rejected" ||
+    decision === "revision_required" ||
+    decision === "invalid" ||
+    decision === "cancelled" ||
+    decision === "deferred" ||
+    decision === "merged" ||
+    decision === "superseded";
+
+  return (
+    <WorkflowScreen
+      title={title}
+      subtitle="Stage-owned exact revision decision workspace."
+    >
+      {current ? (
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto">
+          <div className="grid gap-2 md:grid-cols-2">
+            <DetailRow label="Current logical artifact ID" value={current.targetArtifactId} />
+            <DetailRow label="Artifact type" value={current.artifactType} />
+            <DetailRow label="Latest canonical revision" value={String(current.revision)} />
+            <DetailRow label="Latest payload hash" value={current.payloadHash} />
+            <DetailRow label="JSON path" value={current.jsonPath} />
+            <DetailRow label="Markdown path" value={current.markdownPath} />
+            <DetailRow label="Target type" value={current.targetKind} />
+            <DetailRow label="Decision stage" value={current.decisionStage} />
+            <DetailRow label="Target set hash" value={current.targetSetHash} />
+            <DetailRow label="Disposition state" value={current.approvalStatus} />
+            <DetailRow label="Existing disposition" value={current.reason} />
+            <DetailRow
+              label="Implementer authorization"
+              value={current.implementationAuthorizationAvailable ? "available for exact approval" : "not available"}
+            />
+          </div>
+          <div className="rounded-md border border-border bg-white/[0.025] p-3">
+            <div className="text-sm font-semibold text-foreground">{current.title}</div>
+            <pre className="mt-2 max-h-[340px] overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-black/20 p-3 text-xs leading-relaxed text-foreground/78">
+              {current.contentMarkdown}
+            </pre>
+          </div>
+          <div className="rounded-md border border-border bg-white/[0.025] p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+              Prior revision/disposition timeline
+            </div>
+            {current.decisionTimeline.length > 0 ? (
+              <div className="mt-2 grid gap-2">
+                {current.decisionTimeline.map((event, index) => (
+                  <div
+                    key={`${event.targetSetHash}-${event.decidedAt}-${index}`}
+                    className="rounded border border-border bg-black/15 px-3 py-2 text-xs text-foreground/75"
+                  >
+                    {event.targetSetHash} - {formatDecisionOutcomeLabel(event.outcome)} - {event.decidedAt}
+                    {event.operatorReason ? ` - ${event.operatorReason}` : ""}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-2 text-xs text-muted-foreground/65">
+                No prior decision has been recorded for this exact target.
+              </div>
+            )}
+          </div>
+          <div className="grid gap-3 rounded-md border border-border bg-card/35 p-3">
+            <label className="grid gap-1 text-xs text-muted-foreground/70">
+              Operator reason
+              <textarea
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className={textareaCls}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {allowedDecisions.map((decision) => (
+                <button
+                  key={decision}
+                  type="button"
+                  disabled={busy || (requiresReason(decision) && reason.trim().length === 0)}
+                  onClick={() => void onDecision(current, decision, reason)}
+                  className="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {formatDecisionLabel(decision)}
+                </button>
+              ))}
+            </div>
+            <Notice type="info">{current.decisionEffect}</Notice>
+          </div>
+        </div>
+      ) : (
+        <EmptyState
+          message="Open an item from Governance Approval first."
+          icon={<Info size={22} />}
+        />
+      )}
+    </WorkflowScreen>
+  );
+}
+
+function formatDecisionLabel(
+  decision: ChampCityGovernanceApprovalDecisionAction,
+): string {
+  if (decision === "approved") return "Approve exact target";
+  if (decision === "revision_requested") return "Request revision";
+  if (decision === "rejected") return "Reject exact target";
+  if (decision === "accepted_as_current") return "Accept as current";
+  if (decision === "accepted_as_historical_evidence") return "Accept as historical evidence";
+  if (decision === "superseded") return "Superseded";
+  if (decision === "merged") return "Merged";
+  if (decision === "deferred") return "Deferred";
+  if (decision === "cancelled") return "Cancelled";
+  if (decision === "invalid") return "Invalid";
+  return "Revision required";
+}
+
+function formatDecisionOutcomeLabel(
+  outcome: NonNullable<ChampCityGovernanceApprovalDecisionResult["decisionEvent"]>["outcome"] | undefined,
+): string {
+  if (!outcome) return "unknown";
+  if (outcome.kind === "stage_decision") return formatDecisionLabel(outcome.decision);
+  return formatDecisionLabel(outcome.disposition);
+}
+
+function outcomeForDecision(
+  decision: ChampCityGovernanceApprovalDecisionAction,
+  operatorReason: string,
+  item: ChampCityGovernanceApprovalQueueResult["items"][number],
+): ChampCityGovernanceApprovalDecisionIntent["outcome"] {
+  if (
+    decision === "approved" ||
+    decision === "revision_requested" ||
+    decision === "rejected"
+  ) {
+    return { kind: "stage_decision", decision };
+  }
+  return {
+    kind: "record_disposition",
+    disposition: decision,
+    ...(decision === "merged" && operatorReason.trim()
+      ? { canonicalSurvivingArtifactId: operatorReason.trim() }
+      : {}),
+    ...(decision === "superseded" && item.targetBindings[0]
+      ? { supersedingArtifactId: item.targetBindings[0].artifactId }
+      : {}),
+  };
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-white/[0.025] px-3 py-2">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/45">
+        {label}
+      </div>
+      <div className="break-anywhere mt-1 font-mono text-[11px] leading-relaxed text-foreground/75">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function RepairInfoSection({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-md border border-border bg-white/[0.025] px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+        {title}
+      </div>
+      <div className="mt-1 text-sm leading-relaxed text-foreground/78">{body}</div>
+    </div>
+  );
+}
+
+function SemanticRepairProposalPanel({
+  proposal,
+  disposition,
+  onDispositionChange,
+  duplicateDisposition,
+  onDuplicateDispositionChange,
+}: {
+  proposal: NonNullable<
+    ChampCityGovernanceRepairPreviewResult["candidates"][number]["semanticProposal"]
+  >;
+  disposition: ChampCityNumberedLegacyPathDisposition | "";
+  onDispositionChange: (value: ChampCityNumberedLegacyPathDisposition | "") => void;
+  duplicateDisposition: ChampCityDuplicateOperatorValidationDisposition | "";
+  onDuplicateDispositionChange: (
+    value: ChampCityDuplicateOperatorValidationDisposition | "",
+  ) => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-md border border-amber-400/25 bg-amber-400/[0.04] p-3">
+      <div>
+        <div className="text-xs font-semibold text-amber-200">
+          {proposal.duplicateReconciliation ? "Duplicate Artifact Cleanup" : "Semantic Repair Proposal"}
+        </div>
+        <div className="mt-1 text-xs leading-relaxed text-amber-100/75">
+          {proposal.basisSummary}
+        </div>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <DetailRow label="Current artifact ID" value={proposal.currentArtifactId} />
+        <DetailRow label="Proposed artifact ID" value={proposal.proposedArtifactId} />
+        <DetailRow label="Structured phase ID" value={proposal.proposedPhaseId ?? "not set"} />
+        <DetailRow label="Current JSON path" value={proposal.currentJsonPath} />
+        <DetailRow label="Proposed JSON path" value={proposal.proposedJsonPath} />
+        <DetailRow label="Current Markdown path" value={proposal.currentMarkdownPath} />
+        <DetailRow label="Proposed Markdown path" value={proposal.proposedMarkdownPath} />
+        <DetailRow
+          label="Identity contract"
+          value={proposal.canonicalIdentityContractSource ?? "typed contract unavailable"}
+        />
+        <DetailRow
+          label="Path contract"
+          value={proposal.canonicalPathContractSource ?? "typed contract unavailable"}
+        />
+        <DetailRow label="Registry effect" value={registryEffectSummary(proposal)} />
+        <DetailRow
+          label="Validation payload"
+          value="Validation result and payload content do not change."
+        />
+        <DetailRow
+          label="Authority effects not granted"
+          value="No Work Card approval, Operator acceptance, implementation authority, or phase progression authority is granted."
+        />
+        <DetailRow
+          label="Can alter current routing"
+          value={proposal.canAlterCurrentRouting ? "yes, after the resolver refreshes" : "no"}
+        />
+        <DetailRow
+          label="References affected"
+          value={`Inbound: ${proposal.inboundReferences.length}; outbound: ${proposal.outboundReferences.length}`}
+        />
+      </div>
+      {proposal.inboundReferences.length > 0 ? (
+        <div className="grid gap-2">
+          <div className="text-xs font-semibold text-amber-100/85">
+            Migrated inbound references
+          </div>
+          {proposal.inboundReferences.map((reference) => (
+            <div
+              key={`${reference.artifactId}-${reference.relationshipField}`}
+              className="rounded border border-border bg-black/10 px-3 py-2 text-xs"
+            >
+              <div className="font-semibold text-foreground/85">{reference.artifactId}</div>
+              <div className="mt-1 text-muted-foreground/70">
+                Type: {reference.artifactType}; field: {reference.relationshipField};
+                revision: {reference.revision}; canonical: {reference.canonical ? "yes" : "no"};
+                synchronized: {reference.synchronized ? "yes" : "no"}
+              </div>
+              <div className="mt-1 break-anywhere font-mono text-[11px] text-muted-foreground/65">
+                Replacement: {reference.proposedReplacementValue}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {proposal.duplicateReconciliation ? (
+        <div className="grid gap-3 rounded-md border border-amber-300/30 bg-black/10 p-3">
+          <div>
+            <div className="text-xs font-semibold text-amber-100">
+              {proposal.duplicateReconciliation.title}
+            </div>
+            <div className="mt-1 text-xs leading-relaxed text-amber-100/70">
+              {proposal.duplicateReconciliation.basisSummary}
+              {proposal.duplicateReconciliation.numberedRecordAppearsLater
+                ? " The numbered record appears to be a later record."
+                : ""}
+            </div>
+          </div>
+          <div className="grid gap-2 lg:grid-cols-2">
+            <DuplicateRecordPanel
+              title="Numbered record"
+              record={proposal.duplicateReconciliation.numberedRecord}
+            />
+            <DuplicateRecordPanel
+              title="Fixed-path record"
+              record={proposal.duplicateReconciliation.fixedPathRecord}
+            />
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <RepairInfoSection
+              title="Why this duplicate exists"
+              body="This duplicate was created because an earlier application writer created a new filename instead of revising the existing canonical validation record."
+            />
+            <RepairInfoSection
+              title="Which content will survive"
+              body={
+                duplicateDisposition === "keep_fixed_record_and_delete_duplicate"
+                  ? "The fixed-path record will supply the next canonical payload."
+                  : duplicateDisposition === "use_numbered_record_as_next_canonical_revision"
+                    ? "The numbered record will supply the next canonical payload."
+                    : "Choose one whole record as the canonical survivor."
+              }
+            />
+            <RepairInfoSection
+              title="Which files will be deleted"
+              body={`${proposal.duplicateReconciliation.duplicateJsonPathToDelete}; ${proposal.duplicateReconciliation.duplicateMarkdownPathToDelete}`}
+            />
+            <RepairInfoSection
+              title="What will not change"
+              body="Validation result is preserved from the selected source. No approval is created, no Work Card acceptance is inferred, no implementation authority is granted, and no phase progression is authorized."
+            />
+          </div>
+          <details className="rounded-md border border-border bg-black/10 px-3 py-2 text-xs">
+            <summary className="cursor-pointer font-semibold text-amber-100/85">
+              Final confirmation
+            </summary>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <DetailRow label="Canonical survivor artifact ID" value={proposal.duplicateReconciliation.canonicalArtifactId} />
+              <DetailRow label="Canonical survivor revision" value={String(proposal.duplicateReconciliation.proposedCanonicalRevision)} />
+              <DetailRow label="Canonical JSON path" value={proposal.duplicateReconciliation.canonicalJsonPath} />
+              <DetailRow label="Canonical Markdown path" value={proposal.duplicateReconciliation.canonicalMarkdownPath} />
+              <DetailRow label="Selected payload source" value={duplicateDisposition || "not selected"} />
+              <DetailRow label="Duplicate artifact ID" value={proposal.duplicateReconciliation.numberedRecord.artifactId} />
+              <DetailRow label="Duplicate JSON path" value={proposal.duplicateReconciliation.duplicateJsonPathToDelete} />
+              <DetailRow label="Duplicate Markdown path" value={proposal.duplicateReconciliation.duplicateMarkdownPathToDelete} />
+              <DetailRow
+                label="Reference rewrites"
+                value={`${proposal.duplicateReconciliation.numberedRecord.inboundReferences.length + proposal.duplicateReconciliation.fixedPathRecord.inboundReferences.length}`}
+              />
+              <DetailRow
+                label="Registry entries affected"
+                value={proposal.duplicateReconciliation.affectedRegistryEntries.join("; ")}
+              />
+              <DetailRow
+                label="Unchanged authority"
+                value="No approval, acceptance, implementation authority, or phase progression is created."
+              />
+            </div>
+          </details>
+          <label className="grid gap-1 text-xs text-foreground/80">
+            Selected content source
+            <select
+              value={duplicateDisposition}
+              onChange={(event) =>
+                onDuplicateDispositionChange(
+                  event.target.value as ChampCityDuplicateOperatorValidationDisposition | "",
+                )
+              }
+              className={selectCls}
+            >
+              <option value="">Choose payload authority</option>
+              <option value="use_numbered_record_as_next_canonical_revision">
+                Use numbered record as next canonical revision
+              </option>
+            <option value="keep_fixed_record_and_delete_duplicate">
+                Keep fixed validation and delete duplicate
+              </option>
+            </select>
+            <span className="text-[11px] text-muted-foreground/70">
+              Field-level merging is not available in this pass. Choose one complete validation record as the canonical survivor.
+            </span>
+          </label>
+          <div className="rounded-md border border-amber-300/30 bg-amber-300/[0.06] px-3 py-2 text-xs leading-relaxed text-amber-100/80">
+            <div className="font-semibold text-amber-100">
+              Neither complete record should be selected
+            </div>
+            <div className="mt-1">
+              This cleanup supports choosing one complete validation record as the canonical survivor. Field-level merging is not available in this pass. Do not run cleanup when neither record is acceptable.
+            </div>
+            <div className="mt-1">
+              Leave this item unresolved and obtain a separately authorized repair design for field-level reconciliation. No files, Registry entries, references, validation decisions, or workflow authority will be changed.
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <div className="grid gap-2">
+        {proposal.fieldDecisions.map((decision) => (
+          <div
+            key={decision.field}
+            className="rounded border border-border bg-black/10 px-3 py-2 text-xs"
+          >
+            <div className="font-semibold text-foreground/85">{decision.field}</div>
+            <div className="mt-1 text-muted-foreground/70">
+              Current: {decision.currentValue ?? "not set"}; proposed:{" "}
+              {decision.proposedValue ?? "not set"}; decision:{" "}
+              {decision.decisionState}
+            </div>
+            <div className="mt-1 text-muted-foreground/60">
+              {decision.evidence.join(" ")}
+            </div>
+          </div>
+        ))}
+      </div>
+      {proposal.numberedLegacyPath && !proposal.duplicateReconciliation ? (
+        <label className="grid gap-1 text-xs text-foreground/80">
+          Numbered legacy path disposition
+          <select
+            value={disposition}
+            onChange={(event) =>
+              onDispositionChange(
+                event.target.value as ChampCityNumberedLegacyPathDisposition | "",
+              )
+            }
+            className={selectCls}
+          >
+            <option value="">Choose explicit disposition</option>
+            <option value="migrate_to_canonical_fixed_path">
+              Migrate to canonical fixed path
+            </option>
+          </select>
+          <span className="text-[11px] text-muted-foreground/70">
+            Historical duplicate, distinct historical artifact, and manual field-selection
+            dispositions are forthcoming constrained workflows and are not selectable in this pass.
+          </span>
+        </label>
+      ) : null}
+      {proposal.collision && !proposal.duplicateReconciliation ? (
+        <Notice type="error">{proposal.collision}</Notice>
+      ) : null}
+      {proposal.unresolvedReferenceMigration ? (
+        <Notice type="error">{proposal.unresolvedReferenceMigration}</Notice>
+      ) : null}
+      {proposal.conflictingCandidates.length > 0 ? (
+        <Notice type="error">{proposal.conflictingCandidates.join(" ")}</Notice>
+      ) : null}
+    </div>
+  );
+}
+
+function DeterministicRepairPlanPanel({
+  plan,
+  duplicateDisposition,
+  onDuplicateDispositionChange,
+}: {
+  plan: NonNullable<
+    ChampCityGovernanceRepairPreviewResult["candidates"][number]["deterministicRepairPlan"]
+  >;
+  duplicateDisposition: ChampCityDuplicateOperatorValidationDisposition | "";
+  onDuplicateDispositionChange: (value: ChampCityDuplicateOperatorValidationDisposition | "") => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-md border border-amber-400/25 bg-amber-400/[0.04] p-3">
+      <div>
+        <div className="text-sm font-semibold text-amber-200">{plan.title}</div>
+        <p className="mt-1 text-xs leading-relaxed text-amber-100/75">
+          {plan.previewSummary}
+        </p>
+      </div>
+      {plan.requiresDuplicateDisposition ? (
+        <div className="grid gap-2">
+          <label className="flex items-start gap-2 rounded border border-border bg-white/[0.02] p-2 text-xs text-foreground/80">
+            <input
+              type="radio"
+              name="legacy-closeout-disposition"
+              checked={duplicateDisposition === "keep_fixed_record_and_delete_duplicate"}
+              onChange={() => onDuplicateDispositionChange("keep_fixed_record_and_delete_duplicate")}
+            />
+            <span>{plan.fixedRecordLabel}</span>
+          </label>
+          <label className="flex items-start gap-2 rounded border border-border bg-white/[0.02] p-2 text-xs text-foreground/80">
+            <input
+              type="radio"
+              name="legacy-closeout-disposition"
+              checked={duplicateDisposition === "use_numbered_record_as_next_canonical_revision"}
+              onChange={() =>
+                onDuplicateDispositionChange("use_numbered_record_as_next_canonical_revision")
+              }
+            />
+            <span>{plan.numberedRecordLabel}</span>
+          </label>
+        </div>
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Files affected
+          </div>
+          <ul className="mt-1 grid gap-1">
+            {plan.affectedFiles.map((file) => (
+              <li key={file} className="break-anywhere font-mono text-[10px] text-foreground/75">
+                {file}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Registry entries affected
+          </div>
+          <ul className="mt-1 grid gap-1">
+            {plan.affectedRegistryEntries.map((entry) => (
+              <li key={entry} className="break-anywhere font-mono text-[10px] text-foreground/75">
+                {entry}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GovernanceRepairRequestPreviewPanel({
+  preview,
+  existingRequest,
+  operatorNote,
+  onOperatorNoteChange,
+  acknowledged,
+  onAcknowledgedChange,
+  error,
+}: {
+  preview: ChampCityGovernanceRepairSpecificationRequestPreview | null;
+  existingRequest?: NonNullable<
+    ChampCityGovernanceRepairPreviewResult["candidates"][number]["existingSpecificationRequest"]
+  >;
+  operatorNote: string;
+  onOperatorNoteChange: (value: string) => void;
+  acknowledged: boolean;
+  onAcknowledgedChange: (value: boolean) => void;
+  error: string | null;
+}) {
+  const shownExisting = existingRequest ?? preview?.existingRequest;
+  const target = preview?.targetSnapshot;
+  const flags = preview?.governanceFlags;
+  return (
+    <div className="grid gap-3 rounded-md border border-amber-400/25 bg-amber-400/[0.04] p-3">
+      <div>
+        <div className="text-xs font-semibold text-amber-200">
+          Governance Repair Request Preview
+        </div>
+        <div className="mt-1 text-xs leading-relaxed text-amber-100/75">
+          Architect repair specification is requested without mutating the target or creating a Work Card.
+        </div>
+      </div>
+      {shownExisting ? (
+        <div className="grid gap-2 rounded border border-emerald-400/25 bg-emerald-400/[0.05] p-2 text-xs text-emerald-100/80">
+          <div className="font-semibold text-emerald-200">Repair request already created</div>
+          <DetailRow label="Artifact ID" value={shownExisting.artifactId} />
+          <DetailRow label="Revision" value={String(shownExisting.revision)} />
+          <DetailRow label="Status" value={shownExisting.status} />
+          <DetailRow label="JSON path" value={shownExisting.jsonPath} />
+          <DetailRow label="Markdown path" value={shownExisting.markdownPath} />
+          <DetailRow label="Expected Work Card" value={shownExisting.expectedRepairWorkCardArtifactId} />
+          <button
+            type="button"
+            className="mt-1 w-fit rounded border border-emerald-300/30 px-2 py-1 text-[11px] text-emerald-100"
+          >
+            Open Architect specification
+          </button>
+        </div>
+      ) : null}
+      {!shownExisting ? (
+        <>
+          <label className="grid gap-1 text-xs text-foreground/80">
+            <span className="font-semibold text-foreground/75">Additional Operator note</span>
+            <textarea
+              value={operatorNote}
+              onChange={(event) => onOperatorNoteChange(event.target.value)}
+              rows={3}
+              className="rounded border border-border bg-background/60 px-2 py-2 text-xs text-foreground outline-none focus:border-primary/50"
+            />
+          </label>
+          {error ? <Notice type="error">{error}</Notice> : null}
+          {preview ? (
+            <div className="grid gap-3">
+              <div className="grid gap-2 md:grid-cols-2">
+                <DetailRow label="Target artifact ID" value={target?.targetArtifactId ?? ""} />
+                <DetailRow label="Target artifact type" value={target?.artifactType ?? ""} />
+                <DetailRow label="Revision/status" value={`${target?.revision ?? ""} / ${target?.status ?? ""}`} />
+                <DetailRow label="JSON path" value={target?.jsonPath ?? ""} />
+                <DetailRow label="Markdown path" value={target?.markdownPath ?? ""} />
+                <DetailRow label="Issue and block" value={`${target?.issueType ?? ""} / ${target?.blockReason ?? target?.verificationError ?? ""}`} />
+                <DetailRow label="Registry state" value={target?.registryStatus ?? ""} />
+                <DetailRow label="Routing impact" value={target?.canAffectRouting ? "Can affect routing" : "No current routing impact"} />
+                <DetailRow label="Candidate fingerprint" value={target?.candidateFingerprint ?? ""} />
+                <DetailRow label="Projection revision" value={String(target?.projectionRevision ?? "")} />
+                <DetailRow label="Request artifact ID" value={preview.requestArtifactId ?? ""} />
+                <DetailRow label="Fixed JSON path" value={preview.fixedJsonPath ?? ""} />
+                <DetailRow label="Fixed Markdown path" value={preview.fixedMarkdownPath ?? ""} />
+                <DetailRow label="Expected Work Card ID" value={preview.expectedRepairWorkCardId ?? ""} />
+                <DetailRow label="Expected Work Card artifact ID" value={preview.expectedRepairWorkCardArtifactId ?? ""} />
+              </div>
+              <RepairInfoSection
+                title="Conflicts and ambiguity"
+                body={[
+                  ...(target?.conflictingCandidateDescriptions ?? []),
+                  target?.collision,
+                  target?.unresolvedReferenceMigration,
+                ].filter(Boolean).join(" | ") || "No additional conflict details in the current snapshot."}
+              />
+              <RepairInfoSection
+                title="Governance effects"
+                body={
+                  flags
+                    ? Object.entries(flags).map(([key, value]) => `${key}: ${String(value)}`).join(" | ")
+                    : "Governance effects unavailable."
+                }
+              />
+              <label className="flex gap-2 rounded border border-amber-300/20 bg-black/10 p-2 text-xs leading-relaxed text-amber-100/80">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={(event) => onAcknowledgedChange(event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I understand this creates an Architect-owned specification request. It does not repair the target, create a Work Card, authorize implementation, approve evidence, or advance normal workflow.
+                </span>
+              </label>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function DuplicateRecordPanel({
+  title,
+  record,
+}: {
+  title: string;
+  record: NonNullable<
+    NonNullable<
+      ChampCityGovernanceRepairPreviewResult["candidates"][number]["semanticProposal"]
+    >["duplicateReconciliation"]
+  >["numberedRecord"];
+}) {
+  return (
+    <div className="grid gap-2 rounded border border-border bg-white/[0.025] p-2 text-xs">
+      <div className="font-semibold text-foreground/85">{title}</div>
+      <DetailRow label="Artifact ID" value={record.artifactId} />
+      <DetailRow label="Revision" value={String(record.revision)} />
+      <DetailRow label="Created" value={record.createdAt} />
+      <DetailRow label="Updated" value={record.updatedAt} />
+      <DetailRow label="Status" value={record.status} />
+      <DetailRow label="Payload hash" value={record.payloadHash} />
+      <DetailRow label="Content Markdown hash" value={record.contentMarkdownHash} />
+      <DetailRow label="Validation result" value={record.validationResult ?? "not set"} />
+      <DetailRow label="Validation decision" value={record.validationDecision ?? "not set"} />
+      <DetailRow label="Payload differences" value={record.payloadDifferenceSummary} />
+      <DetailRow
+        label="Payload fields added"
+        value={record.structuredPayloadFieldsAdded.join("; ") || "none"}
+      />
+      <DetailRow
+        label="Payload fields removed"
+        value={record.structuredPayloadFieldsRemoved.join("; ") || "none"}
+      />
+      <DetailRow
+        label="Payload fields changed"
+        value={record.structuredPayloadFieldsChanged.join("; ") || "none"}
+      />
+      <DetailRow
+        label="Title differences"
+        value={record.titleDifferences.join("; ") || "none"}
+      />
+      <DetailRow
+        label="Validation sections changed"
+        value={record.recognizedValidationSectionDifferences.join("; ") || "none"}
+      />
+      <DetailRow label="JSON path" value={record.jsonPath} />
+      <DetailRow label="Markdown path" value={record.markdownPath} />
+      <DetailRow label="Registry status" value={record.registryStatus} />
+      <DetailRow
+        label="References"
+        value={`Inbound: ${record.inboundReferences.length}; outbound: ${record.outboundReferences.length}`}
+      />
+    </div>
+  );
+}
+
+function repairKey(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  return `${item.artifactId}|${item.revision}|${item.jsonPath}`;
+}
+
+function approvalKey(
+  item: ChampCityGovernanceApprovalQueueResult["items"][number],
+): string {
+  return `${item.targetArtifactId}|${item.revision}|${item.jsonPath}`;
+}
+
+function formatGovernanceIssue(
+  issue: ChampCityGovernanceRepairPreviewResult["candidates"][number]["issueClassification"],
+): string {
+  return issue.replaceAll("_", " ");
+}
+
+function formatPayloadImpact(
+  impact: ChampCityGovernanceRepairPreviewResult["candidates"][number]["payloadImpact"],
+): string {
+  if (impact === "would_change") return "would change";
+  if (impact === "unknown") return "unknown";
+  return "unchanged";
+}
+
+function formatGovernanceItemStatus(
+  status: ChampCityGovernanceRepairPreviewResult["candidates"][number]["itemStatus"],
+): string {
+  if (status === "operator_semantic_decision_required") {
+    return "Operator review required";
+  }
+  if (status === "automatic_repair_available") {
+    return "Automatic repair available";
+  }
+  if (status === "irreconcilable_conflict") {
+    return "Blocked";
+  }
+  return String(status).replaceAll("_", " ");
+}
+
+function formatGovernanceRepairState(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+  reviewOpen: boolean,
+  numberedDisposition: ChampCityNumberedLegacyPathDisposition | "",
+  duplicateDisposition: ChampCityDuplicateOperatorValidationDisposition | "",
+): string {
+  if (item.repairKind !== "semantic_identity_repair" || !item.semanticProposal) {
+    return formatGovernanceRepairStatus(item.repairStatus);
+  }
+  if (hasBlockingSemanticEvidence(item.semanticProposal)) {
+    return "Blocked";
+  }
+  if (!reviewOpen) {
+    return "Review available";
+  }
+  if (
+    item.semanticProposal.duplicateReconciliation &&
+    duplicateDisposition !== "use_numbered_record_as_next_canonical_revision" &&
+    duplicateDisposition !== "keep_fixed_record_and_delete_duplicate"
+  ) {
+    return "Awaiting survivor selection";
+  }
+  if (
+    item.semanticProposal.requiredDisposition === "numbered_legacy_path" &&
+    !item.semanticProposal.duplicateReconciliation &&
+    numberedDisposition !== "migrate_to_canonical_fixed_path"
+  ) {
+    return "Awaiting disposition selection";
+  }
+  return "Ready to apply selected review";
+}
+
+function formatGovernanceRepairStatus(
+  status: ChampCityGovernanceRepairPreviewResult["candidates"][number]["repairStatus"],
+): string {
+  if (status === "review_available") return "Review available";
+  return status.replaceAll("_", " ");
+}
+
+function repairScopeExplanation(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.repairKind === "canonical_serialization_repair") {
+    return "Rewrites the JSON and Markdown envelope into canonical serialization. Payload content and artifact identity remain unchanged.";
+  }
+  if (item.repairKind === "missing_registry_registration") {
+    return "Adds the existing verified pair to the Artifact Registry. The files, payload, and artifact identity remain unchanged.";
+  }
+  if (item.repairKind === "semantic_identity_repair") {
+    return "Changes explicitly listed artifact identity or metadata fields, rewrites the synchronized JSON/Markdown pair, updates Registry authority, and updates validated exact references where authorized. It does not approve, validate, accept, or advance the underlying workflow decision.";
+  }
+  return "Creates a bounded in-app repair request because the conflict cannot be safely represented as serialization, registration, or deterministic semantic identity repair.";
+}
+
+function whyGovernanceRecordIsHere(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.itemStatus === "automatic_repair_available") {
+    return "Governance maintenance found a canonical record that can be repaired automatically after Operator confirmation.";
+  }
+  if (item.itemStatus === "operator_semantic_decision_required") {
+    if (item.semanticProposal?.duplicateReconciliation) {
+      return "Governance maintenance found a fixed validation record and a numbered duplicate that resolve to the same phase, Work Card, artifact type, and canonical identity.";
+    }
+    return "Governance maintenance found a synchronized record whose identity or metadata cannot be corrected by serialization or Registry registration alone.";
+  }
+  return "Governance maintenance found conflicting evidence that requires a bounded Architect repair specification.";
+}
+
+function repairWillChange(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.repairKind === "canonical_serialization_repair") {
+    return "Only JSON formatting and Markdown envelope serialization change.";
+  }
+  if (item.repairKind === "missing_registry_registration") {
+    return "Only Registry authority changes; the existing pair is added as-is.";
+  }
+  if (item.semanticProposal) {
+    return item.semanticProposal.fieldDecisions
+      .filter((decision) => decision.decisionState === "proposed")
+      .map((decision) => `${decision.field}: ${decision.currentValue ?? "not set"} -> ${decision.proposedValue ?? "not set"}`)
+      .join("; ") || "No semantic field changes are currently proposed.";
+  }
+  return "No mutation is available until a bounded repair request is created.";
+}
+
+function repairWillNotChange(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.repairKind === "canonical_serialization_repair") {
+    return "Payload content, artifact identity, Registry approval meaning, and workflow status do not change.";
+  }
+  if (item.repairKind === "missing_registry_registration") {
+    return "Files, payload, artifact identity, approval status, validation status, and workflow authorization do not change.";
+  }
+  if (item.repairKind === "semantic_identity_repair") {
+    return "The underlying document is not approved, validated, accepted, or advanced; payload content is preserved.";
+  }
+  return "The app will not expose a raw JSON editor or infer an Operator decision.";
+}
+
+function requiredOperatorDecision(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.itemStatus === "automatic_repair_available") {
+    return "Confirm the automatic repair action for this exact selected item.";
+  }
+  if (item.semanticProposal?.requiredDisposition === "numbered_legacy_path") {
+    if (item.semanticProposal.duplicateReconciliation) {
+      return "Select exactly one whole-record survivor before applying duplicate cleanup.";
+    }
+    return "Choose the typed disposition for the numbered legacy path before applying semantic repair.";
+  }
+  if (item.itemStatus === "operator_semantic_decision_required") {
+    return "Review the proposed identity fields. No phase or artifact ID is silently applied.";
+  }
+  return "Create a bounded repair request for Architect specification.";
+}
+
+function registryEffectSummary(
+  proposal: NonNullable<
+    ChampCityGovernanceRepairPreviewResult["candidates"][number]["semanticProposal"]
+  >,
+): string {
+  return proposal.affectedRegistryEntry
+    ? `Replace ${proposal.affectedRegistryEntry} with ${proposal.proposedArtifactId}`
+    : `Register ${proposal.proposedArtifactId}`;
+}
+
+function governanceDefectSummary(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.semanticProposal?.duplicateReconciliation) {
+    return "A numbered duplicate was created instead of a new revision of the fixed canonical record.";
+  }
+  if (item.repairKind === "missing_registry_registration") {
+    return "The canonical synchronized pair is missing from the Artifact Registry.";
+  }
+  if (item.issueClassification === "noncanonical_serialization") {
+    return "The pair represents the same artifact and payload but is not written in canonical JSON and Markdown serialization.";
+  }
+  if (item.issueClassification === "semantic_identity_mismatch") {
+    return "The artifact identity or metadata does not match the canonical project, phase, Work Card, artifact type, and path evidence.";
+  }
+  if (item.issueClassification === "irreconcilable_semantic_conflict") {
+    return "The artifact evidence conflicts in a way that cannot be safely repaired without a separately authorized design.";
+  }
+  return item.blockReason ?? item.verificationError;
+}
+
+function governanceSerializationStatus(
+  item: ChampCityGovernanceRepairPreviewResult["candidates"][number],
+): string {
+  if (item.semanticProposal?.duplicateReconciliation) {
+    return "Canonical and synchronized";
+  }
+  if (item.issueClassification === "noncanonical_serialization") {
+    return "Noncanonical serialization";
+  }
+  return item.verificationError === "Pair is canonical."
+    ? "Canonical and synchronized"
+    : item.verificationError;
+}
+
+function formatGovernanceRegistryStatus(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
+function semanticApplyStatus(
+  proposal: NonNullable<
+    ChampCityGovernanceRepairPreviewResult["candidates"][number]["semanticProposal"]
+  >,
+  disposition: ChampCityNumberedLegacyPathDisposition | "",
+  duplicateDisposition: ChampCityDuplicateOperatorValidationDisposition | "",
+): string {
+  if (proposal.collision && !proposal.duplicateReconciliation) return proposal.collision;
+  if (proposal.conflictingCandidates.length > 0) {
+    return `Blocked by conflicting evidence: ${proposal.conflictingCandidates.join(" ")}`;
+  }
+  if (proposal.unresolvedReferenceMigration) {
+    return `Unresolved inbound reference disables Apply: ${proposal.unresolvedReferenceMigration}.`;
+  }
+  if (
+    proposal.requiredDisposition === "numbered_legacy_path" &&
+    !proposal.duplicateReconciliation &&
+    disposition !== "migrate_to_canonical_fixed_path"
+  ) {
+    return "Choose Migrate to canonical fixed path to apply this proposal.";
+  }
+  if (
+    proposal.duplicateReconciliation &&
+    duplicateDisposition !== "use_numbered_record_as_next_canonical_revision" &&
+    duplicateDisposition !== "keep_fixed_record_and_delete_duplicate"
+  ) {
+    return "Awaiting survivor selection.";
+  }
+  if (proposal.duplicateReconciliation) {
+    return "Duplicate cleanup will reread both pairs, verify exact revisions and payload hashes, migrate safe inbound references, update Registry authority, delete the erroneous duplicate pair, refresh the snapshot, and rerun the resolver.";
+  }
+  return "Apply canonical identity migration will reread the selected pair, verify typed evidence, migrate safe inbound references, update Registry authority, refresh the snapshot, and rerun the resolver.";
+}
+
+function hasBlockingSemanticEvidence(
+  proposal: NonNullable<
+    ChampCityGovernanceRepairPreviewResult["candidates"][number]["semanticProposal"]
+  >,
+): boolean {
+  return Boolean(
+    (proposal.collision && !proposal.duplicateReconciliation) ||
+      proposal.conflictingCandidates.length > 0 ||
+      proposal.unresolvedReferenceMigration,
   );
 }
 
@@ -8589,6 +10471,23 @@ function ScreenLayout({
   );
 }
 
+function WorkflowScreen({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-5">
+      <ScreenIntro title={title} description={subtitle} />
+      {children}
+    </div>
+  );
+}
+
 function ScreenIntro({
   title,
   description,
@@ -8716,8 +10615,14 @@ function ActionBar({
   saveDisabled?: boolean;
   copyDisabled?: boolean;
   statusMessage?: string;
-  statusType?: "success" | "error";
+  statusType?: "success" | "warning" | "error";
 }) {
+  const statusClass =
+    statusType === "success"
+      ? "text-emerald-400"
+      : statusType === "warning"
+        ? "text-amber-400"
+        : "text-red-400";
   return (
     <div className="sticky bottom-0 mt-auto flex flex-wrap items-start justify-between gap-2 border-t border-white/[0.05] bg-card/95 pt-3">
       <div className="min-h-[20px] min-w-[14rem] flex-1 basis-64">
@@ -8725,11 +10630,13 @@ function ActionBar({
           <span
             className={cn(
               "inline-flex max-w-full items-start gap-1.5 whitespace-normal break-words text-[11px] font-medium leading-snug",
-              statusType === "success" ? "text-emerald-400" : "text-red-400",
+              statusClass,
             )}
           >
             {statusType === "success" ? (
               <CheckCircle size={11} className="shrink-0" />
+            ) : statusType === "warning" ? (
+              <AlertTriangle size={11} className="shrink-0" />
             ) : (
               <X size={11} className="shrink-0" />
             )}

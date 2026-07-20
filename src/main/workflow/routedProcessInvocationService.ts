@@ -111,7 +111,8 @@ export class RoutedProcessInvocationService {
     }
     if (
       variant.expectedOutputArtifactType !==
-      routedAction.expectedOutput.artifactType
+      routedAction.expectedOutput.artifactType &&
+      !isGovernanceRepairSpecificationRequest(policy, routedAction)
     ) {
       throw new RoutedProcessInvocationError(
         "output_type_mismatch",
@@ -242,6 +243,18 @@ function assertRendererBinding(
       "The renderer routed-action binding is stale or mismatched; refresh Current Action.",
     );
   }
+}
+
+function isGovernanceRepairSpecificationRequest(
+  policy: RoutedProcessIpcPolicy,
+  routedAction: RoutedActionContract,
+): boolean {
+  return (
+    routedAction.actionId === "governance_integrity_repair_required" &&
+    routedAction.expectedOutput.relationship === "in_place_mutation_target" &&
+    (policy.channel === "governanceRepair:previewSpecificationRequest" ||
+      policy.channel === "governanceRepair:createSpecificationRequest")
+  );
 }
 
 function isSuccessfulResult(value: unknown): boolean {

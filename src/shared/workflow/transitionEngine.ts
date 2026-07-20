@@ -28,6 +28,8 @@ export interface WorkflowActionBinding {
   targetArtifactId: string | null;
   sourceArtifactIds: string[];
   expectedOutputArtifactId: string;
+  expectedOutputArtifactType?: string;
+  expectedOutputRelationship?: "artifact_creation_output" | "in_place_mutation_target";
 }
 
 export interface ExecutableTransitionRule {
@@ -197,7 +199,8 @@ export function materializeActionCatalog(
       sourceArtifactIds: [...binding.sourceArtifactIds],
       expectedOutput: {
         artifactId: binding.expectedOutputArtifactId,
-        artifactType: template.expectedOutputArtifactType,
+        artifactType: binding.expectedOutputArtifactType ?? template.expectedOutputArtifactType,
+        relationship: binding.expectedOutputRelationship ?? "artifact_creation_output",
       },
       routes: { ...template.routes },
     };

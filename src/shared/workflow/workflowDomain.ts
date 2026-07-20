@@ -113,6 +113,7 @@ export interface WorkflowArtifactState {
   parentArtifactId: string | null;
   status: string;
   revision: number;
+  payloadHash: string;
   title: string;
   jsonPath: string;
   markdownPath: string;
@@ -127,10 +128,13 @@ export interface WorkflowApprovalState {
   approvedArtifactId: string;
   approvalScope: string;
   phaseId: string | null;
+  decision: string | null;
   approvedRevision: number | null;
+  approvedPayloadHash: string | null;
   sourceArtifactIds: string[];
   expectedOutputArtifactIds: string[];
   implementationAuthorized: boolean;
+  phaseProgressionAuthorized: boolean;
 }
 
 export interface WorkflowCurrentActionIdentity {
@@ -144,6 +148,7 @@ export interface WorkflowCurrentActionIdentity {
   sourceArtifactIds: string[];
   expectedOutputArtifactId: string;
   expectedOutputArtifactType: string;
+  expectedOutputRelationship: "artifact_creation_output" | "in_place_mutation_target";
   authorizedOperations: readonly string[];
   stateRevision: number;
 }
@@ -169,6 +174,7 @@ export interface WorkflowImplementerAssignment {
 export interface WorkflowDomain {
   project: WorkflowProjectIdentity;
   phases: WorkflowPhaseIdentity[];
+  lifecycleActivePhaseId: string | null;
   activePhaseId: string | null;
   planArtifactId: string | null;
   candidates: WorkflowCandidateIdentity[];
@@ -223,6 +229,8 @@ export function actionIdentityFromCatalog(
     targetWorkCardArtifactId?: string | null;
     sourceArtifactIds: readonly string[];
     expectedOutputArtifactId: string;
+    expectedOutputArtifactType?: string;
+    expectedOutputRelationship?: "artifact_creation_output" | "in_place_mutation_target";
     stateRevision: number;
   },
 ): WorkflowCurrentActionIdentity {
@@ -236,7 +244,10 @@ export function actionIdentityFromCatalog(
     screenId: catalogEntry.screenId,
     sourceArtifactIds: uniqueNonEmpty(input.sourceArtifactIds),
     expectedOutputArtifactId: input.expectedOutputArtifactId,
-    expectedOutputArtifactType: catalogEntry.expectedOutputArtifactType,
+    expectedOutputArtifactType:
+      input.expectedOutputArtifactType ?? catalogEntry.expectedOutputArtifactType,
+    expectedOutputRelationship:
+      input.expectedOutputRelationship ?? "artifact_creation_output",
     authorizedOperations: catalogEntry.authorizedOperations,
     stateRevision: input.stateRevision,
   };

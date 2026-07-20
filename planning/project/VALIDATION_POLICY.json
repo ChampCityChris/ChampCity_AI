@@ -5,12 +5,12 @@
   "jsonPath": "planning/project/VALIDATION_POLICY.json",
   "markdownPath": "planning/project/VALIDATION_POLICY.md",
   "payload": {
-    "contentMarkdown": "# Validation Policy\n\n## Automated Validation\n\n- Unit-test Work Card schema and serialization.\n- Test prompt composition with fixed example cards.\n- Test risk-router examples.\n- Confirm Markdown files are readable outside the app.\n- Confirm no secrets are written to Work Cards or `AGENTS.md`.\n- Confirm the Electron renderer cannot perform arbitrary filesystem writes.\n\n## Manual Validation\n\n- Manually validate the end-to-end flow with one bug and one feature once the Work Card workflow exists.\n- Confirm captured Implementer reports include files changed, checks run, skipped checks, manual validation, and residual risks.\n\n## Current Automated Checks\n\n- `npm run typecheck`\n- `npm run build`\n- `npm test`\n- `npm run test:work-cards` when the build environment allows it.\n\n## WC08 Validation Note\n\n- For Phase 02 WC08, automated validation must use the documented validation lane in `docs/dev/VALIDATION_COMMAND_LANES.md`.\n- Manual Operator validation must confirm that next-phase planning artifacts are labeled Draft / Pending Review / Not Active, that Work Card Plans do not create Formal Work Cards, that Work Card Plan Review presents proposed entries as Not Executable, that Phase Closeout includes a Next Phase Activation decision, and that Ad Hoc Work Card Capture is not presented as the normal next step after phase planning.\n- Manual Operator validation must confirm Ad Hoc Work Card Capture explains manual/ad hoc field authority and does not silently combine a selected Work Card with newly entered phase/work-card values.\n- Implementers may run non-acceptance smoke checks, but Operator acceptance and Phase 02 closeout remain Operator-owned.\n",
+    "contentMarkdown": "# Validation Policy\n\n## Automated Validation\n\n- Unit-test Work Card schema and serialization.\n- Test prompt composition with fixed example cards.\n- Test risk-router examples.\n- Confirm Markdown files are readable outside the app.\n- Confirm no secrets are written to Work Cards or `AGENTS.md`.\n- Confirm the Electron renderer cannot perform arbitrary filesystem writes.\n\n## Manual Validation\n\n- Manually validate the end-to-end flow with one bug and one feature once the Work Card workflow exists.\n- Confirm captured Implementer reports include files changed, checks run, skipped checks, manual validation, and residual risks.\n\n## Current Automated Checks\n\n- `npm run typecheck`\n- `npm run build`\n- `npm test`\n- `npm run test:work-cards` when the build environment allows it.\n\n## Repository Code, Test, and Migration Boundary\n\n- Production behavior belongs under `src/` or another explicitly approved runtime package.\n- Tests remain in the source repository but do not ship as runtime code.\n- Tests should be organized by stable capability, not permanently by Work Card.\n- Work-Card-specific tests and abandoned migrations must not track unrelated future production changes.\n- Every Work Card must identify its capability tests, temporary fixtures, migration obligations, and package impact.\n- Boundary authority: `docs/architecture/REPOSITORY_CODE_TEST_AND_MIGRATION_BOUNDARY.md`.\n\n## WC08 Validation Note\n\n- For Phase 02 WC08, automated validation must use the documented validation lane in `docs/dev/VALIDATION_COMMAND_LANES.md`.\n- Manual Operator validation must confirm that next-phase planning artifacts are labeled Draft / Pending Review / Not Active, that Work Card Plans do not create Formal Work Cards, that Work Card Plan Review presents proposed entries as Not Executable, that Phase Closeout includes a Next Phase Activation decision, and that Ad Hoc Work Card Capture is not presented as the normal next step after phase planning.\n- Manual Operator validation must confirm Ad Hoc Work Card Capture explains manual/ad hoc field authority and does not silently combine a selected Work Card with newly entered phase/work-card values.\n- Implementers may run non-acceptance smoke checks, but Operator acceptance and Phase 02 closeout remain Operator-owned.\n",
     "data": {},
     "kind": "supporting_document",
     "title": "Validation Policy"
   },
-  "payloadHash": "sha256:ce0b33a8318443a65badcf498dfdb10302442c1a4463945ad8442fccd51fae06",
+  "payloadHash": "sha256:341371af70269fba5623d62c5e42c6224a234b479ebffc057f7ef9560d0693a4",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -18,8 +18,8 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-14T00:00:00.000Z"
+  "updatedAt": "2026-07-20T02:02:10.353Z"
 }

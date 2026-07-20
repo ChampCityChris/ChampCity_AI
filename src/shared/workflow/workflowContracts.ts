@@ -3,7 +3,7 @@ export const ROUTED_ACTION_SCHEMA_VERSION = "champcity.routed-action.v1" as cons
 export const REFERENCE_NAVIGATION_SCHEMA_VERSION =
   "champcity.reference-navigation.v1" as const;
 
-export const workflowStages = ["capture", "frame", "plan", "build", "prove"] as const;
+export const workflowStages = ["capture", "frame", "plan", "build", "prove", "maintenance"] as const;
 export type WorkflowStage = (typeof workflowStages)[number];
 
 export const workflowRoles = ["operator", "architect", "implementer", "application"] as const;
@@ -38,11 +38,14 @@ export type WorkflowScreenId =
   | "roadmap-update"
   | "next-phase-activation"
   | "route-review-request"
+  | "governance-repair"
+  | "governance-approval"
   | "workflow-complete";
 
 export interface WorkflowArtifactIdentity {
   artifactId: string;
   artifactType: string;
+  relationship?: "artifact_creation_output" | "in_place_mutation_target";
 }
 
 export interface RoutedActionRoutes {
@@ -109,7 +112,7 @@ export interface RoutedActionBindingSource {
 export interface RoutedActionContract {
   schemaVersion: typeof ROUTED_ACTION_SCHEMA_VERSION;
   actionId: string;
-  processId: import("./processContract").CanonicalWorkflowSpineStep;
+  processId: import("./processContract").WorkflowProcessStep;
   processClassification: import("./processContract").ProcessClassification;
   advancesWorkflowState: boolean;
   stage: WorkflowStage;
@@ -177,7 +180,7 @@ export interface CanonicalRoutedScreenViewModel {
 
 export interface WorkflowActionRecord {
   actionId: string;
-  processId: import("./processContract").CanonicalWorkflowSpineStep;
+  processId: import("./processContract").WorkflowProcessStep;
   processClassification: import("./processContract").ProcessClassification;
   advancesWorkflowState: boolean;
   stage: WorkflowStage;

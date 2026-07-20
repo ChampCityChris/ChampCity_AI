@@ -1,6 +1,6 @@
 <!-- champcity-artifact-envelope
 {
-  "artifactId": "champcity-ai/operator_validation/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui",
+  "artifactId": "champcity-ai/phase-02/operator_validation/WC03",
   "artifactType": "operator_validation",
   "createdAt": "2026-07-01T01:37:47.493Z",
   "jsonPath": "planning/phases/phase-02/Validation_Reports/VALIDATION_REPORT_WC03_repair_validation_and_evidence_ui.json",
@@ -10,6 +10,7 @@
     "title": "VALIDATION REPORT WC03 repair validation and evidence ui"
   },
   "payloadHash": "sha256:7ad423bc2231e0a8577a7f3b3ece456dbe02609d7af795a98d8a08d804929edb",
+  "phaseId": "phase-02",
   "projectId": "champcity-ai",
   "relationships": {
     "children": [],
@@ -17,10 +18,10 @@
     "sources": [],
     "supersedes": []
   },
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
-  "updatedAt": "2026-07-01T01:37:47.493Z",
+  "updatedAt": "2026-07-19T21:43:43.284Z",
   "workCardId": "WC03"
 }
 -->

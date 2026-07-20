@@ -12,9 +12,9 @@
       "implementationAuthorized": false,
       "operatorDecisionRecorded": true,
       "operatorStatement": "Approved to close out Phase 06 and begin Phase 07 planning.",
+      "phase07PlanningApproved": true,
       "phaseCloseoutApproved": true,
       "phaseId": "phase-06",
-      "phase07PlanningApproved": true,
       "status": "passed_for_phase_closeout",
       "validatedCommit": "7708682598bc9f66f3f4c8af8da61867aded56bb",
       "workCardId": "WC06"
