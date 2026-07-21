@@ -4,66 +4,47 @@
   "title": "Phase Building Work Card Candidate Selection and Intake Context",
   "status": "approved_design_execution_deferred",
   "owner": "Implementer after Operator release",
-  "risk": "medium",
-  "executionAuthorized": false,
-  "executionReleaseCondition": "WC08 is accepted and the Operator explicitly releases WC09.",
-  "gitMutationAuthorized": false,
-  "purpose": "Select the first eligible incomplete Work Card candidate from the Approved Work_Card_Plan and create its repository-backed Architect Intake handoff without creating a Formal Work Card.",
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
-    "planning/project/Design_Documents/PHASE_MAP_PHASE_INTAKE_AND_PHASE_PLANNING_WORKSPACE_DEFINITION.md",
-    "planning/project/Design_Documents/WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION.md"
+  "risk": "medium-high",
+  "dependsOn": [
+    "WC08"
   ],
-  "lifecycleLocations": [
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "workspaces": [
     {
+      "id": "phase-work-card-selection",
       "level": "phase",
-      "stage": "building"
+      "stage": "building",
+      "order": 10
     },
     {
+      "id": "work-card-intake",
       "level": "workCard",
-      "stage": "intake"
+      "stage": "intake",
+      "order": 10
     }
   ],
-  "candidateSource": "Approved Work_Card_Plan",
-  "candidateCompleteWhen": [
-    "Corresponding Formal Work Card exists and is Approved",
-    "Latest required Implementer Report review is Approved",
-    "Approved Validation_Record exists after the latest repair"
-  ],
-  "candidateEligibleWhen": [
-    "Candidate is incomplete",
-    "Candidate is not deferred, superseded, or satisfied",
-    "All declared predecessor candidates are complete"
-  ],
-  "requiredContext": [
-    "Selected candidate record",
-    "Approved Project_Profile",
-    "Approved Project_Roadmap",
-    "Approved Phase_Map and phase record",
-    "Approved Phase_Interview",
-    "Approved Phase_Planning",
-    "Approved Work_Card_Plan",
-    "Applicable prior Work Card validation and repair evidence",
-    "Relevant repository facts, constraints, risks, and decisions"
-  ],
-  "workspaceRequirements": [
-    "Show candidate order",
-    "Show completion or blocking evidence",
-    "Explain selected candidate",
-    "Preview generated Work Card Intake handoff",
-    "Provide visible continuation to Work Card Planning"
-  ],
+  "candidateContract": "planning/project/Design_Documents/WORK_CARD_CANDIDATE_CONTRACT.md",
+  "handoff": {
+    "path": "planning/phases/<phase-id>/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_<work-card-id>.*",
+    "participationRole": "nonReviewHandoff",
+    "status": "Approved",
+    "outputTarget": "planning/phases/<phase-id>/Work_Cards/<work-card-id>_<slug>.*"
+  },
+  "selectionAuthority": "Current Approved Work_Card_Plan plus repository evidence",
+  "completedDerived": true,
+  "freshnessRule": "Stop and regenerate after upstream source revision.",
   "prohibitedScope": [
-    "Formal Work Card creation or disposition",
+    "Formal Work Card creation",
     "Implementer handoff",
-    "Implementer Report capture or review",
-    "Repair generation",
-    "Operator validation or Work Card close",
-    "Hidden active-card state or current-action routing",
-    "Automatic materialization of all Work Cards",
-    "Separate candidate queue artifacts",
-    "Provider APIs, DOM automation, credential extraction",
-    "Dependency changes",
+    "report review",
+    "repair generation",
+    "Operator validation",
+    "hidden candidate queue",
+    "active-card state",
+    "provider API",
+    "DOM automation",
+    "dependencies",
     "Git operations"
   ],
   "validation": [

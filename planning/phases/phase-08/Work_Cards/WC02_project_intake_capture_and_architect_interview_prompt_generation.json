@@ -6,112 +6,43 @@
   "owner": "Implementer after Operator release",
   "risk": "medium",
   "dependsOn": [
-    "WC01"
+    "WC01",
+    "WC01A",
+    "WC01B"
   ],
   "executionAuthorized": false,
-  "executionReleaseCondition": "WC01 is accepted and the Operator explicitly releases WC02 as the active sequential Phase 08 card.",
   "gitMutationAuthorized": false,
-  "purpose": "Implement the Project Intake Capture workspace, fixed Operator questionnaire, durable Project Intake pair, and deterministic Architect Interview Prompt pair.",
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
-    "planning/project/Design_Documents/PROJECT_INTAKE_LIFECYCLE_AND_WORKSPACE_DEFINITION.md"
-  ],
-  "lifecycleLocation": {
-    "level": "project",
-    "stage": "intake"
-  },
   "workspace": {
     "id": "project-intake-capture",
     "label": "Project Intake Capture",
-    "registryBacked": true,
-    "orderBoundary": "Before Architect Interview"
+    "level": "project",
+    "stage": "intake",
+    "order": 10
   },
-  "fields": [
-    {
-      "id": "projectName",
-      "control": "short_text",
-      "required": true
-    },
-    {
-      "id": "projectPurpose",
-      "control": "long_text",
-      "required": true
-    },
-    {
-      "id": "desiredOutcome",
-      "control": "long_text",
-      "required": true
-    },
-    {
-      "id": "projectType",
-      "control": "dropdown",
-      "required": true
-    },
-    {
-      "id": "projectRepository",
-      "control": "repository_or_folder_selector",
-      "required": true
-    },
-    {
-      "id": "existingSourceOrPlanning",
-      "control": "yes_no",
-      "required": true
-    },
-    {
-      "id": "knownConstraints",
-      "control": "long_text",
-      "required": false
-    },
-    {
-      "id": "repositoryReviewContext",
-      "control": "long_text",
-      "required": false,
-      "visibleWhen": "existingSourceOrPlanning=yes"
-    }
-  ],
-  "projectTypeValues": [
-    "Desktop application",
-    "Web application",
-    "Mobile application",
-    "CLI or tool",
-    "Library or service",
-    "Documentation or process",
-    "Other"
-  ],
-  "outputs": [
-    "planning/project/Project_Intake/PROJECT_INTAKE_<project-slug>.md",
-    "planning/project/Project_Intake/PROJECT_INTAKE_<project-slug>.json",
-    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project-slug>.md",
-    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project-slug>.json"
-  ],
-  "reconciliationBehavior": {
-    "trigger": "existingSourceOrPlanning=yes",
-    "defaultStandaloneArtifact": false,
-    "promptRequirements": [
-      "Architect reviews repository through ChampCity MCP",
-      "Verified repository facts are distinguished from Operator statements and recommendations",
-      "Material findings use repository-relative paths where practical",
-      "Later Project Profile and Roadmap begin from verified current state"
-    ]
+  "repositoryInitialization": "Create only minimal planning/project intake and handoff directories when planning/ is absent.",
+  "outputs": {
+    "projectIntake": "planning/project/Project_Intake/PROJECT_INTAKE_<project-slug>.*",
+    "architectInterviewPrompt": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project-slug>.*",
+    "architectInterviewTarget": "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_<project-slug>.*"
   },
-  "writeRequirements": [
-    "Main/preload mediated repository selection",
-    "Synchronized Markdown/JSON pair writes",
-    "Deterministic filesystem-safe project slug",
-    "Deterministic prompt generation",
-    "Prompt regeneration after intake edits",
-    "No silent partial pair success",
-    "No unresolved prompt-only resolver gate"
+  "dispositionRules": {
+    "projectIntake": "Approved on Operator submit",
+    "architectInterviewPrompt": "Approved nonReviewHandoff"
+  },
+  "revisionRules": [
+    "artifactRevision",
+    "prompt source revision",
+    "prompt regeneration",
+    "downstream invalidation"
   ],
   "prohibitedScope": [
-    "Embedded browser",
-    "MCP browser handoff",
-    "Live Architect interview",
-    "Interview document preview or disposition",
-    "Project Planning generation",
-    "Lifecycle transitions or state store",
-    "Repository reconciliation execution",
-    "Provider SDKs, API keys, cloud services, databases, or new dependencies",
+    "embedded browser",
+    "live interview",
+    "Project Planning",
+    "repository reconciliation execution",
+    "lifecycle persistence",
+    "provider API",
+    "dependencies",
     "Git operations"
   ],
   "validation": [

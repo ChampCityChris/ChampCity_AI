@@ -5,65 +5,42 @@
   "status": "approved_design_execution_deferred",
   "owner": "Implementer after Operator release",
   "risk": "high",
-  "executionAuthorized": false,
-  "executionReleaseCondition": "WC11 is accepted and the Operator explicitly releases WC12.",
-  "gitMutationAuthorized": false,
-  "purpose": "Create bounded sibling repair cards for pre-validation report-review defects and post-validation failures without creating a new lifecycle level.",
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION.md"
-  ],
   "dependsOn": [
-    "WC10",
     "WC11"
   ],
-  "executionLocation": {
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "workspace": {
+    "id": "work-card-repair",
     "level": "workCard",
-    "stage": "building"
+    "stage": "building",
+    "order": 20
+  },
+  "handoff": {
+    "path": "planning/phases/<phase-id>/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_<repair-id>.*",
+    "participationRole": "nonReviewHandoff",
+    "status": "Approved"
   },
   "repairIdPattern": "<parent-id>-REPAIR<nn>",
-  "numberingRule": "Derive the next two-digit suffix from existing sibling repairs for the original parent Work Card.",
-  "repairOrigins": {
-    "pre_validation_report_review": {
-      "trigger": "RevisionRequested Implementer_Report",
-      "validationRecordCreated": false,
-      "returnTarget": "parent_building_review"
-    },
-    "post_validation_failure": {
-      "trigger": "RevisionRequested Validation_Record",
-      "validationRecordPreserved": true,
-      "returnTarget": "parent_validation"
-    }
+  "parentageRule": "Every repair references the original parent; failed repair reports create the next sibling.",
+  "acceptanceSplit": {
+    "preValidation": "production manual acceptance in WC12",
+    "postValidation": "contract/unit tests in WC12; production end-to-end acceptance in WC13"
   },
-  "artifactPathPattern": "planning/phases/<phase-id>/Work_Cards/<parent-id>-REPAIR<nn>_<slug>.(md|json)",
-  "requiredFields": [
-    "Repair ID",
-    "Original parent Work Card ID",
-    "Repair origin",
-    "Exact evidence-source path",
-    "Bounded defect statement",
-    "Authorized repair scope",
-    "Explicit non-scope",
-    "Affected acceptance criteria",
-    "Validation or re-review expectations",
-    "Return target",
-    "Expected Implementer Report path",
-    "Document Disposition"
-  ],
-  "parentageRule": "Every repair references the original parent Work Card; failed repair reports create the next sibling repair, not a nested child.",
-  "handoffCondition": "Repair document is Approved.",
-  "repairReportPathPattern": "planning/phases/<phase-id>/Implementer_Reports/IMPLEMENTER_REPORT_<repair-id>_<slug>.(md|json)",
+  "freshnessRule": "Later repair implementation invalidates prior passing validation for close purposes.",
+  "browserSecurity": "Preserve accepted WC03 security contract.",
   "prohibitedScope": [
-    "New lifecycle level for repairs",
-    "Repair-of-repair parent chains",
-    "Automatic approval or dispatch",
-    "Separate Operator repair-approval artifact",
-    "Validation Record for pre-validation repair",
-    "Automatic validation pass after repair",
-    "Parent Work Card closure",
-    "Phase Validation or Phase Close",
-    "Hidden counters, queues, route tokens, or execution runs",
-    "Provider APIs, DOM automation, credential extraction",
-    "Dependency changes",
+    "new lifecycle level",
+    "nested repair parents",
+    "automatic dispatch",
+    "separate repair approval",
+    "pre-validation Validation Record",
+    "automatic validation pass",
+    "parent close",
+    "hidden counter",
+    "provider API",
+    "DOM automation",
+    "dependencies",
     "Git operations"
   ],
   "validation": [

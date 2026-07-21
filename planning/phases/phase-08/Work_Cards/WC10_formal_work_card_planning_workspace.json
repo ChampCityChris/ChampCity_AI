@@ -4,58 +4,43 @@
   "title": "Formal Work Card Planning Workspace",
   "status": "approved_design_execution_deferred",
   "owner": "Implementer after Operator release",
-  "risk": "medium",
-  "executionAuthorized": false,
-  "executionReleaseCondition": "WC09 is accepted and the Operator explicitly releases WC10.",
-  "gitMutationAuthorized": false,
-  "purpose": "Create and disposition one complete Formal Work Card from the selected approved-plan candidate through the embedded Architect workspace.",
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
-    "planning/project/Design_Documents/WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION.md"
-  ],
+  "risk": "medium-high",
   "dependsOn": [
-    "WC03",
-    "WC09"
+    "WC09",
+    "WC03"
   ],
-  "lifecycleLocation": {
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "workspace": {
+    "id": "work-card-planning",
     "level": "workCard",
-    "stage": "planning"
+    "stage": "planning",
+    "order": 10,
+    "replaces": "Work Card"
   },
-  "workspaceLayout": [
-    "Embedded Architect browser",
-    "Formal Work Card preview and disposition"
+  "input": "Current Approved nonReview Work Card Intake handoff",
+  "artifactPath": "planning/phases/<phase-id>/Work_Cards/<work-card-id>_<slug>.*",
+  "reviewOutcomes": {
+    "Approved": "Work Card Building eligible",
+    "RevisionRequested": "revise same card",
+    "Rejected": "return to Phase Planning bundle revision"
+  },
+  "implementerInstruction": "Approved Formal Work Card",
+  "freshnessRules": [
+    "upstream revisions invalidate Formal Work Card",
+    "Formal Work Card revision invalidates reports, repairs, and Validation Records"
   ],
-  "artifactPathPattern": "planning/phases/<phase-id>/Work_Cards/<work-card-id>_<slug>.(md|json)",
-  "requiredSections": [
-    "Metadata and execution boundary",
-    "Purpose and expected outcome",
-    "Source-candidate and approved-context references",
-    "Implementation scope",
-    "Explicit out-of-scope boundary",
-    "Dependencies, risks, constraints, and protected areas",
-    "Authorized production scope",
-    "Authorized test scope",
-    "Acceptance criteria",
-    "Validation expectations",
-    "Implementer instructions and validation lane",
-    "Required Implementer Report format",
-    "Manual Validation After Architect Review",
-    "Document Disposition"
-  ],
-  "approvalRule": "Only an Approved Formal Work Card may enter Work Card Building.",
-  "implementerInstructionRule": "The Approved Formal Work Card is the complete Implementer instruction.",
+  "browserSecurity": "Preserve accepted WC03 security contract.",
   "prohibitedScope": [
-    "Source-code implementation",
-    "Implementer integration or report capture",
-    "Implementer Report review",
-    "Repair generation",
-    "Operator validation or Validation Records",
-    "Work Card Close or next-candidate progression",
-    "Automatic generation of later Formal Work Cards",
-    "Implementer Execution Packets",
-    "Hidden release or active-card state",
-    "Provider APIs, DOM automation, credential extraction",
-    "Dependency changes",
+    "implementation execution",
+    "report review",
+    "repairs",
+    "Operator validation",
+    "execution packet",
+    "hidden active card",
+    "provider API",
+    "DOM automation",
+    "dependencies",
     "Git operations"
   ],
   "validation": [

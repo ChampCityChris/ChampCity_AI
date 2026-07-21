@@ -5,96 +5,46 @@
   "status": "approved_design_execution_deferred",
   "owner": "Implementer after Operator release",
   "risk": "medium",
-  "executionAuthorized": false,
-  "executionReleaseCondition": "WC14 is accepted and the Operator explicitly releases WC15.",
-  "gitMutationAuthorized": false,
-  "purpose": "Implement the Project Validation governed-corpus review workspace, Project_Closeout creation and disposition, and terminal Project Close completion.",
-  "dependencies": [
-    "WC01",
-    "WC05",
-    "WC06",
+  "dependsOn": [
     "WC14"
   ],
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
-    "planning/project/Design_Documents/PHASE_AND_PROJECT_VALIDATION_CLOSE_WORKSPACE_DEFINITION.md"
-  ],
-  "lifecycleLocations": [
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "workspaces": [
     {
+      "id": "project-validation",
       "level": "project",
-      "stage": "validation"
+      "stage": "validation",
+      "order": 10
     },
     {
+      "id": "project-close",
       "level": "project",
-      "stage": "close"
+      "stage": "close",
+      "order": 10
     }
   ],
-  "workspace": {
-    "id": "project-validation",
-    "layout": [
-      "Project document population browser",
-      "Project_Closeout preview and disposition"
-    ],
-    "embeddedArchitectRequired": false,
-    "populationCapabilities": [
-      "grouping",
-      "navigation",
-      "search",
-      "filtering",
-      "document preview",
-      "phase coverage diagnostics"
-    ]
-  },
-  "entryRequirements": [
-    "Approved Project_Profile and Project_Roadmap",
-    "Approved Phase_Map",
-    "Approved Close Phase_Closeout for every required mapped phase",
-    "Remaining project work explicitly resolved, deferred, transferred, or documented as a known limitation"
-  ],
-  "reviewPopulationGroups": [
-    "Project Intake and Architect Interview",
-    "Project Profile and Project Roadmap",
-    "Phase Map",
-    "Phase Interview and Planning records",
-    "Work Card Plans and Formal Work Cards",
-    "Implementer Reports and repairs",
-    "Validation Records",
-    "Phase Closeouts",
-    "Project observations, risks, decisions, unresolved matters, evidence, and release records"
-  ],
-  "closeoutArtifact": {
+  "entryRule": "Current Approved project planning, Phase Map, Approved Close Phase_Closeout for every required phase, and explicit treatment of remaining work.",
+  "populationRule": "Reference current governed corpus; Architect review is Implementer Report disposition, not a separate artifact.",
+  "closeout": {
     "path": "planning/project/Project_Closeouts/PROJECT_CLOSEOUT_<project-slug>.*",
-    "requiredFields": [
-      "project identity, purpose, and intended outcome",
-      "closure decision",
-      "Operator closure rationale",
-      "phase completion summary",
-      "delivered capabilities or completed outcomes",
-      "known limitations",
-      "unresolved, deferred, transferred, or abandoned work",
-      "observation, risk, and decision reconciliation",
-      "release, completion, or terminal status",
-      "Operator approval statement",
-      "Document.Status"
-    ]
+    "initialStatus": "Pending"
   },
-  "completionRule": "Project Close completes only when Project_Closeout is Approved and closureDecision is Close.",
-  "terminal": true,
-  "blockingRules": [
-    "Block Approved Close when a required Phase Map entry lacks an Approved Close Phase_Closeout",
-    "Block Approved Close when required evidence is missing or contradictory",
-    "Explain blocking records in plain language"
-  ],
+  "completionRule": "Current Project_Closeout is Approved AND closureDecision=Close.",
+  "doNotCloseRule": "Approved DoNotClose remains current at project-validation.",
+  "blockingRule": "Missing, stale, or contradictory required evidence blocks Approved Close with plain-language diagnostics.",
+  "freshnessRule": "Current source revisions determine closeout validity and terminal projection.",
   "prohibitedScope": [
-    "Repeated phase or Work Card validation testing",
-    "Second Project Close approval",
-    "Operator_Project_Closeout_Approval artifacts",
-    "Release approval or deployment workflow",
-    "Automatic new-project creation or routing",
-    "Duplicate project-corpus snapshots",
-    "Hidden project-complete or terminal-state persistence",
-    "Route tokens, role gates, approval queues, hashes, execution runs, or decision timelines",
-    "Dependency changes",
+    "repeated testing",
+    "release deployment approval",
+    "second project approval",
+    "duplicate corpus snapshot",
+    "automatic new project",
+    "hidden terminal state",
+    "route tokens",
+    "provider API",
+    "DOM automation",
+    "dependencies",
     "Git operations"
   ],
   "validation": [

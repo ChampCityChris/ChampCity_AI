@@ -5,81 +5,51 @@
   "status": "approved_design_execution_deferred",
   "owner": "Implementer after Operator release",
   "risk": "high",
-  "executionAuthorized": false,
-  "executionReleaseCondition": "WC12 is accepted and the Operator explicitly releases WC13.",
-  "gitMutationAuthorized": false,
-  "purpose": "Create Operator Validation Records only after validation, derive Work Card close from an Approved record, and return to Phase Building for the next eligible candidate.",
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
-    "planning/project/Design_Documents/WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION.md"
-  ],
   "dependsOn": [
     "WC09",
     "WC11",
     "WC12"
   ],
-  "lifecycleLocations": [
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "workspaces": [
     {
+      "id": "work-card-validation",
       "level": "workCard",
-      "stage": "validation"
+      "stage": "validation",
+      "order": 10,
+      "replaces": "Operator Validation"
     },
     {
+      "id": "work-card-close",
       "level": "workCard",
-      "stage": "close"
+      "stage": "close",
+      "order": 10
     }
   ],
-  "validationEntryRequirements": [
-    "Formal Work Card is Approved",
-    "Current implementation path has an Approved Implementer Report",
-    "All required pre-validation repairs have Approved reports",
-    "No unresolved RevisionRequested or Rejected Implementer Report exists"
-  ],
-  "validationRecordPathPattern": "planning/phases/<phase-id>/Validation_Records/VALIDATION_RECORD_<work-card-id>_ATTEMPT<nn>.(md|json)",
-  "attemptNumberingRule": "Derive the next sequential attempt number from existing validation records for the parent Work Card.",
-  "validationRecordRequiredFields": [
-    "Parent Work Card ID and path",
-    "Validation attempt number",
-    "Current implementation evidence",
-    "Latest applicable repair ID and report",
-    "Validation steps provided",
-    "Steps performed",
-    "Observed results",
-    "Evidence references",
-    "Issues found",
-    "Operator notes",
-    "Document Disposition"
-  ],
-  "dispositionMeanings": {
-    "Pending": "Validation attempt incomplete",
-    "Approved": "Operator validation passed",
-    "RevisionRequested": "Operator validation failed and repair is required",
-    "Rejected": "Operator declines or abandons acceptance; parent Work Card unresolved"
-  },
-  "closeRule": [
-    "Formal Work Card remains Approved",
-    "Current implementation or latest repair Implementer Report is Approved",
-    "Latest applicable Validation Record references that implementation evidence",
-    "Validation Record is Approved"
-  ],
-  "closeEvidence": "Approved Validation_Record",
-  "returnTarget": "Phase / Building through WC09 candidate selection",
+  "validationRecordPath": "planning/phases/<phase-id>/Validation_Records/VALIDATION_RECORD_<work-card-id>_ATTEMPT<nn>.*",
+  "postValidationAcceptance": "Real RevisionRequested validation → repair → approved repair report → new validation → Approved sequence.",
+  "closeEvidence": "Current Approved Validation Record referencing current Approved Work Card and implementation evidence.",
+  "freshnessRule": "Later Work Card, report, or repair revision makes prior passing validation stale for close purposes.",
+  "returnTarget": "phase-work-card-selection through evidence-derived resolver",
   "prohibitedScope": [
-    "Automatic validation or test-result acceptance",
-    "Validation Records before Operator action",
-    "Repair generation beyond invoking WC12",
-    "Separate Work Card closeout or approval artifacts",
-    "Hidden completed or validation-ready flags",
-    "Phase Validation, Phase Close, Project Validation, or Project Close",
-    "Automatic phase activation",
-    "Route tokens, execution runs, role gates, or hash gates",
-    "Provider APIs, DOM automation, credential extraction",
-    "Dependency changes",
+    "automatic validation",
+    "record before Operator action",
+    "duplicate repair generator",
+    "Phase Validation",
+    "phase activation",
+    "route tokens",
+    "execution runs",
+    "provider API",
+    "DOM automation",
+    "dependencies",
     "Git operations"
   ],
   "validation": [
     "npm run typecheck",
     "npm run build",
-    "npm test"
+    "npm test",
+    "real post-validation repair integration lane"
   ],
   "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC13_work_card_validation_close_and_next_candidate_return.md",
   "documentDisposition": {

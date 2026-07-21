@@ -1,0 +1,34 @@
+{
+  "designDocumentId": "WORK_CARD_CANDIDATE_CONTRACT",
+  "projectId": "champcity-ai",
+  "title": "Work Card Candidate Contract",
+  "status": "confirmed_sequence_correction",
+  "fields": [
+    "candidateId",
+    "order",
+    "title",
+    "purpose",
+    "dependsOn",
+    "resolutionStatus",
+    "resolutionReason",
+    "evidencePaths"
+  ],
+  "resolutionStatusValues": [
+    "planned",
+    "deferred",
+    "superseded",
+    "alreadySatisfied",
+    "carriedForward"
+  ],
+  "completedDerived": true,
+  "planRevisionEffects": [
+    "increment Work_Card_Plan revision",
+    "set Phase_Planning and Work_Card_Plan Pending",
+    "invoke downstream invalidation",
+    "require synchronized bundle approval"
+  ],
+  "rejectedFormalWorkCardReturn": "Phase Planning bundle revision",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

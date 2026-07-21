@@ -1,0 +1,34 @@
+{
+  "designDocumentId": "ARTIFACT_SOURCE_REVISION_AND_DOWNSTREAM_INVALIDATION",
+  "projectId": "champcity-ai",
+  "title": "Artifact Source Revision and Downstream Invalidation",
+  "status": "confirmed_sequence_correction",
+  "revisionField": "artifactRevision",
+  "revisionType": "monotonic_integer",
+  "sourceReferenceFields": [
+    "path",
+    "revision"
+  ],
+  "freshnessStates": [
+    "current",
+    "stale",
+    "missing_source",
+    "invalid_source"
+  ],
+  "bundleInvalidation": [
+    "Project_Profile + Project_Roadmap",
+    "Phase_Planning + Work_Card_Plan"
+  ],
+  "validationRule": "Approved validation is current only when it references the current Approved Formal Work Card and latest current Approved implementation evidence.",
+  "prohibitedAuthority": [
+    "hashes",
+    "timestamps",
+    "filesystem order",
+    "Git metadata",
+    "execution runs",
+    "hidden revision database"
+  ],
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

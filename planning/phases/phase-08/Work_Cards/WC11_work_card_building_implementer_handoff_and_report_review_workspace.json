@@ -5,49 +5,45 @@
   "status": "approved_design_execution_deferred",
   "owner": "Implementer after Operator release",
   "risk": "high",
-  "executionAuthorized": false,
-  "executionReleaseCondition": "WC10 is accepted and the Operator explicitly releases WC11.",
-  "gitMutationAuthorized": false,
-  "purpose": "Present the exact Approved Formal Work Card as the Implementer instruction, detect its Implementer Report, and disposition that report through embedded Architect review before Operator validation.",
-  "sourceDesignDocuments": [
-    "planning/project/Design_Documents/WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION.md"
-  ],
   "dependsOn": [
-    "WC03",
-    "WC10"
+    "WC10",
+    "WC03"
   ],
-  "lifecycleLocation": {
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "workspace": {
+    "id": "work-card-building-review",
     "level": "workCard",
-    "stage": "building"
+    "stage": "building",
+    "order": 10
   },
-  "handoffAuthority": "Approved Formal Work Card",
-  "separateExecutionPacket": false,
-  "reportPathPattern": "planning/phases/<phase-id>/Implementer_Reports/IMPLEMENTER_REPORT_<work-card-id>_<slug>.(md|json)",
-  "reportInitialDisposition": "Pending",
-  "reportDispositionMeanings": {
-    "Approved": "Ready for Operator validation",
-    "RevisionRequested": "Bounded repair required before Operator validation",
-    "Rejected": "Report or implementation cannot support continuation; parent Work Card unresolved"
-  },
-  "workspaceRequirements": [
-    "Show Approved Work Card and handoff readiness",
-    "Derive expected report path",
-    "Validate report parent reference",
-    "Preview and refresh report",
-    "Provide report and evidence to embedded Architect through MCP",
-    "Write Architect review directly to report disposition",
-    "Contain missing, malformed, and mismatched report failures"
+  "handoffAuthority": "Current Approved Formal Work Card",
+  "reportPath": "planning/phases/<phase-id>/Implementer_Reports/IMPLEMENTER_REPORT_<work-card-id>_<slug>.*",
+  "reportReferences": [
+    "parent Work Card path",
+    "parent Work Card revision"
   ],
+  "reviewOutcomes": {
+    "Approved": "ready for Operator validation",
+    "RevisionRequested": "pre-validation repair required",
+    "Rejected": "parent unresolved"
+  },
+  "freshnessRules": [
+    "Work Card revision invalidates report",
+    "report revision invalidates later validation"
+  ],
+  "browserSecurity": "Preserve accepted WC03 security contract.",
   "prohibitedScope": [
-    "Source-code execution or direct Codex control",
-    "Separate Implementer Execution Packet",
-    "Repair card generation or repair execution",
-    "Operator validation or Validation Records",
-    "Work Card close or next-candidate selection",
-    "Separate Architect Review artifacts",
-    "Hidden execution state, run records, route tokens, or hash gates",
-    "Provider APIs, DOM automation, credential extraction",
-    "Dependency changes",
+    "direct Codex control",
+    "source execution",
+    "repair creation",
+    "Operator validation",
+    "Validation Record",
+    "Work Card close",
+    "hidden execution state",
+    "provider API",
+    "DOM automation",
+    "dependencies",
     "Git operations"
   ],
   "validation": [
