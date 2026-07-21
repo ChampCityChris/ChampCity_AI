@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const operatorDecisionStages = [
   "project_planning",
   "phase_planning",
@@ -8,6 +10,23 @@ export const operatorDecisionStages = [
 
 export type OperatorDecisionStage = (typeof operatorDecisionStages)[number];
 
+export const operatorStageDecisionValues = [
+  "approved",
+  "revision_requested",
+  "rejected",
+] as const;
+
+export const operatorRecordDispositionValues = [
+  "accepted_as_current",
+  "accepted_as_historical_evidence",
+  "superseded",
+  "merged",
+  "deferred",
+  "cancelled",
+  "invalid",
+  "revision_required",
+] as const;
+
 export interface OperatorDecisionTargetBinding {
   artifactId: string;
   artifactType: string;
@@ -15,25 +34,14 @@ export interface OperatorDecisionTargetBinding {
   payloadHash: string;
 }
 
-export type OperatorStageDecisionValue =
-  | "approved"
-  | "revision_requested"
-  | "rejected";
+export type OperatorStageDecisionValue = (typeof operatorStageDecisionValues)[number];
 
 export interface OperatorStageDecision {
   kind: "stage_decision";
   decision: OperatorStageDecisionValue;
 }
 
-export type OperatorRecordDispositionValue =
-  | "accepted_as_current"
-  | "accepted_as_historical_evidence"
-  | "superseded"
-  | "merged"
-  | "deferred"
-  | "cancelled"
-  | "invalid"
-  | "revision_required";
+export type OperatorRecordDispositionValue = (typeof operatorRecordDispositionValues)[number];
 
 export interface OperatorRecordDisposition {
   kind: "record_disposition";
@@ -135,6 +143,15 @@ export function stableOperatorDecisionTargetSetPayload(input: {
   });
 }
 
+export function computeOperatorDecisionTargetSetHash(input: {
+  stage: OperatorDecisionStage;
+  targets: readonly OperatorDecisionTargetBinding[];
+}): string {
+  return createHash("sha256")
+    .update(stableOperatorDecisionTargetSetPayload(input), "utf8")
+    .digest("hex");
+}
+
 export function operatorDecisionOutcomeEquals(
   left: OperatorDecisionOutcome,
   right: OperatorDecisionOutcome,
@@ -181,9 +198,25 @@ export function validateOperatorDecisionIntentShape(intent: OperatorDecisionInte
     }
     seen.add(target.artifactId);
   }
-  if (intent.outcome.kind === "record_disposition") {
+  if (!isPlainObject(intent.outcome)) {
+    throw new Error("Operator decision outcome is not supported.");
+  }
+  if (intent.outcome.kind !== "stage_decision" && intent.outcome.kind !== "record_disposition") {
+    throw new Error("Operator decision outcome kind is not supported.");
+  }
+  if (intent.outcome.kind === "stage_decision") {
+    if (!operatorStageDecisionValues.includes(intent.outcome.decision)) {
+      throw new Error("Operator stage decision value is not supported.");
+    }
+  } else {
+    if (!operatorRecordDispositionValues.includes(intent.outcome.disposition)) {
+      throw new Error("Operator record disposition value is not supported.");
+    }
     if (intent.outcome.disposition === "merged" && !intent.outcome.canonicalSurvivingArtifactId?.trim()) {
       throw new Error("Merged record dispositions require a canonical surviving artifact ID.");
+    }
+    if (intent.outcome.disposition === "superseded" && !intent.outcome.supersedingArtifactId?.trim()) {
+      throw new Error("Superseded record dispositions require a superseding artifact ID.");
     }
   }
   if (requiresOperatorReason(intent.outcome) && !normalizeOperatorReason(intent.operatorReason)) {
@@ -192,7 +225,12 @@ export function validateOperatorDecisionIntentShape(intent: OperatorDecisionInte
 }
 
 function normalizeOutcome(outcome: OperatorDecisionOutcome): OperatorDecisionOutcome {
-  if (outcome.kind === "stage_decision") return outcome;
+  if (outcome.kind === "stage_decision") {
+    return {
+      kind: "stage_decision",
+      decision: outcome.decision,
+    };
+  }
   return {
     kind: "record_disposition",
     disposition: outcome.disposition,
@@ -203,4 +241,10 @@ function normalizeOutcome(outcome: OperatorDecisionOutcome): OperatorDecisionOut
       ? { supersedingArtifactId: outcome.supersedingArtifactId.trim() }
       : {}),
   };
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }

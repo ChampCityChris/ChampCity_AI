@@ -29,7 +29,12 @@ function Invoke-NpmScript {
   }
 
   Write-Host "Running: npm run $Name"
-  npm run $Name
+  & npm.cmd run $Name
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0) {
+    Write-Error "npm run $Name failed with exit code $exitCode."
+    exit $exitCode
+  }
 }
 
 function Invoke-FirstAvailableScript {

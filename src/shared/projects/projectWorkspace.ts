@@ -525,12 +525,11 @@ export interface GovernanceApprovalQueueItem {
   targetBindings: OperatorDecisionTargetBinding[];
   targetSetHash: string;
   legacyEvidence: OperatorLegacyDecisionEvidence[];
-  approvalClassification: "phase_planning" | "work_card" | "historical_record";
+  approvalClassification: "phase_planning" | "work_card";
   authorizationBoundary: string;
   decisionWorkspaceScreenId:
     | "operator-phase-approval"
-    | "operator-work-card-approval"
-    | "historical-operator-review";
+    | "operator-work-card-approval";
   decisionWorkspaceLabel: string;
   decisionEffect: string;
   implementationAuthorizationAvailable: boolean;

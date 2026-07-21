@@ -90,7 +90,6 @@ type AppScreen =
   | "governance-approval"
   | "operator-phase-approval"
   | "operator-work-card-approval"
-  | "historical-operator-review"
   | "phase-closeout";
 
 type NoticeType = "warning" | "error" | "info" | "success";
@@ -388,15 +387,6 @@ const routedOnlyWorkflowScreens: WorkflowStep[] = [
     screenTitle: "Work Card Approval",
     nextAction: "Decide the exact Work Card revision inside the Work Card loop.",
     Icon: CheckSquare,
-  },
-  {
-    id: "historical-operator-review",
-    label: "Historical Review",
-    mode: "implementer",
-    shortDesc: "Non-routing review",
-    screenTitle: "Historical Operator Review",
-    nextAction: "Recognize or reject only the current historical repository revision.",
-    Icon: Eye,
   },
   {
     id: "candidate-disposition",
@@ -1222,16 +1212,6 @@ export default function App() {
       <StageOwnedApprovalWorkspace
         title="Work Card Approval"
         allowedDecisions={["approved", "revision_requested", "rejected"]}
-        queue={governanceApprovalQueue}
-        target={approvalDecisionTarget}
-        busy={projectBusy}
-        onDecision={decideApprovalTarget}
-      />
-    ),
-    "historical-operator-review": (
-      <StageOwnedApprovalWorkspace
-        title="Historical Operator Disposition"
-        allowedDecisions={["accepted_as_historical_evidence", "revision_required", "invalid"]}
         queue={governanceApprovalQueue}
         target={approvalDecisionTarget}
         busy={projectBusy}
@@ -7535,6 +7515,45 @@ function StageOwnedApprovalWorkspace({
               {current.contentMarkdown}
             </pre>
           </div>
+          <div className="rounded-md border border-border bg-white/[0.025] p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+              Exact target members
+            </div>
+            <div className="mt-2 grid gap-2">
+              {current.targetBindings.map((binding) => (
+                <div
+                  key={`${binding.artifactId}-${binding.revision}-${binding.payloadHash}`}
+                  className="rounded border border-border bg-black/15 px-3 py-2 text-xs text-foreground/75"
+                >
+                  <div className="break-anywhere font-mono">{binding.artifactId}</div>
+                  <div className="mt-1 text-muted-foreground/70">
+                    {binding.artifactType} / revision {binding.revision} / {binding.payloadHash}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {current.legacyEvidence.length > 0 ? (
+            <div className="rounded-md border border-border bg-white/[0.025] p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+                Legacy evidence
+              </div>
+              <div className="mt-2 grid gap-2">
+                {current.legacyEvidence.map((evidence) => (
+                  <div
+                    key={`${evidence.artifactId}-${evidence.revision}`}
+                    className="rounded border border-border bg-black/15 px-3 py-2 text-xs text-foreground/75"
+                  >
+                    <div className="break-anywhere font-mono">{evidence.artifactId}</div>
+                    <div className="mt-1 text-muted-foreground/70">
+                      revision {evidence.revision}{evidence.decision ? ` / ${evidence.decision}` : ""}
+                    </div>
+                    <div className="mt-1 text-muted-foreground/70">{evidence.reason}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="rounded-md border border-border bg-white/[0.025] p-3">
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
               Prior revision/disposition timeline

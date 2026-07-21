@@ -7,8 +7,10 @@ import {
   type JsonValue,
 } from "../../shared/artifacts";
 import {
+  computeOperatorDecisionTargetSetHash,
   normalizeOperatorDecisionTargets,
   normalizeOperatorReason,
+  operatorDecisionOutcomeEquals,
   stableOperatorDecisionTargetSetPayload,
   validateOperatorDecisionIntentShape,
   type OperatorDecisionEvent,
@@ -45,6 +47,18 @@ interface TargetIdentity {
   location: { directoryPath: string; fileStem: string };
 }
 
+interface VerifiedDecisionTarget {
+  entry: ArtifactRegistryEntry;
+  artifact: CanonicalArtifact;
+  binding: OperatorDecisionTargetBinding;
+}
+
+interface ResolvedPhasePlanningBundle {
+  phasePlanning: VerifiedDecisionTarget;
+  workCardPlan: VerifiedDecisionTarget;
+  bindings: OperatorDecisionTargetBinding[];
+}
+
 interface TargetState {
   status: ApprovalStatus;
   reason: string;
@@ -70,8 +84,11 @@ export class GovernanceApprovalService {
       const items: GovernanceApprovalQueueItem[] = [];
       for (const entry of registry.entries.filter(isApprovalQueueEntry).sort(compareEntries)) {
         if (!this.isVisibleGovernanceEntry(entry)) continue;
-        const identity = targetIdentity(entry);
-        const state = await this.targetStateFor(registry, entry, identity);
+        const bundle = isPhasePlanningBundleEntry(entry)
+          ? await this.resolvePhasePlanningBundle(registry, entry)
+          : undefined;
+        const identity = bundle ? targetIdentity(bundle.phasePlanning.entry) : targetIdentity(entry);
+        const state = await this.targetStateFor(registry, entry, identity, bundle);
         const canonicalPhaseAuthority = canonicalPhaseAuthorityFor(registry, entry, identity);
         items.push({
           targetArtifactId: entry.artifactId,
@@ -120,9 +137,21 @@ export class GovernanceApprovalService {
       const registry = await this.requireRegistry();
       const normalizedIntent = normalizeDecisionIntent(intent);
       validateOperatorDecisionIntentShape(normalizedIntent);
-      const targetArtifacts = await this.verifyTargets(registry, normalizedIntent.targets);
-      const targetSetHash = targetSetHashFor(normalizedIntent.stage, normalizedIntent.targets);
-      const identity = targetIdentity(targetArtifacts[0]);
+      const verifiedTargets = await this.verifyTargets(registry, normalizedIntent.targets);
+      await this.verifyDecisionTargetSet(registry, normalizedIntent.stage, verifiedTargets);
+      const targetSetHash = computeOperatorDecisionTargetSetHash({
+        stage: normalizedIntent.stage,
+        targets: normalizedIntent.targets,
+      });
+      const initialIdentityAnchor = identityAnchorForStage(normalizedIntent.stage, verifiedTargets);
+      const bundle = normalizedIntent.stage === "phase_planning"
+        ? await this.resolvePhasePlanningBundle(registry, initialIdentityAnchor.entry)
+        : null;
+      const identityAnchor = bundle?.phasePlanning ?? initialIdentityAnchor;
+      const targetArtifacts = bundle
+        ? [bundle.phasePlanning.artifact, bundle.workCardPlan.artifact]
+        : verifiedTargets.map((target) => target.artifact);
+      const identity = targetIdentity(identityAnchor.entry);
       if (identity.stage !== normalizedIntent.stage) {
         throw new Error("Decision stage does not match the selected target.");
       }
@@ -147,7 +176,7 @@ export class GovernanceApprovalService {
       );
       if (lookup.state === "decided") {
         const existing = lookup.event;
-        const sameOutcome = sameDecisionOutcome(existing.outcome, normalizedIntent.outcome);
+        const sameOutcome = operatorDecisionOutcomeEquals(existing.outcome, normalizedIntent.outcome);
         const sameReason =
           normalizeOperatorReason(existing.operatorReason) ===
           normalizeOperatorReason(normalizedIntent.operatorReason);
@@ -179,6 +208,7 @@ export class GovernanceApprovalService {
       };
       const request = this.buildDecisionRequest(
         targetArtifacts,
+        identityAnchor.artifact,
         identity,
         event,
         existingApproval,
@@ -223,10 +253,19 @@ export class GovernanceApprovalService {
     const registry = await this.requireRegistry();
     const normalizedIntent = normalizeDecisionIntent(intent);
     validateOperatorDecisionIntentShape(normalizedIntent);
-    const targetArtifacts = await this.verifyTargets(registry, normalizedIntent.targets);
-    const targetSetHash = targetSetHashFor(normalizedIntent.stage, normalizedIntent.targets);
-    const identity = targetIdentity(targetArtifacts[0]);
-    const approvalEntry = findDecisionArtifactEntry(registry, identity.approvalArtifactId);
+    const verifiedTargets = await this.verifyTargets(registry, normalizedIntent.targets);
+    await this.verifyDecisionTargetSet(registry, normalizedIntent.stage, verifiedTargets);
+    const targetSetHash = computeOperatorDecisionTargetSetHash({
+      stage: normalizedIntent.stage,
+      targets: normalizedIntent.targets,
+    });
+    const initialIdentityAnchor = identityAnchorForStage(normalizedIntent.stage, verifiedTargets);
+    const bundle = normalizedIntent.stage === "phase_planning"
+      ? await this.resolvePhasePlanningBundle(registry, initialIdentityAnchor.entry)
+      : null;
+    const identityAnchor = bundle?.phasePlanning ?? initialIdentityAnchor;
+    const identity = targetIdentity(identityAnchor.entry);
+    const approvalEntry = findApprovalEntryForTarget(registry, identityAnchor.entry, identity);
     const approval = approvalEntry
       ? (
           await this.artifactPairs.readArtifactByPaths(
@@ -263,16 +302,24 @@ export class GovernanceApprovalService {
     registry: ArtifactRegistry,
     target: ArtifactRegistryEntry,
     identity: TargetIdentity,
+    resolvedBundle?: ResolvedPhasePlanningBundle,
   ): Promise<TargetState> {
     const targetArtifact = (
       await this.artifactPairs.readArtifactByPaths(target.jsonPath, target.markdownPath)
     ).artifact;
-    const targetBindings = await targetBindingsFor(registry, target, identity, this.artifactPairs);
-    const targetSetHash = targetSetHashFor(identity.stage, targetBindings);
+    const targetBindings = resolvedBundle
+      ? resolvedBundle.bindings
+      : identity.stage === "phase_planning" && target.phaseId
+        ? (await this.resolvePhasePlanningBundle(registry, target)).bindings
+      : [await bindingFromEntry(target, this.artifactPairs)];
+    const targetSetHash = computeOperatorDecisionTargetSetHash({
+      stage: identity.stage,
+      targets: targetBindings,
+    });
     const base = {
       title: targetArtifact.payload.title,
       contentMarkdown: targetArtifact.payload.contentMarkdown,
-      implementationAuthorizationAvailable: canAuthorizeImplementation(targetArtifact.payload.data),
+      implementationAuthorizationAvailable: workCardRequiresImplementer(targetArtifact.payload.data),
       targetBindings,
       targetSetHash,
     };
@@ -289,7 +336,8 @@ export class GovernanceApprovalService {
         legacyEvidence: [],
       };
     }
-    const approvalEntry = findApprovalEntryForTarget(registry, target, identity);
+    const approvalTarget = resolvedBundle?.phasePlanning.entry ?? target;
+    const approvalEntry = findApprovalEntryForTarget(registry, approvalTarget, identity);
     if (!approvalEntry) {
       return {
         ...base,
@@ -355,11 +403,66 @@ export class GovernanceApprovalService {
     }
   }
 
+  private async resolvePhasePlanningBundle(
+    registry: ArtifactRegistry,
+    target: ArtifactRegistryEntry,
+  ): Promise<ResolvedPhasePlanningBundle> {
+    if (!target.projectId || !target.phaseId) {
+      throw new Error("Phase planning bundle targets require non-empty project and phase IDs.");
+    }
+    const historicalMode = target.status === "historical";
+    const entries = registry.entries
+      .filter((entry) =>
+        entry.projectId === target.projectId &&
+        entry.phaseId === target.phaseId &&
+        (entry.artifactType === "phase_planning" || entry.artifactType === "work_card_plan") &&
+        (entry.status === "historical") === historicalMode &&
+        this.isVisibleGovernanceEntry(entry),
+      )
+      .sort(compareEntries);
+    const phasePlanning = entries.filter((entry) => entry.artifactType === "phase_planning");
+    const workCardPlan = entries.filter((entry) => entry.artifactType === "work_card_plan");
+    if (phasePlanning.length !== 1) {
+      throw new Error("Phase planning bundle must contain exactly one Phase Planning record.");
+    }
+    if (workCardPlan.length !== 1) {
+      throw new Error("Phase planning bundle must contain exactly one Work Card Plan record.");
+    }
+    const verified = await Promise.all(
+      [phasePlanning[0], workCardPlan[0]].map(async (entry) => {
+        const artifact = (
+          await this.artifactPairs.readArtifactByPaths(entry.jsonPath, entry.markdownPath)
+        ).artifact;
+        return {
+          entry,
+          artifact,
+          binding: {
+            artifactId: artifact.artifactId,
+            artifactType: artifact.artifactType,
+            revision: artifact.revision,
+            payloadHash: artifact.payloadHash,
+          },
+        };
+      }),
+    );
+    const resolved = {
+      phasePlanning: verified[0],
+      workCardPlan: verified[1],
+    };
+    return {
+      ...resolved,
+      bindings: normalizeOperatorDecisionTargets([
+        resolved.phasePlanning.binding,
+        resolved.workCardPlan.binding,
+      ]),
+    };
+  }
+
   private async verifyTargets(
     registry: ArtifactRegistry,
     bindings: readonly OperatorDecisionTargetBinding[],
-  ): Promise<CanonicalArtifact[]> {
-    const artifacts: CanonicalArtifact[] = [];
+  ): Promise<VerifiedDecisionTarget[]> {
+    const verified: VerifiedDecisionTarget[] = [];
     for (const binding of bindings) {
       const entry = registry.entries.find((candidate) => candidate.artifactId === binding.artifactId);
       if (!entry) throw new Error("Decision target is not registered.");
@@ -378,9 +481,73 @@ export class GovernanceApprovalService {
       if (artifact.revision !== binding.revision || artifact.payloadHash !== binding.payloadHash) {
         throw new Error("Decision target is stale; refresh governance state before deciding.");
       }
-      artifacts.push(artifact);
+      verified.push({
+        entry,
+        artifact,
+        binding: {
+          artifactId: artifact.artifactId,
+          artifactType: artifact.artifactType,
+          revision: artifact.revision,
+          payloadHash: artifact.payloadHash,
+        },
+      });
     }
-    return artifacts;
+    return verified;
+  }
+
+  private async verifyDecisionTargetSet(
+    registry: ArtifactRegistry,
+    stage: OperatorDecisionStage,
+    targets: readonly VerifiedDecisionTarget[],
+  ): Promise<void> {
+    if (targets.length === 0) {
+      throw new Error("Operator decision requires at least one verified target.");
+    }
+    for (const target of targets) {
+      if (target.artifact.projectId !== this.project.projectId || target.entry.projectId !== this.project.projectId) {
+        throw new Error("Decision target belongs to another configured project.");
+      }
+      if (stageForTarget(target.entry) !== stage) {
+        throw new Error("Decision target artifact type does not belong to the supplied stage.");
+      }
+      if (!this.isVisibleGovernanceEntry(target.entry)) {
+        throw new Error("Decision target is not visible, registered, and non-archived.");
+      }
+    }
+
+    if (stage !== "phase_planning") {
+      if (targets.length !== 1) {
+        throw new Error("This decision stage requires exactly one target.");
+      }
+      return;
+    }
+
+    if (targets.length !== 2) {
+      throw new Error("Phase planning decisions require exactly two targets.");
+    }
+    const phasePlanning = targets.filter((target) => target.entry.artifactType === "phase_planning");
+    const workCardPlan = targets.filter((target) => target.entry.artifactType === "work_card_plan");
+    if (phasePlanning.length !== 1 || workCardPlan.length !== 1) {
+      throw new Error("Phase planning decisions require one Phase Planning target and one Work Card Plan target.");
+    }
+    const projectIds = new Set(targets.map((target) => target.entry.projectId));
+    const phaseIds = new Set(targets.map((target) => target.entry.phaseId ?? ""));
+    const historicalModes = new Set(targets.map((target) => target.entry.status === "historical"));
+    if (projectIds.size !== 1 || !projectIds.has(this.project.projectId)) {
+      throw new Error("Phase planning bundle targets must belong to one configured project.");
+    }
+    if (phaseIds.size !== 1 || phaseIds.has("")) {
+      throw new Error("Phase planning bundle targets must belong to one non-empty phase.");
+    }
+    if (historicalModes.size !== 1) {
+      throw new Error("Phase planning bundle cannot mix historical and current records.");
+    }
+
+    const resolved = await this.resolvePhasePlanningBundle(registry, phasePlanning[0].entry);
+    if (stableOperatorDecisionTargetSetPayload({ stage, targets: targets.map((target) => target.binding) }) !==
+      stableOperatorDecisionTargetSetPayload({ stage, targets: resolved.bindings })) {
+      throw new Error("Submitted phase planning target set does not exactly match the canonical bundle.");
+    }
   }
 
   private async hasApprovedReconciliationDisposition(
@@ -427,19 +594,19 @@ export class GovernanceApprovalService {
 
   private buildDecisionRequest(
     targets: readonly CanonicalArtifact[],
+    primaryTarget: CanonicalArtifact,
     identity: TargetIdentity,
     event: OperatorDecisionEvent,
     existingApproval: CanonicalArtifact | null,
     approvalEntry: ArtifactRegistryEntry | undefined,
   ): CanonicalArtifactCommitRequest<string, JsonValue> {
-    const primaryTarget = targets[0];
     const previousTimeline = decisionTimelineFrom(existingApproval);
     const decisionTimeline = [...previousTimeline, event];
     const record = recordForEvent(event, decisionTimeline, legacyEvidenceFor(existingApproval));
     const implementationOutputIds = event.outcome.kind === "stage_decision" &&
       event.outcome.decision === "approved" &&
       identity.classification === "work_card" &&
-      canAuthorizeImplementation(primaryTarget.payload.data)
+      workCardRequiresImplementer(primaryTarget.payload.data)
         ? primaryTarget.relationships.expectedOutputs.filter((artifactId) =>
             artifactId.includes("/implementer_report/"),
           )
@@ -491,6 +658,10 @@ function isApprovalQueueEntry(entry: ArtifactRegistryEntry): boolean {
   );
 }
 
+function isPhasePlanningBundleEntry(entry: ArtifactRegistryEntry): boolean {
+  return entry.artifactType === "phase_planning" || entry.artifactType === "work_card_plan";
+}
+
 function targetIdentity(target: ArtifactRegistryEntry | CanonicalArtifact): TargetIdentity {
   const targetKind = target.artifactType === "work_card" ? "work_card" : "phase";
   const stage = stageForTarget(target);
@@ -500,7 +671,7 @@ function targetIdentity(target: ArtifactRegistryEntry | CanonicalArtifact): Targ
     const targetKey = stableTargetKey(target.artifactId);
     return {
       targetKind,
-      classification: "historical_record",
+      classification: target.artifactType === "work_card" ? "work_card" : "phase_planning",
       stage,
       approvalArtifactId: `${target.projectId}/${phaseId}/operator_approval/${targetKey}`,
       location: {
@@ -514,7 +685,7 @@ function targetIdentity(target: ArtifactRegistryEntry | CanonicalArtifact): Targ
     const workCardId = target.workCardId ?? stableTargetKey(target.artifactId);
     return {
       targetKind,
-      classification: targetStatus === "historical" ? "historical_record" : "work_card",
+      classification: "work_card",
       stage,
       approvalArtifactId: `${target.projectId}/${phaseId}/operator_approval/${workCardId}`,
       location: {
@@ -526,7 +697,7 @@ function targetIdentity(target: ArtifactRegistryEntry | CanonicalArtifact): Targ
   const phaseId = target.phaseId ?? "project";
   return {
     targetKind,
-    classification: targetStatus === "historical" ? "historical_record" : "phase_planning",
+    classification: "phase_planning",
     stage,
     approvalArtifactId: `${target.projectId}/${phaseId}/operator_approval/${operatorApprovalStemForStage(stage)}`,
     location: {
@@ -544,25 +715,16 @@ function stageForTarget(target: ArtifactRegistryEntry | CanonicalArtifact): Oper
   return "phase_planning";
 }
 
-async function targetBindingsFor(
-  registry: ArtifactRegistry,
-  target: ArtifactRegistryEntry,
-  identity: TargetIdentity,
-  artifactPairs: ArtifactPairService,
-): Promise<OperatorDecisionTargetBinding[]> {
-  if (identity.stage === "phase_planning" && target.phaseId && target.status !== "historical") {
-    const bundleTypes = new Set(["phase_planning", "work_card_plan"]);
-    const entries = registry.entries
-      .filter((entry) =>
-        entry.projectId === target.projectId &&
-        entry.phaseId === target.phaseId &&
-        bundleTypes.has(entry.artifactType) &&
-        entry.status !== "archived",
-      )
-      .sort(compareEntries);
-    return Promise.all(entries.map((entry) => bindingFromEntry(entry, artifactPairs)));
+function identityAnchorForStage(
+  stage: OperatorDecisionStage,
+  targets: readonly VerifiedDecisionTarget[],
+): VerifiedDecisionTarget {
+  if (stage === "phase_planning") {
+    const match = targets.find((target) => target.entry.artifactType === "phase_planning");
+    if (!match) throw new Error("Phase planning decisions require a Phase Planning identity anchor.");
+    return match;
   }
-  return [await bindingFromEntry(target, artifactPairs)];
+  return targets[0];
 }
 
 async function bindingFromEntry(
@@ -712,15 +874,6 @@ function isApprovedStageDecision(data: Record<string, unknown>): boolean {
   );
 }
 
-function targetSetHashFor(
-  stage: OperatorDecisionStage,
-  targets: readonly OperatorDecisionTargetBinding[],
-): string {
-  return createHash("sha256")
-    .update(stableOperatorDecisionTargetSetPayload({ stage, targets }), "utf8")
-    .digest("hex");
-}
-
 function buildWorkCardApprovalFileStem(target: ArtifactRegistryEntry | CanonicalArtifact): string {
   const workCardId = target.workCardId ?? "WORK_CARD";
   const targetStem = target.jsonPath.split("/").pop()?.replace(/\.json$/i, "") ?? workCardId;
@@ -751,13 +904,20 @@ function canonicalPhaseAuthorityFor(
   identity: TargetIdentity,
 ): Partial<GovernanceApprovalQueueItem> {
   if (identity.stage !== "phase_planning" || !target.phaseId) return {};
+  const historicalMode = target.status === "historical";
   const phasePlanning = registry.entries.find(
     (entry) =>
-      entry.artifactId === `${target.projectId}/${target.phaseId}/phase_planning/Phase_Planning`,
+      entry.projectId === target.projectId &&
+      entry.phaseId === target.phaseId &&
+      entry.artifactType === "phase_planning" &&
+      (entry.status === "historical") === historicalMode,
   );
   const workCardPlan = registry.entries.find(
     (entry) =>
-      entry.artifactId === `${target.projectId}/${target.phaseId}/work_card_plan/Work_Card_Plan`,
+      entry.projectId === target.projectId &&
+      entry.phaseId === target.phaseId &&
+      entry.artifactType === "work_card_plan" &&
+      (entry.status === "historical") === historicalMode,
   );
   return {
     ...(phasePlanning
@@ -781,9 +941,6 @@ function authorizationBoundaryFor(
   classification: ApprovalClassification,
   implementationAuthorizationAvailable: boolean,
 ): string {
-  if (classification === "historical_record") {
-    return "This disposition records the exact record outcome only; it does not authorize implementation, phase progression, or route selection.";
-  }
   if (classification === "work_card") {
     return implementationAuthorizationAvailable
       ? "An approved stage decision may be projected in memory as Implementer execution authority for this exact revision."
@@ -796,13 +953,11 @@ function decisionWorkspaceScreenIdFor(
   classification: ApprovalClassification,
 ): GovernanceApprovalQueueItem["decisionWorkspaceScreenId"] {
   if (classification === "work_card") return "operator-work-card-approval";
-  if (classification === "historical_record") return "historical-operator-review";
   return "operator-phase-approval";
 }
 
 function decisionWorkspaceLabelFor(classification: ApprovalClassification): string {
   if (classification === "work_card") return "Work Card Approval";
-  if (classification === "historical_record") return "Historical Operator Disposition";
   return "Operator Phase Approval";
 }
 
@@ -810,9 +965,6 @@ function decisionEffectFor(
   classification: ApprovalClassification,
   implementationAuthorizationAvailable: boolean,
 ): string {
-  if (classification === "historical_record") {
-    return "Record a disposition for this exact record revision using the same Operator decision service as current records.";
-  }
   if (classification === "work_card") {
     return implementationAuthorizationAvailable
       ? "Approve, request revision, reject, or disposition this exact Work Card revision."
@@ -821,9 +973,9 @@ function decisionEffectFor(
   return "Approve, request revision, or reject the exact phase-planning bundle.";
 }
 
-function canAuthorizeImplementation(data: unknown): boolean {
+function workCardRequiresImplementer(data: unknown): boolean {
   if (!isPlainObject(data)) return false;
-  return data.requiresImplementer === true && data.codeChangesAuthorized === true;
+  return data.requiresImplementer === true;
 }
 
 function renderDecisionMarkdown(record: OperatorDecisionRecordV1): string {
@@ -862,26 +1014,6 @@ function outcomeLabel(outcome: OperatorDecisionOutcome): string {
     return `superseded -> ${outcome.supersedingArtifactId}`;
   }
   return outcome.disposition;
-}
-
-function sameDecisionOutcome(
-  left: OperatorDecisionOutcome,
-  right: OperatorDecisionOutcome,
-): boolean {
-  if (left.kind !== right.kind) return false;
-  if (left.kind === "stage_decision" && right.kind === "stage_decision") {
-    return left.decision === right.decision;
-  }
-  if (left.kind === "record_disposition" && right.kind === "record_disposition") {
-    return (
-      left.disposition === right.disposition &&
-      normalizeOperatorReason(left.canonicalSurvivingArtifactId) ===
-        normalizeOperatorReason(right.canonicalSurvivingArtifactId) &&
-      normalizeOperatorReason(left.supersedingArtifactId) ===
-        normalizeOperatorReason(right.supersedingArtifactId)
-    );
-  }
-  return false;
 }
 
 function compareApprovalItems(

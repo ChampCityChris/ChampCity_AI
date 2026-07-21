@@ -122,6 +122,22 @@ Every implementation Work Card must declare:
 
 The Implementer must stop when these declarations are required for correctness but missing from the approved Work Card.
 
+## Permanent Test Organization And Integrity
+
+Permanent tests live under `test/<stable-capability>/`.
+
+Permanent test paths and filenames do not use Work Card or repair IDs. Work-Card-specific temporary tests are not part of the default lane and must be removed or promoted before Work Card acceptance. Promoted tests are rewritten under a stable capability identity rather than renamed without review.
+
+Assertion-bearing automated tests live under `test/`, not `scripts/`. Scripts may launch tools but may not contain reusable acceptance logic.
+
+Tests exercise production modules and may not reproduce production authority.
+
+The default unit lane uses automatic discovery and may not whitelist selected files.
+
+A wrapper must propagate child-process failure codes.
+
+Deletion of an invalid test does not authorize claiming its former coverage.
+
 ## Release Packaging Boundary
 
 The source repository and the released desktop package are different products of the build.
