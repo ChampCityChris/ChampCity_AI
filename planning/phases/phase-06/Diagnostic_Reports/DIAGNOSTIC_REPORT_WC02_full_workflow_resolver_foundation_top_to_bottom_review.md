@@ -115,3 +115,6 @@ The original WC03 through WC06 scopes are parts of this same foundation. They ar
 WC02-REPAIR03 will implement the kernel, replay tests, Registry boundary, UI adapter, and integrated validation in one pass. There will be no intermediate Architect or Operator acceptance between internal sections.
 
 Parent WC02 remains unresolved until WC02-REPAIR03 passes final review, visible Operator validation, and Architect disposition.
+
+## Document Disposition
+Document.Status=Pending

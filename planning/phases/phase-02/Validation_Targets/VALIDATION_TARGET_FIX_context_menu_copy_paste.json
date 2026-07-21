@@ -6,5 +6,8 @@
   "status": "builder_report_received",
   "risk": "low",
   "sourceJsonFile": "VALIDATION_TARGET_FIX_context_menu_copy_paste.json",
-  "expectedImplementerReportFile": "BUILDER_REPORT_FIX_context_menu_copy_paste.md"
+  "expectedImplementerReportFile": "BUILDER_REPORT_FIX_context_menu_copy_paste.md",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

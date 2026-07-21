@@ -46,3 +46,6 @@ This manifest records active canonical pair corrections required before the exec
 ## Rollback
 
 Restore the listed source paths from git history using the recorded beforeHashes, then rerun canonical pair verification and repository gates.
+
+## Document Disposition
+Document.Status=Pending

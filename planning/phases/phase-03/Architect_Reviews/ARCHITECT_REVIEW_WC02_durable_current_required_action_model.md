@@ -182,3 +182,6 @@ No WC02 repair is required at this time.
 ## Recommended Next Action
 
 Operator validates WC02. If passed, Architect records the WC02 Operator Validation and then creates WC03 just in time from the approved Phase 03 Work Card Plan.
+
+## Document Disposition
+Document.Status=Pending

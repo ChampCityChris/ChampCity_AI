@@ -75,3 +75,6 @@ This approval responds to:
 
 - `champcity-ai/phase-06/architect_review/WC01`
 - `champcity-ai/phase-06/work_card/WC01-REPAIR01`
+
+## Document Disposition
+Document.Status=Pending

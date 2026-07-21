@@ -111,3 +111,6 @@ Architect creates the next just-in-time executable Work Card:
 ```text
 WC02 — Durable Current Required Action Model
 ```
+
+## Document Disposition
+Document.Status=Pending

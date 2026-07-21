@@ -56,3 +56,6 @@ Updated: 2026-07-02T18:05:46.022Z
 - It is not a set of formal app-selectable Work Card JSON files.
 - Do not convert these obsolete proposals into active Phase 03 Formal Work Cards.
 - Use `planning/phases/phase-03/Work_Card_Plan.md` and the just-in-time Work Card artifacts under `planning/phases/phase-03/Work_Cards/` for active Phase 03 work.
+
+## Document Disposition
+Document.Status=Pending

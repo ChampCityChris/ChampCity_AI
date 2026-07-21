@@ -10,3 +10,6 @@ planning/work/[slug]/evidence/
 ```
 
 Do not rely on chat-only Work Cards. If a Work Card will be used later, save it as Markdown in this folder.
+
+## Document Disposition
+Document.Status=Pending

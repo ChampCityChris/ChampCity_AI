@@ -86,3 +86,6 @@ Small fix of UI/UX issues before proceeding to PH02 WC02
 ## Non-Mutating Note
 
 This Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.
+
+## Document Disposition
+Document.Status=Pending

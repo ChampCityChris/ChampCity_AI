@@ -67,3 +67,6 @@ Open / product workflow requirement
 ## Resolution Artifact
 
 Pending next roadmap.
+
+## Document Disposition
+Document.Status=Pending

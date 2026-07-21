@@ -57,3 +57,6 @@ PH02 WC08 repair: Validate the artifact authority model, Work Card Plan Review s
 - Phase Intake is not a normal operator input; Phase Architect Interview is optional and downstream after roadmap/reconciliation context has been evaluated.
 - The Phase Map Composer must not require a phase dropdown. The phase dropdown belongs only on the planning-doc generator screen after mapped phases exist.
 - Do not generate Phase 03 Formal Work Cards, activate Phase 03, or close Phase 02 until WC08 validation is reviewed by the Operator.
+
+## Document Disposition
+Document.Status=Pending

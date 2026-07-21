@@ -76,3 +76,6 @@ The Artifact Registry becomes a derived, validated index/cache rebuilt or refres
 - Unchanged scans are no-ops; restart recomputes the same action.
 - Historical evidence remains durable but cannot override later controlling evidence.
 - Parent WC01 remains the Operator acceptance target and, on a passing validation, resolves as completed_via_repair.
+
+## Document Disposition
+Document.Status=Pending

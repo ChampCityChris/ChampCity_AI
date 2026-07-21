@@ -179,3 +179,6 @@ None.
 ## Recommended Next Builder Task
 
 Operator should manually validate the WC05 Builder Prompt Generator screen, then Architect should define Work Card 6: Capture Builder report.
+
+## Document Disposition
+Document.Status=Pending

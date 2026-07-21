@@ -42,3 +42,6 @@ The Architect must:
 10. If observations arise, update or recommend updating the Observation Register.
 
 The Architect Review must use `planning/work/_template/ARCHITECT_REVIEW_TEMPLATE.md`. A `Ready for Operator validation` decision without substantive Operator Validation Steps is a review defect.
+
+## Document Disposition
+Document.Status=Pending

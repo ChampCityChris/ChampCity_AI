@@ -95,3 +95,6 @@ The output must include:
 - It identifies workflow kernel work as the next implementation foundation.
 - It records the public beta candidate as the target release-candidate form.
 - It keeps the Implementer contract tool-neutral while identifying Codex as the first supported Implementer.
+
+## Document Disposition
+Document.Status=Pending

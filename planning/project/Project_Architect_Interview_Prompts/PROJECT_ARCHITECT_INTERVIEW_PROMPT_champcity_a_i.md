@@ -147,3 +147,6 @@ Updated: 2026-06-30T19:15:05.723Z
 ## Next Step
 
 Copy this prompt into the Architect surface. After the Architect interview is complete, use the completed interview output to generate Project Planning Documents. This prompt does not create the Project Profile, Project Roadmap, Phase Plan, or Work Cards by itself.
+
+## Document Disposition
+Document.Status=Pending

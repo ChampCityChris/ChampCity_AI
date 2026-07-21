@@ -75,3 +75,6 @@ Legacy Markdown-only and non-canonical non-Work-Card planning files remain histo
 - Verified artifact graph scan reported zero blockers.
 - Evidence-derived workflow projection reported operator_validation_required for WC01 with expected output champcity-ai/phase-04/validation_report/WC01.
 - Artifact Registry rebuilt from the verified graph with 155 entries.
+
+## Document Disposition
+Document.Status=Pending

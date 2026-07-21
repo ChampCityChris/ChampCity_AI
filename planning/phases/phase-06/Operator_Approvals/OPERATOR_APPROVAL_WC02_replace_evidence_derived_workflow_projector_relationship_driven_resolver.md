@@ -56,3 +56,6 @@ The old evidence-derived projector authority must be removed from production run
 The required Implementer output remains:
 
 `champcity-ai/phase-06/implementer_report/WC02`
+
+## Document Disposition
+Document.Status=Pending

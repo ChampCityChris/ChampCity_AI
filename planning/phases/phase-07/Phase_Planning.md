@@ -1,49 +1,30 @@
-# Phase 07 — Simple Document Disposition and Workspace-Integrated Approval
+# Phase 07 — Clean-Room Document Disposition Rebuild
 
-Status: pending Operator approval through ChatGPT
-Planning revision: 3
-Planning mode: off-application bootstrap phase
+Status: approved by Operator through ChatGPT
+Planning revision: 6
 Project: ChampCity A/I
-Date revised: 2026-07-21
+Execution mode: clean-room rebuild, bounded correctness repair, Operator validation, baseline establishment, and closeout
+Git mutation: not authorized except through a separately approved WC10 execution pass
 
-## Revision 3 Reset
+## Phase Purpose
 
-Revision 3 replaces the historical-corpus inventory, semantic duplicate analysis, decision-artifact, and separate approval-workspace approach.
+Phase 07 replaces the unusable prior application architecture with a small, inspectable document-disposition application and establishes that application as the durable development baseline.
 
-The required system is intentionally simple:
+The clean-room implementation provides:
 
-1. Every logical document under `planning/` has one disposition status.
-2. A missing status is treated as `Pending`.
-3. The application finds the first required document that is not `Approved`.
-4. The existing stage workspace displays that document and includes the disposition control.
-5. The Operator selects Approve, Reject, or Request Revision.
-6. The application writes the result back to that same document and recalculates the next required document.
+- selected-repository workspace persistence;
+- recursive planning-document discovery;
+- the four-value document disposition contract;
+- workspace-integrated document review and disposition;
+- first-non-approved document resolution;
+- real-corpus initialization;
+- phase-by-phase progression after WC08 repair.
 
-WC02 Historical Corpus Inventory and Duplicate Resolution Manifest is rejected. No WC02 repair will be authored. Its generated inventory is not a prerequisite for this phase.
+WC01 is superseded. WC02 is rejected. WC03 through WC07 completed their Implementer passes. WC08 is the current bounded correctness repair. WC09 through WC11 complete validation, baseline establishment, and Phase 07 closeout.
 
-The WC01 implementation and repairs are transitional work. They may remain in the working tree until an approved cleanup Work Card removes or replaces conflicting architecture, but they do not define the final Phase 07 design where they conflict with this revision.
+## Required Product Behavior
 
-No Git staging, commit, push, reset, clean, stash, merge, tag, release, or history rewrite is authorized by this plan.
-
-## Phase Goal
-
-Create a direct Operator disposition loop for the project’s planning documents.
-
-The final application must:
-
-- store one explicit status on each logical planning document;
-- treat Markdown and JSON representations of the same document as one review target;
-- place approval controls inside the existing Project Planning, Phase Planning, Work Card, Operator Validation, and Phase Closeout workspaces;
-- stop at the first required document whose status is not `Approved`;
-- allow the Operator to approve, reject, or request revision without navigating to a separate approval screen;
-- persist the selected status to the same document;
-- resume at the correct document after refresh or restart.
-
-## Document Disposition Contract
-
-### Allowed statuses
-
-The only document disposition values are:
+Every logical document under `planning/` has one disposition:
 
 ```text
 Pending
@@ -52,11 +33,9 @@ Rejected
 RevisionRequested
 ```
 
-These values are document state, not a separate approval artifact or workflow authority record.
+A missing or invalid disposition is treated as `Pending`.
 
-### Markdown representation
-
-Every Markdown document under `planning/` must end with one uniquely named section:
+Markdown representation:
 
 ```markdown
 ## Document Disposition
@@ -64,11 +43,7 @@ Every Markdown document under `planning/` must end with one uniquely named secti
 Document.Status=Pending
 ```
 
-The section must appear exactly once.
-
-### JSON representation
-
-A JSON representation of the same logical document must contain:
+JSON representation:
 
 ```json
 {
@@ -78,257 +53,168 @@ A JSON representation of the same logical document must contain:
 }
 ```
 
-The field must appear exactly once at the document root.
+A same-stem Markdown and JSON pair is one logical document. Both representations carry the same status.
 
-### Pair behavior
+The application provides five workspaces:
 
-A same-stem Markdown/JSON pair is one logical document.
+1. Project Planning
+2. Phase Planning
+3. Work Card
+4. Operator Validation
+5. Phase Closeout
 
-- Both representations carry the same status.
-- A status save updates both representations through the existing synchronized pair writer where applicable.
-- A mismatch is a local error for that document.
-- A mismatch must not create a second approval target.
-- A missing field or missing Markdown section is interpreted as `Pending` until initialization writes it.
+Each workspace contains its own document list, preview, disposition selector, and Apply Disposition action. There is no separate Operator approval screen.
 
-### Status transitions
-
-The Operator controls these transitions:
+The workflow rule is:
 
 ```text
-Approve          -> Approved
-Reject           -> Rejected
-Request Revision -> RevisionRequested
+Find the first required logical document whose effective status is not Approved.
+Open its owning workspace with that document selected.
 ```
 
-When a document is revised after `RevisionRequested`, saving the revised content returns the document to `Pending` for another Operator review.
+`Pending`, `Rejected`, and `RevisionRequested` stop progression. `Approved` advances.
 
-`Rejected` and `RevisionRequested` do not advance workflow. `Approved` advances to the next required document.
+## Clean-Room Boundary
 
-No separate reason, decision timeline, target-set hash, approval artifact, authorization Boolean, or historical decision class is required for this phase.
+The active source must not contain:
 
-## Planning Corpus Initialization
+- workflow action catalogs;
+- Governance Maintenance, Repair, or Approval;
+- approval queues or approval artifacts;
+- target hashes or decision timelines;
+- current-action authority records;
+- routed IPC tokens;
+- role or screen gates;
+- execution-run authority;
+- workflow-derived context packets;
+- fallback resolvers;
+- compatibility readers for the rejected architecture.
 
-The initialization pass applies the disposition field to every logical `.md` or `.json` document recursively under:
+## Architect Review Outcome for WC03 Through WC07
+
+Accepted foundation:
+
+- WC03 clean-room source reset;
+- the four-value disposition model;
+- five workspace surfaces;
+- real-corpus initialization;
+- removal of the prior governance architecture.
+
+WC08 repair scope:
+
+- preserve non-disposition Markdown content during status replacement;
+- use staged replacement and rollback for disposition writes;
+- isolate individual document read failures;
+- order phase work phase-by-phase rather than grouping all phases by workspace type.
+
+The initialized corpus must not be rolled back or bulk-reinitialized.
+
+## Ordered Work Cards
+
+- WC03 — Clean-Room Application Source Reset and Minimal Workspace Shell
+- WC04 — Planning Document Discovery and Disposition Reader/Writer
+- WC05 — Workspace-Integrated Document Review and Disposition
+- WC06 — First Non-Approved Document Resolver
+- WC07 — Real-Corpus Initialization and Dogfood Validation
+- WC08 — Disposition Write Safety, Local Read Isolation, and Phase Order Repair
+- WC09 — Operator Validation of the Clean-Room Workflow
+- WC10 — Durable Clean-Room Baseline and Development-Branch Integration
+- WC11 — Phase 07 Closeout and Project Roadmap Rebaseline
+
+## WC08 — Current Repair
+
+WC08 is a narrow correctness repair. It may modify only the clean-room document writer, document discovery/read service, deterministic document order, directly related tests, and its Implementer Report.
+
+WC08 may not redesign the application or mutate existing corpus dispositions.
+
+## WC09 — Operator Validation of the Clean-Room Workflow
+
+Purpose: perform the human acceptance checks that the Implementer was not authorized to claim.
+
+Required validation:
+
+- launch the application against the real ChampCity_AI repository;
+- confirm startup opens Project Planning with Project Intake selected while it remains `Pending`;
+- confirm all five workspaces are usable;
+- confirm document list, preview, status, selector, and Apply Disposition controls are understandable;
+- confirm Markdown content remains intact after a controlled disposition change on a temporary or disposable test document;
+- confirm one document-local error does not disable unrelated documents;
+- confirm phase progression is phase-by-phase using controlled fixtures;
+- confirm refresh and restart return to the correct first non-approved document;
+- confirm no legacy governance, approval, maintenance, execution-run, or separate approval screen appears.
+
+WC09 does not authorize source changes. A failed check must be recorded and returned to the Architect for a separate bounded repair decision.
+
+Expected result: Operator approval, rejection, or revision request for the clean-room workflow.
+
+## WC10 — Durable Clean-Room Baseline and Development-Branch Integration
+
+Purpose: establish the accepted clean-room application and initialized planning corpus as the durable repository baseline.
+
+Dependencies:
+
+- WC08 accepted by the Architect;
+- WC09 approved by the Operator;
+- final automated validation passes;
+- explicit Operator authorization for the Git operations named in the detailed WC10 Work Card.
+
+Required outcomes:
+
+- review the complete intended diff;
+- verify only the clean-room source, clean-room tests, initialized planning corpus, Phase 07 records, and accepted reports are included;
+- exclude generated build output, temporary files, screenshots, local runtime state, and unrelated junk;
+- stage the approved baseline deliberately;
+- create a plain baseline commit;
+- push the approved current feature branch;
+- integrate the accepted baseline into `dev` through the repository's approved Git tooling;
+- verify the resulting `dev` state and remote status;
+- preserve Git history of the removed architecture without retaining it in active source.
+
+WC10 must not merge to `master`, tag, release, or package the application unless the Operator separately authorizes those actions.
+
+## WC11 — Phase 07 Closeout and Project Roadmap Rebaseline
+
+Purpose: close Phase 07 from current reality and prepare Phase 08 planning authority.
+
+Required outcomes:
+
+- create the Phase 07 closeout record;
+- record the accepted clean-room architecture and the removal of the failed governance architecture;
+- record the final disposition and result of WC03 through WC10;
+- reconcile Phase 07 Phase Planning and Work Card Plan;
+- update the living Project Roadmap so Phase 07 is described as the clean-room document-disposition rebuild rather than Architect Bridge and MCP-first integration;
+- update or replace stale Phase Map statements that identify Phase 03 as active or describe the obsolete phase sequence;
+- identify Phase 08 as the next planned phase:
 
 ```text
-planning/
+Phase 08 — Operational Dogfooding, Required-Document Scope, and Revision Workflow
 ```
 
-Rules:
+- preserve historical records as historical evidence;
+- do not infer approval for Phase 08 implementation from Phase 07 closeout.
 
-- A same-stem Markdown/JSON pair receives one synchronized status.
-- A standalone Markdown or JSON document receives its own status.
-- An existing valid disposition is preserved.
-- A missing or invalid disposition is initialized to `Pending`.
-- Initialization does not approve any document.
-- Initialization does not infer approval from old approval records, validation records, status fields, timestamps, filenames, or prior workflow metadata.
-- Initialization does not merge, rename, move, archive, or delete files.
-- The exact file and logical-document counts are measured during implementation rather than hard-coded.
+WC11 is planning and closeout work. It does not authorize Phase 08 source implementation.
 
-All current, historical, archived, supporting, evidence, and system documents under `planning/` receive a disposition field. Whether a document blocks a specific stage is determined by the document-order projection, not by inventing a second approval system.
+## Phase Acceptance
 
-## Workspace-Integrated Disposition
+Phase 07 is complete only when:
 
-There is no separate Operator review screen.
+- WC08 passes its acceptance criteria;
+- the clean-room application launches;
+- every logical planning document has one valid disposition;
+- Markdown and JSON pair statuses remain synchronized;
+- disposition replacement preserves all non-disposition document content;
+- paired writes cannot remain partially applied after an injected failure;
+- one unreadable document remains a local error and does not suppress other documents;
+- project-level documents precede phase work;
+- each numbered phase completes Phase Planning, Work Cards, Operator Validation, and Phase Closeout before the next numbered phase begins;
+- startup opens the first required non-approved document;
+- no old governance, approval, maintenance, routing, or execution authority exists;
+- WC09 Operator validation is approved;
+- WC10 establishes the accepted baseline on `dev` under explicit Git authorization;
+- WC11 closes Phase 07 and rebaselines the Project Roadmap and Phase Map;
+- Phase 08 remains planned and requires separate Operator approval before execution.
 
-Each existing stage workspace owns review and disposition for the documents belonging to that stage.
+## Document Disposition
 
-### Required workspace layout
-
-Each stage workspace must provide:
-
-- an ordered document list with current status;
-- a readable preview of the selected document;
-- clear indication of the first non-approved document;
-- a disposition selector with:
-  - Approve;
-  - Reject;
-  - Request Revision;
-- one Apply Disposition action;
-- immediate refresh of the document status and next required document after save.
-
-The control must write to the document shown in that workspace. It must not open another approval destination or create an approval artifact.
-
-### Project Planning workspace
-
-The Project Planning workspace begins with Project Intake and then presents the remaining Project Planning documents in deterministic order.
-
-If Project Intake is not `Approved`, the application stops there and opens Project Planning with Project Intake selected.
-
-### Phase Planning workspace
-
-The Phase Planning workspace must display the Phase Planning documents directly, including Phase Planning and Work Card Plan.
-
-The workspace shown in the supplied screenshot must be converted from a supporting/reference screen into the place where the Operator reviews the phase documents and selects the disposition. It must not route the Operator to a separate `Operator Phase Approval` screen.
-
-### Work Card workspace
-
-The Work Card workspace displays the exact Work Card and its status. Ordinary and repair Work Cards use the same disposition control.
-
-### Operator Validation workspace
-
-The Operator Validation workspace displays the implementation evidence associated with the Work Card, including the Implementer Report, Architect Review, and other validation evidence. Each document carries its own disposition status.
-
-### Phase Closeout workspace
-
-The Phase Closeout workspace displays the closeout documents and updated Roadmap records that must be approved before progression.
-
-## Deterministic Document Order
-
-The resolver must use repository-derived order, not a manually authoritative workflow-state snapshot.
-
-The high-level stage order is:
-
-```text
-Project Planning
--> Phase Planning
--> Work Card
--> Operator Validation
--> Phase Closeout
--> Next Phase
-```
-
-Within that order:
-
-- Project Intake is the first Project Planning document.
-- Project Planning documents follow the existing project planning and roadmap relationships.
-- Phases follow Project Roadmap order.
-- Phase Planning precedes Work Card Plan.
-- Work Cards follow Work Card Plan order.
-- Implementation evidence follows its parent Work Card.
-- Phase Closeout follows resolution of the phase’s planned Work Cards.
-- A document that cannot be associated safely remains visible as `Pending` in the nearest applicable workspace rather than disappearing.
-
-The resolver returns the first required logical document whose effective status is not `Approved`.
-
-Effective status rules:
-
-```text
-missing status       -> Pending
-Pending              -> stop at document
-Rejected             -> stop at document
-RevisionRequested    -> stop at document
-Approved             -> continue
-```
-
-## Authority and Simplification Rules
-
-The Operator’s document disposition is the only binding approval state introduced by this phase.
-
-Phase 07 must not depend on:
-
-- separate Operator approval artifacts;
-- approval target hashes;
-- decision timelines;
-- a global approval queue;
-- `implementationAuthorized`;
-- `codeChangesAuthorized`;
-- `sourceCodeChangesAuthorized`;
-- `phaseProgressionAuthorized`;
-- `routeSelectionAuthorized`;
-- `justInTimeWorkCardCreationAuthorized`;
-- `authorizationGranted`;
-- `executionPassesAuthorized`;
-- approval-level `pushAuthorized`;
-- a special historical approval class;
-- global Governance Maintenance preemption.
-
-Technical failures remain local:
-
-- an unreadable current document blocks review of that document;
-- a stale write requires refresh of that document;
-- a pair mismatch requires repair of that document;
-- an unrelated defect does not replace the valid current action with a project-wide governance repair action.
-
-## Historical and Duplicate Documents
-
-Historical documents use the same four status values and the same stage workspaces.
-
-No duplicate inventory or semantic merge analysis is required before the disposition system operates.
-
-- Each existing logical document receives a status.
-- Exact or apparent duplicates remain separate documents unless a later specific cleanup action is approved.
-- The Operator may approve, reject, or request revision for each document presented.
-- A duplicate problem is handled locally when it prevents deterministic ordering or safe writing.
-
-## In Scope
-
-- Add the document disposition contract to planning documents.
-- Initialize missing statuses to `Pending` without approving anything.
-- Read and write synchronized Markdown/JSON disposition values.
-- Add disposition controls to the existing stage workspaces.
-- Route to the first non-approved document.
-- Preserve the same document identity through revision.
-- Remove or bypass separate approval screens and approval-artifact routing.
-- Remove global Governance Maintenance preemption.
-- Use the real ChampCity_AI planning corpus for validation.
-- Restart at Project Intake when it is the first non-approved document.
-
-## Out of Scope
-
-- Semantic duplicate analysis.
-- Canonical survivor selection.
-- Bulk duplicate deletion or archival.
-- Historical approval reconstruction.
-- Decision event timelines.
-- Separate approval records.
-- New provider, ChatGPT browser-agent, Codex transport, or MCP features.
-- Git, release, packaging, tagging, or deployment automation.
-- Broad visual redesign unrelated to workspace-integrated disposition.
-
-## Implementation Method
-
-- Execute one approved Work Card at a time.
-- Use the existing workspaces rather than adding parallel review screens.
-- Keep the implementation proportional to the four-value status contract.
-- Do not introduce a generalized policy engine.
-- Do not create a separate migration database or manifest prerequisite.
-- Tests must exercise real production readers, writers, workspaces, and resolver behavior.
-- Do not replace simple document status with derived authority fields.
-
-## Phase Acceptance Criteria
-
-Phase 07 is complete when:
-
-1. Every logical planning document has one readable disposition status.
-2. Missing status is treated as `Pending`.
-3. Markdown and JSON pair status remains synchronized.
-4. The existing stage workspace displays the documents it owns.
-5. Each stage workspace contains its own disposition selector and save action.
-6. No separate Operator approval screen is required.
-7. Approve writes `Approved` to the selected document.
-8. Reject writes `Rejected` to the selected document.
-9. Request Revision writes `RevisionRequested` to the selected document.
-10. Revising a requested document returns it to `Pending`.
-11. The resolver stops at the first required non-approved document.
-12. Approved documents are skipped on the next resolution pass.
-13. Rejected and revision-requested documents remain the current action.
-14. Project Intake is the first Project Planning review target.
-15. Phase Planning and Work Card Plan are reviewed inside Phase Planning.
-16. Ordinary and repair Work Cards use the same Work Card workspace.
-17. Implementation evidence is reviewed inside Operator Validation.
-18. Closeout documents are reviewed inside Phase Closeout.
-19. No approval artifact, target hash, decision timeline, or parallel authority Boolean controls routing.
-20. Governance repair defects do not globally replace unrelated valid work.
-21. Restart preserves status and returns to the correct first non-approved document.
-22. Full automated and Operator manual validation pass using the real repository corpus.
-
-## Manual Validation
-
-Final Operator validation must prove:
-
-1. Start the application with Project Intake set to `Pending`.
-2. Confirm the application opens Project Planning with Project Intake selected.
-3. Approve Project Intake inside Project Planning.
-4. Confirm the next non-approved Project Planning document is selected.
-5. Open Phase Planning and review Phase Planning and Work Card Plan without navigating to a separate approval screen.
-6. Reject a document and confirm workflow remains on it.
-7. Request revision and confirm workflow remains on it.
-8. Revise the document and confirm it returns to `Pending`.
-9. Approve the revised document and confirm progression.
-10. Restart and confirm the correct first non-approved document remains current.
-11. Confirm an unrelated malformed document does not force a global Governance Maintenance action.
-
-## Phase Exit Condition
-
-Phase 07 exits when the application uses the real ChampCity_AI planning corpus to perform this simple document-by-document Operator disposition loop and starts at the first non-approved document, beginning with Project Intake.
+Document.Status=Approved

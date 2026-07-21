@@ -148,3 +148,6 @@ Expected outputs:
 ## Prohibited Scope
 
 Do not reintroduce Codex CLI or Runner Transport, implement Independent Verifier Agent, implement Operator Validation Agent, broaden unrelated workflow routing, perform Operator acceptance, push, merge, tag, or release.
+
+## Document Disposition
+Document.Status=Pending

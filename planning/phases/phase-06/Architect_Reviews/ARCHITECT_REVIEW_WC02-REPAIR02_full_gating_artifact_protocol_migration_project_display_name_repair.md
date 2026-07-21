@@ -73,3 +73,6 @@ Use the application only. Do not edit Markdown or JSON files.
 ## Disposition
 
 Operator validation is authorized.
+
+## Document Disposition
+Document.Status=Pending

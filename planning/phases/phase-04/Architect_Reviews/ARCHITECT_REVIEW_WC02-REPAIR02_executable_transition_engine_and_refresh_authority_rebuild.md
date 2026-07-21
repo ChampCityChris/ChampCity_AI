@@ -80,3 +80,6 @@ The Implementer Report still says commit creation was pending, but git history s
 ## Required Repair
 
 No further Implementer repair is required before Operator validation. If Operator validation still shows WC02 blocked on Architect Review, reopen as a projector/refresh regression with the live screenshot and scan state as evidence.
+
+## Document Disposition
+Document.Status=Pending

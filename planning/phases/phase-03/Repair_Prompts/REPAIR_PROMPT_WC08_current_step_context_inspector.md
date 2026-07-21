@@ -136,3 +136,6 @@ Expected report name: `IMPLEMENTER_REPORT_REPAIR_WC08_current_step_context_inspe
 - Commit with a repair-specific message.
 - Do not create a release tag.
 - Do not push unless explicitly instructed.
+
+## Document Disposition
+Document.Status=Pending

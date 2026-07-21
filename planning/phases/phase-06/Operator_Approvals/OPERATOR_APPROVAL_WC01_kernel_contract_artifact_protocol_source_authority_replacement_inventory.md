@@ -60,3 +60,6 @@ WC01 must produce the required design document and Implementer Report pairs defi
 ## Next Action
 
 Send WC01 to the Implementer for execution under the no-source-change boundary.
+
+## Document Disposition
+Document.Status=Pending

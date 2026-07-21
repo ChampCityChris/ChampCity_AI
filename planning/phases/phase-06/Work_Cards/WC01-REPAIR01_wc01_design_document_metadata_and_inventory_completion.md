@@ -108,3 +108,6 @@ The report must list the exact corrections made, validation run, changed files, 
 - No future-dated artifact metadata remains in the revised WC01 artifacts.
 - The reviewed commit hash is recorded correctly.
 - No source code changed.
+
+## Document Disposition
+Document.Status=Pending

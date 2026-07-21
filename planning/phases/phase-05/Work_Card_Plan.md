@@ -58,3 +58,6 @@ Dependencies: WC01, WC02. Priority: critical.
 ## Candidate Resolution Rule
 
 Phase 05 closes only when the planning corpus has been reviewed, ambiguity has been resolved through questions, the current-state baseline has been reconciled, and the release-candidate roadmap has been rebaselined.
+
+## Document Disposition
+Document.Status=Pending

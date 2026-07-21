@@ -386,3 +386,6 @@ Must remain functionally accessible:
 - Decision fields.
 - Closeout preview.
 - Save closeout JSON and Markdown.
+
+## Document Disposition
+Document.Status=Pending

@@ -587,3 +587,6 @@ Entries: 278
 | champcity-ai/project/supporting_document/VALIDATION_POLICY | supporting_document | 2 | active | yes | yes |
 | champcity-ai/system/migration_manifest/legacy_saved_work_card_schema_retirement | migration_manifest | 1 | active | yes | yes |
 | champcity-ai/system/workflow_state | workflow_state | 8 | active | yes | yes |
+
+## Document Disposition
+Document.Status=Pending

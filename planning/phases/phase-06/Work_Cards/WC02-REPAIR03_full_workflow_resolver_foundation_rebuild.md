@@ -302,3 +302,6 @@ The report must include:
 - confirmation that no push occurred.
 
 One complete final report is required. No partial report or intermediate acceptance request is permitted.
+
+## Document Disposition
+Document.Status=Pending

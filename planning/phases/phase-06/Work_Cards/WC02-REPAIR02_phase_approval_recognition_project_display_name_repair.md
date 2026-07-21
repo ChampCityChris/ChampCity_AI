@@ -274,3 +274,6 @@ Do not describe unperformed work as complete. Do not request Operator validation
 - No prohibited workflow-authority file or behavior is changed.
 - The existing Implementer Report pair is revised in place.
 - The repository is clean after the report-only finalization commit.
+
+## Document Disposition
+Document.Status=Pending

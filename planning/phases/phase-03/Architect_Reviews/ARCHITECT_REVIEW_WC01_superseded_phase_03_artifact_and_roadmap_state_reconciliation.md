@@ -153,3 +153,6 @@ Operator validates WC01 manually. If passed, the Architect should create the nex
 ```text
 WC02 — Durable Current Required Action Model
 ```
+
+## Document Disposition
+Document.Status=Pending

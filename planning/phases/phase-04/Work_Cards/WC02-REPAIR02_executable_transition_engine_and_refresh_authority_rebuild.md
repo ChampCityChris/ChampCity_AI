@@ -164,3 +164,6 @@ Run at minimum:
 - migration manifest validation if artifacts are rewritten
 
 Playwright remains out of scope unless already configured and explicitly required by existing project validation.
+
+## Document Disposition
+Document.Status=Pending

@@ -82,3 +82,6 @@ This handoff does not copy large source files. Use these repository paths for Fi
 ## Validation Script
 
 - `scripts/verify-work-card-fixture.mjs`
+
+## Document Disposition
+Document.Status=Pending

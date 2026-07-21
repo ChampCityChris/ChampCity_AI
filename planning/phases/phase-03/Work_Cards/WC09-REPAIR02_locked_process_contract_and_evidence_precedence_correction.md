@@ -123,3 +123,6 @@ Target: feature/phase-03-wc09-repair02-process-contract-evidence-precedence
 Commit: Enforce locked process and evidence precedence
 
 Do not merge to dev. Do not push to master. Do not perform Operator validation.
+
+## Document Disposition
+Document.Status=Pending

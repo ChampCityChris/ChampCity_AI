@@ -103,3 +103,6 @@ Updated: 2026-06-30T16:08:48.648Z
 ## Next Step
 
 Use this Project Intake to generate a Project Architect Interview prompt. The Project Intake does not create the Project Profile or Work Cards by itself.
+
+## Document Disposition
+Document.Status=Pending

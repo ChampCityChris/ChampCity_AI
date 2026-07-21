@@ -27,5 +27,8 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-19T20:44:25.562Z",
-  "workCardId": "WC03_REPAIR_header_layout_regression"
+  "workCardId": "WC03_REPAIR_header_layout_regression",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

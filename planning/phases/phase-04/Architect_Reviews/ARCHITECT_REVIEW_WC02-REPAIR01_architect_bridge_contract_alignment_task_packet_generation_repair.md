@@ -80,3 +80,6 @@ The persisted Workflow State artifact may still reflect an older cache, but runt
 ## Required Repair
 
 No further Implementer repair is required before Operator validation.
+
+## Document Disposition
+Document.Status=Pending

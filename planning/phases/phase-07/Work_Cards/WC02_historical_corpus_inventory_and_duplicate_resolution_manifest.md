@@ -798,3 +798,6 @@ The Operator should review the generated Markdown manifest and confirm:
 7. the report states that no source record was changed.
 
 WC02 remains unresolved until implemented, reviewed, and accepted by the Operator. WC03 through WC13 remain unauthorized.
+
+## Document Disposition
+Document.Status=Pending

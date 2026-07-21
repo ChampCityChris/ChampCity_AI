@@ -25,5 +25,8 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-19T21:44:58.309Z",
-  "workCardId": "WC02"
+  "workCardId": "WC02",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

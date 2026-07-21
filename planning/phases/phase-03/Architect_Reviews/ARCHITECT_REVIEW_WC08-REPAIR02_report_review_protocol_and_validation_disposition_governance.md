@@ -157,3 +157,6 @@ Validate the following:
 None before Operator validation.
 
 If Operator validation fails, the repair should be tightly scoped to the failed report-protocol behavior. Do not reopen WC08-REPAIR01 or WC09 from this validation unless the evidence shows this repair directly regressed those routes.
+
+## Document Disposition
+Document.Status=Pending

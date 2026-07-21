@@ -98,3 +98,6 @@ The app no longer routes to Phase 04 Work Card authoring when Phase 04 is closed
 - Operator validation of WC02-REPAIR01.
 - Re-run or disposition WC02 validation after repair.
 - WC03 through WC06 after WC02 is accepted.
+
+## Document Disposition
+Document.Status=Pending

@@ -133,3 +133,6 @@ Historical outcomes remain intact:
 `champcity-ai/phase-06/work_card/WC03`
 
 WC03 must remain pending and non-executable until an exact Operator Approval artifact authorizes that exact Work Card.
+
+## Document Disposition
+Document.Status=Pending

@@ -123,3 +123,6 @@ Phase Observation Registers record where an observation was discovered and triag
 ## Phase Closeout Requirement
 
 Every phase closeout must include Observation Register reconciliation: confirm all phase observations are resolved, no-action, or represented in this register; list created or updated project-level observations; and identify observations that must influence next-phase activation or next-phase mapping.
+
+## Document Disposition
+Document.Status=Pending

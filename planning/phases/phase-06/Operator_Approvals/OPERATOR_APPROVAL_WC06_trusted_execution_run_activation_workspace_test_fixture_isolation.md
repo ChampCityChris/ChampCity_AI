@@ -60,3 +60,6 @@ The Operator authorizes P01-P03 in one governed implementation session while pre
 - Runner Transport
 - Push, merge, tag, or release
 - Operator acceptance
+
+## Document Disposition
+Document.Status=Pending

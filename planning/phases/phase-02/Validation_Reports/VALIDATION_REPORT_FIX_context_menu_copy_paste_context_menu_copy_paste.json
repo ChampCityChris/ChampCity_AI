@@ -25,5 +25,8 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "active",
   "updatedAt": "2026-07-19T17:32:03.486Z",
-  "workCardId": "FIX_context_menu_copy_paste"
+  "workCardId": "FIX_context_menu_copy_paste",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

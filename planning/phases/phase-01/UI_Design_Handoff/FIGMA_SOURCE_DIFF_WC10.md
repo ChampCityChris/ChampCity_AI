@@ -250,3 +250,6 @@
 - `ScreenLayout`, `ArtifactPanel`, `ActionBar`, `Notice`, `Badge`, `FieldGroup`, and screen bodies remain adapted rather than byte-for-byte copied so real IPC behavior and long local artifact data do not break the layout.
 - The Work Card selector in the compact header updates app-level active-card context; individual workflow screens keep their own real selectors and load/save flows.
 - Pixel-level visual parity still requires Operator inspection in the running Electron window.
+
+## Document Disposition
+Document.Status=Pending

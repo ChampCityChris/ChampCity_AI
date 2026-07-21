@@ -19,3 +19,6 @@ TBD
 ## Recommended Next Action
 
 TBD
+
+## Document Disposition
+Document.Status=Pending

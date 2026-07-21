@@ -94,3 +94,6 @@ None recorded.
 ## Non-Mutating Note
 
 This Phase Closeout record does not mutate Work Cards, change Work Card status or risk level, create release tags, push to GitHub, package the app, deploy anything, or start the next phase by itself.
+
+## Document Disposition
+Document.Status=Pending

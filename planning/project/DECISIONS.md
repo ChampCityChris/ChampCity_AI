@@ -55,3 +55,6 @@
 ## Decision Notes
 
 The Phase 05 approved roadmap authority is `champcity-ai/phase-05/project_roadmap/WC03`. Historical Phase 03 and Phase 04 documents remain evidence, but they do not override the approved Phase 05 baseline.
+
+## Document Disposition
+Document.Status=Pending

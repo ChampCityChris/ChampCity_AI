@@ -61,3 +61,6 @@ The living documents are accepted as the current planning authority. Phase 05 ma
 ## Carry-Forward Note
 
 The old WC09 repository gate still treats Phase 05 artifacts as outside WC09 scope. That is a known validation tooling/gate-scope issue and must not be interpreted as a failure of the living-document update pass.
+
+## Document Disposition
+Document.Status=Pending

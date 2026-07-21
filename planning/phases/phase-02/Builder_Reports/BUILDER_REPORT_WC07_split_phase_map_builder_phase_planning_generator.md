@@ -130,3 +130,6 @@ Numbered Work Card: WC07 - Split Phase Map Builder and Phase Planning Documents 
 ## Recommended Next Implementer Task
 
 After Operator manual validation, create or update the WC07 validation record if authorized. Do not update Phase 02 closeout unless the Operator explicitly directs that closeout pass.
+
+## Document Disposition
+Document.Status=Pending

@@ -123,3 +123,6 @@ The MVP is done when a non-technical user can report a bug, review the framed Wo
 - LLM strategy: manual copy/paste for Architect framing and Implementer execution packet workflows in MVP.
 - MVP integration limit: MCP, connector, and external automation integrations remain non-goals.
 - Deployment limit: production deployment pipeline remains a non-goal.
+
+## Document Disposition
+Document.Status=Pending

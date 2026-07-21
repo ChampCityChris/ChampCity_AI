@@ -66,3 +66,6 @@
 ## Operator Attention
 
 - None.
+
+## Document Disposition
+Document.Status=Pending

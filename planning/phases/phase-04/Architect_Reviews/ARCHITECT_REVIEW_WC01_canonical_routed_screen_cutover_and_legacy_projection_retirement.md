@@ -81,3 +81,6 @@ No new observation register issue is required for this pass. The earlier routed 
 ## Required Repair, if any
 
 No further repair is required before Operator validation. Additional repair should only be opened if Operator validation shows the routed Architect Review screen still fails to bind evidence or fails to advance after the accepted Architect Review artifact is refreshed.
+
+## Document Disposition
+Document.Status=Pending

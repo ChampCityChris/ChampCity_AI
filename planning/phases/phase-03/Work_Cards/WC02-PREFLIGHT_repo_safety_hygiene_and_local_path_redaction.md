@@ -250,3 +250,6 @@ planning/phases/phase-03/Work_Cards/WC02-PREFLIGHT_repo_safety_hygiene_and_local
 
 Do not rely on chat context beyond this instruction. Use <PROJECT_REPO> and repo-relative paths in all committed artifacts. Create the required Implementer Report when complete.
 ```
+
+## Document Disposition
+Document.Status=Pending

@@ -167,3 +167,6 @@ None.
 ## Recommended Next Builder Task
 
 Operator should confirm WC01 through WC04 now appear in Architect Review and Risk Review selectors, then Architect should define Work Card 5: Generate Builder prompt.
+
+## Document Disposition
+Document.Status=Pending

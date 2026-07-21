@@ -20,3 +20,6 @@ TBD
 
 - Do not redesign unrelated behavior.
 - Do not broaden the Work Card.
+
+## Document Disposition
+Document.Status=Pending

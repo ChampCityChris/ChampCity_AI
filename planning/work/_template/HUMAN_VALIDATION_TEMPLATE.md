@@ -53,3 +53,6 @@ Required Architect output:
 ## Notes
 
 TBD
+
+## Document Disposition
+Document.Status=Pending

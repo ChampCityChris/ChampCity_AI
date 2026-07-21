@@ -132,3 +132,6 @@ feature/phase-04-wc01-canonical-routed-screen-cutover
 
 Commit:
 Cut over routed screens to canonical authority
+
+## Document Disposition
+Document.Status=Pending

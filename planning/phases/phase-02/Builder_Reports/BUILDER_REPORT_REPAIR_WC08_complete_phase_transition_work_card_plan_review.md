@@ -154,3 +154,6 @@ After Operator manual validation of this WC08 repair, run an Operator-approved r
 - Checks skipped and why: Operator acceptance, Human Validation acceptance, Phase 02 closeout, Phase 03 activation, and visual acceptance skipped because they are Operator-owned or explicitly forbidden.
 - Manual validation required: listed above.
 - Residual risks: the worktree remains dirty; the Work Card Plan Review materialization actions are intentionally disabled until a future approved Work Card implements safe Formal Work Card creation.
+
+## Document Disposition
+Document.Status=Pending

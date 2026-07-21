@@ -253,3 +253,6 @@ None.
 ## Recommended Next Action
 
 After this scoped repair branch and report are pushed, request Architect review of WC04-REPAIR01. If approved, the Operator should perform the listed manual validation from the repair branch. Do not merge to `dev` or begin WC05-WC15 without separate approval.
+
+## Document Disposition
+Document.Status=Pending

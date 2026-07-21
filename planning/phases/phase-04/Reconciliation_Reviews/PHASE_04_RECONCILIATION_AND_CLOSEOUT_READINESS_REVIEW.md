@@ -161,3 +161,6 @@ Operator manual validation should confirm only the immediate recovery outcome:
 - The previous blocked Architect Bridge state is gone.
 
 After that confirmation, the next controlled action should be roadmap/project-state rebaseline, not old WC02 authoring.
+
+## Document Disposition
+Document.Status=Pending

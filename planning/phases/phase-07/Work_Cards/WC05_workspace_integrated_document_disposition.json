@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "champcity.work-card.v1",
+  "workCardId": "WC05",
+  "phaseId": "phase-07",
+  "title": "Workspace-Integrated Document Review and Disposition",
+  "status": "Approved",
+  "owner": "Implementer",
+  "planOrder": 5,
+  "risk": "high",
+  "dependencies": [
+    "WC04"
+  ],
+  "continuousExecution": {
+    "approved": true,
+    "nextWorkCard": "WC06",
+    "reportRequiredBeforeNext": true
+  },
+  "purpose": "Populate the five stage workspaces with planning documents and provide document preview plus Approve, Reject, and Request Revision controls inside the owning workspace.",
+  "workspaces": [
+    "Project Planning",
+    "Phase Planning",
+    "Work Card",
+    "Operator Validation",
+    "Phase Closeout"
+  ],
+  "requiredOutcomes": [
+    "Every discovered logical document appears in exactly one workspace.",
+    "Each workspace shows a document list, disposition, preview, native selector, and Apply Disposition button.",
+    "Approve writes Approved, Reject writes Rejected, and Request Revision writes RevisionRequested through WC04.",
+    "Phase Planning displays Phase Planning and Work Card Plan directly.",
+    "Ordinary and repair Work Cards use the same workspace.",
+    "Document errors remain local."
+  ],
+  "prohibitions": [
+    "Do not add startup routing or the first-non-approved resolver.",
+    "Do not initialize the real corpus.",
+    "Do not create separate approval screens, approval artifacts, queues, route bindings, role gates, or maintenance UI.",
+    "Do not perform Git operations."
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "npm run validate:codex:unit",
+    "npm run validate:codex:build",
+    "npm run validate:codex",
+    "non-acceptance launch smoke check"
+  ],
+  "implementerReportPath": "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC05_workspace_integrated_document_disposition.md",
+  "markdownPath": "planning/phases/phase-07/Work_Cards/WC05_workspace_integrated_document_disposition.md",
+  "jsonPath": "planning/phases/phase-07/Work_Cards/WC05_workspace_integrated_document_disposition.json",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

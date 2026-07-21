@@ -550,3 +550,6 @@ Architect reviews the report and source changes.
 Operator performs acceptance only after Architect authorization.
 
 No remaining Phase 03 route-specific Work Card begins until WC09 is accepted.
+
+## Document Disposition
+Document.Status=Pending

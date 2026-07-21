@@ -1,0 +1,78 @@
+{
+  "documentType": "project_design_decision",
+  "title": "Nested Project, Phase, and Work Card Lifecycle Model",
+  "project": "ChampCity A/I",
+  "confirmedBy": "Operator",
+  "confirmedDate": "2026-07-21",
+  "status": "Approved",
+  "hierarchy": [
+    "Project",
+    "Phase",
+    "Work Card"
+  ],
+  "lifecycleStages": [
+    "Intake",
+    "Planning",
+    "Building",
+    "Validation",
+    "Close"
+  ],
+  "projectLifecycle": [
+    "Project Intake",
+    "Project Planning",
+    "Project Building",
+    "Project Validation",
+    "Project Close"
+  ],
+  "phaseLifecycle": [
+    "Phase Intake",
+    "Phase Planning",
+    "Phase Building",
+    "Phase Validation",
+    "Phase Close"
+  ],
+  "workCardLifecycle": [
+    "Work Card Intake",
+    "Work Card Planning",
+    "Work Card Building",
+    "Work Card Validation",
+    "Work Card Close"
+  ],
+  "controlRules": [
+    "Project Building enters the Phase lifecycle.",
+    "Phase Building enters the Work Card lifecycle.",
+    "Work Card Close returns to Phase Building.",
+    "Phase Close returns to Project Building.",
+    "Project Close ends the project."
+  ],
+  "currentLocationCoordinates": {
+    "level": [
+      "Project",
+      "Phase",
+      "Work Card"
+    ],
+    "stage": [
+      "Intake",
+      "Planning",
+      "Building",
+      "Validation",
+      "Close"
+    ]
+  },
+  "derivedProductViews": [
+    "workflow progression",
+    "process maps",
+    "UI navigation",
+    "workspace organization",
+    "visible actions",
+    "current-location context"
+  ],
+  "authorityBoundary": {
+    "documentsAndDispositionRemainVisibleState": true,
+    "hiddenWorkflowAuthorityProhibited": true,
+    "captureFramePlanBuildProveIsCanonical": false
+  },
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

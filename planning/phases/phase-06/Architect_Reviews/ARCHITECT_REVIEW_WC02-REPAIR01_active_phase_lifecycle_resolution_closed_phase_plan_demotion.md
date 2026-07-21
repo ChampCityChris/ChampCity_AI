@@ -85,3 +85,6 @@ Pass if the live current-action phase is not Phase 04, stale Phase 04 `WC04` is 
 ## Fail Criteria
 
 Fail if the app still shows `phase-04` as the live current-action phase, still routes to stale Phase 04 Work Card authoring, still opens Ad Hoc Work Card Capture for Phase 04 `WC04`, reference navigation changes the live current action, or the visible blocker is too technical to use.
+
+## Document Disposition
+Document.Status=Pending

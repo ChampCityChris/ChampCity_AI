@@ -48,3 +48,6 @@
 - Documented the authority model separating Project Roadmap, Phase Map, Phase Planning Documents, Work Card Plans, Formal Work Cards, Implementer Execution Packets, reports, validation, closeout, and next-phase activation.
 - Recorded that Phase 03 draft artifacts may exist under `planning/phases/phase-03/` only as Draft / Pending Review / Not Active records until an explicit Operator activation decision.
 - Repaired the partial WC08 pass by adding a distinct Work Card Plan Review screen, read-only Work Card Plan listing, disabled future materialization actions, planned-entry reconciliation statuses, Ad Hoc Work Card Capture authority guardrails, and explicit next-phase activation decision options.
+
+## Document Disposition
+Document.Status=Pending

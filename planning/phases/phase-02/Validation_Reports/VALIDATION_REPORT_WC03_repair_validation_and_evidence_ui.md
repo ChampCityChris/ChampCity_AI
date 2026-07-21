@@ -102,3 +102,6 @@ Add Screen Capture Paste directly into Test Box functionality in a later pass.  
 ## Non-Mutating Note
 
 This Human Validation record does not modify, approve, close, fail, validate, or repair the Work Card by itself.
+
+## Document Disposition
+Document.Status=Pending

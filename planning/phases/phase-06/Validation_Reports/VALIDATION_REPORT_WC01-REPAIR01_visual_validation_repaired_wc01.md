@@ -75,3 +75,6 @@ No runtime UI validation was required for WC01-REPAIR01 because the repair was d
 ## Decision
 
 WC01-REPAIR01 visual validation passed. Repaired WC01 may be accepted as complete by candidate disposition.
+
+## Document Disposition
+Document.Status=Pending

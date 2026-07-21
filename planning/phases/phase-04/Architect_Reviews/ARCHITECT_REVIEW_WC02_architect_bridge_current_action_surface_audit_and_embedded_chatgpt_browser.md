@@ -74,3 +74,6 @@ No additional numbered repair is authorized for WC02. WC02-REPAIR01 is the final
 3. Confirm the expected output is `champcity-ai/phase-04/operator_validation/WC02`.
 4. Confirm the previous Architect Review route for WC02 is no longer presented.
 5. Complete Operator validation against the restored WC02 and WC02-REPAIR01 evidence chain.
+
+## Document Disposition
+Document.Status=Pending

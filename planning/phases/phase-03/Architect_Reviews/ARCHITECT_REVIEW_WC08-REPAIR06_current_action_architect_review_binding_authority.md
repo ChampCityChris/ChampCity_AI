@@ -103,3 +103,6 @@ None before Operator validation.
 ## Next Action Ownership
 
 The Operator performs the five validation steps above. The Architect then reviews the resulting validation evidence. After WC08-REPAIR06 is accepted, the Architect proceeds with WC09 stabilization before any remaining route-specific Phase 03 Work Card.
+
+## Document Disposition
+Document.Status=Pending

@@ -211,3 +211,6 @@ None.
 ## Recommended Next Implementer Task
 
 Architect Review of WC02, followed by Operator validation. Next implementation Work Card is WC03 Real Phase 04/05 Replay Fixture and No-Fallback Repository Gates.
+
+## Document Disposition
+Document.Status=Pending

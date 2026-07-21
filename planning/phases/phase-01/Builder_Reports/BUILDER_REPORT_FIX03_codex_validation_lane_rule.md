@@ -131,3 +131,6 @@ Added a repo-owned validation-lane rule documenting the known Codex sandbox `spa
 
 - The sample Codex rules file is not active unless separately installed.
 - Future Codex passes must still choose the wrapper/lane correctly when running child-process-heavy validation.
+
+## Document Disposition
+Document.Status=Pending

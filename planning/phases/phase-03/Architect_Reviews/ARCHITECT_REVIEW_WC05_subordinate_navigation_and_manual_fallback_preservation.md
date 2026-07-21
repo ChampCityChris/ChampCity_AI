@@ -140,3 +140,6 @@ If the only issues are static top-strip text, dense microcopy, or general layout
 WC05 is ready for Operator validation.
 
 No repair is required before Operator validation.
+
+## Document Disposition
+Document.Status=Pending

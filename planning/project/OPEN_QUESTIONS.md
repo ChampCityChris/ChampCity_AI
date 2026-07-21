@@ -51,3 +51,6 @@
 ## Owner
 
 The Operator owns final answers. The Architect may frame options before implementation, and future Work Cards should resolve only the questions needed for their approved phase scope.
+
+## Document Disposition
+Document.Status=Pending

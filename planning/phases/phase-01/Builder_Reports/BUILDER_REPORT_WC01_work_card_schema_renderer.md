@@ -122,3 +122,6 @@ None.
 ## Recommended Next Builder Task
 
 Architect should review the WC01 Builder Report and rendered Work Card artifact, then define Work Card 2: Build New Work Card capture form.
+
+## Document Disposition
+Document.Status=Pending

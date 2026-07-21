@@ -104,3 +104,6 @@ Expected report name: `BUILDER_REPORT_REPAIR_WC04_generate_project_planning_docu
 - Commit with a repair-specific message.
 - Do not create a release tag.
 - Do not push unless explicitly instructed.
+
+## Document Disposition
+Document.Status=Pending

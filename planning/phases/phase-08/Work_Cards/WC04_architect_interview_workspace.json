@@ -1,0 +1,104 @@
+{
+  "workCardId": "WC04",
+  "phaseId": "phase-08",
+  "title": "Architect Interview Workspace",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "medium-high",
+  "dependsOn": [
+    "WC01",
+    "WC02",
+    "WC03"
+  ],
+  "executionAuthorized": false,
+  "executionReleaseCondition": "WC01-WC03 are accepted, WC03 real browser/MCP proof passed, and the Operator explicitly releases WC04.",
+  "gitMutationAuthorized": false,
+  "purpose": "Complete the dual-pane Architect Interview workspace with repo-backed interview preview, revision requests, disposition, and derived Project Intake completion.",
+  "sourceDesignDocuments": [
+    "planning/project/Design_Documents/ARCHITECT_INTERVIEW_WORKSPACE_DEFINITION.md",
+    "planning/project/Design_Documents/PROJECT_INTAKE_LIFECYCLE_AND_WORKSPACE_DEFINITION.md"
+  ],
+  "lifecycleLocation": {
+    "level": "project",
+    "stage": "intake"
+  },
+  "workspace": {
+    "id": "architect-interview",
+    "label": "Architect Interview",
+    "registryBacked": true,
+    "reuseWc03Entry": true,
+    "layout": [
+      "Embedded Architect chat",
+      "Repo-backed interview document preview and disposition"
+    ]
+  },
+  "canonicalInterviewOutputs": [
+    "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_<project-slug>.md",
+    "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_<project-slug>.json"
+  ],
+  "previewStates": [
+    "waiting_for_architect_document",
+    "loading",
+    "ready_for_review",
+    "revision_requested",
+    "approved",
+    "rejected",
+    "read_or_synchronization_error"
+  ],
+  "refreshRequirements": [
+    "Refresh after MCP create or revision",
+    "Explicit manual Refresh fallback",
+    "Load both siblings together",
+    "Local mismatch and parse errors",
+    "Preserve last readable preview on transient failure",
+    "Reset in-memory reviewed indication when version changes",
+    "No broad recursive repository watching"
+  ],
+  "operatorActions": [
+    "approve",
+    "reject",
+    "request_revision"
+  ],
+  "revisionBehavior": {
+    "durableNoteInSameArtifactPair": true,
+    "markdownSection": "Operator Revision Request",
+    "disposition": "RevisionRequested",
+    "automaticRemoteMessageSubmission": false,
+    "revisedDraftDisposition": "Pending"
+  },
+  "completionDerivation": [
+    "Valid WC02 Project Intake pair exists",
+    "Valid WC02 Architect Interview Prompt pair exists",
+    "Valid canonical Project Architect Interview pair exists",
+    "Interview Markdown and JSON dispositions both equal Approved"
+  ],
+  "writeRequirements": [
+    "Stage both sibling updates before commit",
+    "Preserve unrelated content",
+    "No partial pair success",
+    "Rollback or explicit recoverable error",
+    "Prevent approval on mismatch",
+    "Keep errors local to interview pane"
+  ],
+  "prohibitedScope": [
+    "Project Planning",
+    "Project Profile or Roadmap generation",
+    "Lifecycle transition engine or current-state persistence",
+    "Automatic navigation",
+    "Separate approval or revision artifact",
+    "Raw chat transcript persistence",
+    "Automatic remote-chat message submission",
+    "Provider API integration or new dependencies",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "Controlled manual dual-pane validation through the accepted WC03 integration"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC04_architect_interview_workspace.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

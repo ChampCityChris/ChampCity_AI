@@ -125,3 +125,6 @@ Existing workflow routing and current-action semantics must remain unchanged.
 - Authorized passes: P03
 - Noncompliant substitutions: Broad workflow reroute; bypassing current-action obligations
 - Required behavioral tests: Existing WC04, WC05, and WC09 regression coverage remains present and passing.
+
+## Document Disposition
+Document.Status=Pending

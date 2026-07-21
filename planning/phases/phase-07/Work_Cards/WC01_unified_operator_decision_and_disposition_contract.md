@@ -419,3 +419,6 @@ WC01 completion does not require the final Phase 07 Project Planning workspace o
 After Operator acceptance of WC01, the next authorized planning action is to author WC02 — Historical Corpus Inventory and Duplicate Resolution Manifest.
 
 WC02 through WC13 remain unauthored and unauthorized for implementation.
+
+## Document Disposition
+Document.Status=Pending

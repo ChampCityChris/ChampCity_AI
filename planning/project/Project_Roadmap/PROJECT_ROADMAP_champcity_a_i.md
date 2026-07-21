@@ -189,3 +189,6 @@ Every future implementation Work Card must state the existing implementation cla
 ## Artifact Policy
 
 The roadmap is the living master record for phase sequence and release-candidate scope. It does not create executable Work Cards. Phase planning and Operator approval create Work Card Plans, and full Work Cards are created just in time by the Architect after the relevant approval.
+
+## Document Disposition
+Document.Status=Pending

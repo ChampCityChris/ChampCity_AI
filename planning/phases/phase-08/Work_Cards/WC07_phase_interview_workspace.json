@@ -1,0 +1,89 @@
+{
+  "workCardId": "WC07",
+  "phaseId": "phase-08",
+  "title": "Phase Interview Workspace",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "medium",
+  "executionAuthorized": false,
+  "executionReleaseCondition": "WC06 is accepted and the Operator explicitly releases WC07.",
+  "gitMutationAuthorized": false,
+  "purpose": "Implement the Phase Intake interview workspace, phase-specific Architect handoff, repo-backed Phase_Interview review, and disposition without hidden active-phase state.",
+  "dependsOn": [
+    "WC01",
+    "WC02",
+    "WC03",
+    "WC04",
+    "WC05",
+    "WC06"
+  ],
+  "sourceDesignDocuments": [
+    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+    "planning/project/Design_Documents/PHASE_MAP_PHASE_INTAKE_AND_PHASE_PLANNING_WORKSPACE_DEFINITION.md"
+  ],
+  "lifecycleLocation": {
+    "level": "phase",
+    "stage": "intake"
+  },
+  "workspace": {
+    "label": "Phase Interview",
+    "layout": "Embedded Architect browser plus Phase_Interview preview and disposition",
+    "registryBacked": true
+  },
+  "requiredInputs": [
+    "Approved Project_Profile",
+    "Approved Project_Roadmap",
+    "Approved Phase_Map and selected phase record",
+    "Approved prior phase closeout when applicable",
+    "Relevant project risks, constraints, decisions, and repository evidence",
+    "Saved phase-specific Architect handoff"
+  ],
+  "outputs": [
+    "planning/phases/<phase-id>/Phase_Interview.md",
+    "planning/phases/<phase-id>/Phase_Interview.json"
+  ],
+  "requiredInterviewContent": [
+    "selected phase identity and title",
+    "sources reviewed",
+    "prior phase closeout context when applicable",
+    "clarification questions and answers when required",
+    "Architect recommendations or accepted assumptions",
+    "phase-specific constraints, dependencies, risks, and outcome",
+    "repository-relative evidence references where useful",
+    "whether additional clarification was required"
+  ],
+  "noQuestionsBehavior": "The Architect still writes Phase_Interview and records that required context was reviewed and no additional clarification was necessary.",
+  "completionRule": "Phase Intake completes only when Phase_Interview is Approved.",
+  "supportedActions": [
+    "generate handoff",
+    "open embedded Architect",
+    "refresh preview",
+    "approve",
+    "reject",
+    "request revision",
+    "continue to Phase Planning"
+  ],
+  "prohibitedScope": [
+    "Phase Planning or Work Card Plan generation",
+    "Formal Work Card creation",
+    "Work Card lifecycle behavior",
+    "Phase Building, Validation, or Close",
+    "Project Validation or Close",
+    "Separate Phase Intake approval artifact",
+    "Hidden active-phase or current-stage state",
+    "Route tokens, role gates, approval queues, hashes, or execution runs",
+    "Provider APIs, DOM automation, or credential extraction",
+    "Dependency changes",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "Operator manual validation through the accepted embedded Architect/MCP path"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC07_phase_interview_workspace.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

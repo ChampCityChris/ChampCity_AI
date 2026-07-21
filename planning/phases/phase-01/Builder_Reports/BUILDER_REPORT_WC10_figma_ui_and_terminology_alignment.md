@@ -158,3 +158,5 @@ None.
 
 Operator should manually validate the WC10 redesigned UI and Implementer terminology, then Architect should decide whether to close Phase 1 or create a focused repair/UI polish Work Card.
 
+## Document Disposition
+Document.Status=Pending

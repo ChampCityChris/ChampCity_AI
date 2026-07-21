@@ -88,3 +88,6 @@ The remaining issue is carried into Phase 05 as a reconciliation and roadmap pro
 Activate phase-05 — Reconciliation and Roadmap Rebaseline.
 
 The first controlled action is Phase 05 WC01: full planning corpus review and ambiguity-removal interview.
+
+## Document Disposition
+Document.Status=Pending

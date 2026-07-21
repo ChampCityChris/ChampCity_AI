@@ -127,3 +127,6 @@ Existing phase folders can provide context, but they are not the authoritative l
 - Manual Operator validation must confirm that Phase Map Composer has no phase dropdown and that the generator phase selector is populated from mapped phase records.
 - WC07 does not authorize Phase 03 activation or Phase 02 closeout.
 - WC08 does not close Phase 02, activate Phase 03, or create Phase 03 Formal Work Cards.
+
+## Document Disposition
+Document.Status=Pending

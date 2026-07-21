@@ -8,5 +8,8 @@
   "parentWorkCardId": "WC03",
   "sourceJsonFile": "VALIDATION_TARGET_WC03_repair_validation_and_evidence_ui.json",
   "sourceMarkdownFile": "WC03_repair_validation_and_evidence_ui.md",
-  "expectedImplementerReportFile": "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md"
+  "expectedImplementerReportFile": "BUILDER_REPORT_WC03_repair_validation_and_evidence_ui.md",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

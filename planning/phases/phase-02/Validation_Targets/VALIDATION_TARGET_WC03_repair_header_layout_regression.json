@@ -7,5 +7,8 @@
   "risk": "medium",
   "parentWorkCardId": "WC03",
   "sourceJsonFile": "VALIDATION_TARGET_WC03_repair_header_layout_regression.json",
-  "expectedImplementerReportFile": "BUILDER_REPORT_WC03_repair_header_layout_regression.md"
+  "expectedImplementerReportFile": "BUILDER_REPORT_WC03_repair_header_layout_regression.md",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

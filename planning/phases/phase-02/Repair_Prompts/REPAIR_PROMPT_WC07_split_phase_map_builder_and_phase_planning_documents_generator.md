@@ -107,3 +107,6 @@ Expected report name: `BUILDER_REPORT_REPAIR_WC07_split_phase_map_builder_and_ph
 - Commit with a repair-specific message.
 - Do not create a release tag.
 - Do not push unless explicitly instructed.
+
+## Document Disposition
+Document.Status=Pending

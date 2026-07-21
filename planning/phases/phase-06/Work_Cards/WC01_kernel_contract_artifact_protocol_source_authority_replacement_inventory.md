@@ -156,3 +156,6 @@ Operator/Architect validation should confirm:
 3. No source-code changes were made.
 4. Old-foundation replacement rules are reflected in the inventory.
 5. The output does not authorize compatibility fallbacks without a named supported consumer and sunset plan.
+
+## Document Disposition
+Document.Status=Pending

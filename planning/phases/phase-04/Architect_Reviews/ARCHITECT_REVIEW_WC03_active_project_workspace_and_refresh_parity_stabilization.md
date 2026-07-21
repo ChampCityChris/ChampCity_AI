@@ -86,3 +86,6 @@ Expected validation output:
 ## Required Repair
 
 No Implementer repair is required before Operator validation.
+
+## Document Disposition
+Document.Status=Pending

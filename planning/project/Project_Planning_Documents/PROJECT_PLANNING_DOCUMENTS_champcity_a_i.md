@@ -573,3 +573,6 @@ The Operator owns final answers. The Architect may help frame options before imp
 ## Decision Notes
 
 Active Implementer artifacts use canonical storage names; historical archived paths remain evidence only.
+
+## Document Disposition
+Document.Status=Pending

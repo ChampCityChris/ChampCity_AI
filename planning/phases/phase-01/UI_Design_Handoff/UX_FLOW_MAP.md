@@ -101,3 +101,6 @@ The workflow should not feel like:
 - An internal admin panel.
 - A developer console.
 - A giant form with a Markdown dump beside it.
+
+## Document Disposition
+Document.Status=Pending

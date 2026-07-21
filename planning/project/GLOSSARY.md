@@ -34,3 +34,6 @@
 - Risk Router: The policy that classifies work as Quick Fix, Standard Change, or High Risk.
 - Prove: The validation step where acceptance criteria are checked and the card closes or repairs.
 - Project Memory: Durable repository files that preserve decisions, risks, operating rules, and current state.
+
+## Document Disposition
+Document.Status=Pending

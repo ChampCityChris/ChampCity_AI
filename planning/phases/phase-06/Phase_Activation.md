@@ -61,3 +61,6 @@ Phase 06 must produce the durable workflow kernel and artifact protocol needed b
 ## Planning Boundary
 
 This activation authorizes Phase 06 planning artifacts only. It does not authorize source-code implementation until the Phase 06 plan and Work Card Plan are approved and a just-in-time Work Card is created.
+
+## Document Disposition
+Document.Status=Pending

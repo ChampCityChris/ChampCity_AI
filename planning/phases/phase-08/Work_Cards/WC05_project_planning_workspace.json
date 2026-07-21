@@ -1,0 +1,116 @@
+{
+  "workCardId": "WC05",
+  "phaseId": "phase-08",
+  "title": "Project Planning Workspace",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "high",
+  "dependsOn": [
+    "WC01",
+    "WC02",
+    "WC03",
+    "WC04"
+  ],
+  "executionAuthorized": false,
+  "executionReleaseCondition": "WC01-WC04 are accepted, an approved Project Architect Interview pair exists, and the Operator explicitly releases WC05.",
+  "gitMutationAuthorized": false,
+  "purpose": "Implement Project Planning prompt handoff, independent Project Profile and Roadmap review, and one synchronized bundle disposition applied to both documents.",
+  "sourceDesignDocuments": [
+    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+    "planning/project/Design_Documents/PROJECT_INTAKE_LIFECYCLE_AND_WORKSPACE_DEFINITION.md",
+    "planning/project/Design_Documents/ARCHITECT_INTERVIEW_WORKSPACE_DEFINITION.md",
+    "planning/project/Design_Documents/PROJECT_PLANNING_WORKSPACE_DEFINITION.md"
+  ],
+  "lifecycleLocation": {
+    "level": "project",
+    "stage": "planning"
+  },
+  "workspace": {
+    "id": "project-planning-review",
+    "label": "Project Plan and Roadmap Review",
+    "registryBacked": true,
+    "migratesProvisionalProjectPlanningEntry": true,
+    "layout": [
+      "Embedded Architect chat",
+      "Project Profile preview",
+      "Project Roadmap preview",
+      "Shared planning-bundle disposition"
+    ]
+  },
+  "requiredInputs": [
+    "planning/project/Project_Intake/PROJECT_INTAKE_<project-slug>.*",
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project-slug>.*",
+    "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_<project-slug>.*"
+  ],
+  "handoffPair": [
+    "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_<project-slug>.md",
+    "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_<project-slug>.json"
+  ],
+  "canonicalOutputs": {
+    "projectProfile": [
+      "planning/project/PROJECT_PROFILE.md",
+      "planning/project/PROJECT_PROFILE.json"
+    ],
+    "projectRoadmap": [
+      "planning/project/Project_Roadmap/PROJECT_ROADMAP_<project-slug>.md",
+      "planning/project/Project_Roadmap/PROJECT_ROADMAP_<project-slug>.json"
+    ]
+  },
+  "planningEligibility": [
+    "Project Architect Interview pair exists",
+    "Markdown and JSON siblings are valid and synchronized",
+    "Both interview siblings equal Approved"
+  ],
+  "reviewModel": {
+    "separatePreviews": true,
+    "independentApproval": false,
+    "perVersionInMemoryReviewedIndicators": true,
+    "sharedActions": [
+      "approve",
+      "reject",
+      "request_revision"
+    ]
+  },
+  "bundleWriteRequirements": [
+    "Stage all four output files before target replacement",
+    "Preserve unrelated document content",
+    "Write matching disposition to both document pairs",
+    "Prevent partial or mixed planning disposition",
+    "Rollback or explicit recoverable error",
+    "Reload and verify all four files before success"
+  ],
+  "revisionBehavior": {
+    "sharedRevisionTextInBothDocumentPairs": true,
+    "architectMayReviseEitherOrBoth": true,
+    "requiredReviewStateAfterRevision": "Both documents coherently Pending",
+    "automaticRemoteMessageSubmission": false
+  },
+  "completionDerivation": [
+    "Both canonical Markdown/JSON pairs exist and are valid",
+    "Each Markdown disposition matches its JSON sibling",
+    "Project Profile equals Approved",
+    "Project Roadmap equals Approved",
+    "No unresolved synchronized-write error"
+  ],
+  "prohibitedScope": [
+    "Phase Intake or Phase Planning",
+    "Work Card generation",
+    "Project Building, Validation, or Close workspaces",
+    "Lifecycle transition engine or current-state persistence",
+    "Independent planning-document approval",
+    "Separate bundle-approval or reconciliation artifact",
+    "Raw chat transcript persistence",
+    "Provider API integration, DOM automation, credential handling, or new dependencies",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "Controlled manual Project Planning lane through the accepted browser/MCP integration"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC05_project_planning_workspace.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

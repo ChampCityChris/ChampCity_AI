@@ -47,3 +47,6 @@
 - Blocking conditions: none
 
 Reference navigation is excluded from routed authority.
+
+## Document Disposition
+Document.Status=Pending

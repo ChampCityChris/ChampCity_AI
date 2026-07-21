@@ -217,3 +217,6 @@ Do not fail WC07 solely because validation checklist UX, screenshot paste UX, mu
 WC07 is ready for Operator validation.
 
 No WC07 repair is required before Operator validation.
+
+## Document Disposition
+Document.Status=Pending

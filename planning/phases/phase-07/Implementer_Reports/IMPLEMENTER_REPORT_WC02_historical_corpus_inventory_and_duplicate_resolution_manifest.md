@@ -312,3 +312,6 @@ Operator should review the generated Markdown manifest and confirm corpus counts
 ## Recommended Next Implementer Task
 
 - Architect or Operator review of `HISTORICAL_CORPUS_INVENTORY_V1.md` and the zero-safe-group result before authorizing any WC03 or repair scope.
+
+## Document Disposition
+Document.Status=Pending

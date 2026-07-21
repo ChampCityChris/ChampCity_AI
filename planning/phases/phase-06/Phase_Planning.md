@@ -119,3 +119,6 @@ Phase 06 succeeds when:
 Phase 06 exits when the Operator validates that ChampCity_AI repository evidence projects through the new kernel to the correct current action, with no reliance on old projector fallback, stale workflow snapshots, filename ordering, suffixes, or synthetic IDs.
 
 Phase 06 exit does not mean the app is fully ready for dogfooding. Application-led dogfooding resumes in Phase 08 after Phase 07 Architect Bridge work is also complete.
+
+## Document Disposition
+Document.Status=Pending

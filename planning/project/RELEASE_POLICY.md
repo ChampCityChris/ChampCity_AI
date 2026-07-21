@@ -61,3 +61,6 @@ The MVP foundation plan is retained here as a historical release record. Current
 - `v0.4.0-implementer-prompt-flow`: risk router, Implementer execution packet generator, and plan capture.
 - `v0.5.0-validation-repair-closeout`: Implementer report capture, validation, repair, closeout, and project-memory update.
 - `v1.0.0-mvp`: complete MVP done definition.
+
+## Document Disposition
+Document.Status=Pending

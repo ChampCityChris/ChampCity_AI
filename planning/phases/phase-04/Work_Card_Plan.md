@@ -70,3 +70,6 @@ Dependencies: WC01–WC04. Priority: critical.
 ## Candidate Resolution Rule
 
 Phase Closeout is blocked until each candidate is completed, completed via repair within its configured limit, carried forward, deferred, or cancelled. A candidate that exhausts its repair limit remains blocked until a stabilization disposition is recorded. No additional numbered repair is permitted by inference.
+
+## Document Disposition
+Document.Status=Pending

@@ -401,3 +401,6 @@ Manual validation required: the Operator may independently confirm the visible C
 Residual risks: the exact external mechanism that produced WC01 report revision 2 is evidenced by repository history and the absence of a transition, but there is no durable operation log to identify the original caller. This does not affect the proven architectural boundary. The recommended correction requires design review before implementation.
 
 No production correction, workflow transition, state reconciliation, UI fix, migration apply, Work Card correction, repair creation, or feature implementation was performed. Production Workflow State remained unchanged throughout the investigation.
+
+## Document Disposition
+Document.Status=Pending

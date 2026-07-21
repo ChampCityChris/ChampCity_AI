@@ -83,3 +83,6 @@ Manual copy/paste may remain an explicit fallback during Alpha, but it is not th
 ## Workflow Direction
 
 Phase 06 rebuilds the workflow kernel and artifact protocol. Phase 07 makes Architect Bridge Alpha core. Phase 08 returns ChampCity_AI development to application-led dogfooding. Later phases harden Implementer contracts, validation/evidence, multi-project authority, Git automation, UI usability, provider/security boundaries, and release-candidate packaging.
+
+## Document Disposition
+Document.Status=Pending

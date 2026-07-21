@@ -125,3 +125,6 @@ Removed reliance on prohibited legacy authority fields from new persisted decisi
 ## Recommended Next Implementer Task
 
 Repair or restore the missing canonical Phase 07 WC01 artifact pair that blocks the WC06 execution-run activation test, then rerun the full validation lane before any staging or commit action.
+
+## Document Disposition
+Document.Status=Pending

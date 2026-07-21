@@ -78,3 +78,6 @@ Isolate mounted Electron tests from normal project persistence, purge repository
 - Allowed paths: src/main/projects, src/main/canonicalRuntime.ts, src/main/main.ts, scripts, test/wc06, package.json
 - Required tests: mounted test-isolation validation; normal application activation and restart validation; existing workflow routing regressions
 - Expected outputs: isolated mounted Electron persistence; normal registry contamination repair; visible workflow and restart persistence evidence
+
+## Document Disposition
+Document.Status=Pending

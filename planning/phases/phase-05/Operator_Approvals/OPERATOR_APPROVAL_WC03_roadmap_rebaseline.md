@@ -65,3 +65,6 @@ This approval confirms:
 This approval does not by itself authorize source-code implementation.
 
 Living-document updates are authorized as the next planning action because the approved roadmap states that Project Roadmap, Project State, Project Profile, Decisions, Risks, Open Questions, Project Observation Register, and contradictory active workflow/architecture documents must be updated after approval.
+
+## Document Disposition
+Document.Status=Pending

@@ -1,0 +1,102 @@
+{
+  "workCardId": "WC14",
+  "phaseId": "phase-08",
+  "title": "Phase Validation and Close Workspace",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "medium",
+  "executionAuthorized": false,
+  "executionReleaseCondition": "WC13 is accepted and the Operator explicitly releases WC14.",
+  "gitMutationAuthorized": false,
+  "purpose": "Implement the Phase Validation document-population review workspace, Phase_Closeout creation and disposition, and derived Phase Close completion.",
+  "dependencies": [
+    "WC01",
+    "WC06",
+    "WC07",
+    "WC08",
+    "WC09",
+    "WC10",
+    "WC11",
+    "WC12",
+    "WC13"
+  ],
+  "sourceDesignDocuments": [
+    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+    "planning/project/Design_Documents/WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION.md",
+    "planning/project/Design_Documents/PHASE_AND_PROJECT_VALIDATION_CLOSE_WORKSPACE_DEFINITION.md"
+  ],
+  "lifecycleLocations": [
+    {
+      "level": "phase",
+      "stage": "validation"
+    },
+    {
+      "level": "phase",
+      "stage": "close"
+    }
+  ],
+  "workspace": {
+    "id": "phase-validation",
+    "layout": [
+      "Phase document population browser",
+      "Phase_Closeout preview and disposition"
+    ],
+    "embeddedArchitectRequired": false
+  },
+  "entryRequirements": [
+    "Approved Phase_Interview",
+    "Approved Phase_Planning and Work_Card_Plan",
+    "Approved Validation_Record for every required Formal Work Card",
+    "Every other candidate explicitly resolved"
+  ],
+  "reviewPopulation": [
+    "Phase_Interview",
+    "Phase_Planning",
+    "Work_Card_Plan",
+    "Formal Work Cards",
+    "Implementer Reports",
+    "Architect report dispositions",
+    "Repair Work Cards and reports",
+    "Validation Records",
+    "Candidate resolution decisions",
+    "Observations, risks, decisions, and evidence"
+  ],
+  "closeoutArtifact": {
+    "path": "planning/phases/<phase-id>/Phase_Closeouts/PHASE_<phase-number>_CLOSEOUT_<slug>.*",
+    "requiredFields": [
+      "phase identity and intended outcome",
+      "closure decision",
+      "Operator closure rationale",
+      "completed Work Card and validation summary",
+      "known limitations",
+      "unresolved, deferred, superseded, or carried-forward matters",
+      "observation, risk, and decision reconciliation",
+      "Phase Map or Project Roadmap impact",
+      "Operator approval statement",
+      "Document.Status"
+    ]
+  },
+  "completionRule": "Phase Close completes only when Phase_Closeout is Approved and closureDecision is Close.",
+  "returnBehavior": "Return to Project Building and derive the next incomplete phase from the Approved Phase Map and Approved Phase Closeouts.",
+  "prohibitedScope": [
+    "Repeated Work Card validation testing",
+    "Project Validation or Project Close",
+    "Second Phase Close approval",
+    "Operator_Phase_Closeout_Approval artifacts",
+    "Next-phase activation artifacts",
+    "Duplicate corpus snapshots",
+    "Hidden lifecycle completion or active-phase state",
+    "Route tokens, role gates, approval queues, hashes, execution runs, or decision timelines",
+    "Dependency changes",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC14_phase_validation_and_close_workspace.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

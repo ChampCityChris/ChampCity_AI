@@ -1,0 +1,99 @@
+{
+  "workCardId": "WC08",
+  "phaseId": "phase-08",
+  "title": "Phase Planning Bundle Workspace",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "medium",
+  "executionAuthorized": false,
+  "executionReleaseCondition": "WC07 is accepted and the Operator explicitly releases WC08.",
+  "gitMutationAuthorized": false,
+  "purpose": "Implement the Phase Planning workspace, separate Phase_Planning and Work_Card_Plan review, and one synchronized bundle disposition without creating Formal Work Cards.",
+  "dependsOn": [
+    "WC01",
+    "WC02",
+    "WC03",
+    "WC04",
+    "WC05",
+    "WC06",
+    "WC07"
+  ],
+  "sourceDesignDocuments": [
+    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+    "planning/project/Design_Documents/PHASE_MAP_PHASE_INTAKE_AND_PHASE_PLANNING_WORKSPACE_DEFINITION.md"
+  ],
+  "lifecycleLocation": {
+    "level": "phase",
+    "stage": "planning"
+  },
+  "workspace": {
+    "label": "Phase Planning",
+    "layout": "Embedded Architect browser with separate Phase_Planning and Work_Card_Plan previews",
+    "registryBacked": true
+  },
+  "requiredInputs": [
+    "Approved Project_Profile",
+    "Approved Project_Roadmap",
+    "Approved Phase_Map and selected phase record",
+    "Approved Phase_Interview",
+    "Approved prior phase closeout when applicable",
+    "Relevant current repository evidence, risks, constraints, and decisions",
+    "Saved Phase Planning Architect handoff"
+  ],
+  "outputs": [
+    "planning/phases/<phase-id>/Phase_Planning.md",
+    "planning/phases/<phase-id>/Phase_Planning.json",
+    "planning/phases/<phase-id>/Work_Card_Plan.md",
+    "planning/phases/<phase-id>/Work_Card_Plan.json"
+  ],
+  "reviewMode": "Independent document previews with one synchronized Phase Planning disposition",
+  "completionRule": "Phase Planning completes only when both Phase_Planning and Work_Card_Plan are Approved from the shared disposition action.",
+  "workCardPlanBoundary": [
+    "Candidate Work Cards only",
+    "No Formal Work Card files",
+    "No implementation authorization",
+    "No Implementer handoffs or execution packets",
+    "No Work Card lifecycle bypass"
+  ],
+  "writeSafety": [
+    "Staged sibling writes",
+    "Rollback or bounded all-or-nothing behavior",
+    "Mixed-disposition detection",
+    "Local error containment"
+  ],
+  "supportedActions": [
+    "generate planning handoff",
+    "open embedded Architect",
+    "refresh either preview",
+    "review both documents",
+    "approve bundle",
+    "reject bundle",
+    "request bundle revision",
+    "continue to Phase Building"
+  ],
+  "prohibitedScope": [
+    "Formal Work Card materialization",
+    "Work Card lifecycle behavior",
+    "Implementer handoff or execution packet generation",
+    "Phase Building candidate selection",
+    "Phase Validation or Phase Close",
+    "Project Validation or Project Close",
+    "Operator Phase Approval artifacts",
+    "Independent one-document approval",
+    "Hidden active-phase or current-stage state",
+    "Route tokens, role gates, approval queues, hashes, or execution runs",
+    "Provider APIs, DOM automation, or credential extraction",
+    "Dependency changes",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "Operator manual validation through the accepted embedded Architect/MCP path"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC08_phase_planning_bundle_workspace.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

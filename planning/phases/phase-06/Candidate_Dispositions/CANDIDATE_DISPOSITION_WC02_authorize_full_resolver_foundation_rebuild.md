@@ -71,3 +71,6 @@ The exact replacement candidate is:
 ## Required Output
 
 `champcity-ai/phase-06/work_card/WC03`
+
+## Document Disposition
+Document.Status=Pending

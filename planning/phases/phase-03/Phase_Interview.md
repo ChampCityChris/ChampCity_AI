@@ -157,3 +157,6 @@ The following are already decided and should not be reopened inside Phase 03:
 - REPAIR sub-cards use `WCxx-REPAIRxx` naming.
 - Closeout approval authorizes Roadmap update and Next Phase Activation.
 - Figma output is design input only, not workflow authority.
+
+## Document Disposition
+Document.Status=Pending

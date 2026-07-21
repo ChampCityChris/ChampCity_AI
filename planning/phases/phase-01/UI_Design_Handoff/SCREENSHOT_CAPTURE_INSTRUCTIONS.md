@@ -47,3 +47,6 @@ planning/phases/phase-01/UI_Design_Handoff/screenshots/
 - Include visible warning, empty, or saved-success states if they are easy to produce.
 - Do not include secrets, credentials, private tokens, or unrelated local files in screenshots.
 - Do not claim screenshots exist unless image files have actually been saved.
+
+## Document Disposition
+Document.Status=Pending

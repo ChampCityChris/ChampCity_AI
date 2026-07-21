@@ -182,3 +182,6 @@ Mandatory source package:
 This is a source-code-first 1:1 UI import task. Do not interpret the Figma design from words. Inspect the source package before editing. If the package is missing or unreadable, stop as blocked.
 
 Implement only WC03. Do not implement WC04-WC15. Do not merge to `dev`. Do not push to `master`. Create and push the WC03 feature branch. Create the required Implementer Report when complete.
+
+## Document Disposition
+Document.Status=Pending

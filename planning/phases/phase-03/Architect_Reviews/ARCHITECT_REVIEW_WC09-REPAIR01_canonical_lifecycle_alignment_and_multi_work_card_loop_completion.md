@@ -52,3 +52,6 @@ WC09-REPAIR01 corrected the production target, Phase Mapping transition, candida
 ## Required disposition
 
 Execute WC09-REPAIR02 as the final numbered repair under WC09. Operator validation is not authorized. No WC09-REPAIR03 may be created.
+
+## Document Disposition
+Document.Status=Pending

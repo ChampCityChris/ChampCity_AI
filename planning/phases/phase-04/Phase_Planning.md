@@ -116,3 +116,6 @@ Use bounded Work Cards with architecture checkpoints. First establish authority 
 ## Phase Boundary
 
 This Phase Planning document and the associated Work Card Plan are Phase Mapping outputs. Full Work Cards are created just in time, one candidate at a time.
+
+## Document Disposition
+Document.Status=Pending

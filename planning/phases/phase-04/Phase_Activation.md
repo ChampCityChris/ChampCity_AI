@@ -55,3 +55,6 @@ phase-04 — Workflow Authority Cutover and Operator Recovery Stabilization
 ## First Required Action
 
 Architect creates the full WC01 Work Card just in time from the approved Phase 04 Work Card Plan.
+
+## Document Disposition
+Document.Status=Pending

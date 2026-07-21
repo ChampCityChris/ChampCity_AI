@@ -278,3 +278,6 @@ Implement a deterministic current required action model that computes the curren
 
 Use the full Work Card as the source of truth. Do not rely on chat context beyond this instruction. Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before editing. Create the required Implementer Report when complete.
 ```
+
+## Document Disposition
+Document.Status=Pending

@@ -1,0 +1,111 @@
+{
+  "workCardId": "WC01",
+  "phaseId": "phase-08",
+  "title": "Nested Lifecycle and Extensible Workspace Registry Foundation",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "medium",
+  "executionAuthorized": false,
+  "executionReleaseCondition": "Operator releases the reviewed Phase 08 Work Card sequence for sequential implementation.",
+  "gitMutationAuthorized": false,
+  "purpose": "Establish the confirmed nested lifecycle vocabulary and an immutable extensible workspace registry without implementing lifecycle behavior.",
+  "sourceDesignDocument": "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+  "lifecycle": {
+    "levels": [
+      "project",
+      "phase",
+      "workCard"
+    ],
+    "stages": [
+      "intake",
+      "planning",
+      "building",
+      "validation",
+      "close"
+    ],
+    "locationFields": [
+      "level",
+      "stage"
+    ],
+    "staticRelationships": [
+      "Project Building contains Phase lifecycles",
+      "Phase Building contains Work Card lifecycles",
+      "Work Card has no child lifecycle",
+      "Work Card Close returns to Phase Building",
+      "Phase Close returns to Project Building",
+      "Project Close is terminal"
+    ]
+  },
+  "workspaceRegistry": {
+    "definitionFields": [
+      "id",
+      "label",
+      "location",
+      "order"
+    ],
+    "requirements": [
+      "Open-ended stable workspace IDs",
+      "Multiple ordered workspaces at one lifecycle location",
+      "Deterministic ordering",
+      "Duplicate workspace ID rejection",
+      "Lookup by ID",
+      "Lookup by lifecycle location",
+      "Immutable static code configuration"
+    ]
+  },
+  "currentWorkspaceMappings": [
+    {
+      "label": "Project Planning",
+      "level": "project",
+      "stage": "planning"
+    },
+    {
+      "label": "Phase Planning",
+      "level": "phase",
+      "stage": "planning"
+    },
+    {
+      "label": "Work Card",
+      "level": "workCard",
+      "stage": "planning"
+    },
+    {
+      "label": "Operator Validation",
+      "level": "workCard",
+      "stage": "validation"
+    },
+    {
+      "label": "Phase Closeout",
+      "level": "phase",
+      "stage": "close"
+    }
+  ],
+  "expectedProductionFiles": [
+    "src/shared/lifecycle/nestedLifecycle.ts",
+    "src/shared/workspaces/workspaceRegistry.ts",
+    "src/shared/workspaceContracts.ts",
+    "src/shared/workspaces/documentWorkspace.ts",
+    "src/shared/documents/documentOrder.ts",
+    "src/renderer/app/App.tsx"
+  ],
+  "prohibitedScope": [
+    "Lifecycle progression or transition engine",
+    "Current lifecycle state or persistence",
+    "New visible workspaces",
+    "Nested navigation or drill-down",
+    "Workspace actions or permissions",
+    "Approval authority or artifacts",
+    "Route tables, role gates, queues, execution runs, or current-action state",
+    "Dependency changes",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC01_nested_lifecycle_extensible_workspace_registry_foundation.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

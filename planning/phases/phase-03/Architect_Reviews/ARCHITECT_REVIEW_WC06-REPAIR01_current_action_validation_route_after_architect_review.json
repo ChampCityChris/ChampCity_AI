@@ -31,5 +31,8 @@
   "schemaVersion": "champcity.artifact.v1",
   "status": "historical",
   "updatedAt": "2026-07-14T00:00:00.000Z",
-  "workCardId": "WC06-REPAIR01"
+  "workCardId": "WC06-REPAIR01",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

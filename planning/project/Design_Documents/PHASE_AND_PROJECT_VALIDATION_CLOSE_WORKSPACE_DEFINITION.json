@@ -1,0 +1,104 @@
+{
+  "designDocumentId": "PHASE_AND_PROJECT_VALIDATION_CLOSE_WORKSPACE_DEFINITION",
+  "projectId": "champcity-ai",
+  "title": "Phase and Project Validation and Close Workspace Definition",
+  "status": "confirmed_by_operator",
+  "confirmedAt": "2026-07-21",
+  "lifecycleLocations": [
+    {
+      "level": "phase",
+      "stage": "validation"
+    },
+    {
+      "level": "phase",
+      "stage": "close"
+    },
+    {
+      "level": "project",
+      "stage": "validation"
+    },
+    {
+      "level": "project",
+      "stage": "close"
+    }
+  ],
+  "sharedRule": {
+    "validationPurpose": "Review the durable document population and record the Operator closure decision and rationale.",
+    "closePurpose": "Execute an Approved closeout decision without requiring a second approval.",
+    "closeEvidence": "Approved closeout document with closureDecision Close",
+    "additionalTestingRequired": false,
+    "separateApprovalArtifact": false
+  },
+  "phase": {
+    "workspace": "Phase Validation Workspace",
+    "layout": [
+      "Phase document population browser",
+      "Phase_Closeout preview and disposition"
+    ],
+    "entryRequirements": [
+      "Approved Phase Planning bundle",
+      "Approved Validation_Record for every required Formal Work Card",
+      "Every remaining candidate explicitly resolved, deferred, superseded, already satisfied, or carried forward"
+    ],
+    "reviewPopulation": [
+      "Phase_Interview",
+      "Phase_Planning",
+      "Work_Card_Plan",
+      "Formal Work Cards",
+      "Implementer Reports",
+      "Architect report dispositions",
+      "Repair Work Cards and reports",
+      "Validation Records",
+      "Candidate resolution decisions",
+      "Applicable observations, risks, decisions, and evidence"
+    ],
+    "closeoutPath": "planning/phases/<phase-id>/Phase_Closeouts/PHASE_<phase-number>_CLOSEOUT_<slug>.*",
+    "completionRule": "Phase Close completes when Phase_Closeout is Approved and closureDecision is Close.",
+    "returnTarget": "Project / Building"
+  },
+  "project": {
+    "workspace": "Project Validation Workspace",
+    "layout": [
+      "Project document population browser",
+      "Project_Closeout preview and disposition"
+    ],
+    "entryRequirements": [
+      "Approved Project Profile and Project Roadmap",
+      "Approved Phase Map",
+      "Approved Phase Closeout for every required mapped phase",
+      "Remaining project work explicitly resolved, deferred, transferred, or documented as a known limitation"
+    ],
+    "reviewPopulationGroups": [
+      "Project Intake and Architect Interview",
+      "Project Profile and Project Roadmap",
+      "Phase Map",
+      "Phase planning and Work Card records",
+      "Implementer Reports and repairs",
+      "Validation Records",
+      "Phase Closeouts",
+      "Project-level observations, risks, decisions, and unresolved items"
+    ],
+    "closeoutPath": "planning/project/Project_Closeouts/PROJECT_CLOSEOUT_<project-slug>.*",
+    "completionRule": "Project Close completes when Project_Closeout is Approved and closureDecision is Close.",
+    "terminal": true
+  },
+  "supportedActions": [
+    "navigate_population",
+    "preview_closeout",
+    "approve",
+    "reject",
+    "request_revision",
+    "refresh_after_revision"
+  ],
+  "prohibitedArchitecture": [
+    "Separate phase or project closeout approval artifacts",
+    "Separate validation-complete or close-complete authority records",
+    "Hidden lifecycle or terminal-state database",
+    "Route tokens, role gates, approval queues, execution runs, hashes, or decision timelines",
+    "Repeated Work Card testing during Phase or Project Validation",
+    "Duplicate corpus snapshots as authority"
+  ],
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

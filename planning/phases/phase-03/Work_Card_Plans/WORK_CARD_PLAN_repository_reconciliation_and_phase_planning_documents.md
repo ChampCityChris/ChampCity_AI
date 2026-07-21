@@ -161,3 +161,6 @@ These are superseded planning proposals retained for history. They must not be c
 ## Important Boundary
 
 These are superseded planning proposals for historical reference only. Use the approved Phase 03 workflow-router `Work_Card_Plan.md` instead.
+
+## Document Disposition
+Document.Status=Pending

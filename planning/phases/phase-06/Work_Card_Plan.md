@@ -123,3 +123,6 @@ Phase 06 becomes eligible for closeout only when:
 `champcity-ai/phase-06/work_card/WC03`
 
 WC03 remains pending and cannot authorize implementation until an exact Operator Approval artifact for WC03 exists.
+
+## Document Disposition
+Document.Status=Pending

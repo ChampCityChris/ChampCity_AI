@@ -48,3 +48,6 @@ The Operator must explicitly approve or request revision.
 ## Approval Statement
 
 Pending. Do not treat this artifact as approved until the Operator records approval.
+
+## Document Disposition
+Document.Status=Pending

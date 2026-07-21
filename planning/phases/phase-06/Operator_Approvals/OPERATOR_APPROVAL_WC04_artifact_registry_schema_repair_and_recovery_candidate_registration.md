@@ -45,3 +45,6 @@ Authorized:
 - no push, merge, release, or Operator acceptance.
 
 This approval does not authorize WC05, WC03, or any other Work Card.
+
+## Document Disposition
+Document.Status=Pending

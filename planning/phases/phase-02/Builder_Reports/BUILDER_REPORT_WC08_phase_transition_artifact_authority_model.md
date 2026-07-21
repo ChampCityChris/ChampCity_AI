@@ -141,3 +141,6 @@ After Operator manual validation of WC08, run a dedicated repo-hygiene/staging p
 - Historical artifacts still contain legacy Builder naming and older labels by design; those should not be renamed casually outside a dedicated migration Work Card.
 - The worktree remains dirty with unrelated changes, so release/tag readiness still requires a separate repo-hygiene pass.
 - Operator acceptance, closeout, and activation decisions remain pending.
+
+## Document Disposition
+Document.Status=Pending

@@ -34,3 +34,6 @@
 - Electron filesystem writes must be constrained to approved planning paths.
 - The Electron renderer process must use context isolation and no unrestricted Node integration.
 - Future file writes must be mediated by Electron main/preload IPC.
+
+## Document Disposition
+Document.Status=Pending

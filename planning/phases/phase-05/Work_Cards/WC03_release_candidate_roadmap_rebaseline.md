@@ -111,3 +111,6 @@ The roadmap rebaseline must include:
 - The dogfooding-return phase has clear entry criteria, required in-app coverage, validation evidence, and exit criteria.
 - It does not authorize implementation by itself.
 - It identifies living documents that should be updated after approval.
+
+## Document Disposition
+Document.Status=Pending

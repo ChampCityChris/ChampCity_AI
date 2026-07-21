@@ -79,3 +79,6 @@ Architect action:
 - Treat the WC08 repair chain as migration and regression-test input for WC09.
 - Require WC09 to make the current WC08 Architect Review action executable and to prove transition to Operator Validation.
 - Keep later Phase 03 route-specific Work Cards blocked until WC09 is accepted.
+
+## Document Disposition
+Document.Status=Pending

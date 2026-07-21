@@ -131,3 +131,6 @@ Operator should manually validate the WC10 header repair, then Architect should 
 
 - Exact visual balance still requires Operator inspection in the running Electron window.
 - The workflow rail intentionally uses horizontal overflow protection at narrow widths rather than vertical wrapping.
+
+## Document Disposition
+Document.Status=Pending

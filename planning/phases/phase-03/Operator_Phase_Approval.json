@@ -44,5 +44,8 @@
   "revision": 3,
   "schemaVersion": "champcity.artifact.v1",
   "status": "historical",
-  "updatedAt": "2026-07-19T01:47:12.899Z"
+  "updatedAt": "2026-07-19T01:47:12.899Z",
+  "documentDisposition": {
+    "status": "Pending"
+  }
 }

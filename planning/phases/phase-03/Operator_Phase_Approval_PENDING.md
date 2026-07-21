@@ -141,3 +141,6 @@ I approve the revised Phase 03 Phase Mapping bundle for phase-03: Workflow Route
 ## Current Status
 
 Pending Operator approval or requested revisions.
+
+## Document Disposition
+Document.Status=Pending

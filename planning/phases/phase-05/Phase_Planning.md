@@ -111,3 +111,6 @@ Phase 05 completes when the Architect has:
 ## First Required Action
 
 Execute WC01 — Planning Corpus Review and Clarifying Questions.
+
+## Document Disposition
+Document.Status=Pending

@@ -205,3 +205,6 @@ Verify the panel is read-only, shows pass state and bounded packet preview, has 
 - Runner Transport adapter.
 - retry limits and runner-failure escalation.
 - automatic git checkpoints.
+
+## Document Disposition
+Document.Status=Pending

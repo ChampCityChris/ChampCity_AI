@@ -69,3 +69,6 @@ Avoid:
 4. Capture current screenshots using `SCREENSHOT_CAPTURE_INSTRUCTIONS.md`, or provide this folder if screenshots are not available yet.
 5. Copy the full prompt from `FIGMA_PROMPT.md` into Figma.
 6. After Figma returns a design, Architect should define a separate UI implementation Work Card. Do not implement UI changes from this package directly.
+
+## Document Disposition
+Document.Status=Pending

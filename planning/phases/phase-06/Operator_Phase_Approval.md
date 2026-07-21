@@ -47,3 +47,6 @@ After the complete pass, the workflow returns once for Architect Review and visi
 Expected output:
 
 `champcity-ai/phase-06/work_card/WC02-REPAIR03`
+
+## Document Disposition
+Document.Status=Pending

@@ -80,3 +80,6 @@ WC01 is complete because:
 WC02 through WC05 must use the repaired WC01 Design Document as the starting authority. Any newly discovered workflow-authority path must be added or amended in the relevant Implementer Report rather than silently preserved.
 
 WC02 is authorized for creation as the next Work Card draft. WC02 implementation is not authorized until WC02 receives Operator approval.
+
+## Document Disposition
+Document.Status=Pending

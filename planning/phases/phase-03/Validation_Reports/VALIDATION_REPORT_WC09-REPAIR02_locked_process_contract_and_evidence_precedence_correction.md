@@ -110,3 +110,6 @@ Screenshot supplied by Operator shows the blocked WC09-REPAIR02 Architect Review
 ## Final Decision
 
 Operator validation failed. WC09 is blocked pending Operator-approved stabilization planning.
+
+## Document Disposition
+Document.Status=Pending

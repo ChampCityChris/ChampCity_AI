@@ -74,3 +74,6 @@ Pending review.
 ## Required Repair, if any
 
 Pending review.
+
+## Document Disposition
+Document.Status=Pending

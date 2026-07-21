@@ -90,3 +90,6 @@ The following are not WC06 defects and remain deferred:
 - Phase 06 closeout eligible after Operator decision: yes.
 - New repair Work Card required: no.
 - Source-code implementation authorized by this review: no.
+
+## Document Disposition
+Document.Status=Pending

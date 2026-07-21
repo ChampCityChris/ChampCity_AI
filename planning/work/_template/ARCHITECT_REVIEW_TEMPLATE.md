@@ -44,3 +44,6 @@ Required when the decision is `Ready for Operator validation`; write substantive
 ## Required Repair, if any
 
 TBD
+
+## Document Disposition
+Document.Status=Pending

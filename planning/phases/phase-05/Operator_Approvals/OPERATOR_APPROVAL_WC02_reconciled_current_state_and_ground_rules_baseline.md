@@ -57,3 +57,6 @@ Approved artifact:
 This approval authorizes PH05 WC03: Release-Candidate Roadmap Rebaseline.
 
 This approval does not authorize source-code implementation, broad artifact cleanup, or living-document rewrites outside the approved Phase 05 roadmap rebaseline workflow.
+
+## Document Disposition
+Document.Status=Pending

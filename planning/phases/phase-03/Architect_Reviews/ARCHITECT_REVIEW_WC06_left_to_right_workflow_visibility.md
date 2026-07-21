@@ -153,3 +153,6 @@ WC06 is ready for Operator validation.
 Do not merge to `dev` until Operator validation passes.
 
 Do not begin WC07 until WC06 is validated and merged.
+
+## Document Disposition
+Document.Status=Pending

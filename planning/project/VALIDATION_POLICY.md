@@ -62,3 +62,6 @@
 - Manual Operator validation must confirm that next-phase planning artifacts are labeled Draft / Pending Review / Not Active, that Work Card Plans do not create Formal Work Cards, that Work Card Plan Review presents proposed entries as Not Executable, that Phase Closeout includes a Next Phase Activation decision, and that Ad Hoc Work Card Capture is not presented as the normal next step after phase planning.
 - Manual Operator validation must confirm Ad Hoc Work Card Capture explains manual/ad hoc field authority and does not silently combine a selected Work Card with newly entered phase/work-card values.
 - Implementers may run non-acceptance smoke checks, but Operator acceptance and Phase 02 closeout remain Operator-owned.
+
+## Document Disposition
+Document.Status=Pending

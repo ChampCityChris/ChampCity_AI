@@ -1,0 +1,301 @@
+{
+  "reviewId": "ARCHITECT_REVIEW_WC01_WC15_ordered_sequence_release_readiness",
+  "projectId": "champcity-ai",
+  "phaseId": "phase-08",
+  "title": "Architect Review — WC01–WC15 Ordered Sequence Release Readiness",
+  "reviewDate": "2026-07-21",
+  "status": "sequence_review_complete_revision_required",
+  "reviewedScope": {
+    "workCards": [
+      "WC01",
+      "WC02",
+      "WC03",
+      "WC04",
+      "WC05",
+      "WC06",
+      "WC07",
+      "WC08",
+      "WC09",
+      "WC10",
+      "WC11",
+      "WC12",
+      "WC13",
+      "WC14",
+      "WC15"
+    ],
+    "includedJsonSiblings": true,
+    "includedPhasePlanning": true,
+    "includedWorkCardPlan": true,
+    "includedGoverningDesignDocuments": true,
+    "includedCurrentTechnicalBaseline": true
+  },
+  "repositoryVerification": {
+    "repository": "ChampCityChris/ChampCity_AI",
+    "branch": "feature/phase-04-wc01-repair01-evidence-derived-workflow",
+    "workingTreeClean": false,
+    "trackedModifiedCount": 625,
+    "stagedCount": 0,
+    "untrackedCount": 88,
+    "deletedCount": 139,
+    "gitMutationPerformed": false
+  },
+  "overallDecision": {
+    "architectureDirection": "Accepted",
+    "orderedImplementationSequence": "RevisionRequired",
+    "implementerReleaseAuthorized": false,
+    "wc01ReleaseReady": false,
+    "reason": "The local workspace designs are generally sound, but the sequence lacks shared resolver, handoff-participation, source-freshness, candidate-state, workspace-migration, and baseline contracts required for coherent end-to-end execution."
+  },
+  "acceptedArchitectureBoundaries": [
+    "One nested Project, Phase, and Work Card lifecycle",
+    "Intake, Planning, Building, Validation, and Close at each level",
+    "Durable repository documents remain visible workflow evidence",
+    "No hidden workflow authority, route tokens, role gates, execution runs, approval queues, or hashes",
+    "Project and Phase planning bundles use synchronized dispositions",
+    "The Approved Formal Work Card is the Implementer instruction",
+    "Implementer Report review occurs before Operator validation",
+    "Validation Records are created only after Operator validation",
+    "Repairs remain bounded siblings of the original Work Card",
+    "Phase and Project Close use one closeout decision without duplicate approval artifacts"
+  ],
+  "blockingFindings": [
+    {
+      "id": "BF01",
+      "title": "No evidence-derived lifecycle and workspace resolver",
+      "affectedCards": [
+        "WC01",
+        "WC02",
+        "WC03",
+        "WC04",
+        "WC05",
+        "WC06",
+        "WC07",
+        "WC08",
+        "WC09",
+        "WC10",
+        "WC11",
+        "WC12",
+        "WC13",
+        "WC14",
+        "WC15"
+      ],
+      "problem": "WC01 establishes vocabulary and registry structure, but no card replaces the current flat first-non-approved resolver with a nested lifecycle and workspace projection that understands semantic completion and parent-child returns.",
+      "requiredCorrection": "Add a bounded foundation card after WC01 for document participation roles, document-to-workspace ownership, evidence-derived lifecycle location, selected phase and Work Card identity, semantic close predicates, deterministic workspace order, direct navigation targets, and plain-language current-location evidence without persisted hidden state.",
+      "recommendedCardTitle": "Evidence-Derived Lifecycle Projection and Workspace Resolution"
+    },
+    {
+      "id": "BF02",
+      "title": "Generated handoff documents can trap the resolver",
+      "affectedCards": [
+        "WC02",
+        "WC05",
+        "WC06",
+        "WC07",
+        "WC08",
+        "WC09",
+        "WC12"
+      ],
+      "problem": "Generated prompt and handoff pairs have no shared non-review participation rule. WC09 explicitly leaves its handoff Pending, but WC10 has no action that can disposition it, creating a deterministic deadlock under the current resolver.",
+      "requiredCorrection": "Define one shared non-review handoff contract. The recommended rule is that successfully generated system handoffs are viewable and regenerable but use Document.Status=Approved and are not independent review gates. An alternative explicit non-gating participation model must be visible and deterministic."
+    },
+    {
+      "id": "BF03",
+      "title": "No source freshness or downstream invalidation contract",
+      "affectedCards": [
+        "WC02",
+        "WC04",
+        "WC05",
+        "WC06",
+        "WC07",
+        "WC08",
+        "WC09",
+        "WC10",
+        "WC11",
+        "WC12",
+        "WC13",
+        "WC14",
+        "WC15"
+      ],
+      "problem": "Approved upstream documents can be revised while stale downstream planning, implementation, report, validation, and close evidence remains Approved.",
+      "requiredCorrection": "Define monotonic non-hash artifact revision identity, source-revision references, deterministic freshness checks, coordinated downstream invalidation or Pending reset rules, repair and validation precedence, and plain-language stale-source diagnostics. Timestamps and filesystem order must not be authority."
+    },
+    {
+      "id": "BF04",
+      "title": "Work Card candidate state is undefined",
+      "affectedCards": [
+        "WC08",
+        "WC09",
+        "WC10",
+        "WC14"
+      ],
+      "problem": "The sequence relies on deferred, superseded, already-satisfied, carried-forward, resolved, and completed candidate states without defining a canonical schema, evidence contract, or post-approval edit path.",
+      "requiredCorrection": "Define candidateId, order, title, purpose, dependsOn, resolutionStatus, resolutionReason, and evidencePaths. Recommended resolution values are planned, completed, deferred, superseded, alreadySatisfied, and carriedForward. Completed remains derived from Work Card evidence."
+    },
+    {
+      "id": "BF05",
+      "title": "Workspace inventory, stable IDs, ordering, and migration are incomplete",
+      "affectedCards": [
+        "WC01",
+        "WC05",
+        "WC06",
+        "WC07",
+        "WC08",
+        "WC09",
+        "WC10",
+        "WC11",
+        "WC12",
+        "WC13",
+        "WC14",
+        "WC15"
+      ],
+      "problem": "Several cards omit stable workspace IDs or relative order, provisional clean-room workspaces are not consistently migrated, and WC09 claims Work Card Intake without registering a Work Card Intake workspace.",
+      "requiredCorrection": "Publish a complete workspace inventory and migration table containing workspaceId, label, lifecycle level, lifecycle stage, order, replaced provisional workspace, and owning card. WC09 must implement a separate work-card-intake workspace or obtain explicit approval to combine it with Phase Building."
+    },
+    {
+      "id": "BF06",
+      "title": "Phase Map stores a derived completion indicator",
+      "affectedCards": [
+        "WC06",
+        "WC14",
+        "WC15"
+      ],
+      "problem": "WC06 requires the Phase Map to contain whether Approved Phase Close evidence exists even though phase completion is supposed to be derived from current closeout documents.",
+      "requiredCorrection": "Persist phase identity, order, purpose, and dependencies only. Compute completion at read time from current Phase_Closeout evidence."
+    },
+    {
+      "id": "BF07",
+      "title": "WC12 requires a post-validation path before WC13 exists",
+      "affectedCards": [
+        "WC12",
+        "WC13"
+      ],
+      "problem": "WC12 acceptance language expects post-validation repair behavior before WC13 implements the production Validation Record workflow.",
+      "requiredCorrection": "WC12 must fully prove the pre-validation repair production path and may unit-test the post-validation trigger contract. WC13 must prove the real validation failure to repair to new validation attempt integration."
+    },
+    {
+      "id": "BF08",
+      "title": "No protected clean-room Git baseline",
+      "affectedCards": [
+        "WC01",
+        "WC02",
+        "WC03",
+        "WC04",
+        "WC05",
+        "WC06",
+        "WC07",
+        "WC08",
+        "WC09",
+        "WC10",
+        "WC11",
+        "WC12",
+        "WC13",
+        "WC14",
+        "WC15"
+      ],
+      "problem": "The large dirty working tree prevents reliable attribution of Phase 08 implementation changes and unrelated baseline drift.",
+      "requiredCorrection": "Before WC01 release, create an Operator-authorized reviewed baseline commit or an equivalent immutable snapshot and changed-path manifest. A clean baseline commit is recommended."
+    }
+  ],
+  "nonBlockingStandardizationCorrections": [
+    "Use dependsOn as the JSON dependency field for every card; WC14 and WC15 currently use dependencies.",
+    "Add visible Depends on metadata to WC06 through WC15 Markdown headers.",
+    "Define canonical paths and disposition treatment for every generated Architect handoff.",
+    "State that newly created closeout documents begin as Pending.",
+    "Clarify that Architect report dispositions means the disposition on the Implementer Report, not a separate Architect Review artifact.",
+    "Define that a Rejected Formal Work Card returns to Phase Planning bundle revision.",
+    "Clarify that Approved DoNotClose remains current at Validation because close completion requires Approved plus Close.",
+    "Require every reused embedded-browser workspace to preserve the WC03 browser-security contract."
+  ],
+  "cardReview": {
+    "WC01": {
+      "disposition": "SequenceAmendmentRequired",
+      "summary": "Lifecycle vocabulary and registry scope are sound, but shared lifecycle resolution and source-freshness foundation cards must follow WC01."
+    },
+    "WC02": {
+      "disposition": "RevisionRequired",
+      "summary": "Add greenfield planning initialization, explicit intake and handoff disposition rules, canonical interview output path, and freshness behavior."
+    },
+    "WC03": {
+      "disposition": "AcceptedHighRiskGate",
+      "summary": "Real embedded subscription and MCP proof is correctly isolated; mock success is prohibited."
+    },
+    "WC04": {
+      "disposition": "RevisionRequired",
+      "summary": "Dual-pane interview workspace is sound; add source-freshness handling and the corrected canonical output prompt contract."
+    },
+    "WC05": {
+      "disposition": "RevisionRequired",
+      "summary": "Synchronized Project Profile and Roadmap disposition is sound; add shared handoff participation and downstream invalidation."
+    },
+    "WC06": {
+      "disposition": "RevisionRequired",
+      "summary": "Remove persisted completion authority from Phase Map and define stable workspace ID and handoff contract."
+    },
+    "WC07": {
+      "disposition": "RevisionRequired",
+      "summary": "No-questions Phase Interview path is correct; add stable ID, handoff contract, and freshness rules."
+    },
+    "WC08": {
+      "disposition": "RevisionRequired",
+      "summary": "Define candidate schema and resolution states, migrate the provisional Phase Planning workspace, and add stable ID, handoff, and invalidation rules."
+    },
+    "WC09": {
+      "disposition": "BlockingRevisionRequired",
+      "summary": "Remove the Pending handoff deadlock, define the canonical handoff pair, and implement a registry-backed Work Card Intake workspace or explicitly rebaseline the model."
+    },
+    "WC10": {
+      "disposition": "RevisionRequired",
+      "summary": "Migrate the provisional Work Card workspace, define stable ID and rejected-card return path, and prevent stale reports or validation after Work Card revision."
+    },
+    "WC11": {
+      "disposition": "LocallyAcceptedConditional",
+      "summary": "Work Card-as-handoff and report-disposition model are correct; add stable ID and order relative to repair workspace."
+    },
+    "WC12": {
+      "disposition": "RevisionRequired",
+      "summary": "Sibling repair model is accepted; split acceptance so WC12 proves pre-validation production flow and WC13 proves full post-validation integration."
+    },
+    "WC13": {
+      "disposition": "LocallyAcceptedWithMigrationAmendment",
+      "summary": "Validation-attempt and close-evidence model are correct; migrate Operator Validation, define stable Validation and Close IDs, and prove the real post-validation repair loop."
+    },
+    "WC14": {
+      "disposition": "RevisionRequired",
+      "summary": "One-closeout decision model is correct; migrate Phase Closeout and use semantic evidence-derived close resolution."
+    },
+    "WC15": {
+      "disposition": "LocallyAcceptedConditional",
+      "summary": "Governed-corpus review and terminal close rules are sound, conditional on resolver, freshness, and metadata corrections."
+    }
+  },
+  "recommendedSequenceRepairPlan": [
+    "Establish a protected repository baseline.",
+    "Add Evidence-Derived Lifecycle Projection and Workspace Resolution after WC01.",
+    "Add a shared Source Revision and Downstream Invalidation foundation contract or card.",
+    "Publish the complete stable workspace inventory and migration table.",
+    "Publish the canonical generated-handoff path and disposition contract.",
+    "Amend WC02 and WC04 through WC10 and WC14 for the shared contracts.",
+    "Amend WC08 and WC09 with the candidate schema and plan-revision behavior.",
+    "Amend WC12 and WC13 acceptance boundaries for post-validation repair integration.",
+    "Standardize all Markdown and JSON dependency metadata.",
+    "Conduct a second ordered Architect review before releasing WC01."
+  ],
+  "releaseReadinessCriteria": [
+    "Protected implementation baseline exists.",
+    "Evidence-derived lifecycle and workspace resolver is in the ordered sequence.",
+    "Non-review handoff artifacts cannot block progression.",
+    "Source freshness and downstream invalidation are defined.",
+    "Complete stable workspace inventory and migrations are explicit.",
+    "Work Card candidate states and revision behavior are defined.",
+    "Phase Map contains no persisted duplicate completion authority.",
+    "WC12 and WC13 acceptance boundaries are corrected.",
+    "All card dependencies and JSON fields are standardized.",
+    "A second ordered Architect review finds no blocking gap.",
+    "The Operator explicitly releases WC01."
+  ],
+  "executionAuthorized": false,
+  "gitMutationAuthorized": false,
+  "documentDisposition": {
+    "status": "RevisionRequested"
+  }
+}

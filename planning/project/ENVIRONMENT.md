@@ -60,3 +60,6 @@
 - `npm test` currently runs the TypeScript typecheck.
 - `npm run test:work-cards` builds the app and runs deterministic Work Card fixture verification.
 - Manual Electron launch validation may still be required after build/typecheck for UI acceptance.
+
+## Document Disposition
+Document.Status=Pending

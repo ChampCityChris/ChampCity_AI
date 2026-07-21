@@ -399,3 +399,6 @@ Final response must include:
 - skipped checks;
 - remaining dirty/untracked files;
 - confirmation that dev and master were not touched.
+
+## Document Disposition
+Document.Status=Pending

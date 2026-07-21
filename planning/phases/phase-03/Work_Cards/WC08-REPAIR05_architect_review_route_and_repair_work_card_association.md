@@ -316,3 +316,6 @@ Final response must include:
 - remaining dirty/untracked files;
 - confirmation that dev and master were not touched.
 "
+
+## Document Disposition
+Document.Status=Pending

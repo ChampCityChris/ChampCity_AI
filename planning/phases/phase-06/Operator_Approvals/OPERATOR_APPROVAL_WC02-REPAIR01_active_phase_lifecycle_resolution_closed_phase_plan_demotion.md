@@ -59,3 +59,6 @@ The Architect RCA embedded in the Work Card is the controlling repair basis.
 ## Expected Output
 
 `champcity-ai/phase-06/implementer_report/WC02-REPAIR01`
+
+## Document Disposition
+Document.Status=Pending

@@ -100,3 +100,6 @@ Expected report name: `BUILDER_REPORT_REPAIR_WC02_add_project_architect_intervie
 - Commit with a repair-specific message.
 - Do not create a release tag.
 - Do not push unless explicitly instructed.
+
+## Document Disposition
+Document.Status=Pending

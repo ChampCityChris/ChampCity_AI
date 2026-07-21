@@ -184,3 +184,6 @@ None.
 ## Recommended Next Builder Task
 
 Architect should review the WC02 Builder Report and validate the Work Card capture screen manually, then define Work Card 3: Add Architect framing prompt composer.
+
+## Document Disposition
+Document.Status=Pending

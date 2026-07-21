@@ -79,3 +79,6 @@ Please propose a component system for React implementation, including:
 - Phase artifact summary components.
 
 Use the attached/current screenshots or screenshot instructions plus the handoff docs as source context. Keep all seven workflows present, but make the UI feel more like a polished consumer product than internal planning software.
+
+## Document Disposition
+Document.Status=Pending

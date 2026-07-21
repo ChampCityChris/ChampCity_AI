@@ -303,3 +303,6 @@ When complete:
 - push the repair branch to origin;
 - create the required Implementer Report;
 - include commit hash, push status, validation results, skipped checks, remaining dirty files, and confirmation that dev/master were not touched in the final response.
+
+## Document Disposition
+Document.Status=Pending

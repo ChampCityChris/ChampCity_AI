@@ -306,3 +306,6 @@ Validation:
 - If source code changes, run the documented validation lane, normally npm run validate:codex unless the lane document directs otherwise.
 - Run git status --short and report changed files.
 ```
+
+## Document Disposition
+Document.Status=Pending

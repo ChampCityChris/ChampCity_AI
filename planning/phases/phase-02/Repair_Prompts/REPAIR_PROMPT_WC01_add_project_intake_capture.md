@@ -100,3 +100,6 @@ Expected report name: `BUILDER_REPORT_REPAIR_WC01_add_project_intake_capture.md`
 - Commit with a repair-specific message.
 - Do not create a release tag.
 - Do not push unless explicitly instructed.
+
+## Document Disposition
+Document.Status=Pending

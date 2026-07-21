@@ -229,3 +229,6 @@ The Implementer Report must include:
 8. Restart the app and confirm selected project state persists.
 9. Confirm no dead Add Project button or confusing raw repo-path control remains.
 10. Confirm no Git command knowledge is required for the Operator path.
+
+## Document Disposition
+Document.Status=Pending

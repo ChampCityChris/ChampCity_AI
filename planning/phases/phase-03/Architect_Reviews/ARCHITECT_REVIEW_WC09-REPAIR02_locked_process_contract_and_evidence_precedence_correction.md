@@ -79,3 +79,6 @@ These are not blockers to validating WC09-REPAIR02's implemented authority and r
 ## Failure Handling
 
 If any authorized check fails, record the evidence and stop. Do not create WC09-REPAIR03. WC09 becomes blocked pending Operator-approved stabilization planning.
+
+## Document Disposition
+Document.Status=Pending

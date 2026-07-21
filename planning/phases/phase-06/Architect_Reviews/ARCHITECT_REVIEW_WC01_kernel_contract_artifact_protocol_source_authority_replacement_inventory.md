@@ -95,3 +95,6 @@ Required corrections:
 ## Operator Validation
 
 Operator validation is not ready until the repair pass is completed and reviewed.
+
+## Document Disposition
+Document.Status=Pending

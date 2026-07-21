@@ -130,3 +130,6 @@ Operator should manually validate the WC10 repair pass, then Architect should de
 
 - Visual confirmation of exact header balance and overflow behavior still requires manual resizing in the running Electron app.
 - Native `select` controls may still elide very long option text rather than wrapping, but the controls now shrink within their containers instead of forcing panel overflow.
+
+## Document Disposition
+Document.Status=Pending

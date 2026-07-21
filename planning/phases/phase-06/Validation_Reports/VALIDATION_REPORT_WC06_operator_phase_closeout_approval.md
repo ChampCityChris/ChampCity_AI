@@ -79,3 +79,6 @@ Not approved:
 ## Required Next Output
 
 Create the Phase 06 closeout artifact and activate Phase 07 planning.
+
+## Document Disposition
+Document.Status=Pending

@@ -174,3 +174,6 @@ None.
 ## Recommended Next Builder Task
 
 Operator should manually validate the WC06 Builder Report Capture screen, then Architect should define Work Card 7: Human validation and repair loop.
+
+## Document Disposition
+Document.Status=Pending

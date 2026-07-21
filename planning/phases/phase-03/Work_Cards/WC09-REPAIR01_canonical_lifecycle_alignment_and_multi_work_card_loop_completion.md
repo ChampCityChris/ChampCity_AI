@@ -268,3 +268,6 @@ Architect reviews the report.
 Operator validates only after Architect authorization.
 
 No later Phase 03 Work Card begins until WC09 and WC09-REPAIR01 are accepted.
+
+## Document Disposition
+Document.Status=Pending

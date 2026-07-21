@@ -51,3 +51,6 @@
 - Do not add provider SDKs, auth, databases, cloud services, MCP, connector integrations, or runtime compatibility layers without a dedicated approved Work Card.
 - Operator manual validation remains required for acceptance and closeout decisions.
 - Planning artifacts must use repo-relative paths or `<PROJECT_REPO>`, not concrete local machine paths.
+
+## Document Disposition
+Document.Status=Pending

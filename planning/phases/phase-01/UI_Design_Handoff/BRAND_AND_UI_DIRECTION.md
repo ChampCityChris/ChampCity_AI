@@ -68,3 +68,6 @@ Structured planning should feel approachable, not bureaucratic. The app should h
 - Keep field labels functionally recognizable for Codex implementation.
 - Use compact responsive desktop layouts suitable for Electron.
 - Preserve all current screens and states while reducing form fatigue.
+
+## Document Disposition
+Document.Status=Pending

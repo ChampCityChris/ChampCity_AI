@@ -150,3 +150,6 @@ Architect review should verify Registry loading, controlled canonical writes, un
 ## Dependency and Sequence
 
 WC05 is approved but may not begin until WC04 receives an accepting Architect Review.
+
+## Document Disposition
+Document.Status=Pending

@@ -58,3 +58,6 @@ Remaining questions:
 5. Is the public beta candidate minimum scope: Windows build, project registration, ChatGPT subscription + ChampCity MCP Architect Bridge, Implementer loop, validation/evidence, Git automation, multi-project dogfooding, and RC documentation?
 
 No final roadmap decision is made in WC01.
+
+## Document Disposition
+Document.Status=Pending

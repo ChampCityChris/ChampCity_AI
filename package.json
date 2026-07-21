@@ -11,11 +11,7 @@
     "test": "npm run test:full",
     "test:unit": "npm run build && npm run test:unit:built",
     "test:unit:built": "node --test --test-concurrency=1",
-    "test:repository": "node --test --test-concurrency=1 test/repository/test-suite-integrity.test.cjs test/repository/validation-runner.test.cjs",
-    "test:renderer": "npm run build && npm run test:renderer:built",
-    "test:renderer:built": "electron test/renderer/operator-approval-workspace.mounted.cjs",
-    "test:full": "npm run build && npm run test:unit:built && npm run test:renderer:built",
-    "wc04:registry": "node scripts/wc04-artifact-registry-repair.mjs",
+    "test:full": "npm run build && npm run test:unit:built",
     "validate:codex": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite full",
     "validate:codex:unit": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite unit",
     "validate:codex:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite build"

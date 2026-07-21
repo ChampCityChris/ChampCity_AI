@@ -204,3 +204,6 @@ Observation Register Reconciliation:
 - List any project-level observations created or updated during closeout.
 - Identify any observations that must influence next-phase activation or next-phase mapping.
 ```
+
+## Document Disposition
+Document.Status=Pending

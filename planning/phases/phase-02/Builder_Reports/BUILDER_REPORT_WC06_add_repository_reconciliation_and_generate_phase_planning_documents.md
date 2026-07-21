@@ -155,3 +155,6 @@ None.
 ## Recommended Next Implementer Task
 
 After Operator manual validation accepts WC06, define the next approved Work Card for converting selected initial plan items into formal app-selectable Work Card JSON/Markdown artifacts.
+
+## Document Disposition
+Document.Status=Pending

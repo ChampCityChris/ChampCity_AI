@@ -170,3 +170,6 @@ No WC04-REPAIR02 repair is required before Operator validation.
 ## Recommended Next Action
 
 Operator validates the repair branch. If validation passes, record the WC04-REPAIR01/WC04-REPAIR02 validation result, then merge the approved repair branch chain into `dev`. Do not create WC05 until the repair route is validated and merged.
+
+## Document Disposition
+Document.Status=Pending

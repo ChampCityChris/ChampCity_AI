@@ -285,3 +285,6 @@ Decision:
 
 ## Required Repair, if any
 ```
+
+## Document Disposition
+Document.Status=Pending

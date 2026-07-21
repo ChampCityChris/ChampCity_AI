@@ -35,3 +35,6 @@ Not started.
 ## Handoff to Next Phase
 
 Not started.
+
+## Document Disposition
+Document.Status=Pending

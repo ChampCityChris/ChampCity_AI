@@ -527,3 +527,6 @@ The Operator should confirm:
 5. legacy evidence remains visible but does not resolve the new exact target.
 
 WC01 remains unresolved until this repair is implemented, reviewed, and accepted. WC02 through WC13 remain unauthorized.
+
+## Document Disposition
+Document.Status=Pending

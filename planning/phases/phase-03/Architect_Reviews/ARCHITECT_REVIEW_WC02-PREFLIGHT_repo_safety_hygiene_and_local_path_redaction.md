@@ -132,3 +132,6 @@ planning/phases/phase-03/Work_Cards/WC02_durable_current_required_action_model.m
 
 Do not rely on chat context beyond this instruction. Read AGENTS.md and docs/dev/VALIDATION_COMMAND_LANES.md before editing. Do not write concrete local machine paths into committed artifacts. Use <PROJECT_REPO> and repo-relative paths in all reports. Create the required Implementer Report when complete.
 ```
+
+## Document Disposition
+Document.Status=Pending

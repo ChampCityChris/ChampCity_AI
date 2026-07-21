@@ -223,3 +223,6 @@ Create another repair if any of these are still true:
 The repair is sufficiently aligned with the rewritten WC07-REPAIR01 card to proceed to Operator validation.
 
 Do not merge to `dev` until Operator validation passes.
+
+## Document Disposition
+Document.Status=Pending

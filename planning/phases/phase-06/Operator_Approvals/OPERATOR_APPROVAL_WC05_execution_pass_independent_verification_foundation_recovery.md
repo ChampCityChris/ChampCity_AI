@@ -43,3 +43,6 @@ Execution remains blocked until an accepting Architect Review for WC04 exists an
 When those dependencies are satisfied, this approval authorizes the exact WC05 source-code and planning surface, the synchronized WC05 Implementer Report pair, and normal Windows validation.
 
 It does not authorize push, merge, release, live runner transport, Operator validation, or Operator acceptance.
+
+## Document Disposition
+Document.Status=Pending

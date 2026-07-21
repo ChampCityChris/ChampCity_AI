@@ -285,3 +285,6 @@ Use this Work Card as the source of truth:
 Implement only WC04. Preserve the WC03 shell. Do not implement WC05-WC15. Do not merge to `dev`. Do not push to `master`.
 
 Read `AGENTS.md` and `docs/dev/VALIDATION_COMMAND_LANES.md` before editing. Use the WC02 current-action model as the routing authority. Create and push the WC04 feature branch. Create the required Implementer Report when complete.
+
+## Document Disposition
+Document.Status=Pending

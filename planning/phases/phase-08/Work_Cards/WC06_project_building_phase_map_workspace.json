@@ -1,0 +1,87 @@
+{
+  "workCardId": "WC06",
+  "phaseId": "phase-08",
+  "title": "Project Building Phase Map Workspace",
+  "status": "approved_design_execution_deferred",
+  "owner": "Implementer after Operator release",
+  "risk": "medium",
+  "executionAuthorized": false,
+  "executionReleaseCondition": "WC01 through WC05 are accepted and the Operator explicitly releases WC06.",
+  "gitMutationAuthorized": false,
+  "purpose": "Implement the Project Building Phase Map workspace, paired Phase_Map artifact review, and deterministic first-incomplete phase derivation without hidden workflow state.",
+  "dependsOn": [
+    "WC01",
+    "WC02",
+    "WC03",
+    "WC04",
+    "WC05"
+  ],
+  "sourceDesignDocuments": [
+    "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+    "planning/project/Design_Documents/PHASE_MAP_PHASE_INTAKE_AND_PHASE_PLANNING_WORKSPACE_DEFINITION.md",
+    "planning/project/Design_Documents/PROJECT_PLANNING_WORKSPACE_DEFINITION.md"
+  ],
+  "lifecycleLocation": {
+    "level": "project",
+    "stage": "building"
+  },
+  "workspace": {
+    "label": "Phase Map",
+    "layout": "Embedded Architect browser plus Phase_Map preview and disposition",
+    "registryBacked": true
+  },
+  "requiredInputs": [
+    "Approved Project_Profile",
+    "Approved Project_Roadmap",
+    "Existing Phase_Map when present",
+    "Approved phase closeout evidence when present",
+    "Saved Phase Map Architect handoff"
+  ],
+  "outputs": [
+    "planning/project/Phase_Map/PHASE_MAP_<project>.md",
+    "planning/project/Phase_Map/PHASE_MAP_<project>.json"
+  ],
+  "phaseMapFields": [
+    "stable phase identifier",
+    "phase title",
+    "ordered position",
+    "purpose or outcome",
+    "dependency or predecessor context",
+    "Approved Phase Close evidence indicator",
+    "repository-relative source references"
+  ],
+  "firstIncompleteRule": "Return the earliest mapped phase without Approved Phase Close evidence; missing, invalid, or non-Approved evidence remains incomplete.",
+  "supportedActions": [
+    "generate handoff",
+    "open embedded Architect",
+    "refresh preview",
+    "approve",
+    "reject",
+    "request revision",
+    "continue to derived Phase Intake"
+  ],
+  "prohibitedScope": [
+    "Phase Interview implementation",
+    "Phase Planning implementation",
+    "Formal Work Card creation",
+    "Phase Building Work Card materialization",
+    "Phase Validation or Phase Close",
+    "Project Validation or Project Close",
+    "Hidden current-phase state",
+    "Automatic phase activation records",
+    "Operator Phase Approval artifacts",
+    "Approval queues, route tokens, role gates, hashes, or execution runs",
+    "Dependency changes",
+    "Git operations"
+  ],
+  "validation": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "Operator manual validation through the accepted embedded Architect/MCP path"
+  ],
+  "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC06_project_building_phase_map_workspace.md",
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}

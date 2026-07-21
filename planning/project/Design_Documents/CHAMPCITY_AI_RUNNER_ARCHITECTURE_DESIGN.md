@@ -674,3 +674,6 @@ ChatGPT reads queued prompt through MCP
 ChatGPT writes Markdown result through MCP
 ChampCity A/I detects and displays the result
 ```
+
+## Document Disposition
+Document.Status=Pending

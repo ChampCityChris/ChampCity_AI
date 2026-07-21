@@ -352,3 +352,6 @@ Do not continue using the current WORK_CARD_BACKLOG.md as the operational next-s
 The product direction is sound, but the project needs a stronger state authority model. When PROJECT_STATE.md, backlog, closeout reports, and phase summaries conflict, the app should identify the conflict and ask the Operator or Architect to reconcile it before new planning continues.
 
 Phase 03 should not be framed as “add more MCP features.” It should be framed as “make the repo bridge safe, visible, and understandable.” That phrasing better fits the non-developer user model and the Capture -> Frame -> Plan -> Build -> Prove operating loop.
+
+## Document Disposition
+Document.Status=Pending

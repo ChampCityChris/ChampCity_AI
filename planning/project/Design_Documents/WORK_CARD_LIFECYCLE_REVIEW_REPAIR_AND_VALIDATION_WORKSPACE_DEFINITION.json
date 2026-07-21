@@ -1,0 +1,132 @@
+{
+  "designDocumentId": "WORK_CARD_LIFECYCLE_REVIEW_REPAIR_AND_VALIDATION_WORKSPACE_DEFINITION",
+  "projectId": "champcity-ai",
+  "title": "Work Card Lifecycle, Review, Repair, and Validation Workspace Definition",
+  "status": "confirmed_by_operator",
+  "confirmedAt": "2026-07-21",
+  "lifecycleLocations": [
+    {
+      "level": "phase",
+      "stage": "building"
+    },
+    {
+      "level": "workCard",
+      "stage": "intake"
+    },
+    {
+      "level": "workCard",
+      "stage": "planning"
+    },
+    {
+      "level": "workCard",
+      "stage": "building"
+    },
+    {
+      "level": "workCard",
+      "stage": "validation"
+    },
+    {
+      "level": "workCard",
+      "stage": "close"
+    }
+  ],
+  "candidateSelection": {
+    "source": "Approved Work_Card_Plan",
+    "rule": "Select the first incomplete candidate whose declared predecessors are complete and which is not explicitly deferred, superseded, or satisfied.",
+    "completionEvidence": "Approved Validation_Record for the candidate's Formal Work Card",
+    "hiddenStateProhibited": true
+  },
+  "workCardIntake": {
+    "output": "Repository-backed Architect handoff prompt",
+    "formalWorkCardCreated": false,
+    "requiredContext": [
+      "Selected Work Card candidate",
+      "Approved Project_Profile",
+      "Approved Project_Roadmap",
+      "Approved Phase_Map and phase record",
+      "Approved Phase_Interview",
+      "Approved Phase_Planning",
+      "Approved Work_Card_Plan",
+      "Applicable prior Work Card and repair evidence",
+      "Relevant repository facts, constraints, risks, and decisions"
+    ]
+  },
+  "formalWorkCard": {
+    "operatorDispositionRequired": true,
+    "approvedDocumentIsImplementerInstruction": true,
+    "separateExecutionPacket": false,
+    "requiredSections": [
+      "Identity and source-candidate reference",
+      "Purpose and expected outcome",
+      "Source context and dependencies",
+      "Implementation scope",
+      "Explicit out-of-scope boundary",
+      "Risks and constraints",
+      "Acceptance criteria",
+      "Validation expectations",
+      "Implementer instructions",
+      "Required Implementer Report format"
+    ]
+  },
+  "implementerReportReview": {
+    "initialDisposition": "Pending",
+    "approvedMeaning": "Ready for Operator validation",
+    "revisionRequestedMeaning": "Repair required before Operator validation",
+    "separateArchitectApprovalArtifact": false,
+    "validationRecordBeforeOperatorValidation": false
+  },
+  "repairSubsystem": {
+    "namingPattern": "WCxx-REPAIRnn",
+    "isLifecycleLevel": false,
+    "parentWorkCardRemainsOpen": true,
+    "ownImplementerReport": true,
+    "requiredFields": [
+      "Repair ID",
+      "Parent Work Card ID",
+      "Bounded repair purpose and scope",
+      "Evidence source",
+      "Explicit non-scope",
+      "Acceptance criteria",
+      "Validation or re-review expectations",
+      "Return target",
+      "Required Implementer Report format"
+    ],
+    "preValidationReturn": "Parent Work Card Building review",
+    "postValidationReturn": "Parent Work Card Validation",
+    "separateOperatorApprovalArtifact": false
+  },
+  "validationRecord": {
+    "createdOnlyAfterOperatorValidation": true,
+    "dispositionMeanings": {
+      "Pending": "Validation record incomplete",
+      "Approved": "Validation passed",
+      "RevisionRequested": "Validation failed and requires repair",
+      "Rejected": "Operator declines or abandons acceptance; Work Card unresolved"
+    },
+    "requiredContent": [
+      "Steps performed",
+      "Observed results",
+      "Evidence references",
+      "Issues found",
+      "Operator notes"
+    ]
+  },
+  "closeRule": {
+    "separateCloseoutArtifact": false,
+    "explicitCloseEvidence": "Approved Validation_Record after the latest required repair",
+    "returnTarget": "Phase / Building",
+    "nextAction": "Select next incomplete Work Card candidate"
+  },
+  "prohibitedArchitecture": [
+    "Separate Implementer Execution Packet",
+    "Separate Architect approval artifact for report review",
+    "Validation Record before Operator validation",
+    "Recursive repair lifecycles",
+    "Hidden active Work Card or current-action state",
+    "Execution runs, route tokens, role gates, approval queues, or target hashes",
+    "Automatic materialization of every Formal Work Card from the Work Card Plan"
+  ],
+  "documentDisposition": {
+    "status": "Approved"
+  }
+}
