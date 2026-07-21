@@ -1,24 +1,16 @@
 # Implementer Handoff — Phase 08 WC01
 
-Status: HOLD — not authorized for execution
+Status: superseded
 
-WC01 has been designed and approved as the first planned Phase 08 implementation unit. The Operator has withheld execution until the complete ordered Phase 08 Work Card set has been designed and reviewed.
+This one-card hold handoff is no longer current execution authority.
 
-Do not begin implementation from this handoff.
+It is superseded by:
 
-When the Operator later releases Phase 08 for sequential execution, use:
+`planning/phases/phase-08/IMPLEMENTER_HANDOFF_PHASE08_CONTINUOUS_FIRST_PASS.md`
 
-`planning/phases/phase-08/Work_Cards/WC01_nested_lifecycle_extensible_workspace_registry_foundation.md`
+The superseding handoff authorizes the complete corrected Phase 08 sequence for one continuous first-pass Implementer run beginning at WC01.
 
-At that time, follow the repository files as authority and execute only the bounded WC01 scope.
-
-Until explicit release:
-
-- do not edit source or tests for WC01;
-- do not create the WC01 Implementer Report;
-- do not run implementation validation on behalf of WC01;
-- do not perform Git operations;
-- do not treat the approved Work Card disposition as execution authorization.
+Do not execute WC01 from this obsolete handoff in isolation. Use the continuous-pass handoff, its starting-commit verification, exact sequence, deferred-review rules, stop conditions, and reporting requirements.
 
 ## Document Disposition
 
