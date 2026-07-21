@@ -9,6 +9,7 @@ const expectedTests = [
   "test/governance/operator-decision-service.test.cjs",
   "test/workflow/operator-decision-routing.test.cjs",
   "test/execution-runs/execution-run-authority.test.cjs",
+  "test/migration/historical-corpus-inventory.test.cjs",
   "test/renderer/operator-approval-workspace.mounted.cjs",
   "test/repository/test-suite-integrity.test.cjs",
   "test/repository/validation-runner.test.cjs",
@@ -69,10 +70,12 @@ test("repository test tree and package lanes use stable capability tests only", 
     "test/execution-runs/execution-run-authority.test.cjs",
     "test/governance/operator-decision-contract.test.cjs",
     "test/governance/operator-decision-service.test.cjs",
+    "test/migration/historical-corpus-inventory.test.cjs",
     "test/repository/test-suite-integrity.test.cjs",
     "test/repository/validation-runner.test.cjs",
     "test/workflow/operator-decision-routing.test.cjs",
   ].sort());
+  assert.equal(testFiles.length, 8);
   assert.equal(testFiles.includes("test/renderer/operator-approval-workspace.mounted.cjs"), true);
 
   const contractTest = readRepoFile("test/governance/operator-decision-contract.test.cjs");
@@ -113,6 +116,40 @@ test("repository test tree and package lanes use stable capability tests only", 
     "planning/phases/phase-06/Operator_Approvals/OPERATOR_APPROVAL_WC06_trusted_execution_run_activation_workspace_test_fixture_isolation.json",
     "planning/phases/phase-06/Work_Cards/WC06_trusted_execution_run_activation_workspace_test_fixture_isolation.json",
   ].sort());
+
+  const migrationTest = readRepoFile("test/migration/historical-corpus-inventory.test.cjs");
+  assert.equal(migrationTest.includes("dist/main/migrations/index.js"), true);
+  assert.equal(/require\(["'][.][/][.][/].*src[/\\]/.test(migrationTest), false);
+
+  const migrationCli = readRepoFile("scripts/migration/historical-corpus-v1/generate-manifest.mjs");
+  assert.equal(migrationCli.includes("dist/main/migrations/index.js"), true);
+  assert.equal(migrationCli.includes("node:assert"), false);
+  assert.equal(migrationCli.includes("node:test"), false);
+
+  const migrationScripts = listFiles(path.join(repoRoot, "scripts", "migration"))
+    .map((file) => normalize(path.relative(repoRoot, file)));
+  assert.equal(migrationScripts.includes("scripts/migration/historical-corpus-v1/generate-manifest.mjs"), true);
+
+  const preExistingMigrationScripts = migrationScripts.filter((file) => !file.startsWith("scripts/migration/historical-corpus-v1/"));
+  for (const file of preExistingMigrationScripts) {
+    const content = readRepoFile(file);
+    assert.equal(content.includes("historicalCorpusInventoryV1"), false, file);
+    assert.equal(content.includes("historical-corpus-v1"), false, file);
+  }
+
+  for (const entryPoint of [
+    "src/main/main.ts",
+    "src/preload/preload.ts",
+    "src/renderer/app/App.tsx",
+    "src/main/workflow/index.ts",
+    "src/main/artifacts/governanceApprovalService.ts",
+  ]) {
+    const fullPath = path.join(repoRoot, entryPoint);
+    if (!fs.existsSync(fullPath)) continue;
+    const content = fs.readFileSync(fullPath, "utf8");
+    assert.equal(content.includes("historicalCorpusInventoryV1"), false, entryPoint);
+    assert.equal(content.includes("main/migrations"), false, entryPoint);
+  }
 });
 
 function listFiles(root) {
