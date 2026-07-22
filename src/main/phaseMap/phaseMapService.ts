@@ -8,6 +8,7 @@ import {
   listPlanningDocuments,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 export interface PhaseMapPhase {
   phaseId: string;
@@ -61,7 +62,7 @@ export function generatePhaseMapHandoff(
     { path: profile.jsonPath!, revision: profile.metadata.artifactRevision ?? 1 },
     { path: roadmap.jsonPath!, revision: roadmap.metadata.artifactRevision ?? 1 },
   ];
-  const normalizedPhases = validatePhaseMap({ phases });
+  validatePhaseMap({ phases });
 
   writeFiles(workspaceRoot, [
     [
@@ -79,18 +80,6 @@ export function generatePhaseMapHandoff(
           phaseMap: { markdown: phaseMapMarkdownPath, json: phaseMapJsonPath },
         },
         documentDisposition: { status: "Approved" },
-      }),
-    ],
-    [phaseMapMarkdownPath, renderPhaseMapMarkdown(normalizedPhases, sourceRevisions)],
-    [
-      phaseMapJsonPath,
-      json({
-        artifactType: "phase-map",
-        artifactRevision: 1,
-        participationRole: "gatingReview",
-        sourceRevisions,
-        phases: normalizedPhases,
-        documentDisposition: { status: "Pending" },
       }),
     ],
   ]);
@@ -301,27 +290,10 @@ function defaultPhase(): PhaseMapPhase {
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  const originals = new Map<string, Buffer | null>();
-  try {
-    for (const [relativePath] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      originals.set(absolutePath, fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath) : null);
-    }
-    for (const [relativePath, content] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-      fs.writeFileSync(absolutePath, content, "utf8");
-    }
-  } catch (error) {
-    for (const [absolutePath, content] of originals) {
-      if (content === null) {
-        if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
-      } else {
-        fs.writeFileSync(absolutePath, content);
-      }
-    }
-    throw error;
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function slugFromRoadmap(displayFilename: string): string {

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import { evaluateDocumentFreshness, listPlanningDocuments } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 export type RepairOrigin = "preValidationReportReview" | "postValidationRecord";
 
@@ -33,32 +34,9 @@ export function createRepairWorkCard(
   const returnTarget = origin === "preValidationReportReview"
     ? "work-card-building-review"
     : "work-card-validation";
-  const repair = {
-    artifactType: "repair-work-card",
-    artifactRevision: 1,
-    participationRole: "gatingReview",
-    phaseId,
-    workCardId: repairId,
-    repairId,
-    originalParentWorkCardId: originalParentId,
-    origin,
-    evidencePath,
-    evidenceRevision: evidence.metadata.artifactRevision ?? 1,
-    boundedDefect: defect,
-    scope: "Bounded repair only.",
-    nonScope: "No unrelated work is authorized.",
-    affectedAcceptanceCriteria: [],
-    validationExpectations: [],
-    returnTarget,
-    expectedReportPath: `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${repairId}_${slug}.*`,
-    sourceRevisions,
-    documentDisposition: { status: "Pending" },
-  };
   writeFiles(workspaceRoot, [
     [handoffMarkdownPath, renderHandoff(repairId, phaseId, sourceRevisions, repairMarkdownPath, repairJsonPath)],
-    [handoffJsonPath, json({ artifactType: "repair-architect-handoff", artifactRevision: 1, participationRole: "nonReviewHandoff", phaseId, repairId, originalParentWorkCardId: originalParentId, sourceRevisions, outputTargets: { repairWorkCard: { markdown: repairMarkdownPath, json: repairJsonPath } }, documentDisposition: { status: "Approved" } })],
-    [repairMarkdownPath, renderRepair(repair)],
-    [repairJsonPath, json(repair)],
+    [handoffJsonPath, json({ artifactType: "repair-architect-handoff", artifactRevision: 1, participationRole: "nonReviewHandoff", phaseId, repairId, originalParentWorkCardId: originalParentId, origin, evidencePath, boundedDefect: defect, returnTarget, sourceRevisions, outputTargets: { repairWorkCard: { markdown: repairMarkdownPath, json: repairJsonPath } }, documentDisposition: { status: "Approved" } })],
   ]);
   return { repairId, handoffMarkdownPath, handoffJsonPath, repairMarkdownPath, repairJsonPath };
 }
@@ -97,16 +75,11 @@ function renderHandoff(repairId: string, phaseId: string, sources: Array<{ path:
   return [`# Repair Architect Handoff - ${repairId}`, "Artifact.Revision=1", "participationRole=nonReviewHandoff", `phaseId=${phaseId}`, "", "## Source Revisions", ...sources.map((source) => `- path: ${source.path} revision: ${source.revision}`), "", "## Output Targets", md, js, "", "## Document Disposition", "", "Document.Status=Approved", ""].join("\n");
 }
 
-function renderRepair(repair: any): string {
-  return [`# Repair Work Card - ${repair.repairId}`, "Artifact.Revision=1", "participationRole=gatingReview", `phaseId=${repair.phaseId}`, `workCardId=${repair.repairId}`, `originalParentWorkCardId=${repair.originalParentWorkCardId}`, "", "## Source Revisions", ...repair.sourceRevisions.map((source: { path: string; revision: number }) => `- path: ${source.path} revision: ${source.revision}`), "", "## Document Disposition", "", "Document.Status=Pending", ""].join("\n");
-}
-
 function writeFiles(workspaceRoot: string, entries: Array<[string, string]>): void {
-  for (const [relativePath, content] of entries) {
-    const absolutePath = path.join(workspaceRoot, relativePath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, content, "utf8");
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

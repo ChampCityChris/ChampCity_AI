@@ -32,6 +32,11 @@ const {
   getPhaseIntakeCompletion,
   setPhaseInterviewDisposition,
 } = require("../../dist/main/phaseInterview/phaseInterviewService.js");
+const {
+  seedPhaseInterviewOutput,
+  seedPhaseMapOutput,
+  seedProjectPlanningOutputs,
+} = require("../support/architect-output-fixtures.cjs");
 
 function createRepository() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "champcity-phase-interview-"));
@@ -76,14 +81,14 @@ function readyPlanningRepository() {
   submitProjectIntake(submission(root));
   saveArchitectInterviewDraft(root, "Approved interview for phase interview.");
   setArchitectInterviewDisposition(root, "Approved");
-  generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
   setProjectPlanningBundleDisposition(root, "Approved");
   return root;
 }
 
 function readyPhaseMapRepository() {
   const root = readyPlanningRepository();
-  generatePhaseMapHandoff(root, phases());
+  seedPhaseMapOutput(root, generatePhaseMapHandoff(root, phases()), phases());
   setPhaseMapDisposition(root, "Approved");
   return root;
 }
@@ -143,7 +148,6 @@ test("Phase Interview handoff is Approved non-review for resolver-selected phase
     questionsAndAnswers: [{ question: "What matters?", answer: "Foundation first." }],
   });
   const handoff = readJson(root, result.handoffJsonPath);
-  const interview = readJson(root, result.interviewJsonPath);
 
   assert.equal(result.phaseId, "phase-01");
   assert.equal(result.handoffMarkdownPath, "planning/phases/phase-01/Architect_Handoffs/PHASE_INTERVIEW_ARCHITECT_HANDOFF_phase-01.md");
@@ -151,25 +155,20 @@ test("Phase Interview handoff is Approved non-review for resolver-selected phase
   assert.equal(handoff.documentDisposition.status, "Approved");
   assert.equal(handoff.outputTargets.phaseInterview.markdown, "planning/phases/phase-01/Phase_Interview.md");
   assert.equal(handoff.outputTargets.phaseInterview.json, "planning/phases/phase-01/Phase_Interview.json");
-  assert.equal(interview.phaseId, "phase-01");
-  assert.equal(interview.documentDisposition.status, "Pending");
-  assert.equal(interview.clarificationRequired, true);
+  assert.equal(fs.existsSync(path.join(root, result.interviewJsonPath)), false);
 });
 
-test("Phase Interview no-questions path creates a reviewable Pending interview", () => {
+test("Phase Interview no-questions path remains handoff-only", () => {
   const root = readyPhaseMapRepository();
 
   const result = generatePhaseInterviewHandoff(root);
-  const interview = readJson(root, result.interviewJsonPath);
 
-  assert.equal(interview.clarificationRequired, false);
-  assert.equal(interview.questionsAndAnswers.length, 0);
-  assert.equal(interview.acceptedAssumptions.includes("Required context was reviewed; no additional clarification was needed."), true);
+  assert.equal(fs.existsSync(path.join(root, result.interviewJsonPath)), false);
 });
 
 test("Approved current Phase Interview completes Phase Intake", () => {
   const root = readyPhaseMapRepository();
-  generatePhaseInterviewHandoff(root);
+  seedPhaseInterviewOutput(root, generatePhaseInterviewHandoff(root));
 
   assert.equal(getPhaseIntakeCompletion(root).complete, false);
   setPhaseInterviewDisposition(root, "phase-01", "Approved");
@@ -186,16 +185,15 @@ test("prior closeout context is included for the next resolver-selected phase", 
   writeCloseout(root, "phase-01");
 
   const result = generatePhaseInterviewHandoff(root);
-  const interview = readJson(root, result.interviewJsonPath);
+  const handoff = readJson(root, result.handoffJsonPath);
 
   assert.equal(result.phaseId, "phase-02");
-  assert.equal(interview.predecessorContext[0].phaseId, "phase-01");
-  assert.equal(interview.sourceRevisions.some((source) => source.path.includes("PHASE_CLOSEOUT_phase-01.json")), true);
+  assert.equal(handoff.sourceRevisions.some((source) => source.path.includes("PHASE_CLOSEOUT_phase-01.json")), true);
 });
 
 test("Phase Map revision invalidates older Approved Phase Interview", () => {
   const root = readyPhaseMapRepository();
-  generatePhaseInterviewHandoff(root);
+  seedPhaseInterviewOutput(root, generatePhaseInterviewHandoff(root));
   setPhaseInterviewDisposition(root, "phase-01", "Approved");
   const phaseMap = listPlanningDocuments(root).find((document) =>
     document.jsonPath === "planning/project/Phase_Map/PHASE_MAP_phase_interview_project.json"
@@ -208,7 +206,7 @@ test("Phase Map revision invalidates older Approved Phase Interview", () => {
 
 test("Phase Interview local read errors prevent completion without blocking other documents", (t) => {
   const root = readyPhaseMapRepository();
-  generatePhaseInterviewHandoff(root);
+  seedPhaseInterviewOutput(root, generatePhaseInterviewHandoff(root));
   setPhaseInterviewDisposition(root, "phase-01", "Approved");
   __setPlanningDocumentServiceTestHooks({
     failRead: (relativePath) =>

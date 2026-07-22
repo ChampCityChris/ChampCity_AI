@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 export function createPhaseCloseout(workspaceRoot: string, phaseId: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
   const sourceRevisions = listPlanningDocuments(workspaceRoot)
@@ -48,11 +49,10 @@ function renderCloseout(artifact: any): string {
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[string, string]>): void {
-  for (const [relativePath, content] of entries) {
-    const absolutePath = path.join(workspaceRoot, relativePath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, content, "utf8");
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

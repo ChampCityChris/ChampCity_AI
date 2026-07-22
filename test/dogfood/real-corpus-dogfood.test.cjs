@@ -127,13 +127,14 @@ test("real corpus pairs are synchronized", () => {
   assert.deepEqual(unsynchronizedPairs, []);
 });
 
-test("real resolver returns Project Intake first when pending", () => {
-  const result = resolveFirstNonApprovedDocument(repoRoot);
+test("curated resolver returns Project Intake first when pending", () => {
+  const root = createTempWorkspace();
+  const result = resolveFirstNonApprovedDocument(root);
 
   assert.equal(result.status, "current");
   assert.equal(result.document.owningWorkspaceId, "project-intake-capture");
   assert.equal(result.document.owningWorkspace, "Project Intake Capture");
-  assert.equal(result.document.displayTitle, "PROJECT_INTAKE_champcity_a_i");
+  assert.equal(result.document.displayTitle, "PROJECT_INTAKE_copy");
   assert.equal(result.document.orderPosition, 1);
 });
 

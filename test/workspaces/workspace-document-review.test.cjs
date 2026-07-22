@@ -99,9 +99,9 @@ test("every fixture logical document appears in exactly one workspace", () => {
   }
 });
 
-test("Project Intake appears first in Project Plan and Roadmap Review", () => {
+test("Project Intake appears in Project Intake Capture", () => {
   const root = fixtureWorkspace();
-  const projectDocuments = grouped(root, "project-planning-review");
+  const projectDocuments = grouped(root, "project-intake-capture");
 
   assert.equal(projectDocuments[0].markdownPath.includes("Project_Intake"), true);
 });
@@ -176,7 +176,7 @@ test("unclassified records remain visible in Project Plan and Roadmap Review", (
     document.markdownPath.endsWith("loose_note.md"),
   );
 
-  assert.equal(loose.group, "Other planning documents");
+  assert.equal(loose.group, "Context documents");
 });
 
 test("archived documents remain visible in their category", () => {

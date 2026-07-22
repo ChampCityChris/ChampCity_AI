@@ -7,6 +7,7 @@ import {
   savePlanningDocumentRevision,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 import { getWorkCardBuildingEligibility } from "../workCardPlanning/workCardPlanningService";
 
 export interface ImplementerReportResult {
@@ -129,11 +130,10 @@ function renderReportMarkdown(artifact: any): string {
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  for (const [relativePath, content] of entries) {
-    const absolutePath = path.join(workspaceRoot, relativePath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, content, "utf8");
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

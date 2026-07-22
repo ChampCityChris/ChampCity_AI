@@ -37,6 +37,12 @@ const {
   setPhasePlanningBundleDisposition,
   validateCandidates,
 } = require("../../dist/main/phasePlanning/phasePlanningService.js");
+const {
+  seedPhaseInterviewOutput,
+  seedPhaseMapOutput,
+  seedPhasePlanningOutputs,
+  seedProjectPlanningOutputs,
+} = require("../support/architect-output-fixtures.cjs");
 
 function createRepository() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "champcity-phase-planning-"));
@@ -87,11 +93,11 @@ function readyPhaseInterviewRepository(approveInterview = true) {
   submitProjectIntake(submission(root));
   saveArchitectInterviewDraft(root, "Approved interview for phase planning.");
   setArchitectInterviewDisposition(root, "Approved");
-  generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
   setProjectPlanningBundleDisposition(root, "Approved");
-  generatePhaseMapHandoff(root, phaseMap());
+  seedPhaseMapOutput(root, generatePhaseMapHandoff(root, phaseMap()), phaseMap());
   setPhaseMapDisposition(root, "Approved");
-  generatePhaseInterviewHandoff(root);
+  seedPhaseInterviewOutput(root, generatePhaseInterviewHandoff(root));
   if (approveInterview) {
     setPhaseInterviewDisposition(root, "phase-01", "Approved");
   }
@@ -108,24 +114,18 @@ test("Phase Planning handoff requires current Approved Phase Interview", () => {
   assert.throws(() => generatePhasePlanningHandoff(root), /Current Approved Phase Interview/);
 });
 
-test("Phase Planning handoff is Approved non-review and outputs begin Pending", () => {
+test("Phase Planning handoff is Approved non-review and does not create placeholder outputs", () => {
   const root = readyPhaseInterviewRepository();
 
   const result = generatePhasePlanningHandoff(root, [candidate()]);
   const handoff = readJson(root, result.handoffJsonPath);
-  const phasePlanning = readJson(root, result.phasePlanningJsonPath);
-  const workCardPlan = readJson(root, result.workCardPlanJsonPath);
 
   assert.equal(handoff.participationRole, "nonReviewHandoff");
   assert.equal(handoff.documentDisposition.status, "Approved");
   assert.equal(handoff.outputTargets.phasePlanning.markdown, "planning/phases/phase-01/Phase_Planning.md");
   assert.equal(handoff.outputTargets.workCardPlan.json, "planning/phases/phase-01/Work_Card_Plan.json");
-  assert.equal(phasePlanning.documentDisposition.status, "Pending");
-  assert.equal(workCardPlan.documentDisposition.status, "Pending");
-  assert.deepEqual(
-    Object.keys(workCardPlan.candidates[0]).sort(),
-    ["candidateId", "dependsOn", "evidencePaths", "order", "purpose", "resolutionReason", "resolutionStatus", "title"],
-  );
+  assert.equal(fs.existsSync(path.join(root, result.phasePlanningJsonPath)), false);
+  assert.equal(fs.existsSync(path.join(root, result.workCardPlanJsonPath)), false);
   assert.equal(fs.existsSync(path.join(root, "planning/phases/phase-01/Work_Cards")), false);
 });
 
@@ -153,7 +153,7 @@ test("candidate contract rejects persisted completion and missing resolution evi
 
 test("shared Phase Planning disposition approves both bundle documents", () => {
   const root = readyPhaseInterviewRepository();
-  generatePhasePlanningHandoff(root, [candidate()]);
+  seedPhasePlanningOutputs(root, generatePhasePlanningHandoff(root, [candidate()]), [candidate()]);
 
   setPhasePlanningBundleDisposition(root, "phase-01", "Approved");
 
@@ -163,6 +163,7 @@ test("shared Phase Planning disposition approves both bundle documents", () => {
 test("shared Phase Planning disposition rolls back all four files after injected failure", () => {
   const root = readyPhaseInterviewRepository();
   const result = generatePhasePlanningHandoff(root, [candidate()]);
+  seedPhasePlanningOutputs(root, result, [candidate()]);
   const files = [
     result.phasePlanningMarkdownPath,
     result.phasePlanningJsonPath,
@@ -190,6 +191,7 @@ test("shared Phase Planning disposition rolls back all four files after injected
 test("Work Card Plan candidate revision resets bundle and invalidates downstream evidence", () => {
   const root = readyPhaseInterviewRepository();
   const result = generatePhasePlanningHandoff(root, [candidate()]);
+  seedPhasePlanningOutputs(root, result, [candidate()]);
   setPhasePlanningBundleDisposition(root, "phase-01", "Approved");
   const formalDir = path.join(root, "planning/phases/phase-01/Work_Cards");
   fs.mkdirSync(formalDir, { recursive: true });
@@ -246,7 +248,7 @@ test("Work Card Plan candidate revision resets bundle and invalidates downstream
 
 test("Phase Interview revision invalidates older Approved Phase Planning bundle", () => {
   const root = readyPhaseInterviewRepository();
-  generatePhasePlanningHandoff(root, [candidate()]);
+  seedPhasePlanningOutputs(root, generatePhasePlanningHandoff(root, [candidate()]), [candidate()]);
   setPhasePlanningBundleDisposition(root, "phase-01", "Approved");
   const interview = listPlanningDocuments(root).find((document) =>
     document.jsonPath === "planning/phases/phase-01/Phase_Interview.json"

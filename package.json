@@ -5,16 +5,13 @@
   "main": "dist/main/main.js",
   "private": true,
   "scripts": {
-    "build": "tsc && vite build && node scripts/copy-renderer-assets.mjs",
+    "build": "tsc && vite build",
     "start": "npm run build && electron .",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:full",
     "test:unit": "npm run build && npm run test:unit:built",
     "test:unit:built": "node --test --test-concurrency=1",
-    "test:full": "npm run build && npm run test:unit:built",
-    "validate:codex": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite full",
-    "validate:codex:unit": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite unit",
-    "validate:codex:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-validate.ps1 -Suite build"
+    "test:full": "npm run build && npm run test:unit:built"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",

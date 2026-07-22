@@ -10,6 +10,7 @@ import {
   savePlanningDocumentRevision,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 const requiredPlanningDirectories = [
   "planning",
@@ -108,12 +109,6 @@ function validateSubmission(submission: ProjectIntakeSubmission): void {
   }
   if (!projectTypeOptions.includes(submission.projectType)) {
     throw new Error("Project Type is not one of the approved values.");
-  }
-  if (
-    submission.hasExistingSourceOrPlanning &&
-    (submission.repositoryReviewContext ?? "").trim().length === 0
-  ) {
-    throw new Error("Existing repositories require repository review context.");
   }
 }
 
@@ -254,35 +249,10 @@ function writeNewOrReplaceFiles(
   projectRoot: string,
   entries: Array<[relativePath: string, content: string]>,
 ): void {
-  const originals = new Map<string, Buffer | null>();
-  const absoluteEntries = entries.map(([relativePath, content]) => {
-    const absolutePath = path.join(projectRoot, relativePath);
-    if (!isInside(projectRoot, absolutePath)) {
-      throw new Error("Project Intake output path escapes selected repository.");
-    }
-    return [absolutePath, content] as const;
-  });
-
-  try {
-    for (const [absolutePath] of absoluteEntries) {
-      originals.set(absolutePath, fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath) : null);
-    }
-    for (const [absolutePath, content] of absoluteEntries) {
-      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-      fs.writeFileSync(absolutePath, content, "utf8");
-    }
-  } catch (error) {
-    for (const [absolutePath, content] of originals) {
-      if (content === null) {
-        if (fs.existsSync(absolutePath)) {
-          fs.unlinkSync(absolutePath);
-        }
-      } else {
-        fs.writeFileSync(absolutePath, content);
-      }
-    }
-    throw error;
-  }
+  writeArtifactTransaction(
+    projectRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function invalidateExistingInterview(projectRoot: string, targetJsonPath: string): string[] {

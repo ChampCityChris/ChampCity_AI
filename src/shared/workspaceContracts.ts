@@ -48,6 +48,7 @@ export type ProjectType = (typeof projectTypeOptions)[number];
 export interface ProjectRepositorySelection {
   ok: true;
   repositoryPath: string;
+  selectionReference: "selected-project-repository";
 }
 
 export interface ProjectIntakeSubmission {
@@ -77,9 +78,14 @@ export interface ProjectIntakeSubmissionResult {
 }
 
 export type ArchitectBrowserLoadState =
-  | "browser-unavailable"
-  | "sign-in-required"
-  | "architect-surface-ready";
+  | "detached"
+  | "loading"
+  | "loaded-auth-state-unknown"
+  | "operator-confirmed-signed-in"
+  | "handoff-ready"
+  | "handoff-submitted"
+  | "output-detected"
+  | "load-failed";
 
 export type ArchitectHandoffState =
   | "handoff-unavailable"
@@ -109,6 +115,37 @@ export interface ArchitectBrowserFoundationStatus {
   };
 }
 
+export type ClosureDecision = "Close" | "DoNotClose";
+
+export interface BrowserViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface RuntimeActionResult {
+  ok: true;
+  action: string;
+  message: string;
+  payload?: unknown;
+}
+
+export interface CurrentWorkspaceModel {
+  activeWorkspaceId: WorkspaceId;
+  level: string;
+  stage: string;
+  currentPhaseId?: string;
+  currentWorkCardId?: string;
+  currentTarget: string;
+  sourceEvidence: string[];
+  requiredAction: string;
+  expectedOutput: string;
+  eligibility: string;
+  blocker?: string;
+  expectedNextState: string;
+}
+
 export interface ChampCityApi {
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
@@ -128,6 +165,27 @@ export interface ChampCityApi {
     submission: ProjectIntakeSubmission,
   ) => Promise<ProjectIntakeSubmissionResult>;
   getArchitectBrowserFoundationStatus: () => Promise<ArchitectBrowserFoundationStatus>;
+  setArchitectBrowserBounds: (
+    bounds: BrowserViewBounds,
+  ) => Promise<ArchitectBrowserFoundationStatus>;
+  showArchitectBrowser: () => Promise<ArchitectBrowserFoundationStatus>;
+  hideArchitectBrowser: () => Promise<ArchitectBrowserFoundationStatus>;
+  confirmArchitectSignedIn: () => Promise<ArchitectBrowserFoundationStatus>;
+  getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
+  generateCurrentHandoff: () => Promise<RuntimeActionResult>;
+  applyCurrentDisposition: (
+    status: DocumentDispositionStatus,
+  ) => Promise<RuntimeActionResult>;
+  createRepairForCurrentFailure: (defect: string) => Promise<RuntimeActionResult>;
+  createValidationAttemptForCurrentWorkCard: () => Promise<RuntimeActionResult>;
+  createPhaseCloseoutForCurrentPhase: (
+    closureDecision: ClosureDecision,
+    rationale: string,
+  ) => Promise<RuntimeActionResult>;
+  createProjectCloseoutForCurrentProject: (
+    closureDecision: ClosureDecision,
+    rationale: string,
+  ) => Promise<RuntimeActionResult>;
 }
 
 export const visibleWorkspaceDefinitions: readonly WorkspaceDefinition[] = createWorkspaceRegistry([

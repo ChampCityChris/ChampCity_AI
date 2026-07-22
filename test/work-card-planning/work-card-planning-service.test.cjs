@@ -14,6 +14,12 @@ const { generatePhaseMapHandoff, setPhaseMapDisposition } = require("../../dist/
 const { generatePhasePlanningHandoff, setPhasePlanningBundleDisposition } = require("../../dist/main/phasePlanning/phasePlanningService.js");
 const { generateWorkCardIntakeHandoff } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
 const {
+  seedPhaseInterviewOutput,
+  seedPhaseMapOutput,
+  seedPhasePlanningOutputs,
+  seedProjectPlanningOutputs,
+} = require("../support/architect-output-fixtures.cjs");
+const {
   createFormalWorkCardFromIntakeHandoff,
   getWorkCardBuildingEligibility,
   reviseFormalWorkCard,
@@ -38,20 +44,21 @@ function readyIntakeHandoff() {
   });
   saveArchitectInterviewDraft(root, "Approved interview.");
   setArchitectInterviewDisposition(root, "Approved");
-  generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
   setProjectPlanningBundleDisposition(root, "Approved");
-  generatePhaseMapHandoff(root, [{
+  const phases = [{
     phaseId: "phase-01",
     title: "Foundation",
     order: 1,
     purpose: "Prepare the foundation.",
     dependsOn: [],
     sourceReferences: ["planning/project/PROJECT_PROFILE.md"],
-  }]);
+  }];
+  seedPhaseMapOutput(root, generatePhaseMapHandoff(root, phases), phases);
   setPhaseMapDisposition(root, "Approved");
-  generatePhaseInterviewHandoff(root);
+  seedPhaseInterviewOutput(root, generatePhaseInterviewHandoff(root));
   setPhaseInterviewDisposition(root, "phase-01", "Approved");
-  generatePhasePlanningHandoff(root, [{
+  const candidates = [{
     candidateId: "WC01",
     order: 1,
     title: "Build Formal Surface",
@@ -60,7 +67,8 @@ function readyIntakeHandoff() {
     resolutionStatus: "planned",
     resolutionReason: "",
     evidencePaths: [],
-  }]);
+  }];
+  seedPhasePlanningOutputs(root, generatePhasePlanningHandoff(root, candidates), candidates);
   setPhasePlanningBundleDisposition(root, "phase-01", "Approved");
   generateWorkCardIntakeHandoff(root, "phase-01");
   return root;

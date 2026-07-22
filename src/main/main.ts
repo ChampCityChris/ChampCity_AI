@@ -14,14 +14,34 @@ import {
 } from "./documents/planningDocumentService";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntake } from "./projectIntake/projectIntakeService";
-import { getArchitectBrowserFoundationStatus } from "./browser/architectBrowserService";
+import {
+  attachArchitectBrowserSurface,
+  confirmArchitectSignedIn,
+  detachArchitectBrowserSurface,
+  getArchitectBrowserFoundationStatus,
+  setArchitectBrowserBounds,
+} from "./browser/architectBrowserService";
+import {
+  applyCurrentDisposition,
+  createPhaseCloseoutForCurrentPhase,
+  createProjectCloseoutForCurrentProject,
+  createRepairForCurrentFailure,
+  createValidationAttemptForCurrentWorkCard,
+  generateCurrentHandoff,
+  getCurrentCloseProjection,
+  getCurrentWorkspaceModel,
+} from "./currentWorkflow/currentWorkflowService";
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
 import type {
   AppInfo,
+  BrowserViewBounds,
+  ClosureDecision,
   ProjectIntakeSubmission,
   ProjectIntakeSubmissionResult,
   ProjectRepositorySelection,
   ArchitectBrowserFoundationStatus,
+  CurrentWorkspaceModel,
+  RuntimeActionResult,
   WorkspaceSelection,
 } from "../shared/workspaceContracts";
 
@@ -34,6 +54,8 @@ const appInfo: AppInfo = {
   name: "ChampCity A/I",
   version: app.getVersion(),
 };
+let mainWindow: BrowserWindow | null = null;
+let selectedProjectRepositoryRoot: string | null = null;
 
 function getUserDataRoot(): string {
   return app.getPath("userData");
@@ -52,7 +74,7 @@ function createMainWindow(): void {
   const preloadPath = path.join(__dirname, "../preload/index.js");
   const rendererPath = path.join(__dirname, "../renderer/index.html");
 
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1160,
     height: 780,
     minWidth: 900,
@@ -99,9 +121,11 @@ ipcMain.handle("projectRepository:choose", async (): Promise<ProjectRepositorySe
     };
   }
 
+  selectedProjectRepositoryRoot = path.resolve(result.filePaths[0]);
   return {
     ok: true,
-    repositoryPath: path.resolve(result.filePaths[0]),
+    repositoryPath: selectedProjectRepositoryRoot,
+    selectionReference: "selected-project-repository",
   };
 });
 
@@ -143,12 +167,69 @@ ipcMain.handle("documents:resolveCurrent", () => {
 ipcMain.handle(
   "projectIntake:submit",
   (_event, submission: ProjectIntakeSubmission): ProjectIntakeSubmissionResult => {
-    return submitProjectIntake(submission);
+    if (!selectedProjectRepositoryRoot) {
+      throw new Error("Project repository must be selected through the main-process folder chooser.");
+    }
+    return submitProjectIntake({
+      ...submission,
+      projectRepository: selectedProjectRepositoryRoot,
+    });
   },
 );
 
 ipcMain.handle("architectBrowser:foundationStatus", (): ArchitectBrowserFoundationStatus => {
   return getArchitectBrowserFoundationStatus(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectBrowser:show", (): ArchitectBrowserFoundationStatus => {
+  if (!mainWindow) {
+    throw new Error("Main window is not available.");
+  }
+  return attachArchitectBrowserSurface(mainWindow, getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectBrowser:setBounds", (_event, bounds: BrowserViewBounds): ArchitectBrowserFoundationStatus => {
+  return setArchitectBrowserBounds(getRequiredWorkspaceRoot(), bounds);
+});
+
+ipcMain.handle("architectBrowser:hide", (): ArchitectBrowserFoundationStatus => {
+  return detachArchitectBrowserSurface(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectBrowser:confirmSignedIn", (): ArchitectBrowserFoundationStatus => {
+  return confirmArchitectSignedIn(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:getModel", (): CurrentWorkspaceModel => {
+  return getCurrentWorkspaceModel(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:generateHandoff", (): RuntimeActionResult => {
+  return generateCurrentHandoff(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:applyDisposition", (_event, status: DocumentDispositionStatus): RuntimeActionResult => {
+  return applyCurrentDisposition(getRequiredWorkspaceRoot(), status);
+});
+
+ipcMain.handle("currentWorkflow:createRepair", (_event, defect: string): RuntimeActionResult => {
+  return createRepairForCurrentFailure(getRequiredWorkspaceRoot(), defect);
+});
+
+ipcMain.handle("currentWorkflow:createValidationAttempt", (): RuntimeActionResult => {
+  return createValidationAttemptForCurrentWorkCard(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:createPhaseCloseout", (_event, closureDecision: ClosureDecision, rationale: string): RuntimeActionResult => {
+  return createPhaseCloseoutForCurrentPhase(getRequiredWorkspaceRoot(), closureDecision, rationale);
+});
+
+ipcMain.handle("currentWorkflow:createProjectCloseout", (_event, closureDecision: ClosureDecision, rationale: string): RuntimeActionResult => {
+  return createProjectCloseoutForCurrentProject(getRequiredWorkspaceRoot(), closureDecision, rationale);
+});
+
+ipcMain.handle("currentWorkflow:getCloseProjection", (): RuntimeActionResult => {
+  return getCurrentCloseProjection(getRequiredWorkspaceRoot());
 });
 
 app.whenReady().then(() => {

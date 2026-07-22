@@ -8,6 +8,7 @@ import {
   savePlanningDocumentRevision,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 export interface FormalWorkCardResult {
   phaseId: string;
@@ -172,27 +173,10 @@ function renderFormalWorkCardMarkdown(artifact: any): string {
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  const originals = new Map<string, Buffer | null>();
-  try {
-    for (const [relativePath] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      originals.set(absolutePath, fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath) : null);
-    }
-    for (const [relativePath, content] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-      fs.writeFileSync(absolutePath, content, "utf8");
-    }
-  } catch (error) {
-    for (const [absolutePath, content] of originals) {
-      if (content === null) {
-        if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
-      } else {
-        fs.writeFileSync(absolutePath, content);
-      }
-    }
-    throw error;
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

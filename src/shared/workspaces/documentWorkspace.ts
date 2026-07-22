@@ -51,6 +51,14 @@ export function classifyPlanningDocument(
     return { ...workspace("work-card-validation"), group: "Validation and review evidence" };
   }
 
+  if (isProjectIntake(searchable)) {
+    return { ...workspace("project-intake-capture"), group: "Project Intake" };
+  }
+
+  if (isArchitectInterview(searchable)) {
+    return { ...workspace("architect-interview"), group: "Architect Interview" };
+  }
+
   if (isImplementerReport(searchable)) {
     return { ...workspace("work-card-building-review"), group: "Implementer reports" };
   }
@@ -78,9 +86,7 @@ export function classifyPlanningDocument(
   if (isProjectPlanning(searchable)) {
     return {
       ...workspace("project-planning-review"),
-      group: projectIntakePattern.test(searchable)
-        ? "Project Intake"
-        : "Project planning records",
+      group: "Project planning records",
     };
   }
 
@@ -88,7 +94,7 @@ export function classifyPlanningDocument(
     return { ...workspace("phase-interview"), group: "Phase interview records" };
   }
 
-  return { ...workspace("project-planning-review"), group: "Other planning documents" };
+  return { ...workspace("project-planning-review"), group: "Context documents" };
 }
 
 export function assignDocumentsToWorkspaces(
@@ -148,6 +154,19 @@ function isProjectPlanning(value: string): boolean {
   );
 }
 
+function isProjectIntake(value: string): boolean {
+  return (
+    value.includes("planning/project/project_intake/") ||
+    value.includes("planning/project/project-intake/") ||
+    projectIntakePattern.test(value)
+  );
+}
+
+function isArchitectInterview(value: string): boolean {
+  return value.includes("planning/project/project_architect_interviews/") ||
+    value.includes("project_architect_interview");
+}
+
 function isPhaseMap(value: string): boolean {
   return (
     value.includes("/phase_map/") ||
@@ -196,6 +215,7 @@ function isWorkCardIntake(value: string): boolean {
 
 function isOperatorValidation(value: string): boolean {
   return (
+    value.includes("/validation_records/") ||
     value.includes("/architect_reviews/") ||
     value.includes("/validation_reports/") ||
     value.includes("/operator_validation") ||
@@ -232,10 +252,10 @@ function compareGroups(workspaceId: WorkspaceId, left: string, right: string): n
     }
   }
 
-  if (left === "Other planning documents") {
+  if (left === "Context documents") {
     return 1;
   }
-  if (right === "Other planning documents") {
+  if (right === "Context documents") {
     return -1;
   }
 

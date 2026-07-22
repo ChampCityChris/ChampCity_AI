@@ -29,19 +29,19 @@ function readJson(root, relativePath) {
   return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 }
 
-test("pre-validation repair creates Approved handoff and Pending repair with original parent", () => {
+test("pre-validation repair creates Approved handoff and names target without placeholder repair", () => {
   const { root, evidencePath } = createRepository("report");
 
   const result = createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "preValidationReportReview", "Fix report issue");
   const handoff = readJson(root, result.handoffJsonPath);
-  const repair = readJson(root, result.repairJsonPath);
 
   assert.equal(result.repairId, "WC01-REPAIR01");
   assert.equal(handoff.participationRole, "nonReviewHandoff");
   assert.equal(handoff.documentDisposition.status, "Approved");
-  assert.equal(repair.originalParentWorkCardId, "WC01");
-  assert.equal(repair.returnTarget, "work-card-building-review");
-  assert.equal(repair.documentDisposition.status, "Pending");
+  assert.equal(handoff.originalParentWorkCardId, "WC01");
+  assert.equal(handoff.returnTarget, "work-card-building-review");
+  assert.equal(handoff.outputTargets.repairWorkCard.json, result.repairJsonPath);
+  assert.equal(fs.existsSync(path.join(root, result.repairJsonPath)), false);
 });
 
 test("failed repair report creates next sibling rather than nested repair parent", () => {
@@ -49,20 +49,20 @@ test("failed repair report creates next sibling rather than nested repair parent
   createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "preValidationReportReview", "First fix");
 
   const result = createRepairWorkCard(root, "phase-01", "WC01-REPAIR01", evidencePath, "preValidationReportReview", "Second fix");
-  const repair = readJson(root, result.repairJsonPath);
+  const handoff = readJson(root, result.handoffJsonPath);
 
-  assert.equal(result.repairId, "WC01-REPAIR02");
-  assert.equal(repair.originalParentWorkCardId, "WC01");
+  assert.equal(result.repairId, "WC01-REPAIR01");
+  assert.equal(handoff.originalParentWorkCardId, "WC01");
 });
 
 test("post-validation repair contract uses validation return target", () => {
   const { root, evidencePath } = createRepository("validation");
 
   const result = createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "postValidationRecord", "Fix validation issue");
-  const repair = readJson(root, result.repairJsonPath);
+  const handoff = readJson(root, result.handoffJsonPath);
 
-  assert.equal(repair.origin, "postValidationRecord");
-  assert.equal(repair.returnTarget, "work-card-validation");
+  assert.equal(handoff.origin, "postValidationRecord");
+  assert.equal(handoff.returnTarget, "work-card-validation");
 });
 
 test("repair creation rejects wrong origin evidence", () => {

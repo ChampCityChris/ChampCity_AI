@@ -39,6 +39,12 @@ const {
   generateWorkCardIntakeHandoff,
   selectNextWorkCardCandidate,
 } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
+const {
+  seedPhaseInterviewOutput,
+  seedPhaseMapOutput,
+  seedPhasePlanningOutputs,
+  seedProjectPlanningOutputs,
+} = require("../support/architect-output-fixtures.cjs");
 
 function createRepository() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "champcity-work-card-intake-"));
@@ -89,13 +95,13 @@ function readyApprovedPlan(candidates = [candidate()]) {
   submitProjectIntake(submission(root));
   saveArchitectInterviewDraft(root, "Approved interview for work card intake.");
   setArchitectInterviewDisposition(root, "Approved");
-  generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
   setProjectPlanningBundleDisposition(root, "Approved");
-  generatePhaseMapHandoff(root, phaseMap());
+  seedPhaseMapOutput(root, generatePhaseMapHandoff(root, phaseMap()), phaseMap());
   setPhaseMapDisposition(root, "Approved");
-  generatePhaseInterviewHandoff(root);
+  seedPhaseInterviewOutput(root, generatePhaseInterviewHandoff(root));
   setPhaseInterviewDisposition(root, "phase-01", "Approved");
-  generatePhasePlanningHandoff(root, candidates);
+  seedPhasePlanningOutputs(root, generatePhasePlanningHandoff(root, candidates), candidates);
   setPhasePlanningBundleDisposition(root, "phase-01", "Approved");
   return root;
 }

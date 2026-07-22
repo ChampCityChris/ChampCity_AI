@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
-import logoUrl from "../assets/champcity_ai_ui_branding.png";
 import {
+  type ClosureDecision,
+  type CurrentWorkspaceModel,
   projectTypeOptions,
+  type RuntimeActionResult,
   workspaceDefinitions,
   type ArchitectBrowserFoundationStatus,
   type ProjectIntakeSubmission,
@@ -22,13 +24,81 @@ import {
   getWorkspaceDocumentCounts,
   getWorkspaceGroups,
 } from "../../shared/workspaces/documentWorkspace";
+import { NestedWorkflowRail } from "./NestedWorkflowRail";
 
 const neutralMessage = "Document workflow not yet implemented";
+const architectWorkspaceIds = new Set<WorkspaceId>([
+  "architect-interview",
+  "project-planning-review",
+  "project-phase-map",
+  "phase-interview",
+  "phase-planning-bundle",
+  "work-card-intake",
+  "work-card-planning",
+  "work-card-repair",
+]);
+const handoffWorkspaceIds = new Set<WorkspaceId>([
+  "project-planning-review",
+  "project-phase-map",
+  "phase-interview",
+  "phase-planning-bundle",
+  "phase-work-card-selection",
+  "work-card-intake",
+]);
+const specializedDispositionWorkspaceIds = new Set<WorkspaceId>([
+  "architect-interview",
+  "project-planning-review",
+  "project-phase-map",
+  "phase-interview",
+  "phase-planning-bundle",
+  "work-card-planning",
+  "work-card-building-review",
+  "work-card-validation",
+  "phase-validation",
+  "phase-close",
+  "project-validation",
+  "project-close",
+]);
 const dispositionOptions = [
   { label: "Approve", status: "Approved" },
   { label: "Reject", status: "Rejected" },
   { label: "Request Revision", status: "RevisionRequested" },
 ] as const;
+
+const navigationGroups: Array<{ label: string; workspaceIds: WorkspaceId[] }> = [
+  {
+    label: "Project",
+    workspaceIds: [
+      "project-intake-capture",
+      "architect-interview",
+      "project-planning-review",
+      "project-phase-map",
+      "project-validation",
+      "project-close",
+    ],
+  },
+  {
+    label: "Phase",
+    workspaceIds: [
+      "phase-interview",
+      "phase-planning-bundle",
+      "phase-work-card-selection",
+      "phase-validation",
+      "phase-close",
+    ],
+  },
+  {
+    label: "Work Card",
+    workspaceIds: [
+      "work-card-intake",
+      "work-card-planning",
+      "work-card-building-review",
+      "work-card-repair",
+      "work-card-validation",
+      "work-card-close",
+    ],
+  },
+];
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -68,6 +138,15 @@ export function App(): JSX.Element {
     useState<ProjectIntakeSubmission>(emptyProjectIntake);
   const [architectStatus, setArchitectStatus] =
     useState<ArchitectBrowserFoundationStatus | null>(null);
+  const [currentModel, setCurrentModel] = useState<CurrentWorkspaceModel | null>(null);
+  const [actionInputs, setActionInputs] = useState({
+    defect: "",
+    closureDecision: "Close" as ClosureDecision,
+    rationale: "",
+    status: "Approved" as DocumentDispositionStatus,
+  });
+  const architectHostRef = useRef<HTMLDivElement | null>(null);
+  const workspaceSurfaceRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     void window.champcity.getSelectedWorkspace().then((selection) => {
@@ -89,8 +168,45 @@ export function App(): JSX.Element {
   }, [selectedDocumentId]);
 
   useEffect(() => {
-    if (activeWorkspaceId === "architect-interview" && workspace.ok) {
-      void refreshArchitectStatus();
+    if (!workspace.ok) {
+      return;
+    }
+
+    if (architectWorkspaceIds.has(activeWorkspaceId)) {
+      const syncBounds = (): void => {
+        const host = architectHostRef.current;
+        if (!host) {
+          return;
+        }
+        const rect = host.getBoundingClientRect();
+        void window.champcity.setArchitectBrowserBounds({
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+        }).then(setArchitectStatus).catch(() => undefined);
+      };
+      const observer = new ResizeObserver(syncBounds);
+      if (architectHostRef.current) {
+        observer.observe(architectHostRef.current);
+      }
+      const workspaceSurface = workspaceSurfaceRef.current;
+      void window.champcity.showArchitectBrowser().then((status) => {
+        setArchitectStatus(status);
+        syncBounds();
+      }).catch((error: unknown) => {
+        setArchitectStatus(null);
+        setDocumentError(error instanceof Error ? error.message : "Architect browser could not be attached.");
+      });
+      window.addEventListener("resize", syncBounds);
+      workspaceSurface?.addEventListener("scroll", syncBounds);
+      return () => {
+        observer.disconnect();
+        window.removeEventListener("resize", syncBounds);
+        workspaceSurface?.removeEventListener("scroll", syncBounds);
+      };
+    } else {
+      void window.champcity.hideArchitectBrowser().then(setArchitectStatus).catch(() => undefined);
     }
   }, [activeWorkspaceId, workspace.ok]);
 
@@ -188,12 +304,35 @@ export function App(): JSX.Element {
     }
   }
 
+  async function refreshCurrentModel(): Promise<void> {
+    try {
+      const nextModel = await window.champcity.getCurrentWorkspaceModel();
+      setCurrentModel(nextModel);
+    } catch {
+      setCurrentModel(null);
+    }
+  }
+
+  async function runWorkspaceAction(action: () => Promise<RuntimeActionResult>): Promise<void> {
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const result = await action();
+      setFeedback(result.message);
+      await refreshDocuments();
+      await refreshCurrentModel();
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Workspace action failed.");
+    }
+  }
+
   async function refreshDocuments(options: { useResolver?: boolean } = {}): Promise<void> {
     setIsLoadingDocuments(true);
     setDocumentError("");
     try {
       const nextDocuments = await window.champcity.listDocuments();
       setDocuments(nextDocuments);
+      await refreshCurrentModel();
       if (options.useResolver) {
         const nextResolverResult = await window.champcity.resolveCurrentDocument();
         selectResolverResult(nextResolverResult);
@@ -216,6 +355,7 @@ export function App(): JSX.Element {
     if (result.status === "current") {
       setActiveWorkspaceId(result.document.owningWorkspaceId);
       setSelectedDocumentId(result.document.logicalDocumentId);
+      void refreshCurrentModel();
       return;
     }
 
@@ -277,194 +417,376 @@ export function App(): JSX.Element {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-root">
+      <NestedWorkflowRail
+        activeWorkspaceId={activeWorkspaceId}
+        onWorkspaceChange={setActiveWorkspaceId}
+        workspaceCounts={workspaceCounts}
+      />
+
+      <div className="app-body">
       <aside className="sidebar" aria-label="Workspaces">
-        <div className="brand-lockup">
-          <img src={logoUrl} alt="ChampCity A/I" />
-        </div>
         <nav className="workspace-nav">
-          {workspaceDefinitions.map((definition) => (
-            <button
-              className={
-                definition.id === activeWorkspaceId
-                  ? "workspace-tab active"
-                  : "workspace-tab"
-              }
-              key={definition.id}
-              onClick={() => setActiveWorkspaceId(definition.id)}
-              type="button"
-            >
-              <span>{definition.label}</span>
-              <small>{workspaceCounts[definition.id] ?? 0}</small>
-            </button>
+          {navigationGroups.map((group) => (
+            <div className="workspace-nav-group" key={group.label}>
+              <h2>{group.label}</h2>
+              {group.workspaceIds.map((workspaceId) => {
+                const definition = workspaceDefinitions.find((candidate) => candidate.id === workspaceId);
+                if (!definition) {
+                  return null;
+                }
+                const isCurrentRequired = currentModel?.activeWorkspaceId === definition.id;
+                return (
+                  <button
+                    className={[
+                      "workspace-tab",
+                      definition.id === activeWorkspaceId ? "active" : "",
+                      isCurrentRequired ? "required" : "",
+                    ].filter(Boolean).join(" ")}
+                    key={definition.id}
+                    onClick={() => setActiveWorkspaceId(definition.id)}
+                    type="button"
+                  >
+                    <span>{shortWorkspaceLabel(definition.label)}</span>
+                    <small>{workspaceCounts[definition.id] ?? 0}</small>
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
       </aside>
 
-      <section className="workspace-surface" aria-labelledby="workspace-heading">
-        <header className="workspace-header">
-          <div>
-            <p className="eyebrow">ChampCity A/I</p>
-            <h1 id="workspace-heading">{activeWorkspace.label}</h1>
-          </div>
-          <div className="workspace-actions">
-            <button
-              className="icon-button text-button"
-              disabled={!workspace.ok || isLoadingDocuments}
-              onClick={() => refreshDocuments({ useResolver: true })}
-              title="Refresh documents"
-              type="button"
-            >
-              <RefreshCw aria-hidden="true" size={18} />
-              Refresh
-            </button>
-            <button
-              className="icon-button text-button"
-              disabled={isChoosing}
-              onClick={chooseWorkspace}
-              title="Choose workspace"
-              type="button"
-            >
-              <FolderOpen aria-hidden="true" size={18} />
-              {isChoosing ? "Choosing..." : "Choose Workspace"}
-            </button>
-            <button
-              className="icon-button"
-              onClick={clearWorkspace}
-              title="Clear selected workspace"
-              type="button"
-            >
-              <RotateCcw aria-hidden="true" size={18} />
-            </button>
-          </div>
-        </header>
-
-        <div className={workspace.ok ? "workspace-status ready" : "workspace-status"}>
-          <span>Selected workspace</span>
-          <strong>{workspace.ok ? workspace.workspaceRoot : workspace.reason}</strong>
-        </div>
-
-        {activeWorkspaceId === "project-intake-capture" ? (
-          <ProjectIntakeCapture
-            isChoosingProjectRepository={isChoosingProjectRepository}
-            isSubmittingIntake={isSubmittingIntake}
-            onChange={setProjectIntake}
-            onChooseProjectRepository={chooseProjectRepository}
-            onSubmit={submitProjectIntake}
-            value={projectIntake}
-          />
-        ) : null}
-
-        {activeWorkspaceId === "architect-interview" ? (
-          <ArchitectInterviewFoundation
-            onRefresh={refreshArchitectStatus}
-            status={architectStatus}
-          />
-        ) : null}
-
-        <section className="document-workspace" aria-label={activeWorkspace.label}>
-          <div className="document-list" aria-label={`${activeWorkspace.label} documents`}>
-            {workspaceGroups.length === 0 ? (
-              <div className="empty-list">
-                <p>{workspace.ok ? "No documents in this workspace." : neutralMessage}</p>
-              </div>
-            ) : (
-              workspaceGroups.map((group) => (
-                <div className="document-group" key={group.group}>
-                  <h2>{group.group}</h2>
-                  {group.documents.map((document) => (
-                    <button
-                      className={
-                        document.logicalDocumentId === selectedDocumentId
-                          ? "document-row selected"
-                          : "document-row"
-                      }
-                      key={document.logicalDocumentId}
-                      onClick={() => setSelectedDocumentId(document.logicalDocumentId)}
-                      type="button"
-                    >
-                      <span className="document-title">{document.displayFilename}</span>
-                      <span className="document-path">
-                        {document.markdownPath ?? document.jsonPath}
-                      </span>
-                      <span className={`status-pill ${document.effectiveDisposition.toLowerCase()}`}>
-                        {document.effectiveDisposition}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ))
-            )}
-          </div>
-
-          <article className="document-preview">
-            <CurrentDocumentSummary
-              resolverResult={resolverResult}
-              selectedDocument={selectedDocument}
-            />
-            <header className="preview-header">
-              <div>
-                <h2>{selectedDocument?.displayFilename ?? "Select a document"}</h2>
-                <p>{selectedDocument?.markdownPath ?? selectedDocument?.jsonPath ?? "Repository-relative path"}</p>
-              </div>
-              <div className="pair-status">
-                <span>{selectedDocument?.pairStatus ?? "No document selected"}</span>
-                <strong>{selectedDocument?.synchronizationState ?? "Waiting"}</strong>
-              </div>
-            </header>
-
-            {selectedDocumentHasLocalError || documentError ? (
-              <div className="document-error" role="status">
-                {documentError || "Document pair status must be synchronized before applying a disposition."}
-              </div>
-            ) : null}
-
-            {feedback ? (
-              <div className="document-feedback" role="status">
-                {feedback}
-              </div>
-            ) : null}
-
-            <pre className="preview-body">
-              {selectedDocument?.preview ?? neutralMessage}
-            </pre>
-
-            <div className="disposition-controls">
-              <label>
-                <span>Disposition</span>
-                <select
-                  disabled={!selectedDocument || selectedDocumentHasLocalError}
-                  onChange={(event) =>
-                    setSelectedStatus(event.target.value as DocumentDispositionStatus | "")
-                  }
-                  value={selectedStatus}
-                >
-                  <option value="">Select disposition</option>
-                  {dispositionOptions.map((option) => (
-                    <option key={option.status} value={option.status}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        <section
+          className="workspace-surface"
+          aria-labelledby="workspace-heading"
+          ref={workspaceSurfaceRef}
+        >
+          <header className="workspace-header">
+            <div>
+              <p className="eyebrow">ChampCity A/I</p>
+              <h1 id="workspace-heading">{activeWorkspace.label}</h1>
+            </div>
+            <div className="workspace-actions">
               <button
-                className="apply-button"
-                disabled={
-                  !selectedDocument ||
-                  !selectedStatus ||
-                  selectedDocumentHasLocalError ||
-                  isApplying
-                }
-                onClick={applyDisposition}
+                className="icon-button text-button"
+                disabled={!workspace.ok || isLoadingDocuments}
+                onClick={() => refreshDocuments({ useResolver: true })}
+                title="Refresh documents"
                 type="button"
               >
-                Apply Disposition
+                <RefreshCw aria-hidden="true" size={18} />
+                Refresh
+              </button>
+              <button
+                className="icon-button text-button"
+                disabled={isChoosing}
+                onClick={chooseWorkspace}
+                title="Choose workspace"
+                type="button"
+              >
+                <FolderOpen aria-hidden="true" size={18} />
+                {isChoosing ? "Choosing..." : "Choose Workspace"}
+              </button>
+              <button
+                className="icon-button"
+                onClick={clearWorkspace}
+                title="Clear selected workspace"
+                type="button"
+              >
+                <RotateCcw aria-hidden="true" size={18} />
               </button>
             </div>
-          </article>
+          </header>
+
+          <div className={workspace.ok ? "workspace-status ready" : "workspace-status"}>
+            <span>Selected workspace</span>
+            <strong>{workspace.ok ? workspace.workspaceRoot : workspace.reason}</strong>
+          </div>
+
+          <CurrentWorkspaceBanner
+            activeWorkspaceLabel={activeWorkspace.label}
+            model={currentModel}
+            resolverResult={resolverResult}
+          />
+
+          {activeWorkspaceId === "project-intake-capture" ? (
+            <ProjectIntakeCapture
+              isChoosingProjectRepository={isChoosingProjectRepository}
+              isSubmittingIntake={isSubmittingIntake}
+              onChange={setProjectIntake}
+              onChooseProjectRepository={chooseProjectRepository}
+              onSubmit={submitProjectIntake}
+              value={projectIntake}
+            />
+          ) : null}
+
+          {activeWorkspaceId === "architect-interview" ? (
+            <ArchitectInterviewFoundation
+              onRefresh={refreshArchitectStatus}
+              status={architectStatus}
+            />
+          ) : null}
+
+          {activeWorkspaceId !== "project-intake-capture" ? (
+            <CurrentActionPanel
+              activeWorkspaceId={activeWorkspaceId}
+              inputs={actionInputs}
+              model={currentModel}
+              onChange={setActionInputs}
+              onRun={runWorkspaceAction}
+            />
+          ) : null}
+
+          <section
+            className={architectWorkspaceIds.has(activeWorkspaceId) ? "document-workspace with-architect" : "document-workspace"}
+            aria-label={activeWorkspace.label}
+          >
+            <div className="document-list" aria-label={`${activeWorkspace.label} documents`}>
+              {workspaceGroups.length === 0 ? (
+                <div className="empty-list">
+                  <p>{workspace.ok ? "No documents in this workspace." : neutralMessage}</p>
+                </div>
+              ) : (
+                workspaceGroups.map((group) => (
+                  <div className="document-group" key={group.group}>
+                    <h2>{group.group}</h2>
+                    {group.documents.map((document) => (
+                      <button
+                        className={
+                          document.logicalDocumentId === selectedDocumentId
+                            ? "document-row selected"
+                            : "document-row"
+                        }
+                        key={document.logicalDocumentId}
+                        onClick={() => setSelectedDocumentId(document.logicalDocumentId)}
+                        type="button"
+                      >
+                        <span className="document-title">{document.displayFilename}</span>
+                        <span className="document-path">
+                          {document.markdownPath ?? document.jsonPath}
+                        </span>
+                        <span className={`status-pill ${document.effectiveDisposition.toLowerCase()}`}>
+                          {document.effectiveDisposition}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <article className="document-preview">
+              <CurrentDocumentSummary
+                resolverResult={resolverResult}
+                selectedDocument={selectedDocument}
+              />
+              <header className="preview-header">
+                <div>
+                  <h2>{selectedDocument?.displayFilename ?? "Select a document"}</h2>
+                  <p>{selectedDocument?.markdownPath ?? selectedDocument?.jsonPath ?? "Repository-relative path"}</p>
+                </div>
+                <div className="pair-status">
+                  <span>{selectedDocument?.pairStatus ?? "No document selected"}</span>
+                  <strong>{selectedDocument?.synchronizationState ?? "Waiting"}</strong>
+                </div>
+              </header>
+
+              {selectedDocumentHasLocalError || documentError ? (
+                <div className="document-error" role="status">
+                  {documentError || "Document pair status must be synchronized before applying a disposition."}
+                </div>
+              ) : null}
+
+              {feedback ? (
+                <div className="document-feedback" role="status">
+                  {feedback}
+                </div>
+              ) : null}
+
+              <pre className="preview-body">
+                {selectedDocument?.preview ?? neutralMessage}
+              </pre>
+
+              {specializedDispositionWorkspaceIds.has(activeWorkspaceId) ? (
+                <div className="document-feedback" role="status">
+                  This workspace uses its specialized action authority instead of generic single-document disposition.
+                </div>
+              ) : (
+              <div className="disposition-controls">
+                <label>
+                  <span>Disposition</span>
+                  <select
+                    disabled={!selectedDocument || selectedDocumentHasLocalError}
+                    onChange={(event) =>
+                      setSelectedStatus(event.target.value as DocumentDispositionStatus | "")
+                    }
+                    value={selectedStatus}
+                  >
+                    <option value="">Select disposition</option>
+                    {dispositionOptions.map((option) => (
+                      <option key={option.status} value={option.status}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="apply-button"
+                  disabled={
+                    !selectedDocument ||
+                    !selectedStatus ||
+                    selectedDocumentHasLocalError ||
+                    isApplying
+                  }
+                  onClick={applyDisposition}
+                  type="button"
+                >
+                  Apply Disposition
+                </button>
+              </div>
+              )}
+            </article>
+            {architectWorkspaceIds.has(activeWorkspaceId) ? (
+              <aside className="architect-surface-pane" aria-label="Architect browser surface">
+                <div className="architect-pane-header">
+                  <strong>Architect Surface</strong>
+                  <button className="icon-button text-button" onClick={() => void window.champcity.confirmArchitectSignedIn().then(setArchitectStatus)} type="button">
+                    Confirm Signed In
+                  </button>
+                </div>
+                <div ref={architectHostRef} className="architect-browser-host">
+                  <span>{architectStatus?.browserState ?? "detached"}</span>
+                </div>
+              </aside>
+            ) : null}
+          </section>
         </section>
-      </section>
+      </div>
     </main>
+  );
+}
+
+function CurrentActionPanel({
+  activeWorkspaceId,
+  inputs,
+  model,
+  onChange,
+  onRun,
+}: {
+  activeWorkspaceId: WorkspaceId;
+  inputs: {
+    defect: string;
+    closureDecision: ClosureDecision;
+    rationale: string;
+    status: DocumentDispositionStatus;
+  };
+  onChange: (value: {
+    defect: string;
+    closureDecision: ClosureDecision;
+    rationale: string;
+    status: DocumentDispositionStatus;
+  }) => void;
+  model: CurrentWorkspaceModel | null;
+  onRun: (action: () => Promise<RuntimeActionResult>) => Promise<void>;
+}): JSX.Element {
+  const update = <Key extends keyof typeof inputs>(key: Key, value: (typeof inputs)[Key]): void => {
+    onChange({ ...inputs, [key]: value });
+  };
+  const statusSelect = (
+    <label>
+      <span>Disposition</span>
+      <select
+        onChange={(event) => update("status", event.target.value as DocumentDispositionStatus)}
+        value={inputs.status}
+      >
+        {dispositionOptions.map((option) => (
+          <option key={option.status} value={option.status}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const canApplyDisposition = specializedDispositionWorkspaceIds.has(activeWorkspaceId);
+
+  return (
+    <section className="workspace-action-panel" aria-label="Workspace actions">
+      <div className="current-action-context">
+        <span>Action Authority</span>
+        <strong>{model?.currentTarget ?? "Resolve current workspace to enable actions"}</strong>
+        <small>
+          {[model?.level, model?.stage, model?.currentPhaseId, model?.currentWorkCardId]
+            .filter(Boolean)
+            .join(" / ") || "Repository evidence required"}
+        </small>
+      </div>
+      {canApplyDisposition ? (
+        <>
+          {statusSelect}
+          <button className="apply-button" onClick={() => onRun(() => window.champcity.applyCurrentDisposition(inputs.status))} type="button">
+            Apply Current Disposition
+          </button>
+        </>
+      ) : null}
+      {handoffWorkspaceIds.has(activeWorkspaceId) ? (
+        <button className="apply-button" onClick={() => onRun(() => window.champcity.generateCurrentHandoff())} type="button">
+          Run Current Handoff Action
+        </button>
+      ) : null}
+      {activeWorkspaceId === "work-card-validation" ? (
+        <button className="apply-button" onClick={() => onRun(() => window.champcity.createValidationAttemptForCurrentWorkCard())} type="button">
+          Create Current Validation Attempt
+        </button>
+      ) : null}
+      {activeWorkspaceId === "work-card-repair" ? (
+        <>
+          <label>
+            <span>Bounded Defect</span>
+            <input onChange={(event) => update("defect", event.target.value)} value={inputs.defect} />
+          </label>
+          <button className="apply-button" onClick={() => onRun(() => window.champcity.createRepairForCurrentFailure(inputs.defect))} type="button">
+            Create Current Repair Handoff
+          </button>
+        </>
+      ) : null}
+      {activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close" ? (
+        <>
+          <label>
+            <span>Closure Decision</span>
+            <select onChange={(event) => update("closureDecision", event.target.value as ClosureDecision)} value={inputs.closureDecision}>
+              <option value="Close">Close</option>
+              <option value="DoNotClose">Do Not Close</option>
+            </select>
+          </label>
+          <label>
+            <span>Rationale</span>
+            <input onChange={(event) => update("rationale", event.target.value)} value={inputs.rationale} />
+          </label>
+          <button className="apply-button" onClick={() => onRun(() => window.champcity.createPhaseCloseoutForCurrentPhase(inputs.closureDecision, inputs.rationale))} type="button">
+            Create Current Phase Closeout
+          </button>
+        </>
+      ) : null}
+      {activeWorkspaceId === "project-validation" || activeWorkspaceId === "project-close" ? (
+        <>
+          <label>
+            <span>Closure Decision</span>
+            <select onChange={(event) => update("closureDecision", event.target.value as ClosureDecision)} value={inputs.closureDecision}>
+              <option value="Close">Close</option>
+              <option value="DoNotClose">Do Not Close</option>
+            </select>
+          </label>
+          <label>
+            <span>Rationale</span>
+            <input onChange={(event) => update("rationale", event.target.value)} value={inputs.rationale} />
+          </label>
+          <button className="apply-button" onClick={() => onRun(() => window.champcity.createProjectCloseoutForCurrentProject(inputs.closureDecision, inputs.rationale))} type="button">
+            Create Current Project Closeout
+          </button>
+        </>
+      ) : null}
+    </section>
   );
 }
 
@@ -479,7 +801,7 @@ function ArchitectInterviewFoundation({
     <section className="architect-foundation" aria-label="Architect Interview Browser Foundation">
       <div>
         <span>Browser state</span>
-        <strong>{status?.browserState ?? "browser-unavailable"}</strong>
+        <strong>{status?.browserState ?? "detached"}</strong>
       </div>
       <div>
         <span>Handoff state</span>
@@ -630,6 +952,67 @@ function getResolverFeedback(result: FirstNonApprovedResult): string {
   }
 
   return `Document ${result.document.orderPosition} of ${result.document.totalDocumentCount}: ${result.document.displayTitle}`;
+}
+
+function shortWorkspaceLabel(label: string): string {
+  return label
+    .replace("Project Plan and Roadmap Review", "Planning")
+    .replace("Project Intake Capture", "Intake")
+    .replace("Project Validation", "Validation")
+    .replace("Project Close", "Close")
+    .replace("Phase Planning Bundle", "Planning")
+    .replace("Phase Work Card Selection", "Work Card Selection")
+    .replace("Work Card Building Review", "Building Review");
+}
+
+function CurrentWorkspaceBanner({
+  activeWorkspaceLabel,
+  model,
+  resolverResult,
+}: {
+  activeWorkspaceLabel: string;
+  model: CurrentWorkspaceModel | null;
+  resolverResult: FirstNonApprovedResult | null;
+}): JSX.Element {
+  const current = resolverResult?.status === "current" ? resolverResult.document : null;
+  return (
+    <section className="current-workspace-banner" aria-label="Current required workspace">
+      <div>
+        <span>Current Required Workspace</span>
+        <strong>{model?.activeWorkspaceId === undefined ? activeWorkspaceLabel : current?.owningWorkspace ?? activeWorkspaceLabel}</strong>
+      </div>
+      <div>
+        <span>Current Target</span>
+        <strong>{model?.currentTarget ?? current?.displayTitle ?? "No current target"}</strong>
+      </div>
+      <div>
+        <span>Eligibility</span>
+        <strong>{model?.eligibility ?? "Resolve current evidence"}</strong>
+      </div>
+      <div className="banner-wide">
+        <span>Required Action</span>
+        <strong>{model?.requiredAction ?? current?.reason ?? "Refresh to resolve the required action."}</strong>
+      </div>
+      <div className="banner-wide">
+        <span>Expected Output</span>
+        <strong>{model?.expectedOutput ?? "Current workflow output will appear here."}</strong>
+      </div>
+      <div className="banner-wide">
+        <span>Evidence</span>
+        <strong>{model?.sourceEvidence.join("; ") || "No source evidence selected."}</strong>
+      </div>
+      <div className="banner-wide">
+        <span>Next State</span>
+        <strong>{model?.expectedNextState ?? "Refresh resolves the next lifecycle document."}</strong>
+      </div>
+      {model?.blocker ? (
+        <div className="banner-wide blocker">
+          <span>Blocker</span>
+          <strong>{model.blocker}</strong>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function CurrentDocumentSummary({

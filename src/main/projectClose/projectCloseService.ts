@@ -3,6 +3,7 @@ import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
 import { getPhaseMapProjection } from "../phaseMap/phaseMapService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 export function createProjectCloseout(workspaceRoot: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
   assertProjectCloseEligible(workspaceRoot);
@@ -67,11 +68,10 @@ function renderCloseout(artifact: any): string {
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[string, string]>): void {
-  for (const [relativePath, content] of entries) {
-    const absolutePath = path.join(workspaceRoot, relativePath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, content, "utf8");
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

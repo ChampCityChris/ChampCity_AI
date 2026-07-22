@@ -7,6 +7,7 @@ import {
   readPlanningDocument,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 
 export type ArchitectInterviewWorkspaceState =
   | "missing"
@@ -202,14 +203,10 @@ function findByPath(workspaceRoot: string, relativePath: string) {
 }
 
 function writePair(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  for (const [relativePath, content] of entries) {
-    if (path.isAbsolute(relativePath) || relativePath.includes("..")) {
-      throw new Error("Architect Interview path must be repository-relative.");
-    }
-    const absolutePath = path.join(workspaceRoot, relativePath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, content, "utf8");
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function readArtifactRevision(workspaceRoot: string, relativePath: string): number {

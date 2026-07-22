@@ -49,6 +49,51 @@ function readJson(root, relativePath) {
   return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 }
 
+function writeText(root, relativePath, content) {
+  const absolutePath = path.join(root, relativePath);
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, content, "utf8");
+}
+
+function seedProjectPlanningOutputs(root, result) {
+  const handoff = readJson(root, result.handoffJsonPath);
+  const sourceRevisions = handoff.sourceRevisions;
+  writeText(root, result.profileMarkdownPath, [
+    "# Project Profile",
+    "Artifact.Revision=1",
+    "participationRole=compoundGatingReview",
+    "",
+    "## Document Disposition",
+    "",
+    "Document.Status=Pending",
+    "",
+  ].join("\n"));
+  writeText(root, result.profileJsonPath, `${JSON.stringify({
+    artifactType: "project-profile",
+    artifactRevision: 1,
+    participationRole: "compoundGatingReview",
+    sourceRevisions,
+    documentDisposition: { status: "Pending" },
+  }, null, 2)}\n`);
+  writeText(root, result.roadmapMarkdownPath, [
+    "# Project Roadmap",
+    "Artifact.Revision=1",
+    "participationRole=compoundGatingReview",
+    "",
+    "## Document Disposition",
+    "",
+    "Document.Status=Pending",
+    "",
+  ].join("\n"));
+  writeText(root, result.roadmapJsonPath, `${JSON.stringify({
+    artifactType: "project-roadmap",
+    artifactRevision: 1,
+    participationRole: "compoundGatingReview",
+    sourceRevisions,
+    documentDisposition: { status: "Pending" },
+  }, null, 2)}\n`);
+}
+
 test("Project Planning handoff requires Approved current interview", () => {
   const root = createRepository();
   submitProjectIntake(submission(root));
@@ -71,21 +116,18 @@ test("Project Planning handoff is Approved non-review and names exact outputs", 
   assert.equal(handoff.sourceRevisions.length, 3);
 });
 
-test("Project Profile and Roadmap begin Pending with source revisions", () => {
+test("Project Planning handoff does not create placeholder Profile or Roadmap outputs", () => {
   const root = readyRepository();
   const result = generateProjectPlanningHandoff(root);
-  const profile = readJson(root, result.profileJsonPath);
-  const roadmap = readJson(root, result.roadmapJsonPath);
 
-  assert.equal(profile.documentDisposition.status, "Pending");
-  assert.equal(roadmap.documentDisposition.status, "Pending");
-  assert.equal(profile.participationRole, "compoundGatingReview");
-  assert.deepEqual(profile.sourceRevisions, roadmap.sourceRevisions);
+  assert.equal(fs.existsSync(path.join(root, result.profileJsonPath)), false);
+  assert.equal(fs.existsSync(path.join(root, result.roadmapJsonPath)), false);
 });
 
 test("shared bundle disposition approves both planning documents", () => {
   const root = readyRepository();
   const result = generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, result);
 
   setProjectPlanningBundleDisposition(root, "Approved");
 
@@ -97,6 +139,7 @@ test("shared bundle disposition approves both planning documents", () => {
 test("shared bundle disposition rolls back all four planning files after injected failure", () => {
   const root = readyRepository();
   const result = generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, result);
   const files = [
     result.profileMarkdownPath,
     result.profileJsonPath,
@@ -130,7 +173,8 @@ test("mixed missing bundle cannot complete Project Planning", () => {
 
 test("upstream interview revision makes older planning bundle incomplete", () => {
   const root = readyRepository();
-  generateProjectPlanningHandoff(root);
+  const result = generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, result);
   setProjectPlanningBundleDisposition(root, "Approved");
 
   saveArchitectInterviewDraft(root, "Revised interview after planning.");

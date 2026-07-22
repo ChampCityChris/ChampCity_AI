@@ -82,13 +82,16 @@ test("Project Intake output uses fixed fields approved disposition and redacted 
   assert.equal(intakeMarkdown.includes("Project Repository: <PROJECT_REPO>"), true);
 });
 
-test("existing repository answer requires repository review context", () => {
+test("existing repository answer keeps repository review context optional", () => {
   const root = createRepository();
 
-  assert.throws(
-    () => submitProjectIntake(baseSubmission(root, { hasExistingSourceOrPlanning: true })),
-    /repository review context/i,
+  const result = submitProjectIntake(
+    baseSubmission(root, { hasExistingSourceOrPlanning: true }),
   );
+  const intake = readJson(root, result.projectIntakeJsonPath);
+
+  assert.equal(intake.hasExistingSourceOrPlanning, true);
+  assert.equal(intake.repositoryReviewContext, "");
 });
 
 test("existing repository prompt requires ChampCity MCP repository review", () => {

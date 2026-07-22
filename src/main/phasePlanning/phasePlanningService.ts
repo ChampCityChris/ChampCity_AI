@@ -9,6 +9,7 @@ import {
   setDocumentDispositions,
 } from "../documents/planningDocumentService";
 import type { RollbackWriteOptions } from "../documents/documentDispositionWriter";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 import { getPhaseIntakeCompletion } from "../phaseInterview/phaseInterviewService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
 
@@ -69,7 +70,7 @@ export function generatePhasePlanningHandoff(
     { path: phaseMap.jsonPath!, revision: phaseMap.metadata.artifactRevision ?? 1 },
     { path: phaseInterview.jsonPath!, revision: phaseInterview.metadata.artifactRevision ?? 1 },
   ];
-  const normalizedCandidates = validateCandidates(candidates);
+  validateCandidates(candidates);
   const handoffMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Architect_Handoffs/PHASE_PLANNING_ARCHITECT_HANDOFF_${selectedPhase.phaseId}.md`;
   const handoffJsonPath = `planning/phases/${selectedPhase.phaseId}/Architect_Handoffs/PHASE_PLANNING_ARCHITECT_HANDOFF_${selectedPhase.phaseId}.json`;
   const phasePlanningMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Phase_Planning.md`;
@@ -103,34 +104,6 @@ export function generatePhasePlanningHandoff(
           workCardPlan: { markdown: workCardPlanMarkdownPath, json: workCardPlanJsonPath },
         },
         documentDisposition: { status: "Approved" },
-      }),
-    ],
-    [phasePlanningMarkdownPath, renderPhasePlanningMarkdown(selectedPhase, sourceRevisions, normalizedCandidates)],
-    [
-      phasePlanningJsonPath,
-      json({
-        artifactType: "phase-planning",
-        artifactRevision: 1,
-        participationRole: "compoundGatingReview",
-        phaseId: selectedPhase.phaseId,
-        selectedPhase,
-        sourceRevisions,
-        candidateIds: normalizedCandidates.map((candidate) => candidate.candidateId),
-        documentDisposition: { status: "Pending" },
-      }),
-    ],
-    [workCardPlanMarkdownPath, renderWorkCardPlanMarkdown(selectedPhase, sourceRevisions, normalizedCandidates)],
-    [
-      workCardPlanJsonPath,
-      json({
-        artifactType: "work-card-plan",
-        artifactRevision: 1,
-        participationRole: "compoundGatingReview",
-        phaseId: selectedPhase.phaseId,
-        selectedPhase,
-        sourceRevisions,
-        candidates: normalizedCandidates,
-        documentDisposition: { status: "Pending" },
       }),
     ],
   ]);
@@ -449,27 +422,10 @@ function defaultCandidate(): WorkCardCandidate {
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  const originals = new Map<string, Buffer | null>();
-  try {
-    for (const [relativePath] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      originals.set(absolutePath, fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath) : null);
-    }
-    for (const [relativePath, content] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-      fs.writeFileSync(absolutePath, content, "utf8");
-    }
-  } catch (error) {
-    for (const [absolutePath, content] of originals) {
-      if (content === null) {
-        if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
-      } else {
-        fs.writeFileSync(absolutePath, content);
-      }
-    }
-    throw error;
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

@@ -91,8 +91,8 @@ test("Architect surface URL policy allows intended HTTPS surfaces and blocks ext
 });
 
 test("browser load state does not imply MCP handoff readiness", () => {
-  assert.equal(inferArchitectBrowserLoadState(false, "https://chatgpt.com/"), "sign-in-required");
-  assert.equal(inferArchitectBrowserLoadState(true, "https://chatgpt.com/"), "browser-unavailable");
+  assert.equal(inferArchitectBrowserLoadState(false, "https://chatgpt.com/"), "loaded-auth-state-unknown");
+  assert.equal(inferArchitectBrowserLoadState(true, "https://chatgpt.com/"), "load-failed");
 });
 
 test("handoff manifest reports unavailable until WC02 artifacts exist", () => {
@@ -126,7 +126,7 @@ test("foundation status separates browser and handoff states", () => {
   const status = getArchitectBrowserFoundationStatus(root);
 
   assert.equal(status.sessionPartition, "persist:champcity-architect");
-  assert.equal(status.browserState, "sign-in-required");
+  assert.equal(status.browserState, "detached");
   assert.equal(status.handoff.state, "handoff-ready");
   assert.equal(status.security.nodeIntegration, false);
 });

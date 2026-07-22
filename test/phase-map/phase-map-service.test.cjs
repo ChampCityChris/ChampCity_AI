@@ -28,6 +28,10 @@ const {
   getPhaseMapProjection,
   setPhaseMapDisposition,
 } = require("../../dist/main/phaseMap/phaseMapService.js");
+const {
+  seedPhaseMapOutput,
+  seedProjectPlanningOutputs,
+} = require("../support/architect-output-fixtures.cjs");
 
 function createRepository() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "champcity-phase-map-"));
@@ -51,7 +55,7 @@ function readyPlanningRepository() {
   submitProjectIntake(submission(root));
   saveArchitectInterviewDraft(root, "Approved interview for phase map.");
   setArchitectInterviewDisposition(root, "Approved");
-  generateProjectPlanningHandoff(root);
+  seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
   setProjectPlanningBundleDisposition(root, "Approved");
   return root;
 }
@@ -125,17 +129,19 @@ test("Phase Map handoff requires Approved project planning bundle", () => {
   assert.throws(() => generatePhaseMapHandoff(root, phases()), /Phase Map document is missing|Current Approved input/);
 });
 
-test("Phase Map handoff is Approved non-review and output map begins Pending", () => {
+test("Phase Map handoff is Approved non-review and does not create placeholder output map", () => {
   const root = readyPlanningRepository();
 
   const result = generatePhaseMapHandoff(root, phases());
   const handoff = readJson(root, result.handoffJsonPath);
-  const map = readJson(root, result.phaseMapJsonPath);
 
   assert.equal(handoff.participationRole, "nonReviewHandoff");
   assert.equal(handoff.documentDisposition.status, "Approved");
   assert.equal(handoff.outputTargets.phaseMap.markdown, result.phaseMapMarkdownPath);
   assert.equal(handoff.outputTargets.phaseMap.json, result.phaseMapJsonPath);
+  assert.equal(fs.existsSync(path.join(root, result.phaseMapJsonPath)), false);
+  seedPhaseMapOutput(root, result, phases());
+  const map = readJson(root, result.phaseMapJsonPath);
   assert.equal(map.participationRole, "gatingReview");
   assert.equal(map.documentDisposition.status, "Pending");
   assert.deepEqual(
@@ -146,7 +152,7 @@ test("Phase Map handoff is Approved non-review and output map begins Pending", (
 
 test("Phase Map projection derives first incomplete and all complete from closeout evidence", () => {
   const root = readyPlanningRepository();
-  generatePhaseMapHandoff(root, phases());
+  seedPhaseMapOutput(root, generatePhaseMapHandoff(root, phases()), phases());
   setPhaseMapDisposition(root, "Approved");
 
   assert.equal(getPhaseMapProjection(root).state, "first-incomplete");
@@ -163,6 +169,7 @@ test("Phase Map projection derives first incomplete and all complete from closeo
 test("Phase Map rejects persisted completion authority during projection", () => {
   const root = readyPlanningRepository();
   const result = generatePhaseMapHandoff(root, phases());
+  seedPhaseMapOutput(root, result, phases());
   const map = readJson(root, result.phaseMapJsonPath);
   map.phases[0].completed = true;
   fs.writeFileSync(path.join(root, result.phaseMapJsonPath), JSON.stringify(map, null, 2) + "\n", "utf8");
@@ -176,7 +183,7 @@ test("Phase Map rejects persisted completion authority during projection", () =>
 
 test("Project planning source revision invalidates older Approved Phase Map", () => {
   const root = readyPlanningRepository();
-  generatePhaseMapHandoff(root, phases());
+  seedPhaseMapOutput(root, generatePhaseMapHandoff(root, phases()), phases());
   setPhaseMapDisposition(root, "Approved");
   const profile = listPlanningDocuments(root).find((document) => document.displayFilename === "PROJECT_PROFILE");
 
@@ -188,6 +195,7 @@ test("Project planning source revision invalidates older Approved Phase Map", ()
 test("Phase Map revision invalidates dependent phase evidence", () => {
   const root = readyPlanningRepository();
   const result = generatePhaseMapHandoff(root, phases());
+  seedPhaseMapOutput(root, result, phases());
   setPhaseMapDisposition(root, "Approved");
   const phaseMap = listPlanningDocuments(root).find((document) => document.jsonPath === result.phaseMapJsonPath);
   const phaseEvidenceDir = path.join(root, "planning/phases/phase-01/Phase_Interviews");

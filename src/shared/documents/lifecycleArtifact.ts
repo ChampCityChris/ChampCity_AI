@@ -43,20 +43,20 @@ export function classifyLifecycleArtifact(
     return classification("historical-artifact", metadataRole ?? "historical", "project-planning-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (isContextOnly(normalized)) {
-    return classification("context-document", metadataRole ?? "contextOnly", "project-planning-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
-  }
-
   if (isGeneratedHandoff(normalized)) {
     return classification("generated-handoff", "nonReviewHandoff", handoffWorkspace(normalized), evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (isProjectIntake(normalized)) {
+  if (document.metadata.artifactType === "project-intake" || isProjectIntake(normalized)) {
     return classification("project-intake", metadataRole ?? "gatingReview", "project-intake-capture", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (normalized.includes("project_architect_interview")) {
+  if (document.metadata.artifactType === "project-architect-interview" || normalized.includes("project_architect_interview")) {
     return classification("project-architect-interview", metadataRole ?? "gatingReview", "architect-interview", evidencePaths, selectedPhaseId, selectedWorkCardId);
+  }
+
+  if (isContextOnly(normalized)) {
+    return classification("context-document", metadataRole ?? "contextOnly", "project-planning-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
   if (normalized.includes("project_profile") || normalized.includes("project_roadmap")) {
@@ -87,7 +87,12 @@ export function classifyLifecycleArtifact(
     return classification("implementer-report", metadataRole ?? "gatingReview", "work-card-building-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (normalized.includes("/validation_reports/") || normalized.includes("operator_validation")) {
+  if (
+    document.metadata.artifactType === "validation-record" ||
+    normalized.includes("/validation_records/") ||
+    normalized.includes("/validation_reports/") ||
+    normalized.includes("operator_validation")
+  ) {
     return classification("validation-record", metadataRole ?? "gatingReview", "work-card-validation", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
@@ -102,7 +107,7 @@ export function classifyLifecycleArtifact(
     );
   }
 
-  return classification("planning-document", metadataRole ?? "gatingReview", "project-planning-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
+  return classification("context-document", metadataRole ?? "contextOnly", "project-planning-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
 }
 
 export function isSemanticallyComplete(document: PlanningDocumentSummary): boolean {
@@ -179,7 +184,11 @@ function isContextOnly(value: string): boolean {
   return (
     value.includes("/design_documents/") ||
     value.includes("/architect_reviews/") ||
-    value.includes("/implementation_notes/")
+    value.includes("/implementation_notes/") ||
+    value.includes("/work_cards/wc16_") ||
+    value.includes("/implementer_handoff_") ||
+    value.includes("/phase_activation") ||
+    value.includes("/work_card_plan.md") && !value.includes("planning/phases/")
   );
 }
 

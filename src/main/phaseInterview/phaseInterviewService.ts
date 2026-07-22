@@ -8,6 +8,7 @@ import {
   listPlanningDocuments,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import { writeArtifactTransaction } from "../documents/artifactTransaction";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
 
 export interface PhaseInterviewHandoffResult {
@@ -53,7 +54,7 @@ export function generatePhaseInterviewHandoff(
   const handoffJsonPath = `planning/phases/${selectedPhase.phaseId}/Architect_Handoffs/PHASE_INTERVIEW_ARCHITECT_HANDOFF_${selectedPhase.phaseId}.json`;
   const interviewMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Phase_Interview.md`;
   const interviewJsonPath = `planning/phases/${selectedPhase.phaseId}/Phase_Interview.json`;
-  const draft = interviewDraft(selectedPhase, sourceRevisions, priorCloseouts, options);
+  interviewDraft(selectedPhase, sourceRevisions, priorCloseouts, options);
 
   writeFiles(workspaceRoot, [
     [
@@ -75,8 +76,6 @@ export function generatePhaseInterviewHandoff(
         documentDisposition: { status: "Approved" },
       }),
     ],
-    [interviewMarkdownPath, renderInterviewMarkdown(draft)],
-    [interviewJsonPath, json(draft)],
   ]);
 
   return {
@@ -261,27 +260,10 @@ function renderInterviewMarkdown(draft: ReturnType<typeof interviewDraft>): stri
 }
 
 function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  const originals = new Map<string, Buffer | null>();
-  try {
-    for (const [relativePath] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      originals.set(absolutePath, fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath) : null);
-    }
-    for (const [relativePath, content] of entries) {
-      const absolutePath = path.join(workspaceRoot, relativePath);
-      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-      fs.writeFileSync(absolutePath, content, "utf8");
-    }
-  } catch (error) {
-    for (const [absolutePath, content] of originals) {
-      if (content === null) {
-        if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
-      } else {
-        fs.writeFileSync(absolutePath, content);
-      }
-    }
-    throw error;
-  }
+  writeArtifactTransaction(
+    workspaceRoot,
+    entries.map(([relativePath, content]) => ({ relativePath, content })),
+  );
 }
 
 function json(value: unknown): string {

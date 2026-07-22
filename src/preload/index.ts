@@ -40,6 +40,53 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "architectBrowser:foundationStatus",
     ) as ReturnType<ChampCityApi["getArchitectBrowserFoundationStatus"]>,
+  setArchitectBrowserBounds: (bounds) =>
+    ipcRenderer.invoke(
+      "architectBrowser:setBounds",
+      bounds,
+    ) as ReturnType<ChampCityApi["setArchitectBrowserBounds"]>,
+  showArchitectBrowser: () =>
+    ipcRenderer.invoke("architectBrowser:show") as ReturnType<ChampCityApi["showArchitectBrowser"]>,
+  hideArchitectBrowser: () =>
+    ipcRenderer.invoke("architectBrowser:hide") as ReturnType<ChampCityApi["hideArchitectBrowser"]>,
+  confirmArchitectSignedIn: () =>
+    ipcRenderer.invoke(
+      "architectBrowser:confirmSignedIn",
+    ) as ReturnType<ChampCityApi["confirmArchitectSignedIn"]>,
+  getCurrentWorkspaceModel: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:getModel",
+    ) as ReturnType<ChampCityApi["getCurrentWorkspaceModel"]>,
+  generateCurrentHandoff: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:generateHandoff",
+    ) as ReturnType<ChampCityApi["generateCurrentHandoff"]>,
+  applyCurrentDisposition: (status) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:applyDisposition",
+      status,
+    ) as ReturnType<ChampCityApi["applyCurrentDisposition"]>,
+  createRepairForCurrentFailure: (defect) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:createRepair",
+      defect,
+    ) as ReturnType<ChampCityApi["createRepairForCurrentFailure"]>,
+  createValidationAttemptForCurrentWorkCard: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:createValidationAttempt",
+    ) as ReturnType<ChampCityApi["createValidationAttemptForCurrentWorkCard"]>,
+  createPhaseCloseoutForCurrentPhase: (closureDecision, rationale) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:createPhaseCloseout",
+      closureDecision,
+      rationale,
+    ) as ReturnType<ChampCityApi["createPhaseCloseoutForCurrentPhase"]>,
+  createProjectCloseoutForCurrentProject: (closureDecision, rationale) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:createProjectCloseout",
+      closureDecision,
+      rationale,
+    ) as ReturnType<ChampCityApi["createProjectCloseoutForCurrentProject"]>,
 };
 
 contextBridge.exposeInMainWorld("champcity", api);
