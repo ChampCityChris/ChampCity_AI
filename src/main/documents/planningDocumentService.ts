@@ -69,9 +69,9 @@ export function __setPlanningDocumentServiceTestHooks(
 export function assertPlanningWorkspace(workspaceRoot: string): string {
   const resolvedRoot = path.resolve(workspaceRoot);
   const planningRoot = path.join(resolvedRoot, "planning");
-  const stats = fs.statSync(planningRoot);
+  const stats = fs.existsSync(planningRoot) ? fs.statSync(planningRoot) : null;
 
-  if (!stats.isDirectory()) {
+  if (!stats?.isDirectory()) {
     throw new Error("Workspace does not contain planning/.");
   }
 
@@ -287,7 +287,15 @@ export function applyDispositionInitialization(
 }
 
 function buildReadRecords(workspaceRoot: string): ReadRecord[] {
-  const resolvedRoot = assertPlanningWorkspace(workspaceRoot);
+  const resolvedRoot = path.resolve(workspaceRoot);
+  const planningRoot = path.join(resolvedRoot, "planning");
+  if (!fs.existsSync(planningRoot)) {
+    return [];
+  }
+  const planningStats = fs.statSync(planningRoot);
+  if (!planningStats.isDirectory()) {
+    throw new Error("Workspace does not contain planning/.");
+  }
   const records = groupFileEntries(discoverPlanningFiles(resolvedRoot));
   return records.map((record) => readRecord(resolvedRoot, record));
 }

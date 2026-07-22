@@ -13,7 +13,7 @@ import {
   setDocumentDisposition,
 } from "./documents/planningDocumentService";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
-import { submitProjectIntake } from "./projectIntake/projectIntakeService";
+import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import {
   attachArchitectBrowserSurface,
   confirmArchitectSignedIn,
@@ -38,7 +38,6 @@ import type {
   ClosureDecision,
   ProjectIntakeSubmission,
   ProjectIntakeSubmissionResult,
-  ProjectRepositorySelection,
   ArchitectBrowserFoundationStatus,
   CurrentWorkspaceModel,
   RuntimeActionResult,
@@ -55,7 +54,6 @@ const appInfo: AppInfo = {
   version: app.getVersion(),
 };
 let mainWindow: BrowserWindow | null = null;
-let selectedProjectRepositoryRoot: string | null = null;
 
 function getUserDataRoot(): string {
   return app.getPath("userData");
@@ -104,29 +102,11 @@ ipcMain.handle("workspace:choose", async (): Promise<WorkspaceSelection> => {
     return readSelectedWorkspace(getUserDataRoot());
   }
 
-  return saveSelectedWorkspace(getUserDataRoot(), result.filePaths[0]);
-});
-
-ipcMain.handle("projectRepository:choose", async (): Promise<ProjectRepositorySelection | WorkspaceSelection> => {
-  const result = await dialog.showOpenDialog({
-    title: "Choose Project Repository",
-    properties: ["openDirectory"],
-  });
-
-  if (result.canceled || result.filePaths.length === 0) {
-    return {
-      ok: false,
-      workspaceRoot: null,
-      reason: "No project repository selected.",
-    };
+  const selection = saveSelectedWorkspace(getUserDataRoot(), result.filePaths[0]);
+  if (!selection.ok) {
+    throw new Error(selection.reason);
   }
-
-  selectedProjectRepositoryRoot = path.resolve(result.filePaths[0]);
-  return {
-    ok: true,
-    repositoryPath: selectedProjectRepositoryRoot,
-    selectionReference: "selected-project-repository",
-  };
+  return selection;
 });
 
 ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
@@ -167,13 +147,7 @@ ipcMain.handle("documents:resolveCurrent", () => {
 ipcMain.handle(
   "projectIntake:submit",
   (_event, submission: ProjectIntakeSubmission): ProjectIntakeSubmissionResult => {
-    if (!selectedProjectRepositoryRoot) {
-      throw new Error("Project repository must be selected through the main-process folder chooser.");
-    }
-    return submitProjectIntake({
-      ...submission,
-      projectRepository: selectedProjectRepositoryRoot,
-    });
+    return submitProjectIntakeForRepository(getRequiredWorkspaceRoot(), submission);
   },
 );
 

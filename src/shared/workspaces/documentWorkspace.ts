@@ -16,7 +16,6 @@ export interface WorkspaceGroup {
   documents: WorkspaceDocument[];
 }
 
-const projectIntakePattern = /project[_ -]?intake/i;
 const workspaceById = new Map(workspaceDefinitions.map((definition) => [definition.id, definition]));
 
 function workspace(id: WorkspaceId): Pick<WorkspaceDocument, "workspaceId" | "workspace"> {
@@ -51,11 +50,11 @@ export function classifyPlanningDocument(
     return { ...workspace("work-card-validation"), group: "Validation and review evidence" };
   }
 
-  if (isProjectIntake(searchable)) {
+  if (isProjectIntake(document)) {
     return { ...workspace("project-intake-capture"), group: "Project Intake" };
   }
 
-  if (isArchitectInterview(searchable)) {
+  if (isArchitectInterview(document, searchable)) {
     return { ...workspace("architect-interview"), group: "Architect Interview" };
   }
 
@@ -149,21 +148,32 @@ function isProjectPlanning(value: string): boolean {
     value.includes("planning/project/") ||
     value.includes("project_planning") ||
     value.includes("project_roadmap") ||
-    value.includes("project_architect") ||
-    projectIntakePattern.test(value)
+    value.includes("project_architect")
   );
 }
 
-function isProjectIntake(value: string): boolean {
+function isProjectIntake(document: PlanningDocumentSummary): boolean {
+  if (document.metadata.artifactType === "project-intake") {
+    return true;
+  }
+  const value = [
+    document.markdownPath,
+    document.jsonPath,
+  ]
+    .filter(Boolean)
+    .join("/")
+    .toLowerCase();
   return (
     value.includes("planning/project/project_intake/") ||
-    value.includes("planning/project/project-intake/") ||
-    projectIntakePattern.test(value)
+    value.includes("planning/project/project-intake/")
   );
 }
 
-function isArchitectInterview(value: string): boolean {
-  return value.includes("planning/project/project_architect_interviews/") ||
+function isArchitectInterview(document: PlanningDocumentSummary, value: string): boolean {
+  return document.metadata.artifactType === "project-architect-interview" ||
+    document.metadata.artifactType === "project-architect-interview-prompt" ||
+    value.includes("planning/project/project_architect_interviews/") ||
+    value.includes("planning/project/project_architect_interview_prompts/") ||
     value.includes("project_architect_interview");
 }
 
@@ -266,10 +276,10 @@ function compareDocuments(left: WorkspaceDocument, right: WorkspaceDocument): nu
   const leftPath = left.markdownPath ?? left.jsonPath ?? left.displayFilename;
   const rightPath = right.markdownPath ?? right.jsonPath ?? right.displayFilename;
 
-  if (projectIntakePattern.test(leftPath) && !projectIntakePattern.test(rightPath)) {
+  if (isProjectIntake(left) && !isProjectIntake(right)) {
     return -1;
   }
-  if (!projectIntakePattern.test(leftPath) && projectIntakePattern.test(rightPath)) {
+  if (!isProjectIntake(left) && isProjectIntake(right)) {
     return 1;
   }
 

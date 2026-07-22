@@ -45,12 +45,6 @@ export const projectTypeOptions = [
 
 export type ProjectType = (typeof projectTypeOptions)[number];
 
-export interface ProjectRepositorySelection {
-  ok: true;
-  repositoryPath: string;
-  selectionReference: "selected-project-repository";
-}
-
 export interface ProjectIntakeSubmission {
   projectName: string;
   projectPurpose: string;
@@ -149,7 +143,6 @@ export interface CurrentWorkspaceModel {
 export interface ChampCityApi {
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
-  chooseProjectRepositoryFolder: () => Promise<ProjectRepositorySelection | WorkspaceSelection>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;
   listDocuments: () => Promise<PlanningDocumentSummary[]>;

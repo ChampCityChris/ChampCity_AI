@@ -152,6 +152,10 @@ export function App(): JSX.Element {
     void window.champcity.getSelectedWorkspace().then((selection) => {
       setWorkspace(selection);
       if (selection.ok) {
+        setProjectIntake((current) => ({
+          ...current,
+          projectRepository: selection.workspaceRoot,
+        }));
         void refreshDocuments({ useResolver: true });
       }
     });
@@ -238,10 +242,11 @@ export function App(): JSX.Element {
 
   async function chooseWorkspace(): Promise<void> {
     setIsChoosing(true);
+    setDocumentError("");
     try {
-      setWorkspace(await window.champcity.chooseWorkspaceFolder());
-      setSelectedDocumentId(null);
-      await refreshDocuments({ useResolver: true });
+      await activateWorkspaceSelection(await window.champcity.chooseWorkspaceFolder());
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Workspace could not be selected.");
     } finally {
       setIsChoosing(false);
     }
@@ -249,26 +254,18 @@ export function App(): JSX.Element {
 
   async function clearWorkspace(): Promise<void> {
     setWorkspace(await window.champcity.clearSelectedWorkspace());
-    setDocuments([]);
-    setSelectedDocumentId(null);
-    setSelectedDocument(null);
-    setFeedback("");
-    setDocumentError("");
+    clearRepositoryDerivedState();
+    setProjectIntake((current) => ({ ...current, projectRepository: "" }));
+    setActiveWorkspaceId("project-intake-capture");
   }
 
   async function chooseProjectRepository(): Promise<void> {
     setIsChoosingProjectRepository(true);
     setDocumentError("");
     try {
-      const selection = await window.champcity.chooseProjectRepositoryFolder();
-      if (selection.ok && "repositoryPath" in selection) {
-        setProjectIntake((current) => ({
-          ...current,
-          projectRepository: selection.repositoryPath,
-        }));
-      } else if (!selection.ok) {
-        setDocumentError(selection.reason);
-      }
+      await activateWorkspaceSelection(await window.champcity.chooseWorkspaceFolder());
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Project repository could not be selected.");
     } finally {
       setIsChoosingProjectRepository(false);
     }
@@ -283,6 +280,7 @@ export function App(): JSX.Element {
       setFeedback(
         `Project Intake saved: ${result.projectIntakeMarkdownPath}; prompt saved: ${result.architectPromptMarkdownPath}.`,
       );
+      setProjectIntake((current) => ({ ...current, projectRepository: result.projectRoot }));
       const nextDocuments = await window.champcity.listDocuments();
       setDocuments(nextDocuments);
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
@@ -349,8 +347,44 @@ export function App(): JSX.Element {
     }
   }
 
+  async function activateWorkspaceSelection(selection: WorkspaceSelection): Promise<void> {
+    if (!selection.ok) {
+      setDocumentError(selection.reason);
+      return;
+    }
+
+    clearRepositoryDerivedState();
+    setWorkspace(selection);
+    setProjectIntake((current) => ({
+      ...current,
+      projectRepository: selection.workspaceRoot,
+    }));
+    setActiveWorkspaceId("project-intake-capture");
+    await refreshDocuments({ useResolver: true });
+  }
+
+  function clearRepositoryDerivedState(): void {
+    setDocuments([]);
+    setSelectedDocumentId(null);
+    setSelectedDocument(null);
+    setSelectedStatus("");
+    setFeedback("");
+    setDocumentError("");
+    setResolverResult(null);
+    setCurrentModel(null);
+    setArchitectStatus(null);
+  }
+
   function selectResolverResult(result: FirstNonApprovedResult): void {
     setResolverResult(result);
+
+    if (result.status === "pre-intake") {
+      setActiveWorkspaceId(result.activeWorkspaceId);
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      void refreshCurrentModel();
+      return;
+    }
 
     if (result.status === "current") {
       setActiveWorkspaceId(result.document.owningWorkspaceId);
@@ -863,20 +897,23 @@ function ProjectIntakeCapture({
         <span>Project Name</span>
         <input
           onChange={(event) => update("projectName", event.target.value)}
+          required
           value={value.projectName}
         />
       </label>
       <label>
-        <span>Project Purpose</span>
+        <span>Project Purpose - What are you trying to create, change, or accomplish?</span>
         <textarea
           onChange={(event) => update("projectPurpose", event.target.value)}
+          required
           value={value.projectPurpose}
         />
       </label>
       <label>
-        <span>Desired Outcome</span>
+        <span>Desired Outcome - What should the finished project allow the user or Operator to do?</span>
         <textarea
           onChange={(event) => update("desiredOutcome", event.target.value)}
+          required
           value={value.desiredOutcome}
         />
       </label>
@@ -886,6 +923,7 @@ function ProjectIntakeCapture({
           onChange={(event) =>
             update("projectType", event.target.value as ProjectIntakeSubmission["projectType"])
           }
+          required
           value={value.projectType}
         >
           {projectTypeOptions.map((option) => (
@@ -898,7 +936,7 @@ function ProjectIntakeCapture({
       <div className="intake-repository-row">
         <label>
           <span>Project Repository</span>
-          <input readOnly value={value.projectRepository} />
+          <input readOnly required value={value.projectRepository} />
         </label>
         <button
           className="icon-button text-button"
@@ -916,7 +954,7 @@ function ProjectIntakeCapture({
           onChange={(event) => update("hasExistingSourceOrPlanning", event.target.checked)}
           type="checkbox"
         />
-        <span>Existing source code or project-planning documents</span>
+        <span>Does this repository already contain source code or project-planning documents?</span>
       </label>
       <label>
         <span>Known Constraints or Non-Negotiables</span>
@@ -927,7 +965,7 @@ function ProjectIntakeCapture({
       </label>
       {value.hasExistingSourceOrPlanning ? (
         <label>
-          <span>Repository Review Context</span>
+          <span>What should the Architect know before reviewing the existing repository?</span>
           <textarea
             onChange={(event) => update("repositoryReviewContext", event.target.value)}
             value={value.repositoryReviewContext ?? ""}
@@ -947,6 +985,10 @@ function ProjectIntakeCapture({
 }
 
 function getResolverFeedback(result: FirstNonApprovedResult): string {
+  if (result.status === "pre-intake") {
+    return result.reason;
+  }
+
   if (result.status === "all-approved") {
     return result.message;
   }
@@ -1022,6 +1064,21 @@ function CurrentDocumentSummary({
   resolverResult: FirstNonApprovedResult | null;
   selectedDocument: PlanningDocumentDetail | null;
 }): JSX.Element {
+  if (resolverResult?.status === "pre-intake") {
+    return (
+      <section className="current-document-summary">
+        <span>Current workspace</span>
+        <strong>Project Intake Capture</strong>
+        <span>Current document</span>
+        <strong>No Project Intake captured</strong>
+        <span>Effective disposition</span>
+        <strong>Pending</strong>
+        <span>Position</span>
+        <strong>Pre-intake</strong>
+      </section>
+    );
+  }
+
   if (resolverResult?.status === "all-approved") {
     return (
       <section className="current-document-summary">

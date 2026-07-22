@@ -418,6 +418,13 @@ test("containment blocks traversal IDs and symlink discovery", (t) => {
   assert.equal(listPlanningDocuments(root).length, 0);
 });
 
+test("missing planning directory lists as an empty pre-intake repository", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-empty-repository-"));
+
+  assert.deepEqual(listPlanningDocuments(root), []);
+  assert.equal(fs.existsSync(path.join(root, "planning")), false);
+});
+
 test("initialization preview is read-only", () => {
   const root = createWorkspace();
   writeFile(root, "planning/init.md", "# Init\n");

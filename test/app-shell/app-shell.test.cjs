@@ -74,18 +74,19 @@ test("production source does not contain prohibited identifiers", () => {
   }
 });
 
-test("workspace settings require a planning directory", () => {
+test("workspace settings accept a readable and writable empty repository", () => {
   const {
     validateWorkspaceRoot,
   } = require("../../dist/main/workspaceSettings.js");
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-shell-"));
-  const validWorkspace = path.join(tempRoot, "valid");
-  fs.mkdirSync(path.join(validWorkspace, "planning"), { recursive: true });
+  const validWorkspace = path.join(tempRoot, "empty-repository");
+  fs.mkdirSync(validWorkspace, { recursive: true });
 
   assert.deepEqual(validateWorkspaceRoot(validWorkspace), {
     ok: true,
     workspaceRoot: path.resolve(validWorkspace),
   });
+  assert.equal(fs.existsSync(path.join(validWorkspace, "planning")), false);
 });
 
 test("invalid workspace selection is rejected", () => {
@@ -93,8 +94,8 @@ test("invalid workspace selection is rejected", () => {
     validateWorkspaceRoot,
   } = require("../../dist/main/workspaceSettings.js");
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-shell-"));
-  const invalidWorkspace = path.join(tempRoot, "invalid");
-  fs.mkdirSync(invalidWorkspace, { recursive: true });
+  const invalidWorkspace = path.join(tempRoot, "not-a-directory");
+  fs.writeFileSync(invalidWorkspace, "not a directory", "utf8");
 
   const result = validateWorkspaceRoot(invalidWorkspace);
   assert.equal(result.ok, false);
@@ -109,13 +110,14 @@ test("workspace settings persist and reload from user data", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-shell-"));
   const userDataRoot = path.join(tempRoot, "user-data");
   const workspaceRoot = path.join(tempRoot, "workspace");
-  fs.mkdirSync(path.join(workspaceRoot, "planning"), { recursive: true });
+  fs.mkdirSync(workspaceRoot, { recursive: true });
 
   assert.equal(saveSelectedWorkspace(userDataRoot, workspaceRoot).ok, true);
   assert.deepEqual(readSelectedWorkspace(userDataRoot), {
     ok: true,
     workspaceRoot: path.resolve(workspaceRoot),
   });
+  assert.equal(fs.existsSync(path.join(workspaceRoot, "planning")), false);
 });
 
 test("preload exposes only approved methods", () => {

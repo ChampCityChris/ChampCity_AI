@@ -1,11 +1,11 @@
 # Work Card — Phase 08 WC17 Project Intake Repository Selection and Canonical Workspace Repair
 
-Status: draft for Operator review; Implementer execution not authorized
-Owner: Implementer after Operator approval
+Status: approved by Operator
+Owner: Implementer
 Phase: phase-08
 Risk: high
 Depends on: current Phase 08 application shell and Project Intake implementation
-Execution authorization: not created
+Execution authorization: this Approved Work Card is the Implementer instruction
 Git mutation: not authorized
 Implementer Report: `planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC17_project_intake_repository_selection_and_canonical_workspace_repair.md`
 
@@ -340,4 +340,4 @@ Required human checks will include:
 
 ## Document Disposition
 
-Document.Status=Pending
+Document.Status=Approved

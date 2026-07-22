@@ -106,6 +106,72 @@ test("Project Intake appears in Project Intake Capture", () => {
   assert.equal(projectDocuments[0].markdownPath.includes("Project_Intake"), true);
 });
 
+test("Project Intake classification is canonical and excludes project_intake filename noise", () => {
+  const root = createWorkspace();
+  writeFile(
+    root,
+    "planning/project/Project_Intake/PROJECT_INTAKE_real.md",
+    "# Intake\n\n## Document Disposition\nDocument.Status=Approved\n",
+  );
+  writeFile(
+    root,
+    "planning/project/Project_Intake/PROJECT_INTAKE_real.json",
+    JSON.stringify(
+      {
+        artifactType: "project-intake",
+        documentDisposition: { status: "Approved" },
+      },
+      null,
+      2,
+    ),
+  );
+  writeFile(root, "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_project_intake_fix.md", "# Report\n");
+  writeFile(root, "planning/phases/phase-08/Work_Cards/WC17_project_intake_example.md", "# Work Card\n");
+  writeFile(root, "planning/project/Design_Documents/PROJECT_INTAKE_LIFECYCLE_AND_WORKSPACE_DEFINITION.md", "# Design\n");
+
+  const intakePaths = grouped(root, "project-intake-capture").map((document) => document.markdownPath ?? document.jsonPath);
+
+  assert.deepEqual(intakePaths, ["planning/project/Project_Intake/PROJECT_INTAKE_real.md"]);
+  assert.equal(
+    grouped(root, "work-card-building-review").some((document) =>
+      document.markdownPath === "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_project_intake_fix.md",
+    ),
+    true,
+  );
+  assert.equal(
+    grouped(root, "work-card-planning").some((document) =>
+      document.markdownPath === "planning/phases/phase-08/Work_Cards/WC17_project_intake_example.md",
+    ),
+    true,
+  );
+  assert.equal(
+    grouped(root, "phase-planning-bundle").some((document) =>
+      document.markdownPath === "planning/project/Design_Documents/PROJECT_INTAKE_LIFECYCLE_AND_WORKSPACE_DEFINITION.md",
+    ),
+    true,
+  );
+});
+
+test("Architect Interview Prompt appears in Architect Interview not Project Intake", () => {
+  const root = createWorkspace();
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_example.json",
+    JSON.stringify(
+      {
+        artifactType: "project-architect-interview-prompt",
+        participationRole: "nonReviewHandoff",
+        documentDisposition: { status: "Approved" },
+      },
+      null,
+      2,
+    ),
+  );
+
+  assert.equal(grouped(root, "project-intake-capture").length, 0);
+  assert.equal(grouped(root, "architect-interview").length, 1);
+});
+
 test("Phase Planning and Work Card Plan appear in Phase Planning", () => {
   const root = fixtureWorkspace();
   const paths = grouped(root, "phase-planning-bundle").map((document) => document.markdownPath);

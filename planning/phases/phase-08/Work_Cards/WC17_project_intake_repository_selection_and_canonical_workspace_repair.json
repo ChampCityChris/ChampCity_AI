@@ -2,14 +2,14 @@
   "workCardId": "WC17",
   "phaseId": "phase-08",
   "title": "Project Intake Repository Selection and Canonical Workspace Repair",
-  "status": "draft_for_operator_review",
-  "owner": "Implementer after Operator approval",
+  "status": "approved",
+  "owner": "Implementer",
   "risk": "high",
   "dependsOn": [
     "Current Phase 08 application shell",
     "Current Project Intake implementation"
   ],
-  "executionAuthorizedBy": null,
+  "executionAuthorizedBy": "approved_work_card_itself",
   "gitMutationAuthorized": false,
   "purpose": "Repair only the Project Intake vertical workflow so one active repository controls selection, discovery, intake submission, refresh, and canonical Project Intake display.",
   "defectEvidence": [
@@ -151,6 +151,6 @@
   ],
   "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC17_project_intake_repository_selection_and_canonical_workspace_repair.md",
   "documentDisposition": {
-    "status": "Pending"
+    "status": "Approved"
   }
 }

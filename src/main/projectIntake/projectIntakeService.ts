@@ -17,16 +17,36 @@ const requiredPlanningDirectories = [
   "planning/project",
   "planning/project/Project_Intake",
   "planning/project/Project_Architect_Interview_Prompts",
-  "planning/project/Project_Architect_Interviews",
 ] as const;
 
 export function submitProjectIntake(
   submission: ProjectIntakeSubmission,
 ): ProjectIntakeSubmissionResult {
-  validateSubmission(submission);
-  const projectRoot = path.resolve(submission.projectRepository);
+  return submitProjectIntakeForRepository(submission.projectRepository, submission);
+}
+
+export function submitProjectIntakeForRepository(
+  projectRepositoryRoot: string,
+  submission: ProjectIntakeSubmission,
+): ProjectIntakeSubmissionResult {
+  const projectRoot = path.resolve(projectRepositoryRoot);
+  const repositoryBoundSubmission = {
+    ...submission,
+    projectRepository: projectRoot,
+  };
+
+  validateSubmission(repositoryBoundSubmission);
   assertWritableDirectory(projectRoot);
   initializeMinimalPlanning(projectRoot);
+
+  return writeProjectIntake(projectRoot, repositoryBoundSubmission);
+}
+
+function writeProjectIntake(
+  projectRoot: string,
+  submission: ProjectIntakeSubmission,
+): ProjectIntakeSubmissionResult {
+  validateSubmission(submission);
 
   const projectSlug = slugify(submission.projectName);
   const projectIntakeMarkdownPath = `planning/project/Project_Intake/PROJECT_INTAKE_${projectSlug}.md`;

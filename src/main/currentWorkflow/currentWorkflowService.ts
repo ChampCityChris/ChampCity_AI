@@ -50,6 +50,20 @@ import {
 
 export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspaceModel {
   const current = resolveFirstNonApprovedDocument(workspaceRoot);
+  if (current.status === "pre-intake") {
+    return {
+      activeWorkspaceId: current.activeWorkspaceId,
+      level: "project",
+      stage: "intake",
+      currentTarget: "Project Intake",
+      sourceEvidence: [],
+      requiredAction: current.reason,
+      expectedOutput: "Approved Project Intake and Approved Architect Interview Prompt pairs.",
+      eligibility: "Project Intake can be captured for the active repository.",
+      expectedNextState: "Architect Interview prompt becomes available after Project Intake submission.",
+    };
+  }
+
   if (current.status === "all-approved") {
     return {
       activeWorkspaceId: "project-close",

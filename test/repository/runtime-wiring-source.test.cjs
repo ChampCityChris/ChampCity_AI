@@ -51,12 +51,27 @@ test("renderer disables generic disposition for specialized authority workspaces
   assert.match(rendererSource, /specialized action authority instead of generic single-document disposition/);
 });
 
-test("Project Intake submission is bound to the main-owned repository selection", () => {
-  const mainSource = read("src/main/main.ts");
-  const contractSource = read("src/shared/workspaceContracts.ts");
+test("Project Intake submission service can bind writes to an active repository root", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const {
+    submitProjectIntakeForRepository,
+  } = require("../../dist/main/projectIntake/projectIntakeService.js");
+  const activeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-active-root-"));
+  const submittedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-submitted-root-"));
 
-  assert.match(contractSource, /selectionReference: "selected-project-repository"/);
-  assert.match(mainSource, /let selectedProjectRepositoryRoot: string \| null = null/);
-  assert.match(mainSource, /Project repository must be selected through the main-process folder chooser/);
-  assert.match(mainSource, /projectRepository: selectedProjectRepositoryRoot/);
+  const result = submitProjectIntakeForRepository(activeRoot, {
+    projectName: "Bounded Active Root",
+    projectPurpose: "Verify the main-owned root controls writes.",
+    desiredOutcome: "Submitted renderer paths cannot redirect Project Intake output.",
+    projectType: "Desktop application",
+    projectRepository: submittedRoot,
+    hasExistingSourceOrPlanning: false,
+    knownConstraints: "",
+    repositoryReviewContext: "",
+  });
+
+  assert.equal(result.projectRoot, path.resolve(activeRoot));
+  assert.equal(fs.existsSync(path.join(activeRoot, result.projectIntakeJsonPath)), true);
+  assert.equal(fs.existsSync(path.join(submittedRoot, "planning")), false);
 });

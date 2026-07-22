@@ -36,6 +36,13 @@ export interface ResolvedCurrentDocument {
 
 export type FirstNonApprovedResult =
   | {
+      status: "pre-intake";
+      activeWorkspaceId: "project-intake-capture";
+      message: "Project Intake has not been captured";
+      totalDocumentCount: number;
+      reason: string;
+    }
+  | {
       status: "current";
       document: ResolvedCurrentDocument;
     }
@@ -99,6 +106,16 @@ export function resolveFirstNonApproved(
   documents: PlanningDocumentSummary[],
 ): FirstNonApprovedResult {
   const ordered = orderPlanningDocuments(documents);
+  if (!hasCanonicalProjectIntake(ordered)) {
+    return {
+      status: "pre-intake",
+      activeWorkspaceId: "project-intake-capture",
+      message: "Project Intake has not been captured",
+      totalDocumentCount: ordered.length,
+      reason: "The active repository does not contain canonical Project Intake evidence. Capture Project Intake to begin the lifecycle.",
+    };
+  }
+
   const currentIndex = ordered.findIndex((document) =>
     isCurrentLifecycleDocument(document, ordered),
   );
@@ -137,6 +154,16 @@ export function resolveFirstNonApproved(
       totalDocumentCount: ordered.length,
     },
   };
+}
+
+function hasCanonicalProjectIntake(documents: PlanningDocumentSummary[]): boolean {
+  return documents.some((document) => {
+    const classification = classifyLifecycleArtifact(document);
+    return (
+      classification.artifactType === "project-intake" &&
+      classification.participationRole !== "historical"
+    );
+  });
 }
 
 function isCurrentLifecycleDocument(

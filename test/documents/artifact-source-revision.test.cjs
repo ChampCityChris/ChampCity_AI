@@ -168,6 +168,7 @@ test("non-review handoff regenerates source revision and remains Approved", () =
 
 test("validation record becomes stale after Formal Work Card revision", () => {
   const root = createWorkspace();
+  writeFile(root, "planning/project/Project_Intake/PROJECT_INTAKE.json", json("Approved", { artifactRevision: 1 }));
   writeFile(root, "planning/phases/phase-01/Work_Cards/WC01_demo.json", json("Approved", { artifactRevision: 1 }));
   writeFile(
     root,

@@ -25,15 +25,7 @@ export function validateWorkspaceRoot(workspaceRoot: string): WorkspaceSelection
       };
     }
 
-    const planningPath = path.join(resolvedRoot, "planning");
-    const planningStats = fs.statSync(planningPath);
-    if (!planningStats.isDirectory()) {
-      return {
-        ok: false,
-        workspaceRoot: null,
-        reason: "Selected directory does not contain planning/.",
-      };
-    }
+    fs.accessSync(resolvedRoot, fs.constants.R_OK | fs.constants.W_OK);
 
     return {
       ok: true,
@@ -43,7 +35,7 @@ export function validateWorkspaceRoot(workspaceRoot: string): WorkspaceSelection
     return {
       ok: false,
       workspaceRoot: null,
-      reason: "Selected directory does not contain planning/.",
+      reason: "Selected directory must exist and be readable and writable.",
     };
   }
 }

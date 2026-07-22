@@ -4,10 +4,6 @@ import type { AppInfo, ChampCityApi, WorkspaceSelection } from "../shared/worksp
 const api: ChampCityApi = {
   getSelectedWorkspace: () => ipcRenderer.invoke("workspace:get") as Promise<WorkspaceSelection>,
   chooseWorkspaceFolder: () => ipcRenderer.invoke("workspace:choose") as Promise<WorkspaceSelection>,
-  chooseProjectRepositoryFolder: () =>
-    ipcRenderer.invoke(
-      "projectRepository:choose",
-    ) as ReturnType<ChampCityApi["chooseProjectRepositoryFolder"]>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
   getAppInfo: () => ipcRenderer.invoke("app:info") as Promise<AppInfo>,
   listDocuments: () => ipcRenderer.invoke("documents:list") as ReturnType<ChampCityApi["listDocuments"]>,

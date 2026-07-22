@@ -6,6 +6,7 @@ const test = require("node:test");
 
 const {
   submitProjectIntake,
+  submitProjectIntakeForRepository,
 } = require("../../dist/main/projectIntake/projectIntakeService.js");
 
 function createRepository() {
@@ -67,6 +68,25 @@ test("empty repository receives minimal Project Intake planning initialization",
   ]);
 });
 
+test("active repository root controls Project Intake writes over submitted path", () => {
+  const activeRoot = createRepository();
+  const forgedRoot = createRepository();
+
+  const result = submitProjectIntakeForRepository(
+    activeRoot,
+    baseSubmission(forgedRoot, { projectName: "Active Root Wins" }),
+  );
+
+  assert.equal(result.projectRoot, path.resolve(activeRoot));
+  assert.deepEqual(listFiles(activeRoot), [
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_active_root_wins.json",
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_active_root_wins.md",
+    "planning/project/Project_Intake/PROJECT_INTAKE_active_root_wins.json",
+    "planning/project/Project_Intake/PROJECT_INTAKE_active_root_wins.md",
+  ]);
+  assert.equal(fs.existsSync(path.join(forgedRoot, "planning")), false);
+});
+
 test("Project Intake output uses fixed fields approved disposition and redacted repository path", () => {
   const root = createRepository();
   const result = submitProjectIntake(baseSubmission(root));
@@ -119,6 +139,7 @@ test("existing repository prompt requires ChampCity MCP repository review", () =
 test("intake edit increments revision regenerates prompt and invalidates interview", () => {
   const root = createRepository();
   const first = submitProjectIntake(baseSubmission(root));
+  fs.mkdirSync(path.dirname(path.join(root, first.architectInterviewTargetJsonPath)), { recursive: true });
   fs.writeFileSync(
     path.join(root, first.architectInterviewTargetJsonPath),
     JSON.stringify(
