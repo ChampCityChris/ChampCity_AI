@@ -1,18 +1,15 @@
 # Phase 08 — Nested Lifecycle and Workspace Recovery
 
-Status: continuous first-pass implementation authorized after handoff commit
-Planning revision: 10
+Status: WC16 comprehensive production-integration repair authorized after committed handoff
+Planning revision: 11
 Project: ChampCity A/I
-Required planning-baseline ancestor: `08f714c276bee6d75496133e42aafa8dfd9b9b80`
-Authorized execution start: clean committed HEAD containing the continuous-pass handoff and revision 10 control documents
-Second ordered review: Approved
-Review record: `planning/phases/phase-08/Architect_Reviews/ARCHITECT_REVIEW_PHASE08_REVISED_SEQUENCE_RELEASE_READINESS.md`
-Execution authority: `planning/phases/phase-08/IMPLEMENTER_HANDOFF_PHASE08_CONTINUOUS_FIRST_PASS.md`
+Active Work Card: WC16
+Execution authority: `planning/phases/phase-08/IMPLEMENTER_HANDOFF_WC16_phase_08_production_integration_runtime_completion_repair.md`
 Git mutation: not authorized during Implementer execution
 
 ## Phase Purpose
 
-Restore the nested Project, Phase, and Work Card product lifecycle on the Phase 07 clean-room document-disposition foundation without restoring rejected governance architecture.
+Restore the nested Project, Phase, and Work Card lifecycle on the Phase 07 clean-room foundation without restoring rejected governance architecture.
 
 ```text
 Project
@@ -35,119 +32,148 @@ Project
 └── Close
 ```
 
-Each lifecycle level uses:
+## First-Pass Result
+
+The WC01–WC15 continuous first pass created substantial service and unit-test code, but most Phase 08 workflow behavior was not connected to the running Electron application.
+
+The cumulative Architect review concluded:
 
 ```text
-Intake → Planning → Building → Validation → Close
+Phase 08 first-pass package: RevisionRequested
+WC01 foundation: conditionally accepted
+WC01A–WC15: not accepted
+Operator validation: withheld
+Phase closeout: not authorized
 ```
 
-## Corrected Foundation
+Controlling review:
+
+`planning/phases/phase-08/Architect_Reviews/ARCHITECT_REVIEW_PHASE08_CONTINUOUS_FIRST_PASS_IMPLEMENTATION.md`
+
+## Active-Corpus Reset
+
+Before WC16, the Operator removed pre–Phase 07 planning records and superseded project/system planning documents from the active repository corpus.
+
+This reset is intentional.
+
+WC16 must not:
+
+- restore deleted historical planning records;
+- preserve compatibility with rejected artifact types or governance models;
+- use the application repository’s development history as product workflow data;
+- use the active `planning/` corpus as a test-project fixture.
+
+Current planning authority consists of Phase 07 clean-room evidence, Phase 08 planning/design records, and canonical artifacts created by the repaired application.
+
+## Active Repair
 
 ```text
-WC01  lifecycle vocabulary and open-ended workspace registry
-WC01A evidence-derived lifecycle and workspace projection
-WC01B source revision, freshness, and downstream invalidation
+WC16 — Phase 08 Production Integration and Runtime Completion Repair
 ```
 
-Current location, selected phase, selected Work Card, parent-child returns, semantic close, and terminal Project Close are derived from repository evidence. No hidden current-action authority is authorized.
+WC16 is a Phase-level integration card because the defects span WC02–WC15 and shared runtime infrastructure. It is not assigned as a child repair of one parent Work Card.
 
-Every document has an explicit participation role. Successful generated handoffs are Approved `nonReviewHandoff` documents and never independent approval gates.
-
-Workflow artifacts use monotonic revision identity and source-revision references. Substantive upstream changes invalidate stale downstream approval while preserving historical evidence.
-
-## Stable Workspace Model
-
-The complete production inventory, deterministic ordering, owning cards, and migration of the five provisional Phase 07 workspaces are defined in:
-
-`planning/project/Design_Documents/PHASE_08_WORKSPACE_INVENTORY_AND_MIGRATION.md`
-
-Phase Building candidate selection and Work Card Intake are distinct workspaces. Work Card Building review precedes repair. Phase and Project Close are derived evidence views without a second disposition action.
-
-## Shared Contracts
-
-The corrected foundation also includes:
-
-- `planning/project/Design_Documents/GENERATED_ARCHITECT_HANDOFF_CONTRACT.md`
-- `planning/project/Design_Documents/WORK_CARD_CANDIDATE_CONTRACT.md`
-- `planning/project/Design_Documents/EVIDENCE_DERIVED_LIFECYCLE_PROJECTION_AND_WORKSPACE_RESOLUTION.md`
-- `planning/project/Design_Documents/ARTIFACT_SOURCE_REVISION_AND_DOWNSTREAM_INVALIDATION.md`
-
-The original Operator-confirmed lifecycle and workspace design documents remain controlling.
-
-## Approved Sequence
+The repair must convert the first-pass modules into a reachable product path:
 
 ```text
-WC01 → WC01A → WC01B
-→ WC02 → WC03 → WC04 → WC05
-→ WC06 → WC07 → WC08
-→ WC09 → WC10 → WC11 → WC12 → WC13
-→ WC14 → WC15
+Project Intake
+→ Architect Interview
+→ Project Planning
+→ Phase Map
+→ Phase Interview
+→ Phase Planning
+→ Work Card lifecycle
+→ Phase Validation and Close
+→ Project Validation and Close
 ```
 
-Detailed card paths, dependencies, validation requirements, and continuous-pass rules are authoritative in `planning/phases/phase-08/Work_Card_Plan.md` revision 10 and the continuous-pass handoff.
+## Required Production Boundary
 
-## Continuous First-Pass Authorization
-
-The Operator released the entire corrected sequence for one cumulative Implementer pass after the handoff and revision 10 control documents are committed.
-
-The Implementer must start from a clean committed HEAD that:
-
-- contains `planning/phases/phase-08/IMPLEMENTER_HANDOFF_PHASE08_CONTINUOUS_FIRST_PASS.md`;
-- contains Phase Planning revision 10;
-- contains Work Card Plan revision 10; and
-- descends from planning-baseline commit `08f714c276bee6d75496133e42aafa8dfd9b9b80`.
-
-The first-pass operating model is:
+Implemented behavior requires all of the following:
 
 ```text
-Implement card
-→ run automated validation
-→ write Pending Implementer Report
-→ continue to next card
+production service
++ main-process IPC
++ constrained preload method
++ renderer workspace control
++ canonical artifact authority
++ product-path test
 ```
 
-Until all first passes are complete:
+Direct service imports in Node tests do not prove the application workflow.
 
-- Architect review is deferred;
-- Operator manual validation is deferred;
-- Implementer Report disposition remains Pending;
-- Phase 08 repair-card creation is deferred;
-- Phase 08 closeout is deferred;
-- no Git operation is authorized.
+## Embedded Architect Requirement
 
-The continuous-pass handoff supersedes only prior execution holds. It does not relax card scope, security, artifact, evidence, validation, or truthful-reporting requirements.
+WC16 must implement and visibly attach a real secure Electron remote-content surface for the Architect subscription workflow.
 
-WC03's Operator-observed authentication and live MCP acceptance remain deferred. The Implementer must implement and test the safe foundation, record the external lane as pending, and must not substitute mocked success.
+It must attempt the actual Operator-observed handoff and MCP write-back lane.
 
-WC12 proves the real pre-validation repair path and unit-tests the post-validation trigger contract. WC13 implements automated integration coverage for the complete failed-validation repair path. Operator performance of the manual scenario remains deferred.
+A configuration object, security summary, URL validator, status simulation, filename manifest, copied transcript, or mock MCP result is not implementation evidence.
 
-## Close Semantics
+The Implementer must stop and report a blocker rather than use provider APIs, DOM automation, credential extraction, security bypass, or an unapproved dependency.
 
-```text
-Phase Close complete
-= current Phase_Closeout Approved
-  AND closureDecision=Close
+## Runtime Integration Requirement
 
-Project Close complete
-= current Project_Closeout Approved
-  AND closureDecision=Close
-```
+WC16 must expose and render the approved WC04–WC15 operations, including:
 
-Approved `DoNotClose` remains current at Validation.
+- Architect Interview review and revision;
+- synchronized Project and Phase planning bundles;
+- Phase Map and Phase Interview;
+- candidate selection and Work Card Intake;
+- Formal Work Card review;
+- Implementer Report review;
+- repair generation and return;
+- Operator Validation Records and immutable attempts;
+- Work Card Close and next-candidate return;
+- Phase and Project population review and semantic close.
+
+Workspace-specific actions must replace generic single-document disposition where that generic action violates approved authority.
+
+## Artifact and Test Authority
+
+WC16 must:
+
+- correct canonical classification and context-only participation;
+- bind writes to main-process-owned mediated repository selection;
+- use Architect/MCP writes for Architect-authored documents;
+- use one canonical staged transaction for pair, bundle, revision, handoff, and invalidation writes;
+- prove the complete failed-validation repair loop through production services;
+- add IPC, preload, renderer-action, and curated-fixture product tests;
+- remove real-development-corpus dogfood coupling.
+
+No Playwright is authorized.
+
+## Active Work Card and Handoff
+
+Work Card:
+
+`planning/phases/phase-08/Work_Cards/WC16_phase_08_production_integration_runtime_completion_repair.md`
+
+Handoff:
+
+`planning/phases/phase-08/IMPLEMENTER_HANDOFF_WC16_phase_08_production_integration_runtime_completion_repair.md`
+
+Work Card Plan:
+
+`planning/phases/phase-08/Work_Card_Plan.md` revision 11.
+
+## Completion Boundary
+
+WC16 ends with one Pending Implementer Report and truthful implementation, automated-validation, launch-smoke, and external-integration evidence.
+
+WC16 does not include:
+
+- Architect acceptance of its own report;
+- broad Operator acceptance;
+- Phase 08 closeout;
+- packaging or release;
+- Git mutation.
+
+After the report is available, the Architect performs repository review and determines whether Operator validation may begin.
 
 ## Prohibited Architecture
 
-Do not reintroduce approval artifacts or queues, hidden current-action or terminal authority, route tokens, role gates, execution runs, hashes, timestamp precedence, fixed workspace-label unions, separate execution packets, separate Architect Review approvals, pre-action Validation Records, recursive repairs, duplicate corpus snapshots, provider API substitution, browser credential extraction, DOM automation, or browser-security bypasses.
-
-## Implementation Boundary
-
-Implementation is authorized only through:
-
-`planning/phases/phase-08/IMPLEMENTER_HANDOFF_PHASE08_CONTINUOUS_FIRST_PASS.md`
-
-The run begins only after these control-document changes are committed and the repository is clean.
-
-The run ends after WC15 or a documented hard blocker. It does not include Architect acceptance, Operator validation, phase closeout, release work, or Git mutation.
+Do not restore approval artifacts or queues, route tokens, role gates, execution runs, hashes, timestamp authority, fixed exhaustive workspace-name unions, separate Implementer execution packets, separate Architect Review approval artifacts, pre-action Validation Records, recursive repairs, duplicate corpus snapshots, hidden current lifecycle state, provider API substitution, browser credential extraction, DOM automation, or browser-security bypasses.
 
 ## Document Disposition
 
