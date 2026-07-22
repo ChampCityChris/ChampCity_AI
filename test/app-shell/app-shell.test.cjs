@@ -136,19 +136,31 @@ test("preload exposes only approved methods", () => {
   assert.equal(preloadSource.includes("process:"), false);
 });
 
-test("renderer contains all five workspace labels", () => {
+test("workspace registry contains current visible labels", () => {
   const rendererSource = readText(path.join(repoRoot, "src/shared/workspaceContracts.ts"));
   const labels = [
-    "Project Planning",
+    "Project Plan and Roadmap Review",
+    "Phase Map",
+    "Project Validation",
+    "Project Close",
+    "Phase Interview",
     "Phase Planning",
-    "Work Card",
-    "Operator Validation",
-    "Phase Closeout",
+    "Work Card Selection",
+    "Work Card Intake",
+    "Work Card Planning",
+    "Implementer Handoff and Report Review",
+    "Work Card Repair",
+    "Work Card Validation",
+    "Work Card Close",
+    "Phase Validation",
+    "Phase Close",
   ];
 
   for (const label of labels) {
     assert.equal(rendererSource.includes(label), true, label);
   }
+
+  assert.equal(rendererSource.includes("createWorkspaceRegistry"), true);
 });
 
 test("renderer contains the exact neutral message", () => {

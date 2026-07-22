@@ -15,6 +15,7 @@ export interface PlanningDocumentSummary {
   markdownPath?: string;
   jsonPath?: string;
   displayFilename: string;
+  metadata: PlanningDocumentMetadata;
   pairStatus: DocumentPairStatus;
   effectiveDisposition: DocumentDispositionStatus;
   storedMarkdownDisposition?: DocumentDispositionStatus;
@@ -22,6 +23,22 @@ export interface PlanningDocumentSummary {
   synchronizationState: DispositionSyncState;
   initializationNeeded: boolean;
   readError?: string;
+}
+
+export interface PlanningDocumentMetadata {
+  artifactType?: string;
+  participationRole?: string;
+  artifactRevision?: number;
+  sourceRevisions?: SourceRevision[];
+  closureDecision?: string;
+  phaseId?: string;
+  workCardId?: string;
+  candidateId?: string;
+}
+
+export interface SourceRevision {
+  path: string;
+  revision: number;
 }
 
 export interface PlanningDocumentDetail extends PlanningDocumentSummary {

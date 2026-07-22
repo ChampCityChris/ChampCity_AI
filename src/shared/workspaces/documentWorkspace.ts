@@ -1,7 +1,12 @@
 import type { PlanningDocumentSummary } from "../documents/planningDocument";
-import { workspaceLabels, type WorkspaceLabel } from "../workspaceContracts";
+import {
+  workspaceDefinitions,
+  type WorkspaceId,
+  type WorkspaceLabel,
+} from "../workspaceContracts";
 
 export interface WorkspaceDocument extends PlanningDocumentSummary {
+  workspaceId: WorkspaceId;
   workspace: WorkspaceLabel;
   group: string;
 }
@@ -12,10 +17,19 @@ export interface WorkspaceGroup {
 }
 
 const projectIntakePattern = /project[_ -]?intake/i;
+const workspaceById = new Map(workspaceDefinitions.map((definition) => [definition.id, definition]));
+
+function workspace(id: WorkspaceId): Pick<WorkspaceDocument, "workspaceId" | "workspace"> {
+  const definition = workspaceById.get(id);
+  if (!definition) {
+    throw new Error(`Unknown workspace ID: ${id}`);
+  }
+  return { workspaceId: definition.id, workspace: definition.label };
+}
 
 export function classifyPlanningDocument(
   document: PlanningDocumentSummary,
-): Pick<WorkspaceDocument, "workspace" | "group"> {
+): Pick<WorkspaceDocument, "workspaceId" | "workspace" | "group"> {
   const searchable = [
     document.markdownPath,
     document.jsonPath,
@@ -26,31 +40,55 @@ export function classifyPlanningDocument(
     .toLowerCase();
 
   if (isPhaseCloseout(searchable)) {
-    return { workspace: "Phase Closeout", group: "Closeout records" };
+    return { ...workspace("phase-validation"), group: "Closeout records" };
+  }
+
+  if (isProjectCloseout(searchable)) {
+    return { ...workspace("project-validation"), group: "Project closeout records" };
   }
 
   if (isOperatorValidation(searchable)) {
-    return { workspace: "Operator Validation", group: "Validation and review evidence" };
+    return { ...workspace("work-card-validation"), group: "Validation and review evidence" };
+  }
+
+  if (isImplementerReport(searchable)) {
+    return { ...workspace("work-card-building-review"), group: "Implementer reports" };
   }
 
   if (isPhasePlanning(searchable)) {
-    return { workspace: "Phase Planning", group: "Phase planning records" };
+    return { ...workspace("phase-planning-bundle"), group: "Phase planning records" };
+  }
+
+  if (isWorkCardIntake(searchable)) {
+    return { ...workspace("work-card-intake"), group: "Work Card intake handoffs" };
+  }
+
+  if (isRepairWorkCard(searchable)) {
+    return { ...workspace("work-card-repair"), group: "Repair Work Cards" };
   }
 
   if (isWorkCard(searchable)) {
-    return { workspace: "Work Card", group: "Work Cards" };
+    return { ...workspace("work-card-planning"), group: "Work Cards" };
+  }
+
+  if (isPhaseMap(searchable)) {
+    return { ...workspace("project-phase-map"), group: "Phase Map records" };
   }
 
   if (isProjectPlanning(searchable)) {
     return {
-      workspace: "Project Planning",
+      ...workspace("project-planning-review"),
       group: projectIntakePattern.test(searchable)
         ? "Project Intake"
         : "Project planning records",
     };
   }
 
-  return { workspace: "Project Planning", group: "Other planning documents" };
+  if (isPhaseInterview(searchable)) {
+    return { ...workspace("phase-interview"), group: "Phase interview records" };
+  }
+
+  return { ...workspace("project-planning-review"), group: "Other planning documents" };
 }
 
 export function assignDocumentsToWorkspaces(
@@ -64,12 +102,12 @@ export function assignDocumentsToWorkspaces(
 
 export function getWorkspaceGroups(
   documents: PlanningDocumentSummary[],
-  workspace: WorkspaceLabel,
+  workspaceId: WorkspaceId,
 ): WorkspaceGroup[] {
   const grouped = new Map<string, WorkspaceDocument[]>();
 
   for (const document of assignDocumentsToWorkspaces(documents)) {
-    if (document.workspace !== workspace) {
+    if (document.workspaceId !== workspaceId) {
       continue;
     }
 
@@ -79,7 +117,7 @@ export function getWorkspaceGroups(
   }
 
   return [...grouped.entries()]
-    .sort(([left], [right]) => compareGroups(workspace, left, right))
+    .sort(([left], [right]) => compareGroups(workspaceId, left, right))
     .map(([group, entries]) => ({
       group,
       documents: entries.sort(compareDocuments),
@@ -88,13 +126,13 @@ export function getWorkspaceGroups(
 
 export function getWorkspaceDocumentCounts(
   documents: PlanningDocumentSummary[],
-): Record<WorkspaceLabel, number> {
+): Record<WorkspaceId, number> {
   const counts = Object.fromEntries(
-    workspaceLabels.map((label) => [label, 0]),
-  ) as Record<WorkspaceLabel, number>;
+    workspaceDefinitions.map((definition) => [definition.id, 0]),
+  ) as Record<WorkspaceId, number>;
 
   for (const document of assignDocumentsToWorkspaces(documents)) {
-    counts[document.workspace] += 1;
+    counts[document.workspaceId] = (counts[document.workspaceId] ?? 0) + 1;
   }
 
   return counts;
@@ -105,9 +143,16 @@ function isProjectPlanning(value: string): boolean {
     value.includes("planning/project/") ||
     value.includes("project_planning") ||
     value.includes("project_roadmap") ||
-    value.includes("phase_map") ||
     value.includes("project_architect") ||
     projectIntakePattern.test(value)
+  );
+}
+
+function isPhaseMap(value: string): boolean {
+  return (
+    value.includes("/phase_map/") ||
+    value.includes("phase_map_architect_handoff") ||
+    value.includes("phase_map")
   );
 }
 
@@ -116,8 +161,15 @@ function isPhasePlanning(value: string): boolean {
     value.includes("phase_planning") ||
     value.includes("work_card_plan") ||
     value.includes("phase_intake") ||
-    value.includes("phase_architect") ||
     value.includes("design_documents")
+  );
+}
+
+function isPhaseInterview(value: string): boolean {
+  return (
+    value.includes("phase_interview") ||
+    value.includes("phase_interview_architect_handoff") ||
+    value.includes("/phase_interviews/")
   );
 }
 
@@ -131,15 +183,29 @@ function isWorkCard(value: string): boolean {
   );
 }
 
+function isRepairWorkCard(value: string): boolean {
+  return value.includes("repair") && (value.includes("/work_cards/") || value.includes("repair_architect"));
+}
+
+function isWorkCardIntake(value: string): boolean {
+  return (
+    value.includes("work_card_intake") ||
+    value.includes("work-card-intake")
+  );
+}
+
 function isOperatorValidation(value: string): boolean {
   return (
-    value.includes("/implementer_reports/") ||
     value.includes("/architect_reviews/") ||
     value.includes("/validation_reports/") ||
     value.includes("/operator_validation") ||
     value.includes("/candidate_dispositions/") ||
     value.includes("/validation_evidence/")
   );
+}
+
+function isImplementerReport(value: string): boolean {
+  return value.includes("/implementer_reports/") || value.includes("implementer_report");
 }
 
 function isPhaseCloseout(value: string): boolean {
@@ -152,8 +218,12 @@ function isPhaseCloseout(value: string): boolean {
   );
 }
 
-function compareGroups(workspace: WorkspaceLabel, left: string, right: string): number {
-  if (workspace === "Project Planning") {
+function isProjectCloseout(value: string): boolean {
+  return value.includes("project_closeout") || value.includes("/project_closeouts/");
+}
+
+function compareGroups(workspaceId: WorkspaceId, left: string, right: string): number {
+  if (workspaceId === "project-planning-review") {
     if (left === "Project Intake") {
       return -1;
     }

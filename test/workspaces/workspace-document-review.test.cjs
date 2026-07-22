@@ -49,8 +49,11 @@ function fixtureWorkspace() {
   const root = createWorkspace();
   writeFile(root, "planning/project/Project_Intake/PROJECT_INTAKE_champcity_a_i.md", "# Intake\n");
   writeFile(root, "planning/project/Project_Roadmap/PROJECT_ROADMAP_champcity_a_i.md", "# Roadmap\n");
+  writeFile(root, "planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md", "# Phase Map\n");
+  writeFile(root, "planning/phases/phase-07/Phase_Interview.md", "# Phase Interview\n");
   writeFile(root, "planning/phases/phase-07/Phase_Planning.md", "# Phase Planning\n");
   writeFile(root, "planning/phases/phase-07/Work_Card_Plan.md", "# Work Card Plan\n");
+  writeFile(root, "planning/phases/phase-07/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01.md", "# Intake Handoff\n");
   writeFile(root, "planning/phases/phase-07/Work_Cards/WC01_example.md", "# Work Card\n");
   writeFile(root, "planning/phases/phase-07/Work_Cards/WC01-REPAIR01_example.md", "# Repair Work Card\n");
   writeFile(root, "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC01_example.md", "# Report\n");
@@ -96,47 +99,80 @@ test("every fixture logical document appears in exactly one workspace", () => {
   }
 });
 
-test("Project Intake appears first in Project Planning", () => {
+test("Project Intake appears first in Project Plan and Roadmap Review", () => {
   const root = fixtureWorkspace();
-  const projectDocuments = grouped(root, "Project Planning");
+  const projectDocuments = grouped(root, "project-planning-review");
 
   assert.equal(projectDocuments[0].markdownPath.includes("Project_Intake"), true);
 });
 
 test("Phase Planning and Work Card Plan appear in Phase Planning", () => {
   const root = fixtureWorkspace();
-  const paths = grouped(root, "Phase Planning").map((document) => document.markdownPath);
+  const paths = grouped(root, "phase-planning-bundle").map((document) => document.markdownPath);
 
   assert.equal(paths.includes("planning/phases/phase-07/Phase_Planning.md"), true);
   assert.equal(paths.includes("planning/phases/phase-07/Work_Card_Plan.md"), true);
 });
 
-test("ordinary and repair Work Cards appear in Work Card", () => {
+test("Phase Map appears in Project Phase Map", () => {
   const root = fixtureWorkspace();
-  const paths = grouped(root, "Work Card").map((document) => document.markdownPath);
+  const paths = grouped(root, "project-phase-map").map((document) => document.markdownPath);
+
+  assert.equal(paths.includes("planning/project/Phase_Map/PHASE_MAP_champcity_a_i.md"), true);
+});
+
+test("Phase Interview appears in Phase Interview", () => {
+  const root = fixtureWorkspace();
+  const paths = grouped(root, "phase-interview").map((document) => document.markdownPath);
+
+  assert.equal(paths.includes("planning/phases/phase-07/Phase_Interview.md"), true);
+});
+
+test("Work Card Intake handoff appears in Work Card Intake", () => {
+  const root = fixtureWorkspace();
+  const paths = grouped(root, "work-card-intake").map((document) => document.markdownPath);
+
+  assert.equal(paths.includes("planning/phases/phase-07/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01.md"), true);
+});
+
+test("ordinary Work Cards appear in Work Card Planning", () => {
+  const root = fixtureWorkspace();
+  const paths = grouped(root, "work-card-planning").map((document) => document.markdownPath);
 
   assert.equal(paths.includes("planning/phases/phase-07/Work_Cards/WC01_example.md"), true);
+});
+
+test("repair Work Cards appear in Work Card Repair", () => {
+  const root = fixtureWorkspace();
+  const paths = grouped(root, "work-card-repair").map((document) => document.markdownPath);
+
   assert.equal(paths.includes("planning/phases/phase-07/Work_Cards/WC01-REPAIR01_example.md"), true);
 });
 
-test("Implementer Report and validation evidence appear in Operator Validation", () => {
+test("Implementer Report appears in Work Card Building Review", () => {
   const root = fixtureWorkspace();
-  const paths = grouped(root, "Operator Validation").map((document) => document.markdownPath);
+  const paths = grouped(root, "work-card-building-review").map((document) => document.markdownPath);
 
   assert.equal(paths.includes("planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC01_example.md"), true);
+});
+
+test("validation evidence appears in Operator Validation", () => {
+  const root = fixtureWorkspace();
+  const paths = grouped(root, "work-card-validation").map((document) => document.markdownPath);
+
   assert.equal(paths.includes("planning/phases/phase-07/Validation_Reports/VALIDATION_REPORT_WC01_example.md"), true);
 });
 
-test("closeout records appear in Phase Closeout", () => {
+test("closeout records appear in Phase Validation", () => {
   const root = fixtureWorkspace();
-  const paths = grouped(root, "Phase Closeout").map((document) => document.markdownPath);
+  const paths = grouped(root, "phase-validation").map((document) => document.markdownPath);
 
   assert.equal(paths.includes("planning/phases/phase-07/Phase_Closeouts/PHASE_07_CLOSEOUT_example.md"), true);
 });
 
-test("unclassified records remain visible in Project Planning", () => {
+test("unclassified records remain visible in Project Plan and Roadmap Review", () => {
   const root = fixtureWorkspace();
-  const loose = grouped(root, "Project Planning").find((document) =>
+  const loose = grouped(root, "project-planning-review").find((document) =>
     document.markdownPath.endsWith("loose_note.md"),
   );
 
@@ -145,7 +181,7 @@ test("unclassified records remain visible in Project Planning", () => {
 
 test("archived documents remain visible in their category", () => {
   const root = fixtureWorkspace();
-  const paths = grouped(root, "Work Card").map((document) => document.markdownPath);
+  const paths = grouped(root, "work-card-planning").map((document) => document.markdownPath);
 
   assert.equal(paths.includes("planning/archive/Work_Cards/WC99_archived.md"), true);
 });
@@ -235,7 +271,7 @@ test("read-error document remains visible while readable sibling can preview and
   });
 
   const documents = listPlanningDocuments(root);
-  const workCards = grouped(root, "Work Card");
+  const workCards = grouped(root, "work-card-planning");
   const broken = findByPath(root, "planning/phases/phase-01/Work_Cards/WC01_broken.md");
   const healthy = findByPath(root, "planning/phases/phase-01/Work_Cards/WC02_healthy.md");
 
@@ -266,10 +302,15 @@ test("direct manual workspace use remains available without legacy route authori
   const root = fixtureWorkspace();
   const sourceText = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
 
-  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "Project Planning").length > 0, true);
-  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "Phase Planning").length > 0, true);
-  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "Work Card").length > 0, true);
-  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "Operator Validation").length > 0, true);
-  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "Phase Closeout").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "project-planning-review").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "project-phase-map").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "phase-interview").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "phase-planning-bundle").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "work-card-intake").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "work-card-planning").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "work-card-building-review").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "work-card-repair").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "work-card-validation").length > 0, true);
+  assert.equal(getWorkspaceGroups(listPlanningDocuments(root), "phase-validation").length > 0, true);
   assert.equal(/route token|workflow-state|approval artifact|role gate/i.test(sourceText), false);
 });

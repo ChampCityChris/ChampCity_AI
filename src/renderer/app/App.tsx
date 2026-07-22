@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
 import logoUrl from "../assets/champcity_ai_ui_branding.png";
 import {
-  workspaceLabels,
-  type WorkspaceLabel,
+  projectTypeOptions,
+  workspaceDefinitions,
+  type ArchitectBrowserFoundationStatus,
+  type ProjectIntakeSubmission,
+  type WorkspaceId,
   type WorkspaceSelection,
 } from "../../shared/workspaceContracts";
 import type {
@@ -33,8 +36,21 @@ const fallbackWorkspace: WorkspaceSelection = {
   reason: "No workspace selected.",
 };
 
+const emptyProjectIntake: ProjectIntakeSubmission = {
+  projectName: "",
+  projectPurpose: "",
+  desiredOutcome: "",
+  projectType: "Desktop application",
+  projectRepository: "",
+  hasExistingSourceOrPlanning: false,
+  knownConstraints: "",
+  repositoryReviewContext: "",
+};
+
 export function App(): JSX.Element {
-  const [activeLabel, setActiveLabel] = useState<WorkspaceLabel>(workspaceLabels[0]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(
+    workspaceDefinitions[0].id,
+  );
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
   const [documents, setDocuments] = useState<PlanningDocumentSummary[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
@@ -44,8 +60,14 @@ export function App(): JSX.Element {
   const [documentError, setDocumentError] = useState<string>("");
   const [resolverResult, setResolverResult] = useState<FirstNonApprovedResult | null>(null);
   const [isChoosing, setIsChoosing] = useState(false);
+  const [isChoosingProjectRepository, setIsChoosingProjectRepository] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isSubmittingIntake, setIsSubmittingIntake] = useState(false);
+  const [projectIntake, setProjectIntake] =
+    useState<ProjectIntakeSubmission>(emptyProjectIntake);
+  const [architectStatus, setArchitectStatus] =
+    useState<ArchitectBrowserFoundationStatus | null>(null);
 
   useEffect(() => {
     void window.champcity.getSelectedWorkspace().then((selection) => {
@@ -66,11 +88,29 @@ export function App(): JSX.Element {
     void loadDocument(selectedDocumentId);
   }, [selectedDocumentId]);
 
+  useEffect(() => {
+    if (activeWorkspaceId === "architect-interview" && workspace.ok) {
+      void refreshArchitectStatus();
+    }
+  }, [activeWorkspaceId, workspace.ok]);
+
   const workspaceGroups = useMemo(
-    () => getWorkspaceGroups(documents, activeLabel),
-    [activeLabel, documents],
+    () => getWorkspaceGroups(documents, activeWorkspaceId),
+    [activeWorkspaceId, documents],
   );
   const workspaceCounts = useMemo(() => getWorkspaceDocumentCounts(documents), [documents]);
+  const currentResolvedWorkspace =
+    resolverResult?.status === "current" &&
+    resolverResult.document.owningWorkspaceId === activeWorkspaceId
+      ? {
+          id: resolverResult.document.owningWorkspaceId,
+          label: `${resolverResult.document.owningWorkspace} (not yet implemented)`,
+        }
+      : null;
+  const activeWorkspace =
+    workspaceDefinitions.find((definition) => definition.id === activeWorkspaceId) ??
+    currentResolvedWorkspace ??
+    workspaceDefinitions[0];
   const selectedSummary = useMemo(
     () =>
       documents.find((document) => document.logicalDocumentId === selectedDocumentId) ??
@@ -100,6 +140,54 @@ export function App(): JSX.Element {
     setDocumentError("");
   }
 
+  async function chooseProjectRepository(): Promise<void> {
+    setIsChoosingProjectRepository(true);
+    setDocumentError("");
+    try {
+      const selection = await window.champcity.chooseProjectRepositoryFolder();
+      if (selection.ok && "repositoryPath" in selection) {
+        setProjectIntake((current) => ({
+          ...current,
+          projectRepository: selection.repositoryPath,
+        }));
+      } else if (!selection.ok) {
+        setDocumentError(selection.reason);
+      }
+    } finally {
+      setIsChoosingProjectRepository(false);
+    }
+  }
+
+  async function submitProjectIntake(): Promise<void> {
+    setIsSubmittingIntake(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const result = await window.champcity.submitProjectIntake(projectIntake);
+      setFeedback(
+        `Project Intake saved: ${result.projectIntakeMarkdownPath}; prompt saved: ${result.architectPromptMarkdownPath}.`,
+      );
+      const nextDocuments = await window.champcity.listDocuments();
+      setDocuments(nextDocuments);
+      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setResolverResult(nextResolverResult);
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Project Intake could not be saved.");
+    } finally {
+      setIsSubmittingIntake(false);
+    }
+  }
+
+  async function refreshArchitectStatus(): Promise<void> {
+    setDocumentError("");
+    try {
+      setArchitectStatus(await window.champcity.getArchitectBrowserFoundationStatus());
+    } catch (error) {
+      setArchitectStatus(null);
+      setDocumentError(error instanceof Error ? error.message : "Architect browser status could not be loaded.");
+    }
+  }
+
   async function refreshDocuments(options: { useResolver?: boolean } = {}): Promise<void> {
     setIsLoadingDocuments(true);
     setDocumentError("");
@@ -126,7 +214,7 @@ export function App(): JSX.Element {
     setResolverResult(result);
 
     if (result.status === "current") {
-      setActiveLabel(result.document.owningWorkspace);
+      setActiveWorkspaceId(result.document.owningWorkspaceId);
       setSelectedDocumentId(result.document.logicalDocumentId);
       return;
     }
@@ -170,7 +258,7 @@ export function App(): JSX.Element {
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       if (selectedStatus === "Approved" && nextResolverResult.status === "current") {
-        setActiveLabel(nextResolverResult.document.owningWorkspace);
+        setActiveWorkspaceId(nextResolverResult.document.owningWorkspaceId);
         setSelectedDocumentId(nextResolverResult.document.logicalDocumentId);
         setFeedback(getResolverFeedback(nextResolverResult));
       } else if (selectedStatus === "Approved" && nextResolverResult.status === "all-approved") {
@@ -195,15 +283,19 @@ export function App(): JSX.Element {
           <img src={logoUrl} alt="ChampCity A/I" />
         </div>
         <nav className="workspace-nav">
-          {workspaceLabels.map((label) => (
+          {workspaceDefinitions.map((definition) => (
             <button
-              className={label === activeLabel ? "workspace-tab active" : "workspace-tab"}
-              key={label}
-              onClick={() => setActiveLabel(label)}
+              className={
+                definition.id === activeWorkspaceId
+                  ? "workspace-tab active"
+                  : "workspace-tab"
+              }
+              key={definition.id}
+              onClick={() => setActiveWorkspaceId(definition.id)}
               type="button"
             >
-              <span>{label}</span>
-              <small>{workspaceCounts[label]}</small>
+              <span>{definition.label}</span>
+              <small>{workspaceCounts[definition.id] ?? 0}</small>
             </button>
           ))}
         </nav>
@@ -213,7 +305,7 @@ export function App(): JSX.Element {
         <header className="workspace-header">
           <div>
             <p className="eyebrow">ChampCity A/I</p>
-            <h1 id="workspace-heading">{activeLabel}</h1>
+            <h1 id="workspace-heading">{activeWorkspace.label}</h1>
           </div>
           <div className="workspace-actions">
             <button
@@ -252,8 +344,26 @@ export function App(): JSX.Element {
           <strong>{workspace.ok ? workspace.workspaceRoot : workspace.reason}</strong>
         </div>
 
-        <section className="document-workspace" aria-label={activeLabel}>
-          <div className="document-list" aria-label={`${activeLabel} documents`}>
+        {activeWorkspaceId === "project-intake-capture" ? (
+          <ProjectIntakeCapture
+            isChoosingProjectRepository={isChoosingProjectRepository}
+            isSubmittingIntake={isSubmittingIntake}
+            onChange={setProjectIntake}
+            onChooseProjectRepository={chooseProjectRepository}
+            onSubmit={submitProjectIntake}
+            value={projectIntake}
+          />
+        ) : null}
+
+        {activeWorkspaceId === "architect-interview" ? (
+          <ArchitectInterviewFoundation
+            onRefresh={refreshArchitectStatus}
+            status={architectStatus}
+          />
+        ) : null}
+
+        <section className="document-workspace" aria-label={activeWorkspace.label}>
+          <div className="document-list" aria-label={`${activeWorkspace.label} documents`}>
             {workspaceGroups.length === 0 ? (
               <div className="empty-list">
                 <p>{workspace.ok ? "No documents in this workspace." : neutralMessage}</p>
@@ -355,6 +465,162 @@ export function App(): JSX.Element {
         </section>
       </section>
     </main>
+  );
+}
+
+function ArchitectInterviewFoundation({
+  onRefresh,
+  status,
+}: {
+  onRefresh: () => void;
+  status: ArchitectBrowserFoundationStatus | null;
+}): JSX.Element {
+  return (
+    <section className="architect-foundation" aria-label="Architect Interview Browser Foundation">
+      <div>
+        <span>Browser state</span>
+        <strong>{status?.browserState ?? "browser-unavailable"}</strong>
+      </div>
+      <div>
+        <span>Handoff state</span>
+        <strong>{status?.handoff.state ?? "handoff-unavailable"}</strong>
+      </div>
+      <div>
+        <span>Session partition</span>
+        <strong>{status?.sessionPartition ?? "persist:champcity-architect"}</strong>
+      </div>
+      <div>
+        <span>Surface</span>
+        <strong>{status?.surfaceUrl ?? "Not loaded"}</strong>
+      </div>
+      <button className="icon-button text-button" onClick={onRefresh} type="button">
+        <RefreshCw aria-hidden="true" size={18} />
+        Refresh
+      </button>
+      {status?.handoff.state === "handoff-ready" ? (
+        <pre className="handoff-manifest">
+{[
+  status.handoff.promptMarkdownPath,
+  status.handoff.promptJsonPath,
+  status.handoff.projectIntakeMarkdownPath,
+  status.handoff.projectIntakeJsonPath,
+].join("\n")}
+        </pre>
+      ) : (
+        <p>{status?.handoff.reason ?? "Project Intake and prompt artifacts are required."}</p>
+      )}
+    </section>
+  );
+}
+
+function ProjectIntakeCapture({
+  isChoosingProjectRepository,
+  isSubmittingIntake,
+  onChange,
+  onChooseProjectRepository,
+  onSubmit,
+  value,
+}: {
+  isChoosingProjectRepository: boolean;
+  isSubmittingIntake: boolean;
+  onChange: (value: ProjectIntakeSubmission) => void;
+  onChooseProjectRepository: () => void;
+  onSubmit: () => void;
+  value: ProjectIntakeSubmission;
+}): JSX.Element {
+  const update = <Key extends keyof ProjectIntakeSubmission>(
+    key: Key,
+    nextValue: ProjectIntakeSubmission[Key],
+  ): void => {
+    onChange({ ...value, [key]: nextValue });
+  };
+
+  return (
+    <section className="intake-form" aria-label="Project Intake Capture">
+      <label>
+        <span>Project Name</span>
+        <input
+          onChange={(event) => update("projectName", event.target.value)}
+          value={value.projectName}
+        />
+      </label>
+      <label>
+        <span>Project Purpose</span>
+        <textarea
+          onChange={(event) => update("projectPurpose", event.target.value)}
+          value={value.projectPurpose}
+        />
+      </label>
+      <label>
+        <span>Desired Outcome</span>
+        <textarea
+          onChange={(event) => update("desiredOutcome", event.target.value)}
+          value={value.desiredOutcome}
+        />
+      </label>
+      <label>
+        <span>Project Type</span>
+        <select
+          onChange={(event) =>
+            update("projectType", event.target.value as ProjectIntakeSubmission["projectType"])
+          }
+          value={value.projectType}
+        >
+          {projectTypeOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="intake-repository-row">
+        <label>
+          <span>Project Repository</span>
+          <input readOnly value={value.projectRepository} />
+        </label>
+        <button
+          className="icon-button text-button"
+          disabled={isChoosingProjectRepository}
+          onClick={onChooseProjectRepository}
+          type="button"
+        >
+          <FolderOpen aria-hidden="true" size={18} />
+          {isChoosingProjectRepository ? "Choosing..." : "Choose"}
+        </button>
+      </div>
+      <label className="checkbox-row">
+        <input
+          checked={value.hasExistingSourceOrPlanning}
+          onChange={(event) => update("hasExistingSourceOrPlanning", event.target.checked)}
+          type="checkbox"
+        />
+        <span>Existing source code or project-planning documents</span>
+      </label>
+      <label>
+        <span>Known Constraints or Non-Negotiables</span>
+        <textarea
+          onChange={(event) => update("knownConstraints", event.target.value)}
+          value={value.knownConstraints ?? ""}
+        />
+      </label>
+      {value.hasExistingSourceOrPlanning ? (
+        <label>
+          <span>Repository Review Context</span>
+          <textarea
+            onChange={(event) => update("repositoryReviewContext", event.target.value)}
+            value={value.repositoryReviewContext ?? ""}
+          />
+        </label>
+      ) : null}
+      <button
+        className="apply-button"
+        disabled={isSubmittingIntake}
+        onClick={onSubmit}
+        type="button"
+      >
+        {isSubmittingIntake ? "Saving..." : "Submit Project Intake"}
+      </button>
+    </section>
   );
 }
 

@@ -8,8 +8,10 @@ import type {
   DispositionSyncState,
   InitializationPreview,
   InitializationResult,
+  PlanningDocumentMetadata,
   PlanningDocumentDetail,
   PlanningDocumentSummary,
+  SourceRevision,
 } from "../../shared/documents/planningDocument";
 import {
   parseJsonDisposition,
@@ -21,6 +23,11 @@ import {
   type RollbackWriteOptions,
   type WritePlan,
 } from "./documentDispositionWriter";
+import {
+  evaluateFreshnessFromSummaries,
+  type FreshnessEvaluation,
+} from "../../shared/documents/sourceFreshness";
+import { classifyLifecycleArtifact } from "../../shared/documents/lifecycleArtifact";
 
 const previewLimit = 12000;
 
@@ -118,6 +125,109 @@ export function setDocumentDisposition(
   }
 
   return updated.summary;
+}
+
+export function setDocumentDispositions(
+  workspaceRoot: string,
+  logicalDocumentIds: string[],
+  status: DocumentDispositionStatus,
+  options: RollbackWriteOptions = {},
+): PlanningDocumentSummary[] {
+  if (!isDocumentDispositionStatus(status)) {
+    throw new Error("Unsupported document disposition status.");
+  }
+
+  const readRecords = logicalDocumentIds.map((logicalDocumentId) =>
+    findReadRecord(workspaceRoot, logicalDocumentId),
+  );
+  for (const readRecord of readRecords) {
+    if (readRecord.summary.synchronizationState === "read-error") {
+      throw new Error("Cannot write disposition while document content could not be read.");
+    }
+  }
+
+  const plans = readRecords.flatMap((readRecord) =>
+    createWritePlans(readRecord, status, workspaceRoot),
+  );
+  writePlansWithRollback(plans, options);
+
+  return logicalDocumentIds.map((logicalDocumentId) => {
+    const updated = findReadRecord(workspaceRoot, logicalDocumentId);
+    const markdownOk =
+      !updated.record.markdown || updated.summary.storedMarkdownDisposition === status;
+    const jsonOk = !updated.record.json || updated.summary.storedJsonDisposition === status;
+
+    if (!markdownOk || !jsonOk || updated.summary.effectiveDisposition !== status) {
+      throw new Error("Written document disposition could not be confirmed.");
+    }
+
+    return updated.summary;
+  });
+}
+
+export interface RevisionSaveResult {
+  revisedDocument: PlanningDocumentSummary;
+  invalidatedDocuments: PlanningDocumentSummary[];
+}
+
+export function savePlanningDocumentRevision(
+  workspaceRoot: string,
+  logicalDocumentId: string,
+  options: RollbackWriteOptions = {},
+): RevisionSaveResult {
+  const readRecord = findReadRecord(workspaceRoot, logicalDocumentId);
+  if (readRecord.summary.synchronizationState === "read-error") {
+    throw new Error("Cannot revise document while document content could not be read.");
+  }
+
+  const nextRevision = (readRecord.summary.metadata.artifactRevision ?? 0) + 1;
+  const allRecords = buildReadRecords(workspaceRoot);
+  const downstreamRecords = downstreamDependencyRecords(readRecord, allRecords);
+  const handoffRecords = downstreamRecords.filter(
+    (record) => classifyLifecycleArtifact(record.summary).participationRole === "nonReviewHandoff",
+  );
+  const invalidationRecords = downstreamRecords.filter(
+    (record) => classifyLifecycleArtifact(record.summary).participationRole !== "nonReviewHandoff",
+  );
+  const plans = [
+    ...createRevisionWritePlans(readRecord, nextRevision, workspaceRoot),
+    ...handoffRecords.flatMap((record) =>
+      createHandoffRegenerationPlans(record, readRecord, nextRevision, workspaceRoot),
+    ),
+    ...invalidationRecords.flatMap((record) =>
+      createWritePlans(record, "Pending", workspaceRoot),
+    ),
+  ];
+
+  writePlansWithRollback(plans, options);
+
+  const revisedDocument = findReadRecord(workspaceRoot, logicalDocumentId).summary;
+  const updatedDocuments = buildReadRecords(workspaceRoot).map((record) => record.summary);
+  const invalidatedDocuments = invalidationRecords
+    .map((record) =>
+      updatedDocuments.find((document) => document.logicalDocumentId === record.summary.logicalDocumentId),
+    )
+    .filter((document): document is PlanningDocumentSummary => Boolean(document));
+
+  return { revisedDocument, invalidatedDocuments };
+}
+
+export function evaluateDocumentFreshness(
+  workspaceRoot: string,
+  logicalDocumentId: string,
+): FreshnessEvaluation {
+  const records = buildReadRecords(workspaceRoot);
+  const readRecord = records.find(
+    (record) => record.summary.logicalDocumentId === logicalDocumentId,
+  );
+  if (!readRecord) {
+    throw new Error("Unknown logical document ID.");
+  }
+
+  return evaluateFreshnessFromSummaries(
+    readRecord.summary,
+    records.map((record) => record.summary),
+  );
 }
 
 export function previewDispositionInitialization(
@@ -308,7 +418,12 @@ function readRecord(
     }
   }
 
-  const summary = summarizeRecord(record, markdownDisposition, jsonDisposition);
+  const summary = summarizeRecord(
+    record,
+    collectDocumentMetadata(markdownContent, jsonContent),
+    markdownDisposition,
+    jsonDisposition,
+  );
   return {
     record,
     summary,
@@ -319,6 +434,7 @@ function readRecord(
 
 function summarizeRecord(
   record: LogicalDocumentRecord,
+  metadata: PlanningDocumentMetadata,
   markdownDisposition?: ParsedFileDisposition,
   jsonDisposition?: ParsedFileDisposition,
 ): PlanningDocumentSummary {
@@ -346,6 +462,7 @@ function summarizeRecord(
     markdownPath: record.markdown?.relativePath,
     jsonPath: record.json?.relativePath,
     displayFilename: path.basename(record.stemKey),
+    metadata,
     pairStatus,
     effectiveDisposition,
     storedMarkdownDisposition: markdownStatus,
@@ -354,6 +471,69 @@ function summarizeRecord(
     initializationNeeded,
     readError,
   };
+}
+
+function collectDocumentMetadata(
+  markdownContent?: string,
+  jsonContent?: string,
+): PlanningDocumentMetadata {
+  const metadata = {
+    ...metadataFromMarkdown(markdownContent),
+    ...metadataFromJson(jsonContent),
+  };
+  return {
+    ...metadata,
+    sourceRevisions: metadata.sourceRevisions ?? [],
+  };
+}
+
+function metadataFromMarkdown(content?: string): PlanningDocumentMetadata {
+  if (!content) {
+    return {};
+  }
+
+  const closureDecision = content.match(/closureDecision\s*[:=]\s*([A-Za-z ]+)/i)?.[1] ??
+    content.match(/closure decision\s*[:=]\s*([A-Za-z ]+)/i)?.[1];
+  const participationRole = content.match(/participationRole\s*[:=]\s*([A-Za-z]+)/i)?.[1];
+  const artifactRevision = content.match(/Artifact\.Revision\s*=\s*(\d+)/i)?.[1];
+
+  return {
+    closureDecision: normalizeToken(closureDecision),
+    participationRole: normalizeToken(participationRole),
+    artifactRevision: artifactRevision ? Number(artifactRevision) : undefined,
+    sourceRevisions: parseMarkdownSourceRevisions(content),
+  };
+}
+
+function metadataFromJson(content?: string): PlanningDocumentMetadata {
+  if (!content) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    return {
+      artifactType: stringValue(parsed.artifactType),
+      participationRole: stringValue(parsed.participationRole),
+      artifactRevision: numberValue(parsed.artifactRevision),
+      sourceRevisions: sourceRevisionsValue(parsed.sourceRevisions),
+      closureDecision: normalizeToken(stringValue(parsed.closureDecision)),
+      phaseId: stringValue(parsed.phaseId),
+      workCardId: stringValue(parsed.workCardId),
+      candidateId: stringValue(parsed.candidateId),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function parseMarkdownSourceRevisions(content: string): SourceRevision[] {
+  return [...content.matchAll(/-\s*path:\s*`?([^`\r\n]+)`?\s*revision:\s*(\d+)/gi)].map(
+    (match) => ({
+      path: match[1].trim(),
+      revision: Number(match[2]),
+    }),
+  );
 }
 
 function getSynchronizationState(
@@ -417,6 +597,172 @@ function createWritePlans(
   return plans;
 }
 
+function createRevisionWritePlans(
+  readRecord: ReadRecord,
+  nextRevision: number,
+  workspaceRoot: string,
+): WritePlan[] {
+  const plans: WritePlan[] = [];
+
+  if (readRecord.record.markdown) {
+    plans.push({
+      absolutePath: readRecord.record.markdown.absolutePath,
+      content: writeMarkdownArtifactRevision(readRecord.markdownContent ?? "", nextRevision),
+      expectedStatus: readRecord.summary.effectiveDisposition,
+      workspaceRoot,
+    });
+  }
+
+  if (readRecord.record.json) {
+    if (readRecord.jsonContent === undefined) {
+      throw new Error("JSON content was not available.");
+    }
+    plans.push({
+      absolutePath: readRecord.record.json.absolutePath,
+      content: writeJsonArtifactRevision(readRecord.jsonContent, nextRevision),
+      expectedStatus: readRecord.summary.effectiveDisposition,
+      workspaceRoot,
+    });
+  }
+
+  return plans;
+}
+
+function downstreamDependencyRecords(
+  sourceRecord: ReadRecord,
+  records: ReadRecord[],
+): ReadRecord[] {
+  const sourcePaths = new Set(
+    [sourceRecord.summary.markdownPath, sourceRecord.summary.jsonPath].filter(
+      (value): value is string => Boolean(value),
+    ),
+  );
+  const invalidationIds = new Set<string>();
+
+  for (const record of records) {
+    if (record.summary.logicalDocumentId === sourceRecord.summary.logicalDocumentId) {
+      continue;
+    }
+
+    const referencesSource = (record.summary.metadata.sourceRevisions ?? []).some((source) =>
+      sourcePaths.has(source.path),
+    );
+    if (referencesSource && record.summary.effectiveDisposition === "Approved") {
+      invalidationIds.add(record.summary.logicalDocumentId);
+      for (const bundleRecord of coordinatedBundleRecords(record, records)) {
+        if (bundleRecord.summary.effectiveDisposition === "Approved") {
+          invalidationIds.add(bundleRecord.summary.logicalDocumentId);
+        }
+      }
+    }
+  }
+
+  return records.filter((record) => invalidationIds.has(record.summary.logicalDocumentId));
+}
+
+function createHandoffRegenerationPlans(
+  readRecord: ReadRecord,
+  sourceRecord: ReadRecord,
+  sourceRevision: number,
+  workspaceRoot: string,
+): WritePlan[] {
+  const sourcePaths = [sourceRecord.summary.markdownPath, sourceRecord.summary.jsonPath].filter(
+    (value): value is string => Boolean(value),
+  );
+  const nextRevision = (readRecord.summary.metadata.artifactRevision ?? 0) + 1;
+  const plans = createRevisionWritePlans(readRecord, nextRevision, workspaceRoot);
+
+  return plans.map((plan) => ({
+    ...plan,
+    content: rewriteSourceReferences(plan.content, path.extname(plan.absolutePath), sourcePaths, sourceRevision),
+    expectedStatus: "Approved" as const,
+  }));
+}
+
+function rewriteSourceReferences(
+  content: string,
+  extension: string,
+  sourcePaths: string[],
+  sourceRevision: number,
+): string {
+  if (extension.toLowerCase() === ".json") {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    parsed.sourceRevisions = sourceRevisionsValue(parsed.sourceRevisions).map((source) =>
+      sourcePaths.includes(source.path) ? { ...source, revision: sourceRevision } : source,
+    );
+    parsed.documentDisposition = { status: "Approved" };
+    return `${JSON.stringify(parsed, null, 2)}\n`;
+  }
+
+  return sourcePaths.reduce(
+    (nextContent, sourcePath) =>
+      nextContent.replace(
+        new RegExp(`(path:\\s*\`?${escapeRegExp(sourcePath)}\`?\\s*revision:\\s*)\\d+`, "g"),
+        `$1${sourceRevision}`,
+      ),
+    content,
+  );
+}
+
+function coordinatedBundleRecords(record: ReadRecord, records: ReadRecord[]): ReadRecord[] {
+  const value = [
+    record.summary.markdownPath,
+    record.summary.jsonPath,
+    record.summary.displayFilename,
+  ]
+    .filter(Boolean)
+    .join("/")
+    .toLowerCase();
+
+  if (value.includes("project_profile") || value.includes("project_roadmap")) {
+    return records.filter((candidate) => {
+      const candidateValue = [
+        candidate.summary.markdownPath,
+        candidate.summary.jsonPath,
+        candidate.summary.displayFilename,
+      ]
+        .filter(Boolean)
+        .join("/")
+        .toLowerCase();
+      return candidateValue.includes("project_profile") || candidateValue.includes("project_roadmap");
+    });
+  }
+
+  if (value.includes("phase_planning") || value.includes("work_card_plan")) {
+    return records.filter((candidate) => {
+      const candidateValue = [
+        candidate.summary.markdownPath,
+        candidate.summary.jsonPath,
+        candidate.summary.displayFilename,
+      ]
+        .filter(Boolean)
+        .join("/")
+        .toLowerCase();
+      return candidateValue.includes("phase_planning") || candidateValue.includes("work_card_plan");
+    });
+  }
+
+  return [record];
+}
+
+function writeMarkdownArtifactRevision(content: string, nextRevision: number): string {
+  const eol = content.includes("\r\n") ? "\r\n" : "\n";
+  const line = `Artifact.Revision=${nextRevision}`;
+  if (/^Artifact\.Revision=\d+$/m.test(content)) {
+    return content.replace(/^Artifact\.Revision=\d+$/m, line);
+  }
+
+  return content.startsWith("#")
+    ? content.replace(/^([^\r\n]*(?:\r\n|\n|\r))/, `$1${line}${eol}`)
+    : `${line}${eol}${content}`;
+}
+
+function writeJsonArtifactRevision(content: string, nextRevision: number): string {
+  const parsed = JSON.parse(content) as Record<string, unknown>;
+  parsed.artifactRevision = nextRevision;
+  return `${JSON.stringify(parsed, null, 2)}\n`;
+}
+
 function createFileEntry(
   workspaceRoot: string,
   absolutePath: string,
@@ -476,6 +822,45 @@ function formatJsonPreview(content: string | undefined): string {
   } catch {
     return content;
   }
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
+}
+
+function sourceRevisionsValue(value: unknown): SourceRevision[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const pathValue = (entry as { path?: unknown }).path;
+    const revisionValue = (entry as { revision?: unknown }).revision;
+    return typeof pathValue === "string" &&
+      typeof revisionValue === "number" &&
+      Number.isInteger(revisionValue)
+      ? [{ path: pathValue, revision: revisionValue }]
+      : [];
+  });
+}
+
+function normalizeToken(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return value.trim().replace(/\s+/g, "");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function stableLogicalDocumentId(stemKey: string): string {

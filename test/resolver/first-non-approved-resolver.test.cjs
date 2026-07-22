@@ -28,11 +28,11 @@ function writeFile(root, relativePath, content) {
   fs.writeFileSync(absolutePath, content, "utf8");
 }
 
-function markdown(title, status) {
+function markdown(title, status, extra = "") {
   const disposition = status
     ? `\n\n## Document Disposition\nDocument.Status=${status}\n`
     : "\n";
-  return `# ${title}${disposition}`;
+  return `# ${title}\n\n${extra}${disposition}`;
 }
 
 function current(root) {
@@ -58,6 +58,7 @@ test("Project Intake is first when pending", () => {
   writeFile(root, "planning/project/Project_Intake/PROJECT_INTAKE.md", markdown("Intake"));
 
   assert.equal(current(root).markdownPath, "planning/project/Project_Intake/PROJECT_INTAKE.md");
+  assert.equal(current(root).owningWorkspaceId, "project-intake-capture");
 });
 
 test("missing disposition behaves as Pending", () => {
@@ -133,7 +134,7 @@ test("Phase 02 Phase Planning becomes current only after every Phase 01 document
   writeFile(root, "planning/phases/phase-01/Phase_Planning.md", markdown("Phase 01 planning", "Approved"));
   writeFile(root, "planning/phases/phase-01/Work_Cards/WC01_base.md", markdown("Phase 01 Work Card", "Approved"));
   writeFile(root, "planning/phases/phase-01/Validation_Reports/VALIDATION_REPORT_WC01.md", markdown("Validation", "Approved"));
-  writeFile(root, "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT.md", markdown("Closeout", "Approved"));
+  writeFile(root, "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT.md", markdown("Closeout", "Approved", "closureDecision=Close"));
   writeFile(root, "planning/phases/phase-02/Phase_Planning.md", markdown("Phase 02"));
 
   assert.equal(current(root).markdownPath, "planning/phases/phase-02/Phase_Planning.md");
@@ -181,7 +182,7 @@ test("closeout follows validation evidence", () => {
   assert.equal(current(root).markdownPath, "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT.md");
 });
 
-test("archives remain ordered and visible", () => {
+test("archives remain ordered and visible but do not block current lifecycle projection", () => {
   const root = createWorkspace();
   writeFile(root, "planning/phases/phase-01/Work_Cards/WC01_base.md", markdown("Base", "Approved"));
   writeFile(root, "planning/archive/phases/phase-01/Work_Cards/WC01_archived.md", markdown("Archived"));
@@ -191,7 +192,7 @@ test("archives remain ordered and visible", () => {
   );
 
   assert.equal(orderedPaths.includes("planning/archive/phases/phase-01/Work_Cards/WC01_archived.md"), true);
-  assert.equal(current(root).markdownPath, "planning/archive/phases/phase-01/Work_Cards/WC01_archived.md");
+  assert.equal(allApproved(root).status, "all-approved");
 });
 
 test("unparseable records remain visible", () => {
@@ -269,6 +270,7 @@ test("all-approved returns the terminal informational state", () => {
     status: "all-approved",
     message: "All planning documents approved",
     totalDocumentCount: 1,
+    reason: "All gating lifecycle documents are Approved or semantically complete; non-review handoffs, context-only records, and historical records do not block progression.",
   });
 });
 

@@ -1,11 +1,31 @@
 import type { DocumentDispositionStatus } from "./documentDisposition";
 import type { PlanningDocumentSummary } from "./planningDocument";
+import {
+  classifyLifecycleArtifact,
+  isSemanticallyComplete,
+  type LifecycleArtifactClassification,
+} from "./lifecycleArtifact";
+import {
+  evaluateFreshnessFromSummaries,
+  type FreshnessSourceDiagnostic,
+} from "./sourceFreshness";
 import { type WorkspaceDocument, assignDocumentsToWorkspaces } from "../workspaces/documentWorkspace";
-import { type WorkspaceLabel, workspaceLabels } from "../workspaceContracts";
+import { type WorkspaceId, type WorkspaceLabel, workspaceDefinitions } from "../workspaceContracts";
+import type { LifecycleLocation } from "../lifecycle/nestedLifecycle";
 
 export interface ResolvedCurrentDocument {
   logicalDocumentId: string;
+  owningWorkspaceId: WorkspaceId;
   owningWorkspace: WorkspaceLabel;
+  lifecycleLocation: LifecycleLocation;
+  participationRole: LifecycleArtifactClassification["participationRole"];
+  artifactType: string;
+  reason: string;
+  evidencePaths: string[];
+  freshnessState: "fresh" | "stale";
+  staleSources: FreshnessSourceDiagnostic[];
+  selectedPhaseId?: string;
+  selectedWorkCardId?: string;
   markdownPath?: string;
   jsonPath?: string;
   displayTitle: string;
@@ -23,10 +43,11 @@ export type FirstNonApprovedResult =
       status: "all-approved";
       message: "All planning documents approved";
       totalDocumentCount: number;
+      reason: string;
     };
 
-const stageOrder = new Map<WorkspaceLabel, number>(
-  workspaceLabels.map((label, index) => [label, index]),
+const stageOrder = new Map<WorkspaceId, number>(
+  workspaceDefinitions.map((definition, index) => [definition.id, index]),
 );
 
 export function orderPlanningDocuments(
@@ -78,8 +99,8 @@ export function resolveFirstNonApproved(
   documents: PlanningDocumentSummary[],
 ): FirstNonApprovedResult {
   const ordered = orderPlanningDocuments(documents);
-  const currentIndex = ordered.findIndex(
-    (document) => document.effectiveDisposition !== "Approved",
+  const currentIndex = ordered.findIndex((document) =>
+    isCurrentLifecycleDocument(document, ordered),
   );
 
   if (currentIndex === -1) {
@@ -87,15 +108,27 @@ export function resolveFirstNonApproved(
       status: "all-approved",
       message: "All planning documents approved",
       totalDocumentCount: ordered.length,
+      reason: "All gating lifecycle documents are Approved or semantically complete; non-review handoffs, context-only records, and historical records do not block progression.",
     };
   }
 
   const document = ordered[currentIndex];
+  const classification = classifyLifecycleArtifact(document);
   return {
     status: "current",
     document: {
       logicalDocumentId: document.logicalDocumentId,
-      owningWorkspace: document.workspace,
+      owningWorkspaceId: classification.workspaceId,
+      owningWorkspace: classification.workspaceLabel,
+      lifecycleLocation: classification.location,
+      participationRole: classification.participationRole,
+      artifactType: classification.artifactType,
+      reason: currentReason(document, classification, ordered),
+      evidencePaths: classification.evidencePaths,
+      freshnessState: evaluateFreshnessFromSummaries(document, ordered).state,
+      staleSources: evaluateFreshnessFromSummaries(document, ordered).staleSources,
+      selectedPhaseId: classification.selectedPhaseId,
+      selectedWorkCardId: classification.selectedWorkCardId,
       markdownPath: document.markdownPath,
       jsonPath: document.jsonPath,
       displayTitle: document.displayFilename,
@@ -106,13 +139,65 @@ export function resolveFirstNonApproved(
   };
 }
 
+function isCurrentLifecycleDocument(
+  document: PlanningDocumentSummary,
+  documents: PlanningDocumentSummary[],
+): boolean {
+  const classification = classifyLifecycleArtifact(document);
+  if (
+    classification.participationRole === "nonReviewHandoff" ||
+    classification.participationRole === "contextOnly" ||
+    classification.participationRole === "historical"
+  ) {
+    return false;
+  }
+
+  if (evaluateFreshnessFromSummaries(document, documents).state === "stale") {
+    return true;
+  }
+
+  return !isSemanticallyComplete(document);
+}
+
+function currentReason(
+  document: PlanningDocumentSummary,
+  classification: LifecycleArtifactClassification,
+  documents: PlanningDocumentSummary[],
+): string {
+  const location = `${classification.location.level} / ${classification.location.stage}`;
+  const freshness = evaluateFreshnessFromSummaries(document, documents);
+  if (freshness.state === "stale") {
+    const stale = freshness.staleSources
+      .map((source) =>
+        source.state === "missing"
+          ? `${source.path} missing; expected revision ${source.expectedRevision}`
+          : `${source.path} expected revision ${source.expectedRevision}, current revision ${source.currentRevision ?? "missing"}`,
+      )
+      .join("; ");
+    return `${classification.workspaceLabel} is current at ${location} because ${classification.artifactType} evidence is stale: ${stale}.`;
+  }
+
+  if (document.readError) {
+    return `${classification.workspaceLabel} is current at ${location} because ${classification.artifactType} evidence could not be read: ${document.readError}`;
+  }
+
+  if (
+    classification.artifactType.endsWith("closeout") &&
+    document.effectiveDisposition === "Approved"
+  ) {
+    return `${classification.workspaceLabel} is current at ${location} because the closeout is Approved with closureDecision=${document.metadata.closureDecision ?? "missing"}, so Close is not complete.`;
+  }
+
+  return `${classification.workspaceLabel} is current at ${location} because ${classification.artifactType} evidence is ${document.effectiveDisposition}, not semantically complete.`;
+}
+
 function getProjectCategory(document: WorkspaceDocument): number {
   if (getPlanningScope(document) !== "project") {
     return 0;
   }
 
   const value = getSearchValue(document);
-  if (/project[_ -]?intake/.test(value)) {
+  if (isProjectIntakeArtifact(value)) {
     return 1;
   }
   if (value.includes("project_architect")) {
@@ -148,10 +233,10 @@ function scopeRank(scope: "project" | "phase"): number {
 }
 
 function getStageRank(document: WorkspaceDocument): number {
-  if (document.workspace === "Project Planning") {
+  if (document.workspaceId === "project-planning-review") {
     return 99;
   }
-  return stageOrder.get(document.workspace) ?? 99;
+  return stageOrder.get(document.workspaceId) ?? 99;
 }
 
 function getArchiveRank(document: WorkspaceDocument): number {
@@ -164,7 +249,7 @@ function getArchiveRank(document: WorkspaceDocument): number {
 function getWithinPhaseCategory(document: WorkspaceDocument): number {
   const value = getSearchValue(document);
 
-  if (document.workspace === "Phase Planning") {
+  if (document.workspaceId === "phase-planning-bundle") {
     if (value.includes("phase_planning")) {
       return 1;
     }
@@ -173,13 +258,13 @@ function getWithinPhaseCategory(document: WorkspaceDocument): number {
     }
     return 3;
   }
-  if (document.workspace === "Work Card") {
+  if (document.workspaceId === "work-card-planning") {
     return 4;
   }
-  if (document.workspace === "Operator Validation") {
+  if (document.workspaceId === "work-card-validation") {
     return 5;
   }
-  if (document.workspace === "Phase Closeout") {
+  if (document.workspaceId === "phase-validation" || document.workspaceId === "phase-close") {
     return 6;
   }
   return 0;
@@ -219,6 +304,13 @@ function getValidationEvidenceCategory(document: WorkspaceDocument): number {
 
 function getSearchValue(document: WorkspaceDocument): string {
   return getNormalizedPath(document).toLowerCase();
+}
+
+function isProjectIntakeArtifact(value: string): boolean {
+  return (
+    value.includes("planning/project/project_intake/") ||
+    value.includes("planning/project/project-intake/")
+  );
 }
 
 function getNormalizedPath(document: WorkspaceDocument): string {

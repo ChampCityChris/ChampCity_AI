@@ -131,7 +131,8 @@ test("real resolver returns Project Intake first when pending", () => {
   const result = resolveFirstNonApprovedDocument(repoRoot);
 
   assert.equal(result.status, "current");
-  assert.equal(result.document.owningWorkspace, "Project Planning");
+  assert.equal(result.document.owningWorkspaceId, "project-intake-capture");
+  assert.equal(result.document.owningWorkspace, "Project Intake Capture");
   assert.equal(result.document.displayTitle, "PROJECT_INTAKE_champcity_a_i");
   assert.equal(result.document.orderPosition, 1);
 });
@@ -158,15 +159,16 @@ test("temporary dogfood transitions preserve resolver behavior", () => {
 test("real corpus workspaces contain expected document categories", () => {
   const documents = listPlanningDocuments(repoRoot);
 
-  assert.equal(getWorkspaceGroups(documents, "Phase Planning").some((group) =>
+  assert.equal(getWorkspaceGroups(documents, "phase-planning-bundle").some((group) =>
     group.documents.some((document) => document.displayFilename === "Phase_Planning") &&
     group.documents.some((document) => document.displayFilename === "Work_Card_Plan"),
   ), true);
-  assert.equal(getWorkspaceGroups(documents, "Work Card").some((group) =>
+  assert.equal(getWorkspaceGroups(documents, "work-card-planning").some((group) =>
     group.documents.some((document) => /WC\d+/.test(document.displayFilename)),
   ), true);
-  assert.equal(getWorkspaceGroups(documents, "Operator Validation").length > 0, true);
-  assert.equal(getWorkspaceGroups(documents, "Phase Closeout").length > 0, true);
+  assert.equal(getWorkspaceGroups(documents, "work-card-building-review").length > 0, true);
+  assert.equal(getWorkspaceGroups(documents, "work-card-validation").length > 0, true);
+  assert.equal(getWorkspaceGroups(documents, "phase-validation").length > 0, true);
 });
 
 test("real refresh and restart derive the same current document", () => {

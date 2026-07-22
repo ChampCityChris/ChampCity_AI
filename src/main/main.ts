@@ -13,8 +13,17 @@ import {
   setDocumentDisposition,
 } from "./documents/planningDocumentService";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
+import { submitProjectIntake } from "./projectIntake/projectIntakeService";
+import { getArchitectBrowserFoundationStatus } from "./browser/architectBrowserService";
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
-import type { AppInfo, WorkspaceSelection } from "../shared/workspaceContracts";
+import type {
+  AppInfo,
+  ProjectIntakeSubmission,
+  ProjectIntakeSubmissionResult,
+  ProjectRepositorySelection,
+  ArchitectBrowserFoundationStatus,
+  WorkspaceSelection,
+} from "../shared/workspaceContracts";
 
 const userDataRootOverride = process.env.CHAMPCITY_USER_DATA_ROOT;
 if (userDataRootOverride) {
@@ -76,6 +85,26 @@ ipcMain.handle("workspace:choose", async (): Promise<WorkspaceSelection> => {
   return saveSelectedWorkspace(getUserDataRoot(), result.filePaths[0]);
 });
 
+ipcMain.handle("projectRepository:choose", async (): Promise<ProjectRepositorySelection | WorkspaceSelection> => {
+  const result = await dialog.showOpenDialog({
+    title: "Choose Project Repository",
+    properties: ["openDirectory"],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return {
+      ok: false,
+      workspaceRoot: null,
+      reason: "No project repository selected.",
+    };
+  }
+
+  return {
+    ok: true,
+    repositoryPath: path.resolve(result.filePaths[0]),
+  };
+});
+
 ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
   return clearSelectedWorkspace(getUserDataRoot());
 });
@@ -109,6 +138,17 @@ ipcMain.handle("documents:applyInitialization", () => {
 
 ipcMain.handle("documents:resolveCurrent", () => {
   return resolveFirstNonApprovedDocument(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle(
+  "projectIntake:submit",
+  (_event, submission: ProjectIntakeSubmission): ProjectIntakeSubmissionResult => {
+    return submitProjectIntake(submission);
+  },
+);
+
+ipcMain.handle("architectBrowser:foundationStatus", (): ArchitectBrowserFoundationStatus => {
+  return getArchitectBrowserFoundationStatus(getRequiredWorkspaceRoot());
 });
 
 app.whenReady().then(() => {

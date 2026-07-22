@@ -4,6 +4,10 @@ import type { AppInfo, ChampCityApi, WorkspaceSelection } from "../shared/worksp
 const api: ChampCityApi = {
   getSelectedWorkspace: () => ipcRenderer.invoke("workspace:get") as Promise<WorkspaceSelection>,
   chooseWorkspaceFolder: () => ipcRenderer.invoke("workspace:choose") as Promise<WorkspaceSelection>,
+  chooseProjectRepositoryFolder: () =>
+    ipcRenderer.invoke(
+      "projectRepository:choose",
+    ) as ReturnType<ChampCityApi["chooseProjectRepositoryFolder"]>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
   getAppInfo: () => ipcRenderer.invoke("app:info") as Promise<AppInfo>,
   listDocuments: () => ipcRenderer.invoke("documents:list") as ReturnType<ChampCityApi["listDocuments"]>,
@@ -27,6 +31,15 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "documents:resolveCurrent",
     ) as ReturnType<ChampCityApi["resolveCurrentDocument"]>,
+  submitProjectIntake: (submission) =>
+    ipcRenderer.invoke(
+      "projectIntake:submit",
+      submission,
+    ) as ReturnType<ChampCityApi["submitProjectIntake"]>,
+  getArchitectBrowserFoundationStatus: () =>
+    ipcRenderer.invoke(
+      "architectBrowser:foundationStatus",
+    ) as ReturnType<ChampCityApi["getArchitectBrowserFoundationStatus"]>,
 };
 
 contextBridge.exposeInMainWorld("champcity", api);
