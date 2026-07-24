@@ -48,6 +48,34 @@ function markdown(title, status, revision = 1) {
   return `# ${title}\nArtifact.Revision=${revision}\n\n## Document Disposition\n\nDocument.Status=${status}\n`;
 }
 
+function writeApprovedProjectIntakeContinuation(root) {
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo.md",
+    markdown("Prompt", "Approved", 1),
+  );
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo.json",
+    json("Approved", {
+      artifactRevision: 1,
+      participationRole: "nonReviewHandoff",
+      architectOutputTargets: {
+        markdown: "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.md",
+        json: "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.json",
+      },
+    }),
+  );
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.json",
+    json("Approved", {
+      artifactRevision: 1,
+      participationRole: "gatingReview",
+    }),
+  );
+}
+
 function snapshot(root) {
   const files = [];
   function visit(directory) {
@@ -169,6 +197,7 @@ test("non-review handoff regenerates source revision and remains Approved", () =
 test("validation record becomes stale after Formal Work Card revision", () => {
   const root = createWorkspace();
   writeFile(root, "planning/project/Project_Intake/PROJECT_INTAKE.json", json("Approved", { artifactRevision: 1 }));
+  writeApprovedProjectIntakeContinuation(root);
   writeFile(root, "planning/phases/phase-01/Work_Cards/WC01_demo.json", json("Approved", { artifactRevision: 1 }));
   writeFile(
     root,

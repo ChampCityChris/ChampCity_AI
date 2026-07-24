@@ -64,6 +64,50 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
     };
   }
 
+  if (current.status === "project-intake-incomplete") {
+    return {
+      activeWorkspaceId: current.activeWorkspaceId,
+      level: "project",
+      stage: "intake",
+      currentTarget: "Project Intake artifact generation",
+      sourceEvidence: current.sourceEvidence,
+      requiredAction: current.reason,
+      expectedOutput: current.expectedOutput,
+      eligibility: "Local Project Intake repair is required before Architect Interview handoff.",
+      blocker: "Required generated prompt evidence is missing or incomplete.",
+      expectedNextState: "Regenerate Project Intake so the Approved Architect Interview Prompt pair exists.",
+    };
+  }
+
+  if (current.status === "project-intake-conflict") {
+    return {
+      activeWorkspaceId: current.activeWorkspaceId,
+      level: "project",
+      stage: "intake",
+      currentTarget: "Project Intake conflict",
+      sourceEvidence: current.sourceEvidence,
+      requiredAction: current.reason,
+      expectedOutput: "One canonical Project Intake Markdown/JSON pair remains in planning/project/Project_Intake/.",
+      eligibility: "Resolve multiple canonical Project Intake documents before continuing.",
+      blocker: current.sourceEvidence.join("; "),
+      expectedNextState: "After the duplicate conflict is resolved, refresh to resume Project Intake review.",
+    };
+  }
+
+  if (current.status === "waiting-for-architect-interview") {
+    return {
+      activeWorkspaceId: current.activeWorkspaceId,
+      level: "project",
+      stage: "intake",
+      currentTarget: "Architect Interview",
+      sourceEvidence: current.sourceEvidence,
+      requiredAction: current.reason,
+      expectedOutput: `Project Architect Interview Markdown: ${current.expectedOutputPaths.markdown}; JSON: ${current.expectedOutputPaths.json}`,
+      eligibility: "Architect Interview prompt is ready for Architect-authored output.",
+      expectedNextState: "A Pending Project Architect Interview pair becomes the current review document.",
+    };
+  }
+
   if (current.status === "all-approved") {
     return {
       activeWorkspaceId: "project-close",

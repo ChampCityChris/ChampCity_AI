@@ -53,11 +53,19 @@ function submission(root) {
 function readyPlanningRepository() {
   const root = createRepository();
   submitProjectIntake(submission(root));
+  approveProjectIntake(root);
   saveArchitectInterviewDraft(root, "Approved interview for phase map.");
   setArchitectInterviewDisposition(root, "Approved");
   seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
   setProjectPlanningBundleDisposition(root, "Approved");
   return root;
+}
+
+function approveProjectIntake(root) {
+  const intake = listPlanningDocuments(root).find((document) =>
+    document.jsonPath?.includes("planning/project/Project_Intake/"),
+  );
+  setDocumentDisposition(root, intake.logicalDocumentId, "Approved");
 }
 
 function phases() {

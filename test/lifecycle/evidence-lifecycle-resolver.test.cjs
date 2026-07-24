@@ -45,6 +45,50 @@ function writeApprovedProjectIntake(root) {
   );
 }
 
+function writeApprovedArchitectPrompt(root) {
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo.md",
+    markdown("Prompt", "Approved", "participationRole=nonReviewHandoff\n"),
+  );
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo.json",
+    json("Approved", {
+      artifactType: "project-architect-interview-prompt",
+      artifactRevision: 1,
+      participationRole: "nonReviewHandoff",
+      architectOutputTargets: {
+        markdown: "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.md",
+        json: "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.json",
+      },
+    }),
+  );
+}
+
+function writeApprovedArchitectInterview(root) {
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.md",
+    markdown("Interview", "Approved", "participationRole=gatingReview\n"),
+  );
+  writeFile(
+    root,
+    "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo.json",
+    json("Approved", {
+      artifactType: "project-architect-interview",
+      artifactRevision: 1,
+      participationRole: "gatingReview",
+    }),
+  );
+}
+
+function writeCompleteProjectIntakeSequence(root) {
+  writeApprovedProjectIntake(root);
+  writeApprovedArchitectPrompt(root);
+  writeApprovedArchitectInterview(root);
+}
+
 test("non-review handoffs are visible evidence but cannot trap lifecycle resolution", () => {
   const root = createWorkspace();
   writeFile(root, "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo.md", markdown("Prompt"));
@@ -52,13 +96,13 @@ test("non-review handoffs are visible evidence but cannot trap lifecycle resolut
 
   const result = resolveFirstNonApprovedDocument(root);
 
-  assert.equal(result.status, "all-approved");
-  assert.match(result.reason, /non-review handoffs/);
+  assert.equal(result.status, "project-intake-incomplete");
+  assert.match(result.reason, /Prompt/);
 });
 
 test("Approved DoNotClose phase closeout remains current at Phase Validation", () => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(
     root,
     "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT_demo.md",
@@ -75,7 +119,7 @@ test("Approved DoNotClose phase closeout remains current at Phase Validation", (
 
 test("Approved Close phase closeout completes and does not remain current", () => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(
     root,
     "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT_demo.md",
@@ -87,7 +131,7 @@ test("Approved Close phase closeout completes and does not remain current", () =
 
 test("Project Close is terminal when Approved with Close decision", () => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(
     root,
     "planning/project/Project_Closeouts/PROJECT_CLOSEOUT_demo.json",
@@ -99,7 +143,7 @@ test("Project Close is terminal when Approved with Close decision", () => {
 
 test("selected phase and Work Card identities are derived from evidence paths", () => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(root, "planning/phases/phase-12/Work_Cards/WC03_example.md", markdown("Work Card"));
 
   const resolved = current(root);
@@ -111,7 +155,7 @@ test("selected phase and Work Card identities are derived from evidence paths", 
 
 test("resolver explanations include lifecycle location and evidence paths", () => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(root, "planning/phases/phase-02/Work_Cards/WC01_example.md", markdown("Work Card"));
 
   const resolved = current(root);
@@ -122,7 +166,7 @@ test("resolver explanations include lifecycle location and evidence paths", () =
 
 test("historical archive evidence is excluded from current lifecycle projection", () => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(root, "planning/archive/phases/phase-01/Work_Cards/WC01_archived.md", markdown("Archived"));
 
   assert.equal(resolveFirstNonApprovedDocument(root).status, "all-approved");
@@ -130,7 +174,7 @@ test("historical archive evidence is excluded from current lifecycle projection"
 
 test("malformed current evidence remains local and explainable", (t) => {
   const root = createWorkspace();
-  writeApprovedProjectIntake(root);
+  writeCompleteProjectIntakeSequence(root);
   writeFile(root, "planning/phases/phase-01/Work_Cards/WC01_broken.md", markdown("Broken"));
   __setPlanningDocumentServiceTestHooks({
     failRead: (relativePath) =>

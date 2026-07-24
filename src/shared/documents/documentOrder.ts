@@ -12,6 +12,7 @@ import {
 import { type WorkspaceDocument, assignDocumentsToWorkspaces } from "../workspaces/documentWorkspace";
 import { type WorkspaceId, type WorkspaceLabel, workspaceDefinitions } from "../workspaceContracts";
 import type { LifecycleLocation } from "../lifecycle/nestedLifecycle";
+import { analyzeProjectIntakeCorpus } from "../projectIntake/projectIntakeCorpus";
 
 export interface ResolvedCurrentDocument {
   logicalDocumentId: string;
@@ -41,6 +42,36 @@ export type FirstNonApprovedResult =
       message: "Project Intake has not been captured";
       totalDocumentCount: number;
       reason: string;
+    }
+  | {
+      status: "project-intake-conflict";
+      activeWorkspaceId: "project-intake-capture";
+      message: "Multiple canonical Project Intake documents require resolution";
+      totalDocumentCount: number;
+      reason: string;
+      sourceEvidence: string[];
+    }
+  | {
+      status: "project-intake-incomplete";
+      activeWorkspaceId: "project-intake-capture";
+      message: "Project Intake artifact generation is incomplete";
+      totalDocumentCount: number;
+      reason: string;
+      sourceEvidence: string[];
+      expectedOutput: string;
+    }
+  | {
+      status: "waiting-for-architect-interview";
+      activeWorkspaceId: "architect-interview";
+      message: "Waiting for Project Architect Interview output";
+      totalDocumentCount: number;
+      reason: string;
+      sourceEvidence: string[];
+      promptLogicalDocumentId: string;
+      expectedOutputPaths: {
+        markdown: string;
+        json: string;
+      };
     }
   | {
       status: "current";
@@ -106,7 +137,18 @@ export function resolveFirstNonApproved(
   documents: PlanningDocumentSummary[],
 ): FirstNonApprovedResult {
   const ordered = orderPlanningDocuments(documents);
-  if (!hasCanonicalProjectIntake(ordered)) {
+  const projectIntakeCorpus = analyzeProjectIntakeCorpus(ordered);
+  if (projectIntakeCorpus.state === "conflict") {
+    return {
+      status: "project-intake-conflict",
+      activeWorkspaceId: "project-intake-capture",
+      message: "Multiple canonical Project Intake documents require resolution",
+      totalDocumentCount: ordered.length,
+      sourceEvidence: projectIntakeCorpus.evidencePaths,
+      reason: `Resolve multiple canonical Project Intake documents before continuing: ${projectIntakeCorpus.evidencePaths.join("; ")}.`,
+    };
+  }
+  if (projectIntakeCorpus.state === "open") {
     return {
       status: "pre-intake",
       activeWorkspaceId: "project-intake-capture",
@@ -114,6 +156,11 @@ export function resolveFirstNonApproved(
       totalDocumentCount: ordered.length,
       reason: "The active repository does not contain canonical Project Intake evidence. Capture Project Intake to begin the lifecycle.",
     };
+  }
+
+  const projectIntakeContinuation = resolveProjectIntakeContinuation(ordered);
+  if (projectIntakeContinuation) {
+    return projectIntakeContinuation;
   }
 
   const currentIndex = ordered.findIndex((document) =>
@@ -156,14 +203,78 @@ export function resolveFirstNonApproved(
   };
 }
 
-function hasCanonicalProjectIntake(documents: PlanningDocumentSummary[]): boolean {
-  return documents.some((document) => {
+function resolveProjectIntakeContinuation(
+  documents: WorkspaceDocument[],
+): Extract<
+  FirstNonApprovedResult,
+  { status: "project-intake-incomplete" | "waiting-for-architect-interview" }
+> | null {
+  const intake = documents.find((document) => {
     const classification = classifyLifecycleArtifact(document);
     return (
       classification.artifactType === "project-intake" &&
-      classification.participationRole !== "historical"
+      classification.participationRole !== "historical" &&
+      document.effectiveDisposition === "Approved"
     );
   });
+  if (!intake) {
+    return null;
+  }
+
+  const prompt = documents.find((document) => {
+    const classification = classifyLifecycleArtifact(document);
+    return (
+      classification.artifactType === "generated-handoff" &&
+      classification.workspaceId === "architect-interview" &&
+      classification.participationRole === "nonReviewHandoff" &&
+      getNormalizedPath(document).toLowerCase().includes(
+        "planning/project/project_architect_interview_prompts/",
+      )
+    );
+  });
+  const intakeEvidence = [intake.markdownPath, intake.jsonPath].filter(
+    (value): value is string => Boolean(value),
+  );
+
+  if (
+    !prompt ||
+    prompt.pairStatus !== "paired" ||
+    prompt.synchronizationState !== "synchronized" ||
+    prompt.effectiveDisposition !== "Approved" ||
+    !prompt.metadata.architectOutputTargets
+  ) {
+    return {
+      status: "project-intake-incomplete",
+      activeWorkspaceId: "project-intake-capture",
+      message: "Project Intake artifact generation is incomplete",
+      totalDocumentCount: documents.length,
+      sourceEvidence: intakeEvidence,
+      expectedOutput: "Approved Project Architect Interview Prompt Markdown/JSON pair with exact Architect Interview output targets.",
+      reason: "Approved Project Intake exists, but the required Approved Project Architect Interview Prompt pair or its output-target contract is missing.",
+    };
+  }
+
+  const targets = prompt.metadata.architectOutputTargets;
+  const interview = documents.find((document) =>
+    document.markdownPath === targets.markdown || document.jsonPath === targets.json,
+  );
+  if (interview) {
+    return null;
+  }
+
+  return {
+    status: "waiting-for-architect-interview",
+    activeWorkspaceId: "architect-interview",
+    message: "Waiting for Project Architect Interview output",
+    totalDocumentCount: documents.length,
+    promptLogicalDocumentId: prompt.logicalDocumentId,
+    sourceEvidence: [
+      ...intakeEvidence,
+      ...[prompt.markdownPath, prompt.jsonPath].filter((value): value is string => Boolean(value)),
+    ],
+    expectedOutputPaths: targets,
+    reason: "Approved Project Intake and Approved Project Architect Interview Prompt exist; waiting for the Architect-authored Project Architect Interview pair at the canonical targets.",
+  };
 }
 
 function isCurrentLifecycleDocument(

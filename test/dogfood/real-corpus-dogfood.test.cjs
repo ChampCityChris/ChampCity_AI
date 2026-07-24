@@ -86,6 +86,53 @@ function createTempWorkspace() {
   return root;
 }
 
+function writeApprovedProjectIntakeContinuation(root) {
+  fs.mkdirSync(path.join(root, "planning/project/Project_Architect_Interview_Prompts"), { recursive: true });
+  fs.mkdirSync(path.join(root, "planning/project/Project_Architect_Interviews"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_copy.md"),
+    "# Prompt\n\nparticipationRole=nonReviewHandoff\n\n## Document Disposition\nDocument.Status=Approved\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_copy.json"),
+    `${JSON.stringify(
+      {
+        artifactType: "project-architect-interview-prompt",
+        artifactRevision: 1,
+        participationRole: "nonReviewHandoff",
+        architectOutputTargets: {
+          markdown: "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_copy.md",
+          json: "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_copy.json",
+        },
+        documentDisposition: { status: "Approved" },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_copy.md"),
+    "# Interview\n\nparticipationRole=gatingReview\n\n## Document Disposition\nDocument.Status=Approved\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_copy.json"),
+    `${JSON.stringify(
+      {
+        artifactType: "project-architect-interview",
+        artifactRevision: 1,
+        participationRole: "gatingReview",
+        documentDisposition: { status: "Approved" },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
 function current(root) {
   const result = resolveFirstNonApprovedDocument(root);
   assert.equal(result.status, "current");
@@ -144,6 +191,8 @@ test("temporary dogfood transitions preserve resolver behavior", () => {
   assert.equal(intake.effectiveDisposition, "Pending");
 
   setDocumentDisposition(root, intake.logicalDocumentId, "Approved");
+  assert.equal(resolveFirstNonApprovedDocument(root).status, "project-intake-incomplete");
+  writeApprovedProjectIntakeContinuation(root);
   assert.equal(current(root).displayTitle, "PROJECT_ROADMAP_copy");
 
   const roadmap = current(root);

@@ -24,6 +24,12 @@ import {
   getWorkspaceDocumentCounts,
   getWorkspaceGroups,
 } from "../../shared/workspaces/documentWorkspace";
+import {
+  applySuccessfulProjectIntakeSubmission,
+  clearProjectIntakePostSubmitReviewState,
+  type ProjectIntakePostSubmitConfirmation,
+} from "../../shared/projectIntake/postSubmitReviewState";
+import { deriveProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
 import { NestedWorkflowRail } from "./NestedWorkflowRail";
 
 const neutralMessage = "Document workflow not yet implemented";
@@ -129,6 +135,8 @@ export function App(): JSX.Element {
   const [feedback, setFeedback] = useState<string>("");
   const [documentError, setDocumentError] = useState<string>("");
   const [resolverResult, setResolverResult] = useState<FirstNonApprovedResult | null>(null);
+  const [projectIntakeConfirmation, setProjectIntakeConfirmation] =
+    useState<ProjectIntakePostSubmitConfirmation | null>(null);
   const [isChoosing, setIsChoosing] = useState(false);
   const [isChoosingProjectRepository, setIsChoosingProjectRepository] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
@@ -147,6 +155,7 @@ export function App(): JSX.Element {
   });
   const architectHostRef = useRef<HTMLDivElement | null>(null);
   const workspaceSurfaceRef = useRef<HTMLElement | null>(null);
+  const documentReviewSurfaceRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     void window.champcity.getSelectedWorkspace().then((selection) => {
@@ -219,6 +228,10 @@ export function App(): JSX.Element {
     [activeWorkspaceId, documents],
   );
   const workspaceCounts = useMemo(() => getWorkspaceDocumentCounts(documents), [documents]);
+  const projectIntakeRailStatus = useMemo(
+    () => deriveProjectIntakeRailStatus(documents),
+    [documents],
+  );
   const currentResolvedWorkspace =
     resolverResult?.status === "current" &&
     resolverResult.document.owningWorkspaceId === activeWorkspaceId
@@ -277,14 +290,28 @@ export function App(): JSX.Element {
     setFeedback("");
     try {
       const result = await window.champcity.submitProjectIntake(projectIntake);
-      setFeedback(
-        `Project Intake saved: ${result.projectIntakeMarkdownPath}; prompt saved: ${result.architectPromptMarkdownPath}.`,
-      );
       setProjectIntake((current) => ({ ...current, projectRepository: result.projectRoot }));
       const nextDocuments = await window.champcity.listDocuments();
       setDocuments(nextDocuments);
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
+      const nextPostSubmitState = applySuccessfulProjectIntakeSubmission(
+        {
+          confirmation: projectIntakeConfirmation,
+          viewedWorkspaceId: activeWorkspaceId,
+          selectedDocumentId,
+          resolverResult,
+        },
+        result,
+        nextDocuments,
+        nextResolverResult,
+      );
+      setProjectIntakeConfirmation(nextPostSubmitState.confirmation);
+      setResolverResult(nextPostSubmitState.resolverResult);
+      setActiveWorkspaceId(nextPostSubmitState.viewedWorkspaceId);
+      setSelectedDocumentId(nextPostSubmitState.selectedDocumentId);
+      setFeedback(getResolverFeedback(nextResolverResult));
+      await refreshCurrentModel();
+      focusProjectIntakeReviewSurface();
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Project Intake could not be saved.");
     } finally {
@@ -364,6 +391,12 @@ export function App(): JSX.Element {
   }
 
   function clearRepositoryDerivedState(): void {
+    const clearedPostSubmitState = clearProjectIntakePostSubmitReviewState({
+      confirmation: projectIntakeConfirmation,
+      viewedWorkspaceId: activeWorkspaceId,
+      selectedDocumentId,
+      resolverResult,
+    });
     setDocuments([]);
     setSelectedDocumentId(null);
     setSelectedDocument(null);
@@ -371,8 +404,19 @@ export function App(): JSX.Element {
     setFeedback("");
     setDocumentError("");
     setResolverResult(null);
+    setProjectIntakeConfirmation(clearedPostSubmitState.confirmation);
     setCurrentModel(null);
     setArchitectStatus(null);
+  }
+
+  function focusProjectIntakeReviewSurface(): void {
+    window.requestAnimationFrame(() => {
+      documentReviewSurfaceRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+      documentReviewSurfaceRef.current?.focus({ preventScroll: true });
+    });
   }
 
   function selectResolverResult(result: FirstNonApprovedResult): void {
@@ -382,6 +426,29 @@ export function App(): JSX.Element {
       setActiveWorkspaceId(result.activeWorkspaceId);
       setSelectedDocumentId(null);
       setSelectedDocument(null);
+      void refreshCurrentModel();
+      return;
+    }
+
+    if (result.status === "project-intake-incomplete") {
+      setActiveWorkspaceId(result.activeWorkspaceId);
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      void refreshCurrentModel();
+      return;
+    }
+
+    if (result.status === "project-intake-conflict") {
+      setActiveWorkspaceId(result.activeWorkspaceId);
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      void refreshCurrentModel();
+      return;
+    }
+
+    if (result.status === "waiting-for-architect-interview") {
+      setActiveWorkspaceId(result.activeWorkspaceId);
+      setSelectedDocumentId(result.promptLogicalDocumentId);
       void refreshCurrentModel();
       return;
     }
@@ -431,6 +498,7 @@ export function App(): JSX.Element {
       setDocuments(nextDocuments);
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
+      await refreshCurrentModel();
       if (selectedStatus === "Approved" && nextResolverResult.status === "current") {
         setActiveWorkspaceId(nextResolverResult.document.owningWorkspaceId);
         setSelectedDocumentId(nextResolverResult.document.logicalDocumentId);
@@ -441,7 +509,7 @@ export function App(): JSX.Element {
         setFeedback(nextResolverResult.message);
       } else {
         await loadDocument(selectedDocumentId);
-        setFeedback(`Disposition applied: ${selectedStatus}.`);
+        setFeedback(getResolverFeedback(nextResolverResult));
       }
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Disposition could not be applied.");
@@ -455,6 +523,7 @@ export function App(): JSX.Element {
       <NestedWorkflowRail
         activeWorkspaceId={activeWorkspaceId}
         onWorkspaceChange={setActiveWorkspaceId}
+        projectIntakeStatus={projectIntakeRailStatus}
         workspaceCounts={workspaceCounts}
       />
 
@@ -551,6 +620,7 @@ export function App(): JSX.Element {
               onChange={setProjectIntake}
               onChooseProjectRepository={chooseProjectRepository}
               onSubmit={submitProjectIntake}
+              postSubmitConfirmation={projectIntakeConfirmation}
               value={projectIntake}
             />
           ) : null}
@@ -575,6 +645,8 @@ export function App(): JSX.Element {
           <section
             className={architectWorkspaceIds.has(activeWorkspaceId) ? "document-workspace with-architect" : "document-workspace"}
             aria-label={activeWorkspace.label}
+            ref={documentReviewSurfaceRef}
+            tabIndex={-1}
           >
             <div className="document-list" aria-label={`${activeWorkspace.label} documents`}>
               {workspaceGroups.length === 0 ? (
@@ -875,6 +947,7 @@ function ProjectIntakeCapture({
   onChange,
   onChooseProjectRepository,
   onSubmit,
+  postSubmitConfirmation,
   value,
 }: {
   isChoosingProjectRepository: boolean;
@@ -882,6 +955,7 @@ function ProjectIntakeCapture({
   onChange: (value: ProjectIntakeSubmission) => void;
   onChooseProjectRepository: () => void;
   onSubmit: () => void;
+  postSubmitConfirmation: ProjectIntakePostSubmitConfirmation | null;
   value: ProjectIntakeSubmission;
 }): JSX.Element {
   const update = <Key extends keyof ProjectIntakeSubmission>(
@@ -980,6 +1054,29 @@ function ProjectIntakeCapture({
       >
         {isSubmittingIntake ? "Saving..." : "Submit Project Intake"}
       </button>
+      {postSubmitConfirmation ? (
+        <section className="intake-confirmation" aria-label="Project Intake submission confirmation">
+          <strong>All four Project Intake files were created successfully in the active repository.</strong>
+          <dl>
+            <div>
+              <dt>Project Intake Markdown</dt>
+              <dd>{postSubmitConfirmation.projectIntakeMarkdownPath}</dd>
+            </div>
+            <div>
+              <dt>Project Intake JSON</dt>
+              <dd>{postSubmitConfirmation.projectIntakeJsonPath}</dd>
+            </div>
+            <div>
+              <dt>Architect Interview Prompt Markdown</dt>
+              <dd>{postSubmitConfirmation.architectPromptMarkdownPath}</dd>
+            </div>
+            <div>
+              <dt>Architect Interview Prompt JSON</dt>
+              <dd>{postSubmitConfirmation.architectPromptJsonPath}</dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -987,6 +1084,18 @@ function ProjectIntakeCapture({
 function getResolverFeedback(result: FirstNonApprovedResult): string {
   if (result.status === "pre-intake") {
     return result.reason;
+  }
+
+  if (result.status === "project-intake-incomplete") {
+    return result.reason;
+  }
+
+  if (result.status === "project-intake-conflict") {
+    return result.reason;
+  }
+
+  if (result.status === "waiting-for-architect-interview") {
+    return `${result.message}: ${result.expectedOutputPaths.markdown}; ${result.expectedOutputPaths.json}`;
   }
 
   if (result.status === "all-approved") {
@@ -1017,11 +1126,14 @@ function CurrentWorkspaceBanner({
   resolverResult: FirstNonApprovedResult | null;
 }): JSX.Element {
   const current = resolverResult?.status === "current" ? resolverResult.document : null;
+  const requiredWorkspaceLabel = model
+    ? workspaceDefinitions.find((definition) => definition.id === model.activeWorkspaceId)?.label
+    : null;
   return (
     <section className="current-workspace-banner" aria-label="Current required workspace">
       <div>
         <span>Current Required Workspace</span>
-        <strong>{model?.activeWorkspaceId === undefined ? activeWorkspaceLabel : current?.owningWorkspace ?? activeWorkspaceLabel}</strong>
+        <strong>{requiredWorkspaceLabel ?? current?.owningWorkspace ?? activeWorkspaceLabel}</strong>
       </div>
       <div>
         <span>Current Target</span>
@@ -1084,6 +1196,51 @@ function CurrentDocumentSummary({
       <section className="current-document-summary">
         <span>Current workspace</span>
         <strong>All planning documents approved</strong>
+      </section>
+    );
+  }
+
+  if (resolverResult?.status === "project-intake-incomplete") {
+    return (
+      <section className="current-document-summary">
+        <span>Current workspace</span>
+        <strong>Project Intake Capture</strong>
+        <span>Current document</span>
+        <strong>Generated prompt missing or incomplete</strong>
+        <span>Effective disposition</span>
+        <strong>Local error</strong>
+        <span>Position</span>
+        <strong>{resolverResult.totalDocumentCount} planning document(s)</strong>
+      </section>
+    );
+  }
+
+  if (resolverResult?.status === "project-intake-conflict") {
+    return (
+      <section className="current-document-summary">
+        <span>Current workspace</span>
+        <strong>Project Intake Capture</strong>
+        <span>Current document</span>
+        <strong>Multiple canonical Project Intake documents</strong>
+        <span>Effective disposition</span>
+        <strong>Conflict</strong>
+        <span>Position</span>
+        <strong>{resolverResult.totalDocumentCount} planning document(s)</strong>
+      </section>
+    );
+  }
+
+  if (resolverResult?.status === "waiting-for-architect-interview") {
+    return (
+      <section className="current-document-summary">
+        <span>Current workspace</span>
+        <strong>Architect Interview</strong>
+        <span>Current document</span>
+        <strong>Project Architect Interview Prompt</strong>
+        <span>Effective disposition</span>
+        <strong>Approved handoff</strong>
+        <span>Position</span>
+        <strong>Waiting for Architect output</strong>
       </section>
     );
   }

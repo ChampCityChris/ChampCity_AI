@@ -6,7 +6,7 @@ const test = require("node:test");
 
 const { saveArchitectInterviewDraft, setArchitectInterviewDisposition } = require("../../dist/main/architectInterview/architectInterviewService.js");
 const { architectBrowserSecuritySummary } = require("../../dist/main/browser/architectBrowserService.js");
-const { listPlanningDocuments, savePlanningDocumentRevision } = require("../../dist/main/documents/planningDocumentService.js");
+const { listPlanningDocuments, savePlanningDocumentRevision, setDocumentDisposition } = require("../../dist/main/documents/planningDocumentService.js");
 const { submitProjectIntake } = require("../../dist/main/projectIntake/projectIntakeService.js");
 const { generateProjectPlanningHandoff, setProjectPlanningBundleDisposition } = require("../../dist/main/projectPlanning/projectPlanningService.js");
 const { generatePhaseInterviewHandoff, setPhaseInterviewDisposition } = require("../../dist/main/phaseInterview/phaseInterviewService.js");
@@ -42,6 +42,7 @@ function readyIntakeHandoff() {
     knownConstraints: "",
     repositoryReviewContext: "",
   });
+  approveProjectIntake(root);
   saveArchitectInterviewDraft(root, "Approved interview.");
   setArchitectInterviewDisposition(root, "Approved");
   seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
@@ -72,6 +73,13 @@ function readyIntakeHandoff() {
   setPhasePlanningBundleDisposition(root, "phase-01", "Approved");
   generateWorkCardIntakeHandoff(root, "phase-01");
   return root;
+}
+
+function approveProjectIntake(root) {
+  const intake = listPlanningDocuments(root).find((document) =>
+    document.jsonPath?.includes("planning/project/Project_Intake/"),
+  );
+  setDocumentDisposition(root, intake.logicalDocumentId, "Approved");
 }
 
 function readJson(root, relativePath) {

@@ -14,6 +14,7 @@ const {
 const {
   listPlanningDocuments,
   savePlanningDocumentRevision,
+  setDocumentDisposition,
 } = require("../../dist/main/documents/planningDocumentService.js");
 const {
   submitProjectIntake,
@@ -91,6 +92,7 @@ function candidate(overrides = {}) {
 function readyPhaseInterviewRepository(approveInterview = true) {
   const root = createRepository();
   submitProjectIntake(submission(root));
+  approveProjectIntake(root);
   saveArchitectInterviewDraft(root, "Approved interview for phase planning.");
   setArchitectInterviewDisposition(root, "Approved");
   seedProjectPlanningOutputs(root, generateProjectPlanningHandoff(root));
@@ -102,6 +104,13 @@ function readyPhaseInterviewRepository(approveInterview = true) {
     setPhaseInterviewDisposition(root, "phase-01", "Approved");
   }
   return root;
+}
+
+function approveProjectIntake(root) {
+  const intake = listPlanningDocuments(root).find((document) =>
+    document.jsonPath?.includes("planning/project/Project_Intake/"),
+  );
+  setDocumentDisposition(root, intake.logicalDocumentId, "Approved");
 }
 
 function readJson(root, relativePath) {

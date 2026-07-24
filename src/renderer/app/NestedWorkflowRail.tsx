@@ -1,10 +1,12 @@
 import { ArrowRight, CornerDownRight, CornerUpLeft, RotateCcw, Wrench } from "lucide-react";
 
 import type { WorkspaceId } from "../../shared/workspaceContracts";
+import type { ProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
 
 interface NestedWorkflowRailProps {
   activeWorkspaceId: WorkspaceId;
   onWorkspaceChange: (workspaceId: WorkspaceId) => void;
+  projectIntakeStatus?: ProjectIntakeRailStatus;
   workspaceCounts?: Partial<Record<WorkspaceId, number>>;
 }
 
@@ -214,6 +216,7 @@ const phaseLoopItems: readonly LoopRailItem[] = [
 export function NestedWorkflowRail({
   activeWorkspaceId,
   onWorkspaceChange,
+  projectIntakeStatus = "Open",
 }: NestedWorkflowRailProps): JSX.Element {
   return (
     <section
@@ -246,6 +249,7 @@ export function NestedWorkflowRail({
                   label={item.label}
                   onClick={() => onWorkspaceChange(item.destination)}
                   state={state}
+                  statusLabel={item.id === "project-intake" ? projectIntakeStatus : undefined}
                   tone={item.tone}
                 />
                 {index < projectRailItems.length - 1 ? (
@@ -298,15 +302,17 @@ function WorkflowStepButton({
   label,
   onClick,
   state,
+  statusLabel,
   tone,
 }: {
   index: number;
   label: string;
   onClick: () => void;
   state: SelectionState;
+  statusLabel?: string;
   tone: WorkflowTone;
 }): JSX.Element {
-  const stateLabel = state === "exact" ? "CURRENT" : state === "parent" ? "CONTEXT" : "OPEN";
+  const stateLabel = statusLabel ?? (state === "parent" ? "CONTEXT" : "OPEN");
 
   return (
     <button

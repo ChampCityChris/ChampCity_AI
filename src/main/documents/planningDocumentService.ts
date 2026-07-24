@@ -525,6 +525,7 @@ function metadataFromJson(content?: string): PlanningDocumentMetadata {
       participationRole: stringValue(parsed.participationRole),
       artifactRevision: numberValue(parsed.artifactRevision),
       sourceRevisions: sourceRevisionsValue(parsed.sourceRevisions),
+      architectOutputTargets: architectOutputTargetsValue(parsed.architectOutputTargets),
       closureDecision: normalizeToken(stringValue(parsed.closureDecision)),
       phaseId: stringValue(parsed.phaseId),
       workCardId: stringValue(parsed.workCardId),
@@ -858,6 +859,20 @@ function sourceRevisionsValue(value: unknown): SourceRevision[] {
       ? [{ path: pathValue, revision: revisionValue }]
       : [];
   });
+}
+
+function architectOutputTargetsValue(
+  value: unknown,
+): PlanningDocumentMetadata["architectOutputTargets"] {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const markdown = (value as { markdown?: unknown }).markdown;
+  const json = (value as { json?: unknown }).json;
+  return typeof markdown === "string" && typeof json === "string"
+    ? { markdown, json }
+    : undefined;
 }
 
 function normalizeToken(value: string | undefined): string | undefined {

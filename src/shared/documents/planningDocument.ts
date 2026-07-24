@@ -30,6 +30,10 @@ export interface PlanningDocumentMetadata {
   participationRole?: string;
   artifactRevision?: number;
   sourceRevisions?: SourceRevision[];
+  architectOutputTargets?: {
+    markdown: string;
+    json: string;
+  };
   closureDecision?: string;
   phaseId?: string;
   workCardId?: string;

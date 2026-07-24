@@ -12,6 +12,10 @@ const {
   architectBrowserSecuritySummary,
 } = require("../../dist/main/browser/architectBrowserService.js");
 const {
+  listPlanningDocuments,
+  setDocumentDisposition,
+} = require("../../dist/main/documents/planningDocumentService.js");
+const {
   submitProjectIntake,
 } = require("../../dist/main/projectIntake/projectIntakeService.js");
 const {
@@ -40,9 +44,17 @@ function submission(root) {
 function readyRepository() {
   const root = createRepository();
   submitProjectIntake(submission(root));
+  approveProjectIntake(root);
   saveArchitectInterviewDraft(root, "Approved interview for planning.");
   setArchitectInterviewDisposition(root, "Approved");
   return root;
+}
+
+function approveProjectIntake(root) {
+  const intake = listPlanningDocuments(root).find((document) =>
+    document.jsonPath?.includes("planning/project/Project_Intake/"),
+  );
+  setDocumentDisposition(root, intake.logicalDocumentId, "Approved");
 }
 
 function readJson(root, relativePath) {

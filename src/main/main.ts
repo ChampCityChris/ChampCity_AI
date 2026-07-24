@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import path from "node:path";
 import {
   clearSelectedWorkspace,
@@ -31,6 +31,7 @@ import {
   getCurrentCloseProjection,
   getCurrentWorkspaceModel,
 } from "./currentWorkflow/currentWorkflowService";
+import { buildLocalRendererContextMenuTemplate } from "./contextMenu/localRendererContextMenu";
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
 import type {
   AppInfo,
@@ -82,10 +83,31 @@ function createMainWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,
+      spellcheck: true,
     },
   });
 
+  registerLocalRendererContextMenu(mainWindow);
   void mainWindow.loadFile(rendererPath);
+}
+
+function registerLocalRendererContextMenu(window: BrowserWindow): void {
+  window.webContents.on("context-menu", (_event, params) => {
+    const template = buildLocalRendererContextMenuTemplate(params, {
+      replaceMisspelling: (replacement) => {
+        window.webContents.replaceMisspelling(replacement);
+      },
+      addWordToDictionary: (word) => {
+        window.webContents.session.addWordToSpellCheckerDictionary(word);
+      },
+    });
+
+    if (template.length === 0) {
+      return;
+    }
+
+    Menu.buildFromTemplate(template).popup({ window });
+  });
 }
 
 ipcMain.handle("workspace:get", (): WorkspaceSelection => {
