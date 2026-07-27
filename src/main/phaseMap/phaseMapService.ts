@@ -1,14 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
+import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import { isSemanticallyComplete } from "../../shared/documents/lifecycleArtifact";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
-import { writeArtifactTransaction } from "../documents/artifactTransaction";
+import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 
 export interface PhaseMapPhase {
   phaseId: string;
@@ -21,9 +22,7 @@ export interface PhaseMapPhase {
 
 export interface PhaseMapHandoffResult {
   handoffMarkdownPath: string;
-  handoffJsonPath: string;
   phaseMapMarkdownPath: string;
-  phaseMapJsonPath: string;
 }
 
 export type PhaseMapProjection =
@@ -51,44 +50,38 @@ export function generatePhaseMapHandoff(
   workspaceRoot: string,
   phases: PhaseMapPhase[] = [defaultPhase()],
 ): PhaseMapHandoffResult {
-  const profile = requiredApproved(workspaceRoot, "planning/project/PROJECT_PROFILE", ".json");
-  const roadmap = requiredApproved(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".json");
+  const profile = requiredApproved(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md");
+  const roadmap = requiredApproved(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md");
   const projectSlug = slugFromRoadmap(roadmap.displayFilename);
   const handoffMarkdownPath = `planning/project/Architect_Handoffs/PHASE_MAP_ARCHITECT_HANDOFF_${projectSlug}.md`;
-  const handoffJsonPath = `planning/project/Architect_Handoffs/PHASE_MAP_ARCHITECT_HANDOFF_${projectSlug}.json`;
   const phaseMapMarkdownPath = `planning/project/Phase_Map/PHASE_MAP_${projectSlug}.md`;
-  const phaseMapJsonPath = `planning/project/Phase_Map/PHASE_MAP_${projectSlug}.json`;
-  const sourceRevisions = [
-    { path: profile.jsonPath!, revision: profile.metadata.artifactRevision ?? 1 },
-    { path: roadmap.jsonPath!, revision: roadmap.metadata.artifactRevision ?? 1 },
-  ];
   validatePhaseMap({ phases });
-
-  writeFiles(workspaceRoot, [
-    [
-      handoffMarkdownPath,
-      renderHandoffMarkdown(sourceRevisions, phaseMapMarkdownPath, phaseMapJsonPath),
-    ],
-    [
-      handoffJsonPath,
-      json({
-        artifactType: "phase-map-architect-handoff",
-        artifactRevision: 1,
-        participationRole: "nonReviewHandoff",
-        sourceRevisions,
-        outputTargets: {
-          phaseMap: { markdown: phaseMapMarkdownPath, json: phaseMapJsonPath },
-        },
-        documentDisposition: { status: "Approved" },
-      }),
-    ],
-  ]);
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: handoffMarkdownPath,
+    metadata: {
+      schemaVersion: 1,
+      artifactType: "generated-handoff",
+      artifactRevision: 1,
+      participationRole: "nonReviewHandoff",
+      identity: { handoffKind: "phase-map" },
+      sourceRevisions: [
+        { path: profile.markdownPath, revision: profile.metadata.artifactRevision ?? 1 },
+        { path: roadmap.markdownPath, revision: roadmap.metadata.artifactRevision ?? 1 },
+      ],
+      workflowData: {
+        handoffKind: "phase-map",
+        phases,
+        outputTarget: phaseMapMarkdownPath,
+      },
+      documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
+    },
+    bodyMarkdown: `# Phase Map Architect Handoff\n\nOutput Markdown: ${phaseMapMarkdownPath}\n`,
+  });
 
   return {
     handoffMarkdownPath,
-    handoffJsonPath,
     phaseMapMarkdownPath,
-    phaseMapJsonPath,
   };
 }
 
@@ -96,14 +89,14 @@ export function setPhaseMapDisposition(
   workspaceRoot: string,
   status: DocumentDispositionStatus,
 ): void {
-  const phaseMap = requiredAny(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".json");
+  const phaseMap = requiredAny(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".md");
   setDocumentDisposition(workspaceRoot, phaseMap.logicalDocumentId, status);
 }
 
 export function getPhaseMapProjection(workspaceRoot: string): PhaseMapProjection {
   const documents = listPlanningDocuments(workspaceRoot);
   const phaseMap = documents
-    .filter((document) => (document.jsonPath ?? "").startsWith("planning/project/Phase_Map/PHASE_MAP"))
+    .filter((document) => document.markdownPath.startsWith("planning/project/Phase_Map/PHASE_MAP"))
     .at(-1);
   if (!phaseMap) {
     return { state: "missing", reason: "Phase Map is required." };
@@ -139,11 +132,9 @@ export function getPhaseMapProjection(workspaceRoot: string): PhaseMapProjection
 }
 
 function readPhaseMap(workspaceRoot: string, phaseMap: PlanningDocumentSummary): PhaseMapFile {
-  if (!phaseMap.jsonPath) {
-    throw new Error("Phase Map JSON pair is required.");
-  }
-  const absolutePath = path.join(workspaceRoot, phaseMap.jsonPath);
-  return { phases: validatePhaseMap(JSON.parse(fs.readFileSync(absolutePath, "utf8"))) };
+  const absolutePath = path.join(workspaceRoot, phaseMap.markdownPath);
+  const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+  return { phases: validatePhaseMap({ phases: parsed.metadata.workflowData.phases }) };
 }
 
 function validatePhaseMap(value: unknown): PhaseMapPhase[] {
@@ -198,7 +189,7 @@ function completedPhaseIdsFromCloseouts(documents: PlanningDocumentSummary[]): s
     .sort((left, right) => left.localeCompare(right, "en", { sensitivity: "base" }));
 }
 
-function requiredApproved(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = requiredAny(workspaceRoot, prefix, extension);
   if (document.effectiveDisposition !== "Approved") {
     throw new Error(`Current Approved input is required: ${prefix}`);
@@ -206,73 +197,18 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".js
   if (evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "stale") {
     throw new Error(`Current input is stale: ${prefix}`);
   }
-  if (!document.jsonPath) {
-    throw new Error(`JSON input is required: ${prefix}`);
-  }
   return document;
 }
 
-function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredAny(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = listPlanningDocuments(workspaceRoot)
-    .filter((candidate) => (candidate.jsonPath ?? candidate.markdownPath ?? "").startsWith(prefix))
-    .filter((candidate) => (candidate.jsonPath ?? candidate.markdownPath ?? "").endsWith(extension))
+    .filter((candidate) => candidate.markdownPath.startsWith(prefix))
+    .filter((candidate) => candidate.markdownPath.endsWith(extension))
     .at(-1);
   if (!document) {
     throw new Error(`Phase Map document is missing: ${prefix}`);
   }
   return document;
-}
-
-function renderHandoffMarkdown(
-  sourceRevisions: SourceRevision[],
-  phaseMapMarkdownPath: string,
-  phaseMapJsonPath: string,
-): string {
-  return [
-    "# Phase Map Architect Handoff",
-    "Artifact.Revision=1",
-    "participationRole=nonReviewHandoff",
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Output Targets",
-    phaseMapMarkdownPath,
-    phaseMapJsonPath,
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Approved",
-    "",
-  ].join("\n");
-}
-
-function renderPhaseMapMarkdown(phases: PhaseMapPhase[], sourceRevisions: SourceRevision[]): string {
-  return [
-    "# Phase Map",
-    "Artifact.Revision=1",
-    "participationRole=gatingReview",
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Phases",
-    ...phases.map((phase) =>
-      [
-        `- phaseId: ${phase.phaseId}`,
-        `  title: ${phase.title}`,
-        `  order: ${phase.order}`,
-        `  purpose: ${phase.purpose}`,
-        `  dependsOn: ${phase.dependsOn.join(", ")}`,
-        `  sourceReferences: ${phase.sourceReferences.join(", ")}`,
-      ].join("\n"),
-    ),
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Pending",
-    "",
-  ].join("\n");
 }
 
 function defaultPhase(): PhaseMapPhase {
@@ -289,17 +225,6 @@ function defaultPhase(): PhaseMapPhase {
   };
 }
 
-function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  writeArtifactTransaction(
-    workspaceRoot,
-    entries.map(([relativePath, content]) => ({ relativePath, content })),
-  );
-}
-
 function slugFromRoadmap(displayFilename: string): string {
   return displayFilename.replace(/^PROJECT_ROADMAP_/, "") || "project";
-}
-
-function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
 }

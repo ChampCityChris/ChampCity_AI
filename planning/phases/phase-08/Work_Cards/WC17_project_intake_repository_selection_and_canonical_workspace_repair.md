@@ -1,3 +1,175 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC17"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC17",
+    "phaseId": "phase-08",
+    "title": "Project Intake Repository Selection and Canonical Workspace Repair",
+    "status": "approved",
+    "owner": "Implementer",
+    "risk": "high",
+    "dependsOn": [
+      "Current Phase 08 application shell",
+      "Current Project Intake implementation"
+    ],
+    "executionAuthorizedBy": "approved_work_card_itself",
+    "gitMutationAuthorized": false,
+    "purpose": "Repair only the Project Intake vertical workflow so one active repository controls selection, discovery, intake submission, refresh, and canonical Project Intake display.",
+    "defectEvidence": [
+      "New repositories are rejected when planning/ does not already exist",
+      "Failed repository switching leaves the previous repository active and reloads its documents",
+      "A separate transient Project Intake repository root conflicts with the persisted application workspace",
+      "Broad project_intake filename matching misclassifies Implementer Reports, Work Cards, and design documents",
+      "The service writes intake and prompt pairs but the running application does not prove write and refresh against one active repository",
+      "The visible questionnaire requires validation against the confirmed fixed question contract"
+    ],
+    "requiredRepairs": [
+      {
+        "id": "single-active-repository",
+        "requirements": [
+          "Use one persisted main-process-owned active repository root",
+          "Make the global and Project Intake repository choosers update the same selection",
+          "Accept any existing readable and writable directory without requiring planning/",
+          "Do not create planning/ during selection",
+          "Remove transient selectedProjectRepositoryRoot authority",
+          "Prevent renderer-submitted paths from controlling writes"
+        ]
+      },
+      {
+        "id": "empty-repository-state",
+        "requirements": [
+          "Treat missing planning/ as a valid pre-intake state",
+          "Return an empty document collection or explicit pre-intake projection",
+          "Project zero-document repositories to project-intake-capture, not project-close",
+          "Keep the Project Intake form usable before planning exists"
+        ]
+      },
+      {
+        "id": "repository-switch-clearing",
+        "requirements": [
+          "Clear prior document, preview, resolver, current model, feedback, errors, and counts before loading the new repository",
+          "Reload only from the newly persisted repository",
+          "Show the same repository in the selected-workspace display and Project Repository field",
+          "Never display repository A documents after repository B is selected"
+        ]
+      },
+      {
+        "id": "canonical-project-intake-classification",
+        "requirements": [
+          "Prefer artifactType=project-intake",
+          "Allow only canonical planning/project/Project_Intake/ fallback for incomplete or Markdown-only pairs",
+          "Remove filename substring ownership for Project Intake",
+          "Exclude reports, Work Cards, reviews, design documents, handoffs, and context records",
+          "Classify the Architect Interview Prompt into Architect Interview"
+        ]
+      },
+      {
+        "id": "approved-questionnaire",
+        "questions": [
+          "Project Name",
+          "Project Purpose — What are you trying to create, change, or accomplish?",
+          "Desired Outcome — What should the finished project allow the user or Operator to do?",
+          "Project Type",
+          "Project Repository",
+          "Does this repository already contain source code or project-planning documents?",
+          "Known Constraints or Non-Negotiables",
+          "Conditional: What should the Architect know before reviewing the existing repository?"
+        ],
+        "requirements": [
+          "Questions 1 through 6 are required",
+          "Known Constraints is optional",
+          "Repository review context is optional and shown only when existing source or planning is Yes",
+          "Project Repository is read-only display of the active repository",
+          "Use the confirmed Project Type values"
+        ]
+      },
+      {
+        "id": "integrated-submit-path",
+        "outputs": [
+          "planning/project/Project_Intake/PROJECT_INTAKE_<project_slug>.md",
+          "planning/project/Project_Intake/PROJECT_INTAKE_<project_slug>.json",
+          "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project_slug>.md",
+          "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project_slug>.json"
+        ],
+        "requirements": [
+          "Use the active main-process repository",
+          "Initialize only minimal planning directories",
+          "Write all four files through the canonical artifact transaction",
+          "Preserve Approved Project Intake and Approved non-review prompt dispositions",
+          "Refresh from the same repository after success",
+          "Display Project Intake in Project Intake Capture and the prompt in Architect Interview"
+        ]
+      }
+    ],
+    "authorizedFiles": [
+      "src/main/main.ts",
+      "src/main/workspaceSettings.ts",
+      "src/main/documents/planningDocumentService.ts",
+      "src/main/documents/firstNonApprovedResolver.ts",
+      "src/main/currentWorkflow/currentWorkflowService.ts",
+      "src/main/projectIntake/projectIntakeService.ts",
+      "src/preload/index.ts",
+      "src/renderer/app/App.tsx",
+      "src/shared/workspaceContracts.ts",
+      "src/shared/workspaces/documentWorkspace.ts",
+      "test/app-shell/app-shell.test.cjs",
+      "test/project-intake/project-intake-service.test.cjs",
+      "test/workspaces/workspace-document-review.test.cjs",
+      "A new narrowly scoped Project Intake integration test or fixture"
+    ],
+    "nonGoals": [
+      "Architect Interview repair",
+      "Later Project, Phase, Work Card, validation, repair, or closeout workspace repair",
+      "Workflow header or dark-theme redesign",
+      "Full classifier redesign",
+      "Hidden workflow state, database, or activity ledger",
+      "New dependencies",
+      "Pre-Phase 07 compatibility",
+      "Git mutation"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "Non-acceptance launch smoke for empty repository selection, clean repository switching, Project Intake form rendering, and submission without renderer crash",
+      "Operator-controlled functional validation after Architect review"
+    ],
+    "acceptanceCriteria": [
+      "One persisted main-process repository controls all Project Intake reads and writes",
+      "Renderer paths cannot control the write root",
+      "An empty writable repository can be selected without planning/",
+      "Selection does not create planning/",
+      "Zero documents project Project Intake Capture rather than Project Close",
+      "Repository switching removes all prior-repository documents",
+      "Selected workspace and Project Repository display the same root",
+      "Project Intake Capture contains only canonical Project Intake documents",
+      "Filename substring matches do not misclassify unrelated records",
+      "The full confirmed questionnaire and conditional field are present",
+      "Submit creates the exact four required files in the active repository",
+      "The four-file write is atomic and contained",
+      "Successful submission refreshes from the same repository",
+      "The new Project Intake and prompt appear in their correct workspaces",
+      "Typecheck, build, and tests pass",
+      "No unrelated workspace change, dependency, prohibited architecture, or Git mutation is introduced"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC17_project_intake_repository_selection_and_canonical_workspace_repair.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC17 Project Intake Repository Selection and Canonical Workspace Repair
 
 Status: approved by Operator
@@ -316,11 +488,6 @@ The report must include:
 The report must end with:
 
 ```markdown
-## Document Disposition
-
-Document.Status=Pending
-```
-
 ## Manual Validation After Architect Review
 
 The Operator will perform the controlling validation after Architect review.
@@ -337,7 +504,3 @@ Required human checks will include:
 8. confirm Architect Interview displays the generated prompt;
 9. restart the application and confirm the selected repository persists;
 10. select another repository and confirm the first repository's documents disappear.
-
-## Document Disposition
-
-Document.Status=Approved

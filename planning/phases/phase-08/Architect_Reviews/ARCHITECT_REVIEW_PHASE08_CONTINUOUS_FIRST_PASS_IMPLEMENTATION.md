@@ -1,3 +1,97 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "reviewId": "ARCHITECT_REVIEW_PHASE08_CONTINUOUS_FIRST_PASS_IMPLEMENTATION",
+    "phaseId": "phase-08",
+    "status": "revision_requested",
+    "packageDisposition": "RevisionRequested",
+    "operatorValidationAuthorized": false,
+    "phaseCloseoutAuthorized": false,
+    "reportsReviewed": [
+      "WC01",
+      "WC01A",
+      "WC01B",
+      "WC02",
+      "WC03",
+      "WC04",
+      "WC05",
+      "WC06",
+      "WC07",
+      "WC08",
+      "WC09",
+      "WC10",
+      "WC11",
+      "WC12",
+      "WC13",
+      "WC14",
+      "WC15"
+    ],
+    "acceptedReports": [
+      "WC01"
+    ],
+    "revisionRequestedReports": [
+      "WC01A",
+      "WC01B",
+      "WC02",
+      "WC03",
+      "WC04",
+      "WC05",
+      "WC06",
+      "WC07",
+      "WC08",
+      "WC09",
+      "WC10",
+      "WC11",
+      "WC12",
+      "WC13",
+      "WC14",
+      "WC15"
+    ],
+    "blockingFindings": [
+      "WC04-WC15 services are not imported or exposed through production main IPC, preload, or renderer workflows.",
+      "WC03 defines browser configuration and status only; no embedded remote browser surface or real MCP handoff exists.",
+      "Generic per-document disposition remains the runtime path and can violate coordinated planning-bundle authority.",
+      "Tests import service modules directly and do not prove the Electron application workflow.",
+      "Validation_Records, Project Intake, Project Architect Interview, and context-only records have incorrect or incomplete ownership classification.",
+      "WC13 does not prove failed validation through repair and back to a new validation attempt.",
+      "WC02 makes an optional field mandatory, accepts an arbitrary submitted repository path, and lacks one atomic save/invalidation transaction.",
+      "Generated planning artifacts are placeholder shells without Architect-authored content or live MCP write-back.",
+      "Revision, generation, and downstream invalidation are not implemented through one canonical staged transaction."
+    ],
+    "requiredRepair": [
+      "Implement a real secure embedded Architect browser and supported handoff path.",
+      "Wire all workspace services through constrained IPC, preload, and renderer controls.",
+      "Enforce coordinated bundle and semantic close dispositions in the user path.",
+      "Correct lifecycle and document ownership classification.",
+      "Bind repository writes to mediated repository selection.",
+      "Use one canonical atomic artifact revision and invalidation transaction.",
+      "Prove the WC13 post-validation repair loop through production services.",
+      "Add product-path tests rather than service-only tests."
+    ],
+    "automatedResultsReportedByImplementer": {
+      "typecheck": "passed",
+      "build": "passed",
+      "testsPassed": 202,
+      "testsFailed": 0,
+      "independentlyRerunByArchitect": false
+    }
+  },
+  "documentDisposition": {
+    "status": "RevisionRequested",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Architect Review — Phase 08 Continuous First-Pass Implementation
 
 Status: cumulative first-pass review complete; comprehensive repair required
@@ -278,7 +372,3 @@ Operator acceptance testing: withheld
 Phase closeout: not authorized
 Git operations: not authorized or performed by Architect
 ```
-
-## Document Disposition
-
-Document.Status=RevisionRequested

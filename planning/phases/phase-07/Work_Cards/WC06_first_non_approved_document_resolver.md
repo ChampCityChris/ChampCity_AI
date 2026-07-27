@@ -1,3 +1,80 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07",
+    "workCardId": "WC06"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.work-card.v1",
+    "workCardId": "WC06",
+    "phaseId": "phase-07",
+    "title": "First Non-Approved Document Resolver",
+    "status": "Approved",
+    "owner": "Implementer",
+    "planOrder": 6,
+    "risk": "high",
+    "dependencies": [
+      "WC05"
+    ],
+    "continuousExecution": {
+      "approved": true,
+      "nextWorkCard": "WC07",
+      "reportRequiredBeforeNext": true
+    },
+    "purpose": "Derive one deterministic document order and open the first required logical document whose effective disposition is not Approved.",
+    "effectiveDispositionRules": {
+      "missingOrInvalid": "Pending",
+      "Pending": "stop",
+      "Rejected": "stop",
+      "RevisionRequested": "stop",
+      "Approved": "continue"
+    },
+    "stageOrder": [
+      "Project Planning",
+      "Phase Planning",
+      "Work Card",
+      "Operator Validation",
+      "Phase Closeout"
+    ],
+    "requiredOutcomes": [
+      "Project Intake is first when pending.",
+      "One comparator orders project, phase, Work Card, validation, closeout, archive, and unclassified documents.",
+      "Startup, refresh, and restart derive the same first non-approved document from disk.",
+      "Approved advances; Pending, Rejected, and RevisionRequested stop.",
+      "No other condition can preempt the resolver."
+    ],
+    "prohibitions": [
+      "Do not initialize the real corpus in WC06.",
+      "Do not use old workflow state, approval artifacts, Registry authority, role gates, route tokens, hashes, or maintenance conditions.",
+      "Do not create a competing renderer-side order or resolver.",
+      "Do not perform Git operations."
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "npm run validate:codex:unit",
+      "npm run validate:codex:build",
+      "npm run validate:codex",
+      "temporary-repository startup smoke check"
+    ],
+    "implementerReportPath": "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC06_first_non_approved_document_resolver.md",
+    "markdownPath": "planning/phases/phase-07/Work_Cards/WC06_first_non_approved_document_resolver.md",
+    "jsonPath": "planning/phases/phase-07/Work_Cards/WC06_first_non_approved_document_resolver.json"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 07 WC06 First Non-Approved Document Resolver
 
 Status: approved for continuous Implementer execution
@@ -232,7 +309,3 @@ WC06 passes only when:
 10. the WC06 Implementer Report exists.
 
 After the WC06 report is complete, immediately read and implement WC07. Do not wait for another approval.
-
-## Document Disposition
-
-Document.Status=Approved

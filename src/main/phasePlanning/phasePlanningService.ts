@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
+import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
+import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
@@ -9,7 +10,7 @@ import {
   setDocumentDispositions,
 } from "../documents/planningDocumentService";
 import type { RollbackWriteOptions } from "../documents/documentDispositionWriter";
-import { writeArtifactTransaction } from "../documents/artifactTransaction";
+import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import { getPhaseIntakeCompletion } from "../phaseInterview/phaseInterviewService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
 
@@ -38,11 +39,8 @@ export interface WorkCardCandidate {
 export interface PhasePlanningHandoffResult {
   phaseId: string;
   handoffMarkdownPath: string;
-  handoffJsonPath: string;
   phasePlanningMarkdownPath: string;
-  phasePlanningJsonPath: string;
   workCardPlanMarkdownPath: string;
-  workCardPlanJsonPath: string;
 }
 
 export interface PhasePlanningCompletion {
@@ -60,62 +58,46 @@ export function generatePhasePlanningHandoff(
   if (!intake.complete) {
     throw new Error(`Current Approved Phase Interview is required: ${selectedPhase.phaseId}`);
   }
-  const profile = requiredApproved(workspaceRoot, "planning/project/PROJECT_PROFILE", ".json");
-  const roadmap = requiredApproved(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".json");
-  const phaseMap = requiredApproved(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".json");
-  const phaseInterview = requiredApproved(workspaceRoot, `planning/phases/${selectedPhase.phaseId}/Phase_Interview`, ".json");
-  const sourceRevisions = [
-    { path: profile.jsonPath!, revision: profile.metadata.artifactRevision ?? 1 },
-    { path: roadmap.jsonPath!, revision: roadmap.metadata.artifactRevision ?? 1 },
-    { path: phaseMap.jsonPath!, revision: phaseMap.metadata.artifactRevision ?? 1 },
-    { path: phaseInterview.jsonPath!, revision: phaseInterview.metadata.artifactRevision ?? 1 },
-  ];
+  const profile = requiredApproved(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md");
+  const roadmap = requiredApproved(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md");
+  const phaseMap = requiredApproved(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".md");
+  const phaseInterview = requiredApproved(workspaceRoot, `planning/phases/${selectedPhase.phaseId}/Phase_Interview`, ".md");
   validateCandidates(candidates);
   const handoffMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Architect_Handoffs/PHASE_PLANNING_ARCHITECT_HANDOFF_${selectedPhase.phaseId}.md`;
-  const handoffJsonPath = `planning/phases/${selectedPhase.phaseId}/Architect_Handoffs/PHASE_PLANNING_ARCHITECT_HANDOFF_${selectedPhase.phaseId}.json`;
   const phasePlanningMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Phase_Planning.md`;
-  const phasePlanningJsonPath = `planning/phases/${selectedPhase.phaseId}/Phase_Planning.json`;
   const workCardPlanMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Work_Card_Plan.md`;
-  const workCardPlanJsonPath = `planning/phases/${selectedPhase.phaseId}/Work_Card_Plan.json`;
 
-  writeFiles(workspaceRoot, [
-    [
-      handoffMarkdownPath,
-      renderHandoffMarkdown(
-        selectedPhase,
-        sourceRevisions,
-        phasePlanningMarkdownPath,
-        phasePlanningJsonPath,
-        workCardPlanMarkdownPath,
-        workCardPlanJsonPath,
-      ),
-    ],
-    [
-      handoffJsonPath,
-      json({
-        artifactType: "phase-planning-architect-handoff",
-        artifactRevision: 1,
-        participationRole: "nonReviewHandoff",
-        phaseId: selectedPhase.phaseId,
-        selectedPhase,
-        sourceRevisions,
-        outputTargets: {
-          phasePlanning: { markdown: phasePlanningMarkdownPath, json: phasePlanningJsonPath },
-          workCardPlan: { markdown: workCardPlanMarkdownPath, json: workCardPlanJsonPath },
-        },
-        documentDisposition: { status: "Approved" },
-      }),
-    ],
-  ]);
+  const content = { handoffKind: "phase-planning", phase: selectedPhase, candidates };
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: handoffMarkdownPath,
+    metadata: {
+      schemaVersion: 1,
+      artifactType: "generated-handoff",
+      artifactRevision: 1,
+      participationRole: "nonReviewHandoff",
+      identity: { handoffKind: "phase-planning", phaseId: selectedPhase.phaseId },
+      sourceRevisions: [
+        { path: profile.markdownPath, revision: profile.metadata.artifactRevision ?? 1 },
+        { path: roadmap.markdownPath, revision: roadmap.metadata.artifactRevision ?? 1 },
+        { path: phaseMap.markdownPath, revision: phaseMap.metadata.artifactRevision ?? 1 },
+        { path: phaseInterview.markdownPath, revision: phaseInterview.metadata.artifactRevision ?? 1 },
+      ],
+      workflowData: {
+        ...content,
+        phasePlanningTarget: phasePlanningMarkdownPath,
+        workCardPlanTarget: workCardPlanMarkdownPath,
+      },
+      documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
+    },
+    bodyMarkdown: `# Phase Planning Architect Handoff\n\nPhase Planning Markdown: ${phasePlanningMarkdownPath}\nWork Card Plan Markdown: ${workCardPlanMarkdownPath}\n`,
+  });
 
   return {
     phaseId: selectedPhase.phaseId,
     handoffMarkdownPath,
-    handoffJsonPath,
     phasePlanningMarkdownPath,
-    phasePlanningJsonPath,
     workCardPlanMarkdownPath,
-    workCardPlanJsonPath,
   };
 }
 
@@ -125,8 +107,8 @@ export function setPhasePlanningBundleDisposition(
   status: DocumentDispositionStatus,
   options: RollbackWriteOptions = {},
 ): void {
-  const phasePlanning = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".json");
-  const workCardPlan = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".json");
+  const phasePlanning = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
+  const workCardPlan = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
   setDocumentDispositions(
     workspaceRoot,
     [phasePlanning.logicalDocumentId, workCardPlan.logicalDocumentId],
@@ -140,8 +122,8 @@ export function getPhasePlanningCompletion(
   phaseId?: string,
 ): PhasePlanningCompletion {
   const selectedPhaseId = phaseId ?? selectedPhaseFromProjection(workspaceRoot).phaseId;
-  const phasePlanning = findByPrefix(workspaceRoot, `planning/phases/${selectedPhaseId}/Phase_Planning`, ".json");
-  const workCardPlan = findByPrefix(workspaceRoot, `planning/phases/${selectedPhaseId}/Work_Card_Plan`, ".json");
+  const phasePlanning = findByPrefix(workspaceRoot, `planning/phases/${selectedPhaseId}/Phase_Planning`, ".md");
+  const workCardPlan = findByPrefix(workspaceRoot, `planning/phases/${selectedPhaseId}/Work_Card_Plan`, ".md");
   if (!phasePlanning || !workCardPlan) {
     return { complete: false, phaseId: selectedPhaseId, reason: "Phase Planning and Work Card Plan are both required." };
   }
@@ -150,8 +132,8 @@ export function getPhasePlanningCompletion(
   const complete =
     phasePlanning.effectiveDisposition === "Approved" &&
     workCardPlan.effectiveDisposition === "Approved" &&
-    phasePlanning.synchronizationState === "synchronized" &&
-    workCardPlan.synchronizationState === "synchronized" &&
+    phasePlanning.documentReadState === "readable" &&
+    workCardPlan.documentReadState === "readable" &&
     phasePlanningFreshness.state === "fresh" &&
     workCardPlanFreshness.state === "fresh" &&
     readCandidates(workspaceRoot, workCardPlan).ok;
@@ -160,8 +142,8 @@ export function getPhasePlanningCompletion(
     complete,
     phaseId: selectedPhaseId,
     reason: complete
-      ? "Phase Planning is complete because both bundle documents are synchronized, fresh, valid, and Approved."
-      : "Phase Planning remains incomplete until both bundle documents are synchronized, fresh, valid, and Approved.",
+      ? "Phase Planning is complete because both bundle documents are readable, fresh, valid, and Approved."
+      : "Phase Planning remains incomplete until both bundle documents are readable, fresh, valid, and Approved.",
   };
 }
 
@@ -171,13 +153,13 @@ export function reviseWorkCardPlanCandidates(
   candidates: WorkCardCandidate[],
 ): void {
   const normalizedCandidates = validateCandidates(candidates);
-  const phasePlanning = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".json");
-  const workCardPlan = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".json");
+  const phasePlanning = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
+  const workCardPlan = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
   savePlanningDocumentRevision(workspaceRoot, workCardPlan.logicalDocumentId);
-  const revised = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".json");
+  const revised = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
   rewriteWorkCardPlanCandidates(workspaceRoot, revised, normalizedCandidates);
   setPhasePlanningBundleDisposition(workspaceRoot, phaseId, "Pending");
-  const updatedPhasePlanning = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".json");
+  const updatedPhasePlanning = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
   if (updatedPhasePlanning.effectiveDisposition !== "Pending" || revised.logicalDocumentId !== workCardPlan.logicalDocumentId || phasePlanning.logicalDocumentId.length === 0) {
     throw new Error("Phase Planning bundle revision could not be confirmed.");
   }
@@ -250,10 +232,10 @@ function assertResolutionEvidence(candidate: WorkCardCandidate): void {
 
 function readCandidates(workspaceRoot: string, workCardPlan: PlanningDocumentSummary): { ok: boolean; candidates: WorkCardCandidate[] } {
   try {
-    if (!workCardPlan.jsonPath) {
+    if (!workCardPlan.markdownPath) {
       return { ok: false, candidates: [] };
     }
-    const parsed = JSON.parse(fs.readFileSync(path.join(workspaceRoot, workCardPlan.jsonPath), "utf8"));
+    const parsed = readWorkflowData(workspaceRoot, workCardPlan.markdownPath);
     return { ok: true, candidates: validateCandidates(parsed.candidates) };
   } catch {
     return { ok: false, candidates: [] };
@@ -268,7 +250,7 @@ function selectedPhaseFromProjection(workspaceRoot: string): PhaseMapPhase {
   return projection.phase;
 }
 
-function requiredApproved(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = requiredAny(workspaceRoot, prefix, extension);
   if (document.effectiveDisposition !== "Approved") {
     throw new Error(`Current Approved input is required: ${prefix}`);
@@ -276,13 +258,13 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".js
   if (evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "stale") {
     throw new Error(`Current input is stale: ${prefix}`);
   }
-  if (!document.jsonPath) {
-    throw new Error(`JSON input is required: ${prefix}`);
+  if (!document.markdownPath) {
+    throw new Error(`Canonical Markdown input is required: ${prefix}`);
   }
   return document;
 }
 
-function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredAny(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = findByPrefix(workspaceRoot, prefix, extension);
   if (!document) {
     throw new Error(`Phase Planning document is missing: ${prefix}`);
@@ -290,10 +272,10 @@ function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") 
   return document;
 }
 
-function findByPrefix(workspaceRoot: string, prefix: string, extension: ".json") {
+function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => (document.jsonPath ?? document.markdownPath ?? "").startsWith(prefix))
-    .filter((document) => (document.jsonPath ?? document.markdownPath ?? "").endsWith(extension))
+    .filter((document) => document.markdownPath.startsWith(prefix))
+    .filter((document) => document.markdownPath.endsWith(extension))
     .at(-1);
 }
 
@@ -302,110 +284,34 @@ function rewriteWorkCardPlanCandidates(
   workCardPlan: PlanningDocumentSummary,
   candidates: WorkCardCandidate[],
 ): void {
-  if (!workCardPlan.jsonPath || !workCardPlan.markdownPath) {
-    throw new Error("Work Card Plan pair is required.");
+  if (!workCardPlan.markdownPath) {
+    throw new Error("Work Card Plan Markdown is required.");
   }
-  const jsonPath = path.join(workspaceRoot, workCardPlan.jsonPath);
-  const markdownPath = path.join(workspaceRoot, workCardPlan.markdownPath);
-  const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
-  parsed.candidates = candidates;
-  parsed.documentDisposition = { status: "Pending" };
-  fs.writeFileSync(jsonPath, json(parsed), "utf8");
-  fs.writeFileSync(
-    markdownPath,
-    renderWorkCardPlanMarkdown(parsed.selectedPhase, parsed.sourceRevisions ?? [], candidates, parsed.artifactRevision ?? 1),
-    "utf8",
-  );
+  const content = {
+    candidates,
+  };
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: workCardPlan.markdownPath,
+    metadata: {
+      schemaVersion: 1,
+      artifactType: "work-card-plan",
+      artifactRevision: workCardPlan.metadata.artifactRevision ?? 1,
+      participationRole: "compoundGatingReview",
+      identity: {
+        phaseId: workCardPlan.metadata.phaseId ?? "",
+      },
+      sourceRevisions: workCardPlan.metadata.sourceRevisions ?? [],
+      workflowData: content,
+      documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+    },
+    bodyMarkdown: `# Work Card Plan\n\n## Candidates\n${candidates.map((candidate) => `- ${candidate.candidateId}: ${candidate.title}`).join("\n")}\n`,
+  });
 }
 
-function renderHandoffMarkdown(
-  phase: PhaseMapPhase,
-  sourceRevisions: SourceRevision[],
-  phasePlanningMarkdownPath: string,
-  phasePlanningJsonPath: string,
-  workCardPlanMarkdownPath: string,
-  workCardPlanJsonPath: string,
-): string {
-  return [
-    `# Phase Planning Architect Handoff - ${phase.phaseId}`,
-    "Artifact.Revision=1",
-    "participationRole=nonReviewHandoff",
-    `phaseId=${phase.phaseId}`,
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Output Targets",
-    phasePlanningMarkdownPath,
-    phasePlanningJsonPath,
-    workCardPlanMarkdownPath,
-    workCardPlanJsonPath,
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Approved",
-    "",
-  ].join("\n");
-}
-
-function renderPhasePlanningMarkdown(
-  phase: PhaseMapPhase,
-  sourceRevisions: SourceRevision[],
-  candidates: WorkCardCandidate[],
-): string {
-  return [
-    "# Phase Planning",
-    "Artifact.Revision=1",
-    "participationRole=compoundGatingReview",
-    `phaseId=${phase.phaseId}`,
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Candidate IDs",
-    ...candidates.map((candidate) => `- ${candidate.candidateId}`),
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Pending",
-    "",
-  ].join("\n");
-}
-
-function renderWorkCardPlanMarkdown(
-  phase: PhaseMapPhase,
-  sourceRevisions: SourceRevision[],
-  candidates: WorkCardCandidate[],
-  artifactRevision = 1,
-): string {
-  return [
-    "# Work Card Plan",
-    `Artifact.Revision=${artifactRevision}`,
-    "participationRole=compoundGatingReview",
-    `phaseId=${phase.phaseId}`,
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Candidates",
-    ...candidates.map((candidate) =>
-      [
-        `- candidateId: ${candidate.candidateId}`,
-        `  order: ${candidate.order}`,
-        `  title: ${candidate.title}`,
-        `  purpose: ${candidate.purpose}`,
-        `  dependsOn: ${candidate.dependsOn.join(", ")}`,
-        `  resolutionStatus: ${candidate.resolutionStatus}`,
-        `  resolutionReason: ${candidate.resolutionReason}`,
-        `  evidencePaths: ${candidate.evidencePaths.join(", ")}`,
-      ].join("\n"),
-    ),
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Pending",
-    "",
-  ].join("\n");
+function readWorkflowData(workspaceRoot: string, relativePath: string): Record<string, unknown> {
+  const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(workspaceRoot, relativePath), "utf8"));
+  return parsed.metadata.workflowData;
 }
 
 function defaultCandidate(): WorkCardCandidate {
@@ -419,15 +325,4 @@ function defaultCandidate(): WorkCardCandidate {
     resolutionReason: "",
     evidencePaths: [],
   };
-}
-
-function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  writeArtifactTransaction(
-    workspaceRoot,
-    entries.map(([relativePath, content]) => ({ relativePath, content })),
-  );
-}
-
-function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
 }

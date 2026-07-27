@@ -1,3 +1,91 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "architect-review",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC16"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "phaseId": "phase-08",
+    "workCardId": "WC16",
+    "reviewedReportPath": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC16_phase_08_production_integration_runtime_completion_repair.md",
+    "decision": "RevisionRequested",
+    "operatorValidationAuthorized": false,
+    "newRepairWorkCardAuthorized": false,
+    "continueUnderExistingWorkCard": true,
+    "acceptedImprovements": [
+      "renderer workflow identity fields removed",
+      "current-evidence IPC introduced",
+      "renderer-driven WebContentsView bounds",
+      "truthful loaded-auth-state-unknown state",
+      "placeholder Architect output creation removed from normal handoff generation",
+      "grouped lifecycle navigation"
+    ],
+    "blockingFindings": [
+      {
+        "id": "WC16-F01",
+        "summary": "Missing expected outputs cannot become current workflow obligations; all-approved is incorrectly mapped to Project Close."
+      },
+      {
+        "id": "WC16-F02",
+        "summary": "Renderer workspace presentation can disagree with the main-process trusted current action."
+      },
+      {
+        "id": "WC16-F03",
+        "summary": "Supported handoff and MCP write-back mechanism is absent; only a filename manifest exists."
+      },
+      {
+        "id": "WC16-F04",
+        "summary": "Repair selection uses global last RevisionRequested evidence and filename/path parsing rather than exact current failure authority."
+      },
+      {
+        "id": "WC16-F05",
+        "summary": "Full post-validation repair loop is structurally incomplete and lacks behavioral product-path proof."
+      },
+      {
+        "id": "WC16-F06",
+        "summary": "Canonical transaction unification is incomplete and rollback residual errors are not propagated."
+      },
+      {
+        "id": "WC16-F07",
+        "summary": "No mounted behavioral product-path acceptance tests exist."
+      },
+      {
+        "id": "WC16-F08",
+        "summary": "Launch smoke proves process survival only and does not validate final UI behavior."
+      },
+      {
+        "id": "WC16-F09",
+        "summary": "Live development corpus remains in the default automated test population."
+      },
+      {
+        "id": "WC16-F10",
+        "summary": "Implementer Report outcome materially overstates completion."
+      }
+    ],
+    "requiredCompletion": [
+      "Project missing output obligations from handoff outputTargets.",
+      "Bind enabled renderer mutations to the exact current trusted workspace.",
+      "Resolve repair evidence from the exact current failure and block ambiguity.",
+      "Implement supported handoff/MCP behavior or report an exact external blocker.",
+      "Unify authoritative transactions and propagate rollback residuals.",
+      "Add mounted vertical-slice and complete repair-loop tests.",
+      "Capture final running-application layout evidence.",
+      "Remove live corpus checks from the default acceptance lane or replace them with curated fixtures."
+    ]
+  },
+  "documentDisposition": {
+    "status": "RevisionRequested",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Architect Review — Phase 08 WC16 Final Product Convergence
 
 Project: ChampCity A/I
@@ -258,7 +346,3 @@ Operator acceptance testing: withheld
 Phase 08 closeout: not authorized
 Git operations: not authorized or performed by Architect
 ```
-
-## Document Disposition
-
-Document.Status=RevisionRequested

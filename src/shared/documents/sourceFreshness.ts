@@ -17,12 +17,7 @@ export function evaluateFreshnessFromSummaries(
 ): FreshnessEvaluation {
   const byPath = new Map<string, PlanningDocumentSummary>();
   for (const candidate of documents) {
-    if (candidate.markdownPath) {
-      byPath.set(candidate.markdownPath, candidate);
-    }
-    if (candidate.jsonPath) {
-      byPath.set(candidate.jsonPath, candidate);
-    }
+    byPath.set(candidate.markdownPath, candidate);
   }
 
   const staleSources: FreshnessSourceDiagnostic[] = [];

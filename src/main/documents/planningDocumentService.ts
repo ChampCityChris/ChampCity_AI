@@ -5,57 +5,47 @@ import {
   isDocumentDispositionStatus,
 } from "../../shared/documents/documentDisposition";
 import type {
-  DispositionSyncState,
   InitializationPreview,
   InitializationResult,
-  PlanningDocumentMetadata,
   PlanningDocumentDetail,
+  PlanningDocumentMetadata,
   PlanningDocumentSummary,
   SourceRevision,
 } from "../../shared/documents/planningDocument";
 import {
-  parseJsonDisposition,
-  parseMarkdownDisposition,
-  writeJsonDisposition,
-  writeMarkdownDisposition,
-  writePlansWithRollback,
-  type ParsedFileDisposition,
-  type RollbackWriteOptions,
-  type WritePlan,
-} from "./documentDispositionWriter";
-import {
-  evaluateFreshnessFromSummaries,
-  type FreshnessEvaluation,
-} from "../../shared/documents/sourceFreshness";
+  type CanonicalDocumentMetadata,
+  metadataWithDisposition,
+  metadataWithSubstantiveRevision,
+  parseCanonicalMarkdownDocument,
+  serializeCanonicalMarkdownDocument,
+} from "../../shared/documents/canonicalMarkdown";
+import { evaluateFreshnessFromSummaries, type FreshnessEvaluation } from "../../shared/documents/sourceFreshness";
 import { classifyLifecycleArtifact } from "../../shared/documents/lifecycleArtifact";
+import { writeArtifactTransaction } from "./artifactTransaction";
 
 const previewLimit = 12000;
 
 interface FileEntry {
   absolutePath: string;
   relativePath: string;
-  extension: ".md" | ".json";
-  stemKey: string;
   readError?: string;
 }
 
-interface LogicalDocumentRecord {
-  id: string;
-  stemKey: string;
-  markdown?: FileEntry;
-  json?: FileEntry;
-}
-
 interface ReadRecord {
-  record: LogicalDocumentRecord;
+  entry: FileEntry;
   summary: PlanningDocumentSummary;
-  markdownContent?: string;
-  jsonContent?: string;
+  content?: string;
+  bodyMarkdown?: string;
 }
 
 interface PlanningDocumentServiceTestHooks {
   failLstat?: (relativePath: string) => Error | string | undefined;
   failRead?: (relativePath: string) => Error | string | undefined;
+}
+
+export interface RollbackWriteOptions {
+  failAfterWrites?: number;
+  failFinalVerification?: boolean;
 }
 
 let testHooks: PlanningDocumentServiceTestHooks = {};
@@ -70,11 +60,9 @@ export function assertPlanningWorkspace(workspaceRoot: string): string {
   const resolvedRoot = path.resolve(workspaceRoot);
   const planningRoot = path.join(resolvedRoot, "planning");
   const stats = fs.existsSync(planningRoot) ? fs.statSync(planningRoot) : null;
-
   if (!stats?.isDirectory()) {
     throw new Error("Workspace does not contain planning/.");
   }
-
   return resolvedRoot;
 }
 
@@ -86,14 +74,12 @@ export function readPlanningDocument(
   workspaceRoot: string,
   logicalDocumentId: string,
 ): PlanningDocumentDetail {
-  const readRecord = findReadRecord(workspaceRoot, logicalDocumentId);
-  const sourceContent = readRecord.markdownContent ?? formatJsonPreview(readRecord.jsonContent);
-  const preview = sourceContent.slice(0, previewLimit);
-
+  const record = findReadRecord(workspaceRoot, logicalDocumentId);
+  const previewSource = record.bodyMarkdown ?? record.content ?? "";
   return {
-    ...readRecord.summary,
-    preview,
-    previewTruncated: sourceContent.length > previewLimit,
+    ...record.summary,
+    preview: previewSource.slice(0, previewLimit),
+    previewTruncated: previewSource.length > previewLimit,
   };
 }
 
@@ -101,68 +87,50 @@ export function setDocumentDisposition(
   workspaceRoot: string,
   logicalDocumentId: string,
   status: DocumentDispositionStatus,
-  options: RollbackWriteOptions = {},
+  _options: RollbackWriteOptions = {},
 ): PlanningDocumentSummary {
   if (!isDocumentDispositionStatus(status)) {
     throw new Error("Unsupported document disposition status.");
   }
-
-  const readRecord = findReadRecord(workspaceRoot, logicalDocumentId);
-  if (readRecord.summary.synchronizationState === "read-error") {
-    throw new Error("Cannot write disposition while document content could not be read.");
-  }
-
-  const plans = createWritePlans(readRecord, status, workspaceRoot);
-  writePlansWithRollback(plans, options);
-
-  const updated = findReadRecord(workspaceRoot, logicalDocumentId);
-  const markdownOk =
-    !updated.record.markdown || updated.summary.storedMarkdownDisposition === status;
-  const jsonOk = !updated.record.json || updated.summary.storedJsonDisposition === status;
-
-  if (!markdownOk || !jsonOk || updated.summary.effectiveDisposition !== status) {
-    throw new Error("Written document disposition could not be confirmed.");
-  }
-
-  return updated.summary;
+  const record = findReadableRecord(workspaceRoot, logicalDocumentId);
+  const metadata = metadataWithDisposition(
+    record.summary.metadata.canonical!,
+    status,
+    status === "RevisionRequested" ? record.summary.metadata.canonical!.documentDisposition.notes : "",
+    new Date().toISOString(),
+  );
+  writeCanonicalMarkdownTransaction(workspaceRoot, [{
+    relativePath: record.summary.markdownPath,
+    metadata,
+    bodyMarkdown: record.bodyMarkdown ?? "",
+  }]);
+  return findReadRecord(workspaceRoot, logicalDocumentId).summary;
 }
 
 export function setDocumentDispositions(
   workspaceRoot: string,
   logicalDocumentIds: string[],
   status: DocumentDispositionStatus,
-  options: RollbackWriteOptions = {},
+  _options: RollbackWriteOptions = {},
 ): PlanningDocumentSummary[] {
   if (!isDocumentDispositionStatus(status)) {
     throw new Error("Unsupported document disposition status.");
   }
-
-  const readRecords = logicalDocumentIds.map((logicalDocumentId) =>
-    findReadRecord(workspaceRoot, logicalDocumentId),
+  const records = logicalDocumentIds.map((logicalDocumentId) => findReadableRecord(workspaceRoot, logicalDocumentId));
+  writeCanonicalMarkdownTransaction(
+    workspaceRoot,
+    records.map((record) => ({
+      relativePath: record.summary.markdownPath,
+      metadata: metadataWithDisposition(
+        record.summary.metadata.canonical!,
+        status,
+        status === "RevisionRequested" ? record.summary.metadata.canonical!.documentDisposition.notes : "",
+        new Date().toISOString(),
+      ),
+      bodyMarkdown: record.bodyMarkdown ?? "",
+    })),
   );
-  for (const readRecord of readRecords) {
-    if (readRecord.summary.synchronizationState === "read-error") {
-      throw new Error("Cannot write disposition while document content could not be read.");
-    }
-  }
-
-  const plans = readRecords.flatMap((readRecord) =>
-    createWritePlans(readRecord, status, workspaceRoot),
-  );
-  writePlansWithRollback(plans, options);
-
-  return logicalDocumentIds.map((logicalDocumentId) => {
-    const updated = findReadRecord(workspaceRoot, logicalDocumentId);
-    const markdownOk =
-      !updated.record.markdown || updated.summary.storedMarkdownDisposition === status;
-    const jsonOk = !updated.record.json || updated.summary.storedJsonDisposition === status;
-
-    if (!markdownOk || !jsonOk || updated.summary.effectiveDisposition !== status) {
-      throw new Error("Written document disposition could not be confirmed.");
-    }
-
-    return updated.summary;
-  });
+  return records.map((record) => findReadRecord(workspaceRoot, record.summary.logicalDocumentId).summary);
 }
 
 export interface RevisionSaveResult {
@@ -173,95 +141,91 @@ export interface RevisionSaveResult {
 export function savePlanningDocumentRevision(
   workspaceRoot: string,
   logicalDocumentId: string,
-  options: RollbackWriteOptions = {},
+  _options: RollbackWriteOptions = {},
 ): RevisionSaveResult {
-  const readRecord = findReadRecord(workspaceRoot, logicalDocumentId);
-  if (readRecord.summary.synchronizationState === "read-error") {
-    throw new Error("Cannot revise document while document content could not be read.");
-  }
-
-  const nextRevision = (readRecord.summary.metadata.artifactRevision ?? 0) + 1;
+  const record = findReadableRecord(workspaceRoot, logicalDocumentId);
+  const nextMetadata = metadataWithSubstantiveRevision(record.summary.metadata.canonical!);
   const allRecords = buildReadRecords(workspaceRoot);
-  const downstreamRecords = downstreamDependencyRecords(readRecord, allRecords);
-  const handoffRecords = downstreamRecords.filter(
-    (record) => classifyLifecycleArtifact(record.summary).participationRole === "nonReviewHandoff",
-  );
-  const invalidationRecords = downstreamRecords.filter(
-    (record) => classifyLifecycleArtifact(record.summary).participationRole !== "nonReviewHandoff",
-  );
-  const plans = [
-    ...createRevisionWritePlans(readRecord, nextRevision, workspaceRoot),
-    ...handoffRecords.flatMap((record) =>
-      createHandoffRegenerationPlans(record, readRecord, nextRevision, workspaceRoot),
-    ),
-    ...invalidationRecords.flatMap((record) =>
-      createWritePlans(record, "Pending", workspaceRoot),
-    ),
-  ];
+  const downstreamRecords = downstreamDependencyRecords(record, allRecords);
 
-  writePlansWithRollback(plans, options);
+  const entries = [{
+    relativePath: record.summary.markdownPath,
+    metadata: nextMetadata,
+    bodyMarkdown: record.bodyMarkdown ?? "",
+  }, ...downstreamRecords
+    .filter((downstream) => Boolean(downstream.summary.metadata.canonical))
+    .map((downstream) => ({
+      relativePath: downstream.summary.markdownPath,
+      metadata: metadataWithDisposition(
+        downstream.summary.metadata.canonical!,
+        classifyLifecycleArtifact(downstream.summary).participationRole === "nonReviewHandoff"
+          ? "Approved"
+          : "Pending",
+        "",
+        null,
+      ),
+      bodyMarkdown: downstream.bodyMarkdown ?? "",
+    }))];
+
+  writeCanonicalMarkdownTransaction(workspaceRoot, entries);
 
   const revisedDocument = findReadRecord(workspaceRoot, logicalDocumentId).summary;
-  const updatedDocuments = buildReadRecords(workspaceRoot).map((record) => record.summary);
-  const invalidatedDocuments = invalidationRecords
-    .map((record) =>
-      updatedDocuments.find((document) => document.logicalDocumentId === record.summary.logicalDocumentId),
+  const updatedDocuments = listPlanningDocuments(workspaceRoot);
+  const invalidatedDocuments = downstreamRecords
+    .map((downstream) =>
+      updatedDocuments.find((candidate) => candidate.logicalDocumentId === downstream.summary.logicalDocumentId),
     )
-    .filter((document): document is PlanningDocumentSummary => Boolean(document));
-
+    .filter((candidate): candidate is PlanningDocumentSummary => Boolean(candidate));
   return { revisedDocument, invalidatedDocuments };
+}
+
+function writeCanonicalMarkdownTransaction(
+  workspaceRoot: string,
+  documents: Array<{ relativePath: string; metadata: CanonicalDocumentMetadata; bodyMarkdown: string }>,
+): void {
+  const entries = documents.map((document) => ({
+    relativePath: document.relativePath,
+    content: serializeCanonicalMarkdownDocument(document.metadata, document.bodyMarkdown),
+  }));
+  writeArtifactTransaction(workspaceRoot, entries, () => {
+    for (const document of documents) {
+      const installed = parseCanonicalMarkdownDocument(
+        fs.readFileSync(path.join(workspaceRoot, document.relativePath), "utf8"),
+      );
+      if (JSON.stringify(installed.metadata) !== JSON.stringify(document.metadata)) {
+        throw new Error("Installed canonical metadata verification failed.");
+      }
+      if (installed.bodyMarkdown !== parseCanonicalMarkdownDocument(
+        serializeCanonicalMarkdownDocument(document.metadata, document.bodyMarkdown),
+      ).bodyMarkdown) {
+        throw new Error("Installed canonical body verification failed.");
+      }
+    }
+  });
 }
 
 export function evaluateDocumentFreshness(
   workspaceRoot: string,
   logicalDocumentId: string,
 ): FreshnessEvaluation {
-  const records = buildReadRecords(workspaceRoot);
-  const readRecord = records.find(
-    (record) => record.summary.logicalDocumentId === logicalDocumentId,
-  );
-  if (!readRecord) {
+  const documents = listPlanningDocuments(workspaceRoot);
+  const document = documents.find((candidate) => candidate.logicalDocumentId === logicalDocumentId);
+  if (!document) {
     throw new Error("Unknown logical document ID.");
   }
-
-  return evaluateFreshnessFromSummaries(
-    readRecord.summary,
-    records.map((record) => record.summary),
-  );
+  return evaluateFreshnessFromSummaries(document, documents);
 }
 
-export function previewDispositionInitialization(
-  workspaceRoot: string,
-): InitializationPreview {
-  const documents = buildReadRecords(workspaceRoot);
-  const affectedPaths: string[] = [];
-  let affectedMarkdownFiles = 0;
-  let affectedJsonFiles = 0;
-
-  for (const document of documents) {
-    if (!document.summary.initializationNeeded) {
-      continue;
-    }
-
-    if (document.summary.markdownPath) {
-      affectedMarkdownFiles += 1;
-      affectedPaths.push(document.summary.markdownPath);
-    }
-    if (document.summary.jsonPath) {
-      affectedJsonFiles += 1;
-      affectedPaths.push(document.summary.jsonPath);
-    }
-  }
-
-  affectedPaths.sort(comparePaths);
-
+export function previewDispositionInitialization(workspaceRoot: string): InitializationPreview {
+  const documents = listPlanningDocuments(workspaceRoot);
+  const affectedPaths = documents
+    .filter((document) => document.initializationNeeded)
+    .map((document) => document.markdownPath)
+    .sort(comparePaths);
   return {
     totalLogicalDocuments: documents.length,
-    affectedLogicalDocuments: documents.filter(
-      (document) => document.summary.initializationNeeded,
-    ).length,
-    affectedMarkdownFiles,
-    affectedJsonFiles,
+    affectedLogicalDocuments: affectedPaths.length,
+    affectedMarkdownFiles: affectedPaths.length,
     affectedPaths,
   };
 }
@@ -271,13 +235,6 @@ export function applyDispositionInitialization(
   options: RollbackWriteOptions = {},
 ): InitializationResult {
   const previewBeforeApply = previewDispositionInitialization(workspaceRoot);
-  const readRecords = buildReadRecords(workspaceRoot);
-  const plans = readRecords
-    .filter((readRecord) => readRecord.summary.initializationNeeded)
-    .flatMap((readRecord) => createWritePlans(readRecord, "Pending", workspaceRoot));
-
-  writePlansWithRollback(plans, options);
-
   const documents = listPlanningDocuments(workspaceRoot);
   return {
     previewBeforeApply,
@@ -289,372 +246,122 @@ export function applyDispositionInitialization(
 function buildReadRecords(workspaceRoot: string): ReadRecord[] {
   const resolvedRoot = path.resolve(workspaceRoot);
   const planningRoot = path.join(resolvedRoot, "planning");
-  if (!fs.existsSync(planningRoot)) {
-    return [];
-  }
-  const planningStats = fs.statSync(planningRoot);
-  if (!planningStats.isDirectory()) {
+  if (!fs.existsSync(planningRoot)) return [];
+  if (!fs.statSync(planningRoot).isDirectory()) {
     throw new Error("Workspace does not contain planning/.");
   }
-  const records = groupFileEntries(discoverPlanningFiles(resolvedRoot));
-  return records.map((record) => readRecord(resolvedRoot, record));
+  return discoverMarkdownFiles(resolvedRoot).map((entry) => readRecord(resolvedRoot, entry));
 }
 
 function findReadRecord(workspaceRoot: string, logicalDocumentId: string): ReadRecord {
   if (logicalDocumentId.includes("..") || logicalDocumentId.includes("/") || logicalDocumentId.includes("\\")) {
     throw new Error("Unknown logical document ID.");
   }
-
   const record = buildReadRecords(workspaceRoot).find(
     (candidate) => candidate.summary.logicalDocumentId === logicalDocumentId,
   );
-
   if (!record) {
     throw new Error("Unknown logical document ID.");
   }
-
   return record;
 }
 
-function discoverPlanningFiles(workspaceRoot: string): FileEntry[] {
-  const planningRoot = path.join(workspaceRoot, "planning");
+function findReadableRecord(workspaceRoot: string, logicalDocumentId: string): ReadRecord {
+  const record = findReadRecord(workspaceRoot, logicalDocumentId);
+  if (record.summary.readError || !record.summary.metadata.canonical) {
+    throw new Error("Cannot update a document while canonical metadata could not be read.");
+  }
+  return record;
+}
+
+function discoverMarkdownFiles(workspaceRoot: string): FileEntry[] {
   const entries: FileEntry[] = [];
-
+  const planningRoot = path.join(workspaceRoot, "planning");
   function visit(directory: string): void {
-    const children = fs.readdirSync(directory, { withFileTypes: true });
-
-    for (const child of children) {
+    for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolutePath = path.join(directory, child.name);
       const relativePath = normalizeRelativePath(path.relative(workspaceRoot, absolutePath));
       const extension = path.extname(child.name).toLowerCase();
       let stats: fs.Stats;
-
       try {
         const injectedError = testHooks.failLstat?.(relativePath);
-        if (injectedError) {
-          throw injectedError instanceof Error ? injectedError : new Error(injectedError);
-        }
+        if (injectedError) throw injectedError instanceof Error ? injectedError : new Error(injectedError);
         stats = fs.lstatSync(absolutePath);
       } catch (error) {
-        if (extension === ".md" || extension === ".json") {
-          entries.push(createFileEntry(workspaceRoot, absolutePath, extension, errorMessage(error)));
+        if (extension === ".md") {
+          entries.push({ absolutePath, relativePath, readError: errorMessage(error) });
         }
         continue;
       }
-
-      if (stats.isSymbolicLink()) {
-        continue;
-      }
-
+      if (stats.isSymbolicLink()) continue;
       if (stats.isDirectory()) {
         visit(absolutePath);
         continue;
       }
-
-      if (!stats.isFile()) {
-        continue;
+      if (stats.isFile() && extension === ".md") {
+        entries.push({ absolutePath, relativePath });
       }
-
-      if (extension !== ".md" && extension !== ".json") {
-        continue;
-      }
-
-      entries.push(createFileEntry(workspaceRoot, absolutePath, extension));
     }
   }
-
   visit(planningRoot);
   return entries.sort((left, right) => comparePaths(left.relativePath, right.relativePath));
 }
 
-function groupFileEntries(entries: FileEntry[]): LogicalDocumentRecord[] {
-  const groups = new Map<string, LogicalDocumentRecord>();
+function readRecord(workspaceRoot: string, entry: FileEntry): ReadRecord {
+  let content: string | undefined;
+  let bodyMarkdown: string | undefined;
+  let metadata: PlanningDocumentMetadata = { sourceRevisions: [] };
+  let disposition: DocumentDispositionStatus = "Pending";
+  let readError = entry.readError;
 
-  for (const entry of entries) {
-    const existing =
-      groups.get(entry.stemKey) ??
-      ({
-        id: stableLogicalDocumentId(entry.stemKey),
-        stemKey: entry.stemKey,
-      } satisfies LogicalDocumentRecord);
-
-    if (entry.extension === ".md") {
-      existing.markdown = entry;
-    } else {
-      existing.json = entry;
-    }
-    groups.set(entry.stemKey, existing);
-  }
-
-  return [...groups.values()].sort((left, right) =>
-    comparePaths(left.markdown?.relativePath ?? left.json?.relativePath ?? left.stemKey, right.markdown?.relativePath ?? right.json?.relativePath ?? right.stemKey),
-  );
-}
-
-function readRecord(
-  workspaceRoot: string,
-  record: LogicalDocumentRecord,
-): ReadRecord {
-  let markdownContent: string | undefined;
-  let jsonContent: string | undefined;
-  let markdownDisposition: ParsedFileDisposition | undefined;
-  let jsonDisposition: ParsedFileDisposition | undefined;
-
-  if (record.markdown) {
-    if (record.markdown.readError) {
-      markdownDisposition = readErrorDisposition(record.markdown.readError);
-    } else {
-      try {
-        markdownContent = readContainedFile(workspaceRoot, record.markdown);
-        markdownDisposition = parseMarkdownDisposition(markdownContent);
-      } catch (error) {
-        markdownDisposition = readErrorDisposition(errorMessage(error));
-      }
+  if (!readError) {
+    try {
+      content = readContainedFile(workspaceRoot, entry);
+      const parsed = parseCanonicalMarkdownDocument(content);
+      bodyMarkdown = parsed.bodyMarkdown;
+      disposition = parsed.metadata.documentDisposition.status;
+      metadata = metadataFromCanonical(parsed.metadata);
+    } catch (error) {
+      readError = errorMessage(error);
     }
   }
 
-  if (record.json) {
-    if (record.json.readError) {
-      jsonDisposition = readErrorDisposition(record.json.readError);
-    } else {
-      try {
-        jsonContent = readContainedFile(workspaceRoot, record.json);
-        jsonDisposition = parseJsonDisposition(jsonContent);
-      } catch (error) {
-        jsonDisposition = readErrorDisposition(errorMessage(error));
-      }
-    }
-  }
-
-  const summary = summarizeRecord(
-    record,
-    collectDocumentMetadata(markdownContent, jsonContent),
-    markdownDisposition,
-    jsonDisposition,
-  );
-  return {
-    record,
-    summary,
-    markdownContent,
-    jsonContent,
-  };
-}
-
-function summarizeRecord(
-  record: LogicalDocumentRecord,
-  metadata: PlanningDocumentMetadata,
-  markdownDisposition?: ParsedFileDisposition,
-  jsonDisposition?: ParsedFileDisposition,
-): PlanningDocumentSummary {
-  const markdownStatus = markdownDisposition?.valid ? markdownDisposition.status : undefined;
-  const jsonStatus = jsonDisposition?.valid ? jsonDisposition.status : undefined;
-  const pairStatus = record.markdown && record.json
-    ? "paired"
-    : record.markdown
-      ? "markdown-only"
-      : "json-only";
-  const readError = markdownDisposition?.readError ?? jsonDisposition?.readError;
-  const synchronizationState = getSynchronizationState(
-    pairStatus,
-    markdownDisposition,
-    jsonDisposition,
-  );
-  const initializationNeeded = synchronizationState !== "synchronized" &&
-    synchronizationState !== "single-valid";
-  const effectiveDisposition = initializationNeeded
-    ? "Pending"
-    : markdownStatus ?? jsonStatus ?? "Pending";
-
-  return {
-    logicalDocumentId: record.id,
-    markdownPath: record.markdown?.relativePath,
-    jsonPath: record.json?.relativePath,
-    displayFilename: path.basename(record.stemKey),
+  const summary: PlanningDocumentSummary = {
+    logicalDocumentId: stableLogicalDocumentId(entry.relativePath),
+    markdownPath: entry.relativePath,
+    displayFilename: path.basename(entry.relativePath, ".md"),
     metadata,
-    pairStatus,
-    effectiveDisposition,
-    storedMarkdownDisposition: markdownStatus,
-    storedJsonDisposition: jsonStatus,
-    synchronizationState,
-    initializationNeeded,
+    effectiveDisposition: disposition,
+    documentReadState: readError ? "read-error" : "readable",
+    initializationNeeded: Boolean(readError),
     readError,
   };
+  return { entry, summary, content, bodyMarkdown };
 }
 
-function collectDocumentMetadata(
-  markdownContent?: string,
-  jsonContent?: string,
-): PlanningDocumentMetadata {
-  const metadata = {
-    ...metadataFromMarkdown(markdownContent),
-    ...metadataFromJson(jsonContent),
-  };
+function metadataFromCanonical(canonical: PlanningDocumentMetadata["canonical"]): PlanningDocumentMetadata {
+  if (!canonical) return { sourceRevisions: [] };
+  const workflow = canonical.workflowData;
   return {
-    ...metadata,
-    sourceRevisions: metadata.sourceRevisions ?? [],
+    artifactType: canonical.artifactType,
+    participationRole: canonical.participationRole,
+    artifactRevision: canonical.artifactRevision,
+    sourceRevisions: canonical.sourceRevisions,
+    architectOutputTargets: architectOutputTargetsValue(workflow.architectOutputTargets),
+    closureDecision: stringValue(workflow.closureDecision),
+    phaseId: stringValue(canonical.identity.phaseId ?? workflow.phaseId),
+    workCardId: stringValue(canonical.identity.workCardId ?? workflow.workCardId),
+    candidateId: stringValue(canonical.identity.candidateId ?? workflow.candidateId),
+    canonical,
   };
 }
 
-function metadataFromMarkdown(content?: string): PlanningDocumentMetadata {
-  if (!content) {
-    return {};
-  }
-
-  const closureDecision = content.match(/closureDecision\s*[:=]\s*([A-Za-z ]+)/i)?.[1] ??
-    content.match(/closure decision\s*[:=]\s*([A-Za-z ]+)/i)?.[1];
-  const participationRole = content.match(/participationRole\s*[:=]\s*([A-Za-z]+)/i)?.[1];
-  const artifactRevision = content.match(/Artifact\.Revision\s*=\s*(\d+)/i)?.[1];
-
-  return {
-    closureDecision: normalizeToken(closureDecision),
-    participationRole: normalizeToken(participationRole),
-    artifactRevision: artifactRevision ? Number(artifactRevision) : undefined,
-    sourceRevisions: parseMarkdownSourceRevisions(content),
-  };
-}
-
-function metadataFromJson(content?: string): PlanningDocumentMetadata {
-  if (!content) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(content) as Record<string, unknown>;
-    return {
-      artifactType: stringValue(parsed.artifactType),
-      participationRole: stringValue(parsed.participationRole),
-      artifactRevision: numberValue(parsed.artifactRevision),
-      sourceRevisions: sourceRevisionsValue(parsed.sourceRevisions),
-      architectOutputTargets: architectOutputTargetsValue(parsed.architectOutputTargets),
-      closureDecision: normalizeToken(stringValue(parsed.closureDecision)),
-      phaseId: stringValue(parsed.phaseId),
-      workCardId: stringValue(parsed.workCardId),
-      candidateId: stringValue(parsed.candidateId),
-    };
-  } catch {
-    return {};
-  }
-}
-
-function parseMarkdownSourceRevisions(content: string): SourceRevision[] {
-  return [...content.matchAll(/-\s*path:\s*`?([^`\r\n]+)`?\s*revision:\s*(\d+)/gi)].map(
-    (match) => ({
-      path: match[1].trim(),
-      revision: Number(match[2]),
-    }),
-  );
-}
-
-function getSynchronizationState(
-  pairStatus: "paired" | "markdown-only" | "json-only",
-  markdownDisposition?: ParsedFileDisposition,
-  jsonDisposition?: ParsedFileDisposition,
-): DispositionSyncState {
-  if (markdownDisposition?.readError || jsonDisposition?.readError) {
-    return "read-error";
-  }
-
-  if (pairStatus === "paired") {
-    if (!markdownDisposition?.valid && !jsonDisposition?.valid) {
-      return markdownDisposition || jsonDisposition ? "invalid" : "missing";
-    }
-    if (!markdownDisposition?.valid || !jsonDisposition?.valid) {
-      return "missing";
-    }
-    return markdownDisposition.status === jsonDisposition.status
-      ? "synchronized"
-      : "mismatched";
-  }
-
-  const singleDisposition =
-    pairStatus === "markdown-only" ? markdownDisposition : jsonDisposition;
-  return singleDisposition?.valid ? "single-valid" : "missing";
-}
-
-function createWritePlans(
-  readRecord: ReadRecord,
-  status: DocumentDispositionStatus,
-  workspaceRoot: string,
-): WritePlan[] {
-  if (readRecord.summary.synchronizationState === "read-error") {
-    throw new Error("Cannot write disposition while document content could not be read.");
-  }
-
-  const plans: WritePlan[] = [];
-
-  if (readRecord.record.markdown) {
-    plans.push({
-      absolutePath: readRecord.record.markdown.absolutePath,
-      content: writeMarkdownDisposition(readRecord.markdownContent ?? "", status),
-      expectedStatus: status,
-      workspaceRoot,
-    });
-  }
-
-  if (readRecord.record.json) {
-    if (readRecord.jsonContent === undefined) {
-      throw new Error("JSON content was not available.");
-    }
-    plans.push({
-      absolutePath: readRecord.record.json.absolutePath,
-      content: writeJsonDisposition(readRecord.jsonContent, status),
-      expectedStatus: status,
-      workspaceRoot,
-    });
-  }
-
-  return plans;
-}
-
-function createRevisionWritePlans(
-  readRecord: ReadRecord,
-  nextRevision: number,
-  workspaceRoot: string,
-): WritePlan[] {
-  const plans: WritePlan[] = [];
-
-  if (readRecord.record.markdown) {
-    plans.push({
-      absolutePath: readRecord.record.markdown.absolutePath,
-      content: writeMarkdownArtifactRevision(readRecord.markdownContent ?? "", nextRevision),
-      expectedStatus: readRecord.summary.effectiveDisposition,
-      workspaceRoot,
-    });
-  }
-
-  if (readRecord.record.json) {
-    if (readRecord.jsonContent === undefined) {
-      throw new Error("JSON content was not available.");
-    }
-    plans.push({
-      absolutePath: readRecord.record.json.absolutePath,
-      content: writeJsonArtifactRevision(readRecord.jsonContent, nextRevision),
-      expectedStatus: readRecord.summary.effectiveDisposition,
-      workspaceRoot,
-    });
-  }
-
-  return plans;
-}
-
-function downstreamDependencyRecords(
-  sourceRecord: ReadRecord,
-  records: ReadRecord[],
-): ReadRecord[] {
-  const sourcePaths = new Set(
-    [sourceRecord.summary.markdownPath, sourceRecord.summary.jsonPath].filter(
-      (value): value is string => Boolean(value),
-    ),
-  );
+function downstreamDependencyRecords(sourceRecord: ReadRecord, records: ReadRecord[]): ReadRecord[] {
   const invalidationIds = new Set<string>();
-
   for (const record of records) {
-    if (record.summary.logicalDocumentId === sourceRecord.summary.logicalDocumentId) {
-      continue;
-    }
-
-    const referencesSource = (record.summary.metadata.sourceRevisions ?? []).some((source) =>
-      sourcePaths.has(source.path),
+    if (record.summary.logicalDocumentId === sourceRecord.summary.logicalDocumentId) continue;
+    const referencesSource = (record.summary.metadata.sourceRevisions ?? []).some(
+      (source) => source.path === sourceRecord.summary.markdownPath,
     );
     if (referencesSource && record.summary.effectiveDisposition === "Approved") {
       invalidationIds.add(record.summary.logicalDocumentId);
@@ -665,136 +372,24 @@ function downstreamDependencyRecords(
       }
     }
   }
-
   return records.filter((record) => invalidationIds.has(record.summary.logicalDocumentId));
 }
 
-function createHandoffRegenerationPlans(
-  readRecord: ReadRecord,
-  sourceRecord: ReadRecord,
-  sourceRevision: number,
-  workspaceRoot: string,
-): WritePlan[] {
-  const sourcePaths = [sourceRecord.summary.markdownPath, sourceRecord.summary.jsonPath].filter(
-    (value): value is string => Boolean(value),
-  );
-  const nextRevision = (readRecord.summary.metadata.artifactRevision ?? 0) + 1;
-  const plans = createRevisionWritePlans(readRecord, nextRevision, workspaceRoot);
-
-  return plans.map((plan) => ({
-    ...plan,
-    content: rewriteSourceReferences(plan.content, path.extname(plan.absolutePath), sourcePaths, sourceRevision),
-    expectedStatus: "Approved" as const,
-  }));
-}
-
-function rewriteSourceReferences(
-  content: string,
-  extension: string,
-  sourcePaths: string[],
-  sourceRevision: number,
-): string {
-  if (extension.toLowerCase() === ".json") {
-    const parsed = JSON.parse(content) as Record<string, unknown>;
-    parsed.sourceRevisions = sourceRevisionsValue(parsed.sourceRevisions).map((source) =>
-      sourcePaths.includes(source.path) ? { ...source, revision: sourceRevision } : source,
-    );
-    parsed.documentDisposition = { status: "Approved" };
-    return `${JSON.stringify(parsed, null, 2)}\n`;
-  }
-
-  return sourcePaths.reduce(
-    (nextContent, sourcePath) =>
-      nextContent.replace(
-        new RegExp(`(path:\\s*\`?${escapeRegExp(sourcePath)}\`?\\s*revision:\\s*)\\d+`, "g"),
-        `$1${sourceRevision}`,
-      ),
-    content,
-  );
-}
-
 function coordinatedBundleRecords(record: ReadRecord, records: ReadRecord[]): ReadRecord[] {
-  const value = [
-    record.summary.markdownPath,
-    record.summary.jsonPath,
-    record.summary.displayFilename,
-  ]
-    .filter(Boolean)
-    .join("/")
-    .toLowerCase();
-
+  const value = `${record.summary.markdownPath}/${record.summary.displayFilename}`.toLowerCase();
   if (value.includes("project_profile") || value.includes("project_roadmap")) {
     return records.filter((candidate) => {
-      const candidateValue = [
-        candidate.summary.markdownPath,
-        candidate.summary.jsonPath,
-        candidate.summary.displayFilename,
-      ]
-        .filter(Boolean)
-        .join("/")
-        .toLowerCase();
+      const candidateValue = `${candidate.summary.markdownPath}/${candidate.summary.displayFilename}`.toLowerCase();
       return candidateValue.includes("project_profile") || candidateValue.includes("project_roadmap");
     });
   }
-
   if (value.includes("phase_planning") || value.includes("work_card_plan")) {
     return records.filter((candidate) => {
-      const candidateValue = [
-        candidate.summary.markdownPath,
-        candidate.summary.jsonPath,
-        candidate.summary.displayFilename,
-      ]
-        .filter(Boolean)
-        .join("/")
-        .toLowerCase();
+      const candidateValue = `${candidate.summary.markdownPath}/${candidate.summary.displayFilename}`.toLowerCase();
       return candidateValue.includes("phase_planning") || candidateValue.includes("work_card_plan");
     });
   }
-
   return [record];
-}
-
-function writeMarkdownArtifactRevision(content: string, nextRevision: number): string {
-  const eol = content.includes("\r\n") ? "\r\n" : "\n";
-  const line = `Artifact.Revision=${nextRevision}`;
-  if (/^Artifact\.Revision=\d+$/m.test(content)) {
-    return content.replace(/^Artifact\.Revision=\d+$/m, line);
-  }
-
-  return content.startsWith("#")
-    ? content.replace(/^([^\r\n]*(?:\r\n|\n|\r))/, `$1${line}${eol}`)
-    : `${line}${eol}${content}`;
-}
-
-function writeJsonArtifactRevision(content: string, nextRevision: number): string {
-  const parsed = JSON.parse(content) as Record<string, unknown>;
-  parsed.artifactRevision = nextRevision;
-  return `${JSON.stringify(parsed, null, 2)}\n`;
-}
-
-function createFileEntry(
-  workspaceRoot: string,
-  absolutePath: string,
-  extension: ".md" | ".json",
-  readError?: string,
-): FileEntry {
-  const relativePath = normalizeRelativePath(path.relative(workspaceRoot, absolutePath));
-  const relativeDirectory = normalizeRelativePath(
-    path.dirname(path.relative(workspaceRoot, absolutePath)),
-  );
-  const stem = path.basename(absolutePath, extension);
-  const stemKey =
-    relativeDirectory === "."
-      ? stem
-      : `${relativeDirectory}/${stem}`;
-
-  return {
-    absolutePath,
-    relativePath,
-    extension,
-    stemKey,
-    readError,
-  };
 }
 
 function readContainedFile(workspaceRoot: string, entry: FileEntry): string {
@@ -809,85 +404,22 @@ function readContainedFile(workspaceRoot: string, entry: FileEntry): string {
   return fs.readFileSync(resolvedPath, "utf8");
 }
 
-function readErrorDisposition(message: string): ParsedFileDisposition {
-  return {
-    valid: false,
-    needsInitialization: true,
-    readError: message,
-  };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function formatJsonPreview(content: string | undefined): string {
-  if (content === undefined) {
-    return "";
-  }
-
-  try {
-    return `${JSON.stringify(JSON.parse(content), null, 2)}\n`;
-  } catch {
-    return content;
-  }
+function architectOutputTargetsValue(value: unknown): PlanningDocumentMetadata["architectOutputTargets"] {
+  if (!value || typeof value !== "object") return undefined;
+  const markdown = (value as { markdown?: unknown }).markdown;
+  return typeof markdown === "string" ? { markdown } : undefined;
 }
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function numberValue(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-function sourceRevisionsValue(value: unknown): SourceRevision[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return [];
-    }
-
-    const pathValue = (entry as { path?: unknown }).path;
-    const revisionValue = (entry as { revision?: unknown }).revision;
-    return typeof pathValue === "string" &&
-      typeof revisionValue === "number" &&
-      Number.isInteger(revisionValue)
-      ? [{ path: pathValue, revision: revisionValue }]
-      : [];
-  });
-}
-
-function architectOutputTargetsValue(
-  value: unknown,
-): PlanningDocumentMetadata["architectOutputTargets"] {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-
-  const markdown = (value as { markdown?: unknown }).markdown;
-  const json = (value as { json?: unknown }).json;
-  return typeof markdown === "string" && typeof json === "string"
-    ? { markdown, json }
-    : undefined;
-}
-
-function normalizeToken(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  return value.trim().replace(/\s+/g, "");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function stableLogicalDocumentId(stemKey: string): string {
-  return Buffer.from(stemKey, "utf8").toString("base64url");
+function stableLogicalDocumentId(relativePath: string): string {
+  return Buffer.from(relativePath, "utf8").toString("base64url");
 }
 
 function normalizeRelativePath(relativePath: string): string {
@@ -900,8 +432,5 @@ function comparePaths(left: string, right: string): number {
 
 function isInside(root: string, target: string): boolean {
   const relativePath = path.relative(root, target);
-  return (
-    relativePath.length === 0 ||
-    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
-  );
+  return relativePath.length === 0 || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }

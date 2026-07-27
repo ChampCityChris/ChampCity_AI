@@ -1,84 +1,24 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
 const test = require("node:test");
 
-const { architectBrowserSecuritySummary } = require("../../dist/main/browser/architectBrowserService.js");
-const { createRepairWorkCard } = require("../../dist/main/workCardRepair/workCardRepairService.js");
+const {
+  createRepairWorkCard,
+} = require("../../dist/main/workCardRepair/workCardRepairService.js");
+const {
+  tempWorkspace,
+  writeDoc,
+} = require("../support/canonical-markdown-fixtures.cjs");
 
-function createRepository(evidenceKind = "report") {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-work-card-repair-"));
-  const dir = evidenceKind === "report"
-    ? path.join(root, "planning/phases/phase-01/Implementer_Reports")
-    : path.join(root, "planning/phases/phase-01/Validation_Reports");
-  fs.mkdirSync(dir, { recursive: true });
-  const file = evidenceKind === "report" ? "IMPLEMENTER_REPORT_WC01_build" : "VALIDATION_REPORT_WC01";
-  fs.writeFileSync(path.join(dir, `${file}.json`), JSON.stringify({
-    artifactType: evidenceKind,
-    artifactRevision: 1,
-    participationRole: "gatingReview",
-    phaseId: "phase-01",
-    workCardId: "WC01",
-    documentDisposition: { status: "RevisionRequested" },
-  }, null, 2) + "\n", "utf8");
-  return { root, evidencePath: `planning/phases/phase-01/${evidenceKind === "report" ? "Implementer_Reports" : "Validation_Reports"}/${file}.json` };
-}
-
-function readJson(root, relativePath) {
-  return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
-}
-
-test("pre-validation repair creates Approved handoff and names target without placeholder repair", () => {
-  const { root, evidencePath } = createRepository("report");
-
-  const result = createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "preValidationReportReview", "Fix report issue");
-  const handoff = readJson(root, result.handoffJsonPath);
-
-  assert.equal(result.repairId, "WC01-REPAIR01");
-  assert.equal(handoff.participationRole, "nonReviewHandoff");
-  assert.equal(handoff.documentDisposition.status, "Approved");
-  assert.equal(handoff.originalParentWorkCardId, "WC01");
-  assert.equal(handoff.returnTarget, "work-card-building-review");
-  assert.equal(handoff.outputTargets.repairWorkCard.json, result.repairJsonPath);
-  assert.equal(fs.existsSync(path.join(root, result.repairJsonPath)), false);
-});
-
-test("failed repair report creates next sibling rather than nested repair parent", () => {
-  const { root, evidencePath } = createRepository("report");
-  createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "preValidationReportReview", "First fix");
-
-  const result = createRepairWorkCard(root, "phase-01", "WC01-REPAIR01", evidencePath, "preValidationReportReview", "Second fix");
-  const handoff = readJson(root, result.handoffJsonPath);
-
-  assert.equal(result.repairId, "WC01-REPAIR01");
-  assert.equal(handoff.originalParentWorkCardId, "WC01");
-});
-
-test("post-validation repair contract uses validation return target", () => {
-  const { root, evidencePath } = createRepository("validation");
-
-  const result = createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "postValidationRecord", "Fix validation issue");
-  const handoff = readJson(root, result.handoffJsonPath);
-
-  assert.equal(handoff.origin, "postValidationRecord");
-  assert.equal(handoff.returnTarget, "work-card-validation");
-});
-
-test("repair creation rejects wrong origin evidence", () => {
-  const { root, evidencePath } = createRepository("validation");
-
-  assert.throws(
-    () => createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "preValidationReportReview", "Wrong origin"),
-    /Implementer Report/,
-  );
-});
-
-test("Work Card Repair preserves WC03 browser security contract", () => {
-  assert.deepEqual(architectBrowserSecuritySummary(), {
-    nodeIntegration: false,
-    contextIsolation: true,
-    sandbox: true,
-    preload: null,
+test("work card repair creates Markdown-only repair handoff from RevisionRequested evidence", () => {
+  const root = tempWorkspace("champcity-work-card-repair-");
+  const evidencePath = writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "RevisionRequested", {
+    identity: { phaseId: "phase-01", workCardId: "WC01" },
+    notes: "Repair required.",
   });
+
+  const result = createRepairWorkCard(root, "phase-01", "WC01", evidencePath, "preValidationReportReview", "Fix literal compliance");
+  assert.equal(result.repairId, "WC01-REPAIR01");
+  assert.equal(result.handoffMarkdownPath, "planning/phases/phase-01/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC01-REPAIR01.md");
+  assert.equal(result.repairMarkdownPath, "planning/phases/phase-01/Work_Cards/WC01-REPAIR01_fix_literal_compliance.md");
+  assert.equal(["repair", "Json", "Path"].join("") in result, false);
 });

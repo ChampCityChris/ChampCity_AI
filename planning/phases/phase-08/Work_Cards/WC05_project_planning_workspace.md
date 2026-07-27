@@ -1,3 +1,76 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC05"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC05",
+    "phaseId": "phase-08",
+    "title": "Project Planning Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "high",
+    "dependsOn": [
+      "WC04"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "project-planning-review",
+      "level": "project",
+      "stage": "planning",
+      "order": 10,
+      "replaces": "Project Planning"
+    },
+    "handoff": {
+      "path": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_<project-slug>.*",
+      "participationRole": "nonReviewHandoff",
+      "status": "Approved"
+    },
+    "outputs": [
+      "planning/project/PROJECT_PROFILE.*",
+      "planning/project/Project_Roadmap/PROJECT_ROADMAP_<project-slug>.*"
+    ],
+    "reviewModel": "independent previews, synchronized disposition",
+    "freshnessSources": [
+      "Project Intake",
+      "Architect Interview Prompt",
+      "Project Architect Interview"
+    ],
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "Phase Map",
+      "Phase Planning",
+      "Work Cards",
+      "automatic navigation",
+      "hidden completion state",
+      "independent approval",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC05_project_planning_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC05 Project Planning Workspace
 
 Status: approved implementation design; execution deferred
@@ -110,7 +183,3 @@ Record repository verification, changed files, migration, paths, handoff role, s
 ## Manual Validation After Architect Review
 
 The Operator should generate and review both planning documents, exercise a shared revision, then revise the interview and confirm the older planning bundle no longer completes Project Planning.
-
-## Document Disposition
-
-Document.Status=Approved

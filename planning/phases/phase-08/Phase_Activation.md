@@ -1,3 +1,39 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.phase-activation.v1",
+    "projectId": "champcity-ai",
+    "phaseId": "phase-08",
+    "title": "Phase 08 — Operational Workflow Recovery and Dogfooding Re-Entry",
+    "status": "active_for_planning",
+    "activationDate": "2026-07-21",
+    "decisionSource": "Operator approval through ChatGPT",
+    "priorPhase": {
+      "phaseId": "phase-07",
+      "status": "closed",
+      "closeoutPath": "planning/phases/phase-07/Phase_Closeouts/PHASE_07_CLOSEOUT_clean_room_document_disposition_rebuild.md"
+    },
+    "firstRequiredActivity": "Define and approve the highest-level product structure before detailed workflow, interface, action, Work Card, or implementation decomposition.",
+    "implementationAuthorized": false,
+    "gitMutationAuthorized": false,
+    "existingPlanningStatus": "draft_non_authoritative_until_revised_and_approved"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Phase Activation — Phase 08 Operational Workflow Recovery and Dogfooding Re-Entry
 
 Status: active for planning
@@ -35,7 +71,3 @@ The Architect must present only the top-level structure for feedback. Detailed w
 This activation does not authorize source-code implementation, Git operations, or detailed Work Card execution.
 
 The existing Phase 08 Phase Planning and Work Card Plan records remain draft material and are not approved implementation authority until revised through the current high-level planning discussion and approved by the Operator.
-
-## Document Disposition
-
-Document.Status=Approved

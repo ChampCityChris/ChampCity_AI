@@ -1,3 +1,69 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "designDocumentId": "EVIDENCE_DERIVED_LIFECYCLE_PROJECTION_AND_WORKSPACE_RESOLUTION",
+    "projectId": "champcity-ai",
+    "title": "Evidence-Derived Lifecycle Projection and Workspace Resolution",
+    "status": "confirmed_sequence_correction",
+    "lifecycleLevels": [
+      "project",
+      "phase",
+      "workCard"
+    ],
+    "lifecycleStages": [
+      "intake",
+      "planning",
+      "building",
+      "validation",
+      "close"
+    ],
+    "participationRoles": [
+      "gatingReview",
+      "compoundGatingReview",
+      "nonReviewHandoff",
+      "contextOnly",
+      "historical"
+    ],
+    "projectionOutputs": [
+      "currentLifecycleLevel",
+      "currentLifecycleStage",
+      "currentWorkspaceId",
+      "selectedProjectId",
+      "selectedPhaseId",
+      "selectedWorkCardId",
+      "reason",
+      "evidencePaths"
+    ],
+    "semanticCompletionPredicates": {
+      "phaseClose": "Phase_Closeout.Document.Status=Approved AND closureDecision=Close",
+      "projectClose": "Project_Closeout.Document.Status=Approved AND closureDecision=Close"
+    },
+    "prohibitedAuthority": [
+      "persisted current action",
+      "active phase state",
+      "active work card state",
+      "route tokens",
+      "role gates",
+      "execution runs",
+      "approval queues",
+      "target hashes",
+      "timestamps or filesystem order"
+    ]
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Evidence-Derived Lifecycle Projection and Workspace Resolution
 
 Status: confirmed sequence correction
@@ -121,7 +187,3 @@ For every current location, the application must expose a plain-language explana
 ## Authority Boundary
 
 Do not introduce route tables as workflow authority, role gates, execution runs, approval queues, target hashes, decision timelines, persisted current-action records, or filesystem/timestamp precedence.
-
-## Document Disposition
-
-Document.Status=Approved

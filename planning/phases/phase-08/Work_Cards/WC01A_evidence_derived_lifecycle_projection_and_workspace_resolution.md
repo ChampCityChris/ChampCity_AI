@@ -1,3 +1,75 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC01A"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC01A",
+    "phaseId": "phase-08",
+    "title": "Evidence-Derived Lifecycle Projection and Workspace Resolution",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "high",
+    "dependsOn": [
+      "WC01"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "purpose": "Replace the flat first-non-approved resolver with evidence-derived nested lifecycle and stable workspace resolution.",
+    "sourceDesignDocuments": [
+      "planning/project/Design_Documents/NESTED_PROJECT_PHASE_WORK_CARD_LIFECYCLE_MODEL.md",
+      "planning/project/Design_Documents/EVIDENCE_DERIVED_LIFECYCLE_PROJECTION_AND_WORKSPACE_RESOLUTION.md",
+      "planning/project/Design_Documents/PHASE_08_WORKSPACE_INVENTORY_AND_MIGRATION.md",
+      "planning/project/Design_Documents/GENERATED_ARCHITECT_HANDOFF_CONTRACT.md"
+    ],
+    "participationRoles": [
+      "gatingReview",
+      "compoundGatingReview",
+      "nonReviewHandoff",
+      "contextOnly",
+      "historical"
+    ],
+    "requiredCapabilities": [
+      "workspace ownership by stable ID",
+      "evidence-derived lifecycle location",
+      "selected phase and Work Card identity",
+      "semantic close predicates",
+      "parent-child returns",
+      "terminal Project Close",
+      "plain-language evidence explanation"
+    ],
+    "prohibitedScope": [
+      "later workspace UI",
+      "source invalidation",
+      "persisted current action",
+      "route tokens",
+      "role gates",
+      "execution runs",
+      "approval queues",
+      "hashes",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC01A_evidence_derived_lifecycle_projection_and_workspace_resolution.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC01A Evidence-Derived Lifecycle Projection and Workspace Resolution
 
 Status: approved implementation design; execution deferred
@@ -81,7 +153,3 @@ The report must end with `Document.Status=Pending`.
 ## Manual Validation After Architect Review
 
 The Operator should confirm that representative Project, Phase, Work Card, repair, Validation, Phase Close, and Project Close corpora resolve to the expected workspace with a readable explanation.
-
-## Document Disposition
-
-Document.Status=Approved

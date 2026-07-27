@@ -1,3 +1,77 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC13"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC13",
+    "phaseId": "phase-08",
+    "title": "Work Card Validation, Close, and Next-Candidate Return",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "high",
+    "dependsOn": [
+      "WC09",
+      "WC11",
+      "WC12"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspaces": [
+      {
+        "id": "work-card-validation",
+        "level": "workCard",
+        "stage": "validation",
+        "order": 10,
+        "replaces": "Operator Validation"
+      },
+      {
+        "id": "work-card-close",
+        "level": "workCard",
+        "stage": "close",
+        "order": 10
+      }
+    ],
+    "validationRecordPath": "planning/phases/<phase-id>/Validation_Records/VALIDATION_RECORD_<work-card-id>_ATTEMPT<nn>.*",
+    "postValidationAcceptance": "Real RevisionRequested validation → repair → approved repair report → new validation → Approved sequence.",
+    "closeEvidence": "Current Approved Validation Record referencing current Approved Work Card and implementation evidence.",
+    "freshnessRule": "Later Work Card, report, or repair revision makes prior passing validation stale for close purposes.",
+    "returnTarget": "phase-work-card-selection through evidence-derived resolver",
+    "prohibitedScope": [
+      "automatic validation",
+      "record before Operator action",
+      "duplicate repair generator",
+      "Phase Validation",
+      "phase activation",
+      "route tokens",
+      "execution runs",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "real post-validation repair integration lane"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC13_work_card_validation_close_and_next_candidate_return.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC13 Work Card Validation, Close, and Next-Candidate Return
 
 Status: approved implementation design; execution deferred
@@ -132,7 +206,3 @@ Record repository verification, changed files, migration, workspace IDs, validat
 ## Manual Validation After Architect Review
 
 The Operator should complete both required validation lanes and confirm that only the current passing attempt closes the Work Card and returns to the correct candidate-selection workspace.
-
-## Document Disposition
-
-Document.Status=Approved

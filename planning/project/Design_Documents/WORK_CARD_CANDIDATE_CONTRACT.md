@@ -1,3 +1,50 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "designDocumentId": "WORK_CARD_CANDIDATE_CONTRACT",
+    "projectId": "champcity-ai",
+    "title": "Work Card Candidate Contract",
+    "status": "confirmed_sequence_correction",
+    "fields": [
+      "candidateId",
+      "order",
+      "title",
+      "purpose",
+      "dependsOn",
+      "resolutionStatus",
+      "resolutionReason",
+      "evidencePaths"
+    ],
+    "resolutionStatusValues": [
+      "planned",
+      "deferred",
+      "superseded",
+      "alreadySatisfied",
+      "carriedForward"
+    ],
+    "completedDerived": true,
+    "planRevisionEffects": [
+      "increment Work_Card_Plan revision",
+      "set Phase_Planning and Work_Card_Plan Pending",
+      "invoke downstream invalidation",
+      "require synchronized bundle approval"
+    ],
+    "rejectedFormalWorkCardReturn": "Phase Planning bundle revision"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card Candidate Contract
 
 Status: confirmed sequence correction
@@ -80,7 +127,3 @@ Phase Validation may begin only when every candidate is either:
 ## Authority Boundary
 
 Do not create a separate candidate queue, hidden active-candidate field, manually assigned completed status, timestamp precedence, or execution-run authority.
-
-## Document Disposition
-
-Document.Status=Approved

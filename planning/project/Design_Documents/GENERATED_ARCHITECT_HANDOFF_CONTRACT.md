@@ -1,3 +1,46 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "nonReviewHandoff",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "designDocumentId": "GENERATED_ARCHITECT_HANDOFF_CONTRACT",
+    "projectId": "champcity-ai",
+    "title": "Generated Architect Handoff Contract",
+    "status": "confirmed_sequence_correction",
+    "successfulGenerationDisposition": "Approved",
+    "paths": {
+      "projectArchitectInterviewPrompt": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project-slug>.*",
+      "projectPlanningHandoff": "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_<project-slug>.*",
+      "phaseMapHandoff": "planning/project/Architect_Handoffs/PHASE_MAP_ARCHITECT_HANDOFF_<project-slug>.*",
+      "phaseInterviewHandoff": "planning/phases/<phase-id>/Architect_Handoffs/PHASE_INTERVIEW_ARCHITECT_HANDOFF_<phase-id>.*",
+      "phasePlanningHandoff": "planning/phases/<phase-id>/Architect_Handoffs/PHASE_PLANNING_ARCHITECT_HANDOFF_<phase-id>.*",
+      "workCardIntakeHandoff": "planning/phases/<phase-id>/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_<work-card-id>.*",
+      "repairHandoff": "planning/phases/<phase-id>/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_<repair-id>.*"
+    },
+    "requiredMetadata": [
+      "handoffType",
+      "projectId",
+      "phaseId",
+      "workCardId",
+      "outputTarget",
+      "sourceRevisions",
+      "artifactRevision",
+      "participationRole",
+      "documentDisposition"
+    ]
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Generated Architect Handoff Contract
 
 Status: confirmed sequence correction
@@ -13,7 +56,6 @@ Define one canonical treatment for every generated Architect prompt or handoff a
 Every generated system handoff is:
 
 ```text
-participationRole=nonReviewHandoff
 Document.Status=Approved after successful generation
 ```
 
@@ -77,7 +119,3 @@ Non-review handoffs may be displayed in their owning workspace but must never be
 ## Authority Boundary
 
 Do not add a new disposition value, hidden consumed flag, handoff queue, route token, execution run, or automatic remote-message submission.
-
-## Document Disposition
-
-Document.Status=Approved

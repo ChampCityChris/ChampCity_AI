@@ -7,9 +7,7 @@ import type {
 
 export interface ProjectIntakePostSubmitConfirmation {
   projectIntakeMarkdownPath: string;
-  projectIntakeJsonPath: string;
   architectPromptMarkdownPath: string;
-  architectPromptJsonPath: string;
 }
 
 export interface ProjectIntakePostSubmitReviewState {
@@ -24,9 +22,7 @@ export function createProjectIntakeConfirmation(
 ): ProjectIntakePostSubmitConfirmation {
   return {
     projectIntakeMarkdownPath: result.projectIntakeMarkdownPath,
-    projectIntakeJsonPath: result.projectIntakeJsonPath,
     architectPromptMarkdownPath: result.architectPromptMarkdownPath,
-    architectPromptJsonPath: result.architectPromptJsonPath,
   };
 }
 
@@ -35,9 +31,7 @@ export function findCreatedProjectIntakeDocumentId(
   result: ProjectIntakeSubmissionResult,
 ): string | null {
   const created = documents.find(
-    (document) =>
-      document.markdownPath === result.projectIntakeMarkdownPath ||
-      document.jsonPath === result.projectIntakeJsonPath,
+    (document) => document.markdownPath === result.projectIntakeMarkdownPath,
   );
 
   return created?.logicalDocumentId ?? null;

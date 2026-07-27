@@ -1,32 +1,30 @@
 import path from "node:path";
 import type { ArchitectHandoffManifest } from "../../shared/workspaceContracts";
-import { listPlanningDocuments } from "../documents/planningDocumentService";
+import { getArchitectInterviewWorkspaceModel } from "../architectInterview/architectInterviewService";
 
 export function buildArchitectHandoffManifest(workspaceRoot: string): ArchitectHandoffManifest {
   try {
-    const documents = listPlanningDocuments(workspaceRoot);
-    const promptMarkdown = latestPath(documents, "planning/project/Project_Architect_Interview_Prompts/", ".md");
-    const promptJson = latestPath(documents, "planning/project/Project_Architect_Interview_Prompts/", ".json");
-    const intakeMarkdown = latestPath(documents, "planning/project/Project_Intake/", ".md");
-    const intakeJson = latestPath(documents, "planning/project/Project_Intake/", ".json");
-
-    if (!promptMarkdown || !promptJson || !intakeMarkdown || !intakeJson) {
+    const model = getArchitectInterviewWorkspaceModel(workspaceRoot);
+    if (!model.canCopyHandoff || !model.promptDocument || !model.interviewTargets || !model.handoffInstruction) {
       return {
-        state: "handoff-unavailable",
-        reason: "Project Intake and Architect Interview Prompt pairs are required before handoff.",
+        state: model.state === "needs-attention" ? "handoff-failed" : "handoff-unavailable",
+        reason: model.reason,
       };
     }
 
-    for (const relativePath of [promptMarkdown, promptJson, intakeMarkdown, intakeJson]) {
+    for (const relativePath of [
+      model.promptDocument.markdownPath,
+      model.interviewTargets.markdownPath,
+    ]) {
       assertRepoRelative(relativePath);
     }
 
     return {
       state: "handoff-ready",
-      promptMarkdownPath: promptMarkdown,
-      promptJsonPath: promptJson,
-      projectIntakeMarkdownPath: intakeMarkdown,
-      projectIntakeJsonPath: intakeJson,
+      promptMarkdownPath: model.promptDocument.markdownPath,
+      projectIntakeMarkdownPath: projectIntakePath(model.evidencePaths, ".md"),
+      interviewMarkdownTargetPath: model.interviewTargets.markdownPath,
+      handoffInstruction: model.handoffInstruction,
       repositoryReference: "<PROJECT_REPO>",
     };
   } catch (error) {
@@ -37,17 +35,13 @@ export function buildArchitectHandoffManifest(workspaceRoot: string): ArchitectH
   }
 }
 
-function latestPath(
-  documents: ReturnType<typeof listPlanningDocuments>,
-  prefix: string,
-  extension: ".md" | ".json",
-): string | undefined {
-  return documents
-    .flatMap((document) => [document.markdownPath, document.jsonPath])
-    .filter((value): value is string => Boolean(value))
-    .filter((value) => value.startsWith(prefix) && value.endsWith(extension))
-    .sort((left, right) => left.localeCompare(right, "en", { sensitivity: "base" }))
-    .at(-1);
+function projectIntakePath(paths: string[], extension: ".md"): string | undefined {
+  return paths.find((value) =>
+    (
+      value.toLowerCase().includes("planning/project/project_intake/") ||
+      value.toLowerCase().includes("planning/project/project-intake/")
+    ) && value.endsWith(extension),
+  );
 }
 
 function assertRepoRelative(relativePath: string): void {

@@ -1,21 +1,31 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
-import { writeArtifactTransaction } from "../documents/artifactTransaction";
+import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 
 export function createPhaseCloseout(workspaceRoot: string, phaseId: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
-  const sourceRevisions = listPlanningDocuments(workspaceRoot)
-    .filter((document) => (document.markdownPath ?? document.jsonPath ?? "").includes(`planning/phases/${phaseId}/`))
-    .filter((document) => document.jsonPath)
-    .map((document) => ({ path: document.jsonPath!, revision: document.metadata.artifactRevision ?? 1 }));
+  const content = { phaseId, closureDecision, rationale, completionSummary: "", limitations: [], unresolvedMatters: [] };
   const number = phaseId.match(/\d+/)?.[0] ?? "00";
-  const slug = closureDecision.toLowerCase();
+  const slug = slugify(closureDecision);
   const markdownPath = `planning/phases/${phaseId}/Phase_Closeouts/PHASE_${number}_CLOSEOUT_${slug}.md`;
-  const jsonPath = `planning/phases/${phaseId}/Phase_Closeouts/PHASE_${number}_CLOSEOUT_${slug}.json`;
-  const artifact = { artifactType: "phase-closeout", artifactRevision: 1, participationRole: "compoundGatingReview", phaseId, closureDecision, rationale, completionSummary: "", limitations: [], unresolvedMatters: [], sourceRevisions, documentDisposition: { status: "Pending" } };
-  writeFiles(workspaceRoot, [[markdownPath, renderCloseout(artifact)], [jsonPath, json(artifact)]]);
-  return { markdownPath, jsonPath };
+  const sourceRevisions = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.markdownPath.includes(`planning/phases/${phaseId}/`))
+    .map((document) => ({ path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 }));
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: markdownPath,
+    metadata: {
+      schemaVersion: 1,
+      artifactType: "phase-closeout",
+      artifactRevision: 1,
+      participationRole: "compoundGatingReview",
+      identity: { phaseId, closureDecision },
+      sourceRevisions,
+      workflowData: content,
+      documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+    },
+    bodyMarkdown: `# Phase Closeout\n\nclosureDecision: ${closureDecision}\nrationale: ${rationale}\n`,
+  });
+  return { markdownPath };
 }
 
 export function setPhaseCloseoutDisposition(workspaceRoot: string, phaseId: string, status: DocumentDispositionStatus) {
@@ -40,21 +50,10 @@ export function getPhaseCloseProjection(workspaceRoot: string, phaseId: string) 
 
 function latestCloseout(workspaceRoot: string, phaseId: string) {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => (document.jsonPath ?? "").startsWith(`planning/phases/${phaseId}/Phase_Closeouts/`))
+    .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Phase_Closeouts/`))
     .at(-1);
 }
 
-function renderCloseout(artifact: any): string {
-  return [`# Phase Closeout`, "Artifact.Revision=1", "participationRole=compoundGatingReview", `phaseId=${artifact.phaseId}`, `closureDecision=${artifact.closureDecision}`, "", "## Source Revisions", ...artifact.sourceRevisions.map((source: { path: string; revision: number }) => `- path: ${source.path} revision: ${source.revision}`), "", "## Document Disposition", "", "Document.Status=Pending", ""].join("\n");
-}
-
-function writeFiles(workspaceRoot: string, entries: Array<[string, string]>): void {
-  writeArtifactTransaction(
-    workspaceRoot,
-    entries.map(([relativePath, content]) => ({ relativePath, content })),
-  );
-}
-
-function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "closeout";
 }

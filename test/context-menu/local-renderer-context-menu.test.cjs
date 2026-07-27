@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  buildRemoteSurfaceContextMenuTemplate,
   buildLocalRendererContextMenuTemplate,
 } = require("../../dist/main/contextMenu/localRendererContextMenu.js");
 
@@ -106,4 +107,45 @@ test("no selection and no valid edit state produces no context menu", () => {
   );
 
   assert.deepEqual(template, []);
+});
+
+test("remote editable surface provides constrained native editing roles", () => {
+  const template = buildRemoteSurfaceContextMenuTemplate({
+    isEditable: true,
+    selectionText: "",
+    editFlags: {
+      canUndo: true,
+      canRedo: true,
+      canCut: true,
+      canCopy: true,
+      canPaste: true,
+      canSelectAll: true,
+    },
+  });
+
+  assert.deepEqual(labels(template), [
+    "undo",
+    "redo",
+    "separator",
+    "cut",
+    "copy",
+    "paste",
+    "separator",
+    "selectAll",
+  ]);
+  assert.equal(template.some((item) => "label" in item && /devtools|inspect/i.test(item.label ?? "")), false);
+});
+
+test("remote selected non-editable surface allows copy and select all only", () => {
+  const template = buildRemoteSurfaceContextMenuTemplate({
+    isEditable: false,
+    selectionText: "selected remote text",
+    editFlags: {
+      canCopy: true,
+      canPaste: true,
+      canSelectAll: true,
+    },
+  });
+
+  assert.deepEqual(labels(template), ["copy", "selectAll"]);
 });

@@ -1,3 +1,64 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07",
+    "workCardId": "WC03"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.work-card.v1",
+    "workCardId": "WC03",
+    "phaseId": "phase-07",
+    "title": "Clean-Room Application Source Reset and Minimal Workspace Shell",
+    "status": "Approved",
+    "owner": "Implementer",
+    "planOrder": 3,
+    "risk": "high",
+    "continuousExecution": {
+      "approved": true,
+      "nextWorkCard": "WC04",
+      "reportRequiredBeforeNext": true
+    },
+    "purpose": "Delete the existing active application source and tests and recreate a minimal clean-room Electron and React workspace shell without copying old TypeScript or TSX.",
+    "requiredOutcomes": [
+      "Delete the existing src and test implementations.",
+      "Delete rejected WC02 executable and generated manifest paths.",
+      "Create a minimal Electron and React shell with safe workspace-folder selection.",
+      "Provide Project Planning, Phase Planning, Work Card, Operator Validation, and Phase Closeout shells.",
+      "Display Document workflow not yet implemented.",
+      "Contain no disposition reader, writer, selector, or resolver."
+    ],
+    "prohibitions": [
+      "No old TypeScript or TSX reuse.",
+      "No workflow authority, Governance Maintenance, Governance Repair, Governance Approval, approval queue, approval artifact, routed IPC, role gate, screen gate, Execution Run, context packet, or compatibility layer.",
+      "No Document.Status implementation in WC03.",
+      "No Git operations."
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "npm run validate:codex:unit",
+      "npm run validate:codex:build",
+      "npm run validate:codex",
+      "npm start non-acceptance smoke check"
+    ],
+    "implementerReportPath": "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC03_clean_room_application_source_reset.md",
+    "markdownPath": "planning/phases/phase-07/Work_Cards/WC03_clean_room_application_source_reset.md",
+    "jsonPath": "planning/phases/phase-07/Work_Cards/WC03_clean_room_application_source_reset.json"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 07 WC03 Clean-Room Application Source Reset and Minimal Workspace Shell
 
 Status: approved for continuous Implementer execution
@@ -248,7 +309,3 @@ WC03 passes only when:
 10. the WC03 Implementer Report exists.
 
 After the WC03 report is complete, immediately read and implement WC04. Do not wait for another approval.
-
-## Document Disposition
-
-Document.Status=Approved

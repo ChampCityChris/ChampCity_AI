@@ -4,6 +4,8 @@ export interface LocalRendererContextMenuParams {
   misspelledWord?: string;
   dictionarySuggestions?: string[];
   editFlags?: {
+    canUndo?: boolean;
+    canRedo?: boolean;
     canCut?: boolean;
     canCopy?: boolean;
     canPaste?: boolean;
@@ -20,7 +22,7 @@ export interface LocalRendererContextMenuActions {
 export type LocalRendererContextMenuItem =
   | {
       label?: string;
-      role?: "cut" | "copy" | "paste" | "delete" | "selectAll";
+      role?: "undo" | "redo" | "cut" | "copy" | "paste" | "delete" | "selectAll";
       click?: () => void;
     }
   | { type: "separator" };
@@ -57,6 +59,8 @@ export function buildLocalRendererContextMenuTemplate(
     }
 
     const editingItems: LocalRendererContextMenuItem[] = [];
+    if (editFlags.canUndo) editingItems.push({ role: "undo" });
+    if (editFlags.canRedo) editingItems.push({ role: "redo" });
     if (editFlags.canCut) editingItems.push({ role: "cut" });
     if (editFlags.canCopy) editingItems.push({ role: "copy" });
     if (editFlags.canPaste) editingItems.push({ role: "paste" });
@@ -82,4 +86,35 @@ export function buildLocalRendererContextMenuTemplate(
   }
 
   return nonEditableItems;
+}
+
+export function buildRemoteSurfaceContextMenuTemplate(
+  params: LocalRendererContextMenuParams,
+): LocalRendererContextMenuItem[] {
+  const editFlags = params.editFlags ?? {};
+
+  if (params.isEditable) {
+    const template: LocalRendererContextMenuItem[] = [];
+    if (editFlags.canUndo) template.push({ role: "undo" });
+    if (editFlags.canRedo) template.push({ role: "redo" });
+    if (template.length > 0) template.push({ type: "separator" });
+    template.push(
+      { role: "cut" },
+      { role: "copy" },
+      { role: "paste" },
+      { type: "separator" },
+      { role: "selectAll" },
+    );
+    return template;
+  }
+
+  const selectedText = params.selectionText.trim();
+  if (!selectedText) {
+    return [];
+  }
+
+  return [
+    { role: "copy" },
+    { role: "selectAll" },
+  ];
 }

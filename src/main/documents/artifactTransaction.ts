@@ -15,6 +15,7 @@ export interface ArtifactTransactionResult {
 export function writeArtifactTransaction(
   workspaceRoot: string,
   entries: ArtifactWriteEntry[],
+  verifyInstalled?: () => void,
 ): ArtifactTransactionResult {
   const resolvedRoot = path.resolve(workspaceRoot);
   const absoluteEntries = entries.map((entry) => {
@@ -70,6 +71,8 @@ export function writeArtifactTransaction(
     for (const entry of absoluteEntries) {
       verifyStagedBytes(entry.absolutePath, entry.content);
     }
+
+    verifyInstalled?.();
   } catch (error) {
     rollbackErrors.push(...restoreOriginals(originals, backupPaths));
     rollbackErrors.push(...cleanupFiles([...stagedPaths, ...backupPaths]));

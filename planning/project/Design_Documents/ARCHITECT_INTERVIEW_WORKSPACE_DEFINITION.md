@@ -1,3 +1,67 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "designDocumentId": "ARCHITECT_INTERVIEW_WORKSPACE_DEFINITION",
+    "title": "Architect Interview Workspace Definition",
+    "status": "confirmed_by_operator",
+    "projectId": "champcity-ai",
+    "lifecycleLocation": {
+      "level": "project",
+      "stage": "intake"
+    },
+    "purpose": "Conduct the Architect-led project interview and produce the durable interview document reviewed by the Operator.",
+    "handoff": {
+      "promptSource": "repository-saved Architect Interview Prompt",
+      "delivery": "ChampCity MCP attaches the saved prompt to the embedded Architect browser chat",
+      "repositoryReviewConditional": true
+    },
+    "workspaceLayout": {
+      "type": "dual-pane",
+      "panes": [
+        "embedded Architect chat",
+        "repository-backed interview document preview and disposition"
+      ]
+    },
+    "reviewLoop": [
+      "Architect conducts interview",
+      "Architect writes or revises interview document through ChampCity MCP",
+      "Operator reviews repository-backed document",
+      "Operator approves, rejects, or requests revision",
+      "Revision requests return to the Architect chat"
+    ],
+    "completionRequirements": [
+      "Project Intake document captured",
+      "Architect Interview Prompt saved",
+      "Architect Interview conducted",
+      "Architect Interview document saved in repository",
+      "Architect Interview document marked Approved"
+    ],
+    "nextLifecycleLocation": {
+      "level": "project",
+      "stage": "planning",
+      "workspace": "Project Plan and Roadmap Review"
+    },
+    "authorityBoundary": [
+      "Chat conducts the interview but is not the durable record",
+      "Repository-backed interview document is the reviewable record",
+      "Document.Status is the visible disposition",
+      "Browser state and MCP transport do not independently authorize progression"
+    ]
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Architect Interview Workspace Definition
 
 Status: confirmed by Operator
@@ -67,7 +131,3 @@ The resulting interview document incorporates the current-state findings needed 
 - The repository-backed interview document is the reviewable record.
 - `Document.Status` on that document is the visible disposition.
 - The chat session, browser state, or MCP transport does not independently authorize progression.
-
-## Document Disposition
-
-Document.Status=Approved

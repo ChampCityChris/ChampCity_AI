@@ -1,3 +1,71 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.phase-closeout.v1",
+    "projectId": "champcity-ai",
+    "phaseId": "phase-07",
+    "title": "Phase 07 Closeout — Clean-Room Document Disposition Rebuild",
+    "status": "closed",
+    "closeoutDate": "2026-07-21",
+    "decisionSource": "Operator approval through ChatGPT",
+    "acceptedWork": [
+      "WC03",
+      "WC04",
+      "WC05",
+      "WC06",
+      "WC07",
+      "WC08",
+      "WC08-REPAIR01"
+    ],
+    "acceptedOutcomes": [
+      "clean-room Electron and React application",
+      "recursive planning-document discovery",
+      "same-stem Markdown and JSON logical pairing",
+      "four-value document disposition contract",
+      "five document workspaces",
+      "first non-approved document resolution",
+      "phase-by-phase ordering",
+      "staged disposition writes with rollback",
+      "local document read-error isolation",
+      "real-corpus initialization without inferred approval",
+      "removal of rejected governance architecture from clean-room production source"
+    ],
+    "carriedForward": [
+      "high-level human workflow recovery",
+      "navigation and workspace behavior recovery",
+      "visible Operator Architect and Implementer actions",
+      "historical feature restore rework retire defer decisions",
+      "dogfooding without rejected governance architecture"
+    ],
+    "supersededCandidates": [
+      "WC09",
+      "WC10",
+      "WC11"
+    ],
+    "supersededCandidateNote": "The candidates were not executed. They are superseded by the Operator's direct Phase 07 closeout and Phase 08 activation decision.",
+    "gitMutationPerformed": false,
+    "nextPhase": {
+      "phaseId": "phase-08",
+      "title": "Operational Workflow Recovery and Dogfooding Re-Entry",
+      "activationState": "active for planning"
+    }
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Phase 07 Closeout — Clean-Room Document Disposition Rebuild
 
 Status: closed by Operator decision
@@ -57,7 +125,3 @@ Phase 08 — Operational Workflow Recovery and Dogfooding Re-Entry
 ```
 
 The first Phase 08 activity is to define and approve the highest-level structure before drilling into detailed process, interface, action, or implementation requirements.
-
-## Document Disposition
-
-Document.Status=Approved

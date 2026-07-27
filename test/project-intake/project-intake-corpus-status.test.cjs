@@ -10,7 +10,6 @@ function intake(status, suffix = "demo") {
   return {
     logicalDocumentId: suffix,
     markdownPath: `planning/project/Project_Intake/PROJECT_INTAKE_${suffix}.md`,
-    jsonPath: `planning/project/Project_Intake/PROJECT_INTAKE_${suffix}.json`,
     displayFilename: `PROJECT_INTAKE_${suffix}`,
     metadata: {
       artifactType: "project-intake",
@@ -25,7 +24,6 @@ function archivedIntake(status, suffix = "old") {
     ...intake(status, suffix),
     logicalDocumentId: `archived-${suffix}`,
     markdownPath: `planning/archive/project/Project_Intake/PROJECT_INTAKE_${suffix}.md`,
-    jsonPath: `planning\\archive\\project\\Project_Intake\\PROJECT_INTAKE_${suffix}.json`,
   };
 }
 
@@ -68,7 +66,7 @@ test("active Pending Intake wins over archived Approved Intake", () => {
 
   assert.equal(corpus.state, "single");
   assert.equal(deriveProjectIntakeRailStatus([archived, active]), "Awaiting Approval");
-  assert.deepEqual(corpus.evidencePaths, [active.markdownPath, active.jsonPath]);
+  assert.deepEqual(corpus.evidencePaths, [active.markdownPath]);
 });
 
 test("active Approved Intake wins over archived Pending Intake", () => {
@@ -78,7 +76,7 @@ test("active Approved Intake wins over archived Pending Intake", () => {
 
   assert.equal(corpus.state, "single");
   assert.equal(deriveProjectIntakeRailStatus([archived, active]), "Completed");
-  assert.deepEqual(corpus.evidencePaths, [active.markdownPath, active.jsonPath]);
+  assert.deepEqual(corpus.evidencePaths, [active.markdownPath]);
 });
 
 test("true conflict evidence excludes archived Project Intake paths", () => {
@@ -90,9 +88,7 @@ test("true conflict evidence excludes archived Project Intake paths", () => {
   assert.equal(corpus.state, "conflict");
   assert.deepEqual(corpus.evidencePaths, [
     activeOne.markdownPath,
-    activeOne.jsonPath,
     activeTwo.markdownPath,
-    activeTwo.jsonPath,
   ]);
   assert.equal(corpus.evidencePaths.some((value) => value.includes("archive")), false);
 });

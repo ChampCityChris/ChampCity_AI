@@ -28,10 +28,8 @@ export interface LifecycleArtifactClassification {
 export function classifyLifecycleArtifact(
   document: PlanningDocumentSummary,
 ): LifecycleArtifactClassification {
-  const evidencePaths = [document.markdownPath, document.jsonPath].filter(
-    (value): value is string => Boolean(value),
-  );
-  const normalized = [document.markdownPath, document.jsonPath, document.displayFilename]
+  const evidencePaths = [document.markdownPath];
+  const normalized = [document.markdownPath, document.displayFilename]
     .filter(Boolean)
     .join("/")
     .toLowerCase();

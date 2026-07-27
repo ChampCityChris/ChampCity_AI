@@ -1,3 +1,66 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC04"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC04",
+    "phaseId": "phase-08",
+    "title": "Architect Interview Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium-high",
+    "dependsOn": [
+      "WC02",
+      "WC03"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "architect-interview",
+      "level": "project",
+      "stage": "intake",
+      "order": 20,
+      "reuseWc03Entry": true
+    },
+    "canonicalOutput": "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_<project-slug>.*",
+    "sourceRevisionRequirements": [
+      "Project Intake revision",
+      "Architect Interview Prompt revision"
+    ],
+    "completionRule": "Current interview pair is valid, synchronized, fresh, and Approved.",
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "Project Planning",
+      "raw transcript persistence",
+      "DOM submission",
+      "provider API",
+      "hidden lifecycle state",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "real WC03 integration regression"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC04_architect_interview_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC04 Architect Interview Workspace
 
 Status: approved implementation design; execution deferred
@@ -93,7 +156,3 @@ Record repository verification, changed files, layout, canonical paths, WC03 sec
 ## Manual Validation After Architect Review
 
 The Operator should conduct a real interview, request a revision, approve it, then revise Project Intake and confirm the older interview no longer completes Intake.
-
-## Document Disposition
-
-Document.Status=Approved

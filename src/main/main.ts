@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } from "electron";
 import path from "node:path";
 import {
   clearSelectedWorkspace,
@@ -19,8 +19,15 @@ import {
   confirmArchitectSignedIn,
   detachArchitectBrowserSurface,
   getArchitectBrowserFoundationStatus,
+  reloadArchitectBrowserSurface,
   setArchitectBrowserBounds,
 } from "./browser/architectBrowserService";
+import {
+  getArchitectInterviewWorkspaceModel,
+  repairArchitectInterviewCanonicalEnvelope,
+  reviewArchitectInterview,
+  saveCurrentArchitectInterviewOutput,
+} from "./architectInterview/architectInterviewService";
 import {
   applyCurrentDisposition,
   createPhaseCloseoutForCurrentPhase,
@@ -31,6 +38,10 @@ import {
   getCurrentCloseProjection,
   getCurrentWorkspaceModel,
 } from "./currentWorkflow/currentWorkflowService";
+import {
+  migrateWorkspaceToCanonicalMarkdownV1,
+  previewWorkspaceMigrationToCanonicalMarkdownV1,
+} from "./migrations/pairedArtifactsToCanonicalMarkdownV1";
 import { buildLocalRendererContextMenuTemplate } from "./contextMenu/localRendererContextMenu";
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
 import type {
@@ -40,8 +51,11 @@ import type {
   ProjectIntakeSubmission,
   ProjectIntakeSubmissionResult,
   ArchitectBrowserFoundationStatus,
+  ArchitectInterviewWorkspaceModel,
   CurrentWorkspaceModel,
   RuntimeActionResult,
+  WorkspaceMigrationPreview,
+  WorkspaceMigrationResult,
   WorkspaceSelection,
 } from "../shared/workspaceContracts";
 
@@ -67,6 +81,13 @@ function getRequiredWorkspaceRoot(): string {
   }
 
   return selectedWorkspace.workspaceRoot;
+}
+
+function detachArchitectBrowserForSelectedWorkspace(): void {
+  const selectedWorkspace = readSelectedWorkspace(getUserDataRoot());
+  if (selectedWorkspace.ok) {
+    detachArchitectBrowserSurface(selectedWorkspace.workspaceRoot);
+  }
 }
 
 function createMainWindow(): void {
@@ -124,6 +145,7 @@ ipcMain.handle("workspace:choose", async (): Promise<WorkspaceSelection> => {
     return readSelectedWorkspace(getUserDataRoot());
   }
 
+  detachArchitectBrowserForSelectedWorkspace();
   const selection = saveSelectedWorkspace(getUserDataRoot(), result.filePaths[0]);
   if (!selection.ok) {
     throw new Error(selection.reason);
@@ -132,6 +154,7 @@ ipcMain.handle("workspace:choose", async (): Promise<WorkspaceSelection> => {
 });
 
 ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
+  detachArchitectBrowserForSelectedWorkspace();
   return clearSelectedWorkspace(getUserDataRoot());
 });
 
@@ -162,6 +185,14 @@ ipcMain.handle("documents:applyInitialization", () => {
   return applyDispositionInitialization(getRequiredWorkspaceRoot());
 });
 
+ipcMain.handle("workspaceMigration:preview", (): WorkspaceMigrationPreview => {
+  return previewWorkspaceMigrationToCanonicalMarkdownV1(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("workspaceMigration:apply", (): WorkspaceMigrationResult => {
+  return migrateWorkspaceToCanonicalMarkdownV1(getRequiredWorkspaceRoot());
+});
+
 ipcMain.handle("documents:resolveCurrent", () => {
   return resolveFirstNonApprovedDocument(getRequiredWorkspaceRoot());
 });
@@ -177,23 +208,62 @@ ipcMain.handle("architectBrowser:foundationStatus", (): ArchitectBrowserFoundati
   return getArchitectBrowserFoundationStatus(getRequiredWorkspaceRoot());
 });
 
-ipcMain.handle("architectBrowser:show", (): ArchitectBrowserFoundationStatus => {
+ipcMain.handle("architectBrowser:show", (_event, attachmentGeneration?: number): ArchitectBrowserFoundationStatus => {
   if (!mainWindow) {
     throw new Error("Main window is not available.");
   }
-  return attachArchitectBrowserSurface(mainWindow, getRequiredWorkspaceRoot());
+  return attachArchitectBrowserSurface(mainWindow, getRequiredWorkspaceRoot(), attachmentGeneration);
 });
 
 ipcMain.handle("architectBrowser:setBounds", (_event, bounds: BrowserViewBounds): ArchitectBrowserFoundationStatus => {
   return setArchitectBrowserBounds(getRequiredWorkspaceRoot(), bounds);
 });
 
-ipcMain.handle("architectBrowser:hide", (): ArchitectBrowserFoundationStatus => {
-  return detachArchitectBrowserSurface(getRequiredWorkspaceRoot());
+ipcMain.handle("architectBrowser:hide", (_event, attachmentGeneration?: number): ArchitectBrowserFoundationStatus => {
+  return detachArchitectBrowserSurface(getRequiredWorkspaceRoot(), attachmentGeneration);
 });
 
 ipcMain.handle("architectBrowser:confirmSignedIn", (): ArchitectBrowserFoundationStatus => {
   return confirmArchitectSignedIn(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectBrowser:reload", (): ArchitectBrowserFoundationStatus => {
+  return reloadArchitectBrowserSurface(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectInterview:getModel", (): ArchitectInterviewWorkspaceModel => {
+  return getArchitectInterviewWorkspaceModel(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectInterview:copyHandoff", (): RuntimeActionResult => {
+  const model = getArchitectInterviewWorkspaceModel(getRequiredWorkspaceRoot());
+  if (!model.canCopyHandoff || !model.handoffInstruction) {
+    throw new Error(model.reason || "Architect handoff is not available.");
+  }
+  clipboard.writeText(model.handoffInstruction);
+  return {
+    ok: true,
+    action: "architectInterview:copyHandoff",
+    message: "Architect handoff copied. Paste and send it manually in the embedded Architect chat.",
+    payload: {
+      bytes: Buffer.byteLength(model.handoffInstruction, "utf8"),
+    },
+  };
+});
+
+ipcMain.handle(
+  "architectInterview:review",
+  (_event, status: DocumentDispositionStatus, operatorReviewNotes: string, expectedSourceKey?: string): ArchitectInterviewWorkspaceModel => {
+    return reviewArchitectInterview(getRequiredWorkspaceRoot(), status, operatorReviewNotes, expectedSourceKey);
+  },
+);
+
+ipcMain.handle("architectInterview:repairCanonicalEnvelope", (): ArchitectInterviewWorkspaceModel => {
+  return repairArchitectInterviewCanonicalEnvelope(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("architectInterview:saveOutput", (_event, markdownBody: string): ArchitectInterviewWorkspaceModel => {
+  return saveCurrentArchitectInterviewOutput(getRequiredWorkspaceRoot(), markdownBody);
 });
 
 ipcMain.handle("currentWorkflow:getModel", (): CurrentWorkspaceModel => {

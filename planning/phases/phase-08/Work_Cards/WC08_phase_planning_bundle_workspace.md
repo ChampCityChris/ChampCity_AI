@@ -1,3 +1,94 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC08"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC08",
+    "phaseId": "phase-08",
+    "title": "Phase Planning Bundle Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium-high",
+    "dependsOn": [
+      "WC07",
+      "WC03"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "phase-planning-bundle",
+      "level": "phase",
+      "stage": "planning",
+      "order": 10,
+      "replaces": "Phase Planning"
+    },
+    "handoff": {
+      "path": "planning/phases/<phase-id>/Architect_Handoffs/PHASE_PLANNING_ARCHITECT_HANDOFF_<phase-id>.*",
+      "participationRole": "nonReviewHandoff",
+      "status": "Approved"
+    },
+    "outputs": [
+      "planning/phases/<phase-id>/Phase_Planning.*",
+      "planning/phases/<phase-id>/Work_Card_Plan.*"
+    ],
+    "candidateFields": [
+      "candidateId",
+      "order",
+      "title",
+      "purpose",
+      "dependsOn",
+      "resolutionStatus",
+      "resolutionReason",
+      "evidencePaths"
+    ],
+    "candidateResolutionValues": [
+      "planned",
+      "deferred",
+      "superseded",
+      "alreadySatisfied",
+      "carriedForward"
+    ],
+    "completedDerived": true,
+    "planRevisionEffects": [
+      "both bundle documents Pending",
+      "revision increment",
+      "downstream invalidation",
+      "reapproval required"
+    ],
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "Formal Work Cards",
+      "candidate selection",
+      "Implementer handoff",
+      "hidden active phase",
+      "independent approval",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC08_phase_planning_bundle_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC08 Phase Planning Bundle Workspace
 
 Status: approved implementation design; execution deferred
@@ -124,7 +215,3 @@ Record repository verification, changed files, migration, handoff and output pat
 ## Manual Validation After Architect Review
 
 The Operator should approve a planning bundle, change a candidate state or dependency, and confirm the bundle and affected downstream work return to review before selection resumes.
-
-## Document Disposition
-
-Document.Status=Approved

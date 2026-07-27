@@ -31,7 +31,6 @@ export function classifyPlanningDocument(
 ): Pick<WorkspaceDocument, "workspaceId" | "workspace" | "group"> {
   const searchable = [
     document.markdownPath,
-    document.jsonPath,
     document.displayFilename,
   ]
     .filter(Boolean)
@@ -158,7 +157,6 @@ function isProjectIntake(document: PlanningDocumentSummary): boolean {
   }
   const value = [
     document.markdownPath,
-    document.jsonPath,
   ]
     .filter(Boolean)
     .join("/")
@@ -273,8 +271,8 @@ function compareGroups(workspaceId: WorkspaceId, left: string, right: string): n
 }
 
 function compareDocuments(left: WorkspaceDocument, right: WorkspaceDocument): number {
-  const leftPath = left.markdownPath ?? left.jsonPath ?? left.displayFilename;
-  const rightPath = right.markdownPath ?? right.jsonPath ?? right.displayFilename;
+  const leftPath = left.markdownPath || left.displayFilename;
+  const rightPath = right.markdownPath || right.displayFilename;
 
   if (isProjectIntake(left) && !isProjectIntake(right)) {
     return -1;

@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import {
   evaluateDocumentFreshness,
@@ -7,15 +5,12 @@ import {
   setDocumentDispositions,
 } from "../documents/planningDocumentService";
 import type { RollbackWriteOptions } from "../documents/documentDispositionWriter";
-import { writeArtifactTransaction } from "../documents/artifactTransaction";
+import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 
 export interface ProjectPlanningHandoffResult {
   handoffMarkdownPath: string;
-  handoffJsonPath: string;
   profileMarkdownPath: string;
-  profileJsonPath: string;
   roadmapMarkdownPath: string;
-  roadmapJsonPath: string;
 }
 
 export interface ProjectPlanningCompletion {
@@ -24,50 +19,41 @@ export interface ProjectPlanningCompletion {
 }
 
 export function generateProjectPlanningHandoff(workspaceRoot: string): ProjectPlanningHandoffResult {
-  const intake = requiredApproved(workspaceRoot, "planning/project/Project_Intake/", ".json");
-  const prompt = requiredApproved(workspaceRoot, "planning/project/Project_Architect_Interview_Prompts/", ".json");
-  const interview = requiredApproved(workspaceRoot, "planning/project/Project_Architect_Interviews/", ".json");
+  const intake = requiredApproved(workspaceRoot, "planning/project/Project_Intake/", ".md");
+  const prompt = requiredApproved(workspaceRoot, "planning/project/Project_Architect_Interview_Prompts/", ".md");
+  const interview = requiredApproved(workspaceRoot, "planning/project/Project_Architect_Interviews/", ".md");
   const projectSlug = slugFromIntake(intake.displayFilename);
   const handoffMarkdownPath = `planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_${projectSlug}.md`;
-  const handoffJsonPath = `planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_${projectSlug}.json`;
   const profileMarkdownPath = "planning/project/PROJECT_PROFILE.md";
-  const profileJsonPath = "planning/project/PROJECT_PROFILE.json";
   const roadmapMarkdownPath = `planning/project/Project_Roadmap/PROJECT_ROADMAP_${projectSlug}.md`;
-  const roadmapJsonPath = `planning/project/Project_Roadmap/PROJECT_ROADMAP_${projectSlug}.json`;
-  const sourceRevisions = [
-    { path: intake.jsonPath!, revision: intake.metadata.artifactRevision ?? 1 },
-    { path: prompt.jsonPath!, revision: prompt.metadata.artifactRevision ?? 1 },
-    { path: interview.jsonPath!, revision: interview.metadata.artifactRevision ?? 1 },
-  ];
-
-  writeFiles(workspaceRoot, [
-    [
-      handoffMarkdownPath,
-      renderHandoffMarkdown(sourceRevisions, profileMarkdownPath, profileJsonPath, roadmapMarkdownPath, roadmapJsonPath),
-    ],
-    [
-      handoffJsonPath,
-      json({
-        artifactType: "project-planning-handoff",
-        artifactRevision: 1,
-        participationRole: "nonReviewHandoff",
-        sourceRevisions,
-        outputTargets: {
-          projectProfile: { markdown: profileMarkdownPath, json: profileJsonPath },
-          projectRoadmap: { markdown: roadmapMarkdownPath, json: roadmapJsonPath },
-        },
-        documentDisposition: { status: "Approved" },
-      }),
-    ],
-  ]);
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: handoffMarkdownPath,
+    metadata: {
+      schemaVersion: 1,
+      artifactType: "generated-handoff",
+      artifactRevision: 1,
+      participationRole: "nonReviewHandoff",
+      identity: { handoffKind: "project-planning" },
+      sourceRevisions: [
+        { path: intake.markdownPath, revision: intake.metadata.artifactRevision ?? 1 },
+        { path: prompt.markdownPath, revision: prompt.metadata.artifactRevision ?? 1 },
+        { path: interview.markdownPath, revision: interview.metadata.artifactRevision ?? 1 },
+      ],
+      workflowData: {
+        handoffKind: "project-planning",
+        projectProfileTarget: profileMarkdownPath,
+        projectRoadmapTarget: roadmapMarkdownPath,
+      },
+      documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
+    },
+    bodyMarkdown: `# Project Planning Handoff\n\nProject Profile Markdown: ${profileMarkdownPath}\nProject Roadmap Markdown: ${roadmapMarkdownPath}\n`,
+  });
 
   return {
     handoffMarkdownPath,
-    handoffJsonPath,
     profileMarkdownPath,
-    profileJsonPath,
     roadmapMarkdownPath,
-    roadmapJsonPath,
   };
 }
 
@@ -76,14 +62,14 @@ export function setProjectPlanningBundleDisposition(
   status: DocumentDispositionStatus,
   options: RollbackWriteOptions = {},
 ): void {
-  const profile = requiredAny(workspaceRoot, "planning/project/PROJECT_PROFILE", ".json");
-  const roadmap = requiredAny(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".json");
+  const profile = requiredAny(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md");
+  const roadmap = requiredAny(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md");
   setDocumentDispositions(workspaceRoot, [profile.logicalDocumentId, roadmap.logicalDocumentId], status, options);
 }
 
 export function getProjectPlanningCompletion(workspaceRoot: string): ProjectPlanningCompletion {
-  const profile = findByPrefix(workspaceRoot, "planning/project/PROJECT_PROFILE", ".json");
-  const roadmap = findByPrefix(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".json");
+  const profile = findByPrefix(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md");
+  const roadmap = findByPrefix(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md");
   if (!profile || !roadmap) {
     return { complete: false, reason: "Project Profile and Project Roadmap are both required." };
   }
@@ -92,20 +78,20 @@ export function getProjectPlanningCompletion(workspaceRoot: string): ProjectPlan
   const complete =
     profile.effectiveDisposition === "Approved" &&
     roadmap.effectiveDisposition === "Approved" &&
-    profile.synchronizationState === "synchronized" &&
-    roadmap.synchronizationState === "synchronized" &&
+    profile.documentReadState === "readable" &&
+    roadmap.documentReadState === "readable" &&
     profileFreshness.state === "fresh" &&
     roadmapFreshness.state === "fresh";
 
   return {
     complete,
     reason: complete
-      ? "Project Planning is complete because Project Profile and Project Roadmap are synchronized, fresh, and Approved."
-      : "Project Planning remains incomplete until both Project Profile and Project Roadmap are synchronized, fresh, and Approved.",
+      ? "Project Planning is complete because Project Profile and Project Roadmap are readable, fresh, and Approved."
+      : "Project Planning remains incomplete until both Project Profile and Project Roadmap are readable, fresh, and Approved.",
   };
 }
 
-function requiredApproved(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = findByPrefix(workspaceRoot, prefix, extension);
   if (!document || document.effectiveDisposition !== "Approved") {
     throw new Error(`Current Approved input is required: ${prefix}`);
@@ -113,13 +99,10 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".js
   if (evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "stale") {
     throw new Error(`Current input is stale: ${prefix}`);
   }
-  if (!document.jsonPath) {
-    throw new Error(`JSON input is required: ${prefix}`);
-  }
   return document;
 }
 
-function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredAny(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = findByPrefix(workspaceRoot, prefix, extension);
   if (!document) {
     throw new Error(`Project Planning document is missing: ${prefix}`);
@@ -127,71 +110,13 @@ function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") 
   return document;
 }
 
-function findByPrefix(workspaceRoot: string, prefix: string, extension: ".json") {
+function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => (document.jsonPath ?? document.markdownPath ?? "").startsWith(prefix))
-    .filter((document) => (document.jsonPath ?? document.markdownPath ?? "").endsWith(extension))
+    .filter((document) => document.markdownPath.startsWith(prefix))
+    .filter((document) => document.markdownPath.endsWith(extension))
     .at(-1);
-}
-
-function renderHandoffMarkdown(
-  sourceRevisions: Array<{ path: string; revision: number }>,
-  profileMarkdownPath: string,
-  profileJsonPath: string,
-  roadmapMarkdownPath: string,
-  roadmapJsonPath: string,
-): string {
-  return [
-    "# Project Planning Documents Handoff",
-    "Artifact.Revision=1",
-    "participationRole=nonReviewHandoff",
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Output Targets",
-    profileMarkdownPath,
-    profileJsonPath,
-    roadmapMarkdownPath,
-    roadmapJsonPath,
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Approved",
-    "",
-  ].join("\n");
-}
-
-function renderPlanningMarkdown(
-  title: string,
-  sourceRevisions: Array<{ path: string; revision: number }>,
-): string {
-  return [
-    `# ${title}`,
-    "Artifact.Revision=1",
-    "participationRole=compoundGatingReview",
-    "",
-    "## Source Revisions",
-    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Pending",
-    "",
-  ].join("\n");
-}
-
-function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  writeArtifactTransaction(
-    workspaceRoot,
-    entries.map(([relativePath, content]) => ({ relativePath, content })),
-  );
 }
 
 function slugFromIntake(displayFilename: string): string {
   return displayFilename.replace(/^PROJECT_INTAKE_/, "") || "project";
-}
-
-function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
 }

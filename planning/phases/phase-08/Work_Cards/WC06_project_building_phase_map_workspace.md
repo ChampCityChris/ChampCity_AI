@@ -1,3 +1,79 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC06"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC06",
+    "phaseId": "phase-08",
+    "title": "Project Building Phase Map Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium",
+    "dependsOn": [
+      "WC05"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "project-phase-map",
+      "level": "project",
+      "stage": "building",
+      "order": 10
+    },
+    "handoff": {
+      "path": "planning/project/Architect_Handoffs/PHASE_MAP_ARCHITECT_HANDOFF_<project-slug>.*",
+      "participationRole": "nonReviewHandoff",
+      "status": "Approved"
+    },
+    "output": "planning/project/Phase_Map/PHASE_MAP_<project-slug>.*",
+    "persistedPhaseFields": [
+      "phaseId",
+      "title",
+      "order",
+      "purpose",
+      "dependsOn",
+      "sourceReferences"
+    ],
+    "completionProjection": "Compute from current Approved Close Phase_Closeout evidence; do not persist in Phase_Map.",
+    "freshnessSources": [
+      "Project_Profile",
+      "Project_Roadmap"
+    ],
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "persisted phase completion",
+      "Phase Interview",
+      "Phase Planning",
+      "Formal Work Cards",
+      "activation artifacts",
+      "hidden active phase",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC06_project_building_phase_map_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC06 Project Building Phase Map Workspace
 
 Status: approved implementation design; execution deferred
@@ -104,7 +180,3 @@ Record repository verification, changed files, workspace ID, paths, Phase Map sc
 ## Manual Validation After Architect Review
 
 The Operator should approve a Phase Map, add and revise Phase Closeouts, confirm completion indicators update without rewriting the map, and verify map revision invalidates affected phase work.
-
-## Document Disposition
-
-Document.Status=Approved

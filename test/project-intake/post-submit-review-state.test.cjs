@@ -14,15 +14,10 @@ function submissionResult() {
     projectSlug: "demo_project",
     projectRoot: "<PROJECT_REPO>",
     projectIntakeMarkdownPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.md",
-    projectIntakeJsonPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.json",
     architectPromptMarkdownPath:
       "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo_project.md",
-    architectPromptJsonPath:
-      "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo_project.json",
     architectInterviewTargetMarkdownPath:
       "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo_project.md",
-    architectInterviewTargetJsonPath:
-      "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_demo_project.json",
     artifactRevision: 1,
     promptRevision: 1,
     invalidatedPaths: [],
@@ -35,13 +30,10 @@ function documents() {
       logicalDocumentId: "prompt",
       markdownPath:
         "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo_project.md",
-      jsonPath:
-        "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo_project.json",
     },
     {
       logicalDocumentId: "created-intake",
       markdownPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.md",
-      jsonPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.json",
     },
   ];
 }
@@ -60,12 +52,10 @@ function pendingIntakeResolverResult() {
       reason: "Project Intake is Pending.",
       evidencePaths: [
         "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.md",
-        "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.json",
       ],
       freshnessState: "fresh",
       staleSources: [],
       markdownPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.md",
-      jsonPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.json",
       displayTitle: "PROJECT_INTAKE_demo_project",
       effectiveDisposition: "Pending",
       orderPosition: 1,
@@ -81,14 +71,11 @@ test("created Intake path resolves to the loaded logical document", () => {
   );
 });
 
-test("four-path confirmation payload is created from successful submission result", () => {
+test("Markdown-only confirmation payload is created from successful submission result", () => {
   assert.deepEqual(createProjectIntakeConfirmation(submissionResult()), {
     projectIntakeMarkdownPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.md",
-    projectIntakeJsonPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo_project.json",
     architectPromptMarkdownPath:
       "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo_project.md",
-    architectPromptJsonPath:
-      "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_demo_project.json",
   });
 });
 

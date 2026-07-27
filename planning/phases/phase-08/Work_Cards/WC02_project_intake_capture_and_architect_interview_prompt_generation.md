@@ -1,3 +1,76 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC02"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC02",
+    "phaseId": "phase-08",
+    "title": "Project Intake Capture and Architect Interview Prompt Generation",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium",
+    "dependsOn": [
+      "WC01",
+      "WC01A",
+      "WC01B"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "project-intake-capture",
+      "label": "Project Intake Capture",
+      "level": "project",
+      "stage": "intake",
+      "order": 10
+    },
+    "repositoryInitialization": "Create only minimal planning/project intake and handoff directories when planning/ is absent.",
+    "outputs": {
+      "projectIntake": "planning/project/Project_Intake/PROJECT_INTAKE_<project-slug>.*",
+      "architectInterviewPrompt": "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_<project-slug>.*",
+      "architectInterviewTarget": "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_<project-slug>.*"
+    },
+    "dispositionRules": {
+      "projectIntake": "Approved on Operator submit",
+      "architectInterviewPrompt": "Approved nonReviewHandoff"
+    },
+    "revisionRules": [
+      "artifactRevision",
+      "prompt source revision",
+      "prompt regeneration",
+      "downstream invalidation"
+    ],
+    "prohibitedScope": [
+      "embedded browser",
+      "live interview",
+      "Project Planning",
+      "repository reconciliation execution",
+      "lifecycle persistence",
+      "provider API",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC02_project_intake_capture_and_architect_interview_prompt_generation.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC02 Project Intake Capture and Architect Interview Prompt Generation
 
 Status: approved implementation design; execution deferred
@@ -66,7 +139,6 @@ planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW
 Successful Operator submission writes the Project Intake as:
 
 ```text
-participationRole=gatingReview
 Document.Status=Approved
 ```
 
@@ -75,7 +147,6 @@ The direct Submit action is the Operator's approval of the captured answers; no 
 The generated prompt uses:
 
 ```text
-participationRole=nonReviewHandoff
 Document.Status=Approved
 ```
 
@@ -140,7 +211,3 @@ Record repository verification, changed files, initialization boundary, field co
 ## Manual Validation After Architect Review
 
 The Operator should complete greenfield and existing-project intakes, inspect both output pairs, edit intake content, and confirm prompt regeneration and downstream invalidation.
-
-## Document Disposition
-
-Document.Status=Approved

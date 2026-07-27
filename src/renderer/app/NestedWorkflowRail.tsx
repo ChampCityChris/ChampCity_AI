@@ -1,12 +1,18 @@
 import { ArrowRight, CornerDownRight, CornerUpLeft, RotateCcw, Wrench } from "lucide-react";
 
-import type { WorkspaceId } from "../../shared/workspaceContracts";
+import type { ArchitectInterviewRailStatus, WorkspaceId } from "../../shared/workspaceContracts";
 import type { ProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
+import {
+  deriveProjectRailPresentation,
+  type ProjectRailPresentation,
+} from "../../shared/workspaces/projectRailPresentation";
 
 interface NestedWorkflowRailProps {
   activeWorkspaceId: WorkspaceId;
   onWorkspaceChange: (workspaceId: WorkspaceId) => void;
+  architectInterviewStatus?: ArchitectInterviewRailStatus;
   projectIntakeStatus?: ProjectIntakeRailStatus;
+  requiredWorkspaceId?: WorkspaceId | null;
   workspaceCounts?: Partial<Record<WorkspaceId, number>>;
 }
 
@@ -215,8 +221,10 @@ const phaseLoopItems: readonly LoopRailItem[] = [
 
 export function NestedWorkflowRail({
   activeWorkspaceId,
+  architectInterviewStatus = "Open",
   onWorkspaceChange,
   projectIntakeStatus = "Open",
+  requiredWorkspaceId = null,
 }: NestedWorkflowRailProps): JSX.Element {
   return (
     <section
@@ -242,14 +250,23 @@ export function NestedWorkflowRail({
         <div className="mt-1 grid grid-cols-7 gap-1.5">
           {projectRailItems.map((item, index) => {
             const state = getProjectRailItemState(item, activeWorkspaceId);
+            const presentation = deriveProjectRailPresentation({
+              activeWorkspaceId,
+              descendantWorkspaceIds:
+                item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
+              destinationWorkspaceId: item.destination,
+              requiredWorkspaceId,
+              statusLabel: item.id === "project-intake" ? projectIntakeStatus : undefined,
+              architectInterviewStatus: item.id === "architect-interview" ? architectInterviewStatus : undefined,
+            });
             return (
               <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1" key={item.id}>
                 <WorkflowStepButton
                   index={index}
                   label={item.label}
                   onClick={() => onWorkspaceChange(item.destination)}
+                  presentation={presentation}
                   state={state}
-                  statusLabel={item.id === "project-intake" ? projectIntakeStatus : undefined}
                   tone={item.tone}
                 />
                 {index < projectRailItems.length - 1 ? (
@@ -301,26 +318,27 @@ function WorkflowStepButton({
   index,
   label,
   onClick,
+  presentation,
   state,
-  statusLabel,
   tone,
 }: {
   index: number;
   label: string;
   onClick: () => void;
+  presentation: ProjectRailPresentation;
   state: SelectionState;
-  statusLabel?: string;
   tone: WorkflowTone;
 }): JSX.Element {
-  const stateLabel = statusLabel ?? (state === "parent" ? "CONTEXT" : "OPEN");
+  const stateLabel = presentation.statusLabel;
 
   return (
     <button
       aria-current={state === "exact" ? "page" : undefined}
-      aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${stateLabel}. Open workspace.`}
+      aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${stateLabel}.${presentation.isRequired ? " Current required step." : ""} Open workspace.`}
       className={[
         "group flex h-[62px] min-w-0 flex-col rounded-md border px-2 py-1.5 text-left transition-colors",
         stepStateClass(tone, state),
+        presentation.isRequired ? requiredStepClass() : "",
       ].join(" ")}
       onClick={onClick}
       title={`Open ${label}`}
@@ -338,6 +356,10 @@ function WorkflowStepButton({
       </span>
     </button>
   );
+}
+
+function requiredStepClass(): string {
+  return "ring-2 ring-inset ring-[#8ab4a7]/90";
 }
 
 function WorkflowLoopRail({

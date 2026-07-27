@@ -1,28 +1,9 @@
+import type { CanonicalDocumentMetadata } from "./canonicalMarkdown";
 import type { DocumentDispositionStatus } from "./documentDisposition";
 
-export type DocumentPairStatus = "paired" | "markdown-only" | "json-only";
-
-export type DispositionSyncState =
-  | "synchronized"
-  | "single-valid"
-  | "missing"
-  | "invalid"
-  | "mismatched"
-  | "read-error";
-
-export interface PlanningDocumentSummary {
-  logicalDocumentId: string;
-  markdownPath?: string;
-  jsonPath?: string;
-  displayFilename: string;
-  metadata: PlanningDocumentMetadata;
-  pairStatus: DocumentPairStatus;
-  effectiveDisposition: DocumentDispositionStatus;
-  storedMarkdownDisposition?: DocumentDispositionStatus;
-  storedJsonDisposition?: DocumentDispositionStatus;
-  synchronizationState: DispositionSyncState;
-  initializationNeeded: boolean;
-  readError?: string;
+export interface SourceRevision {
+  path: string;
+  revision: number;
 }
 
 export interface PlanningDocumentMetadata {
@@ -32,17 +13,23 @@ export interface PlanningDocumentMetadata {
   sourceRevisions?: SourceRevision[];
   architectOutputTargets?: {
     markdown: string;
-    json: string;
   };
   closureDecision?: string;
   phaseId?: string;
   workCardId?: string;
   candidateId?: string;
+  canonical?: CanonicalDocumentMetadata;
 }
 
-export interface SourceRevision {
-  path: string;
-  revision: number;
+export interface PlanningDocumentSummary {
+  logicalDocumentId: string;
+  markdownPath: string;
+  displayFilename: string;
+  metadata: PlanningDocumentMetadata;
+  effectiveDisposition: DocumentDispositionStatus;
+  documentReadState?: "readable" | "missing" | "invalid" | "read-error";
+  initializationNeeded: boolean;
+  readError?: string;
 }
 
 export interface PlanningDocumentDetail extends PlanningDocumentSummary {
@@ -54,7 +41,6 @@ export interface InitializationPreview {
   totalLogicalDocuments: number;
   affectedLogicalDocuments: number;
   affectedMarkdownFiles: number;
-  affectedJsonFiles: number;
   affectedPaths: string[];
 }
 

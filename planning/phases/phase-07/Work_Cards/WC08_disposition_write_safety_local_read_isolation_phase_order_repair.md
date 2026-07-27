@@ -1,3 +1,106 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07",
+    "workCardId": "WC08"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.work-card.v1",
+    "workCardId": "WC08",
+    "phaseId": "phase-07",
+    "title": "Disposition Write Safety, Local Read Isolation, and Phase Order Repair",
+    "status": "Approved",
+    "owner": "Implementer",
+    "planOrder": 8,
+    "risk": "high",
+    "dependencies": [
+      "WC03",
+      "WC04",
+      "WC05",
+      "WC06",
+      "WC07"
+    ],
+    "purpose": "Repair Markdown disposition preservation, staged pair replacement, per-document read-error isolation, and phase-by-phase resolver ordering without redesigning or reinitializing the clean-room application.",
+    "authorizedProductionFiles": [
+      "src/main/documents/documentDispositionWriter.ts",
+      "src/main/documents/planningDocumentService.ts",
+      "src/shared/documents/documentOrder.ts",
+      "src/shared/documents/planningDocument.ts"
+    ],
+    "authorizedTestFiles": [
+      "test/documents/planning-document-service.test.cjs",
+      "test/resolver/first-non-approved-resolver.test.cjs",
+      "test/workspaces/workspace-document-review.test.cjs",
+      "test/dogfood/real-corpus-dogfood.test.cjs"
+    ],
+    "repairs": [
+      {
+        "repairId": "R01_MARKDOWN_PRESERVATION",
+        "requiredOutcome": "Disposition replacement preserves every non-disposition line and character, including content after an existing disposition section, while producing exactly one canonical terminal disposition section."
+      },
+      {
+        "repairId": "R02_STAGED_REPLACEMENT",
+        "requiredOutcome": "Standalone and paired disposition writes stage verified sibling temporary files, replace targets, restore original bytes on any partial failure, and leave no temporary or backup files."
+      },
+      {
+        "repairId": "R03_LOCAL_READ_ISOLATION",
+        "requiredOutcome": "An individual document metadata or read failure produces one local read-error Pending document while unrelated documents remain discoverable, previewable, writable, and resolvable."
+      },
+      {
+        "repairId": "R04_PHASE_ORDER",
+        "requiredOutcome": "Project-level documents come first; numbered phase is compared before stage; each phase completes Phase Planning, Work Card, Operator Validation, and Phase Closeout before the next phase begins."
+      },
+      {
+        "repairId": "R05_DYNAMIC_DOGFOOD_COUNTS",
+        "requiredOutcome": "Real-corpus tests independently reconcile current runtime counts and do not hard-code file or logical-document totals."
+      }
+    ],
+    "requiredCrossPhaseAssertions": [
+      "Phase 01 Work Card precedes Phase 02 Phase Planning.",
+      "Phase 01 Operator Validation precedes Phase 02 Phase Planning.",
+      "Phase 01 Phase Closeout precedes Phase 02 Phase Planning.",
+      "Phase 02 Phase Planning becomes current only after every earlier Phase 01 document is Approved."
+    ],
+    "realCorpusBoundary": {
+      "reinitializationAuthorized": false,
+      "dispositionWritesAuthorized": false,
+      "requiredVerification": "Every planning file existing at WC08 start remains byte-identical; the only new planning file may be the WC08 Implementer Report."
+    },
+    "prohibitions": [
+      "No renderer redesign or functional renderer change.",
+      "No new preload or IPC behavior.",
+      "No workspace-classification redesign.",
+      "No new status, workflow model, resolver, queue, artifact, event log, journal, database, or governance compatibility layer.",
+      "No dependency or package-script changes.",
+      "No bulk planning mutation, reinitialization, reformatting, deletion, move, or rename.",
+      "No Git operations."
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "npm run validate:codex:unit",
+      "npm run validate:codex:build",
+      "npm run validate:codex",
+      "npm start non-acceptance real-repository smoke check"
+    ],
+    "implementerReportPath": "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC08_disposition_write_safety_local_read_isolation_phase_order_repair.md",
+    "markdownPath": "planning/phases/phase-07/Work_Cards/WC08_disposition_write_safety_local_read_isolation_phase_order_repair.md",
+    "jsonPath": "planning/phases/phase-07/Work_Cards/WC08_disposition_write_safety_local_read_isolation_phase_order_repair.json"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 07 WC08 Disposition Write Safety, Local Read Isolation, and Phase Order Repair
 
 Status: approved for Implementer execution
@@ -92,28 +195,6 @@ When writing a new status:
 - append exactly one canonical terminal section:
 
 ```markdown
-## Document Disposition
-
-Document.Status=<selected status>
-```
-
-- repeated writes must be idempotent;
-- the selected status must parse as valid after writing.
-
-### Required edge cases
-
-Cover at least:
-
-1. a valid disposition section followed by another `##` section;
-2. a valid disposition section followed by ordinary prose;
-3. an invalid disposition assignment followed by content;
-4. duplicate unfenced disposition blocks separated by real content;
-5. fenced Markdown examples containing disposition syntax;
-6. CRLF and LF documents;
-7. a document containing no disposition section.
-
-The repair may move the canonical disposition to the end. It may not delete, reorder, or rewrite unrelated content.
-
 ## Repair 2 — Staged Replacement and Pair Rollback
 
 Replace direct target overwrites in production disposition writes with staged sibling-file replacement.
@@ -416,7 +497,3 @@ The Operator should confirm:
 5. no legacy governance or separate approval screen is visible.
 
 The Operator must not change real historical document dispositions solely to test progression.
-
-## Document Disposition
-
-Document.Status=Approved

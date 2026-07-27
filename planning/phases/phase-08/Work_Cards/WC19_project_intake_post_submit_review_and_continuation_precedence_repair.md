@@ -1,3 +1,233 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC19"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC19",
+    "phaseId": "phase-08",
+    "title": "Project Intake Post-Submit Review and Continuation Precedence Repair",
+    "status": "draft_for_operator_review",
+    "owner": "Implementer upon Operator approval",
+    "risk": "high",
+    "dependsOn": [
+      "WC18"
+    ],
+    "executionInstruction": "Upon Operator approval, this Work Card itself is the Implementer instruction. No separate activation artifact or Implementer handoff is required.",
+    "gitMutationAuthorized": false,
+    "purpose": "Repair only three post-WC18 defects: clipped Project Intake review surfaces, lost post-submit confirmation and created-document review state, and incorrect Project Intake continuation precedence when later Pending or stale evidence exists.",
+    "rootCauseAnalysis": [
+      {
+        "defectId": "clipped-project-intake-review-surface",
+        "observedImpact": "The Project Intake form occupies the visible workspace while the document list and preview rendered below it are unreachable.",
+        "primaryRootCause": "The workspace surface is assigned height 100vh inside app-body, even though app-body occupies only the grid row remaining below the workflow header.",
+        "failureChain": [
+          "Workflow header consumes the first application grid row",
+          "app-body receives only remaining viewport height",
+          "workspace-surface independently claims the full viewport height",
+          "app-body clips overflow",
+          "Project Intake form renders before document-workspace",
+          "document-workspace falls below the visible clipped region"
+        ],
+        "contributingCauses": [
+          "Viewport-derived document-workspace maximum heights",
+          "Multiple nested scroll owners",
+          "Large conditional Project Intake form before the review surface",
+          "Launch smoke did not inspect viewport reachability"
+        ]
+      },
+      {
+        "defectId": "lost-post-submit-confirmation-and-review-state",
+        "observedImpact": "Files are created but no stable confirmation or newly created Project Intake preview is available to the Operator.",
+        "primaryRootCause": "Generic action feedback, resolver-required workspace state, and the manually viewed workspace/document are conflated in one renderer state path.",
+        "failureChain": [
+          "Submission success message is set",
+          "Documents and resolver are reloaded",
+          "Resolver feedback overwrites success feedback",
+          "Resolver synchronization changes activeWorkspaceId",
+          "Selected document becomes the prompt or is cleared",
+          "Document loading clears generic feedback"
+        ],
+        "contributingCauses": [
+          "No dedicated Project Intake submission-confirmation state",
+          "selectResolverResult always performs navigation side effects",
+          "Submission result paths are not resolved to the created logical document",
+          "No post-submit focus or scroll transition to the review surface"
+        ]
+      },
+      {
+        "defectId": "project-intake-continuation-precedence",
+        "observedImpact": "Later Pending or stale Project/Phase evidence can bypass missing-prompt or missing-Interview prerequisite states.",
+        "primaryRootCause": "resolveProjectIntakeContinuation is evaluated only after general current-document selection finds no gating document.",
+        "failureChain": [
+          "Canonical Project Intake exists",
+          "Resolver searches all gating evidence",
+          "Later Pending or stale evidence produces currentIndex",
+          "Continuation helper is not called",
+          "Later evidence becomes current before required Project Intake continuation is complete"
+        ],
+        "contributingCauses": [
+          "Continuation tests used minimal repositories",
+          "No competing later Pending Project fixture",
+          "No competing later Pending Phase fixture"
+        ]
+      }
+    ],
+    "requiredOutcome": [
+      "Successful Project Intake submission produces a stable four-file confirmation",
+      "The visible workspace remains Project Intake Capture for review",
+      "The created Project Intake logical document is selected and previewed",
+      "The document list and preview are visible and reachable",
+      "Current required workflow context may show Architect Interview waiting without forcing navigation",
+      "Missing prompt or missing Interview states take precedence over later evidence",
+      "Normal downstream resolution resumes once a canonical Interview exists"
+    ],
+    "requiredRepairs": [
+      {
+        "id": "parent-constrained-workspace-layout",
+        "requirements": [
+          "Remove height 100vh from workspace-surface",
+          "Size workspace-surface from the available app-body grid row",
+          "Preserve min-height zero through relevant grid and flex ancestors",
+          "Do not allow a child inside app-body to claim the full viewport height",
+          "Replace conflicting viewport-derived document-workspace maximum heights",
+          "Establish one clear outer vertical scroll owner for form plus review content",
+          "Preserve bounded document-list and preview-body internal scrolling",
+          "Keep the Project Intake form and document review surface in the same workspace",
+          "Bring the created review surface into view after successful submission",
+          "Preserve the existing shell, dark theme, sidebar, and workflow header"
+        ]
+      },
+      {
+        "id": "post-submit-confirmation-and-created-document-review",
+        "requirements": [
+          "Create Project Intake-specific confirmation state separate from generic feedback",
+          "Display Intake Markdown and JSON paths",
+          "Display Architect Interview Prompt Markdown and JSON paths",
+          "Preserve confirmation during resolver refresh and document loading",
+          "Clear confirmation on repository change",
+          "Update confirmation on a later successful submission",
+          "Resolve returned Intake paths to the newly loaded logical document",
+          "Select and display the created Project Intake document",
+          "Keep activeWorkspaceId as project-intake-capture after submission",
+          "Do not automatically navigate to Architect Interview",
+          "Keep current-required workspace context separate from manually viewed workspace",
+          "Scroll or focus the document review surface into view",
+          "Never show success confirmation after failed submission"
+        ]
+      },
+      {
+        "id": "project-intake-continuation-precedence",
+        "requiredResolverOrder": [
+          "Order planning documents",
+          "Verify canonical Project Intake exists",
+          "Evaluate Project Intake continuation prerequisite",
+          "Return prerequisite state when present",
+          "Otherwise select first current gating document",
+          "Otherwise return all-approved"
+        ],
+        "requirements": [
+          "No Intake returns pre-intake",
+          "Approved Intake with missing or incomplete prompt returns project-intake-incomplete",
+          "Approved Intake plus Approved prompt with no Interview returns waiting-for-architect-interview",
+          "Continuation states take precedence over later Pending or stale Project evidence",
+          "Continuation states take precedence over later Pending or stale Phase evidence",
+          "Any canonical Interview logical document yields to normal current-document resolution",
+          "Pending or defective Interview evidence is handled in Architect Interview",
+          "Approved Interview permits downstream resolution",
+          "No placeholder Interview or hidden state is introduced"
+        ]
+      }
+    ],
+    "requiredTests": [
+      "Missing prompt plus later Pending Project Roadmap returns project-intake-incomplete",
+      "Missing prompt plus later Pending Phase Planning returns project-intake-incomplete",
+      "Missing Interview plus later Pending Project Roadmap returns waiting-for-architect-interview",
+      "Missing Interview plus later Pending Phase Planning returns waiting-for-architect-interview",
+      "Pending canonical Interview becomes current through normal resolution",
+      "Approved Interview permits later evidence to become current",
+      "Created Intake path resolves to the correct logical document",
+      "Post-submit state preserves Project Intake as viewed workspace while current model points to Architect Interview",
+      "Successful submission produces a four-path confirmation payload",
+      "Repository change clears confirmation"
+    ],
+    "authorizedFiles": [
+      "src/renderer/app/App.tsx",
+      "src/renderer/styles.css",
+      "src/shared/documents/documentOrder.ts",
+      "test/resolver/first-non-approved-resolver.test.cjs",
+      "test/lifecycle/evidence-lifecycle-resolver.test.cjs only if needed",
+      "A narrowly scoped renderer state helper and matching Node test if required",
+      "src/main/currentWorkflow/currentWorkflowService.ts only if consistency requires a minimal update"
+    ],
+    "prohibitedFilesOrSubsystems": [
+      "src/main/contextMenu/localRendererContextMenu.ts",
+      "Context-menu tests",
+      "Architect Interview Prompt content and generation",
+      "Repository selection and workspace settings",
+      "Embedded Architect browser services",
+      "Preload contracts",
+      "Later Phase, Work Card, validation, repair, and closeout services"
+    ],
+    "nonGoals": [
+      "Revising or reopening WC18 or its Implementer Report",
+      "Changing native context-menu behavior",
+      "Rewriting the Architect Interview Prompt",
+      "Changing Project Intake artifact paths or transaction behavior",
+      "Changing repository selection, persistence, or canonical classification",
+      "Implementing Architect chat-to-MCP transfer",
+      "Creating a Project Architect Interview placeholder",
+      "Redesigning the workflow rail, sidebar, or dark theme",
+      "Redesigning all workspace navigation or scrolling",
+      "Creating a universal missing-artifact framework",
+      "Adding dependencies",
+      "Adding hidden state, queues, route tokens, databases, or approval artifacts",
+      "Git mutation"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "Non-acceptance Electron launch smoke",
+      "Operator-controlled viewport, confirmation, created-document review, and precedence validation"
+    ],
+    "acceptanceCriteria": [
+      "workspace-surface no longer claims full viewport height inside app-body",
+      "Application body and workspace use a coherent parent-constrained height model",
+      "Project Intake form, document list, and preview are reachable at supported heights",
+      "Document review surface is not clipped by app-body",
+      "Successful submission displays a stable four-file confirmation",
+      "Resolver and document feedback do not overwrite confirmation",
+      "Created Project Intake logical document is selected and displayed",
+      "Visible workspace remains Project Intake Capture for post-submit review",
+      "Review surface is brought into view",
+      "Current required workspace can show Architect Interview without forcing visible navigation",
+      "Repository change clears old confirmation",
+      "Failed submission does not show success confirmation",
+      "Missing prompt and missing Interview states take precedence over later evidence",
+      "Canonical Interview returns control to normal resolution",
+      "Approved Interview permits downstream evidence",
+      "No prohibited architecture, dependency, or placeholder is introduced",
+      "Typecheck, build, and tests pass",
+      "Implementer Report distinguishes automated evidence from Operator validation",
+      "No Git mutation occurs"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC19_project_intake_post_submit_review_and_continuation_precedence_repair.md"
+  },
+  "documentDisposition": {
+    "status": "Pending",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC19 Project Intake Post-Submit Review and Continuation Precedence Repair
 
 Status: draft for Operator review
@@ -440,11 +670,6 @@ The report must include:
 The report must end with:
 
 ```markdown
-## Document Disposition
-
-Document.Status=Pending
-```
-
 ## Manual Validation After Architect Review
 
 The Operator will perform controlling validation after Architect review.
@@ -467,7 +692,3 @@ Required human checks:
 14. use an existing-project fixture containing later Pending evidence and confirm missing prompt or missing Interview remains the required state;
 15. add a Pending Interview and confirm it becomes current;
 16. approve the Interview and confirm downstream evidence then becomes current.
-
-## Document Disposition
-
-Document.Status=Pending

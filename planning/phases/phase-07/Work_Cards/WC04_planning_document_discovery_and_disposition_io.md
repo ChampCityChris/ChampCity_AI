@@ -1,3 +1,72 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07",
+    "workCardId": "WC04"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.work-card.v1",
+    "workCardId": "WC04",
+    "phaseId": "phase-07",
+    "title": "Planning Document Discovery and Disposition Reader/Writer",
+    "status": "Approved",
+    "owner": "Implementer",
+    "planOrder": 4,
+    "risk": "high",
+    "dependencies": [
+      "WC03"
+    ],
+    "continuousExecution": {
+      "approved": true,
+      "nextWorkCard": "WC05",
+      "reportRequiredBeforeNext": true
+    },
+    "allowedStatuses": [
+      "Pending",
+      "Approved",
+      "Rejected",
+      "RevisionRequested"
+    ],
+    "purpose": "Discover every Markdown and JSON document under a selected planning directory and provide safe synchronized disposition read, write, preview, and initialization operations.",
+    "requiredOutcomes": [
+      "Recursively discover all planning Markdown and JSON files.",
+      "Treat same-stem Markdown and JSON as one logical document.",
+      "Read missing or invalid disposition as Pending.",
+      "Write one terminal Markdown disposition section and one root JSON disposition field.",
+      "Synchronize pair writes with rollback.",
+      "Provide preview and apply initialization operations tested only on temporary repositories."
+    ],
+    "prohibitions": [
+      "Do not initialize the real ChampCity_AI planning corpus in WC04.",
+      "Do not use old artifact IDs, Registry authority, approval artifacts, workflow state, route bindings, or historical status fields.",
+      "Do not add workspace UI or startup resolver behavior.",
+      "Do not perform Git operations."
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "npm run validate:codex:unit",
+      "npm run validate:codex:build",
+      "npm run validate:codex"
+    ],
+    "implementerReportPath": "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC04_planning_document_discovery_and_disposition_io.md",
+    "markdownPath": "planning/phases/phase-07/Work_Cards/WC04_planning_document_discovery_and_disposition_io.md",
+    "jsonPath": "planning/phases/phase-07/Work_Cards/WC04_planning_document_discovery_and_disposition_io.json"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 07 WC04 Planning Document Discovery and Disposition Reader/Writer
 
 Status: approved for continuous Implementer execution
@@ -32,47 +101,6 @@ A missing, malformed, duplicated, or unrecognized disposition is read as effecti
 A Markdown document carries one terminal section:
 
 ```markdown
-## Document Disposition
-
-Document.Status=Pending
-```
-
-Rules:
-
-- the heading and assignment appear exactly once;
-- the section is the final non-whitespace content;
-- writing a status replaces an existing valid or invalid disposition section rather than appending a duplicate;
-- unrelated Markdown content and line endings are preserved as far as practical;
-- standalone Markdown documents are supported.
-
-### JSON
-
-A JSON document carries one root field:
-
-```json
-{
-  "documentDisposition": {
-    "status": "Pending"
-  }
-}
-```
-
-Rules:
-
-- the field appears only at the root;
-- writing changes only `documentDisposition` plus necessary formatting;
-- unrelated keys and values are preserved;
-- standalone JSON documents are supported;
-- malformed JSON remains discoverable but cannot be written until corrected.
-
-### Logical documents
-
-- Same directory and same filename stem `.md` plus `.json` form one logical document.
-- A standalone `.md` or `.json` file is one logical document.
-- Different stems are never merged.
-- Every logical document has a stable ID derived only from its repository-relative source path or pair stem.
-- The service does not use Artifact Registry identity, old artifact IDs, approval artifacts, filenames as approval evidence, or historical status fields.
-
 ## Discovery
 
 Recursively discover regular `.md` and `.json` files under:
@@ -256,7 +284,3 @@ WC04 passes only when:
 10. the WC04 Implementer Report exists.
 
 After the WC04 report is complete, immediately read and implement WC05. Do not wait for another approval.
-
-## Document Disposition
-
-Document.Status=Approved

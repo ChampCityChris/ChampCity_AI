@@ -1,3 +1,74 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC10"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC10",
+    "phaseId": "phase-08",
+    "title": "Formal Work Card Planning Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium-high",
+    "dependsOn": [
+      "WC09",
+      "WC03"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "work-card-planning",
+      "level": "workCard",
+      "stage": "planning",
+      "order": 10,
+      "replaces": "Work Card"
+    },
+    "input": "Current Approved nonReview Work Card Intake handoff",
+    "artifactPath": "planning/phases/<phase-id>/Work_Cards/<work-card-id>_<slug>.*",
+    "reviewOutcomes": {
+      "Approved": "Work Card Building eligible",
+      "RevisionRequested": "revise same card",
+      "Rejected": "return to Phase Planning bundle revision"
+    },
+    "implementerInstruction": "Approved Formal Work Card",
+    "freshnessRules": [
+      "upstream revisions invalidate Formal Work Card",
+      "Formal Work Card revision invalidates reports, repairs, and Validation Records"
+    ],
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "implementation execution",
+      "report review",
+      "repairs",
+      "Operator validation",
+      "execution packet",
+      "hidden active card",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC10_formal_work_card_planning_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC10 Formal Work Card Planning Workspace
 
 Status: approved implementation design; execution deferred
@@ -97,7 +168,3 @@ Record repository verification, changed files, migration, artifact contract, can
 ## Manual Validation After Architect Review
 
 The Operator should approve, revise, and reject controlled Work Cards, confirm rejection returns to Phase Planning, and confirm a post-implementation Work Card amendment invalidates older report and validation approval.
-
-## Document Disposition
-
-Document.Status=Approved

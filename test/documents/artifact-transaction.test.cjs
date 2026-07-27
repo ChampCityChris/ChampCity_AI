@@ -14,7 +14,7 @@ function createWorkspace() {
   return root;
 }
 
-test("artifact transaction creates synchronized artifact pairs", () => {
+test("artifact transaction writes multiple artifacts atomically", () => {
   const root = createWorkspace();
 
   const result = writeArtifactTransaction(root, [

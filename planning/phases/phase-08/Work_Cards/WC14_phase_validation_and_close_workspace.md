@@ -1,3 +1,79 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC14"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC14",
+    "phaseId": "phase-08",
+    "title": "Phase Validation and Close Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium",
+    "dependsOn": [
+      "WC13"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspaces": [
+      {
+        "id": "phase-validation",
+        "level": "phase",
+        "stage": "validation",
+        "order": 10,
+        "replaces": "Phase Closeout review"
+      },
+      {
+        "id": "phase-close",
+        "level": "phase",
+        "stage": "close",
+        "order": 10,
+        "replaces": "Phase Closeout navigation"
+      }
+    ],
+    "entryRule": "Current Approved phase planning plus every candidate derived complete or explicitly resolved with evidence.",
+    "populationRule": "Index current durable phase documents; Architect review is Implementer Report disposition, not a separate artifact.",
+    "closeout": {
+      "path": "planning/phases/<phase-id>/Phase_Closeouts/PHASE_<phase-number>_CLOSEOUT_<slug>.*",
+      "initialStatus": "Pending"
+    },
+    "completionRule": "Current Phase_Closeout is Approved AND closureDecision=Close.",
+    "doNotCloseRule": "Approved DoNotClose remains current at phase-validation.",
+    "freshnessRule": "Current source revisions determine closeout validity and completion projection.",
+    "prohibitedScope": [
+      "repeated Work Card testing",
+      "Project Validation",
+      "second approval",
+      "activation artifact",
+      "duplicate corpus snapshot",
+      "hidden completion state",
+      "route tokens",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC14_phase_validation_and_close_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC14 Phase Validation and Close Workspace
 
 Status: approved implementation design; execution deferred
@@ -121,7 +197,3 @@ Record repository verification, changed files, migration, workspace IDs, eligibi
 ## Manual Validation After Architect Review
 
 The Operator should inspect a complete and incomplete phase, approve DoNotClose and Close decisions, revise underlying evidence, and confirm the current location and computed next phase update correctly.
-
-## Document Disposition
-
-Document.Status=Approved

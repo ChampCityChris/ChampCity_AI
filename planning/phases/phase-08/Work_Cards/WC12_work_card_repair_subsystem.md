@@ -1,3 +1,74 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC12"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC12",
+    "phaseId": "phase-08",
+    "title": "Work Card Repair Subsystem",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "high",
+    "dependsOn": [
+      "WC11"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "work-card-repair",
+      "level": "workCard",
+      "stage": "building",
+      "order": 20
+    },
+    "handoff": {
+      "path": "planning/phases/<phase-id>/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_<repair-id>.*",
+      "participationRole": "nonReviewHandoff",
+      "status": "Approved"
+    },
+    "repairIdPattern": "<parent-id>-REPAIR<nn>",
+    "parentageRule": "Every repair references the original parent; failed repair reports create the next sibling.",
+    "acceptanceSplit": {
+      "preValidation": "production manual acceptance in WC12",
+      "postValidation": "contract/unit tests in WC12; production end-to-end acceptance in WC13"
+    },
+    "freshnessRule": "Later repair implementation invalidates prior passing validation for close purposes.",
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "new lifecycle level",
+      "nested repair parents",
+      "automatic dispatch",
+      "separate repair approval",
+      "pre-validation Validation Record",
+      "automatic validation pass",
+      "parent close",
+      "hidden counter",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC12_work_card_repair_subsystem.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC12 Work Card Repair Subsystem
 
 Status: approved implementation design; execution deferred
@@ -127,7 +198,3 @@ Record repository verification, changed files, workspace order, handoff and repa
 ## Manual Validation After Architect Review
 
 The Operator should complete a real report-review repair cycle and confirm no Validation Record exists. Post-validation manual acceptance is deferred to WC13.
-
-## Document Disposition
-
-Document.Status=Approved

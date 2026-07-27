@@ -23,6 +23,14 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "documents:applyInitialization",
     ) as ReturnType<ChampCityApi["applyDispositionInitialization"]>,
+  previewWorkspaceMigration: () =>
+    ipcRenderer.invoke(
+      "workspaceMigration:preview",
+    ) as ReturnType<ChampCityApi["previewWorkspaceMigration"]>,
+  applyWorkspaceMigration: () =>
+    ipcRenderer.invoke(
+      "workspaceMigration:apply",
+    ) as ReturnType<ChampCityApi["applyWorkspaceMigration"]>,
   resolveCurrentDocument: () =>
     ipcRenderer.invoke(
       "documents:resolveCurrent",
@@ -41,14 +49,48 @@ const api: ChampCityApi = {
       "architectBrowser:setBounds",
       bounds,
     ) as ReturnType<ChampCityApi["setArchitectBrowserBounds"]>,
-  showArchitectBrowser: () =>
-    ipcRenderer.invoke("architectBrowser:show") as ReturnType<ChampCityApi["showArchitectBrowser"]>,
-  hideArchitectBrowser: () =>
-    ipcRenderer.invoke("architectBrowser:hide") as ReturnType<ChampCityApi["hideArchitectBrowser"]>,
+  showArchitectBrowser: (attachmentGeneration) =>
+    ipcRenderer.invoke(
+      "architectBrowser:show",
+      attachmentGeneration,
+    ) as ReturnType<ChampCityApi["showArchitectBrowser"]>,
+  hideArchitectBrowser: (attachmentGeneration) =>
+    ipcRenderer.invoke(
+      "architectBrowser:hide",
+      attachmentGeneration,
+    ) as ReturnType<ChampCityApi["hideArchitectBrowser"]>,
   confirmArchitectSignedIn: () =>
     ipcRenderer.invoke(
       "architectBrowser:confirmSignedIn",
     ) as ReturnType<ChampCityApi["confirmArchitectSignedIn"]>,
+  reloadArchitectBrowser: () =>
+    ipcRenderer.invoke(
+      "architectBrowser:reload",
+    ) as ReturnType<ChampCityApi["reloadArchitectBrowser"]>,
+  getArchitectInterviewWorkspaceModel: () =>
+    ipcRenderer.invoke(
+      "architectInterview:getModel",
+    ) as ReturnType<ChampCityApi["getArchitectInterviewWorkspaceModel"]>,
+  copyArchitectHandoff: () =>
+    ipcRenderer.invoke(
+      "architectInterview:copyHandoff",
+    ) as ReturnType<ChampCityApi["copyArchitectHandoff"]>,
+  reviewArchitectInterview: (status, operatorReviewNotes, expectedSourceKey) =>
+    ipcRenderer.invoke(
+      "architectInterview:review",
+      status,
+      operatorReviewNotes,
+      expectedSourceKey,
+    ) as ReturnType<ChampCityApi["reviewArchitectInterview"]>,
+  repairArchitectInterviewCanonicalEnvelope: () =>
+    ipcRenderer.invoke(
+      "architectInterview:repairCanonicalEnvelope",
+    ) as ReturnType<ChampCityApi["repairArchitectInterviewCanonicalEnvelope"]>,
+  saveArchitectInterviewOutput: (markdownBody) =>
+    ipcRenderer.invoke(
+      "architectInterview:saveOutput",
+      markdownBody,
+    ) as ReturnType<ChampCityApi["saveArchitectInterviewOutput"]>,
   getCurrentWorkspaceModel: () =>
     ipcRenderer.invoke(
       "currentWorkflow:getModel",

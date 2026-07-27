@@ -1,3 +1,126 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "documentType": "project_intake_lifecycle_and_workspace_definition",
+    "project": "ChampCity A/I",
+    "status": "confirmed_by_operator",
+    "lifecycleLocation": {
+      "level": "project",
+      "stage": "intake"
+    },
+    "workspaces": [
+      {
+        "id": "project-intake-capture",
+        "label": "Project Intake Capture",
+        "order": 1
+      },
+      {
+        "id": "architect-interview",
+        "label": "Architect Interview",
+        "order": 2
+      }
+    ],
+    "fixedQuestions": [
+      {
+        "id": "project-name",
+        "label": "Project Name",
+        "responseType": "short_text",
+        "required": true
+      },
+      {
+        "id": "project-purpose",
+        "label": "Project Purpose",
+        "responseType": "long_text",
+        "required": true
+      },
+      {
+        "id": "desired-outcome",
+        "label": "Desired Outcome",
+        "responseType": "long_text",
+        "required": true
+      },
+      {
+        "id": "project-type",
+        "label": "Project Type",
+        "responseType": "dropdown",
+        "required": true,
+        "options": [
+          "Desktop application",
+          "Web application",
+          "Mobile application",
+          "CLI or tool",
+          "Library or service",
+          "Documentation or process",
+          "Other"
+        ]
+      },
+      {
+        "id": "project-repository",
+        "label": "Project Repository",
+        "responseType": "repository_selector",
+        "required": true
+      },
+      {
+        "id": "existing-source-or-planning",
+        "label": "Does this repository already contain source code or project-planning documents?",
+        "responseType": "boolean",
+        "required": true
+      },
+      {
+        "id": "constraints",
+        "label": "Known Constraints or Non-Negotiables",
+        "responseType": "long_text",
+        "required": false
+      }
+    ],
+    "conditionalQuestions": [
+      {
+        "id": "reconciliation-note",
+        "label": "What should the Architect know before reviewing the existing repository?",
+        "responseType": "long_text",
+        "required": false,
+        "condition": {
+          "questionId": "existing-source-or-planning",
+          "equals": true
+        }
+      }
+    ],
+    "reconciliation": {
+      "isSeparateLifecycleStage": false,
+      "standaloneArtifactRequired": false,
+      "defaultBehavior": "Add required repository review instructions to the Architect Interview Prompt and incorporate findings into standard Project Planning outputs.",
+      "standardOutputs": [
+        "Project_Profile",
+        "Project_Roadmap"
+      ]
+    },
+    "completionCriteria": [
+      "Fixed intake questions captured",
+      "Architect Interview Prompt created",
+      "Architect Interview completed",
+      "Interview reviewed by Operator",
+      "Interview disposition Approved"
+    ],
+    "nextLifecycleLocation": {
+      "level": "project",
+      "stage": "planning",
+      "workspace": "Project Plan and Roadmap Review"
+    }
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Project Intake Lifecycle and Workspace Definition
 
 Status: confirmed by Operator
@@ -104,7 +227,3 @@ Control then advances to:
 Project / Planning
 └── Project Plan and Roadmap Review
 ```
-
-## Document Disposition
-
-Document.Status=Approved

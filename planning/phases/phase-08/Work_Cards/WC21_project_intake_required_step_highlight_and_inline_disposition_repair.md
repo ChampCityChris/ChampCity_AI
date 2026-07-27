@@ -1,7 +1,172 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC21"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC21",
+    "phaseId": "phase-08",
+    "title": "Project Intake Required-Step Highlight and Inline Disposition Repair",
+    "status": "approved",
+    "owner": "Implementer",
+    "risk": "medium",
+    "dependsOn": [
+      "WC20"
+    ],
+    "executionInstruction": "Upon Operator approval, this Work Card itself is the Implementer instruction. No separate activation artifact or Implementer handoff is required.",
+    "gitMutationAuthorized": false,
+    "purpose": "Complete the Project Intake workspace with two presentation-only corrections: mark the current required workspace on the top rail independently from the viewed workspace, and move Project Intake disposition controls from the preview footer into the selected Project Intake document selector card.",
+    "verifiedCodeOwnership": {
+      "viewedAndRequiredWorkspaceState": "src/renderer/app/App.tsx",
+      "topRailPresentation": "src/renderer/app/NestedWorkflowRail.tsx",
+      "documentSelectorAndDispositionPlacement": "src/renderer/app/App.tsx",
+      "visualLayout": "src/renderer/styles.css"
+    },
+    "rootCauseAnalysis": [
+      {
+        "defectId": "top-rail-missing-required-step-highlight",
+        "primaryRootCause": "NestedWorkflowRail receives activeWorkspaceId but not currentModel.activeWorkspaceId, so it can represent viewed-workspace selection but not the independent current required workflow step.",
+        "failureChain": [
+          "Current model identifies Architect Interview as required",
+          "Sidebar compares currentModel.activeWorkspaceId and marks Architect Interview required",
+          "Top rail receives only activeWorkspaceId",
+          "Project Intake remains selected",
+          "Architect Interview receives no required border",
+          "Sidebar and top rail communicate different progress"
+        ]
+      },
+      {
+        "defectId": "project-intake-disposition-detached-from-selector",
+        "primaryRootCause": "Generic disposition controls are implemented as a document-preview footer, while Project Intake review is organized around a document selector card. The selector row is one button, preventing valid nested disposition controls without restructuring.",
+        "failureChain": [
+          "Operator selects Project Intake document",
+          "Preview opens on the right",
+          "Disposition remains at bottom of preview",
+          "Controls are separated from the selected card and status badge",
+          "Long previews split attention and lose usable height"
+        ]
+      }
+    ],
+    "requiredRepairs": [
+      {
+        "id": "independent-required-step-top-rail-border",
+        "requirements": [
+          "Pass currentModel.activeWorkspaceId from App to NestedWorkflowRail as an explicit typed required workspace prop",
+          "Keep activeWorkspaceId as the selected-workspace and aria-current source",
+          "Derive selected and required state independently for every primary top-rail card",
+          "Allow a card to be selected and required simultaneously",
+          "Allow Architect Interview to be required while Project Intake remains selected",
+          "Do not replace lifecycle labels with required-state text",
+          "Preserve Project Intake Open, Awaiting Approval, Completed, and Conflict labels",
+          "Do not restore CURRENT text",
+          "Use a distinct green or teal border or ring consistent with the sidebar required state",
+          "Include required-step meaning in the accessible label",
+          "Do not change lower Phase or Work Card loop rails"
+        ]
+      },
+      {
+        "id": "inline-project-intake-disposition-controls",
+        "requirements": [
+          "Apply only when activeWorkspaceId is project-intake-capture",
+          "Refactor selected Project Intake selector row into a noninteractive shell containing a document-selection button and sibling disposition controls",
+          "Do not nest select or Apply button inside the document-selection button",
+          "Show controls only on the selected Project Intake document",
+          "Keep unselected cards compact",
+          "Retain filename, path, and current disposition badge",
+          "Reuse selectedStatus, disposition options, applyDisposition, and existing disabled rules",
+          "Suppress the generic preview-footer disposition controls only in Project Intake Capture",
+          "Preserve disposition placement and specialized behavior in every other workspace",
+          "Refresh card badge, rail status, current model, and required border after Apply",
+          "Do not force navigation solely to show progress"
+        ]
+      }
+    ],
+    "authorizedFiles": [
+      "src/renderer/app/App.tsx",
+      "src/renderer/app/NestedWorkflowRail.tsx",
+      "src/renderer/styles.css",
+      "One narrowly scoped pure presentation helper only if needed for tests",
+      "Focused renderer-state tests without new dependencies"
+    ],
+    "productionFilesExpectedUnchanged": [
+      "src/main/projectIntake/projectIntakeService.ts",
+      "src/shared/projectIntake/projectIntakeCorpus.ts",
+      "src/shared/documents/documentOrder.ts",
+      "src/main/currentWorkflow/currentWorkflowService.ts",
+      "src/main/documents/planningDocumentService.ts",
+      "Repository selection services",
+      "Embedded browser services",
+      "Context-menu services",
+      "Phase and Work Card services"
+    ],
+    "requiredTests": [
+      "Viewed Project Intake and required Architect Interview produce independent selected and required states",
+      "A workspace may be both selected and required",
+      "Required state does not alter Project Intake lifecycle label",
+      "No required workspace produces no required card",
+      "Existing Pending Intake explicit approval and Completed rail behavior remain green",
+      "Existing Architect Interview required projection remains green",
+      "No source-string assertion is reported as visual acceptance"
+    ],
+    "nonGoals": [
+      "Revising WC20 artifact identity, archive handling, dispositions, resolver rules, or rail lifecycle labels",
+      "Changing sidebar required highlighting",
+      "Redesigning the top rail",
+      "Adding progress text or new Architect Interview lifecycle labels",
+      "Changing lower loop rails",
+      "Moving disposition controls for other workspaces",
+      "Changing disposition options, APIs, or authority",
+      "Changing post-submit confirmation or preview content",
+      "Changing repository selection or embedded browser behavior",
+      "Adding dependencies",
+      "Git mutation"
+    ],
+    "acceptanceCriteria": [
+      "App passes the current required workspace explicitly to the top rail",
+      "Top-rail selection and required-step presentation are independent",
+      "Project Intake may remain selected while Architect Interview has a required border",
+      "A card may be selected and required without losing either visual state",
+      "Project Intake lifecycle labels remain unchanged",
+      "No top-rail card displays CURRENT",
+      "Required state is included in the accessible label",
+      "Selected Project Intake document card contains dropdown and Apply button",
+      "Interactive controls are not nested inside the selection button",
+      "Unselected cards remain compact",
+      "Project Intake preview footer no longer contains disposition controls",
+      "Other workspaces retain their current disposition placement",
+      "Apply uses the existing disposition path and refreshes badge, rail status, current model, and required border",
+      "Project Intake may remain viewed after approval while Architect Interview is required",
+      "Controls fit supported widths without overflow",
+      "Typecheck, build, and all tests pass",
+      "No unrelated subsystem, dependency, or Git mutation is introduced"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "Non-acceptance Electron launch smoke",
+      "Operator-controlled visual validation of required border and inline disposition layout"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC21_project_intake_required_step_highlight_and_inline_disposition_repair.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC21 Project Intake Required-Step Highlight and Inline Disposition Repair
 
-Status: draft for Operator review
-Owner: Implementer upon Operator approval
+Status: approved by Operator
+Owner: Implementer
 Phase: phase-08
 Risk: medium
 Depends on: completed WC20 Canonical Project Intake Identity, Explicit Approval, and Rail Status Repair
@@ -483,11 +648,6 @@ The report must include:
 The report must end with:
 
 ```markdown
-## Document Disposition
-
-Document.Status=Pending
-```
-
 ## Manual Validation After Architect Review
 
 The Operator will perform controlling validation after Architect review.
@@ -510,7 +670,3 @@ Required checks:
 14. Repeat at maximized, minimum, and intermediate window sizes.
 15. Confirm the inline controls stack without horizontal overflow.
 16. Navigate to another generic-disposition workspace and confirm its existing preview-footer controls remain unchanged.
-
-## Document Disposition
-
-Document.Status=Pending

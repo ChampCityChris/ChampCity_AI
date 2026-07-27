@@ -22,9 +22,7 @@ export function analyzeProjectIntakeCorpus(
     .sort((left, right) =>
       firstEvidencePath(left).localeCompare(firstEvidencePath(right), "en", { sensitivity: "base" }),
     );
-  const evidencePaths = intakeDocuments.flatMap((document) =>
-    [document.markdownPath, document.jsonPath].filter((value): value is string => Boolean(value)),
-  );
+  const evidencePaths = intakeDocuments.map((document) => document.markdownPath);
 
   return {
     state: intakeDocuments.length === 0
@@ -63,11 +61,11 @@ export function isActiveCanonicalProjectIntake(
   }
 
   return document.metadata.artifactType === "project-intake" ||
-    [document.markdownPath, document.jsonPath].some(isCanonicalProjectIntakePath);
+    isCanonicalProjectIntakePath(document.markdownPath);
 }
 
 export function isArchivedPlanningDocument(document: PlanningDocumentSummary): boolean {
-  return [document.markdownPath, document.jsonPath].some(isArchivedPlanningPath);
+  return isArchivedPlanningPath(document.markdownPath);
 }
 
 export function isCanonicalProjectIntakePath(relativePath: string | undefined): boolean {
@@ -87,5 +85,5 @@ function isArchivedPlanningPath(relativePath: string | undefined): boolean {
 }
 
 function firstEvidencePath(document: PlanningDocumentSummary): string {
-  return document.markdownPath ?? document.jsonPath ?? document.displayFilename;
+  return document.markdownPath || document.displayFilename;
 }

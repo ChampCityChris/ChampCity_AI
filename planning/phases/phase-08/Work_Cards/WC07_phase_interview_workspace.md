@@ -1,3 +1,73 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC07"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC07",
+    "phaseId": "phase-08",
+    "title": "Phase Interview Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "medium",
+    "dependsOn": [
+      "WC06",
+      "WC03"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "phase-interview",
+      "level": "phase",
+      "stage": "intake",
+      "order": 10
+    },
+    "handoff": {
+      "path": "planning/phases/<phase-id>/Architect_Handoffs/PHASE_INTERVIEW_ARCHITECT_HANDOFF_<phase-id>.*",
+      "participationRole": "nonReviewHandoff",
+      "status": "Approved"
+    },
+    "output": "planning/phases/<phase-id>/Phase_Interview.*",
+    "completionRule": "Current Phase_Interview is valid, synchronized, fresh, and Approved.",
+    "freshnessSources": [
+      "Project_Profile",
+      "Project_Roadmap",
+      "Phase_Map selected record",
+      "prior Phase_Closeout when applicable"
+    ],
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "Phase Planning",
+      "Work Card Plan",
+      "Formal Work Cards",
+      "hidden phase state",
+      "separate approval artifact",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC07_phase_interview_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC07 Phase Interview Workspace
 
 Status: approved implementation design; execution deferred
@@ -97,7 +167,3 @@ Record repository verification, changed files, workspace ID, context and handoff
 ## Manual Validation After Architect Review
 
 The Operator should exercise both clarification and no-questions paths, approve the result, then revise an upstream phase source and confirm the interview no longer completes Intake.
-
-## Document Disposition
-
-Document.Status=Approved

@@ -58,7 +58,7 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
       currentTarget: "Project Intake",
       sourceEvidence: [],
       requiredAction: current.reason,
-      expectedOutput: "Approved Project Intake and Approved Architect Interview Prompt pairs.",
+      expectedOutput: "Approved Project Intake and Approved Architect Interview Prompt Markdown documents.",
       eligibility: "Project Intake can be captured for the active repository.",
       expectedNextState: "Architect Interview prompt becomes available after Project Intake submission.",
     };
@@ -75,7 +75,7 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
       expectedOutput: current.expectedOutput,
       eligibility: "Local Project Intake repair is required before Architect Interview handoff.",
       blocker: "Required generated prompt evidence is missing or incomplete.",
-      expectedNextState: "Regenerate Project Intake so the Approved Architect Interview Prompt pair exists.",
+      expectedNextState: "Regenerate Project Intake so the Approved Architect Interview Prompt Markdown exists.",
     };
   }
 
@@ -87,7 +87,7 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
       currentTarget: "Project Intake conflict",
       sourceEvidence: current.sourceEvidence,
       requiredAction: current.reason,
-      expectedOutput: "One canonical Project Intake Markdown/JSON pair remains in planning/project/Project_Intake/.",
+      expectedOutput: "One canonical Project Intake Markdown document remains in planning/project/Project_Intake/.",
       eligibility: "Resolve multiple canonical Project Intake documents before continuing.",
       blocker: current.sourceEvidence.join("; "),
       expectedNextState: "After the duplicate conflict is resolved, refresh to resume Project Intake review.",
@@ -102,13 +102,17 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
       currentTarget: "Architect Interview",
       sourceEvidence: current.sourceEvidence,
       requiredAction: current.reason,
-      expectedOutput: `Project Architect Interview Markdown: ${current.expectedOutputPaths.markdown}; JSON: ${current.expectedOutputPaths.json}`,
+      expectedOutput: `Project Architect Interview Markdown: ${current.expectedOutputPaths.markdown}`,
       eligibility: "Architect Interview prompt is ready for Architect-authored output.",
-      expectedNextState: "A Pending Project Architect Interview pair becomes the current review document.",
+      expectedNextState: "A Pending Project Architect Interview Markdown document becomes the current review document.",
     };
   }
 
   if (current.status === "all-approved") {
+    const projectPlanning = missingProjectPlanningModel(workspaceRoot);
+    if (projectPlanning) {
+      return projectPlanning;
+    }
     return {
       activeWorkspaceId: "project-close",
       level: "project",
@@ -132,7 +136,7 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
     currentTarget: document.displayTitle,
     sourceEvidence: document.evidencePaths.length > 0
       ? document.evidencePaths
-      : [document.markdownPath, document.jsonPath].filter((value): value is string => Boolean(value)),
+      : [document.markdownPath].filter((value): value is string => Boolean(value)),
     requiredAction: document.reason,
     expectedOutput: expectedOutputForWorkspace(document.owningWorkspaceId),
     eligibility: document.freshnessState === "fresh" ? "Current evidence is fresh." : "Current evidence is stale.",
@@ -140,6 +144,33 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
       ? document.staleSources.map((source) => source.path).join("; ")
       : undefined,
     expectedNextState: expectedNextStateForWorkspace(document.owningWorkspaceId),
+  };
+}
+
+function missingProjectPlanningModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const documents = listPlanningDocuments(workspaceRoot);
+  const approvedInterview = documents
+    .filter((document) => document.metadata.artifactType === "project-architect-interview")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!approvedInterview) {
+    return null;
+  }
+  const profile = documents.find((document) => document.markdownPath === "planning/project/PROJECT_PROFILE.md");
+  const roadmap = documents.find((document) => document.markdownPath.startsWith("planning/project/Project_Roadmap/PROJECT_ROADMAP_"));
+  if (profile && roadmap) {
+    return null;
+  }
+  return {
+    activeWorkspaceId: "project-planning-review",
+    level: "project",
+    stage: "planning",
+    currentTarget: "Project Planning",
+    sourceEvidence: [approvedInterview.markdownPath],
+    requiredAction: "Approved Architect Interview is available; generate Project Planning handoff and review Project Profile/Roadmap outputs.",
+    expectedOutput: "Project Profile Markdown and Project Roadmap Markdown.",
+    eligibility: "Project Planning is ready.",
+    expectedNextState: "Project Profile and Project Roadmap become current review documents.",
   };
 }
 
@@ -316,7 +347,7 @@ function latestRevisionRequestedEvidence(workspaceRoot: string): {
   const candidates = listPlanningDocuments(workspaceRoot)
     .filter((document) => document.effectiveDisposition === "RevisionRequested")
     .map((document) => {
-      const path = document.jsonPath ?? document.markdownPath ?? "";
+      const path = document.markdownPath;
       const phaseId = path.match(/planning\/phases\/(phase-\d+)\//i)?.[1];
       const workCardId =
         path.match(/IMPLEMENTER_REPORT_([A-Z0-9-]+)/i)?.[1] ??

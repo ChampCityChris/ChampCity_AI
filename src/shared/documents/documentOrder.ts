@@ -28,7 +28,6 @@ export interface ResolvedCurrentDocument {
   selectedPhaseId?: string;
   selectedWorkCardId?: string;
   markdownPath?: string;
-  jsonPath?: string;
   displayTitle: string;
   effectiveDisposition: DocumentDispositionStatus;
   orderPosition: number;
@@ -70,7 +69,6 @@ export type FirstNonApprovedResult =
       promptLogicalDocumentId: string;
       expectedOutputPaths: {
         markdown: string;
-        json: string;
       };
     }
   | {
@@ -194,7 +192,6 @@ export function resolveFirstNonApproved(
       selectedPhaseId: classification.selectedPhaseId,
       selectedWorkCardId: classification.selectedWorkCardId,
       markdownPath: document.markdownPath,
-      jsonPath: document.jsonPath,
       displayTitle: document.displayFilename,
       effectiveDisposition: document.effectiveDisposition,
       orderPosition: currentIndex + 1,
@@ -232,14 +229,11 @@ function resolveProjectIntakeContinuation(
       )
     );
   });
-  const intakeEvidence = [intake.markdownPath, intake.jsonPath].filter(
-    (value): value is string => Boolean(value),
-  );
+  const intakeEvidence = [intake.markdownPath];
 
   if (
     !prompt ||
-    prompt.pairStatus !== "paired" ||
-    prompt.synchronizationState !== "synchronized" ||
+    prompt.readError ||
     prompt.effectiveDisposition !== "Approved" ||
     !prompt.metadata.architectOutputTargets
   ) {
@@ -249,14 +243,14 @@ function resolveProjectIntakeContinuation(
       message: "Project Intake artifact generation is incomplete",
       totalDocumentCount: documents.length,
       sourceEvidence: intakeEvidence,
-      expectedOutput: "Approved Project Architect Interview Prompt Markdown/JSON pair with exact Architect Interview output targets.",
-      reason: "Approved Project Intake exists, but the required Approved Project Architect Interview Prompt pair or its output-target contract is missing.",
+      expectedOutput: "Approved Project Architect Interview Prompt Markdown with exact Architect Interview output target.",
+      reason: "Approved Project Intake exists, but the required Approved Project Architect Interview Prompt Markdown document or its output-target contract is missing.",
     };
   }
 
   const targets = prompt.metadata.architectOutputTargets;
   const interview = documents.find((document) =>
-    document.markdownPath === targets.markdown || document.jsonPath === targets.json,
+    document.markdownPath === targets.markdown,
   );
   if (interview) {
     return null;
@@ -270,10 +264,10 @@ function resolveProjectIntakeContinuation(
     promptLogicalDocumentId: prompt.logicalDocumentId,
     sourceEvidence: [
       ...intakeEvidence,
-      ...[prompt.markdownPath, prompt.jsonPath].filter((value): value is string => Boolean(value)),
+      prompt.markdownPath,
     ],
     expectedOutputPaths: targets,
-    reason: "Approved Project Intake and Approved Project Architect Interview Prompt exist; waiting for the Architect-authored Project Architect Interview pair at the canonical targets.",
+    reason: "Approved Project Intake and Approved Project Architect Interview Prompt exist; waiting for the Architect-authored Project Architect Interview Markdown at the canonical target.",
   };
 }
 
@@ -452,7 +446,7 @@ function isProjectIntakeArtifact(value: string): boolean {
 }
 
 function getNormalizedPath(document: WorkspaceDocument): string {
-  return document.markdownPath ?? document.jsonPath ?? document.displayFilename;
+  return document.markdownPath || document.displayFilename;
 }
 
 function getFilename(document: WorkspaceDocument): string {

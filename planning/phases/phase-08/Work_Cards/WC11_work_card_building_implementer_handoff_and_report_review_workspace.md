@@ -1,3 +1,77 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC11"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC11",
+    "phaseId": "phase-08",
+    "title": "Work Card Building Implementer Handoff and Report Review Workspace",
+    "status": "approved_design_execution_deferred",
+    "owner": "Implementer after Operator release",
+    "risk": "high",
+    "dependsOn": [
+      "WC10",
+      "WC03"
+    ],
+    "executionAuthorized": false,
+    "gitMutationAuthorized": false,
+    "workspace": {
+      "id": "work-card-building-review",
+      "level": "workCard",
+      "stage": "building",
+      "order": 10
+    },
+    "handoffAuthority": "Current Approved Formal Work Card",
+    "reportPath": "planning/phases/<phase-id>/Implementer_Reports/IMPLEMENTER_REPORT_<work-card-id>_<slug>.*",
+    "reportReferences": [
+      "parent Work Card path",
+      "parent Work Card revision"
+    ],
+    "reviewOutcomes": {
+      "Approved": "ready for Operator validation",
+      "RevisionRequested": "pre-validation repair required",
+      "Rejected": "parent unresolved"
+    },
+    "freshnessRules": [
+      "Work Card revision invalidates report",
+      "report revision invalidates later validation"
+    ],
+    "browserSecurity": "Preserve accepted WC03 security contract.",
+    "prohibitedScope": [
+      "direct Codex control",
+      "source execution",
+      "repair creation",
+      "Operator validation",
+      "Validation Record",
+      "Work Card close",
+      "hidden execution state",
+      "provider API",
+      "DOM automation",
+      "dependencies",
+      "Git operations"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC11_work_card_building_implementer_handoff_and_report_review_workspace.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC11 Work Card Building Implementer Handoff and Report Review Workspace
 
 Status: approved implementation design; execution deferred
@@ -93,7 +167,3 @@ Record repository verification, changed files, workspace ID/order, handoff and r
 ## Manual Validation After Architect Review
 
 The Operator should verify correct report matching, reject a stale report after a Work Card revision, and confirm Approved/RevisionRequested outcomes expose only the proper next action.
-
-## Document Disposition
-
-Document.Status=Approved

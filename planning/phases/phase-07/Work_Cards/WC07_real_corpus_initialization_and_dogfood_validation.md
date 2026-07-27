@@ -1,3 +1,70 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07",
+    "workCardId": "WC07"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.work-card.v1",
+    "workCardId": "WC07",
+    "phaseId": "phase-07",
+    "title": "Real-Corpus Initialization and Dogfood Validation",
+    "status": "Approved",
+    "owner": "Implementer",
+    "planOrder": 7,
+    "risk": "high",
+    "dependencies": [
+      "WC06"
+    ],
+    "continuousExecution": {
+      "approved": true,
+      "nextWorkCard": null,
+      "reportRequiredBeforeNext": true
+    },
+    "purpose": "Initialize the real ChampCity_AI planning corpus with the four-value disposition contract, verify the complete clean-room application, and leave startup at the first required non-approved document.",
+    "requiredOutcomes": [
+      "Preflight every Markdown and JSON file under planning before mutation.",
+      "Preserve existing valid synchronized dispositions.",
+      "Initialize missing, invalid, duplicated, or mismatched dispositions to Pending.",
+      "Rollback every changed file if the bulk operation fails.",
+      "Verify exact file, logical-document, pair, and disposition counts.",
+      "Open Project Planning with Project Intake selected when it is first non-approved.",
+      "Complete real-corpus-safe dogfood and prohibited-architecture inspection.",
+      "Confirm all five Implementer Reports exist."
+    ],
+    "prohibitions": [
+      "Do not infer approval from old status fields, approval records, reports, dates, filenames, hashes, or Git history.",
+      "Do not approve historical documents on behalf of the Operator.",
+      "Do not merge, rename, move, archive, delete, or semantically reconcile planning documents.",
+      "Do not delete historical planning evidence.",
+      "Do not perform Git operations, phase closeout, or Operator acceptance."
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "npm run validate:codex:unit",
+      "npm run validate:codex:build",
+      "npm run validate:codex",
+      "npm start non-acceptance smoke check against the real repository"
+    ],
+    "implementerReportPath": "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC07_real_corpus_initialization_and_dogfood_validation.md",
+    "markdownPath": "planning/phases/phase-07/Work_Cards/WC07_real_corpus_initialization_and_dogfood_validation.md",
+    "jsonPath": "planning/phases/phase-07/Work_Cards/WC07_real_corpus_initialization_and_dogfood_validation.json"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 07 WC07 Real-Corpus Initialization and Dogfood Validation
 
 Status: approved for continuous Implementer execution
@@ -213,7 +280,3 @@ WC07 passes only when:
 15. the WC07 Implementer Report is complete.
 
 After WC07, stop. Do not perform Git operations, phase closeout, or Operator acceptance.
-
-## Document Disposition
-
-Document.Status=Approved

@@ -1,3 +1,115 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "designDocumentId": "PHASE_MAP_PHASE_INTAKE_AND_PHASE_PLANNING_WORKSPACE_DEFINITION",
+    "projectId": "champcity-ai",
+    "title": "Phase Map, Phase Intake, and Phase Planning Workspace Definition",
+    "status": "confirmed_by_operator",
+    "confirmedAt": "2026-07-21",
+    "supersedesWhereConflicting": "planning/project/Design_Documents/PHASE_MAP_AND_PHASE_PLANNING_FLOW.md",
+    "lifecycleLocations": [
+      {
+        "level": "project",
+        "stage": "building",
+        "workspace": "Phase Map Workspace"
+      },
+      {
+        "level": "phase",
+        "stage": "intake",
+        "workspace": "Phase Interview Workspace"
+      },
+      {
+        "level": "phase",
+        "stage": "planning",
+        "workspace": "Phase Planning Bundle Workspace"
+      }
+    ],
+    "flow": [
+      "Approved Project_Profile and Project_Roadmap",
+      "Approved Phase_Map",
+      "First incomplete mapped phase",
+      "Approved Phase_Interview",
+      "Approved Phase_Planning and Work_Card_Plan",
+      "Phase Building",
+      "First Work Card lifecycle"
+    ],
+    "phaseMapWorkspace": {
+      "inputs": [
+        "Approved Project_Profile",
+        "Approved Project_Roadmap",
+        "Existing Phase_Map when revising",
+        "Approved phase closeout evidence when available",
+        "Saved Phase Map Architect prompt or handoff"
+      ],
+      "layout": "Embedded Architect browser plus repo-backed Phase_Map preview and disposition",
+      "output": "Phase_Map",
+      "selectionRule": "Select the first mapped phase without Approved Phase Close evidence",
+      "completion": "Phase_Map is Approved"
+    },
+    "phaseInterviewWorkspace": {
+      "inputs": [
+        "Approved project planning documents",
+        "Approved Phase_Map and selected phase record",
+        "Approved prior phase closeout when available",
+        "Relevant risks, constraints, decisions, and repository evidence",
+        "Saved Phase Interview prompt or handoff"
+      ],
+      "layout": "Embedded Architect browser plus repo-backed Phase_Interview preview and disposition",
+      "output": "Phase_Interview",
+      "alwaysRequired": true,
+      "noQuestionsBehavior": "Record that context was reviewed and no additional clarification was required",
+      "completion": "Phase_Interview is Approved"
+    },
+    "phasePlanningWorkspace": {
+      "inputs": [
+        "Approved project planning documents",
+        "Approved Phase_Map and selected phase record",
+        "Approved Phase_Interview",
+        "Relevant prior phase closeout and repository evidence",
+        "Saved Phase Planning prompt or handoff"
+      ],
+      "layout": "Embedded Architect browser with separate Phase_Planning and Work_Card_Plan previews",
+      "outputs": [
+        "Phase_Planning",
+        "Work_Card_Plan"
+      ],
+      "reviewMode": "Independent document review with one synchronized bundle disposition",
+      "completion": "Both Phase_Planning and Work_Card_Plan are Approved"
+    },
+    "workCardPlanBoundary": [
+      "Contains mapped Work Card candidates only",
+      "Does not create Formal Work Cards",
+      "Does not authorize implementation",
+      "Does not create Implementer handoffs or execution packets",
+      "Does not bypass the Work Card lifecycle"
+    ],
+    "prohibitedAuthority": [
+      "Separate Operator Phase Approval artifact",
+      "Independent one-document phase planning approval",
+      "Hidden current phase or completion state",
+      "Route tokens, role gates, queues, hashes, or execution-run authority",
+      "Browser chat state as workflow evidence"
+    ],
+    "implementationSequence": [
+      "WC06 Phase Map Workspace",
+      "WC07 Phase Interview Workspace",
+      "WC08 Phase Planning Bundle Workspace"
+    ]
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Phase Map, Phase Intake, and Phase Planning Workspace Definition
 
 Status: confirmed by Operator
@@ -183,7 +295,3 @@ WC06 Phase Map Workspace
 ```
 
 These designs do not yet define Phase Building Work Card materialization, Phase Validation, Phase Close, or Project Validation and Close.
-
-## Document Disposition
-
-Document.Status=Approved

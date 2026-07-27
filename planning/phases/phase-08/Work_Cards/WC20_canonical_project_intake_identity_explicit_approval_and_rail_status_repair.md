@@ -1,3 +1,215 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-08",
+    "workCardId": "WC20"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "workCardId": "WC20",
+    "phaseId": "phase-08",
+    "title": "Canonical Project Intake Identity, Explicit Approval, and Rail Status Repair",
+    "status": "approved",
+    "owner": "Implementer",
+    "risk": "high",
+    "dependsOn": [
+      "WC18",
+      "WC19"
+    ],
+    "executionInstruction": "Upon Operator approval, this Work Card itself is the Implementer instruction. No separate activation artifact or Implementer handoff is required.",
+    "gitMutationAuthorized": false,
+    "purpose": "Repair only Project Intake singleton artifact identity, Pending-on-save explicit approval, duplicate Intake conflict handling, and evidence-derived Project Intake rail status.",
+    "verifiedCodeOwnership": {
+      "artifactIdentityAndInitialDisposition": "src/main/projectIntake/projectIntakeService.ts",
+      "existingDispositionWriter": "src/main/documents/planningDocumentService.ts",
+      "resolver": "src/shared/documents/documentOrder.ts",
+      "currentWorkspaceProjection": "src/main/currentWorkflow/currentWorkflowService.ts",
+      "rendererState": "src/renderer/app/App.tsx",
+      "railDisplay": "src/renderer/app/NestedWorkflowRail.tsx"
+    },
+    "rootCauseAnalysis": [
+      {
+        "defectId": "mutable-project-name-artifact-identity",
+        "primaryRootCause": "Every submission recalculates Project Intake, prompt, and Interview paths from the mutable Project Name and searches for an existing Intake only at the new path.",
+        "failureChain": [
+          "Project Name A creates slug A artifact family",
+          "Project Name changes to B",
+          "Service calculates slug B paths",
+          "Existing slug A Intake is not found",
+          "A second canonical Intake family is created"
+        ]
+      },
+      {
+        "defectId": "project-intake-self-approval",
+        "primaryRootCause": "The Operator-authored gating Intake is written as Approved during creation, conflating authorship with approval.",
+        "failureChain": [
+          "Questionnaire submitted",
+          "Intake pair written as Approved",
+          "Resolver treats Intake as complete",
+          "Explicit Operator review and approval is bypassed"
+        ]
+      },
+      {
+        "defectId": "rail-selection-labeled-as-status",
+        "primaryRootCause": "NestedWorkflowRail receives only activeWorkspaceId and derives CURRENT or OPEN from visual selection rather than repository evidence.",
+        "failureChain": [
+          "Selected workspace produces exact state",
+          "Exact state is labeled CURRENT",
+          "Unselected workspace is labeled OPEN",
+          "Intake presence and disposition are never examined"
+        ]
+      }
+    ],
+    "requiredRepairs": [
+      {
+        "id": "singleton-project-intake-identity",
+        "requirements": [
+          "Analyze active non-historical canonical Project Intake logical documents repository-wide",
+          "Distinguish open, single, and conflict corpus states",
+          "Create one slugged artifact family only when no canonical Intake exists",
+          "Reuse the existing singleton Intake paths exactly on every later submission",
+          "Preserve associated prompt paths and Interview output targets",
+          "Treat Project Name as mutable content rather than later path authority",
+          "Increment revisions without creating a second artifact family",
+          "Block writes and list exact conflicting paths when multiple canonical Intakes exist",
+          "Do not automatically delete, merge, rename, archive, or choose among duplicates"
+        ]
+      },
+      {
+        "id": "pending-intake-explicit-approval",
+        "requirements": [
+          "Create and revise the Project Intake pair as Pending gatingReview evidence",
+          "Keep the generated prompt Approved as nonReviewHandoff evidence",
+          "Select and preview the Pending Intake after save",
+          "Use the existing setDocumentDisposition path for explicit approval",
+          "Do not project Architect Interview waiting until Intake is Approved",
+          "Return a revised previously Approved Intake to Pending",
+          "Regenerate the prompt and preserve current downstream invalidation behavior",
+          "Require reapproval after every Intake revision"
+        ]
+      },
+      {
+        "id": "evidence-derived-project-intake-rail-status",
+        "statusMap": {
+          "noCanonicalIntake": "Open",
+          "singleNonApprovedIntake": "Awaiting Approval",
+          "singleApprovedIntake": "Completed",
+          "multipleCanonicalIntakes": "Conflict"
+        },
+        "requirements": [
+          "Derive status from repository documents after load, switch, submit, refresh, and disposition changes",
+          "Keep selection highlighting separate from lifecycle status",
+          "Never replace the Project Intake lifecycle label with CURRENT",
+          "Keep aria-current for selected workspace",
+          "Pass bounded lifecycle status from App to NestedWorkflowRail",
+          "Do not make the rail call IPC or inspect the filesystem",
+          "Do not invent evidence-derived statuses for later workspaces"
+        ]
+      },
+      {
+        "id": "duplicate-project-intake-conflict-projection",
+        "requirements": [
+          "Add the minimum project-intake-conflict resolver result",
+          "Project conflict to project-intake-capture",
+          "Expose every conflicting Intake path as source evidence",
+          "Take precedence over later Project and Phase evidence",
+          "Do not return all-approved or proceed to Architect Interview",
+          "Block further Project Intake submission while conflict exists"
+        ]
+      }
+    ],
+    "authorizedFiles": [
+      "src/main/projectIntake/projectIntakeService.ts",
+      "src/shared/documents/documentOrder.ts for duplicate conflict only",
+      "src/main/currentWorkflow/currentWorkflowService.ts for duplicate conflict only",
+      "src/renderer/app/App.tsx",
+      "src/renderer/app/NestedWorkflowRail.tsx",
+      "One narrowly scoped shared Project Intake corpus or rail-status helper under src/shared/projectIntake/",
+      "test/project-intake/project-intake-service.test.cjs",
+      "test/resolver/first-non-approved-resolver.test.cjs",
+      "test/lifecycle/evidence-lifecycle-resolver.test.cjs only if needed",
+      "One bounded Project Intake identity or status helper test"
+    ],
+    "productionFilesExpectedUnchanged": [
+      "src/main/documents/planningDocumentService.ts unless a narrowly proven API defect exists",
+      "src/main/contextMenu/localRendererContextMenu.ts",
+      "src/main/browser/",
+      "src/preload/index.ts",
+      "src/renderer/styles.css except a narrowly necessary rail-label fit adjustment",
+      "Repository selection and workspace settings",
+      "Later Phase, Work Card, validation, repair, and closeout services"
+    ],
+    "requiredTests": [
+      "Different Project Name resubmission reuses the same Intake and prompt paths",
+      "Project Name content updates while stable artifact paths and Interview targets remain unchanged",
+      "No second artifact family is created",
+      "Multiple Intake families produce conflict and no writes",
+      "Initial Intake is Pending and prompt is Approved",
+      "Pending Intake is current until explicit approval",
+      "Existing disposition service approves both siblings",
+      "Revised Approved Intake returns to Pending",
+      "Approved Interview invalidation remains correct",
+      "Rail status derives Open, Awaiting Approval, Completed, and Conflict",
+      "Selection does not alter the Project Intake lifecycle label",
+      "Conflict takes precedence over later Pending Project and Phase evidence"
+    ],
+    "nonGoals": [
+      "Revising or reopening WC18 or WC19 artifacts",
+      "Changing WC19 viewport, confirmation, or viewed-workspace behavior",
+      "Changing context-menu behavior",
+      "Rewriting Architect Interview Prompt content",
+      "Changing repository selection or canonical directory classification",
+      "Renaming an existing singleton artifact family",
+      "Automatic duplicate cleanup or duplicate-resolution UI",
+      "Architect chat-to-MCP transfer",
+      "Placeholder Architect Interview output",
+      "Lifecycle statuses for every rail card",
+      "Workflow rail visual redesign",
+      "New database, project registry file, hidden state, queue, route token, or approval artifact",
+      "New dependencies",
+      "Git mutation"
+    ],
+    "validation": [
+      "npm run typecheck",
+      "npm run build",
+      "npm test",
+      "Non-acceptance Electron launch smoke",
+      "Operator-controlled singleton identity, explicit approval, revision, conflict, and rail-status validation"
+    ],
+    "acceptanceCriteria": [
+      "Application writes at most one active canonical Project Intake artifact family per repository",
+      "Later Project Name changes do not change existing Intake, prompt, or Interview target paths",
+      "Existing singleton paths are reused without migration",
+      "Duplicate existing Intakes produce actionable conflict and no writes",
+      "Initial and revised Intakes are Pending",
+      "Generated prompts remain Approved non-review handoffs",
+      "Explicit Operator approval is required for Intake completion",
+      "Revised Approved Intake requires reapproval",
+      "Rail reads Open with no Intake",
+      "Rail reads Awaiting Approval for any non-Approved singleton Intake",
+      "Rail reads Completed for an Approved singleton Intake",
+      "Rail reads Conflict for multiple canonical Intakes",
+      "Project Intake card never displays CURRENT as its lifecycle label",
+      "Selection remains visible through styling and aria-current",
+      "Rail status refreshes after every relevant repository or disposition change",
+      "Duplicate conflict precedes later lifecycle evidence",
+      "No unrelated subsystem, dependency, hidden authority, or Git mutation is introduced",
+      "Typecheck, build, and all tests pass"
+    ],
+    "implementerReport": "planning/phases/phase-08/Implementer_Reports/IMPLEMENTER_REPORT_WC20_canonical_project_intake_identity_explicit_approval_and_rail_status_repair.md"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 08 WC20 Canonical Project Intake Identity, Explicit Approval, and Rail Status Repair
 
 Status: approved by Operator
@@ -56,7 +268,6 @@ The service searches only the path derived from the newly submitted Project Name
 The same service currently writes:
 
 ```text
-participationRole=gatingReview
 Document.Status=Approved
 ```
 
@@ -300,14 +511,12 @@ Change Project Intake creation and revision disposition behavior.
 The Project Intake Markdown/JSON pair must be created as:
 
 ```text
-participationRole=gatingReview
 Document.Status=Pending
 ```
 
 The generated Project Architect Interview Prompt remains:
 
 ```text
-participationRole=nonReviewHandoff
 Document.Status=Approved
 ```
 
@@ -618,11 +827,6 @@ The report must include:
 The report must end with:
 
 ```markdown
-## Document Disposition
-
-Document.Status=Pending
-```
-
 ## Manual Validation After Architect Review
 
 The Operator will perform controlling validation after Architect review.
@@ -649,7 +853,3 @@ Required human checks:
 18. confirm the conflict lists the repository-relative paths and blocks submission;
 19. confirm no later Project or Phase evidence bypasses the conflict;
 20. confirm selected-card highlighting remains visual and no Project Intake card displays `CURRENT`.
-
-## Document Disposition
-
-Document.Status=Approved

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
+import { Clipboard, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
 import {
   type ClosureDecision,
   type CurrentWorkspaceModel,
@@ -7,7 +7,10 @@ import {
   type RuntimeActionResult,
   workspaceDefinitions,
   type ArchitectBrowserFoundationStatus,
+  type ArchitectInterviewWorkspaceModel,
+  type ArchitectInterviewSelectedDocumentRole,
   type ProjectIntakeSubmission,
+  type WorkspaceMigrationPreview,
   type WorkspaceId,
   type WorkspaceSelection,
 } from "../../shared/workspaceContracts";
@@ -25,24 +28,32 @@ import {
   getWorkspaceGroups,
 } from "../../shared/workspaces/documentWorkspace";
 import {
+  shouldRenderGenericPreviewDispositionControls,
+  shouldRenderInlineProjectIntakeDisposition,
+  deriveArchitectInterviewRailStatus,
+  isArchitectInterviewDualPaneWorkspace,
+} from "../../shared/workspaces/projectRailPresentation";
+import {
   applySuccessfulProjectIntakeSubmission,
   clearProjectIntakePostSubmitReviewState,
   type ProjectIntakePostSubmitConfirmation,
 } from "../../shared/projectIntake/postSubmitReviewState";
 import { deriveProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
+import {
+  buildArchitectInterviewEvidenceFingerprint,
+  getArchitectInterviewReviewRegionState,
+  hydrateArchitectInterviewReviewEditState,
+  reviewEditStateFromModel,
+  type ArchitectInterviewReviewEditState,
+} from "../../shared/architectInterview/architectInterviewRefreshState";
+import {
+  createArchitectAttachmentCoordinator,
+  shouldShowArchitectBrowserRetry,
+  type ArchitectHostMeasurement,
+} from "../../shared/architectInterview/architectBrowserAttachmentCoordinator";
 import { NestedWorkflowRail } from "./NestedWorkflowRail";
 
 const neutralMessage = "Document workflow not yet implemented";
-const architectWorkspaceIds = new Set<WorkspaceId>([
-  "architect-interview",
-  "project-planning-review",
-  "project-phase-map",
-  "phase-interview",
-  "phase-planning-bundle",
-  "work-card-intake",
-  "work-card-planning",
-  "work-card-repair",
-]);
 const handoffWorkspaceIds = new Set<WorkspaceId>([
   "project-planning-review",
   "project-phase-map",
@@ -123,6 +134,11 @@ const emptyProjectIntake: ProjectIntakeSubmission = {
   repositoryReviewContext: "",
 };
 
+type ArchitectActionFeedback = {
+  kind: "success" | "info" | "error";
+  message: string;
+} | null;
+
 export function App(): JSX.Element {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(
     workspaceDefinitions[0].id,
@@ -142,10 +158,32 @@ export function App(): JSX.Element {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isSubmittingIntake, setIsSubmittingIntake] = useState(false);
+  const [migrationPreview, setMigrationPreview] = useState<WorkspaceMigrationPreview | null>(null);
+  const [migrationFeedback, setMigrationFeedback] = useState("");
+  const [isPreviewingMigration, setIsPreviewingMigration] = useState(false);
+  const [isMigratingWorkspace, setIsMigratingWorkspace] = useState(false);
   const [projectIntake, setProjectIntake] =
     useState<ProjectIntakeSubmission>(emptyProjectIntake);
   const [architectStatus, setArchitectStatus] =
     useState<ArchitectBrowserFoundationStatus | null>(null);
+  const [architectInterviewModel, setArchitectInterviewModel] =
+    useState<ArchitectInterviewWorkspaceModel | null>(null);
+  const [architectReviewEdit, setArchitectReviewEdit] =
+    useState<ArchitectInterviewReviewEditState | null>(null);
+  const [architectActionFeedback, setArchitectActionFeedback] =
+    useState<ArchitectActionFeedback>(null);
+  const [architectOutputMarkdown, setArchitectOutputMarkdown] = useState("");
+  const [architectPollingError, setArchitectPollingError] = useState("");
+  const architectEvidenceFingerprintRef = useRef<string | null>(null);
+  const architectPollInFlightRef = useRef(false);
+  const architectPollRequestRef = useRef(0);
+  const architectBoundsSequenceRef = useRef(0);
+  const architectAttachmentGenerationRef = useRef(0);
+  const architectBoundsRafRef = useRef<number | null>(null);
+  const architectFeedbackTimeoutRef = useRef<number | null>(null);
+  const architectAttachmentCoordinatorRef =
+    useRef<ReturnType<typeof createArchitectAttachmentCoordinator> | null>(null);
+  const [architectAttachmentError, setArchitectAttachmentError] = useState("");
   const [currentModel, setCurrentModel] = useState<CurrentWorkspaceModel | null>(null);
   const [actionInputs, setActionInputs] = useState({
     defect: "",
@@ -171,6 +209,14 @@ export function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (architectFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(architectFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedDocumentId) {
       setSelectedDocument(null);
       setSelectedStatus("");
@@ -185,43 +231,142 @@ export function App(): JSX.Element {
       return;
     }
 
-    if (architectWorkspaceIds.has(activeWorkspaceId)) {
-      const syncBounds = (): void => {
-        const host = architectHostRef.current;
-        if (!host) {
+    const shouldAttachEmbeddedSurface = activeWorkspaceId === "architect-interview";
+    if (!shouldAttachEmbeddedSurface) {
+      const coordinator = architectAttachmentCoordinatorRef.current;
+      architectAttachmentCoordinatorRef.current = null;
+      setArchitectAttachmentError("");
+      if (coordinator) {
+        void coordinator.detach().catch(() => undefined);
+      } else {
+        void window.champcity.hideArchitectBrowser(architectAttachmentGenerationRef.current)
+          .then(applyArchitectStatus)
+          .catch(() => undefined);
+      }
+      return;
+    }
+
+    let isDisposed = false;
+    const measureHost = (): ArchitectHostMeasurement | null => {
+      const host = architectHostRef.current;
+      if (!host) {
+        return null;
+      }
+      const rect = host.getBoundingClientRect();
+      return {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+    const waitForNextFrame = (): Promise<void> =>
+      new Promise((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    const syncBounds = (): void => {
+      if (architectBoundsRafRef.current !== null) {
+        window.cancelAnimationFrame(architectBoundsRafRef.current);
+      }
+      architectBoundsRafRef.current = window.requestAnimationFrame(() => {
+        architectBoundsRafRef.current = null;
+        if (isDisposed) {
           return;
         }
-        const rect = host.getBoundingClientRect();
+        const measurement = measureHost();
+        if (!measurement) {
+          return;
+        }
+        architectBoundsSequenceRef.current += 1;
+        const sequence = architectBoundsSequenceRef.current;
         void window.champcity.setArchitectBrowserBounds({
-          x: rect.left,
-          y: rect.top,
-          width: rect.width,
-          height: rect.height,
-        }).then(setArchitectStatus).catch(() => undefined);
-      };
-      const observer = new ResizeObserver(syncBounds);
-      if (architectHostRef.current) {
-        observer.observe(architectHostRef.current);
-      }
-      const workspaceSurface = workspaceSurfaceRef.current;
-      void window.champcity.showArchitectBrowser().then((status) => {
-        setArchitectStatus(status);
-        syncBounds();
-      }).catch((error: unknown) => {
-        setArchitectStatus(null);
-        setDocumentError(error instanceof Error ? error.message : "Architect browser could not be attached.");
+          x: measurement.x,
+          y: measurement.y,
+          width: measurement.width,
+          height: measurement.height,
+          sequence,
+          attachmentGeneration: coordinator.getGeneration(),
+        }).then((status) => {
+          if (sequence === architectBoundsSequenceRef.current) {
+            applyArchitectStatus(status);
+          }
+        }).catch(() => undefined);
       });
-      window.addEventListener("resize", syncBounds);
-      workspaceSurface?.addEventListener("scroll", syncBounds);
-      return () => {
-        observer.disconnect();
-        window.removeEventListener("resize", syncBounds);
-        workspaceSurface?.removeEventListener("scroll", syncBounds);
-      };
-    } else {
-      void window.champcity.hideArchitectBrowser().then(setArchitectStatus).catch(() => undefined);
+    };
+    const coordinator = createArchitectAttachmentCoordinator({
+      measureHost,
+      nextSequence: () => {
+        architectBoundsSequenceRef.current += 1;
+        return architectBoundsSequenceRef.current;
+      },
+      onError: (message) => {
+        if (!isDisposed) {
+          setArchitectAttachmentError(message);
+        }
+      },
+      onStatus: (status) => {
+        if (!isDisposed) {
+          applyArchitectStatus(status);
+        }
+      },
+      setBounds: window.champcity.setArchitectBrowserBounds,
+      showBrowser: (attachmentGeneration) => {
+        architectAttachmentGenerationRef.current = attachmentGeneration;
+        return window.champcity.showArchitectBrowser(attachmentGeneration);
+      },
+      hideBrowser: window.champcity.hideArchitectBrowser,
+      waitForNextFrame,
+    });
+    architectAttachmentCoordinatorRef.current = coordinator;
+    const observer = new ResizeObserver(syncBounds);
+    if (architectHostRef.current) {
+      observer.observe(architectHostRef.current);
     }
+    void coordinator.attach();
+    window.addEventListener("resize", syncBounds);
+    return () => {
+      isDisposed = true;
+      const cleanupGeneration = coordinator.getGeneration();
+      if (architectAttachmentCoordinatorRef.current === coordinator) {
+        architectAttachmentCoordinatorRef.current = null;
+      }
+      observer.disconnect();
+      window.removeEventListener("resize", syncBounds);
+      if (architectBoundsRafRef.current !== null) {
+        window.cancelAnimationFrame(architectBoundsRafRef.current);
+        architectBoundsRafRef.current = null;
+      }
+      void coordinator.detach().catch(() => {
+        void window.champcity.hideArchitectBrowser(cleanupGeneration).catch(() => undefined);
+      });
+    };
   }, [activeWorkspaceId, workspace.ok]);
+
+  useEffect(() => {
+    if (!workspace.ok || activeWorkspaceId !== "architect-interview") {
+      return;
+    }
+
+    void refreshArchitectInterviewWorkspace({ autoSelectNewOutput: true, force: true });
+    const interval = window.setInterval(() => {
+      void refreshArchitectStatus();
+      void refreshArchitectInterviewWorkspace({ autoSelectNewOutput: true, quiet: true });
+    }, 3000);
+
+    return () => window.clearInterval(interval);
+  }, [activeWorkspaceId, workspace.ok]);
+
+  useEffect(() => {
+    const selectedRole = architectInterviewRoleForSelection(selectedDocumentId, architectInterviewModel);
+    setArchitectReviewEdit((current) =>
+      hydrateArchitectInterviewReviewEditState({
+        current,
+        model: architectInterviewModel,
+        repositoryIdentity: workspace.ok ? workspace.workspaceRoot : null,
+        selectedRole,
+      }),
+    );
+  }, [architectInterviewModel, selectedDocumentId, workspace]);
 
   const workspaceGroups = useMemo(
     () => getWorkspaceGroups(documents, activeWorkspaceId),
@@ -251,7 +396,13 @@ export function App(): JSX.Element {
     [documents, selectedDocumentId],
   );
   const selectedDocumentHasLocalError =
-    selectedSummary?.synchronizationState === "mismatched" || Boolean(selectedSummary?.readError);
+    Boolean(selectedSummary?.readError);
+  const selectedArchitectInterviewRole = architectInterviewRoleForSelection(
+    selectedDocumentId,
+    architectInterviewModel,
+  );
+  const architectReviewStatus = architectReviewEdit?.selectedDisposition ?? "";
+  const architectReviewNotes = architectReviewEdit?.notes ?? "";
 
   async function chooseWorkspace(): Promise<void> {
     setIsChoosing(true);
@@ -311,6 +462,11 @@ export function App(): JSX.Element {
       setSelectedDocumentId(nextPostSubmitState.selectedDocumentId);
       setFeedback(getResolverFeedback(nextResolverResult));
       await refreshCurrentModel();
+      await refreshArchitectInterviewWorkspace({
+        force: true,
+        quiet: activeWorkspaceId !== "architect-interview",
+        refreshRepositoryProjection: false,
+      });
       focusProjectIntakeReviewSurface();
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Project Intake could not be saved.");
@@ -322,10 +478,232 @@ export function App(): JSX.Element {
   async function refreshArchitectStatus(): Promise<void> {
     setDocumentError("");
     try {
-      setArchitectStatus(await window.champcity.getArchitectBrowserFoundationStatus());
+      applyArchitectStatus(await window.champcity.getArchitectBrowserFoundationStatus());
     } catch (error) {
       setArchitectStatus(null);
       setDocumentError(error instanceof Error ? error.message : "Architect browser status could not be loaded.");
+    }
+  }
+
+  async function refreshArchitectInterviewWorkspace(
+    options: { autoSelectNewOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean } = {},
+  ): Promise<void> {
+    if (architectPollInFlightRef.current) {
+      return;
+    }
+    architectPollInFlightRef.current = true;
+    const requestId = architectPollRequestRef.current + 1;
+    architectPollRequestRef.current = requestId;
+    if (!options.quiet) {
+      setDocumentError("");
+    }
+    try {
+      const nextModel = await window.champcity.getArchitectInterviewWorkspaceModel();
+      if (requestId !== architectPollRequestRef.current) {
+        return;
+      }
+      const nextFingerprint = buildArchitectInterviewEvidenceFingerprint(
+        workspace.ok ? workspace.workspaceRoot : null,
+        nextModel,
+      );
+      const fingerprintChanged = architectEvidenceFingerprintRef.current !== nextFingerprint;
+      if (!options.force && !fingerprintChanged && options.quiet) {
+        setArchitectPollingError("");
+        return;
+      }
+      architectEvidenceFingerprintRef.current = nextFingerprint;
+      setArchitectPollingError("");
+      setArchitectInterviewModel(nextModel);
+      const nextInterviewId = nextModel.interviewDocument?.logicalDocumentId ?? null;
+
+      if (
+        options.autoSelectNewOutput &&
+        nextInterviewId &&
+        selectedDocumentId !== nextInterviewId
+      ) {
+        setSelectedDocumentId(nextInterviewId);
+      } else if (!selectedDocumentId && nextModel.promptDocument?.logicalDocumentId) {
+        setSelectedDocumentId(nextModel.promptDocument.logicalDocumentId);
+      }
+      if (options.refreshRepositoryProjection ?? fingerprintChanged) {
+        const nextDocuments = await window.champcity.listDocuments();
+        if (requestId !== architectPollRequestRef.current) {
+          return;
+        }
+        setDocuments(nextDocuments);
+        const nextResolverResult = await window.champcity.resolveCurrentDocument();
+        if (requestId !== architectPollRequestRef.current) {
+          return;
+        }
+        setResolverResult(nextResolverResult);
+        await refreshCurrentModel();
+        const previewId = nextInterviewId ?? selectedDocumentId ?? nextModel.promptDocument?.logicalDocumentId;
+        if (previewId) {
+          await loadDocument(previewId, { preserveOnFailure: true });
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Architect Interview model could not be loaded.";
+      setArchitectPollingError(message);
+      if (!options.quiet) {
+        setDocumentError(message);
+      }
+    } finally {
+      if (requestId === architectPollRequestRef.current) {
+        architectPollInFlightRef.current = false;
+      }
+    }
+  }
+
+  async function copyArchitectHandoff(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback(null);
+    try {
+      const result = await window.champcity.copyArchitectHandoff();
+      setArchitectFeedback({ kind: "success", message: result.message }, 4500);
+      await refreshArchitectStatus();
+      await refreshArchitectInterviewWorkspace();
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Architect handoff could not be copied.",
+      });
+    }
+  }
+
+  async function reloadArchitectBrowser(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback({ kind: "info", message: "Reloading ChatGPT." }, 3000);
+    try {
+      applyArchitectStatus(await window.champcity.reloadArchitectBrowser());
+      window.setTimeout(() => {
+        void refreshArchitectStatus();
+      }, 1200);
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Embedded ChatGPT could not be reloaded.",
+      });
+    }
+  }
+
+  function setArchitectFeedback(nextFeedback: ArchitectActionFeedback, clearAfterMs?: number): void {
+    if (architectFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(architectFeedbackTimeoutRef.current);
+      architectFeedbackTimeoutRef.current = null;
+    }
+    setArchitectActionFeedback(nextFeedback);
+    if (nextFeedback && nextFeedback.kind !== "error" && clearAfterMs) {
+      architectFeedbackTimeoutRef.current = window.setTimeout(() => {
+        setArchitectActionFeedback(null);
+        architectFeedbackTimeoutRef.current = null;
+      }, clearAfterMs);
+    }
+  }
+
+  function applyArchitectStatus(status: ArchitectBrowserFoundationStatus): void {
+    architectBoundsSequenceRef.current = Math.max(
+      architectBoundsSequenceRef.current,
+      status.boundsSequence ?? 0,
+      status.attachment.bounds.sequence,
+    );
+    setArchitectStatus(status);
+  }
+
+  async function retryArchitectBrowser(): Promise<void> {
+    const coordinator = architectAttachmentCoordinatorRef.current;
+    if (!coordinator) {
+      setArchitectAttachmentError("Architect Interview must be active before retrying the embedded browser.");
+      return;
+    }
+    await coordinator.retry();
+  }
+
+  async function applyArchitectInterviewReview(): Promise<void> {
+    if (!architectReviewEdit?.sourceToken || !architectReviewEdit.selectedDisposition) {
+      setDocumentError("Refresh the Architect Interview output before applying review.");
+      return;
+    }
+    setIsApplying(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const nextModel = await window.champcity.reviewArchitectInterview(
+        architectReviewEdit.selectedDisposition,
+        architectReviewEdit.notes,
+        architectReviewEdit.sourceToken,
+      );
+      setArchitectInterviewModel(nextModel);
+      setArchitectReviewEdit(reviewEditStateFromModel(workspace.ok ? workspace.workspaceRoot : null, nextModel));
+      architectEvidenceFingerprintRef.current = buildArchitectInterviewEvidenceFingerprint(
+        workspace.ok ? workspace.workspaceRoot : null,
+        nextModel,
+      );
+      setFeedback(`Architect Interview disposition applied: ${architectReviewEdit.selectedDisposition}.`);
+      const nextDocuments = await window.champcity.listDocuments();
+      setDocuments(nextDocuments);
+      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setResolverResult(nextResolverResult);
+      await refreshCurrentModel();
+      if (nextModel.interviewDocument?.logicalDocumentId) {
+        setSelectedDocumentId(nextModel.interviewDocument.logicalDocumentId);
+      }
+      setActiveWorkspaceId("architect-interview");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Architect Interview review could not be applied.");
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  async function saveArchitectOutput(): Promise<void> {
+    if (!architectInterviewModel?.interviewTargets?.markdownPath) {
+      setDocumentError("Architect Output is unavailable until Architect Interview prerequisites are satisfied.");
+      return;
+    }
+    if (!architectOutputMarkdown.trim()) {
+      setDocumentError("Paste substantive Architect Markdown before saving.");
+      return;
+    }
+    setIsApplying(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      await window.champcity.saveArchitectInterviewOutput(architectOutputMarkdown);
+      setArchitectOutputMarkdown("");
+      setFeedback("Architect Output saved.");
+      await refreshDocuments();
+      await refreshArchitectInterviewWorkspace({ autoSelectNewOutput: true, force: true });
+      setActiveWorkspaceId("architect-interview");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Architect Output could not be saved.");
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  async function repairArchitectInterviewCanonicalEnvelope(): Promise<void> {
+    setIsApplying(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const nextModel = await window.champcity.repairArchitectInterviewCanonicalEnvelope();
+      setArchitectInterviewModel(nextModel);
+      setArchitectReviewEdit(reviewEditStateFromModel(workspace.ok ? workspace.workspaceRoot : null, nextModel));
+      setFeedback("Architect Interview canonical envelope repaired.");
+      const nextDocuments = await window.champcity.listDocuments();
+      setDocuments(nextDocuments);
+      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setResolverResult(nextResolverResult);
+      await refreshCurrentModel();
+      if (nextModel.interviewDocument?.logicalDocumentId) {
+        setSelectedDocumentId(nextModel.interviewDocument.logicalDocumentId);
+      }
+      setActiveWorkspaceId("architect-interview");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Architect Interview canonical envelope could not be repaired.");
+    } finally {
+      setIsApplying(false);
     }
   }
 
@@ -357,7 +735,14 @@ export function App(): JSX.Element {
     try {
       const nextDocuments = await window.champcity.listDocuments();
       setDocuments(nextDocuments);
+      await refreshMigrationPreview({ quiet: true });
       await refreshCurrentModel();
+      await refreshArchitectInterviewWorkspace({
+        autoSelectNewOutput: activeWorkspaceId === "architect-interview",
+        force: true,
+        quiet: activeWorkspaceId !== "architect-interview",
+        refreshRepositoryProjection: false,
+      });
       if (options.useResolver) {
         const nextResolverResult = await window.champcity.resolveCurrentDocument();
         selectResolverResult(nextResolverResult);
@@ -371,6 +756,51 @@ export function App(): JSX.Element {
       setDocumentError(error instanceof Error ? error.message : "Documents could not be loaded.");
     } finally {
       setIsLoadingDocuments(false);
+    }
+  }
+
+  async function refreshMigrationPreview(options: { quiet?: boolean } = {}): Promise<void> {
+    if (!workspace.ok) {
+      setMigrationPreview(null);
+      return;
+    }
+    setIsPreviewingMigration(true);
+    if (!options.quiet) {
+      setDocumentError("");
+      setMigrationFeedback("");
+    }
+    try {
+      const preview = await window.champcity.previewWorkspaceMigration();
+      setMigrationPreview(preview);
+      if (!options.quiet) {
+        setMigrationFeedback(preview.state === "not-required"
+          ? "No workspace migration required."
+          : `${preview.readyCount} ready, ${preview.blockedCount} blocked.`);
+      }
+    } catch (error) {
+      setMigrationPreview(null);
+      if (!options.quiet) {
+        setDocumentError(error instanceof Error ? error.message : "Migration preview failed.");
+      }
+    } finally {
+      setIsPreviewingMigration(false);
+    }
+  }
+
+  async function applyWorkspaceMigration(): Promise<void> {
+    setIsMigratingWorkspace(true);
+    setDocumentError("");
+    setMigrationFeedback("");
+    try {
+      const result = await window.champcity.applyWorkspaceMigration();
+      setMigrationPreview(result.preview);
+      setMigrationFeedback(`Migrated ${result.migratedPaths.length} document(s); deleted ${result.deletedPaths.length} legacy file(s).`);
+      await refreshDocuments({ useResolver: true });
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Migration failed.");
+      await refreshMigrationPreview({ quiet: true });
+    } finally {
+      setIsMigratingWorkspace(false);
     }
   }
 
@@ -407,6 +837,15 @@ export function App(): JSX.Element {
     setProjectIntakeConfirmation(clearedPostSubmitState.confirmation);
     setCurrentModel(null);
     setArchitectStatus(null);
+    setArchitectInterviewModel(null);
+    setArchitectReviewEdit(null);
+    setMigrationPreview(null);
+    setMigrationFeedback("");
+    setArchitectFeedback(null);
+    setArchitectPollingError("");
+    architectEvidenceFingerprintRef.current = null;
+    architectPollRequestRef.current += 1;
+    architectPollInFlightRef.current = false;
   }
 
   function focusProjectIntakeReviewSurface(): void {
@@ -464,7 +903,10 @@ export function App(): JSX.Element {
     setSelectedDocument(null);
   }
 
-  async function loadDocument(logicalDocumentId: string): Promise<void> {
+  async function loadDocument(
+    logicalDocumentId: string,
+    options: { preserveOnFailure?: boolean } = {},
+  ): Promise<void> {
     setDocumentError("");
     setFeedback("");
     try {
@@ -473,13 +915,15 @@ export function App(): JSX.Element {
       setSelectedStatus(
         detail.effectiveDisposition === "Pending" ? "" : detail.effectiveDisposition,
       );
-      if (detail.synchronizationState === "mismatched") {
-        setDocumentError("Document pair status is mismatched.");
+      if (detail.readError) {
+        setDocumentError("Document could not be read as canonical Markdown.");
       } else if (detail.readError) {
         setDocumentError(detail.readError);
       }
     } catch (error) {
-      setSelectedDocument(null);
+      if (!options.preserveOnFailure) {
+        setSelectedDocument(null);
+      }
       setDocumentError(error instanceof Error ? error.message : "Document could not be loaded.");
     }
   }
@@ -499,7 +943,16 @@ export function App(): JSX.Element {
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       await refreshCurrentModel();
-      if (selectedStatus === "Approved" && nextResolverResult.status === "current") {
+      await refreshArchitectInterviewWorkspace({
+        force: true,
+        quiet: activeWorkspaceId !== "architect-interview",
+        refreshRepositoryProjection: false,
+      });
+      if (
+        selectedStatus === "Approved" &&
+        nextResolverResult.status === "current" &&
+        activeWorkspaceId !== "project-intake-capture"
+      ) {
         setActiveWorkspaceId(nextResolverResult.document.owningWorkspaceId);
         setSelectedDocumentId(nextResolverResult.document.logicalDocumentId);
         setFeedback(getResolverFeedback(nextResolverResult));
@@ -518,12 +971,63 @@ export function App(): JSX.Element {
     }
   }
 
+  function renderDispositionControls(className: string): JSX.Element {
+    return (
+      <div className={className}>
+        <label>
+          <span>Disposition</span>
+          <select
+            disabled={!selectedDocument || selectedDocumentHasLocalError}
+            onChange={(event) =>
+              setSelectedStatus(event.target.value as DocumentDispositionStatus | "")
+            }
+            value={selectedStatus}
+          >
+            <option value="">Select disposition</option>
+            {dispositionOptions.map((option) => (
+              <option key={option.status} value={option.status}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="apply-button"
+          disabled={
+            !selectedDocument ||
+            !selectedStatus ||
+            selectedDocumentHasLocalError ||
+            isApplying
+          }
+          onClick={applyDisposition}
+          type="button"
+        >
+          Apply Disposition
+        </button>
+      </div>
+    );
+  }
+
+  function selectArchitectInterviewDocument(
+    role: ArchitectInterviewSelectedDocumentRole,
+    model: ArchitectInterviewWorkspaceModel | null,
+  ): void {
+    const documentId = role === "interview"
+      ? model?.interviewDocument?.logicalDocumentId
+      : model?.promptDocument?.logicalDocumentId;
+    if (documentId) {
+      setSelectedDocumentId(documentId);
+    }
+  }
+
   return (
     <main className="app-root">
       <NestedWorkflowRail
         activeWorkspaceId={activeWorkspaceId}
+        architectInterviewStatus={deriveArchitectInterviewRailStatus(architectInterviewModel)}
         onWorkspaceChange={setActiveWorkspaceId}
         projectIntakeStatus={projectIntakeRailStatus}
+        requiredWorkspaceId={currentModel?.activeWorkspaceId ?? null}
         workspaceCounts={workspaceCounts}
       />
 
@@ -561,7 +1065,10 @@ export function App(): JSX.Element {
       </aside>
 
         <section
-          className="workspace-surface"
+          className={[
+            "workspace-surface",
+            activeWorkspaceId === "architect-interview" ? "architect-interview-surface" : "",
+          ].filter(Boolean).join(" ")}
           aria-labelledby="workspace-heading"
           ref={workspaceSurfaceRef}
         >
@@ -602,16 +1109,67 @@ export function App(): JSX.Element {
             </div>
           </header>
 
-          <div className={workspace.ok ? "workspace-status ready" : "workspace-status"}>
-            <span>Selected workspace</span>
-            <strong>{workspace.ok ? workspace.workspaceRoot : workspace.reason}</strong>
-          </div>
+          {activeWorkspaceId !== "architect-interview" ? (
+            <div className={workspace.ok ? "workspace-status ready" : "workspace-status"}>
+              <span>Selected workspace</span>
+              <strong>{workspace.ok ? workspace.workspaceRoot : workspace.reason}</strong>
+            </div>
+          ) : null}
 
-          <CurrentWorkspaceBanner
-            activeWorkspaceLabel={activeWorkspace.label}
-            model={currentModel}
-            resolverResult={resolverResult}
-          />
+          {activeWorkspaceId !== "architect-interview" && workspace.ok ? (
+            <section className={[
+              "migration-panel",
+              migrationPreview?.state === "blocked" ? "blocked" : "",
+              migrationPreview?.state === "required" ? "required" : "",
+            ].filter(Boolean).join(" ")}
+            >
+              <div>
+                <span>Workspace Migration Required</span>
+                <strong>
+                  {migrationPreview
+                    ? migrationPreview.state === "not-required"
+                      ? "No"
+                      : migrationPreview.state === "blocked"
+                        ? "Blocked"
+                        : "Yes"
+                    : "Unknown"}
+                </strong>
+                <p>{migrationFeedback || migrationPreviewSummary(migrationPreview)}</p>
+              </div>
+              <div className="migration-actions">
+                <button
+                  className="icon-button text-button"
+                  disabled={isPreviewingMigration || isMigratingWorkspace}
+                  onClick={() => void refreshMigrationPreview()}
+                  type="button"
+                >
+                  <RefreshCw aria-hidden="true" size={18} />
+                  {isPreviewingMigration ? "Previewing..." : "Preview Migration"}
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={
+                    isMigratingWorkspace ||
+                    isPreviewingMigration ||
+                    !migrationPreview ||
+                    migrationPreview.state !== "required"
+                  }
+                  onClick={() => void applyWorkspaceMigration()}
+                  type="button"
+                >
+                  {isMigratingWorkspace ? "Migrating..." : "Migrate Workspace"}
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {activeWorkspaceId !== "architect-interview" ? (
+            <CurrentWorkspaceBanner
+              activeWorkspaceLabel={activeWorkspace.label}
+              model={currentModel}
+              resolverResult={resolverResult}
+            />
+          ) : null}
 
           {activeWorkspaceId === "project-intake-capture" ? (
             <ProjectIntakeCapture
@@ -626,13 +1184,27 @@ export function App(): JSX.Element {
           ) : null}
 
           {activeWorkspaceId === "architect-interview" ? (
-            <ArchitectInterviewFoundation
-              onRefresh={refreshArchitectStatus}
-              status={architectStatus}
+            <ArchitectInterviewActionBar
+              browserStatus={architectStatus}
+              attachmentError={architectAttachmentError}
+              actionFeedback={architectActionFeedback}
+              model={architectInterviewModel}
+              pollingError={architectPollingError}
+              onCopyHandoff={copyArchitectHandoff}
+              onRepairCanonicalEnvelope={() => void repairArchitectInterviewCanonicalEnvelope()}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+              onRefresh={() => {
+                void refreshDocuments();
+                void refreshArchitectStatus();
+                void refreshArchitectInterviewWorkspace({ force: true });
+              }}
+              onRetryBrowser={() => void retryArchitectBrowser()}
+              onSelectDocument={(role) => selectArchitectInterviewDocument(role, architectInterviewModel)}
+              selectedRole={selectedArchitectInterviewRole}
             />
           ) : null}
 
-          {activeWorkspaceId !== "project-intake-capture" ? (
+          {activeWorkspaceId !== "project-intake-capture" && activeWorkspaceId !== "architect-interview" ? (
             <CurrentActionPanel
               activeWorkspaceId={activeWorkspaceId}
               inputs={actionInputs}
@@ -643,11 +1215,16 @@ export function App(): JSX.Element {
           ) : null}
 
           <section
-            className={architectWorkspaceIds.has(activeWorkspaceId) ? "document-workspace with-architect" : "document-workspace"}
+            className={
+              isArchitectInterviewDualPaneWorkspace(activeWorkspaceId)
+                ? "document-workspace architect-interview-workspace"
+                : "document-workspace"
+            }
             aria-label={activeWorkspace.label}
             ref={documentReviewSurfaceRef}
             tabIndex={-1}
           >
+            {activeWorkspaceId !== "architect-interview" ? (
             <div className="document-list" aria-label={`${activeWorkspace.label} documents`}>
               {workspaceGroups.length === 0 ? (
                 <div className="empty-list">
@@ -657,30 +1234,66 @@ export function App(): JSX.Element {
                 workspaceGroups.map((group) => (
                   <div className="document-group" key={group.group}>
                     <h2>{group.group}</h2>
-                    {group.documents.map((document) => (
-                      <button
-                        className={
-                          document.logicalDocumentId === selectedDocumentId
-                            ? "document-row selected"
-                            : "document-row"
-                        }
-                        key={document.logicalDocumentId}
-                        onClick={() => setSelectedDocumentId(document.logicalDocumentId)}
-                        type="button"
-                      >
-                        <span className="document-title">{document.displayFilename}</span>
-                        <span className="document-path">
-                          {document.markdownPath ?? document.jsonPath}
-                        </span>
-                        <span className={`status-pill ${document.effectiveDisposition.toLowerCase()}`}>
-                          {document.effectiveDisposition}
-                        </span>
-                      </button>
-                    ))}
+                    {group.documents.map((document) => {
+                      const isSelectedDocument =
+                        document.logicalDocumentId === selectedDocumentId;
+                      const renderInlineDisposition =
+                        shouldRenderInlineProjectIntakeDisposition(
+                          activeWorkspaceId,
+                          selectedDocumentId,
+                          document.logicalDocumentId,
+                        );
+                      const documentRowContent = (
+                        <>
+                          <span className="document-title">{document.displayFilename}</span>
+                          <span className="document-path">
+                            {document.markdownPath}
+                          </span>
+                          <span className={`status-pill ${document.effectiveDisposition.toLowerCase()}`}>
+                            {document.effectiveDisposition}
+                          </span>
+                        </>
+                      );
+
+                      if (activeWorkspaceId === "project-intake-capture") {
+                        return (
+                          <div
+                            className={[
+                              "document-row-shell",
+                              isSelectedDocument ? "selected" : "",
+                            ].filter(Boolean).join(" ")}
+                            key={document.logicalDocumentId}
+                          >
+                            <button
+                              className="document-selection-button"
+                              onClick={() => setSelectedDocumentId(document.logicalDocumentId)}
+                              type="button"
+                            >
+                              {documentRowContent}
+                            </button>
+                            {renderInlineDisposition
+                              ? renderDispositionControls("inline-disposition-controls")
+                              : null}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          className={isSelectedDocument ? "document-row selected" : "document-row"}
+                          key={document.logicalDocumentId}
+                          onClick={() => setSelectedDocumentId(document.logicalDocumentId)}
+                          type="button"
+                        >
+                          {documentRowContent}
+                        </button>
+                      );
+                    })}
                   </div>
                 ))
               )}
             </div>
+            ) : null}
 
             <article className="document-preview">
               <CurrentDocumentSummary
@@ -690,17 +1303,17 @@ export function App(): JSX.Element {
               <header className="preview-header">
                 <div>
                   <h2>{selectedDocument?.displayFilename ?? "Select a document"}</h2>
-                  <p>{selectedDocument?.markdownPath ?? selectedDocument?.jsonPath ?? "Repository-relative path"}</p>
+                  <p>{selectedDocument?.markdownPath ?? "Repository-relative path"}</p>
                 </div>
-                <div className="pair-status">
-                  <span>{selectedDocument?.pairStatus ?? "No document selected"}</span>
-                  <strong>{selectedDocument?.synchronizationState ?? "Waiting"}</strong>
+                <div className="document-read-status">
+                  <span>Canonical Markdown</span>
+                  <strong>{selectedDocument?.readError ? "Local Error" : selectedDocument ? "Readable" : "Waiting"}</strong>
                 </div>
               </header>
 
               {selectedDocumentHasLocalError || documentError ? (
                 <div className="document-error" role="status">
-                  {documentError || "Document pair status must be synchronized before applying a disposition."}
+                  {documentError || "Document must be readable as canonical Markdown before applying a disposition."}
                 </div>
               ) : null}
 
@@ -714,55 +1327,58 @@ export function App(): JSX.Element {
                 {selectedDocument?.preview ?? neutralMessage}
               </pre>
 
-              {specializedDispositionWorkspaceIds.has(activeWorkspaceId) ? (
+              {activeWorkspaceId === "architect-interview" ? (
+                <ArchitectOutputImport
+                  disabled={isApplying || !architectInterviewModel?.interviewTargets?.markdownPath}
+                  model={architectInterviewModel}
+                  onChange={setArchitectOutputMarkdown}
+                  onSave={saveArchitectOutput}
+                  value={architectOutputMarkdown}
+                />
+              ) : null}
+
+              {activeWorkspaceId === "architect-interview" ? (
+                <ArchitectInterviewPreviewReview
+                  canApplyReview={
+                    getArchitectInterviewReviewRegionState({
+                      model: architectInterviewModel,
+                      selectedRole: selectedArchitectInterviewRole,
+                    }).kind === "valid" && Boolean(architectReviewStatus)
+                  }
+                  isApplying={isApplying}
+                  model={architectInterviewModel}
+                  notes={architectReviewNotes}
+                  onNotesChange={(notes) => setArchitectReviewEdit((current) => current
+                    ? { ...current, notes, isDirty: true }
+                    : current)}
+                  onReview={applyArchitectInterviewReview}
+                  onStatusChange={(status) => setArchitectReviewEdit((current) => current
+                    ? { ...current, selectedDisposition: status, isDirty: true }
+                    : current)}
+                  selectedRole={selectedArchitectInterviewRole}
+                  status={architectReviewStatus}
+                />
+              ) : specializedDispositionWorkspaceIds.has(activeWorkspaceId) ? (
                 <div className="document-feedback" role="status">
                   This workspace uses its specialized action authority instead of generic single-document disposition.
                 </div>
-              ) : (
-              <div className="disposition-controls">
-                <label>
-                  <span>Disposition</span>
-                  <select
-                    disabled={!selectedDocument || selectedDocumentHasLocalError}
-                    onChange={(event) =>
-                      setSelectedStatus(event.target.value as DocumentDispositionStatus | "")
-                    }
-                    value={selectedStatus}
-                  >
-                    <option value="">Select disposition</option>
-                    {dispositionOptions.map((option) => (
-                      <option key={option.status} value={option.status}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="apply-button"
-                  disabled={
-                    !selectedDocument ||
-                    !selectedStatus ||
-                    selectedDocumentHasLocalError ||
-                    isApplying
-                  }
-                  onClick={applyDisposition}
-                  type="button"
-                >
-                  Apply Disposition
-                </button>
-              </div>
-              )}
+              ) : shouldRenderGenericPreviewDispositionControls(
+                  activeWorkspaceId,
+                  specializedDispositionWorkspaceIds.has(activeWorkspaceId),
+                ) ? (
+                renderDispositionControls("disposition-controls")
+              ) : null}
             </article>
-            {architectWorkspaceIds.has(activeWorkspaceId) ? (
+            {activeWorkspaceId === "architect-interview" ? (
               <aside className="architect-surface-pane" aria-label="Architect browser surface">
                 <div className="architect-pane-header">
-                  <strong>Architect Surface</strong>
-                  <button className="icon-button text-button" onClick={() => void window.champcity.confirmArchitectSignedIn().then(setArchitectStatus)} type="button">
-                    Confirm Signed In
-                  </button>
+                  <strong>Embedded ChatGPT</strong>
+                  <span>{architectBrowserPresentation(architectStatus).label}</span>
                 </div>
                 <div ref={architectHostRef} className="architect-browser-host">
-                  <span>{architectStatus?.browserState ?? "detached"}</span>
+                  {architectStatus?.attachment.state !== "attached-visible" ? (
+                    <span>{architectBrowserPresentation(architectStatus).label}</span>
+                  ) : null}
                 </div>
               </aside>
             ) : null}
@@ -896,48 +1512,234 @@ function CurrentActionPanel({
   );
 }
 
-function ArchitectInterviewFoundation({
+function ArchitectInterviewActionBar({
+  actionFeedback,
+  attachmentError,
+  browserStatus,
+  model,
+  onCopyHandoff,
+  onRepairCanonicalEnvelope,
+  onReloadBrowser,
   onRefresh,
-  status,
+  onRetryBrowser,
+  onSelectDocument,
+  pollingError,
+  selectedRole,
 }: {
+  actionFeedback: ArchitectActionFeedback;
+  attachmentError: string;
+  browserStatus: ArchitectBrowserFoundationStatus | null;
+  model: ArchitectInterviewWorkspaceModel | null;
+  onCopyHandoff: () => void;
+  onRepairCanonicalEnvelope: () => void;
+  onReloadBrowser: () => void;
   onRefresh: () => void;
-  status: ArchitectBrowserFoundationStatus | null;
+  onRetryBrowser: () => void;
+  onSelectDocument: (role: ArchitectInterviewSelectedDocumentRole) => void;
+  pollingError: string;
+  selectedRole: ArchitectInterviewSelectedDocumentRole;
 }): JSX.Element {
+  const browserPresentation = architectBrowserPresentation(browserStatus);
+  const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus);
+  const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
+
   return (
-    <section className="architect-foundation" aria-label="Architect Interview Browser Foundation">
-      <div>
-        <span>Browser state</span>
-        <strong>{status?.browserState ?? "detached"}</strong>
+    <section className="architect-action-bar" aria-label="Architect Interview controls">
+      <div className="architect-action-context">
+        <span>Lifecycle</span>
+        <strong>{model?.railStatus ?? "Open"}</strong>
       </div>
-      <div>
-        <span>Handoff state</span>
-        <strong>{status?.handoff.state ?? "handoff-unavailable"}</strong>
+
+      <div className="architect-browser-state">
+        <span>Embedded ChatGPT</span>
+        <strong>{browserPresentation.label}</strong>
+        <small>{browserPresentation.detail}</small>
       </div>
-      <div>
-        <span>Session partition</span>
-        <strong>{status?.sessionPartition ?? "persist:champcity-architect"}</strong>
+
+      <div className="architect-document-selector" role="group" aria-label="Architect Interview document selector">
+        <button
+          className={selectedRole === "prompt" ? "document-choice selected" : "document-choice"}
+          disabled={!model?.promptDocument}
+          onClick={() => onSelectDocument("prompt")}
+          type="button"
+        >
+          Prompt
+        </button>
+        <button
+          className={selectedRole === "interview" ? "document-choice selected" : "document-choice"}
+          disabled={!model?.interviewDocument}
+          onClick={() => onSelectDocument("interview")}
+          type="button"
+        >
+          Interview
+        </button>
       </div>
-      <div>
-        <span>Surface</span>
-        <strong>{status?.surfaceUrl ?? "Not loaded"}</strong>
-      </div>
+
+      <button
+        className="apply-button architect-copy-button"
+        disabled={!model?.canCopyHandoff}
+        onClick={onCopyHandoff}
+        type="button"
+      >
+        <Clipboard aria-hidden="true" size={16} />
+        Copy Architect Handoff
+      </button>
+
+      {model?.canRepairCanonicalEnvelope ? (
+        <button className="apply-button" onClick={onRepairCanonicalEnvelope} type="button">
+          Repair Canonical Envelope
+        </button>
+      ) : null}
+
       <button className="icon-button text-button" onClick={onRefresh} type="button">
         <RefreshCw aria-hidden="true" size={18} />
-        Refresh
+        Refresh Output
       </button>
-      {status?.handoff.state === "handoff-ready" ? (
-        <pre className="handoff-manifest">
-{[
-  status.handoff.promptMarkdownPath,
-  status.handoff.promptJsonPath,
-  status.handoff.projectIntakeMarkdownPath,
-  status.handoff.projectIntakeJsonPath,
-].join("\n")}
-        </pre>
-      ) : (
-        <p>{status?.handoff.reason ?? "Project Intake and prompt artifacts are required."}</p>
-      )}
+
+      <button className="icon-button text-button" onClick={onReloadBrowser} type="button">
+        <RefreshCw aria-hidden="true" size={18} />
+        Reload ChatGPT
+      </button>
+
+      {showRetryButton ? (
+        <button className="apply-button" onClick={onRetryBrowser} type="button">
+          Retry Embedded Browser
+        </button>
+      ) : null}
+
+      {actionMessage ? (
+        <div
+          className={`architect-action-message ${actionMessage.kind}`}
+          role={actionMessage.kind === "error" ? "alert" : "status"}
+        >
+          {actionMessage.message}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function ArchitectOutputImport({
+  disabled,
+  model,
+  onChange,
+  onSave,
+  value,
+}: {
+  disabled: boolean;
+  model: ArchitectInterviewWorkspaceModel | null;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  value: string;
+}): JSX.Element {
+  const target = model?.interviewTargets?.markdownPath ?? "Architect Interview Markdown";
+  const sources = model?.evidencePaths ?? [];
+  return (
+    <section className="architect-output-import" aria-label="Architect Output">
+      <div className="architect-output-header">
+        <span>Architect Output</span>
+        <strong>{target}</strong>
+      </div>
+      {sources.length ? <small>{sources.join("; ")}</small> : null}
+      <label>
+        <span>Paste the substantive Markdown produced in the embedded Architect chat.</span>
+        <textarea
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          value={value}
+        />
+      </label>
+      <button
+        className="apply-button"
+        disabled={disabled || value.trim().length === 0}
+        onClick={onSave}
+        type="button"
+      >
+        Save Architect Output
+      </button>
+    </section>
+  );
+}
+
+function ArchitectInterviewPreviewReview({
+  canApplyReview,
+  isApplying,
+  model,
+  notes,
+  onNotesChange,
+  onReview,
+  onStatusChange,
+  selectedRole,
+  status,
+}: {
+  canApplyReview: boolean;
+  isApplying: boolean;
+  model: ArchitectInterviewWorkspaceModel | null;
+  notes: string;
+  onNotesChange: (value: string) => void;
+  onReview: () => void;
+  onStatusChange: (status: DocumentDispositionStatus) => void;
+  selectedRole: ArchitectInterviewSelectedDocumentRole;
+  status: DocumentDispositionStatus | "";
+}): JSX.Element {
+  const reviewRegion = getArchitectInterviewReviewRegionState({ model, selectedRole });
+
+  if (reviewRegion.kind === "prompt-or-missing") {
+    return (
+      <div className="document-feedback architect-preview-disposition" role="status">
+        {reviewRegion.statement}
+      </div>
+    );
+  }
+
+  if (reviewRegion.kind === "invalid") {
+    return (
+      <div className="document-error architect-preview-disposition" role="status">
+        <strong>Needs Attention</strong>
+        <span>{reviewRegion.diagnostics}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="architect-preview-disposition" aria-label="Interview Review">
+      <div className="architect-review-current">
+        <span>Interview Review</span>
+        <strong>Current: {model?.interviewDisposition ?? "Pending"}</strong>
+      </div>
+      <label>
+        <span>Disposition</span>
+        <select
+          onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus)}
+          value={status}
+        >
+          <option value="">Select disposition</option>
+          {dispositionOptions.map((option) => (
+            <option key={option.status} value={option.status}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {status === "RevisionRequested" ? (
+        <label className="architect-notes">
+          <span>Revision Instructions</span>
+          <textarea
+            disabled={!canApplyReview}
+            onChange={(event) => onNotesChange(event.target.value)}
+            value={notes}
+          />
+        </label>
+      ) : null}
+      <button
+        className="apply-button"
+        disabled={!canApplyReview || isApplying || (status === "RevisionRequested" && notes.trim().length === 0)}
+        onClick={onReview}
+        type="button"
+      >
+        Apply Interview Review
+      </button>
+    </div>
   );
 }
 
@@ -1056,23 +1858,15 @@ function ProjectIntakeCapture({
       </button>
       {postSubmitConfirmation ? (
         <section className="intake-confirmation" aria-label="Project Intake submission confirmation">
-          <strong>All four Project Intake files were created successfully in the active repository.</strong>
+          <strong>Project Intake and Architect Interview Prompt Markdown were created successfully in the active repository.</strong>
           <dl>
             <div>
               <dt>Project Intake Markdown</dt>
               <dd>{postSubmitConfirmation.projectIntakeMarkdownPath}</dd>
             </div>
             <div>
-              <dt>Project Intake JSON</dt>
-              <dd>{postSubmitConfirmation.projectIntakeJsonPath}</dd>
-            </div>
-            <div>
               <dt>Architect Interview Prompt Markdown</dt>
               <dd>{postSubmitConfirmation.architectPromptMarkdownPath}</dd>
-            </div>
-            <div>
-              <dt>Architect Interview Prompt JSON</dt>
-              <dd>{postSubmitConfirmation.architectPromptJsonPath}</dd>
             </div>
           </dl>
         </section>
@@ -1095,7 +1889,7 @@ function getResolverFeedback(result: FirstNonApprovedResult): string {
   }
 
   if (result.status === "waiting-for-architect-interview") {
-    return `${result.message}: ${result.expectedOutputPaths.markdown}; ${result.expectedOutputPaths.json}`;
+    return `${result.message}: ${result.expectedOutputPaths.markdown}`;
   }
 
   if (result.status === "all-approved") {
@@ -1103,6 +1897,89 @@ function getResolverFeedback(result: FirstNonApprovedResult): string {
   }
 
   return `Document ${result.document.orderPosition} of ${result.document.totalDocumentCount}: ${result.document.displayTitle}`;
+}
+
+function architectInterviewRoleForSelection(
+  selectedDocumentId: string | null,
+  model: ArchitectInterviewWorkspaceModel | null,
+): ArchitectInterviewSelectedDocumentRole {
+  if (selectedDocumentId && selectedDocumentId === model?.interviewDocument?.logicalDocumentId) {
+    return "interview";
+  }
+  return "prompt";
+}
+
+function architectPreviewMessage(
+  selectedRole: ArchitectInterviewSelectedDocumentRole,
+  model: ArchitectInterviewWorkspaceModel | null,
+): string {
+  if (selectedRole === "prompt") {
+    return "Prompt is an Approved non-review handoff input. Interview disposition controls are unavailable for this document.";
+  }
+  if (!model?.interviewDocument) {
+    return "Waiting for the Architect-authored Interview output at the exact prompt targets.";
+  }
+  if (!model.canApplyDisposition) {
+    return model.reason;
+  }
+  return "Interview output is the Operator review target.";
+}
+
+function architectBrowserPresentation(status: ArchitectBrowserFoundationStatus | null): {
+  label: "Starting browser..." | "Loading ChatGPT..." | "ChatGPT ready" | "Browser unavailable";
+  detail: string;
+} {
+  const attachment = status?.attachment.state ?? "detached";
+  if (attachment === "attach-failed") {
+    return {
+      label: "Browser unavailable",
+      detail: status?.attachment.lastError ?? "The embedded browser could not attach to this window.",
+    };
+  }
+  if (attachment === "detached" || attachment === "attaching" || attachment === "attached-zero-bounds") {
+    return {
+      label: "Starting browser...",
+      detail: "Preparing the embedded ChatGPT surface.",
+    };
+  }
+
+  const state = status?.browserState ?? "detached";
+  if (state === "loading") {
+    return {
+      label: "Loading ChatGPT...",
+      detail: "The embedded ChatGPT page is loading.",
+    };
+  }
+  if (state === "loaded-auth-state-unknown" || state === "operator-confirmed-signed-in") {
+    return {
+      label: "ChatGPT ready",
+      detail: "The embedded ChatGPT page is loaded.",
+    };
+  }
+  if (state === "load-failed") {
+    return {
+      label: "Browser unavailable",
+      detail: "The embedded ChatGPT page failed to load. Use Reload ChatGPT to try again.",
+    };
+  }
+  return {
+    label: "Starting browser...",
+    detail: "Preparing the embedded ChatGPT surface.",
+  };
+}
+
+function actionFeedbackForDisplay(
+  attachmentError: string,
+  pollingError: string,
+  actionFeedback: ArchitectActionFeedback,
+): ArchitectActionFeedback {
+  if (attachmentError) {
+    return { kind: "error", message: attachmentError };
+  }
+  if (pollingError) {
+    return { kind: "error", message: pollingError };
+  }
+  return actionFeedback;
 }
 
 function shortWorkspaceLabel(label: string): string {
@@ -1167,6 +2044,21 @@ function CurrentWorkspaceBanner({
       ) : null}
     </section>
   );
+}
+
+function migrationPreviewSummary(preview: WorkspaceMigrationPreview | null): string {
+  if (!preview) {
+    return "Preview has not run for the selected workspace.";
+  }
+  if (preview.state === "not-required") {
+    return "No legacy pairs found.";
+  }
+  const firstBlocked = preview.items.find((item) => item.status === "blocked");
+  if (firstBlocked) {
+    return `${preview.readyCount} ready, ${preview.blockedCount} blocked: ${firstBlocked.findings[0] ?? firstBlocked.markdownPath}`;
+  }
+  const firstReady = preview.items.find((item) => item.status === "ready");
+  return `${preview.readyCount} ready, target ${firstReady?.targetMarkdownPath ?? "Markdown"}.`;
 }
 
 function CurrentDocumentSummary({

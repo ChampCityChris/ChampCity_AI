@@ -45,16 +45,14 @@ Mandatory rules:
 - Likely future LLM providers include OpenAI API, Anthropic, local Ollama, and a generic OpenAI-compatible endpoint for providers such as Featherless or LM Studio.
 - Product-facing role terminology: use `Implementer` for the coding/build agent role in visible UI, prompts, and new explanatory copy.
 - Active Implementer Reports use `Implementer_Reports/` and `IMPLEMENTER_REPORT_*` paths.
-- Markdown and JSON are synchronized representations of one logical artifact revision; an unsynchronized pair is blocking.
+- Governed workflow documents use one canonical Markdown file with an application-owned metadata comment.
 
 ## Work Card Artifacts
 
-- Every durable Work Card must be saved as both structured JSON for app workflows and rendered Markdown for human-readable planning records.
-- Required JSON path pattern: `planning/phases/<phase-folder>/Work_Cards/<work_card_id>_<slug>.json`.
+- Every durable Work Card must be saved as one canonical Markdown file.
 - Required Markdown path pattern: `planning/phases/<phase-folder>/Work_Cards/<work_card_id>_<slug>.md`.
-- The JSON artifact is the structured app-readable Work Card source.
-- The Markdown artifact is the durable human-readable rendering.
-- Implementers must not create Markdown-only Work Cards unless the prompt explicitly says it is a temporary note and not an app-selectable Work Card.
+- The Markdown file begins with the application-owned metadata comment and continues with human-readable Work Card content.
+- Implementers must not create JSON sidecars for governed Work Cards.
 
 ## Security
 

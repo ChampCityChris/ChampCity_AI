@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import {
@@ -8,13 +6,12 @@ import {
   savePlanningDocumentRevision,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
-import { writeArtifactTransaction } from "../documents/artifactTransaction";
+import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 
 export interface FormalWorkCardResult {
   phaseId: string;
   workCardId: string;
   markdownPath: string;
-  jsonPath: string;
 }
 
 export interface WorkCardBuildingEligibility {
@@ -27,30 +24,12 @@ export function createFormalWorkCardFromIntakeHandoff(
   phaseId: string,
   workCardId: string,
 ): FormalWorkCardResult {
-  const handoff = requiredApproved(
+  requiredApproved(
     workspaceRoot,
     `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${workCardId}`,
-    ".json",
+    ".md",
   );
-  const handoffJson = JSON.parse(fs.readFileSync(path.join(workspaceRoot, handoff.jsonPath!), "utf8"));
-  const target = handoffJson.outputTargets?.formalWorkCard;
-  if (!target || typeof target.markdown !== "string" || typeof target.json !== "string") {
-    throw new Error("Work Card Intake handoff must name one Formal Work Card target.");
-  }
-  const candidate = handoffJson.candidate ?? {};
-  const sourceRevisions = [
-    ...(Array.isArray(handoffJson.sourceRevisions) ? handoffJson.sourceRevisions : []),
-    { path: handoff.jsonPath!, revision: handoff.metadata.artifactRevision ?? 1 },
-  ];
-  const artifact = {
-    artifactType: "formal-work-card",
-    artifactRevision: 1,
-    participationRole: "gatingReview",
-    phaseId,
-    workCardId,
-    candidateId: workCardId,
-    title: candidate.title ?? workCardId,
-    sourceRevisions,
+  const content = {
     implementationContract: {
       scope: "Architect-authored implementation scope required before approval.",
       nonScope: "No out-of-scope implementation is authorized.",
@@ -62,20 +41,39 @@ export function createFormalWorkCardFromIntakeHandoff(
       requiredReportContract: "Write the required Implementer Report for this Work Card.",
       manualValidation: "Operator manual validation remains required after implementation.",
     },
-    returnToPhasePlanningOnRejected: true,
-    documentDisposition: { status: "Pending" },
   };
-
-  writeFiles(workspaceRoot, [
-    [target.markdown, renderFormalWorkCardMarkdown(artifact)],
-    [target.json, json(artifact)],
-  ]);
+  const handoff = requiredApproved(
+    workspaceRoot,
+    `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${workCardId}`,
+    ".md",
+  );
+  const markdownPath = formalWorkCardTargetFromHandoff(handoff, phaseId, workCardId);
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: markdownPath,
+    metadata: {
+      schemaVersion: 1,
+      artifactType: "formal-work-card",
+      artifactRevision: 1,
+      participationRole: "gatingReview",
+      identity: { phaseId, workCardId, candidateId: workCardId, title: workCardId },
+      sourceRevisions: [{ path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 }],
+      workflowData: {
+        phaseId,
+        workCardId,
+        candidateId: workCardId,
+        implementationContract: content.implementationContract,
+        returnToPhasePlanningOnRejected: true,
+      },
+      documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+    },
+    bodyMarkdown: `# Formal Work Card - ${workCardId}\n\n## Implementation Contract\n\nScope, non-scope, risks, authorized files/tests, acceptance criteria, validation expectations, Implementer instructions, report contract, and manual validation are required before approval.\n`,
+  });
 
   return {
     phaseId,
     workCardId,
-    markdownPath: target.markdown,
-    jsonPath: target.json,
+    markdownPath,
   };
 }
 
@@ -85,7 +83,7 @@ export function setFormalWorkCardDisposition(
   workCardId: string,
   status: DocumentDispositionStatus,
 ): PlanningDocumentSummary {
-  const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".json");
+  const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
   return setDocumentDisposition(workspaceRoot, formal.logicalDocumentId, status);
 }
 
@@ -94,14 +92,14 @@ export function getWorkCardBuildingEligibility(
   phaseId: string,
   workCardId: string,
 ): WorkCardBuildingEligibility {
-  const formal = findByPrefix(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".json");
+  const formal = findByPrefix(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
   if (!formal) {
     return { eligible: false, reason: "Formal Work Card is required." };
   }
   const freshness = evaluateDocumentFreshness(workspaceRoot, formal.logicalDocumentId);
   const eligible =
     formal.effectiveDisposition === "Approved" &&
-    formal.synchronizationState === "synchronized" &&
+    formal.documentReadState === "readable" &&
     freshness.state === "fresh";
   if (eligible) {
     return { eligible: true, reason: "Approved Formal Work Card is the Work Card Building instruction." };
@@ -109,7 +107,7 @@ export function getWorkCardBuildingEligibility(
   if (formal.effectiveDisposition === "Rejected") {
     return { eligible: false, reason: "Rejected Formal Work Card must return to Phase Planning bundle revision." };
   }
-  return { eligible: false, reason: "Work Card Building requires a synchronized, fresh, Approved Formal Work Card." };
+  return { eligible: false, reason: "Work Card Building requires a readable, fresh, Approved Formal Work Card." };
 }
 
 export function reviseFormalWorkCard(
@@ -117,11 +115,11 @@ export function reviseFormalWorkCard(
   phaseId: string,
   workCardId: string,
 ): void {
-  const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".json");
+  const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
   savePlanningDocumentRevision(workspaceRoot, formal.logicalDocumentId);
 }
 
-function requiredApproved(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = requiredAny(workspaceRoot, prefix, extension);
   if (document.effectiveDisposition !== "Approved") {
     throw new Error(`Current Approved input is required: ${prefix}`);
@@ -129,13 +127,13 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".js
   if (evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "stale") {
     throw new Error(`Current input is stale: ${prefix}`);
   }
-  if (!document.jsonPath) {
-    throw new Error(`JSON input is required: ${prefix}`);
+  if (!document.markdownPath) {
+    throw new Error(`Canonical Markdown input is required: ${prefix}`);
   }
   return document;
 }
 
-function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") {
+function requiredAny(workspaceRoot: string, prefix: string, extension: ".md") {
   const document = findByPrefix(workspaceRoot, prefix, extension);
   if (!document) {
     throw new Error(`Formal Work Card document is missing: ${prefix}`);
@@ -143,42 +141,21 @@ function requiredAny(workspaceRoot: string, prefix: string, extension: ".json") 
   return document;
 }
 
-function findByPrefix(workspaceRoot: string, prefix: string, extension: ".json") {
+function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => (document.jsonPath ?? document.markdownPath ?? "").startsWith(prefix))
-    .filter((document) => (document.jsonPath ?? document.markdownPath ?? "").endsWith(extension))
+    .filter((document) => document.markdownPath.startsWith(prefix))
+    .filter((document) => document.markdownPath.endsWith(extension))
     .at(-1);
 }
 
-function renderFormalWorkCardMarkdown(artifact: any): string {
-  return [
-    `# Formal Work Card - ${artifact.workCardId}`,
-    `Artifact.Revision=${artifact.artifactRevision}`,
-    "participationRole=gatingReview",
-    `phaseId=${artifact.phaseId}`,
-    `workCardId=${artifact.workCardId}`,
-    `candidateId=${artifact.candidateId}`,
-    "",
-    "## Source Revisions",
-    ...artifact.sourceRevisions.map((source: { path: string; revision: number }) => `- path: ${source.path} revision: ${source.revision}`),
-    "",
-    "## Implementation Contract",
-    "Scope, non-scope, risks, authorized files/tests, acceptance criteria, validation expectations, Implementer instructions, report contract, and manual validation are required before approval.",
-    "",
-    "## Document Disposition",
-    "",
-    "Document.Status=Pending",
-    "",
-  ].join("\n");
-}
-
-function writeFiles(workspaceRoot: string, entries: Array<[relativePath: string, content: string]>): void {
-  writeArtifactTransaction(
-    workspaceRoot,
-    entries.map(([relativePath, content]) => ({ relativePath, content })),
-  );
-}
-
-function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
+function formalWorkCardTargetFromHandoff(
+  handoff: PlanningDocumentSummary,
+  phaseId: string,
+  workCardId: string,
+): string {
+  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
+  if (typeof target === "string" && target.endsWith(".md")) {
+    return target;
+  }
+  return `planning/phases/${phaseId}/Work_Cards/${workCardId}_work_card.md`;
 }

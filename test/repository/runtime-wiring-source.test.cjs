@@ -34,6 +34,20 @@ test("main, preload, and renderer expose evidence-derived current workflow actio
   assert.doesNotMatch(rendererSource, /Evidence Path/);
 });
 
+test("main, preload, and renderer expose controlled workspace migration actions", () => {
+  const mainSource = read("src/main/main.ts");
+  const preloadSource = read("src/preload/index.ts");
+  const rendererSource = read("src/renderer/app/App.tsx");
+
+  assert.match(mainSource, /ipcMain\.handle\("workspaceMigration:preview"/);
+  assert.match(mainSource, /ipcMain\.handle\("workspaceMigration:apply"/);
+  assert.match(preloadSource, /previewWorkspaceMigration:/);
+  assert.match(preloadSource, /applyWorkspaceMigration:/);
+  assert.match(rendererSource, /Workspace Migration Required/);
+  assert.match(rendererSource, /Preview Migration/);
+  assert.match(rendererSource, /Migrate Workspace/);
+});
+
 test("renderer disables generic disposition for specialized authority workspaces", () => {
   const rendererSource = read("src/renderer/app/App.tsx");
 
@@ -72,6 +86,7 @@ test("Project Intake submission service can bind writes to an active repository 
   });
 
   assert.equal(result.projectRoot, path.resolve(activeRoot));
-  assert.equal(fs.existsSync(path.join(activeRoot, result.projectIntakeJsonPath)), true);
+  assert.equal(fs.existsSync(path.join(activeRoot, result.projectIntakeMarkdownPath)), true);
+  assert.equal(fs.existsSync(path.join(activeRoot, result.projectIntakeMarkdownPath.replace(/\.md$/, ".json"))), false);
   assert.equal(fs.existsSync(path.join(submittedRoot, "planning")), false);
 });

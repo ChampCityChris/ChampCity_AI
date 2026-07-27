@@ -1,3 +1,68 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {
+    "phaseId": "phase-07",
+    "workCardId": "WC08-REPAIR01"
+  },
+  "sourceRevisions": [],
+  "workflowData": {
+    "schemaVersion": "champcity.work-card.v1",
+    "workCardId": "WC08-REPAIR01",
+    "parentWorkCardId": "WC08",
+    "phaseId": "phase-07",
+    "title": "WC08 Implementer Report Disposition Completion",
+    "status": "Approved",
+    "owner": "Implementer",
+    "risk": "low",
+    "scopeType": "report-only-correction",
+    "purpose": "Add the missing terminal Pending disposition to the accepted WC08 Implementer Report and perform only the targeted real-corpus reconciliation checks needed to confirm the final report is valid.",
+    "authorizedModifiedFiles": [
+      "planning/phases/phase-07/Implementer_Reports/IMPLEMENTER_REPORT_WC08_disposition_write_safety_local_read_isolation_phase_order_repair.md"
+    ],
+    "requiredOutcomes": [
+      "Preserve all existing WC08 Implementer Report content.",
+      "Add a concise WC08-REPAIR01 Correction section before the terminal disposition.",
+      "Identify the Phase 07 planning changes as concurrent Architect-authored protected updates.",
+      "Remove the Independent Verifier recommendation.",
+      "Set the recommended next task to WC09 Operator Validation after Architect review.",
+      "End the report with exactly one terminal Document.Status=Pending section.",
+      "Run only the three targeted real-corpus checks.",
+      "Confirm the report is the only file modified by the repair."
+    ],
+    "targetedValidation": {
+      "command": "node --test --test-concurrency=1 --test-name-pattern=\"every real logical document has a valid effective disposition|real corpus pairs are synchronized|real resolver returns Project Intake first when pending\" test/dogfood/real-corpus-dogfood.test.cjs",
+      "expected": [
+        "The three selected tests pass.",
+        "Zero logical documents need initialization.",
+        "All Markdown/JSON pairs remain synchronized.",
+        "Project Intake remains the first resolved document while Pending."
+      ]
+    },
+    "prohibitions": [
+      "No separate WC08-REPAIR01 Implementer Report or JSON sidecar.",
+      "No source or test changes.",
+      "No typecheck, build, full test suite, Codex validation suite, Electron launch, or renderer smoke check.",
+      "No corpus initialization or other document disposition change.",
+      "No Phase 07 or Phase 08 planning change.",
+      "No Independent Verifier pass or verifier packet.",
+      "No approval artifact, validation artifact, event log, or sidecar.",
+      "No Git operation."
+    ],
+    "markdownPath": "planning/phases/phase-07/Work_Cards/WC08-REPAIR01_wc08_implementer_report_disposition_completion.md",
+    "jsonPath": "planning/phases/phase-07/Work_Cards/WC08-REPAIR01_wc08_implementer_report_disposition_completion.json"
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Work Card — Phase 07 WC08-REPAIR01 WC08 Implementer Report Disposition Completion
 
 Status: approved for Implementer execution
@@ -28,26 +93,6 @@ No other repository file may be created, modified, deleted, renamed, moved, stag
 The corrected WC08 Implementer Report must end with exactly one terminal section:
 
 ```markdown
-## Document Disposition
-
-Document.Status=Pending
-```
-
-Requirements:
-
-- preserve all existing report content;
-- add a concise `WC08-REPAIR01 Correction` section before the terminal disposition;
-- state that the two Phase 07 planning files identified in the report were concurrent Architect-authored protected planning updates, not WC08 implementation changes;
-- state that no source, test, runtime, configuration, dependency, or real-corpus disposition was changed by this repair;
-- remove the recommendation for an Independent Verifier pass;
-- replace the prior recommended next task with:
-
-```text
-Proceed to WC09 — Operator Validation of the Clean-Room Workflow after Architect review of this corrected report.
-```
-
-- keep the disposition section as the final non-whitespace content after every edit.
-
 ## Implementer Report Rule for This Repair
 
 Do not create a separate WC08-REPAIR01 Implementer Report.
@@ -124,7 +169,3 @@ WC08-REPAIR01 passes only when:
 8. the report remains the only file modified by the repair;
 9. no source, test, build, application, or other planning change occurs;
 10. no Git operation occurs.
-
-## Document Disposition
-
-Document.Status=Approved

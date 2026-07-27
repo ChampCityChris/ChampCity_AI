@@ -1,3 +1,50 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "designDocumentId": "ARTIFACT_SOURCE_REVISION_AND_DOWNSTREAM_INVALIDATION",
+    "projectId": "champcity-ai",
+    "title": "Artifact Source Revision and Downstream Invalidation",
+    "status": "confirmed_sequence_correction",
+    "revisionField": "artifactRevision",
+    "revisionType": "monotonic_integer",
+    "sourceReferenceFields": [
+      "path",
+      "revision"
+    ],
+    "freshnessStates": [
+      "current",
+      "stale",
+      "missing_source",
+      "invalid_source"
+    ],
+    "bundleInvalidation": [
+      "Project_Profile + Project_Roadmap",
+      "Phase_Planning + Work_Card_Plan"
+    ],
+    "validationRule": "Approved validation is current only when it references the current Approved Formal Work Card and latest current Approved implementation evidence.",
+    "prohibitedAuthority": [
+      "hashes",
+      "timestamps",
+      "filesystem order",
+      "Git metadata",
+      "execution runs",
+      "hidden revision database"
+    ]
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Artifact Source Revision and Downstream Invalidation
 
 Status: confirmed sequence correction
@@ -15,7 +62,6 @@ The application must preserve durable document evidence while making it impossib
 Every current workflow artifact pair must contain one monotonic integer:
 
 ```text
-Artifact.Revision=<positive integer>
 ```
 
 The synchronized JSON sibling uses:
@@ -128,7 +174,3 @@ Invalidation does not delete or rewrite historical evidence. Earlier reports and
 ## Authority Boundary
 
 Do not use content hashes, timestamps, Git commits, execution runs, hidden revision databases, or filesystem order as revision authority.
-
-## Document Disposition
-
-Document.Status=Approved

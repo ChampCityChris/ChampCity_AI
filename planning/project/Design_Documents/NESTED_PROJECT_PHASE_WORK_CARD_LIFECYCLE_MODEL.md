@@ -1,3 +1,94 @@
+<!-- CHAMPCITY-METADATA
+{
+  "schemaVersion": 1,
+  "artifactType": "context-document",
+  "artifactRevision": 1,
+  "participationRole": "contextOnly",
+  "identity": {},
+  "sourceRevisions": [],
+  "workflowData": {
+    "documentType": "project_design_decision",
+    "title": "Nested Project, Phase, and Work Card Lifecycle Model",
+    "project": "ChampCity A/I",
+    "confirmedBy": "Operator",
+    "confirmedDate": "2026-07-21",
+    "status": "Approved",
+    "hierarchy": [
+      "Project",
+      "Phase",
+      "Work Card"
+    ],
+    "lifecycleStages": [
+      "Intake",
+      "Planning",
+      "Building",
+      "Validation",
+      "Close"
+    ],
+    "projectLifecycle": [
+      "Project Intake",
+      "Project Planning",
+      "Project Building",
+      "Project Validation",
+      "Project Close"
+    ],
+    "phaseLifecycle": [
+      "Phase Intake",
+      "Phase Planning",
+      "Phase Building",
+      "Phase Validation",
+      "Phase Close"
+    ],
+    "workCardLifecycle": [
+      "Work Card Intake",
+      "Work Card Planning",
+      "Work Card Building",
+      "Work Card Validation",
+      "Work Card Close"
+    ],
+    "controlRules": [
+      "Project Building enters the Phase lifecycle.",
+      "Phase Building enters the Work Card lifecycle.",
+      "Work Card Close returns to Phase Building.",
+      "Phase Close returns to Project Building.",
+      "Project Close ends the project."
+    ],
+    "currentLocationCoordinates": {
+      "level": [
+        "Project",
+        "Phase",
+        "Work Card"
+      ],
+      "stage": [
+        "Intake",
+        "Planning",
+        "Building",
+        "Validation",
+        "Close"
+      ]
+    },
+    "derivedProductViews": [
+      "workflow progression",
+      "process maps",
+      "UI navigation",
+      "workspace organization",
+      "visible actions",
+      "current-location context"
+    ],
+    "authorityBoundary": {
+      "documentsAndDispositionRemainVisibleState": true,
+      "hiddenWorkflowAuthorityProhibited": true,
+      "captureFramePlanBuildProveIsCanonical": false
+    }
+  },
+  "documentDisposition": {
+    "status": "Approved",
+    "notes": "",
+    "reviewedAt": null
+  }
+}
+CHAMPCITY-METADATA -->
+
 # Nested Project, Phase, and Work Card Lifecycle Model
 
 Status: confirmed by Operator
@@ -105,7 +196,3 @@ The nested lifecycle is a descriptive product and process model. It does not aut
 Durable documents and their explicit dispositions remain the visible source of workflow state.
 
 `Capture → Frame → Plan → Build → Prove` is not the canonical application structure. It may be used only as loose explanatory language where helpful.
-
-## Document Disposition
-
-Document.Status=Approved
