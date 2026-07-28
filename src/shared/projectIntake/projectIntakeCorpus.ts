@@ -53,6 +53,12 @@ export function deriveProjectIntakeRailStatus(
 export function isActiveCanonicalProjectIntake(
   document: PlanningDocumentSummary,
 ): boolean {
+  if (document.readError || document.documentReadState !== "readable") {
+    return false;
+  }
+  if (!document.metadata.canonical) {
+    return false;
+  }
   if (document.metadata.participationRole === "historical") {
     return false;
   }
@@ -60,8 +66,7 @@ export function isActiveCanonicalProjectIntake(
     return false;
   }
 
-  return document.metadata.artifactType === "project-intake" ||
-    isCanonicalProjectIntakePath(document.markdownPath);
+  return document.metadata.artifactType === "project-intake";
 }
 
 export function isArchivedPlanningDocument(document: PlanningDocumentSummary): boolean {

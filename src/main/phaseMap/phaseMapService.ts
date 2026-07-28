@@ -1,8 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
+import {
+  type CanonicalDocumentMetadata,
+  metadataCloseDelimiter,
+  metadataOpenDelimiter,
+  parseCanonicalMarkdownDocument,
+} from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
+import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import { isSemanticallyComplete } from "../../shared/documents/lifecycleArtifact";
 import {
   evaluateDocumentFreshness,
@@ -93,6 +98,34 @@ export function setPhaseMapDisposition(
   setDocumentDisposition(workspaceRoot, phaseMap.logicalDocumentId, status);
 }
 
+export function savePhaseMapOutput(
+  workspaceRoot: string,
+  markdownBody: string,
+): { phaseMapMarkdownPath: string } {
+  const bodyMarkdown = substantiveMarkdown(markdownBody, "Phase Map");
+  const phases = phasesFromDomainBlock(bodyMarkdown);
+  const handoff = requiredApprovedHandoff(workspaceRoot);
+  const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+  const phaseMapMarkdownPath = requiredMarkdownTarget(workflowData.outputTarget, "outputTarget");
+  const projectSlug = projectSlugFromCurrentIntake(workspaceRoot);
+  const sourceRevisions = sourceRevisionsFromHandoff(handoff);
+
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: phaseMapMarkdownPath,
+    metadata: outputMetadata({
+      workspaceRoot,
+      relativePath: phaseMapMarkdownPath,
+      projectSlug,
+      sourceRevisions,
+      phases,
+    }),
+    bodyMarkdown,
+  });
+
+  return { phaseMapMarkdownPath };
+}
+
 export function getPhaseMapProjection(workspaceRoot: string): PhaseMapProjection {
   const documents = listPlanningDocuments(workspaceRoot);
   const phaseMap = documents
@@ -175,6 +208,98 @@ function validatePhaseMap(value: unknown): PhaseMapPhase[] {
       sourceReferences: phase.sourceReferences,
     };
   });
+}
+
+function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "generated-handoff")
+    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "phase-map")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    throw new Error("Current Approved Phase Map handoff is required.");
+  }
+  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+    throw new Error("Current Phase Map handoff is stale.");
+  }
+  return handoff;
+}
+
+function phasesFromDomainBlock(markdownBody: string): PhaseMapPhase[] {
+  const matches = [...markdownBody.matchAll(/```champcity-phase-map\s*\r?\n([\s\S]*?)\r?\n```/g)];
+  if (matches.length !== 1) {
+    throw new Error("Phase Map output requires exactly one champcity-phase-map fenced block.");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(matches[0][1]);
+  } catch (error) {
+    throw new Error(`Phase Map domain block must contain JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return validatePhaseMap({ phases: parsed });
+}
+
+function outputMetadata(input: {
+  workspaceRoot: string;
+  relativePath: string;
+  projectSlug: string;
+  sourceRevisions: SourceRevision[];
+  phases: PhaseMapPhase[];
+}): CanonicalDocumentMetadata {
+  const existing = readExistingCanonical(input.workspaceRoot, input.relativePath);
+  return {
+    schemaVersion: 1,
+    artifactType: "phase-map",
+    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
+    participationRole: "gatingReview",
+    identity: { projectSlug: input.projectSlug },
+    sourceRevisions: input.sourceRevisions,
+    workflowData: { phases: input.phases },
+    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+  };
+}
+
+function readExistingCanonical(workspaceRoot: string, relativePath: string) {
+  const absolutePath = path.join(workspaceRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+}
+
+function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRevision[] {
+  return [
+    ...(handoff.metadata.sourceRevisions ?? []),
+    { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 },
+  ];
+}
+
+function projectSlugFromCurrentIntake(workspaceRoot: string): string {
+  const intake = requiredApproved(workspaceRoot, "planning/project/Project_Intake/", ".md");
+  const identity = intake.metadata.canonical?.identity ?? {};
+  const value = identity.projectSlug ?? identity["Project.ArtifactKey"] ?? slugFromRoadmap(intake.displayFilename);
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("Current Project Intake evidence does not provide projectSlug.");
+  }
+  return value.trim();
+}
+
+function requiredMarkdownTarget(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim() || path.isAbsolute(value) || value.includes("..") || !value.endsWith(".md")) {
+    throw new Error(`Phase Map handoff is missing ${field}.`);
+  }
+  return value;
+}
+
+function substantiveMarkdown(value: string, label: string): string {
+  const body = value.trim();
+  if (!body) {
+    throw new Error(`${label} output requires substantive Markdown.`);
+  }
+  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
+    throw new Error(`${label} output must not contain application metadata delimiters.`);
+  }
+  return body;
 }
 
 function completedPhaseIdsFromCloseouts(documents: PlanningDocumentSummary[]): string[] {

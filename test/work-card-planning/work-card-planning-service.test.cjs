@@ -2,8 +2,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
-  createFormalWorkCardFromIntakeHandoff,
   getWorkCardBuildingEligibility,
+  saveFormalWorkCardOutput,
   setFormalWorkCardDisposition,
 } = require("../../dist/main/workCardPlanning/workCardPlanningService.js");
 const {
@@ -19,8 +19,8 @@ test("work card planning creates Markdown-only Formal Work Card and approves eli
   seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
   generateWorkCardIntakeHandoff(root, "phase-01");
 
-  const result = createFormalWorkCardFromIntakeHandoff(root, "phase-01", "WC01");
-  assert.equal(result.markdownPath, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
+  const result = saveFormalWorkCardOutput(root, "# Formal Work Card\n\nArchitect-authored scope and acceptance.");
+  assert.equal(result.formalWorkCardMarkdownPath, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
   assert.equal(["json", "Path"].join("") in result, false);
 
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");

@@ -10,20 +10,16 @@ import {
   resolveCanonicalArchitectInterviewContext,
   type CanonicalArtifactIdentity,
 } from "./architectInterviewContextResolver";
-import {
-  evaluateDocumentFreshness,
-  listPlanningDocuments,
-} from "../documents/planningDocumentService";
 import { buildArchitectInterviewReviewSourceKey } from "../../shared/architectInterview/architectInterviewRefreshState";
 import {
   updateCanonicalMarkdownDisposition,
-  updateCanonicalMarkdownSubstantiveRevision,
   writeCanonicalMarkdownDocument,
 } from "../documents/canonicalMarkdownDocumentWriter";
 import {
   type CanonicalDocumentMetadata,
   metadataOpenDelimiter,
   metadataCloseDelimiter,
+  parseCanonicalMarkdownDocument,
 } from "../../shared/documents/canonicalMarkdown";
 
 export function getArchitectInterviewWorkspaceModel(
@@ -90,11 +86,6 @@ export function getArchitectInterviewWorkspaceModel(
     freshnessState,
     canCopyHandoff: true,
     canApplyDisposition: invalidInterviewReason ? false : canApplyDisposition,
-    canRepairCanonicalEnvelope: Boolean(
-      context.invalidInterview &&
-      invalidInterviewReason &&
-      false,
-    ),
     currentOperatorReviewNotes,
     projectIntakeComplete: railStatus === "Completed",
     requiredAction: invalidInterviewReason
@@ -132,53 +123,27 @@ export function saveCurrentArchitectInterviewOutput(
     { path: context.prompt.markdownPath, revision: context.prompt.artifactRevision },
   ];
 
-  if (fs.existsSync(path.join(workspaceRoot, target))) {
-    updateCanonicalMarkdownSubstantiveRevision({
-      workspaceRoot,
-      relativePath: target,
-      bodyMarkdown: body,
-      sourceRevisions,
-    });
-  } else {
-    const metadata: CanonicalDocumentMetadata = {
-      schemaVersion: 1,
-      artifactType: "project-architect-interview",
-      artifactRevision: 1,
-      participationRole: "gatingReview",
-      identity: {},
-      sourceRevisions,
-      workflowData: {},
-      documentDisposition: {
-        status: "Pending",
-        notes: "",
-        reviewedAt: null,
-      },
-    };
-    writeCanonicalMarkdownDocument({
-      workspaceRoot,
-      relativePath: target,
-      metadata,
-      bodyMarkdown: body,
-    });
-  }
-
-  return getArchitectInterviewWorkspaceModel(workspaceRoot);
-}
-
-export function repairArchitectInterviewCanonicalEnvelope(
-  workspaceRoot: string,
-): ArchitectInterviewWorkspaceModel {
-  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
-  if (context.status !== "ready") {
-    throw new Error(context.reason);
-  }
-  if (!context.invalidInterview || !isRecognizedLegacyEnvelopeFailure(workspaceRoot, context.invalidInterview)) {
-    throw new Error("No recognized legacy Architect Interview canonical envelope is available to repair.");
-  }
-
-  const markdown = fs.readFileSync(path.join(workspaceRoot, context.invalidInterview.markdownPath), "utf8");
-  const substantive = extractInterviewSubstantiveContent(markdown, {});
-  saveCurrentArchitectInterviewOutput(workspaceRoot, substantive.interviewSummary);
+  const existing = readExistingCanonical(workspaceRoot, target);
+  const metadata: CanonicalDocumentMetadata = {
+    schemaVersion: 1,
+    artifactType: "project-architect-interview",
+    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
+    participationRole: "gatingReview",
+    identity: context.expectedProjectIdentity,
+    sourceRevisions,
+    workflowData: {},
+    documentDisposition: {
+      status: "Pending",
+      notes: "",
+      reviewedAt: null,
+    },
+  };
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: target,
+    metadata,
+    bodyMarkdown: body,
+  });
 
   return getArchitectInterviewWorkspaceModel(workspaceRoot);
 }
@@ -397,154 +362,10 @@ function readPreviewIfAvailable(
   }
 }
 
-function writeMarkdownReview(
-  content: string,
-  status: DocumentDispositionStatus,
-  notes: string,
-  reviewedAt: string,
-): string {
-  const eol = content.includes("\r\n") ? "\r\n" : "\n";
-  const withoutReviewNotes = content.replace(
-    /(?:\r?\n|\r)*## Operator Review Notes(?:\r?\n|\r)[\s\S]*?(?=(?:\r?\n|\r)## Document Disposition|$)/,
-    "",
-  );
-  const withoutDisposition = withoutReviewNotes.replace(
-    /(?:\r?\n|\r)*## Document Disposition(?:\r?\n|\r)+(?:\s*(?:\r?\n|\r))*Document\.Status=[A-Za-z]+(?:\r?\n|\r)*/g,
-    "",
-  ).trimEnd();
-  const reviewSection = [
-    "## Operator Review Notes",
-    "",
-    `Review.Status=${status}`,
-    `Review.Timestamp=${reviewedAt}`,
-    `Notes: ${notes || "None provided"}`,
-  ].join(eol);
-  const dispositionSection = [
-    "## Document Disposition",
-    "",
-    `Document.Status=${status}`,
-    "",
-  ].join(eol);
-  return `${withoutDisposition}${eol}${eol}${reviewSection}${eol}${eol}${dispositionSection}`;
-}
-
-function writeJsonReview(
-  content: string,
-  status: DocumentDispositionStatus,
-  notes: string,
-  reviewedAt: string,
-): string {
-  const parsed = JSON.parse(content) as Record<string, unknown>;
-  parsed.operatorReview = {
-    status,
-    notes,
-    reviewedAt,
-  };
-  parsed.documentDisposition = { status };
-  return `${JSON.stringify(parsed, null, 2)}\n`;
-}
-
-function readArtifactRevision(workspaceRoot: string, relativePath: string): number {
+function readExistingCanonical(workspaceRoot: string, relativePath: string) {
   const absolutePath = path.join(workspaceRoot, relativePath);
   if (!fs.existsSync(absolutePath)) {
-    return 0;
+    return null;
   }
-  const parsed = JSON.parse(fs.readFileSync(absolutePath, "utf8")) as {
-    artifactRevision?: unknown;
-  };
-  return typeof parsed.artifactRevision === "number" ? parsed.artifactRevision : 0;
-}
-
-function isRecognizedLegacyEnvelopeFailure(
-  workspaceRoot: string,
-  identity: CanonicalArtifactIdentity,
-): boolean {
-  void workspaceRoot;
-  void identity;
-  return false;
-}
-
-function hasLegacyJsonArtifactRevisionSources(value: unknown): boolean {
-  return Array.isArray(value) &&
-    value.some((entry) =>
-      entry &&
-      typeof entry === "object" &&
-      typeof (entry as { path?: unknown }).path === "string" &&
-      typeof (entry as { artifactRevision?: unknown }).artifactRevision === "number" &&
-      (entry as { revision?: unknown }).revision === undefined,
-    );
-}
-
-function extractInterviewSubstantiveContent(
-  markdown: string,
-  json: Record<string, unknown>,
-): {
-  interviewSummary: string;
-  sections: Array<{ heading: string; lines: string[] }>;
-  unresolvedQuestions: string[];
-} {
-  const sections = markdownSections(markdown).filter(
-    (section) =>
-      section.heading !== "Source Revisions" &&
-      section.heading !== "Document Disposition" &&
-      section.heading !== "Operator Review Notes",
-  );
-  const interviewSummary = typeof json.interviewSummary === "string"
-    ? json.interviewSummary
-    : rawSubstantiveMarkdownLines(markdown).join("\n").trim() || "Recovered interview content.";
-  const unresolvedQuestions = Array.isArray(json.unresolvedQuestions) &&
-    json.unresolvedQuestions.every((entry) => typeof entry === "string")
-      ? json.unresolvedQuestions
-      : [];
-  return {
-    interviewSummary,
-    sections: sections.length > 0
-      ? sections
-      : [{ heading: "Recovered Interview Content", lines: rawSubstantiveMarkdownLines(markdown) }],
-    unresolvedQuestions,
-  };
-}
-
-function markdownSections(markdown: string): Array<{ heading: string; lines: string[] }> {
-  const lines = markdown.split(/\r?\n/);
-  const sections: Array<{ heading: string; lines: string[] }> = [];
-  let current: { heading: string; lines: string[] } | null = null;
-  for (const line of lines) {
-    const heading = line.match(/^##\s+(.+?)\s*$/)?.[1];
-    if (heading) {
-      if (current) {
-        current.lines = trimBlankEdges(current.lines);
-        sections.push(current);
-      }
-      current = { heading, lines: [] };
-      continue;
-    }
-    if (current) {
-      current.lines.push(line);
-    }
-  }
-  if (current) {
-    current.lines = trimBlankEdges(current.lines);
-    sections.push(current);
-  }
-  return sections;
-}
-
-function trimBlankEdges(lines: string[]): string[] {
-  let start = 0;
-  let end = lines.length;
-  while (start < end && lines[start].trim() === "") start += 1;
-  while (end > start && lines[end - 1].trim() === "") end -= 1;
-  return lines.slice(start, end);
-}
-
-function rawSubstantiveMarkdownLines(markdown: string): string[] {
-  return trimBlankEdges(
-    markdown
-      .split(/\r?\n/)
-      .filter((line) => !/^#\s+/.test(line))
-      .filter((line) => !/^Artifact\.Revision=/i.test(line))
-      .filter((line) => !/^participationRole=/i.test(line))
-      .filter((line) => !/^Document\.Status=/i.test(line)),
-  );
+  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
 }

@@ -1,5 +1,13 @@
+import fs from "node:fs";
+import path from "node:path";
+import {
+  type CanonicalDocumentMetadata,
+  metadataCloseDelimiter,
+  metadataOpenDelimiter,
+  parseCanonicalMarkdownDocument,
+} from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
+import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
@@ -11,7 +19,7 @@ import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDo
 export interface FormalWorkCardResult {
   phaseId: string;
   workCardId: string;
-  markdownPath: string;
+  formalWorkCardMarkdownPath: string;
 }
 
 export interface WorkCardBuildingEligibility {
@@ -19,61 +27,41 @@ export interface WorkCardBuildingEligibility {
   reason: string;
 }
 
-export function createFormalWorkCardFromIntakeHandoff(
+export function saveFormalWorkCardOutput(
   workspaceRoot: string,
-  phaseId: string,
-  workCardId: string,
+  markdownBody: string,
 ): FormalWorkCardResult {
-  requiredApproved(
-    workspaceRoot,
-    `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${workCardId}`,
-    ".md",
-  );
-  const content = {
-    implementationContract: {
-      scope: "Architect-authored implementation scope required before approval.",
-      nonScope: "No out-of-scope implementation is authorized.",
-      risks: [],
-      authorizedFilesAndTests: [],
-      acceptanceCriteria: [],
-      validationExpectations: ["npm run typecheck", "npm run build", "npm test"],
-      implementerInstructions: "Implement only this approved Formal Work Card.",
-      requiredReportContract: "Write the required Implementer Report for this Work Card.",
-      manualValidation: "Operator manual validation remains required after implementation.",
-    },
-  };
-  const handoff = requiredApproved(
-    workspaceRoot,
-    `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${workCardId}`,
-    ".md",
-  );
-  const markdownPath = formalWorkCardTargetFromHandoff(handoff, phaseId, workCardId);
+  const bodyMarkdown = substantiveMarkdown(markdownBody, "Formal Work Card");
+  const handoff = requiredApprovedHandoff(workspaceRoot);
+  const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+  const candidate = candidateFromHandoff(workflowData.candidate);
+  const phaseId = candidate.phaseId;
+  const candidateId = candidate.candidateId;
+  const workCardId = typeof handoff.metadata.canonical?.identity.workCardId === "string"
+    ? handoff.metadata.canonical.identity.workCardId
+    : candidateId;
+  const formalWorkCardMarkdownPath = formalWorkCardTargetFromHandoff(handoff);
+  const sourceRevisions = sourceRevisionsFromHandoff(handoff);
+
   writeCanonicalMarkdownDocument({
     workspaceRoot,
-    relativePath: markdownPath,
-    metadata: {
-      schemaVersion: 1,
-      artifactType: "formal-work-card",
-      artifactRevision: 1,
-      participationRole: "gatingReview",
-      identity: { phaseId, workCardId, candidateId: workCardId, title: workCardId },
-      sourceRevisions: [{ path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 }],
-      workflowData: {
-        phaseId,
-        workCardId,
-        candidateId: workCardId,
-        implementationContract: content.implementationContract,
-        returnToPhasePlanningOnRejected: true,
-      },
-      documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
-    },
-    bodyMarkdown: `# Formal Work Card - ${workCardId}\n\n## Implementation Contract\n\nScope, non-scope, risks, authorized files/tests, acceptance criteria, validation expectations, Implementer instructions, report contract, and manual validation are required before approval.\n`,
+    relativePath: formalWorkCardMarkdownPath,
+    metadata: outputMetadata({
+      workspaceRoot,
+      relativePath: formalWorkCardMarkdownPath,
+      phaseId,
+      workCardId,
+      candidateId,
+      candidate,
+      sourceRevisions,
+    }),
+    bodyMarkdown,
   });
 
   return {
     phaseId,
     workCardId,
-    markdownPath,
+    formalWorkCardMarkdownPath,
   };
 }
 
@@ -148,14 +136,96 @@ function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
     .at(-1);
 }
 
-function formalWorkCardTargetFromHandoff(
-  handoff: PlanningDocumentSummary,
-  phaseId: string,
-  workCardId: string,
-): string {
-  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
-  if (typeof target === "string" && target.endsWith(".md")) {
-    return target;
+function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    throw new Error("Current Approved Work Card Intake handoff is required.");
   }
-  return `planning/phases/${phaseId}/Work_Cards/${workCardId}_work_card.md`;
+  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+    throw new Error("Current Work Card Intake handoff is stale.");
+  }
+  return handoff;
+}
+
+function formalWorkCardTargetFromHandoff(handoff: PlanningDocumentSummary): string {
+  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
+  if (typeof target !== "string" || !target.trim() || path.isAbsolute(target) || target.includes("..") || !target.endsWith(".md")) {
+    throw new Error("Work Card Intake handoff is missing formalWorkCardTarget.");
+  }
+  return target;
+}
+
+function outputMetadata(input: {
+  workspaceRoot: string;
+  relativePath: string;
+  phaseId: string;
+  workCardId: string;
+  candidateId: string;
+  candidate: Record<string, unknown>;
+  sourceRevisions: SourceRevision[];
+}): CanonicalDocumentMetadata {
+  const existing = readExistingCanonical(input.workspaceRoot, input.relativePath);
+  return {
+    schemaVersion: 1,
+    artifactType: "formal-work-card",
+    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
+    participationRole: "gatingReview",
+    identity: {
+      phaseId: input.phaseId,
+      workCardId: input.workCardId,
+      candidateId: input.candidateId,
+    },
+    sourceRevisions: input.sourceRevisions,
+    workflowData: {
+      phaseId: input.phaseId,
+      workCardId: input.workCardId,
+      candidateId: input.candidateId,
+      candidate: input.candidate,
+      returnToPhasePlanningOnRejected: true,
+    },
+    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+  };
+}
+
+function candidateFromHandoff(value: unknown): Record<string, unknown> & { phaseId: string; candidateId: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Work Card Intake handoff is missing candidate data.");
+  }
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.phaseId !== "string" || !candidate.phaseId.trim()) {
+    throw new Error("Work Card Intake handoff candidate is missing phaseId.");
+  }
+  if (typeof candidate.candidateId !== "string" || !candidate.candidateId.trim()) {
+    throw new Error("Work Card Intake handoff candidate is missing candidateId.");
+  }
+  return candidate as Record<string, unknown> & { phaseId: string; candidateId: string };
+}
+
+function readExistingCanonical(workspaceRoot: string, relativePath: string) {
+  const absolutePath = path.join(workspaceRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+}
+
+function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRevision[] {
+  return [
+    ...(handoff.metadata.sourceRevisions ?? []),
+    { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 },
+  ];
+}
+
+function substantiveMarkdown(value: string, label: string): string {
+  const body = value.trim();
+  if (!body) {
+    throw new Error(`${label} output requires substantive Markdown.`);
+  }
+  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
+    throw new Error(`${label} output must not contain application metadata delimiters.`);
+  }
+  return body;
 }

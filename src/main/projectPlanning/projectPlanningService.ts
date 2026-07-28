@@ -1,11 +1,23 @@
+import fs from "node:fs";
+import path from "node:path";
+import {
+  type CanonicalDocumentMetadata,
+  metadataCloseDelimiter,
+  metadataOpenDelimiter,
+  parseCanonicalMarkdownDocument,
+} from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
+import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
   setDocumentDispositions,
 } from "../documents/planningDocumentService";
 import type { RollbackWriteOptions } from "../documents/documentDispositionWriter";
-import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
+import {
+  writeCanonicalMarkdownDocument,
+  writeCanonicalMarkdownDocuments,
+} from "../documents/canonicalMarkdownDocumentWriter";
 
 export interface ProjectPlanningHandoffResult {
   handoffMarkdownPath: string;
@@ -16,6 +28,11 @@ export interface ProjectPlanningHandoffResult {
 export interface ProjectPlanningCompletion {
   complete: boolean;
   reason: string;
+}
+
+export interface ProjectPlanningOutputInput {
+  projectProfileMarkdown: string;
+  projectRoadmapMarkdown: string;
 }
 
 export function generateProjectPlanningHandoff(workspaceRoot: string): ProjectPlanningHandoffResult {
@@ -54,6 +71,55 @@ export function generateProjectPlanningHandoff(workspaceRoot: string): ProjectPl
     handoffMarkdownPath,
     profileMarkdownPath,
     roadmapMarkdownPath,
+  };
+}
+
+export function saveProjectPlanningOutputs(
+  workspaceRoot: string,
+  input: ProjectPlanningOutputInput,
+): {
+  projectProfileMarkdownPath: string;
+  projectRoadmapMarkdownPath: string;
+} {
+  const projectProfileMarkdown = substantiveMarkdown(input.projectProfileMarkdown, "Project Profile");
+  const projectRoadmapMarkdown = substantiveMarkdown(input.projectRoadmapMarkdown, "Project Roadmap");
+  const handoff = requiredApprovedHandoff(workspaceRoot);
+  const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+  const projectProfileMarkdownPath = requiredMarkdownTarget(workflowData.projectProfileTarget, "projectProfileTarget");
+  const projectRoadmapMarkdownPath = requiredMarkdownTarget(workflowData.projectRoadmapTarget, "projectRoadmapTarget");
+  const projectSlug = projectSlugFromCurrentIntake(workspaceRoot);
+  const sourceRevisions = sourceRevisionsFromHandoff(handoff);
+
+  writeCanonicalMarkdownDocuments([
+    {
+      workspaceRoot,
+      relativePath: projectProfileMarkdownPath,
+      metadata: outputMetadata({
+        workspaceRoot,
+        relativePath: projectProfileMarkdownPath,
+        artifactType: "project-profile",
+        identity: { projectSlug },
+        sourceRevisions,
+      }),
+      bodyMarkdown: projectProfileMarkdown,
+    },
+    {
+      workspaceRoot,
+      relativePath: projectRoadmapMarkdownPath,
+      metadata: outputMetadata({
+        workspaceRoot,
+        relativePath: projectRoadmapMarkdownPath,
+        artifactType: "project-roadmap",
+        identity: { projectSlug },
+        sourceRevisions,
+      }),
+      bodyMarkdown: projectRoadmapMarkdown,
+    },
+  ]);
+
+  return {
+    projectProfileMarkdownPath,
+    projectRoadmapMarkdownPath,
   };
 }
 
@@ -115,6 +181,84 @@ function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
     .filter((document) => document.markdownPath.startsWith(prefix))
     .filter((document) => document.markdownPath.endsWith(extension))
     .at(-1);
+}
+
+function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "generated-handoff")
+    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "project-planning")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    throw new Error("Current Approved Project Planning handoff is required.");
+  }
+  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+    throw new Error("Current Project Planning handoff is stale.");
+  }
+  return handoff;
+}
+
+function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRevision[] {
+  return [
+    ...(handoff.metadata.sourceRevisions ?? []),
+    { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 },
+  ];
+}
+
+function outputMetadata(input: {
+  workspaceRoot: string;
+  relativePath: string;
+  artifactType: "project-profile" | "project-roadmap";
+  identity: Record<string, unknown>;
+  sourceRevisions: SourceRevision[];
+}): CanonicalDocumentMetadata {
+  const existing = readExistingCanonical(input.workspaceRoot, input.relativePath);
+  return {
+    schemaVersion: 1,
+    artifactType: input.artifactType,
+    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
+    participationRole: "compoundGatingReview",
+    identity: input.identity,
+    sourceRevisions: input.sourceRevisions,
+    workflowData: {},
+    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+  };
+}
+
+function readExistingCanonical(workspaceRoot: string, relativePath: string) {
+  const absolutePath = path.join(workspaceRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+}
+
+function projectSlugFromCurrentIntake(workspaceRoot: string): string {
+  const intake = requiredApproved(workspaceRoot, "planning/project/Project_Intake/", ".md");
+  const identity = intake.metadata.canonical?.identity ?? {};
+  const value = identity.projectSlug ?? identity["Project.ArtifactKey"] ?? slugFromIntake(intake.displayFilename);
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("Current Project Intake evidence does not provide projectSlug.");
+  }
+  return value.trim();
+}
+
+function requiredMarkdownTarget(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim() || path.isAbsolute(value) || value.includes("..") || !value.endsWith(".md")) {
+    throw new Error(`Project Planning handoff is missing ${field}.`);
+  }
+  return value;
+}
+
+function substantiveMarkdown(value: string, label: string): string {
+  const body = value.trim();
+  if (!body) {
+    throw new Error(`${label} output requires substantive Markdown.`);
+  }
+  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
+    throw new Error(`${label} output must not contain application metadata delimiters.`);
+  }
+  return body;
 }
 
 function slugFromIntake(displayFilename: string): string {

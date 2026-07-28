@@ -158,14 +158,17 @@ function previewItem(
 ): PairedArtifactMigrationItem {
   try {
     const json = readJson(workspaceRoot, jsonPath);
-    metadataFromLegacyJson(json);
+    const metadata = metadataFromLegacyJson(json);
+    const findings = legacyMarkdownFindings(workspaceRoot, markdownPath, metadata);
+    const mismatchFindings = findings.filter((finding) => finding !== "Valid legacy Markdown/JSON pair.");
     return {
       markdownPath,
       jsonPath,
       targetMarkdownPath: markdownPath,
       filesToDelete: [jsonPath],
-      status: "ready",
-      findings: legacyMarkdownFindings(workspaceRoot, markdownPath, json),
+      status: mismatchFindings.length > 0 ? "blocked" : "ready",
+      findings,
+      error: mismatchFindings.length > 0 ? "Legacy Markdown/JSON authority mismatch." : undefined,
     };
   } catch (error) {
     return {
@@ -215,22 +218,28 @@ function metadataFromLegacyJson(json: Record<string, unknown>): CanonicalDocumen
 function legacyMarkdownFindings(
   workspaceRoot: string,
   markdownPath: string,
-  json: Record<string, unknown>,
+  metadata: CanonicalDocumentMetadata,
 ): string[] {
   const markdown = fs.readFileSync(path.join(workspaceRoot, markdownPath), "utf8");
   const findings = ["Valid legacy Markdown/JSON pair."];
+  const artifactType = markdown.match(/^Artifact\.Type=(.+?)\s*$/im)?.[1]?.trim();
+  if (artifactType && artifactType !== metadata.artifactType) {
+    findings.push("Artifact type mismatch.");
+  }
+  const markdownIdentity = legacyMarkdownIdentity(markdown);
+  if (markdownIdentity && JSON.stringify(markdownIdentity) !== JSON.stringify(metadata.identity)) {
+    findings.push("Canonical identity mismatch.");
+  }
   const revision = markdown.match(/^Artifact\.Revision=([0-9]+)\s*$/im)?.[1];
-  if (revision && Number(revision) !== json.artifactRevision) {
+  if (revision && Number(revision) !== metadata.artifactRevision) {
     findings.push("Revision mismatch.");
   }
   const disposition = markdown.match(/^Document\.Status=([A-Za-z]+)\s*$/im)?.[1];
-  const jsonDisposition = (json.documentDisposition as { status?: unknown } | undefined)?.status;
-  if (disposition && disposition !== jsonDisposition) {
+  if (disposition && disposition !== metadata.documentDisposition.status) {
     findings.push("Disposition mismatch.");
   }
-  const sourceLines = markdown.match(/^- path:\s+(.+?)\s+revision:\s+([0-9]+)\s*$/gim) ?? [];
-  const jsonSources = sourceRevisions(json.sourceRevisions);
-  if (sourceLines.length > 0 && sourceLines.length !== jsonSources.length) {
+  const markdownSources = legacyMarkdownSourceRevisions(markdown);
+  if (markdownSources && !sameSourceRevisions(markdownSources, metadata.sourceRevisions)) {
     findings.push("Source mismatch.");
   }
   return findings;
@@ -241,8 +250,53 @@ function activeIdentityKey(workspaceRoot: string, jsonPath: string): string {
   return JSON.stringify({
     artifactType: metadata.artifactType,
     identity: metadata.identity,
-    target: jsonPath.replace(/\.json$/i, ".md"),
   });
+}
+
+function legacyMarkdownIdentity(markdown: string): Record<string, unknown> | null {
+  const identityText = markdown.match(/^Identity\.JSON=(.+?)\s*$/im)?.[1]?.trim();
+  if (identityText) {
+    const parsed = JSON.parse(identityText) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Legacy Markdown Identity.JSON must be an object.");
+    }
+    return parsed as Record<string, unknown>;
+  }
+  const identity: Record<string, unknown> = {};
+  for (const key of ["projectSlug", "projectArtifactKey", "phaseId", "workCardId", "candidateId", "repairId", "attemptNumber"]) {
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const value = markdown.match(new RegExp(`^${escapedKey}=(.+?)\\s*$`, "im"))?.[1]?.trim();
+    if (value) {
+      identity[key] = value;
+    }
+  }
+  return Object.keys(identity).length > 0 ? identity : null;
+}
+
+function legacyMarkdownSourceRevisions(markdown: string): CanonicalDocumentMetadata["sourceRevisions"] | null {
+  const matches = [...markdown.matchAll(/^- path:\s+(.+?)\s+revision:\s+([0-9]+)\s*$/gim)];
+  if (matches.length === 0) {
+    return null;
+  }
+  return matches.map((match) => ({
+    path: match[1].trim().replace(/\.json$/i, ".md"),
+    revision: Number(match[2]),
+  }));
+}
+
+function sameSourceRevisions(
+  left: CanonicalDocumentMetadata["sourceRevisions"],
+  right: CanonicalDocumentMetadata["sourceRevisions"],
+): boolean {
+  return JSON.stringify(normalizedSourceRevisions(left)) === JSON.stringify(normalizedSourceRevisions(right));
+}
+
+function normalizedSourceRevisions(
+  value: CanonicalDocumentMetadata["sourceRevisions"],
+): CanonicalDocumentMetadata["sourceRevisions"] {
+  return value
+    .map((source) => ({ path: source.path.replace(/\\/g, "/"), revision: source.revision }))
+    .sort((left, right) => left.path.localeCompare(right.path, "en", { sensitivity: "base" }) || left.revision - right.revision);
 }
 
 function workflowDataFromJson(json: Record<string, unknown>): Record<string, unknown> {

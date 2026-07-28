@@ -139,6 +139,28 @@ type ArchitectActionFeedback = {
   message: string;
 } | null;
 
+type LifecycleArchitectOutputDrafts = {
+  projectProfileMarkdown: string;
+  projectRoadmapMarkdown: string;
+  phaseMapMarkdown: string;
+  phaseInterviewMarkdown: string;
+  phasePlanningMarkdown: string;
+  workCardPlanMarkdown: string;
+  formalWorkCardMarkdown: string;
+  repairWorkCardMarkdown: string;
+};
+
+const emptyLifecycleArchitectOutputDrafts: LifecycleArchitectOutputDrafts = {
+  projectProfileMarkdown: "",
+  projectRoadmapMarkdown: "",
+  phaseMapMarkdown: "",
+  phaseInterviewMarkdown: "",
+  phasePlanningMarkdown: "",
+  workCardPlanMarkdown: "",
+  formalWorkCardMarkdown: "",
+  repairWorkCardMarkdown: "",
+};
+
 export function App(): JSX.Element {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(
     workspaceDefinitions[0].id,
@@ -173,6 +195,8 @@ export function App(): JSX.Element {
   const [architectActionFeedback, setArchitectActionFeedback] =
     useState<ArchitectActionFeedback>(null);
   const [architectOutputMarkdown, setArchitectOutputMarkdown] = useState("");
+  const [lifecycleArchitectOutputs, setLifecycleArchitectOutputs] =
+    useState<LifecycleArchitectOutputDrafts>(emptyLifecycleArchitectOutputDrafts);
   const [architectPollingError, setArchitectPollingError] = useState("");
   const architectEvidenceFingerprintRef = useRef<string | null>(null);
   const architectPollInFlightRef = useRef(false);
@@ -443,7 +467,7 @@ export function App(): JSX.Element {
       const result = await window.champcity.submitProjectIntake(projectIntake);
       setProjectIntake((current) => ({ ...current, projectRepository: result.projectRoot }));
       const nextDocuments = await window.champcity.listDocuments();
-      setDocuments(nextDocuments);
+      applyDocumentInventory(nextDocuments);
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       const nextPostSubmitState = applySuccessfulProjectIntakeSubmission(
         {
@@ -530,7 +554,7 @@ export function App(): JSX.Element {
         if (requestId !== architectPollRequestRef.current) {
           return;
         }
-        setDocuments(nextDocuments);
+        applyDocumentInventory(nextDocuments);
         const nextResolverResult = await window.champcity.resolveCurrentDocument();
         if (requestId !== architectPollRequestRef.current) {
           return;
@@ -641,7 +665,7 @@ export function App(): JSX.Element {
       );
       setFeedback(`Architect Interview disposition applied: ${architectReviewEdit.selectedDisposition}.`);
       const nextDocuments = await window.champcity.listDocuments();
-      setDocuments(nextDocuments);
+      applyDocumentInventory(nextDocuments);
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       await refreshCurrentModel();
@@ -682,31 +706,6 @@ export function App(): JSX.Element {
     }
   }
 
-  async function repairArchitectInterviewCanonicalEnvelope(): Promise<void> {
-    setIsApplying(true);
-    setDocumentError("");
-    setFeedback("");
-    try {
-      const nextModel = await window.champcity.repairArchitectInterviewCanonicalEnvelope();
-      setArchitectInterviewModel(nextModel);
-      setArchitectReviewEdit(reviewEditStateFromModel(workspace.ok ? workspace.workspaceRoot : null, nextModel));
-      setFeedback("Architect Interview canonical envelope repaired.");
-      const nextDocuments = await window.champcity.listDocuments();
-      setDocuments(nextDocuments);
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
-      await refreshCurrentModel();
-      if (nextModel.interviewDocument?.logicalDocumentId) {
-        setSelectedDocumentId(nextModel.interviewDocument.logicalDocumentId);
-      }
-      setActiveWorkspaceId("architect-interview");
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Architect Interview canonical envelope could not be repaired.");
-    } finally {
-      setIsApplying(false);
-    }
-  }
-
   async function refreshCurrentModel(): Promise<void> {
     try {
       const nextModel = await window.champcity.getCurrentWorkspaceModel();
@@ -729,12 +728,94 @@ export function App(): JSX.Element {
     }
   }
 
+  async function saveLifecycleArchitectOutput(): Promise<void> {
+    setIsApplying(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      let selectedPath = "";
+      switch (activeWorkspaceId) {
+        case "project-planning-review": {
+          const result = await window.champcity.saveProjectPlanningOutputs({
+            projectProfileMarkdown: lifecycleArchitectOutputs.projectProfileMarkdown,
+            projectRoadmapMarkdown: lifecycleArchitectOutputs.projectRoadmapMarkdown,
+          });
+          selectedPath = result.projectProfileMarkdownPath;
+          setCurrentModel(result.currentWorkspaceModel);
+          setLifecycleArchitectOutputs((current) => ({
+            ...current,
+            projectProfileMarkdown: "",
+            projectRoadmapMarkdown: "",
+          }));
+          break;
+        }
+        case "project-phase-map": {
+          const result = await window.champcity.savePhaseMapOutput(lifecycleArchitectOutputs.phaseMapMarkdown);
+          selectedPath = result.phaseMapMarkdownPath;
+          setCurrentModel(result.currentWorkspaceModel);
+          setLifecycleArchitectOutputs((current) => ({ ...current, phaseMapMarkdown: "" }));
+          break;
+        }
+        case "phase-interview": {
+          const result = await window.champcity.savePhaseInterviewOutput(lifecycleArchitectOutputs.phaseInterviewMarkdown);
+          selectedPath = result.phaseInterviewMarkdownPath;
+          setCurrentModel(result.currentWorkspaceModel);
+          setLifecycleArchitectOutputs((current) => ({ ...current, phaseInterviewMarkdown: "" }));
+          break;
+        }
+        case "phase-planning-bundle": {
+          const result = await window.champcity.savePhasePlanningOutputs({
+            phasePlanningMarkdown: lifecycleArchitectOutputs.phasePlanningMarkdown,
+            workCardPlanMarkdown: lifecycleArchitectOutputs.workCardPlanMarkdown,
+          });
+          selectedPath = result.phasePlanningMarkdownPath;
+          setCurrentModel(result.currentWorkspaceModel);
+          setLifecycleArchitectOutputs((current) => ({
+            ...current,
+            phasePlanningMarkdown: "",
+            workCardPlanMarkdown: "",
+          }));
+          break;
+        }
+        case "work-card-planning": {
+          const result = await window.champcity.saveFormalWorkCardOutput(lifecycleArchitectOutputs.formalWorkCardMarkdown);
+          selectedPath = result.formalWorkCardMarkdownPath;
+          setCurrentModel(result.currentWorkspaceModel);
+          setLifecycleArchitectOutputs((current) => ({ ...current, formalWorkCardMarkdown: "" }));
+          break;
+        }
+        case "work-card-repair": {
+          const result = await window.champcity.saveRepairWorkCardOutput(lifecycleArchitectOutputs.repairWorkCardMarkdown);
+          selectedPath = result.repairWorkCardMarkdownPath;
+          setCurrentModel(result.currentWorkspaceModel);
+          setLifecycleArchitectOutputs((current) => ({ ...current, repairWorkCardMarkdown: "" }));
+          break;
+        }
+        default:
+          throw new Error("Current workspace does not accept Architect output.");
+      }
+      setFeedback("Architect Output saved.");
+      const nextDocuments = await window.champcity.listDocuments();
+      applyDocumentInventory(nextDocuments);
+      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setResolverResult(nextResolverResult);
+      const savedDocument = nextDocuments.find((document) => document.markdownPath === selectedPath);
+      if (savedDocument) {
+        setSelectedDocumentId(savedDocument.logicalDocumentId);
+      }
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Architect Output could not be saved.");
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
   async function refreshDocuments(options: { useResolver?: boolean } = {}): Promise<void> {
     setIsLoadingDocuments(true);
     setDocumentError("");
     try {
       const nextDocuments = await window.champcity.listDocuments();
-      setDocuments(nextDocuments);
+      applyDocumentInventory(nextDocuments);
       await refreshMigrationPreview({ quiet: true });
       await refreshCurrentModel();
       await refreshArchitectInterviewWorkspace({
@@ -848,6 +929,18 @@ export function App(): JSX.Element {
     architectPollInFlightRef.current = false;
   }
 
+  function applyDocumentInventory(nextDocuments: PlanningDocumentSummary[]): void {
+    setDocuments(nextDocuments);
+    if (
+      selectedDocumentId &&
+      !nextDocuments.some((document) => document.logicalDocumentId === selectedDocumentId)
+    ) {
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      setSelectedStatus("");
+    }
+  }
+
   function focusProjectIntakeReviewSurface(): void {
     window.requestAnimationFrame(() => {
       documentReviewSurfaceRef.current?.scrollIntoView({
@@ -939,7 +1032,7 @@ export function App(): JSX.Element {
     try {
       await window.champcity.setDocumentDisposition(selectedDocumentId, selectedStatus);
       const nextDocuments = await window.champcity.listDocuments();
-      setDocuments(nextDocuments);
+      applyDocumentInventory(nextDocuments);
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       await refreshCurrentModel();
@@ -1191,7 +1284,6 @@ export function App(): JSX.Element {
               model={architectInterviewModel}
               pollingError={architectPollingError}
               onCopyHandoff={copyArchitectHandoff}
-              onRepairCanonicalEnvelope={() => void repairArchitectInterviewCanonicalEnvelope()}
               onReloadBrowser={() => void reloadArchitectBrowser()}
               onRefresh={() => {
                 void refreshDocuments();
@@ -1334,6 +1426,16 @@ export function App(): JSX.Element {
                   onChange={setArchitectOutputMarkdown}
                   onSave={saveArchitectOutput}
                   value={architectOutputMarkdown}
+                />
+              ) : null}
+
+              {activeWorkspaceId !== "architect-interview" ? (
+                <LifecycleArchitectOutputImport
+                  activeWorkspaceId={activeWorkspaceId}
+                  disabled={isApplying}
+                  onChange={setLifecycleArchitectOutputs}
+                  onSave={saveLifecycleArchitectOutput}
+                  value={lifecycleArchitectOutputs}
                 />
               ) : null}
 
@@ -1518,7 +1620,6 @@ function ArchitectInterviewActionBar({
   browserStatus,
   model,
   onCopyHandoff,
-  onRepairCanonicalEnvelope,
   onReloadBrowser,
   onRefresh,
   onRetryBrowser,
@@ -1531,7 +1632,6 @@ function ArchitectInterviewActionBar({
   browserStatus: ArchitectBrowserFoundationStatus | null;
   model: ArchitectInterviewWorkspaceModel | null;
   onCopyHandoff: () => void;
-  onRepairCanonicalEnvelope: () => void;
   onReloadBrowser: () => void;
   onRefresh: () => void;
   onRetryBrowser: () => void;
@@ -1584,12 +1684,6 @@ function ArchitectInterviewActionBar({
         <Clipboard aria-hidden="true" size={16} />
         Copy Architect Handoff
       </button>
-
-      {model?.canRepairCanonicalEnvelope ? (
-        <button className="apply-button" onClick={onRepairCanonicalEnvelope} type="button">
-          Repair Canonical Envelope
-        </button>
-      ) : null}
 
       <button className="icon-button text-button" onClick={onRefresh} type="button">
         <RefreshCw aria-hidden="true" size={18} />
@@ -1652,6 +1746,111 @@ function ArchitectOutputImport({
       <button
         className="apply-button"
         disabled={disabled || value.trim().length === 0}
+        onClick={onSave}
+        type="button"
+      >
+        Save Architect Output
+      </button>
+    </section>
+  );
+}
+
+function LifecycleArchitectOutputImport({
+  activeWorkspaceId,
+  disabled,
+  onChange,
+  onSave,
+  value,
+}: {
+  activeWorkspaceId: WorkspaceId;
+  disabled: boolean;
+  onChange: (value: LifecycleArchitectOutputDrafts) => void;
+  onSave: () => void;
+  value: LifecycleArchitectOutputDrafts;
+}): JSX.Element | null {
+  const update = <Key extends keyof LifecycleArchitectOutputDrafts>(
+    key: Key,
+    nextValue: LifecycleArchitectOutputDrafts[Key],
+  ): void => {
+    onChange({ ...value, [key]: nextValue });
+  };
+
+  const textarea = (key: keyof LifecycleArchitectOutputDrafts, label: string): JSX.Element => (
+    <label>
+      <span>{label}</span>
+      <textarea
+        disabled={disabled}
+        onChange={(event) => update(key, event.target.value)}
+        value={value[key]}
+      />
+    </label>
+  );
+
+  const content = (() => {
+    switch (activeWorkspaceId) {
+      case "project-planning-review":
+        return {
+          target: "Project Profile and Project Roadmap",
+          fields: [
+            textarea("projectProfileMarkdown", "Project Profile Markdown"),
+            textarea("projectRoadmapMarkdown", "Project Roadmap Markdown"),
+          ],
+          canSave: Boolean(value.projectProfileMarkdown.trim() && value.projectRoadmapMarkdown.trim()),
+        };
+      case "project-phase-map":
+        return {
+          target: "Phase Map",
+          fields: [textarea("phaseMapMarkdown", "Phase Map Markdown")],
+          canSave: Boolean(value.phaseMapMarkdown.trim()),
+        };
+      case "phase-interview":
+        return {
+          target: "Phase Interview",
+          fields: [textarea("phaseInterviewMarkdown", "Phase Interview Markdown")],
+          canSave: Boolean(value.phaseInterviewMarkdown.trim()),
+        };
+      case "phase-planning-bundle":
+        return {
+          target: "Phase Planning and Work Card Plan",
+          fields: [
+            textarea("phasePlanningMarkdown", "Phase Planning Markdown"),
+            textarea("workCardPlanMarkdown", "Work Card Plan Markdown"),
+          ],
+          canSave: Boolean(value.phasePlanningMarkdown.trim() && value.workCardPlanMarkdown.trim()),
+        };
+      case "work-card-planning":
+        return {
+          target: "Formal Work Card",
+          fields: [textarea("formalWorkCardMarkdown", "Formal Work Card Markdown")],
+          canSave: Boolean(value.formalWorkCardMarkdown.trim()),
+        };
+      case "work-card-repair":
+        return {
+          target: "Repair Work Card",
+          fields: [textarea("repairWorkCardMarkdown", "Repair Work Card Markdown")],
+          canSave: Boolean(value.repairWorkCardMarkdown.trim()),
+        };
+      default:
+        return null;
+    }
+  })();
+
+  if (!content) {
+    return null;
+  }
+
+  return (
+    <section className="architect-output-import" aria-label="Architect Output">
+      <div className="architect-output-header">
+        <span>Architect Output</span>
+        <strong>{content.target}</strong>
+      </div>
+      {content.fields.map((field, index) => (
+        <div key={index}>{field}</div>
+      ))}
+      <button
+        className="apply-button"
+        disabled={disabled || !content.canSave}
         onClick={onSave}
         type="button"
       >

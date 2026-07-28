@@ -1,5 +1,13 @@
+import fs from "node:fs";
+import path from "node:path";
+import {
+  type CanonicalDocumentMetadata,
+  metadataCloseDelimiter,
+  metadataOpenDelimiter,
+  parseCanonicalMarkdownDocument,
+} from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
+import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import { isSemanticallyComplete } from "../../shared/documents/lifecycleArtifact";
 import {
   evaluateDocumentFreshness,
@@ -80,6 +88,43 @@ export function setPhaseInterviewDisposition(
   setDocumentDisposition(workspaceRoot, interview.logicalDocumentId, status);
 }
 
+export function savePhaseInterviewOutput(
+  workspaceRoot: string,
+  markdownBody: string,
+): {
+  phaseId: string;
+  phaseInterviewMarkdownPath: string;
+} {
+  const bodyMarkdown = substantiveMarkdown(markdownBody, "Phase Interview");
+  const handoff = requiredApprovedHandoff(workspaceRoot);
+  const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+  const phase = workflowData.phase;
+  const phaseId = phase && typeof phase === "object" && typeof (phase as { phaseId?: unknown }).phaseId === "string"
+    ? (phase as { phaseId: string }).phaseId
+    : typeof handoff.metadata.canonical?.identity.phaseId === "string"
+      ? handoff.metadata.canonical.identity.phaseId
+      : "";
+  if (!phaseId) {
+    throw new Error("Phase Interview handoff does not provide phaseId.");
+  }
+  const phaseInterviewMarkdownPath = requiredMarkdownTarget(workflowData.outputTarget, "outputTarget");
+  const sourceRevisions = sourceRevisionsFromHandoff(handoff);
+
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
+    relativePath: phaseInterviewMarkdownPath,
+    metadata: outputMetadata({
+      workspaceRoot,
+      relativePath: phaseInterviewMarkdownPath,
+      phaseId,
+      sourceRevisions,
+    }),
+    bodyMarkdown,
+  });
+
+  return { phaseId, phaseInterviewMarkdownPath };
+}
+
 export function getPhaseIntakeCompletion(
   workspaceRoot: string,
   phaseId?: string,
@@ -123,6 +168,73 @@ function priorCloseoutSources(workspaceRoot: string, phase: PhaseMapPhase): Plan
     .filter((document) => document.displayFilename.toLowerCase().includes("phase_closeout"))
     .filter((document) => document.metadata.phaseId && dependencyIds.has(document.metadata.phaseId))
     .filter(isSemanticallyComplete);
+}
+
+function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "generated-handoff")
+    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "phase-interview")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    throw new Error("Current Approved Phase Interview handoff is required.");
+  }
+  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+    throw new Error("Current Phase Interview handoff is stale.");
+  }
+  return handoff;
+}
+
+function outputMetadata(input: {
+  workspaceRoot: string;
+  relativePath: string;
+  phaseId: string;
+  sourceRevisions: SourceRevision[];
+}): CanonicalDocumentMetadata {
+  const existing = readExistingCanonical(input.workspaceRoot, input.relativePath);
+  return {
+    schemaVersion: 1,
+    artifactType: "phase-interview",
+    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
+    participationRole: "gatingReview",
+    identity: { phaseId: input.phaseId },
+    sourceRevisions: input.sourceRevisions,
+    workflowData: {},
+    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+  };
+}
+
+function readExistingCanonical(workspaceRoot: string, relativePath: string) {
+  const absolutePath = path.join(workspaceRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+}
+
+function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRevision[] {
+  return [
+    ...(handoff.metadata.sourceRevisions ?? []),
+    { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 },
+  ];
+}
+
+function requiredMarkdownTarget(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim() || path.isAbsolute(value) || value.includes("..") || !value.endsWith(".md")) {
+    throw new Error(`Phase Interview handoff is missing ${field}.`);
+  }
+  return value;
+}
+
+function substantiveMarkdown(value: string, label: string): string {
+  const body = value.trim();
+  if (!body) {
+    throw new Error(`${label} output requires substantive Markdown.`);
+  }
+  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
+    throw new Error(`${label} output must not contain application metadata delimiters.`);
+  }
+  return body;
 }
 
 function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {

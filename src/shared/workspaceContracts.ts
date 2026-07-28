@@ -224,7 +224,6 @@ export interface ArchitectInterviewWorkspaceModel {
   freshnessState?: "fresh" | "stale";
   canCopyHandoff: boolean;
   canApplyDisposition: boolean;
-  canRepairCanonicalEnvelope?: boolean;
   currentOperatorReviewNotes?: string;
   projectIntakeComplete: boolean;
   requiredAction: string;
@@ -272,6 +271,54 @@ export interface WorkspaceMigrationResult {
   deletedPaths: string[];
 }
 
+export interface ProjectPlanningOutputsInput {
+  projectProfileMarkdown: string;
+  projectRoadmapMarkdown: string;
+}
+
+export interface ProjectPlanningOutputsSaveResult {
+  projectProfileMarkdownPath: string;
+  projectRoadmapMarkdownPath: string;
+  currentWorkspaceModel: CurrentWorkspaceModel;
+}
+
+export interface PhaseMapOutputSaveResult {
+  phaseMapMarkdownPath: string;
+  currentWorkspaceModel: CurrentWorkspaceModel;
+}
+
+export interface PhaseInterviewOutputSaveResult {
+  phaseId: string;
+  phaseInterviewMarkdownPath: string;
+  currentWorkspaceModel: CurrentWorkspaceModel;
+}
+
+export interface PhasePlanningOutputsInput {
+  phasePlanningMarkdown: string;
+  workCardPlanMarkdown: string;
+}
+
+export interface PhasePlanningOutputsSaveResult {
+  phaseId: string;
+  phasePlanningMarkdownPath: string;
+  workCardPlanMarkdownPath: string;
+  currentWorkspaceModel: CurrentWorkspaceModel;
+}
+
+export interface FormalWorkCardOutputSaveResult {
+  phaseId: string;
+  workCardId: string;
+  formalWorkCardMarkdownPath: string;
+  currentWorkspaceModel: CurrentWorkspaceModel;
+}
+
+export interface RepairWorkCardOutputSaveResult {
+  phaseId: string;
+  repairId: string;
+  repairWorkCardMarkdownPath: string;
+  currentWorkspaceModel: CurrentWorkspaceModel;
+}
+
 export interface ChampCityApi {
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
@@ -308,12 +355,21 @@ export interface ChampCityApi {
   saveArchitectInterviewOutput: (
     markdownBody: string,
   ) => Promise<ArchitectInterviewWorkspaceModel>;
+  saveProjectPlanningOutputs: (
+    input: ProjectPlanningOutputsInput,
+  ) => Promise<ProjectPlanningOutputsSaveResult>;
+  savePhaseMapOutput: (markdownBody: string) => Promise<PhaseMapOutputSaveResult>;
+  savePhaseInterviewOutput: (markdownBody: string) => Promise<PhaseInterviewOutputSaveResult>;
+  savePhasePlanningOutputs: (
+    input: PhasePlanningOutputsInput,
+  ) => Promise<PhasePlanningOutputsSaveResult>;
+  saveFormalWorkCardOutput: (markdownBody: string) => Promise<FormalWorkCardOutputSaveResult>;
+  saveRepairWorkCardOutput: (markdownBody: string) => Promise<RepairWorkCardOutputSaveResult>;
   reviewArchitectInterview: (
     status: DocumentDispositionStatus,
     operatorReviewNotes: string,
     expectedSourceKey?: string,
   ) => Promise<ArchitectInterviewWorkspaceModel>;
-  repairArchitectInterviewCanonicalEnvelope: () => Promise<ArchitectInterviewWorkspaceModel>;
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
   applyCurrentDisposition: (

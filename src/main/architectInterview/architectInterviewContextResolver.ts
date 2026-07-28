@@ -17,6 +17,7 @@ export interface CanonicalArtifactIdentity {
   markdownPath: string;
   artifactRevision: number;
   disposition: DocumentDispositionStatus;
+  canonicalIdentity: Record<string, unknown>;
   documentReadState: NonNullable<PlanningDocumentSummary["documentReadState"]>;
   freshnessState?: "fresh" | "stale";
   participationRole?: string;
@@ -41,6 +42,7 @@ export interface CanonicalArchitectInterviewReadyContext {
   invalidInterview?: CanonicalArtifactIdentity;
   invalidInterviewReason?: string;
   invalidInterviewFreshnessState?: "fresh" | "stale";
+  expectedProjectIdentity: Record<string, unknown>;
   evidencePaths: string[];
 }
 
@@ -97,14 +99,31 @@ export function resolveCanonicalArchitectInterviewContext(
     const interviewTargets = {
       markdownPath: outputMarkdown,
     };
+    const expectedIdentity = expectedProjectIdentity(intakeIdentity, promptIdentity);
 
     const targetMatches = documents.filter((document) => document.markdownPath === outputMarkdown);
+    const identityMatches = documents.filter((document) =>
+      document.metadata.artifactType === "project-architect-interview" &&
+      sameIdentity(document.metadata.canonical?.identity ?? {}, expectedIdentity)
+    );
+    if (identityMatches.length > 1) {
+      return conflict(
+        "Multiple active Project Architect Interview Markdown documents share the current canonical identity.",
+        [
+          ...evidence(intakeDocument),
+          ...evidence(promptDocument),
+          ...identityMatches.flatMap(evidence),
+        ],
+      );
+    }
     const interviewValidation = validateInterviewDocument(
       workspaceRoot,
       targetMatches,
+      identityMatches,
       interviewTargets,
       intakeIdentity,
       promptIdentity,
+      expectedIdentity,
     );
 
     return {
@@ -116,6 +135,7 @@ export function resolveCanonicalArchitectInterviewContext(
       invalidInterview: interviewValidation.invalidIdentity,
       invalidInterviewReason: interviewValidation.reason,
       invalidInterviewFreshnessState: interviewValidation.freshnessState,
+      expectedProjectIdentity: expectedIdentity,
       evidencePaths: [
         ...evidence(intakeDocument),
         ...evidence(promptDocument),
@@ -142,9 +162,11 @@ function isCurrentAssociatedPrompt(
 function validateInterviewDocument(
   workspaceRoot: string,
   targetMatches: PlanningDocumentSummary[],
+  identityMatches: PlanningDocumentSummary[],
   targets: { markdownPath: string },
   intake: CanonicalArtifactIdentity,
   prompt: CanonicalArtifactIdentity,
+  expectedIdentity: Record<string, unknown>,
 ): {
   identity?: CanonicalArtifactIdentity & { operatorReviewNotes?: string };
   invalidIdentity?: CanonicalArtifactIdentity;
@@ -152,18 +174,28 @@ function validateInterviewDocument(
   reason?: string;
   evidencePaths: string[];
 } {
-  if (targetMatches.length === 0) {
+  if (identityMatches.length > 1) {
+    return {
+      invalidIdentity: identityFor(identityMatches[0]),
+      reason: "Architect Interview output resolves to duplicate active Markdown documents with the current canonical identity.",
+      evidencePaths: identityMatches.flatMap(evidence),
+    };
+  }
+
+  if (identityMatches.length === 0 && targetMatches.length === 0) {
     return { evidencePaths: [] };
   }
-  const evidencePaths = targetMatches.flatMap(evidence);
-  if (targetMatches.length > 1) {
+
+  const candidates = uniqueDocuments([...identityMatches, ...targetMatches]);
+  const evidencePaths = candidates.flatMap(evidence);
+  if (candidates.length > 1 && identityMatches.length > 0) {
     return {
-      invalidIdentity: identityFor(targetMatches[0]),
-      reason: "Architect Interview output resolves to duplicate active Markdown documents.",
+      invalidIdentity: identityFor(candidates[0]),
+      reason: "Architect Interview output resolves to multiple active Markdown documents for the current canonical identity or target.",
       evidencePaths,
     };
   }
-  const document = targetMatches[0];
+  const document = identityMatches[0] ?? targetMatches[0];
   const invalidIdentity = identityFor(document);
   if (document.markdownPath !== targets.markdownPath) {
     return { invalidIdentity, reason: "Architect Interview output must use the exact application-owned Markdown target.", evidencePaths };
@@ -173,6 +205,9 @@ function validateInterviewDocument(
   }
   if (document.metadata.participationRole !== "gatingReview") {
     return { invalidIdentity, reason: "Architect Interview output must use participationRole=gatingReview.", evidencePaths };
+  }
+  if (!sameIdentity(document.metadata.canonical?.identity ?? {}, expectedIdentity)) {
+    return { invalidIdentity, reason: "Architect Interview output identity does not match the current Project Intake and Prompt evidence.", evidencePaths };
   }
   if (document.readError) {
     return { invalidIdentity, reason: document.readError, evidencePaths };
@@ -212,17 +247,51 @@ function validateInterviewDocument(
   };
 }
 
+function uniqueDocuments(documents: PlanningDocumentSummary[]): PlanningDocumentSummary[] {
+  const seen = new Set<string>();
+  return documents.filter((document) => {
+    if (seen.has(document.markdownPath)) return false;
+    seen.add(document.markdownPath);
+    return true;
+  });
+}
+
 function identityFor(document: PlanningDocumentSummary): CanonicalArtifactIdentity {
   return {
     logicalDocumentId: document.logicalDocumentId,
     markdownPath: document.markdownPath,
     artifactRevision: document.metadata.artifactRevision ?? 0,
     disposition: document.effectiveDisposition,
+    canonicalIdentity: document.metadata.canonical?.identity ?? {},
     documentReadState: document.documentReadState ?? "readable",
     participationRole: document.metadata.participationRole,
     artifactType: document.metadata.artifactType,
     readError: document.readError,
   };
+}
+
+function expectedProjectIdentity(
+  intake: CanonicalArtifactIdentity,
+  prompt: CanonicalArtifactIdentity,
+): Record<string, unknown> {
+  const artifactKey = intake.canonicalIdentity["Project.ArtifactKey"] ?? prompt.canonicalIdentity["Project.ArtifactKey"];
+  const projectSlug = prompt.canonicalIdentity.projectSlug ?? intake.canonicalIdentity.projectSlug ?? artifactKey;
+  if (typeof projectSlug !== "string" || !projectSlug.trim()) {
+    throw new Error("Current Project Intake and Prompt evidence does not provide projectSlug.");
+  }
+  const identity: Record<string, unknown> = { projectSlug: projectSlug.trim() };
+  if (typeof artifactKey === "string" && artifactKey.trim()) {
+    identity["Project.ArtifactKey"] = artifactKey.trim();
+  }
+  return identity;
+}
+
+function sameIdentity(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
+  return JSON.stringify(sortRecord(left)) === JSON.stringify(sortRecord(right));
+}
+
+function sortRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
 }
 
 function defaultInterviewTarget(promptDocument: PlanningDocumentSummary): string {

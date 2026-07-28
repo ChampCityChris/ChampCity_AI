@@ -37,7 +37,11 @@ export function classifyLifecycleArtifact(
   const selectedPhaseId = document.metadata.phaseId ?? derivePhaseId(normalized);
   const selectedWorkCardId = document.metadata.workCardId ?? deriveWorkCardId(normalized);
 
-  if (normalized.includes("planning/archive/")) {
+  if (
+    normalized.includes("planning/archive/") ||
+    document.metadata.artifactType === "legacy-unmanaged" ||
+    metadataRole === "historical"
+  ) {
     return classification("historical-artifact", metadataRole ?? "historical", "project-planning-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
@@ -45,11 +49,11 @@ export function classifyLifecycleArtifact(
     return classification("generated-handoff", "nonReviewHandoff", handoffWorkspace(normalized), evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (document.metadata.artifactType === "project-intake" || isProjectIntake(normalized)) {
+  if (isCanonicalAuthority(document, "project-intake")) {
     return classification("project-intake", metadataRole ?? "gatingReview", "project-intake-capture", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (document.metadata.artifactType === "project-architect-interview" || normalized.includes("project_architect_interview")) {
+  if (isCanonicalAuthority(document, "project-architect-interview")) {
     return classification("project-architect-interview", metadataRole ?? "gatingReview", "architect-interview", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
@@ -190,15 +194,18 @@ function isContextOnly(value: string): boolean {
   );
 }
 
-function isProjectIntake(value: string): boolean {
-  return (
-    value.includes("planning/project/project_intake/") ||
-    value.includes("planning/project/project-intake/")
-  );
-}
-
 function derivePhaseId(value: string): string | undefined {
   return value.match(/phase-(\d+)/i)?.[0];
+}
+
+function isCanonicalAuthority(document: PlanningDocumentSummary, artifactType: string): boolean {
+  return (
+    document.metadata.artifactType === artifactType &&
+    Boolean(document.metadata.canonical) &&
+    !document.readError &&
+    document.documentReadState === "readable" &&
+    document.metadata.participationRole !== "historical"
+  );
 }
 
 function deriveWorkCardId(value: string): string | undefined {

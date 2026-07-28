@@ -1,8 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
-import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
+import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
+import {
+  type CanonicalDocumentMetadata,
+  metadataCloseDelimiter,
+  metadataOpenDelimiter,
+  parseCanonicalMarkdownDocument,
+} from "../../shared/documents/canonicalMarkdown";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
@@ -10,7 +15,10 @@ import {
   setDocumentDispositions,
 } from "../documents/planningDocumentService";
 import type { RollbackWriteOptions } from "../documents/documentDispositionWriter";
-import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
+import {
+  writeCanonicalMarkdownDocument,
+  writeCanonicalMarkdownDocuments,
+} from "../documents/canonicalMarkdownDocumentWriter";
 import { getPhaseIntakeCompletion } from "../phaseInterview/phaseInterviewService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
 
@@ -47,6 +55,11 @@ export interface PhasePlanningCompletion {
   complete: boolean;
   phaseId?: string;
   reason: string;
+}
+
+export interface PhasePlanningOutputInput {
+  phasePlanningMarkdown: string;
+  workCardPlanMarkdown: string;
 }
 
 export function generatePhasePlanningHandoff(
@@ -99,6 +112,64 @@ export function generatePhasePlanningHandoff(
     phasePlanningMarkdownPath,
     workCardPlanMarkdownPath,
   };
+}
+
+export function savePhasePlanningOutputs(
+  workspaceRoot: string,
+  input: PhasePlanningOutputInput,
+): {
+  phaseId: string;
+  phasePlanningMarkdownPath: string;
+  workCardPlanMarkdownPath: string;
+} {
+  const phasePlanningMarkdown = substantiveMarkdown(input.phasePlanningMarkdown, "Phase Planning");
+  const workCardPlanMarkdown = substantiveMarkdown(input.workCardPlanMarkdown, "Work Card Plan");
+  const candidates = candidatesFromDomainBlock(workCardPlanMarkdown);
+  const handoff = requiredApprovedHandoff(workspaceRoot);
+  const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+  const phase = workflowData.phase;
+  const phaseId = phase && typeof phase === "object" && typeof (phase as { phaseId?: unknown }).phaseId === "string"
+    ? (phase as { phaseId: string }).phaseId
+    : typeof handoff.metadata.canonical?.identity.phaseId === "string"
+      ? handoff.metadata.canonical.identity.phaseId
+      : "";
+  if (!phaseId) {
+    throw new Error("Phase Planning handoff does not provide phaseId.");
+  }
+  const phasePlanningMarkdownPath = requiredMarkdownTarget(workflowData.phasePlanningTarget, "phasePlanningTarget");
+  const workCardPlanMarkdownPath = requiredMarkdownTarget(workflowData.workCardPlanTarget, "workCardPlanTarget");
+  const sourceRevisions = sourceRevisionsFromHandoff(handoff);
+
+  writeCanonicalMarkdownDocuments([
+    {
+      workspaceRoot,
+      relativePath: phasePlanningMarkdownPath,
+      metadata: outputMetadata({
+        workspaceRoot,
+        relativePath: phasePlanningMarkdownPath,
+        artifactType: "phase-planning",
+        phaseId,
+        sourceRevisions,
+        workflowData: {},
+      }),
+      bodyMarkdown: phasePlanningMarkdown,
+    },
+    {
+      workspaceRoot,
+      relativePath: workCardPlanMarkdownPath,
+      metadata: outputMetadata({
+        workspaceRoot,
+        relativePath: workCardPlanMarkdownPath,
+        artifactType: "work-card-plan",
+        phaseId,
+        sourceRevisions,
+        workflowData: { candidates },
+      }),
+      bodyMarkdown: workCardPlanMarkdown,
+    },
+  ]);
+
+  return { phaseId, phasePlanningMarkdownPath, workCardPlanMarkdownPath };
 }
 
 export function setPhasePlanningBundleDisposition(
@@ -213,6 +284,89 @@ export function validateCandidates(value: unknown): WorkCardCandidate[] {
         : undefined,
     };
   });
+}
+
+function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "generated-handoff")
+    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "phase-planning")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    throw new Error("Current Approved Phase Planning handoff is required.");
+  }
+  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+    throw new Error("Current Phase Planning handoff is stale.");
+  }
+  return handoff;
+}
+
+function candidatesFromDomainBlock(markdownBody: string): WorkCardCandidate[] {
+  const matches = [...markdownBody.matchAll(/```champcity-work-card-plan\s*\r?\n([\s\S]*?)\r?\n```/g)];
+  if (matches.length !== 1) {
+    throw new Error("Work Card Plan output requires exactly one champcity-work-card-plan fenced block.");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(matches[0][1]);
+  } catch (error) {
+    throw new Error(`Work Card Plan domain block must contain JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return validateCandidates(parsed);
+}
+
+function outputMetadata(input: {
+  workspaceRoot: string;
+  relativePath: string;
+  artifactType: "phase-planning" | "work-card-plan";
+  phaseId: string;
+  sourceRevisions: SourceRevision[];
+  workflowData: Record<string, unknown>;
+}): CanonicalDocumentMetadata {
+  const existing = readExistingCanonical(input.workspaceRoot, input.relativePath);
+  return {
+    schemaVersion: 1,
+    artifactType: input.artifactType,
+    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
+    participationRole: "compoundGatingReview",
+    identity: { phaseId: input.phaseId },
+    sourceRevisions: input.sourceRevisions,
+    workflowData: input.workflowData,
+    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+  };
+}
+
+function readExistingCanonical(workspaceRoot: string, relativePath: string) {
+  const absolutePath = path.join(workspaceRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+}
+
+function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRevision[] {
+  return [
+    ...(handoff.metadata.sourceRevisions ?? []),
+    { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 },
+  ];
+}
+
+function requiredMarkdownTarget(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim() || path.isAbsolute(value) || value.includes("..") || !value.endsWith(".md")) {
+    throw new Error(`Phase Planning handoff is missing ${field}.`);
+  }
+  return value;
+}
+
+function substantiveMarkdown(value: string, label: string): string {
+  const body = value.trim();
+  if (!body) {
+    throw new Error(`${label} output requires substantive Markdown.`);
+  }
+  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
+    throw new Error(`${label} output must not contain application metadata delimiters.`);
+  }
+  return body;
 }
 
 function assertResolutionEvidence(candidate: WorkCardCandidate): void {

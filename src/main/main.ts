@@ -24,10 +24,15 @@ import {
 } from "./browser/architectBrowserService";
 import {
   getArchitectInterviewWorkspaceModel,
-  repairArchitectInterviewCanonicalEnvelope,
   reviewArchitectInterview,
   saveCurrentArchitectInterviewOutput,
 } from "./architectInterview/architectInterviewService";
+import { saveProjectPlanningOutputs } from "./projectPlanning/projectPlanningService";
+import { savePhaseMapOutput } from "./phaseMap/phaseMapService";
+import { savePhaseInterviewOutput } from "./phaseInterview/phaseInterviewService";
+import { savePhasePlanningOutputs } from "./phasePlanning/phasePlanningService";
+import { saveFormalWorkCardOutput } from "./workCardPlanning/workCardPlanningService";
+import { saveRepairWorkCardOutput } from "./workCardRepair/workCardRepairService";
 import {
   applyCurrentDisposition,
   createPhaseCloseoutForCurrentPhase,
@@ -54,6 +59,14 @@ import type {
   ArchitectInterviewWorkspaceModel,
   CurrentWorkspaceModel,
   RuntimeActionResult,
+  ProjectPlanningOutputsInput,
+  ProjectPlanningOutputsSaveResult,
+  PhaseMapOutputSaveResult,
+  PhaseInterviewOutputSaveResult,
+  PhasePlanningOutputsInput,
+  PhasePlanningOutputsSaveResult,
+  FormalWorkCardOutputSaveResult,
+  RepairWorkCardOutputSaveResult,
   WorkspaceMigrationPreview,
   WorkspaceMigrationResult,
   WorkspaceSelection,
@@ -258,12 +271,56 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("architectInterview:repairCanonicalEnvelope", (): ArchitectInterviewWorkspaceModel => {
-  return repairArchitectInterviewCanonicalEnvelope(getRequiredWorkspaceRoot());
-});
-
 ipcMain.handle("architectInterview:saveOutput", (_event, markdownBody: string): ArchitectInterviewWorkspaceModel => {
   return saveCurrentArchitectInterviewOutput(getRequiredWorkspaceRoot(), markdownBody);
+});
+
+ipcMain.handle("projectPlanning:saveOutputs", (_event, input: ProjectPlanningOutputsInput): ProjectPlanningOutputsSaveResult => {
+  const workspaceRoot = getRequiredWorkspaceRoot();
+  return {
+    ...saveProjectPlanningOutputs(workspaceRoot, input),
+    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+  };
+});
+
+ipcMain.handle("phaseMap:saveOutput", (_event, markdownBody: string): PhaseMapOutputSaveResult => {
+  const workspaceRoot = getRequiredWorkspaceRoot();
+  return {
+    ...savePhaseMapOutput(workspaceRoot, markdownBody),
+    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+  };
+});
+
+ipcMain.handle("phaseInterview:saveOutput", (_event, markdownBody: string): PhaseInterviewOutputSaveResult => {
+  const workspaceRoot = getRequiredWorkspaceRoot();
+  return {
+    ...savePhaseInterviewOutput(workspaceRoot, markdownBody),
+    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+  };
+});
+
+ipcMain.handle("phasePlanning:saveOutputs", (_event, input: PhasePlanningOutputsInput): PhasePlanningOutputsSaveResult => {
+  const workspaceRoot = getRequiredWorkspaceRoot();
+  return {
+    ...savePhasePlanningOutputs(workspaceRoot, input),
+    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+  };
+});
+
+ipcMain.handle("workCardPlanning:saveOutput", (_event, markdownBody: string): FormalWorkCardOutputSaveResult => {
+  const workspaceRoot = getRequiredWorkspaceRoot();
+  return {
+    ...saveFormalWorkCardOutput(workspaceRoot, markdownBody),
+    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+  };
+});
+
+ipcMain.handle("workCardRepair:saveOutput", (_event, markdownBody: string): RepairWorkCardOutputSaveResult => {
+  const workspaceRoot = getRequiredWorkspaceRoot();
+  return {
+    ...saveRepairWorkCardOutput(workspaceRoot, markdownBody),
+    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+  };
 });
 
 ipcMain.handle("currentWorkflow:getModel", (): CurrentWorkspaceModel => {

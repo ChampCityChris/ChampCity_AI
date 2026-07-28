@@ -10,6 +10,7 @@ import { listPlanningDocuments } from "../documents/planningDocumentService";
 import { setArchitectInterviewDisposition } from "../architectInterview/architectInterviewService";
 import {
   generateProjectPlanningHandoff,
+  getProjectPlanningCompletion,
   setProjectPlanningBundleDisposition,
 } from "../projectPlanning/projectPlanningService";
 import {
@@ -19,17 +20,22 @@ import {
 } from "../phaseMap/phaseMapService";
 import {
   generatePhaseInterviewHandoff,
+  getPhaseIntakeCompletion,
   setPhaseInterviewDisposition,
 } from "../phaseInterview/phaseInterviewService";
 import {
   generatePhasePlanningHandoff,
+  getPhasePlanningCompletion,
   setPhasePlanningBundleDisposition,
 } from "../phasePlanning/phasePlanningService";
 import {
   generateWorkCardIntakeHandoff,
   selectNextWorkCardCandidate,
 } from "../workCardIntake/workCardIntakeService";
-import { setFormalWorkCardDisposition } from "../workCardPlanning/workCardPlanningService";
+import {
+  getWorkCardBuildingEligibility,
+  setFormalWorkCardDisposition,
+} from "../workCardPlanning/workCardPlanningService";
 import { setImplementerReportDisposition } from "../workCardBuilding/workCardBuildingReviewService";
 import {
   createValidationAttempt,
@@ -109,9 +115,15 @@ export function getCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspac
   }
 
   if (current.status === "all-approved") {
-    const projectPlanning = missingProjectPlanningModel(workspaceRoot);
-    if (projectPlanning) {
-      return projectPlanning;
+    const missingModel = missingProjectPlanningModel(workspaceRoot) ??
+      missingPhaseMapModel(workspaceRoot) ??
+      missingPhaseInterviewModel(workspaceRoot) ??
+      missingPhasePlanningModel(workspaceRoot) ??
+      missingWorkCardIntakeOrFormalModel(workspaceRoot) ??
+      missingImplementerReportModel(workspaceRoot) ??
+      missingRepairWorkCardModel(workspaceRoot);
+    if (missingModel) {
+      return missingModel;
     }
     return {
       activeWorkspaceId: "project-close",
@@ -171,6 +183,214 @@ function missingProjectPlanningModel(workspaceRoot: string): CurrentWorkspaceMod
     expectedOutput: "Project Profile Markdown and Project Roadmap Markdown.",
     eligibility: "Project Planning is ready.",
     expectedNextState: "Project Profile and Project Roadmap become current review documents.",
+  };
+}
+
+function missingPhaseMapModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const projectPlanning = getProjectPlanningCompletion(workspaceRoot);
+  if (!projectPlanning.complete) {
+    return null;
+  }
+  const phaseMap = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath.startsWith("planning/project/Phase_Map/PHASE_MAP"));
+  if (phaseMap) {
+    return null;
+  }
+  const roadmap = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath.startsWith("planning/project/Project_Roadmap/PROJECT_ROADMAP_"));
+  return {
+    activeWorkspaceId: "project-phase-map",
+    level: "project",
+    stage: "building",
+    currentTarget: "Phase Map",
+    sourceEvidence: [roadmap?.markdownPath].filter((value): value is string => Boolean(value)),
+    requiredAction: "Approved Project Profile and Project Roadmap are available; generate Phase Map handoff and save Architect Phase Map output.",
+    expectedOutput: "Phase Map Markdown with champcity-phase-map domain block.",
+    eligibility: "Phase Map is ready.",
+    expectedNextState: "Pending Phase Map becomes the current review document.",
+  };
+}
+
+function missingPhaseInterviewModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const projection = getPhaseMapProjection(workspaceRoot);
+  if (projection.state !== "first-incomplete") {
+    return null;
+  }
+  const phaseId = projection.phase.phaseId;
+  const intake = getPhaseIntakeCompletion(workspaceRoot, phaseId);
+  if (intake.complete) {
+    return null;
+  }
+  return {
+    activeWorkspaceId: "phase-interview",
+    level: "phase",
+    stage: "intake",
+    currentPhaseId: phaseId,
+    currentTarget: "Phase Interview",
+    sourceEvidence: ["planning/project/Phase_Map"],
+    requiredAction: "Current phase is selected; generate Phase Interview handoff and save Architect Phase Interview output.",
+    expectedOutput: `Phase Interview Markdown for ${phaseId}.`,
+    eligibility: "Phase Interview is ready.",
+    expectedNextState: "Pending Phase Interview becomes the current review document.",
+  };
+}
+
+function missingPhasePlanningModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const projection = getPhaseMapProjection(workspaceRoot);
+  if (projection.state !== "first-incomplete") {
+    return null;
+  }
+  const phaseId = projection.phase.phaseId;
+  const intake = getPhaseIntakeCompletion(workspaceRoot, phaseId);
+  if (!intake.complete) {
+    return null;
+  }
+  const phasePlanning = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath === `planning/phases/${phaseId}/Phase_Planning.md`);
+  const workCardPlan = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath === `planning/phases/${phaseId}/Work_Card_Plan.md`);
+  if (phasePlanning && workCardPlan) {
+    return null;
+  }
+  return {
+    activeWorkspaceId: "phase-planning-bundle",
+    level: "phase",
+    stage: "planning",
+    currentPhaseId: phaseId,
+    currentTarget: "Phase Planning",
+    sourceEvidence: [`planning/phases/${phaseId}/Phase_Interview.md`],
+    requiredAction: "Approved Phase Interview is available; generate Phase Planning handoff and save Phase Planning plus Work Card Plan outputs.",
+    expectedOutput: "Phase Planning Markdown and Work Card Plan Markdown with champcity-work-card-plan domain block.",
+    eligibility: "Phase Planning is ready.",
+    expectedNextState: "Pending Phase Planning bundle becomes the current review target.",
+  };
+}
+
+function missingWorkCardIntakeOrFormalModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const projection = getPhaseMapProjection(workspaceRoot);
+  if (projection.state !== "first-incomplete") {
+    return null;
+  }
+  const phaseId = projection.phase.phaseId;
+  const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId);
+  if (!phasePlanning.complete) {
+    return null;
+  }
+  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
+  if (selection.state !== "selected") {
+    return null;
+  }
+  const candidate = selection.selectedCandidate;
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
+    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
+    .filter((document) => document.metadata.workCardId === candidate.candidateId || document.metadata.canonical?.identity.workCardId === candidate.candidateId)
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    return {
+      activeWorkspaceId: "work-card-intake",
+      level: "phase",
+      stage: "planning",
+      currentPhaseId: phaseId,
+      currentWorkCardId: candidate.candidateId,
+      currentTarget: "Work Card Intake",
+      sourceEvidence: [`planning/phases/${phaseId}/Work_Card_Plan.md`],
+      requiredAction: "Approved Phase Planning bundle is available; generate Work Card Intake handoff.",
+      expectedOutput: `Work Card Intake Architect handoff for ${candidate.candidateId}.`,
+      eligibility: selection.explanations.find((entry) => entry.candidateId === candidate.candidateId)?.reason ?? "Candidate is eligible.",
+      expectedNextState: "Formal Work Card output can be saved from the approved intake handoff.",
+    };
+  }
+  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
+  const formal = typeof target === "string"
+    ? listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === target)
+    : undefined;
+  if (formal) {
+    return null;
+  }
+  return {
+    activeWorkspaceId: "work-card-planning",
+    level: "work-card",
+    stage: "planning",
+    currentPhaseId: phaseId,
+    currentWorkCardId: candidate.candidateId,
+    currentTarget: "Formal Work Card",
+    sourceEvidence: [handoff.markdownPath],
+    requiredAction: "Approved Work Card Intake handoff is available; save Architect Formal Work Card output.",
+    expectedOutput: `Formal Work Card Markdown for ${candidate.candidateId}.`,
+    eligibility: "Formal Work Card output is ready to import.",
+    expectedNextState: "Pending Formal Work Card becomes the current review document.",
+  };
+}
+
+function missingImplementerReportModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const documents = listPlanningDocuments(workspaceRoot);
+  const formal = documents
+    .filter((document) => document.metadata.artifactType === "formal-work-card")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  const phaseId = formal?.metadata.phaseId ?? (typeof formal?.metadata.canonical?.identity.phaseId === "string" ? formal.metadata.canonical.identity.phaseId : undefined);
+  const workCardId = formal?.metadata.workCardId ?? (typeof formal?.metadata.canonical?.identity.workCardId === "string" ? formal.metadata.canonical.identity.workCardId : undefined);
+  if (!formal || !phaseId || !workCardId) {
+    return null;
+  }
+  const eligibility = getWorkCardBuildingEligibility(workspaceRoot, phaseId, workCardId);
+  if (!eligibility.eligible) {
+    return null;
+  }
+  const report = documents
+    .find((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}`));
+  if (report) {
+    return null;
+  }
+  return {
+    activeWorkspaceId: "work-card-building-review",
+    level: "work-card",
+    stage: "building",
+    currentPhaseId: phaseId,
+    currentWorkCardId: workCardId,
+    currentTarget: "Implementer Handoff and Report Review",
+    sourceEvidence: [formal.markdownPath],
+    requiredAction: "Approved Formal Work Card is available for Implementer handoff and report review.",
+    expectedOutput: `Implementer Report Markdown for ${workCardId}.`,
+    eligibility: eligibility.reason,
+    expectedNextState: "Pending Implementer Report becomes the current review document.",
+  };
+}
+
+function missingRepairWorkCardModel(workspaceRoot: string): CurrentWorkspaceModel | null {
+  const handoff = listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.metadata.artifactType === "generated-handoff")
+    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "repair")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  const target = handoff?.metadata.canonical?.workflowData.repairWorkCardTarget;
+  if (!handoff || typeof target !== "string") {
+    return null;
+  }
+  const repair = listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === target);
+  if (repair) {
+    return null;
+  }
+  const phaseId = typeof handoff.metadata.canonical?.identity.phaseId === "string"
+    ? handoff.metadata.canonical.identity.phaseId
+    : undefined;
+  const repairId = typeof handoff.metadata.canonical?.workflowData.repairId === "string"
+    ? handoff.metadata.canonical.workflowData.repairId
+    : undefined;
+  return {
+    activeWorkspaceId: "work-card-repair",
+    level: "work-card",
+    stage: "repair",
+    currentPhaseId: phaseId,
+    currentWorkCardId: repairId,
+    currentTarget: "Repair Work Card",
+    sourceEvidence: [handoff.markdownPath],
+    requiredAction: "Approved Repair Architect handoff is available; save Architect Repair Work Card output.",
+    expectedOutput: "Repair Work Card Markdown.",
+    eligibility: "Repair Work Card output is ready to import.",
+    expectedNextState: "Pending Repair Work Card becomes reviewable and remains owned by its parent.",
   };
 }
 
@@ -348,12 +568,13 @@ function latestRevisionRequestedEvidence(workspaceRoot: string): {
     .filter((document) => document.effectiveDisposition === "RevisionRequested")
     .map((document) => {
       const path = document.markdownPath;
-      const phaseId = path.match(/planning\/phases\/(phase-\d+)\//i)?.[1];
+      const normalizedPath = path.replace(/\\/g, "/");
+      const phaseId = normalizedPath.match(/planning\/phases\/(phase-\d+)\//i)?.[1];
       const workCardId =
-        path.match(/IMPLEMENTER_REPORT_([A-Z0-9-]+)/i)?.[1] ??
-        path.match(/VALIDATION_RECORD_([A-Z0-9-]+)_ATTEMPT/i)?.[1];
+        normalizedPath.match(/IMPLEMENTER_REPORT_([A-Z0-9-]+)/i)?.[1] ??
+        normalizedPath.match(/VALIDATION_RECORD_([A-Z0-9-]+)_ATTEMPT/i)?.[1];
       const origin: "preValidationReportReview" | "postValidationRecord" =
-        path.toLowerCase().includes("/implementer_reports/")
+        normalizedPath.toLowerCase().includes("/implementer_reports/")
           ? "preValidationReportReview"
           : "postValidationRecord";
       return phaseId && workCardId && path

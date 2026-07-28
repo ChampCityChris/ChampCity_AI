@@ -14,6 +14,7 @@ import type {
 } from "../../shared/documents/planningDocument";
 import {
   type CanonicalDocumentMetadata,
+  metadataOpenDelimiter,
   metadataWithDisposition,
   metadataWithSubstantiveRevision,
   parseCanonicalMarkdownDocument,
@@ -317,10 +318,19 @@ function readRecord(workspaceRoot: string, entry: FileEntry): ReadRecord {
   if (!readError) {
     try {
       content = readContainedFile(workspaceRoot, entry);
-      const parsed = parseCanonicalMarkdownDocument(content);
-      bodyMarkdown = parsed.bodyMarkdown;
-      disposition = parsed.metadata.documentDisposition.status;
-      metadata = metadataFromCanonical(parsed.metadata);
+      if (content.startsWith(metadataOpenDelimiter)) {
+        const parsed = parseCanonicalMarkdownDocument(content);
+        bodyMarkdown = parsed.bodyMarkdown;
+        disposition = parsed.metadata.documentDisposition.status;
+        metadata = metadataFromCanonical(parsed.metadata);
+      } else {
+        bodyMarkdown = content;
+        metadata = {
+          artifactType: "legacy-unmanaged",
+          participationRole: "historical",
+          sourceRevisions: [],
+        };
+      }
     } catch (error) {
       readError = errorMessage(error);
     }

@@ -29,6 +29,10 @@ function workspace(id: WorkspaceId): Pick<WorkspaceDocument, "workspaceId" | "wo
 export function classifyPlanningDocument(
   document: PlanningDocumentSummary,
 ): Pick<WorkspaceDocument, "workspaceId" | "workspace" | "group"> {
+  if (isLegacyUnmanaged(document)) {
+    return { ...workspace("project-planning-review"), group: "Historical and unmanaged documents" };
+  }
+
   const searchable = [
     document.markdownPath,
     document.displayFilename,
@@ -152,27 +156,27 @@ function isProjectPlanning(value: string): boolean {
 }
 
 function isProjectIntake(document: PlanningDocumentSummary): boolean {
-  if (document.metadata.artifactType === "project-intake") {
-    return true;
-  }
-  const value = [
-    document.markdownPath,
-  ]
-    .filter(Boolean)
-    .join("/")
-    .toLowerCase();
-  return (
-    value.includes("planning/project/project_intake/") ||
-    value.includes("planning/project/project-intake/")
-  );
+  return isActiveCanonicalArtifact(document, "project-intake");
 }
 
 function isArchitectInterview(document: PlanningDocumentSummary, value: string): boolean {
-  return document.metadata.artifactType === "project-architect-interview" ||
-    document.metadata.artifactType === "project-architect-interview-prompt" ||
-    value.includes("planning/project/project_architect_interviews/") ||
-    value.includes("planning/project/project_architect_interview_prompts/") ||
-    value.includes("project_architect_interview");
+  return isActiveCanonicalArtifact(document, "project-architect-interview") ||
+    isActiveCanonicalArtifact(document, "project-architect-interview-prompt");
+}
+
+function isLegacyUnmanaged(document: PlanningDocumentSummary): boolean {
+  return document.metadata.artifactType === "legacy-unmanaged" ||
+    document.metadata.participationRole === "historical";
+}
+
+function isActiveCanonicalArtifact(document: PlanningDocumentSummary, artifactType: string): boolean {
+  return (
+    document.metadata.artifactType === artifactType &&
+    Boolean(document.metadata.canonical) &&
+    !document.readError &&
+    document.documentReadState === "readable" &&
+    document.metadata.participationRole !== "historical"
+  );
 }
 
 function isPhaseMap(value: string): boolean {

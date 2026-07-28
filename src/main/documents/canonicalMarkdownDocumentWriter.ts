@@ -33,23 +33,56 @@ export interface WriteCanonicalMarkdownDocumentInput {
 export function writeCanonicalMarkdownDocument(
   input: WriteCanonicalMarkdownDocumentInput,
 ): void {
-  const relativePath = validateMarkdownRelativePath(input.relativePath);
-  const content = serializeCanonicalMarkdownDocument(input.metadata, input.bodyMarkdown);
+  writeCanonicalMarkdownDocuments([input]);
+}
+
+export function writeCanonicalMarkdownDocuments(
+  inputs: WriteCanonicalMarkdownDocumentInput[],
+): void {
+  if (inputs.length === 0) {
+    throw new Error("Canonical document transaction requires at least one document.");
+  }
+  const workspaceRoot = path.resolve(inputs[0].workspaceRoot);
+  const seenRelativePaths = new Set<string>();
+  const documents = inputs.map((input) => {
+    if (path.resolve(input.workspaceRoot) !== workspaceRoot) {
+      throw new Error("Canonical document transaction requires one workspace root.");
+    }
+    const relativePath = validateMarkdownRelativePath(input.relativePath);
+    if (seenRelativePaths.has(relativePath)) {
+      throw new Error("Canonical document transaction contains duplicate relative paths.");
+    }
+    seenRelativePaths.add(relativePath);
+    const content = serializeCanonicalMarkdownDocument(input.metadata, input.bodyMarkdown);
+    const expectedBody = parseCanonicalMarkdownDocument(content).bodyMarkdown;
+    return {
+      relativePath,
+      metadata: input.metadata,
+      content,
+      expectedBody,
+    };
+  });
+
   writeArtifactTransaction(
-    input.workspaceRoot,
-    [{ relativePath, content }],
+    workspaceRoot,
+    documents.map((document) => ({
+      relativePath: document.relativePath,
+      content: document.content,
+    })),
     () => {
-      const injectedError = testHooks.failInstalledVerification?.(relativePath);
-      if (injectedError) {
-        throw injectedError instanceof Error ? injectedError : new Error(injectedError);
-      }
-      const installed = fs.readFileSync(path.join(input.workspaceRoot, relativePath), "utf8");
-      const parsed = parseCanonicalMarkdownDocument(installed);
-      if (JSON.stringify(parsed.metadata) !== JSON.stringify(input.metadata)) {
-        throw new Error("Installed canonical metadata verification failed.");
-      }
-      if (parsed.bodyMarkdown !== parseCanonicalMarkdownDocument(content).bodyMarkdown) {
-        throw new Error("Installed canonical body verification failed.");
+      for (const document of documents) {
+        const injectedError = testHooks.failInstalledVerification?.(document.relativePath);
+        if (injectedError) {
+          throw injectedError instanceof Error ? injectedError : new Error(injectedError);
+        }
+        const installed = fs.readFileSync(path.join(workspaceRoot, document.relativePath), "utf8");
+        const parsed = parseCanonicalMarkdownDocument(installed);
+        if (JSON.stringify(parsed.metadata) !== JSON.stringify(document.metadata)) {
+          throw new Error("Installed canonical metadata verification failed.");
+        }
+        if (parsed.bodyMarkdown !== document.expectedBody) {
+          throw new Error("Installed canonical body verification failed.");
+        }
       }
     },
   );

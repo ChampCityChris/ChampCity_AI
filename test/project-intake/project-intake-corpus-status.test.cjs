@@ -7,15 +7,30 @@ const {
 } = require("../../dist/shared/projectIntake/projectIntakeCorpus.js");
 
 function intake(status, suffix = "demo") {
+  const markdownPath = `planning/project/Project_Intake/PROJECT_INTAKE_${suffix}.md`;
   return {
     logicalDocumentId: suffix,
-    markdownPath: `planning/project/Project_Intake/PROJECT_INTAKE_${suffix}.md`,
+    markdownPath,
     displayFilename: `PROJECT_INTAKE_${suffix}`,
     metadata: {
       artifactType: "project-intake",
       participationRole: "gatingReview",
+      artifactRevision: 1,
+      sourceRevisions: [],
+      canonical: {
+        schemaVersion: 1,
+        artifactType: "project-intake",
+        artifactRevision: 1,
+        participationRole: "gatingReview",
+        identity: { projectSlug: suffix },
+        sourceRevisions: [],
+        workflowData: {},
+        documentDisposition: { status, notes: "", reviewedAt: null },
+      },
     },
     effectiveDisposition: status,
+    documentReadState: "readable",
+    initializationNeeded: false,
   };
 }
 

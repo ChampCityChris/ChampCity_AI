@@ -82,15 +82,41 @@ const api: ChampCityApi = {
       operatorReviewNotes,
       expectedSourceKey,
     ) as ReturnType<ChampCityApi["reviewArchitectInterview"]>,
-  repairArchitectInterviewCanonicalEnvelope: () =>
-    ipcRenderer.invoke(
-      "architectInterview:repairCanonicalEnvelope",
-    ) as ReturnType<ChampCityApi["repairArchitectInterviewCanonicalEnvelope"]>,
   saveArchitectInterviewOutput: (markdownBody) =>
     ipcRenderer.invoke(
       "architectInterview:saveOutput",
       markdownBody,
     ) as ReturnType<ChampCityApi["saveArchitectInterviewOutput"]>,
+  saveProjectPlanningOutputs: (input) =>
+    ipcRenderer.invoke(
+      "projectPlanning:saveOutputs",
+      input,
+    ) as ReturnType<ChampCityApi["saveProjectPlanningOutputs"]>,
+  savePhaseMapOutput: (markdownBody) =>
+    ipcRenderer.invoke(
+      "phaseMap:saveOutput",
+      markdownBody,
+    ) as ReturnType<ChampCityApi["savePhaseMapOutput"]>,
+  savePhaseInterviewOutput: (markdownBody) =>
+    ipcRenderer.invoke(
+      "phaseInterview:saveOutput",
+      markdownBody,
+    ) as ReturnType<ChampCityApi["savePhaseInterviewOutput"]>,
+  savePhasePlanningOutputs: (input) =>
+    ipcRenderer.invoke(
+      "phasePlanning:saveOutputs",
+      input,
+    ) as ReturnType<ChampCityApi["savePhasePlanningOutputs"]>,
+  saveFormalWorkCardOutput: (markdownBody) =>
+    ipcRenderer.invoke(
+      "workCardPlanning:saveOutput",
+      markdownBody,
+    ) as ReturnType<ChampCityApi["saveFormalWorkCardOutput"]>,
+  saveRepairWorkCardOutput: (markdownBody) =>
+    ipcRenderer.invoke(
+      "workCardRepair:saveOutput",
+      markdownBody,
+    ) as ReturnType<ChampCityApi["saveRepairWorkCardOutput"]>,
   getCurrentWorkspaceModel: () =>
     ipcRenderer.invoke(
       "currentWorkflow:getModel",
