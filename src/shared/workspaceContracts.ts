@@ -193,6 +193,17 @@ export type ArchitectInterviewRailStatus =
   | "Completed"
   | "Needs Attention";
 
+export type ProjectLifecycleRailStatus =
+  | "Not Ready"
+  | "Open"
+  | "Ready"
+  | "Waiting for Output"
+  | "Awaiting Approval"
+  | "In Progress"
+  | "Completed"
+  | "Needs Attention"
+  | "Conflict";
+
 export type ArchitectInterviewSelectedDocumentRole = "prompt" | "interview";
 
 export interface ArchitectInterviewDocumentIdentity {
@@ -233,6 +244,65 @@ export interface ArchitectInterviewWorkspaceModel {
   preview?: string;
 }
 
+export type ProjectPlanningWorkspaceState =
+  | "not-ready"
+  | "ready-for-handoff"
+  | "waiting-for-output"
+  | "partial-output"
+  | "ready-for-review"
+  | "revision-requested"
+  | "rejected"
+  | "completed"
+  | "needs-attention";
+
+export type ProjectPlanningSelectedDocumentRole = "profile" | "roadmap";
+
+export type ProjectPlanningReconciliationMode =
+  | "greenfield"
+  | "reconciliation-required"
+  | "needs-attention";
+
+export interface ProjectPlanningDocumentIdentity {
+  logicalDocumentId: string;
+  markdownPath: string;
+  artifactRevision: number;
+  disposition: DocumentDispositionStatus;
+  documentReadState: string;
+  freshnessState?: "fresh" | "stale";
+  participationRole?: string;
+  artifactType?: string;
+  readError?: string;
+  operatorReviewNotes?: string;
+}
+
+export interface ProjectPlanningWorkspaceModel {
+  state: ProjectPlanningWorkspaceState;
+  railStatus: ProjectLifecycleRailStatus;
+  requiredAction: string;
+  reason: string;
+  evidencePaths: string[];
+  handoffState: ArchitectHandoffState;
+  handoffMarkdownPath?: string;
+  handoffInstruction?: string;
+  handoffArtifactRevision?: number;
+  handoffPreparationMessage?: string;
+  canPrepareHandoff: boolean;
+  canCopyHandoff: boolean;
+  canApplyBundleDisposition: boolean;
+  reconciliationMode?: ProjectPlanningReconciliationMode;
+  repositoryReviewRequired?: boolean;
+  repositoryReviewContext?: string;
+  legacyPlanningPaths?: string[];
+  sourceEvidencePaths?: string[];
+  projectProfileTarget?: string;
+  projectRoadmapTarget?: string;
+  profileDocument?: ProjectPlanningDocumentIdentity;
+  roadmapDocument?: ProjectPlanningDocumentIdentity;
+  selectedPlanningDocumentRole: ProjectPlanningSelectedDocumentRole;
+  bundleSynchronizationState: "missing" | "partial" | "synchronized" | "mixed-disposition" | "invalid";
+  currentOperatorReviewNotes?: string;
+}
+
 export interface CurrentWorkspaceModel {
   activeWorkspaceId: WorkspaceId;
   level: string;
@@ -269,22 +339,6 @@ export interface WorkspaceMigrationResult {
   preview: WorkspaceMigrationPreview;
   migratedPaths: string[];
   deletedPaths: string[];
-}
-
-export interface ProjectPlanningOutputsInput {
-  projectProfileMarkdown: string;
-  projectRoadmapMarkdown: string;
-}
-
-export interface ProjectPlanningOutputsSaveResult {
-  projectProfileMarkdownPath: string;
-  projectRoadmapMarkdownPath: string;
-  currentWorkspaceModel: CurrentWorkspaceModel;
-}
-
-export interface PhaseMapOutputSaveResult {
-  phaseMapMarkdownPath: string;
-  currentWorkspaceModel: CurrentWorkspaceModel;
 }
 
 export interface PhaseInterviewOutputSaveResult {
@@ -355,10 +409,7 @@ export interface ChampCityApi {
   saveArchitectInterviewOutput: (
     markdownBody: string,
   ) => Promise<ArchitectInterviewWorkspaceModel>;
-  saveProjectPlanningOutputs: (
-    input: ProjectPlanningOutputsInput,
-  ) => Promise<ProjectPlanningOutputsSaveResult>;
-  savePhaseMapOutput: (markdownBody: string) => Promise<PhaseMapOutputSaveResult>;
+  copyPhaseMapHandoff: () => Promise<RuntimeActionResult>;
   savePhaseInterviewOutput: (markdownBody: string) => Promise<PhaseInterviewOutputSaveResult>;
   savePhasePlanningOutputs: (
     input: PhasePlanningOutputsInput,
@@ -370,6 +421,13 @@ export interface ChampCityApi {
     operatorReviewNotes: string,
     expectedSourceKey?: string,
   ) => Promise<ArchitectInterviewWorkspaceModel>;
+  getProjectPlanningWorkspaceModel: () => Promise<ProjectPlanningWorkspaceModel>;
+  prepareProjectPlanningHandoff: () => Promise<ProjectPlanningWorkspaceModel>;
+  copyProjectPlanningHandoff: () => Promise<RuntimeActionResult>;
+  reviewProjectPlanningBundle: (
+    status: DocumentDispositionStatus,
+    operatorReviewNotes: string,
+  ) => Promise<ProjectPlanningWorkspaceModel>;
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
   applyCurrentDisposition: (

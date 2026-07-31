@@ -122,7 +122,7 @@ function writeProjectIntake(
     workspaceRoot: projectRoot,
     relativePath: architectPromptMarkdownPath,
     metadata: promptMetadata,
-    bodyMarkdown: architectPromptBody(submission, projectIntakeMarkdownPath, architectInterviewTargetMarkdownPath),
+    bodyMarkdown: architectPromptBody(submission, projectIntakeMarkdownPath),
   });
   const promptTargets = promptMetadata.workflowData.architectOutputTargets as { markdown?: string } | undefined;
   const resolvedInterviewTargetMarkdownPath = promptTargets?.markdown ?? architectInterviewTargetMarkdownPath;
@@ -161,7 +161,6 @@ function projectIntakeBody(submission: ProjectIntakeSubmission): string {
 function architectPromptBody(
   submission: ProjectIntakeSubmission,
   intakeMarkdownPath: string,
-  interviewMarkdownPath: string,
 ): string {
   return [
     `# Project Architect Interview Prompt: ${submission.projectName}`,
@@ -170,8 +169,27 @@ function architectPromptBody(
     `- Project Intake Markdown: ${intakeMarkdownPath}`,
     "",
     "Conduct the Project Architect Interview conversationally with the Operator.",
-    "When the interview is substantively complete, return substantive Markdown only.",
-    `The Operator will paste the Markdown into the Architect Output import surface for ${interviewMarkdownPath}.`,
+    "Continue until material scope, constraints, risks, decisions, unresolved questions, and planning direction are resolved.",
+    "When the interview is substantively complete, synthesize one complete substantive Project Architect Interview Markdown document, not a snippet.",
+    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    "Save the complete Interview through ChampCity MCP by calling artifact_toolbox with this invocation shape:",
+    "```json",
+    "{",
+    '  "action": "submit_handoff_outputs",',
+    '  "workspaceId": "<resolved workspace ID>",',
+    '  "params": {',
+    '    "handoffKind": "architect-interview",',
+    '    "outputs": {',
+    '      "architectInterviewMarkdown": "<complete substantive Interview Markdown>"',
+    "    }",
+    "  }",
+    "}",
+    "```",
+    "The handoff kind is a selector, not authority.",
+    "The MCP server derives targets, metadata, identity, source revisions, participation role, revision, and Pending disposition from the current Approved handoff.",
+    "Do not use retired save actions, a generic Markdown writer, local import fields, manual file copy, target paths, or caller-supplied metadata.",
+    "Report completion only after the tool returns saved or already_saved.",
+    "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",
   ].join("\n");
 }
 

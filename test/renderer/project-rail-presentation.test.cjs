@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -8,7 +10,22 @@ const {
   shouldRenderArchitectInterviewDispositionControls,
   shouldRenderGenericPreviewDispositionControls,
   shouldRenderInlineProjectIntakeDisposition,
+  shouldRenderPhaseMapDispositionControls,
 } = require("../../dist/shared/workspaces/projectRailPresentation.js");
+const {
+  deriveProjectLifecycleRailStatuses,
+} = require("../../dist/shared/workspaces/projectLifecycleRailStatus.js");
+const {
+  listPlanningDocuments,
+  seedApprovedProjectIntake,
+  seedPhaseMap,
+  tempWorkspace,
+  writeDoc,
+} = require("../support/canonical-markdown-fixtures.cjs");
+
+const railSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "NestedWorkflowRail.tsx");
+const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
+const stylesSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "styles.css");
 
 test("top rail separates viewed workspace from current required workspace", () => {
   const projectIntake = deriveProjectRailPresentation({
@@ -147,8 +164,247 @@ test("Architect Interview prompt selection hides disposition controls", () => {
   );
 });
 
-test("Architect Interview uses dual-pane mode without changing other workspaces", () => {
+test("embedded Architect workspaces use dual-pane mode without changing other workspaces", () => {
   assert.equal(isArchitectInterviewDualPaneWorkspace("architect-interview"), true);
-  assert.equal(isArchitectInterviewDualPaneWorkspace("project-planning-review"), false);
+  assert.equal(isArchitectInterviewDualPaneWorkspace("project-planning-review"), true);
+  assert.equal(isArchitectInterviewDualPaneWorkspace("project-phase-map"), true);
   assert.equal(isArchitectInterviewDualPaneWorkspace("project-intake-capture"), false);
 });
+
+test("Phase Map disposition controls render only for readable selected Phase Map review outputs", () => {
+  const phaseMapOutput = {
+    metadata: { artifactType: "phase-map" },
+    effectiveDisposition: "Pending",
+    documentReadState: "readable",
+  };
+
+  assert.equal(shouldRenderPhaseMapDispositionControls(null), false);
+  assert.equal(shouldRenderPhaseMapDispositionControls(phaseMapOutput), true);
+  assert.equal(
+    shouldRenderPhaseMapDispositionControls({
+      ...phaseMapOutput,
+      effectiveDisposition: "Rejected",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderPhaseMapDispositionControls({
+      ...phaseMapOutput,
+      effectiveDisposition: "RevisionRequested",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderPhaseMapDispositionControls({
+      ...phaseMapOutput,
+      effectiveDisposition: "Approved",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRenderPhaseMapDispositionControls({
+      ...phaseMapOutput,
+      metadata: { artifactType: "generated-handoff", participationRole: "nonReviewHandoff" },
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRenderPhaseMapDispositionControls({
+      ...phaseMapOutput,
+      readError: "Invalid canonical Markdown.",
+    }),
+    false,
+  );
+});
+
+test("Phase Map dual-pane preview renders its specialized disposition control surface", () => {
+  const source = fs.readFileSync(appSourcePath, "utf8");
+  const phaseMapBranch = source.match(/activeWorkspaceId === "project-phase-map" \? \((?<body>[\s\S]*?)\) : specializedDispositionWorkspaceIds/);
+
+  assert.ok(phaseMapBranch);
+  assert.match(source, /activeWorkspaceId === "project-phase-map" \? \(\s*<PhaseMapPreviewReview/);
+  assert.match(source, /aria-label="Phase Map Review"/);
+  assert.match(source, /Apply Phase Map Review/);
+  assert.match(phaseMapBranch.groups.body, /onReview=\{applyDisposition\}/);
+  assert.doesNotMatch(phaseMapBranch.groups.body, /applyCurrentDisposition/);
+  assert.doesNotMatch(source, /activeWorkspaceId === "project-phase-map"[\s\S]{0,300}Specialized review controls appear when the current outputs exist/);
+});
+
+test("project selector uses a stacked full-width action layout", () => {
+  const source = fs.readFileSync(stylesSourcePath, "utf8");
+  const actionsRule = source.match(/\.project-selector-actions\s*\{(?<body>[^}]*)\}/);
+
+  assert.ok(actionsRule);
+  assert.match(actionsRule.groups.body, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.doesNotMatch(actionsRule.groups.body, /\bauto\b/);
+  assert.match(source, /\.project-selector-actions \.text-button\s*\{[\s\S]*width:\s*100%/);
+});
+
+test("all top project rail cards receive one title-cased lifecycle status", () => {
+  const statuses = deriveProjectLifecycleRailStatuses([], {
+    projectIntakeStatus: "Open",
+    architectInterviewStatus: "Open",
+  });
+
+  assert.deepEqual(Object.keys(statuses).sort(), [
+    "architect-interview",
+    "phase-interview",
+    "project-close",
+    "project-intake-capture",
+    "project-phase-map",
+    "project-planning-review",
+    "project-validation",
+  ]);
+  for (const status of Object.values(statuses)) {
+    assert.doesNotMatch(status, /^[A-Z_]+$/);
+  }
+});
+
+test("top project rail source does not render the static lower Open line", () => {
+  const source = fs.readFileSync(railSourcePath, "utf8");
+  assert.doesNotMatch(source, /group-hover:opacity-85[\s\S]*Open[\s\S]*<\/span>/);
+});
+
+test("project rail reports duplicate current Project Planning handoffs as Needs Attention", () => {
+  const root = tempWorkspace("champcity-rail-project-planning-conflict-");
+  seedCompletedProjectPlanning(root);
+  writeDoc(root, "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo_DUPLICATE.md", "generated-handoff", "Approved", {
+    participationRole: "nonReviewHandoff",
+    workflowData: {
+      handoffKind: "project-planning",
+      projectProfileTarget: "planning/project/PROJECT_PROFILE.md",
+      projectRoadmapTarget: "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+    },
+  });
+
+  const statuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
+    projectIntakeStatus: "Completed",
+    architectInterviewStatus: "Completed",
+  });
+
+  assert.equal(statuses["project-planning-review"], "Needs Attention");
+  assert.equal(statuses["project-intake-capture"], "Completed");
+  assert.equal(statuses["architect-interview"], "Completed");
+});
+
+test("project rail reports duplicate current Phase Maps as Needs Attention", () => {
+  const root = tempWorkspace("champcity-rail-phase-map-conflict-");
+  seedCompletedProjectPlanning(root);
+  seedPhaseMapHandoff(root);
+  seedPhaseMap(root, "phase-01");
+  writeDoc(root, "planning/project/Phase_Map/PHASE_MAP_duplicate.md", "phase-map", "Approved", {
+    workflowData: {
+      phases: [{ phaseId: "phase-01", title: "Duplicate", order: 1 }],
+    },
+  });
+
+  const statuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
+    projectIntakeStatus: "Completed",
+    architectInterviewStatus: "Completed",
+  });
+
+  assert.equal(statuses["project-phase-map"], "Needs Attention");
+});
+
+test("project rail rejects duplicate closeouts for one phase but accepts distinct phase closeouts", () => {
+  const root = tempWorkspace("champcity-rail-phase-closeout-conflict-");
+  seedCompletedProjectPlanning(root);
+  seedPhaseMapHandoff(root);
+  seedPhaseMap(root, "phase-01");
+  writeDoc(root, "planning/project/Phase_Map/PHASE_MAP_demo.md", "phase-map", "Approved", {
+    workflowData: {
+      phases: [
+        { phaseId: "phase-01", title: "Phase 01", order: 1 },
+        { phaseId: "phase-02", title: "Phase 02", order: 2 },
+      ],
+    },
+  });
+  writeDoc(root, "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT.md", "phase-closeout", "Approved", {
+    identity: { phaseId: "phase-01" },
+    workflowData: { closureDecision: "Close" },
+  });
+  writeDoc(root, "planning/phases/phase-02/Phase_Closeouts/PHASE_02_CLOSEOUT.md", "phase-closeout", "Approved", {
+    identity: { phaseId: "phase-02" },
+    workflowData: { closureDecision: "Close" },
+  });
+
+  const distinctStatuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
+    projectIntakeStatus: "Completed",
+    architectInterviewStatus: "Completed",
+  });
+  assert.equal(distinctStatuses["phase-interview"], "Completed");
+
+  writeDoc(root, "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT_duplicate.md", "phase-closeout", "Approved", {
+    identity: { phaseId: "phase-01" },
+    workflowData: { closureDecision: "Close" },
+  });
+
+  const duplicateStatuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
+    projectIntakeStatus: "Completed",
+    architectInterviewStatus: "Completed",
+  });
+  assert.equal(duplicateStatuses["phase-interview"], "Needs Attention");
+});
+
+test("project rail reports duplicate current Project Closeouts as Needs Attention", () => {
+  const root = tempWorkspace("champcity-rail-project-closeout-conflict-");
+  seedCompletedProjectPlanning(root);
+  seedPhaseMapHandoff(root);
+  seedPhaseMap(root, "phase-01");
+  writeDoc(root, "planning/phases/phase-01/Phase_Closeouts/PHASE_01_CLOSEOUT.md", "phase-closeout", "Approved", {
+    identity: { phaseId: "phase-01" },
+    workflowData: { closureDecision: "Close" },
+  });
+  writeDoc(root, "planning/project/Project_Closeout/PROJECT_CLOSEOUT_demo.md", "project-closeout", "Approved", {
+    participationRole: "compoundGatingReview",
+    workflowData: { closureDecision: "Close" },
+  });
+  writeDoc(root, "planning/project/Project_Closeout/PROJECT_CLOSEOUT_duplicate.md", "project-closeout", "Approved", {
+    participationRole: "compoundGatingReview",
+    workflowData: { closureDecision: "Close" },
+  });
+
+  const statuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
+    projectIntakeStatus: "Completed",
+    architectInterviewStatus: "Completed",
+  });
+
+  assert.equal(statuses["project-validation"], "Needs Attention");
+  assert.equal(statuses["project-close"], "Needs Attention");
+});
+
+function seedCompletedProjectPlanning(root) {
+  const seeded = seedApprovedProjectIntake(root);
+  writeDoc(root, seeded.interview, "project-architect-interview", "Approved", {
+    sourceRevisions: [
+      { path: seeded.intake, revision: 1 },
+      { path: seeded.prompt, revision: 1 },
+    ],
+  });
+  writeDoc(root, "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo.md", "generated-handoff", "Approved", {
+    participationRole: "nonReviewHandoff",
+    sourceRevisions: [
+      { path: seeded.intake, revision: 1 },
+      { path: seeded.prompt, revision: 1 },
+      { path: seeded.interview, revision: 1 },
+    ],
+    workflowData: {
+      handoffKind: "project-planning",
+      projectProfileTarget: "planning/project/PROJECT_PROFILE.md",
+      projectRoadmapTarget: "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+    },
+  });
+  writeDoc(root, "planning/project/PROJECT_PROFILE.md", "project-profile", "Approved", {
+    participationRole: "compoundGatingReview",
+  });
+  writeDoc(root, "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md", "project-roadmap", "Approved", {
+    participationRole: "compoundGatingReview",
+  });
+}
+
+function seedPhaseMapHandoff(root) {
+  writeDoc(root, "planning/project/Phase_Map/PHASE_MAP_HANDOFF_demo.md", "generated-handoff", "Approved", {
+    participationRole: "nonReviewHandoff",
+    workflowData: { handoffKind: "phase-map" },
+  });
+}

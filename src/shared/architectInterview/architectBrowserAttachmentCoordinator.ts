@@ -37,6 +37,7 @@ export interface ArchitectAttachmentCoordinator {
 }
 
 const defaultMaxLayoutFrames = 8;
+let globalAttachmentGeneration = 0;
 
 export function hasPositiveArchitectHostMeasurement(
   measurement: ArchitectHostMeasurement | null,
@@ -55,30 +56,35 @@ export function architectAttachmentLayoutError(
 
 export function shouldShowArchitectBrowserRetry(
   status: ArchitectBrowserFoundationStatus | null,
+  attachmentError = "",
 ): boolean {
   const state = status?.attachment.state ?? "detached";
-  return state === "detached" ||
-    state === "attached-zero-bounds" ||
-    state === "attach-failed";
+  return state === "attach-failed" || Boolean(attachmentError);
 }
 
 export function createArchitectAttachmentCoordinator(
   runtime: ArchitectAttachmentCoordinatorRuntime,
 ): ArchitectAttachmentCoordinator {
-  let generation = 0;
+  let generation = globalAttachmentGeneration;
+  const claimGeneration = (): number => {
+    globalAttachmentGeneration += 1;
+    generation = globalAttachmentGeneration;
+    return generation;
+  };
+  const isCurrentGeneration = (candidate: number): boolean =>
+    generation === candidate && globalAttachmentGeneration === candidate;
 
   const runAttempt = async (): Promise<ArchitectAttachmentAttemptResult> => {
-    generation += 1;
-    const attemptGeneration = generation;
+    const attemptGeneration = claimGeneration();
 
     try {
-      const measurement = await waitForPositiveMeasurement(runtime, () => generation === attemptGeneration);
-      if (generation !== attemptGeneration) {
+      const measurement = await waitForPositiveMeasurement(runtime, () => isCurrentGeneration(attemptGeneration));
+      if (!isCurrentGeneration(attemptGeneration)) {
         return { generation: attemptGeneration, status: "stale" };
       }
 
       const showStatus = await runtime.showBrowser(attemptGeneration);
-      if (generation !== attemptGeneration) {
+      if (!isCurrentGeneration(attemptGeneration)) {
         return { generation: attemptGeneration, status: "stale" };
       }
       runtime.onStatus(showStatus);
@@ -88,7 +94,7 @@ export function createArchitectAttachmentCoordinator(
         sequence: runtime.nextSequence(),
         attachmentGeneration: attemptGeneration,
       });
-      if (generation !== attemptGeneration) {
+      if (!isCurrentGeneration(attemptGeneration)) {
         return { generation: attemptGeneration, status: "stale" };
       }
       runtime.onStatus(boundsStatus);
@@ -102,7 +108,7 @@ export function createArchitectAttachmentCoordinator(
       runtime.onError("");
       return { generation: attemptGeneration, status: "attached-visible" };
     } catch (error) {
-      if (generation !== attemptGeneration) {
+      if (!isCurrentGeneration(attemptGeneration)) {
         return { generation: attemptGeneration, status: "stale" };
       }
       const message = error instanceof Error ? error.message : "Embedded browser attachment failed.";
@@ -115,8 +121,7 @@ export function createArchitectAttachmentCoordinator(
     attach: runAttempt,
     retry: runAttempt,
     detach: async () => {
-      const detachGeneration = generation;
-      generation += 1;
+      const detachGeneration = claimGeneration();
       const boundsStatus = await runtime.setBounds({
         x: 0,
         y: 0,
@@ -125,17 +130,25 @@ export function createArchitectAttachmentCoordinator(
         sequence: runtime.nextSequence(),
         attachmentGeneration: detachGeneration,
       });
-      runtime.onStatus(boundsStatus);
+      if (isCurrentGeneration(detachGeneration)) {
+        runtime.onStatus(boundsStatus);
+      }
       const detachStatus = await runtime.hideBrowser(detachGeneration);
-      runtime.onStatus(detachStatus);
+      if (isCurrentGeneration(detachGeneration)) {
+        runtime.onStatus(detachStatus);
+      }
       return detachStatus;
     },
     invalidate: () => {
-      generation += 1;
+      generation = claimGeneration();
       return generation;
     },
     getGeneration: () => generation,
   };
+}
+
+export function resetArchitectAttachmentGenerationForTest(): void {
+  globalAttachmentGeneration = 0;
 }
 
 async function waitForPositiveMeasurement(

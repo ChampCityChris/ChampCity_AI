@@ -191,20 +191,24 @@ function missingPhaseMapModel(workspaceRoot: string): CurrentWorkspaceModel | nu
   if (!projectPlanning.complete) {
     return null;
   }
-  const phaseMap = listPlanningDocuments(workspaceRoot)
+  const documents = listPlanningDocuments(workspaceRoot);
+  const phaseMap = documents
     .find((document) => document.markdownPath.startsWith("planning/project/Phase_Map/PHASE_MAP"));
   if (phaseMap) {
     return null;
   }
-  const roadmap = listPlanningDocuments(workspaceRoot)
+  const profile = documents
+    .find((document) => document.markdownPath === "planning/project/PROJECT_PROFILE.md");
+  const roadmap = documents
     .find((document) => document.markdownPath.startsWith("planning/project/Project_Roadmap/PROJECT_ROADMAP_"));
   return {
     activeWorkspaceId: "project-phase-map",
     level: "project",
     stage: "building",
     currentTarget: "Phase Map",
-    sourceEvidence: [roadmap?.markdownPath].filter((value): value is string => Boolean(value)),
-    requiredAction: "Approved Project Profile and Project Roadmap are available; generate Phase Map handoff and save Architect Phase Map output.",
+    sourceEvidence: [profile?.markdownPath, roadmap?.markdownPath]
+      .filter((value): value is string => Boolean(value)),
+    requiredAction: "Approved Project Profile and Project Roadmap are available; generate Phase Map handoff and wait for MCP-submitted Phase Map output.",
     expectedOutput: "Phase Map Markdown with champcity-phase-map domain block.",
     eligibility: "Phase Map is ready.",
     expectedNextState: "Pending Phase Map becomes the current review document.",
@@ -411,7 +415,7 @@ export function generateCurrentHandoff(workspaceRoot: string): RuntimeActionResu
       case "work-card-intake":
         return generateWorkCardIntakeHandoff(workspaceRoot, requirePhaseId(model));
       default:
-        throw new Error(`Current workspace does not authorize a handoff action: ${model.activeWorkspaceId}`);
+        throw new Error(`Current workflow step does not authorize a handoff action: ${model.activeWorkspaceId}`);
     }
   })();
   return runtimeResult("currentWorkflow:generateHandoff", "Current handoff action completed.", payload);
@@ -462,7 +466,7 @@ export function applyCurrentDisposition(
       case "project-close":
         return setProjectCloseoutDisposition(workspaceRoot, status);
       default:
-        throw new Error(`Current workspace does not authorize disposition: ${model.activeWorkspaceId}`);
+        throw new Error(`Current workflow step does not authorize disposition: ${model.activeWorkspaceId}`);
     }
   })();
   return runtimeResult("currentWorkflow:applyDisposition", `Current disposition applied: ${status}.`, payload);
@@ -471,7 +475,7 @@ export function applyCurrentDisposition(
 export function createValidationAttemptForCurrentWorkCard(workspaceRoot: string): RuntimeActionResult {
   const model = getCurrentWorkspaceModel(workspaceRoot);
   if (model.activeWorkspaceId !== "work-card-validation") {
-    throw new Error("Current workspace must be Work Card Validation to create a validation attempt.");
+    throw new Error("Current workflow step must be Work Card Validation to create a validation attempt.");
   }
   const payload = createValidationAttempt(workspaceRoot, requirePhaseId(model), requireWorkCardId(model));
   return runtimeResult("currentWorkflow:createValidationAttempt", "Validation attempt created for the current Work Card.", payload);
@@ -546,14 +550,14 @@ function runtimeResult(action: string, message: string, payload?: unknown): Runt
 
 function requirePhaseId(model: CurrentWorkspaceModel): string {
   if (!model.currentPhaseId) {
-    throw new Error(`Current workspace does not provide phase authority: ${model.activeWorkspaceId}`);
+    throw new Error(`Current workflow step does not provide phase authority: ${model.activeWorkspaceId}`);
   }
   return model.currentPhaseId;
 }
 
 function requireWorkCardId(model: CurrentWorkspaceModel): string {
   if (!model.currentWorkCardId) {
-    throw new Error(`Current workspace does not provide Work Card authority: ${model.activeWorkspaceId}`);
+    throw new Error(`Current workflow step does not provide Work Card authority: ${model.activeWorkspaceId}`);
   }
   return model.currentWorkCardId;
 }

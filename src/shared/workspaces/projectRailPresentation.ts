@@ -1,9 +1,11 @@
 import type { WorkspaceId } from "../workspaceContracts";
+import type { PlanningDocumentSummary } from "../documents/planningDocument";
 import type { ProjectIntakeRailStatus } from "../projectIntake/projectIntakeCorpus";
 import type {
   ArchitectInterviewRailStatus,
   ArchitectInterviewSelectedDocumentRole,
   ArchitectInterviewWorkspaceModel,
+  ProjectLifecycleRailStatus,
 } from "../workspaceContracts";
 
 export interface ProjectRailPresentationInput {
@@ -11,7 +13,7 @@ export interface ProjectRailPresentationInput {
   requiredWorkspaceId: WorkspaceId | null;
   destinationWorkspaceId: WorkspaceId;
   descendantWorkspaceIds?: readonly WorkspaceId[];
-  statusLabel?: ProjectIntakeRailStatus;
+  statusLabel?: ProjectLifecycleRailStatus | ProjectIntakeRailStatus | ArchitectInterviewRailStatus;
   architectInterviewStatus?: ArchitectInterviewRailStatus;
 }
 
@@ -19,7 +21,7 @@ export interface ProjectRailPresentation {
   isSelected: boolean;
   isParentSelected: boolean;
   isRequired: boolean;
-  statusLabel: ProjectIntakeRailStatus | ArchitectInterviewRailStatus | "CONTEXT" | "OPEN";
+  statusLabel: ProjectLifecycleRailStatus | ProjectIntakeRailStatus | ArchitectInterviewRailStatus;
 }
 
 export function deriveProjectRailPresentation({
@@ -41,7 +43,7 @@ export function deriveProjectRailPresentation({
     isSelected,
     isParentSelected,
     isRequired,
-    statusLabel: architectInterviewStatus ?? statusLabel ?? (isParentSelected ? "CONTEXT" : "OPEN"),
+    statusLabel: architectInterviewStatus ?? statusLabel ?? "Open",
   };
 }
 
@@ -66,6 +68,32 @@ export function shouldRenderGenericPreviewDispositionControls(
   );
 }
 
+export function shouldRenderPhaseMapDispositionControls(
+  selectedDocument: Pick<
+    PlanningDocumentSummary,
+    "documentReadState" | "effectiveDisposition" | "metadata" | "readError"
+  > | null,
+): boolean {
+  if (!selectedDocument) {
+    return false;
+  }
+  if (
+    selectedDocument.readError ||
+    (selectedDocument.documentReadState && selectedDocument.documentReadState !== "readable")
+  ) {
+    return false;
+  }
+  return (
+    selectedDocument.metadata.artifactType === "phase-map" &&
+    selectedDocument.metadata.participationRole !== "nonReviewHandoff" &&
+    (
+      selectedDocument.effectiveDisposition === "Pending" ||
+      selectedDocument.effectiveDisposition === "Rejected" ||
+      selectedDocument.effectiveDisposition === "RevisionRequested"
+    )
+  );
+}
+
 export function deriveArchitectInterviewRailStatus(
   model: ArchitectInterviewWorkspaceModel | null,
 ): ArchitectInterviewRailStatus {
@@ -83,5 +111,7 @@ export function shouldRenderArchitectInterviewDispositionControls({
 }
 
 export function isArchitectInterviewDualPaneWorkspace(activeWorkspaceId: WorkspaceId): boolean {
-  return activeWorkspaceId === "architect-interview";
+  return activeWorkspaceId === "architect-interview" ||
+    activeWorkspaceId === "project-planning-review" ||
+    activeWorkspaceId === "project-phase-map";
 }

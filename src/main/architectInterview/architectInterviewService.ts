@@ -96,7 +96,6 @@ export function getArchitectInterviewWorkspaceModel(
       : reasonForState(state, interview),
     evidencePaths: context.evidencePaths,
     markdownPath: inspectableInterview?.markdownPath ?? context.interviewTargets.markdownPath,
-    preview: readPreviewIfAvailable(workspaceRoot, inspectableInterview),
   };
 }
 
@@ -246,13 +245,13 @@ function requiredActionForState(
   selectedRole: ArchitectInterviewSelectedDocumentRole,
 ): string {
   if (state === "waiting-for-output") {
-    return "Copy the Architect handoff, paste it into the embedded Architect chat, and wait for the repository Markdown output.";
+    return "Send the Architect handoff in the embedded chat and wait for the MCP saved confirmation.";
   }
   if (state === "ready-for-review") {
     return "Review the Architect Interview output and apply an Operator disposition.";
   }
   if (state === "revision-requested") {
-    return "Copy the revised handoff so the Architect can address the Operator revision notes.";
+    return "Send the revised handoff so the Architect can address the Operator revision notes and save through MCP.";
   }
   if (state === "completed") {
     return "Architect Interview is Approved; Project Intake can advance toward Project Planning.";
@@ -315,27 +314,48 @@ function buildArchitectHandoffInstruction({
           "",
           "Correction mode:",
           `- Current validation failure: ${invalidInterviewReason}`,
-          `- Existing Interview Markdown target: ${outputMarkdownPath}`,
-          "- Read the existing Interview output at that exact target.",
-          "- Preserve its substantive interview content.",
-          "- Return corrected substantive Markdown through the Architect Output import surface.",
+          `- Existing Interview Markdown target for reading only: ${outputMarkdownPath}`,
+          "- Read the existing Interview output at that exact target if it is available.",
+          "- Preserve and revise the complete existing Interview body.",
+          "- Save the corrected complete Interview through the same artifact_toolbox submission action.",
         ]
       : [];
 
   return [
     "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "The Operator will manually paste and send this instruction in the embedded Architect chat.",
+    "This handoff is for the embedded Architect chat.",
     "",
     "Read these exact handoff inputs:",
     `- Prompt Markdown: ${promptMarkdownPath}`,
     `- Project Intake Markdown: ${projectIntakeMarkdownPath}`,
     "",
     "Conduct the Project Architect Interview conversationally with the Operator in this chat.",
+    "Continue until material scope, constraints, risks, decisions, unresolved questions, and planning direction are resolved.",
     "Chat text is not the durable record.",
     "Do not create placeholder output before the interview is substantively complete.",
-    "When the interview or revision is substantively complete, return substantive Markdown only.",
-    "Do not return target paths, artifact metadata, source revisions, role, disposition, metadata delimiters, or serialized canonical JSON as authority.",
-    `The Operator will paste your substantive Markdown into the visible Architect Output import surface for ${outputMarkdownPath}.`,
+    "Do not return a snippet as completion.",
+    "Do not require manual Operator handling of completed Interview output.",
+    "When the interview or revision is substantively complete, synthesize one complete substantive Project Architect Interview Markdown document.",
+    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    "Call artifact_toolbox with this invocation shape:",
+    "```json",
+    "{",
+    '  "action": "submit_handoff_outputs",',
+    '  "workspaceId": "<resolved workspace ID>",',
+    '  "params": {',
+    '    "handoffKind": "architect-interview",',
+    '    "outputs": {',
+    '      "architectInterviewMarkdown": "<complete substantive Interview Markdown>"',
+    "    }",
+    "  }",
+    "}",
+    "```",
+    "The handoff kind is a selector, not authority.",
+    "The MCP server derives targets, metadata, identity, source revisions, participation role, revision, and Pending disposition from the current Approved handoff.",
+    "Do not supply target path, artifact metadata, identity, source revisions, participation role, disposition, metadata delimiters, serialized canonical JSON, retired save actions, a generic Markdown writer, a local import field, or a manual file-copy fallback.",
+    "Report completion only after the tool returns saved or already_saved.",
+    "After success, respond with a concise saved-and-ready-for-review confirmation.",
+    "If the action is unavailable, denied, or fails, provide the exact failure and remain incomplete.",
     "Display-only application-owned final disposition: Document.Status=Pending.",
     "",
     "Display-only current source revisions:",
@@ -346,20 +366,6 @@ function buildArchitectHandoffInstruction({
     ...revisionInstruction,
     ...correctionInstruction,
   ].join("\n");
-}
-
-function readPreviewIfAvailable(
-  workspaceRoot: string,
-  identity: CanonicalArtifactIdentity | undefined,
-): string | undefined {
-  if (!identity?.markdownPath) {
-    return undefined;
-  }
-  try {
-    return fs.readFileSync(path.join(workspaceRoot, identity.markdownPath), "utf8").slice(0, 12000);
-  } catch {
-    return undefined;
-  }
 }
 
 function readExistingCanonical(workspaceRoot: string, relativePath: string) {

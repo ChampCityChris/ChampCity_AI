@@ -22,9 +22,8 @@ import {
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateFreshnessFromSummaries, type FreshnessEvaluation } from "../../shared/documents/sourceFreshness";
 import { classifyLifecycleArtifact } from "../../shared/documents/lifecycleArtifact";
+import { isArchitectDraftRelativePath } from "../architectOutputs/architectDraftPaths";
 import { writeArtifactTransaction } from "./artifactTransaction";
-
-const previewLimit = 12000;
 
 interface FileEntry {
   absolutePath: string;
@@ -76,11 +75,12 @@ export function readPlanningDocument(
   logicalDocumentId: string,
 ): PlanningDocumentDetail {
   const record = findReadRecord(workspaceRoot, logicalDocumentId);
-  const previewSource = record.bodyMarkdown ?? record.content ?? "";
+  const bodyMarkdown = record.bodyMarkdown ?? record.content ?? "";
   return {
     ...record.summary,
-    preview: previewSource.slice(0, previewLimit),
-    previewTruncated: previewSource.length > previewLimit,
+    bodyMarkdown,
+    preview: bodyMarkdown,
+    previewTruncated: false,
   };
 }
 
@@ -282,6 +282,9 @@ function discoverMarkdownFiles(workspaceRoot: string): FileEntry[] {
     for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolutePath = path.join(directory, child.name);
       const relativePath = normalizeRelativePath(path.relative(workspaceRoot, absolutePath));
+      if (isArchitectDraftRelativePath(relativePath)) {
+        continue;
+      }
       const extension = path.extname(child.name).toLowerCase();
       let stats: fs.Stats;
       try {

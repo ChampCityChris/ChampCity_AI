@@ -5,8 +5,13 @@ const test = require("node:test");
 
 const {
   createArchitectAttachmentCoordinator,
+  resetArchitectAttachmentGenerationForTest,
   shouldShowArchitectBrowserRetry,
 } = require("../../dist/shared/architectInterview/architectBrowserAttachmentCoordinator.js");
+
+test.beforeEach(() => {
+  resetArchitectAttachmentGenerationForTest();
+});
 
 function visibleStatus(sequence = 1) {
   return {
@@ -289,16 +294,61 @@ test("detach carries the current generation through zero bounds and hide", async
     "status:attached-zero-bounds",
     "bounds:1:500x300",
     "status:attached-visible",
-    "bounds:1:0x0",
+    "bounds:2:0x0",
     "status:attached-zero-bounds",
-    "hide:1",
+    "hide:2",
     "status:attached-zero-bounds",
   ]);
 });
 
+test("stale detach and hide completions cannot override a newer browser attachment", async () => {
+  let resolveHide;
+  const firstCalls = [];
+  const secondCalls = [];
+  const first = createArchitectAttachmentCoordinator({
+    measureHost: () => ({ x: 1, y: 2, width: 500, height: 300 }),
+    nextSequence: () => 1,
+    onError: () => undefined,
+    onStatus: (status) => firstCalls.push(status.attachment.state),
+    setBounds: async (bounds) => bounds.width === 0 ? zeroStatus(bounds.sequence) : visibleStatus(bounds.sequence),
+    hideBrowser: () => new Promise((resolve) => {
+      resolveHide = resolve;
+    }),
+    showBrowser: async () => zeroStatus(),
+    waitForNextFrame: async () => undefined,
+  });
+  const second = createArchitectAttachmentCoordinator({
+    measureHost: () => ({ x: 3, y: 4, width: 700, height: 420 }),
+    nextSequence: () => 2,
+    onError: () => undefined,
+    onStatus: (status) => secondCalls.push(status.attachment.state),
+    setBounds: async (bounds) => visibleStatus(bounds.sequence),
+    hideBrowser: async () => zeroStatus(),
+    showBrowser: async () => zeroStatus(),
+    waitForNextFrame: async () => undefined,
+  });
+
+  assert.equal((await first.attach()).status, "attached-visible");
+  const staleDetach = first.detach();
+  await Promise.resolve();
+  assert.equal((await second.attach()).status, "attached-visible");
+  resolveHide(zeroStatus());
+  await staleDetach;
+
+  assert.deepEqual(firstCalls, [
+    "attached-zero-bounds",
+    "attached-visible",
+    "attached-zero-bounds",
+  ]);
+  assert.deepEqual(secondCalls, [
+    "attached-zero-bounds",
+    "attached-visible",
+  ]);
+});
+
 test("Architect browser retry visibility is derived from attachment failure state", () => {
-  assert.equal(shouldShowArchitectBrowserRetry(null), true);
-  assert.equal(shouldShowArchitectBrowserRetry(zeroStatus()), true);
+  assert.equal(shouldShowArchitectBrowserRetry(null), false);
+  assert.equal(shouldShowArchitectBrowserRetry(zeroStatus()), false);
   assert.equal(shouldShowArchitectBrowserRetry({
     ...visibleStatus(),
     attachment: {
@@ -308,6 +358,7 @@ test("Architect browser retry visibility is derived from attachment failure stat
       lastError: "failed",
     },
   }), true);
+  assert.equal(shouldShowArchitectBrowserRetry(visibleStatus(), "zero layout"), true);
   assert.equal(shouldShowArchitectBrowserRetry(visibleStatus()), false);
 });
 
@@ -315,14 +366,16 @@ test("Architect Interview source layout removes generic panels and preserves dua
   const appSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "App.tsx"), "utf8");
   const styleSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "styles.css"), "utf8");
 
-  assert.match(appSource, /activeWorkspaceId !== "architect-interview" \? \(\s*<div className=\{workspace\.ok \? "workspace-status ready" : "workspace-status"\}>/s);
-  assert.match(appSource, /activeWorkspaceId !== "architect-interview" \? \(\s*<CurrentWorkspaceBanner/s);
+  assert.match(appSource, /<section className="project-selector" aria-label="Selected Project">/);
+  assert.doesNotMatch(appSource, /workspace-status ready/);
+  assert.match(appSource, /!isArchitectEnabledWorkspace\(activeWorkspaceId\) \? \(\s*<CurrentWorkspaceBanner/s);
+  assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
   assert.match(styleSource, /grid-template-rows:\s*auto auto minmax\(0, 1fr\);/);
   assert.match(appSource, /<article className="document-preview">/);
   assert.match(appSource, /<aside className="architect-surface-pane" aria-label="Architect browser surface">/);
   assert.doesNotMatch(appSource, /External/);
   assert.doesNotMatch(appSource, /surfaceMode/);
   assert.doesNotMatch(styleSource, /surface-mode/);
-  assert.match(appSource, /shouldShowArchitectBrowserRetry\(browserStatus\)/);
+  assert.match(appSource, /shouldShowArchitectBrowserRetry\(browserStatus, attachmentError\)/);
   assert.match(appSource, /Retry Embedded Browser/);
 });

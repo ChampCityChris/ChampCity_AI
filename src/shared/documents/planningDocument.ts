@@ -33,6 +33,7 @@ export interface PlanningDocumentSummary {
 }
 
 export interface PlanningDocumentDetail extends PlanningDocumentSummary {
+  bodyMarkdown: string;
   preview: string;
   previewTruncated: boolean;
 }

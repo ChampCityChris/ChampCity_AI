@@ -22,6 +22,11 @@ const {
 const {
   parseCanonicalMarkdownDocument,
 } = require("../../dist/shared/documents/canonicalMarkdown.js");
+const {
+  seedApprovedProjectIntake,
+  tempWorkspace: tempCanonicalWorkspace,
+  writeDoc,
+} = require("../support/canonical-markdown-fixtures.cjs");
 
 function tempWorkspace() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-proof2-"));
@@ -99,4 +104,62 @@ test("Proof 2 production-service workflow reaches Project Planning after revised
 
   const reconstructed = getCurrentWorkspaceModel(root);
   assert.deepEqual(reconstructed, projectPlanning);
+});
+
+test("current workflow opens missing Phase Map with Profile and Roadmap input evidence", () => {
+  const root = tempCanonicalWorkspace("champcity-current-phase-map-");
+  const { intake, prompt, interview } = seedApprovedProjectIntake(root, "demo");
+  writeDoc(root, interview, "project-architect-interview", "Approved", {
+    identity: { "Project.ArtifactKey": "demo" },
+    sourceRevisions: [
+      { path: intake, revision: 1 },
+      { path: prompt, revision: 1 },
+    ],
+  });
+  const handoff = writeDoc(
+    root,
+    "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo.md",
+    "generated-handoff",
+    "Approved",
+    {
+      participationRole: "nonReviewHandoff",
+      identity: { handoffKind: "project-planning", "Project.ArtifactKey": "demo" },
+      sourceRevisions: [
+        { path: intake, revision: 1 },
+        { path: prompt, revision: 1 },
+        { path: interview, revision: 1 },
+      ],
+      workflowData: {
+        handoffKind: "project-planning",
+        projectProfileTarget: "planning/project/PROJECT_PROFILE.md",
+        projectRoadmapTarget: "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+      },
+    },
+  );
+  const profile = writeDoc(root, "planning/project/PROJECT_PROFILE.md", "project-profile", "Approved", {
+    participationRole: "compoundGatingReview",
+    identity: { "Project.ArtifactKey": "demo" },
+    sourceRevisions: [
+      { path: intake, revision: 1 },
+      { path: prompt, revision: 1 },
+      { path: interview, revision: 1 },
+      { path: handoff, revision: 1 },
+    ],
+  });
+  const roadmap = writeDoc(root, "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md", "project-roadmap", "Approved", {
+    participationRole: "compoundGatingReview",
+    identity: { "Project.ArtifactKey": "demo" },
+    sourceRevisions: [
+      { path: intake, revision: 1 },
+      { path: prompt, revision: 1 },
+      { path: interview, revision: 1 },
+      { path: handoff, revision: 1 },
+    ],
+  });
+
+  const model = getCurrentWorkspaceModel(root);
+
+  assert.equal(model.activeWorkspaceId, "project-phase-map");
+  assert.deepEqual(model.sourceEvidence, [profile, roadmap]);
+  assert.equal(model.eligibility, "Phase Map is ready.");
 });

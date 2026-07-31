@@ -1,6 +1,6 @@
 import { ArrowRight, CornerDownRight, CornerUpLeft, RotateCcw, Wrench } from "lucide-react";
 
-import type { ArchitectInterviewRailStatus, WorkspaceId } from "../../shared/workspaceContracts";
+import type { ArchitectInterviewRailStatus, ProjectLifecycleRailStatus, WorkspaceId } from "../../shared/workspaceContracts";
 import type { ProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
 import {
   deriveProjectRailPresentation,
@@ -11,6 +11,7 @@ interface NestedWorkflowRailProps {
   activeWorkspaceId: WorkspaceId;
   onWorkspaceChange: (workspaceId: WorkspaceId) => void;
   architectInterviewStatus?: ArchitectInterviewRailStatus;
+  projectRailStatuses?: Partial<Record<WorkspaceId, ProjectLifecycleRailStatus>>;
   projectIntakeStatus?: ProjectIntakeRailStatus;
   requiredWorkspaceId?: WorkspaceId | null;
   workspaceCounts?: Partial<Record<WorkspaceId, number>>;
@@ -223,6 +224,7 @@ export function NestedWorkflowRail({
   activeWorkspaceId,
   architectInterviewStatus = "Open",
   onWorkspaceChange,
+  projectRailStatuses = {},
   projectIntakeStatus = "Open",
   requiredWorkspaceId = null,
 }: NestedWorkflowRailProps): JSX.Element {
@@ -256,7 +258,8 @@ export function NestedWorkflowRail({
                 item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
               destinationWorkspaceId: item.destination,
               requiredWorkspaceId,
-              statusLabel: item.id === "project-intake" ? projectIntakeStatus : undefined,
+              statusLabel: projectRailStatuses[item.destination] ??
+                (item.id === "project-intake" ? projectIntakeStatus : undefined),
               architectInterviewStatus: item.id === "architect-interview" ? architectInterviewStatus : undefined,
             });
             return (
@@ -334,7 +337,7 @@ function WorkflowStepButton({
   return (
     <button
       aria-current={state === "exact" ? "page" : undefined}
-      aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${stateLabel}.${presentation.isRequired ? " Current required step." : ""} Open workspace.`}
+      aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${stateLabel}.${presentation.isRequired ? " Current required step." : ""} Open workflow step.`}
       className={[
         "group flex h-[62px] min-w-0 flex-col rounded-md border px-2 py-1.5 text-left transition-colors",
         stepStateClass(tone, state),
@@ -351,9 +354,6 @@ function WorkflowStepButton({
         <span className="ml-auto">{stateLabel}</span>
       </span>
       <span className="mt-1 text-[12px] font-bold leading-[1.1] text-current">{label}</span>
-      <span className="mt-auto text-[9px] font-semibold leading-none opacity-60 group-hover:opacity-85">
-        Open
-      </span>
     </button>
   );
 }
@@ -449,7 +449,7 @@ function LoopItemButton({
   return (
     <button
       aria-current={state === "exact" ? "page" : undefined}
-      aria-label={`${fullLabel}: ${state}. Open workspace.`}
+      aria-label={`${fullLabel}: ${state}. Open workflow step.`}
       className={[
         isBranch
           ? "flex h-[18px] min-w-0 items-center justify-center gap-1 rounded border px-1.5 text-center text-[8px] font-bold leading-none transition-colors"

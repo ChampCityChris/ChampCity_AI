@@ -27,8 +27,13 @@ import {
   reviewArchitectInterview,
   saveCurrentArchitectInterviewOutput,
 } from "./architectInterview/architectInterviewService";
-import { saveProjectPlanningOutputs } from "./projectPlanning/projectPlanningService";
-import { savePhaseMapOutput } from "./phaseMap/phaseMapService";
+import {
+  getProjectPlanningHandoffInstruction,
+  getProjectPlanningWorkspaceModel,
+  prepareProjectPlanningHandoff,
+  reviewProjectPlanningBundle,
+} from "./projectPlanning/projectPlanningService";
+import { getPhaseMapHandoffInstruction } from "./phaseMap/phaseMapService";
 import { savePhaseInterviewOutput } from "./phaseInterview/phaseInterviewService";
 import { savePhasePlanningOutputs } from "./phasePlanning/phasePlanningService";
 import { saveFormalWorkCardOutput } from "./workCardPlanning/workCardPlanningService";
@@ -58,10 +63,8 @@ import type {
   ArchitectBrowserFoundationStatus,
   ArchitectInterviewWorkspaceModel,
   CurrentWorkspaceModel,
+  ProjectPlanningWorkspaceModel,
   RuntimeActionResult,
-  ProjectPlanningOutputsInput,
-  ProjectPlanningOutputsSaveResult,
-  PhaseMapOutputSaveResult,
   PhaseInterviewOutputSaveResult,
   PhasePlanningOutputsInput,
   PhasePlanningOutputsSaveResult,
@@ -275,19 +278,44 @@ ipcMain.handle("architectInterview:saveOutput", (_event, markdownBody: string): 
   return saveCurrentArchitectInterviewOutput(getRequiredWorkspaceRoot(), markdownBody);
 });
 
-ipcMain.handle("projectPlanning:saveOutputs", (_event, input: ProjectPlanningOutputsInput): ProjectPlanningOutputsSaveResult => {
-  const workspaceRoot = getRequiredWorkspaceRoot();
+ipcMain.handle("projectPlanning:getModel", (): ProjectPlanningWorkspaceModel => {
+  return getProjectPlanningWorkspaceModel(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("projectPlanning:prepareHandoff", (): ProjectPlanningWorkspaceModel => {
+  return prepareProjectPlanningHandoff(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("projectPlanning:copyHandoff", (): RuntimeActionResult => {
+  const instruction = getProjectPlanningHandoffInstruction(getRequiredWorkspaceRoot());
+  clipboard.writeText(instruction);
   return {
-    ...saveProjectPlanningOutputs(workspaceRoot, input),
-    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+    ok: true,
+    action: "projectPlanning:copyHandoff",
+    message: "Project Planning handoff copied. Paste and send it manually in the embedded ChatGPT pane.",
+    payload: {
+      bytes: Buffer.byteLength(instruction, "utf8"),
+    },
   };
 });
 
-ipcMain.handle("phaseMap:saveOutput", (_event, markdownBody: string): PhaseMapOutputSaveResult => {
-  const workspaceRoot = getRequiredWorkspaceRoot();
+ipcMain.handle(
+  "projectPlanning:reviewBundle",
+  (_event, status: DocumentDispositionStatus, operatorReviewNotes: string): ProjectPlanningWorkspaceModel => {
+    return reviewProjectPlanningBundle(getRequiredWorkspaceRoot(), status, operatorReviewNotes);
+  },
+);
+
+ipcMain.handle("phaseMap:copyHandoff", (): RuntimeActionResult => {
+  const instruction = getPhaseMapHandoffInstruction(getRequiredWorkspaceRoot());
+  clipboard.writeText(instruction);
   return {
-    ...savePhaseMapOutput(workspaceRoot, markdownBody),
-    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
+    ok: true,
+    action: "phaseMap:copyHandoff",
+    message: "Phase Map handoff copied. Paste and send it manually in the embedded ChatGPT pane.",
+    payload: {
+      bytes: Buffer.byteLength(instruction, "utf8"),
+    },
   };
 });
 

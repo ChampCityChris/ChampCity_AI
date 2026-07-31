@@ -87,16 +87,28 @@ const api: ChampCityApi = {
       "architectInterview:saveOutput",
       markdownBody,
     ) as ReturnType<ChampCityApi["saveArchitectInterviewOutput"]>,
-  saveProjectPlanningOutputs: (input) =>
+  getProjectPlanningWorkspaceModel: () =>
     ipcRenderer.invoke(
-      "projectPlanning:saveOutputs",
-      input,
-    ) as ReturnType<ChampCityApi["saveProjectPlanningOutputs"]>,
-  savePhaseMapOutput: (markdownBody) =>
+      "projectPlanning:getModel",
+    ) as ReturnType<ChampCityApi["getProjectPlanningWorkspaceModel"]>,
+  prepareProjectPlanningHandoff: () =>
     ipcRenderer.invoke(
-      "phaseMap:saveOutput",
-      markdownBody,
-    ) as ReturnType<ChampCityApi["savePhaseMapOutput"]>,
+      "projectPlanning:prepareHandoff",
+    ) as ReturnType<ChampCityApi["prepareProjectPlanningHandoff"]>,
+  copyProjectPlanningHandoff: () =>
+    ipcRenderer.invoke(
+      "projectPlanning:copyHandoff",
+    ) as ReturnType<ChampCityApi["copyProjectPlanningHandoff"]>,
+  reviewProjectPlanningBundle: (status, operatorReviewNotes) =>
+    ipcRenderer.invoke(
+      "projectPlanning:reviewBundle",
+      status,
+      operatorReviewNotes,
+    ) as ReturnType<ChampCityApi["reviewProjectPlanningBundle"]>,
+  copyPhaseMapHandoff: () =>
+    ipcRenderer.invoke(
+      "phaseMap:copyHandoff",
+    ) as ReturnType<ChampCityApi["copyPhaseMapHandoff"]>,
   savePhaseInterviewOutput: (markdownBody) =>
     ipcRenderer.invoke(
       "phaseInterview:saveOutput",
