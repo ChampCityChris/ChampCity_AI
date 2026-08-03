@@ -10,20 +10,20 @@ import type {
   PlanningDocumentDetail,
   PlanningDocumentMetadata,
   PlanningDocumentSummary,
-  SourceRevision,
 } from "../../shared/documents/planningDocument";
 import {
-  type CanonicalDocumentMetadata,
   metadataOpenDelimiter,
   metadataWithDisposition,
   metadataWithSubstantiveRevision,
   parseCanonicalMarkdownDocument,
-  serializeCanonicalMarkdownDocument,
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateFreshnessFromSummaries, type FreshnessEvaluation } from "../../shared/documents/sourceFreshness";
 import { classifyLifecycleArtifact } from "../../shared/documents/lifecycleArtifact";
 import { isArchitectDraftRelativePath } from "../architectOutputs/architectDraftPaths";
-import { writeArtifactTransaction } from "./artifactTransaction";
+import {
+  writeCanonicalMarkdownDocument,
+  writeCanonicalMarkdownDocuments,
+} from "./canonicalMarkdownDocumentWriter";
 
 interface FileEntry {
   absolutePath: string;
@@ -100,11 +100,12 @@ export function setDocumentDisposition(
     status === "RevisionRequested" ? record.summary.metadata.canonical!.documentDisposition.notes : "",
     new Date().toISOString(),
   );
-  writeCanonicalMarkdownTransaction(workspaceRoot, [{
+  writeCanonicalMarkdownDocument({
+    workspaceRoot,
     relativePath: record.summary.markdownPath,
     metadata,
     bodyMarkdown: record.bodyMarkdown ?? "",
-  }]);
+  });
   return findReadRecord(workspaceRoot, logicalDocumentId).summary;
 }
 
@@ -118,9 +119,9 @@ export function setDocumentDispositions(
     throw new Error("Unsupported document disposition status.");
   }
   const records = logicalDocumentIds.map((logicalDocumentId) => findReadableRecord(workspaceRoot, logicalDocumentId));
-  writeCanonicalMarkdownTransaction(
-    workspaceRoot,
+  writeCanonicalMarkdownDocuments(
     records.map((record) => ({
+      workspaceRoot,
       relativePath: record.summary.markdownPath,
       metadata: metadataWithDisposition(
         record.summary.metadata.canonical!,
@@ -132,6 +133,16 @@ export function setDocumentDispositions(
     })),
   );
   return records.map((record) => findReadRecord(workspaceRoot, record.summary.logicalDocumentId).summary);
+}
+
+export function assertGenericDocumentDispositionRouteAllowed(
+  workspaceRoot: string,
+  logicalDocumentId: string,
+): void {
+  const record = findReadableRecord(workspaceRoot, logicalDocumentId);
+  if (isCatalogOwnedArchitectOutput(record.summary)) {
+    throw new Error("Catalog-owned Architect outputs must be reviewed through architectOutput:review.");
+  }
 }
 
 export interface RevisionSaveResult {
@@ -168,7 +179,10 @@ export function savePlanningDocumentRevision(
       bodyMarkdown: downstream.bodyMarkdown ?? "",
     }))];
 
-  writeCanonicalMarkdownTransaction(workspaceRoot, entries);
+  writeCanonicalMarkdownDocuments(entries.map((entry) => ({
+    workspaceRoot,
+    ...entry,
+  })));
 
   const revisedDocument = findReadRecord(workspaceRoot, logicalDocumentId).summary;
   const updatedDocuments = listPlanningDocuments(workspaceRoot);
@@ -178,31 +192,6 @@ export function savePlanningDocumentRevision(
     )
     .filter((candidate): candidate is PlanningDocumentSummary => Boolean(candidate));
   return { revisedDocument, invalidatedDocuments };
-}
-
-function writeCanonicalMarkdownTransaction(
-  workspaceRoot: string,
-  documents: Array<{ relativePath: string; metadata: CanonicalDocumentMetadata; bodyMarkdown: string }>,
-): void {
-  const entries = documents.map((document) => ({
-    relativePath: document.relativePath,
-    content: serializeCanonicalMarkdownDocument(document.metadata, document.bodyMarkdown),
-  }));
-  writeArtifactTransaction(workspaceRoot, entries, () => {
-    for (const document of documents) {
-      const installed = parseCanonicalMarkdownDocument(
-        fs.readFileSync(path.join(workspaceRoot, document.relativePath), "utf8"),
-      );
-      if (JSON.stringify(installed.metadata) !== JSON.stringify(document.metadata)) {
-        throw new Error("Installed canonical metadata verification failed.");
-      }
-      if (installed.bodyMarkdown !== parseCanonicalMarkdownDocument(
-        serializeCanonicalMarkdownDocument(document.metadata, document.bodyMarkdown),
-      ).bodyMarkdown) {
-        throw new Error("Installed canonical body verification failed.");
-      }
-    }
-  });
 }
 
 export function evaluateDocumentFreshness(
@@ -446,4 +435,18 @@ function comparePaths(left: string, right: string): number {
 function isInside(root: string, target: string): boolean {
   const relativePath = path.relative(root, target);
   return relativePath.length === 0 || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function isCatalogOwnedArchitectOutput(document: PlanningDocumentSummary): boolean {
+  return new Set([
+    "project-architect-interview",
+    "project-profile",
+    "project-roadmap",
+    "phase-map",
+    "phase-interview",
+    "phase-planning",
+    "work-card-plan",
+    "formal-work-card",
+    "repair-work-card",
+  ]).has(document.metadata.artifactType ?? "");
 }

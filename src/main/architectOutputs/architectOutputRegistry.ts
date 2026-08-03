@@ -4,9 +4,9 @@ import type {
 } from "../../shared/architectOutputs/architectOutputContracts";
 
 export class ArchitectOutputRegistry {
-  private readonly definitions = new Map<string, ArchitectOutputDefinition>();
+  private readonly definitions = new Map<string, ArchitectOutputDefinition<any, any, any>>();
 
-  register(definition: ArchitectOutputDefinition): void {
+  register(definition: ArchitectOutputDefinition<any, any, any>): void {
     validateDefinition(definition);
     const key = registryKey(definition.outputKind, definition.owningWorkspaceId);
     if (this.definitions.has(key)) {
@@ -15,7 +15,7 @@ export class ArchitectOutputRegistry {
     this.definitions.set(key, definition);
   }
 
-  resolve(outputKind: string, owningWorkspaceId: string): ArchitectOutputDefinition {
+  resolve(outputKind: string, owningWorkspaceId: string): ArchitectOutputDefinition<any, any, any> {
     const definition = this.definitions.get(registryKey(outputKind, owningWorkspaceId));
     if (!definition) {
       throw new Error("Unknown Architect output definition.");
@@ -25,7 +25,7 @@ export class ArchitectOutputRegistry {
 }
 
 export function createArchitectOutputRegistry(
-  definitions: readonly ArchitectOutputDefinition[] = [],
+  definitions: readonly ArchitectOutputDefinition<any, any, any>[] = [],
 ): ArchitectOutputRegistry {
   const registry = new ArchitectOutputRegistry();
   for (const definition of definitions) {
@@ -34,7 +34,7 @@ export function createArchitectOutputRegistry(
   return registry;
 }
 
-function validateDefinition(definition: ArchitectOutputDefinition): void {
+function validateDefinition(definition: ArchitectOutputDefinition<any, any, any>): void {
   requireText(definition.outputKind, "outputKind");
   requireText(definition.owningWorkspaceId, "owningWorkspaceId");
   validateBundleMode(definition.bundleMode);

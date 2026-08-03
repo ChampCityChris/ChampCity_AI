@@ -217,17 +217,17 @@ test("Phase Map disposition controls render only for readable selected Phase Map
   );
 });
 
-test("Phase Map dual-pane preview renders its specialized disposition control surface", () => {
+test("Architect-output dual-pane preview renders the generic review shell", () => {
   const source = fs.readFileSync(appSourcePath, "utf8");
-  const phaseMapBranch = source.match(/activeWorkspaceId === "project-phase-map" \? \((?<body>[\s\S]*?)\) : specializedDispositionWorkspaceIds/);
 
-  assert.ok(phaseMapBranch);
-  assert.match(source, /activeWorkspaceId === "project-phase-map" \? \(\s*<PhaseMapPreviewReview/);
-  assert.match(source, /aria-label="Phase Map Review"/);
-  assert.match(source, /Apply Phase Map Review/);
-  assert.match(phaseMapBranch.groups.body, /onReview=\{applyDisposition\}/);
-  assert.doesNotMatch(phaseMapBranch.groups.body, /applyCurrentDisposition/);
-  assert.doesNotMatch(source, /activeWorkspaceId === "project-phase-map"[\s\S]{0,300}Specialized review controls appear when the current outputs exist/);
+  assert.match(source, /<ArchitectOutputReviewShell/);
+  assert.match(source, /aria-label="Architect output review"/);
+  assert.match(source, /Apply Review/);
+  assert.match(source, /onReview=\{applyArchitectOutputReview\}/);
+  assert.match(source, /viewedArchitectOutputRevisionKeys/);
+  assert.doesNotMatch(source, /<PhaseMapPreviewReview/);
+  assert.doesNotMatch(source, /onReview=\{applyDisposition\}[\s\S]{0,120}Apply Phase Map Review/);
+  assert.doesNotMatch(source, /Specialized review controls appear when the current outputs exist/);
 });
 
 test("project selector uses a stacked full-width action layout", () => {
@@ -263,6 +263,34 @@ test("all top project rail cards receive one title-cased lifecycle status", () =
 test("top project rail source does not render the static lower Open line", () => {
   const source = fs.readFileSync(railSourcePath, "utf8");
   assert.doesNotMatch(source, /group-hover:opacity-85[\s\S]*Open[\s\S]*<\/span>/);
+});
+
+test("visible Work Card loop has one Planning item and no separate Intake item", () => {
+  const source = fs.readFileSync(railSourcePath, "utf8");
+  const workCardLoopSource = source.slice(
+    source.indexOf("const workCardLoopItems"),
+    source.indexOf("const repairLoopItem"),
+  );
+
+  assert.match(workCardLoopSource, /label:\s*"Planning"/);
+  assert.match(workCardLoopSource, /destination:\s*"work-card-planning"/);
+  assert.doesNotMatch(workCardLoopSource, /label:\s*"Work Card Intake"/);
+  assert.doesNotMatch(workCardLoopSource, /destination:\s*"work-card-intake"/);
+});
+
+test("Work Card Architect workspaces use dedicated 56/44 layout without changing other dual-pane layouts", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
+  const workCardLayoutRule = stylesSource.match(/\.document-workspace\.work-card-architect-workspace\s*\{(?<body>[^}]*)\}/);
+  const existingArchitectRule = stylesSource.match(/\.document-workspace\.architect-interview-workspace\s*\{(?<body>[^}]*)\}/);
+
+  assert.match(appSource, /workCardArchitectLayoutWorkspaceIds/);
+  assert.match(appSource, /"document-workspace work-card-architect-workspace"/);
+  assert.ok(workCardLayoutRule);
+  assert.match(workCardLayoutRule.groups.body, /minmax\(560px,\s*56fr\)\s+minmax\(420px,\s*44fr\)/);
+  assert.ok(existingArchitectRule);
+  assert.match(existingArchitectRule.groups.body, /minmax\(0,\s*0\.95fr\)\s+minmax\(0,\s*1\.05fr\)/);
+  assert.match(stylesSource, /@media \(max-width:\s*1080px\)[\s\S]*\.document-workspace\.work-card-architect-workspace[\s\S]*grid-template-columns:\s*1fr/);
 });
 
 test("project rail reports duplicate current Project Planning handoffs as Needs Attention", () => {

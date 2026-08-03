@@ -12,14 +12,18 @@ const {
 } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
 const {
   buildDeterministicArchitectDraftSubmissionId,
+  maxArchitectDraftRelativePathLength,
+  maxArchitectDraftSubmissionIdLength,
 } = require("../../dist/main/architectOutputs/architectDraftPaths.js");
 const {
   createArchitectOutputRegistry,
 } = require("../../dist/main/architectOutputs/architectOutputRegistry.js");
 const {
+  __setArchitectDraftCleanupTestHooks,
   cleanupArchitectDraftSubmission,
   createArchitectDraftSubmission,
   inspectArchitectDraftSubmission,
+  retryArchitectDraftSubmissionCleanup,
 } = require("../../dist/main/architectOutputs/architectDraftSubmissionService.js");
 const {
   promoteArchitectDraftSubmission,
@@ -40,6 +44,16 @@ function context(submissionKey = "demo") {
     sourceHandoff: {
       path: "planning/fixture/Handoffs/FIXTURE_HANDOFF.md",
       revision: 2,
+    },
+  };
+}
+
+function contextWithSourcePath(sourcePath, revision = 2, submissionKey = "demo") {
+  return {
+    submissionKey,
+    sourceHandoff: {
+      path: sourcePath,
+      revision,
     },
   };
 }
@@ -188,11 +202,122 @@ function readCanonical(root, relativePath) {
   return parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, relativePath), "utf8"));
 }
 
+function findNearBoundSourcePath(definition) {
+  let candidate = "planning/a.md";
+  for (let length = 1; length < 500; length += 1) {
+    const sourcePath = `planning/${"a".repeat(length)}.md`;
+    try {
+      createArchitectDraftSubmission(
+        definition,
+        contextWithSourcePath(sourcePath, 1, "near-bound"),
+      );
+    } catch (error) {
+      return candidate;
+    }
+    candidate = sourcePath;
+  }
+  throw new Error("Could not build a near-bound source path fixture.");
+}
+
+function assertDistinctSubmissionIdentityPair(definition, sourcePathA, sourcePathB) {
+  const submissionA = createArchitectDraftSubmission(
+    definition,
+    contextWithSourcePath(sourcePathA, 1, "collision"),
+  );
+  const submissionB = createArchitectDraftSubmission(
+    definition,
+    contextWithSourcePath(sourcePathB, 1, "collision"),
+  );
+  assert.notEqual(submissionA.submissionId, submissionB.submissionId);
+  assert.notEqual(
+    submissionA.expectedDraftSlots[0].draftRelativePath,
+    submissionB.expectedDraftSlots[0].draftRelativePath,
+  );
+  return submissionA;
+}
+
+test("submission identity preserves source path boundaries and enforces path bounds before mutation", () => {
+  const root = tempWorkspace();
+  const definition = singleDefinition();
+
+  assertDistinctSubmissionIdentityPair(
+    definition,
+    "planning/-/handoff.md",
+    "planning/x2d/handoff.md",
+  );
+  assertDistinctSubmissionIdentityPair(
+    definition,
+    "planning/x/handoff.md",
+    "planning/x78/handoff.md",
+  );
+  const collidingA = assertDistinctSubmissionIdentityPair(
+    definition,
+    "planning/a-b/c.md",
+    "planning/a/b-c.md",
+  );
+
+  const deterministicA = createArchitectDraftSubmission(
+    definition,
+    contextWithSourcePath("planning/a-b/c.md", 1, "collision"),
+  );
+  assert.equal(deterministicA.submissionId, collidingA.submissionId);
+  assert.equal(
+    deterministicA.expectedDraftSlots[0].draftRelativePath,
+    collidingA.expectedDraftSlots[0].draftRelativePath,
+  );
+
+  const revisionTwo = createArchitectDraftSubmission(
+    definition,
+    contextWithSourcePath("planning/a-b/c.md", 2, "collision"),
+  );
+  assert.notEqual(revisionTwo.submissionId, collidingA.submissionId);
+
+  const nearBoundPath = findNearBoundSourcePath(definition);
+  const nearBound = createArchitectDraftSubmission(
+    definition,
+    contextWithSourcePath(nearBoundPath, 1, "near-bound"),
+  );
+  assert.ok(nearBound.submissionId.length <= maxArchitectDraftSubmissionIdLength);
+  assert.ok(nearBound.promotionGroupId.length <= maxArchitectDraftSubmissionIdLength);
+  assert.ok(
+    nearBound.expectedDraftSlots[0].draftRelativePath.length <= maxArchitectDraftRelativePathLength,
+  );
+  assert.ok(maxArchitectDraftSubmissionIdLength - nearBound.promotionGroupId.length <= 5);
+
+  const overBoundPath = nearBoundPath.replace(".md", "aaaaaa.md");
+  assert.throws(
+    () => createArchitectDraftSubmission(
+      definition,
+      contextWithSourcePath(overBoundPath, 1, "near-bound"),
+    ),
+    /submission ID|relative path/,
+  );
+  assert.equal(fs.existsSync(path.join(root, "planning", "Architect_Drafts")), false);
+  assert.equal(fs.existsSync(path.join(root, "planning", "fixtures")), false);
+
+  for (const unsupportedPath of [
+    "C:/outside/handoff.md",
+    "/outside/handoff.md",
+    "planning/../outside.md",
+    "../outside.md",
+  ]) {
+    assert.throws(
+      () => createArchitectDraftSubmission(
+        definition,
+        contextWithSourcePath(unsupportedPath, 1, "unsupported"),
+      ),
+      /repository-relative|escaping/,
+    );
+  }
+  assert.equal(fs.existsSync(path.join(root, "planning", "Architect_Drafts")), false);
+  assert.equal(fs.existsSync(path.join(root, "planning", "fixtures")), false);
+});
+
 test("central draft paths are deterministic and excluded from planning discovery", () => {
   const root = tempWorkspace();
   const definition = singleDefinition();
   const submission = createArchitectDraftSubmission(definition, context("discovery"));
-  assert.match(submission.submissionId, /^architect-draft-fixture-architect-workspace-/);
+  assert.match(submission.submissionId, /^ad-fixture-architect-workspace-/);
   assert.equal(
     submission.expectedDraftSlots[0].draftRelativePath,
     `planning/Architect_Drafts/${submission.submissionId}/single.md`,
@@ -247,6 +372,7 @@ test("single-output promotion writes canonical metadata, cleans drafts, and is i
 
   const result = promoteArchitectDraftSubmission({ workspaceRoot: root, registry, submission });
   assert.equal(result.status, "promoted");
+  assert.equal(result.cleanupStatus, "completed");
   assert.equal(result.alreadyPromoted, false);
   assert.deepEqual(result.selection, { selectedPath: result.finalRelativePaths[0] });
   assert.equal(fs.existsSync(path.join(root, submission.expectedDraftSlots[0].draftRelativePath)), false);
@@ -266,6 +392,51 @@ test("single-output promotion writes canonical metadata, cleans drafts, and is i
   assert.equal(repeated.status, "promoted");
   assert.equal(repeated.alreadyPromoted, true);
   assert.equal(fs.readFileSync(path.join(root, result.finalRelativePaths[0]), "utf8"), beforeBytes);
+});
+
+test("single-output promotion reports cleanup failure without rolling back final output and supports bounded retry", () => {
+  const root = tempWorkspace();
+  const definition = singleDefinition();
+  const registry = createArchitectOutputRegistry([definition]);
+  const submission = createArchitectDraftSubmission(definition, context("single-cleanup-failure"));
+  const draftRelativePath = writeDraft(
+    root,
+    submission,
+    "single",
+    "# Fixture Single\n\n## Required Structure\n\nBody text.\n",
+  );
+  const unrelatedPath = path.join(root, `planning/Architect_Drafts/${submission.submissionId}/unrelated.md`);
+  fs.writeFileSync(unrelatedPath, "# Unrelated\n", "utf8");
+
+  __setArchitectDraftCleanupTestHooks({
+    failBeforeExpectedDraftDelete(relativePath) {
+      return relativePath === draftRelativePath ? "Injected cleanup failure." : undefined;
+    },
+  });
+  let result;
+  try {
+    result = promoteArchitectDraftSubmission({ workspaceRoot: root, registry, submission });
+  } finally {
+    __setArchitectDraftCleanupTestHooks();
+  }
+
+  assert.equal(result.status, "promoted");
+  assert.equal(result.cleanupStatus, "failed");
+  assert.equal(result.cleanupError, "Injected cleanup failure.");
+  assert.deepEqual(result.selection, { selectedPath: result.finalRelativePaths[0] });
+  assert.equal(result.finalRelativePaths.length, 1);
+  assert.equal(readCanonical(root, result.finalRelativePaths[0]).metadata.artifactType, "fixture-single-architect-output");
+  assert.equal(fs.existsSync(path.join(root, draftRelativePath)), true);
+  assert.equal(fs.existsSync(unrelatedPath), true);
+
+  const retry = retryArchitectDraftSubmissionCleanup(root, result.submission);
+  assert.equal(retry.cleanupStatus, "completed");
+  assert.equal(fs.existsSync(path.join(root, draftRelativePath)), false);
+  assert.equal(fs.existsSync(unrelatedPath), true);
+
+  const repeatedRetry = retryArchitectDraftSubmissionCleanup(root, result.submission);
+  assert.equal(repeatedRetry.cleanupStatus, "completed");
+  assert.equal(fs.existsSync(unrelatedPath), true);
 });
 
 test("atomic bundle promotion blocks partials, rolls back failures, retains drafts, and cleans on success", () => {
@@ -307,12 +478,57 @@ test("atomic bundle promotion blocks partials, rolls back failures, retains draf
 
   const success = promoteArchitectDraftSubmission({ workspaceRoot: root, registry, submission });
   assert.equal(success.status, "promoted");
+  assert.equal(success.cleanupStatus, "completed");
   assert.deepEqual(success.selection, { selectedPaths: success.finalRelativePaths });
   assert.equal(success.finalRelativePaths.length, 2);
   assert.equal(readCanonical(root, success.finalRelativePaths[0]).metadata.artifactType, "fixture-bundle-alpha-architect-output");
   assert.equal(readCanonical(root, success.finalRelativePaths[1]).metadata.artifactType, "fixture-bundle-beta-architect-output");
   assert.equal(fs.existsSync(path.join(root, submission.expectedDraftSlots[0].draftRelativePath)), false);
   assert.equal(fs.existsSync(path.join(root, submission.expectedDraftSlots[1].draftRelativePath)), false);
+});
+
+test("atomic bundle promotion reports cleanup failure without rolling back final outputs and supports bounded retry", () => {
+  const root = tempWorkspace();
+  const definition = bundleDefinition();
+  const registry = createArchitectOutputRegistry([definition]);
+  const submission = createArchitectDraftSubmission(definition, context("bundle-cleanup-failure"));
+  const alphaRelativePath = writeDraft(root, submission, "alpha", "# Alpha\n\n## Alpha Contract\n");
+  const betaRelativePath = writeDraft(root, submission, "beta", "# Beta\n\n## Beta Contract\n");
+  const unrelatedPath = path.join(root, `planning/Architect_Drafts/${submission.submissionId}/unrelated.md`);
+  fs.writeFileSync(unrelatedPath, "# Unrelated\n", "utf8");
+
+  __setArchitectDraftCleanupTestHooks({
+    failBeforeExpectedDraftDelete(relativePath) {
+      return relativePath === alphaRelativePath ? "Injected bundle cleanup failure." : undefined;
+    },
+  });
+  let result;
+  try {
+    result = promoteArchitectDraftSubmission({ workspaceRoot: root, registry, submission });
+  } finally {
+    __setArchitectDraftCleanupTestHooks();
+  }
+
+  assert.equal(result.status, "promoted");
+  assert.equal(result.cleanupStatus, "failed");
+  assert.equal(result.cleanupError, "Injected bundle cleanup failure.");
+  assert.deepEqual(result.selection, { selectedPaths: result.finalRelativePaths });
+  assert.equal(result.finalRelativePaths.length, 2);
+  assert.equal(readCanonical(root, result.finalRelativePaths[0]).metadata.artifactType, "fixture-bundle-alpha-architect-output");
+  assert.equal(readCanonical(root, result.finalRelativePaths[1]).metadata.artifactType, "fixture-bundle-beta-architect-output");
+  assert.equal(fs.existsSync(path.join(root, alphaRelativePath)), true);
+  assert.equal(fs.existsSync(path.join(root, betaRelativePath)), true);
+  assert.equal(fs.existsSync(unrelatedPath), true);
+
+  const retry = retryArchitectDraftSubmissionCleanup(root, result.submission);
+  assert.equal(retry.cleanupStatus, "completed");
+  assert.equal(fs.existsSync(path.join(root, alphaRelativePath)), false);
+  assert.equal(fs.existsSync(path.join(root, betaRelativePath)), false);
+  assert.equal(fs.existsSync(unrelatedPath), true);
+
+  const repeatedRetry = retryArchitectDraftSubmissionCleanup(root, result.submission);
+  assert.equal(repeatedRetry.cleanupStatus, "completed");
+  assert.equal(fs.existsSync(unrelatedPath), true);
 });
 
 test("superseded submissions do not promote and cleanup removes only expected drafts", () => {

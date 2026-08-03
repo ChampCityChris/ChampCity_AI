@@ -78,6 +78,73 @@ export const architectBrowserLoadStates = [
 
 export type ArchitectBrowserLoadState = (typeof architectBrowserLoadStates)[number];
 
+export type ArchitectOutputWorkspaceState =
+  | "not-ready"
+  | "ready-for-handoff"
+  | "waiting-for-drafts"
+  | "partial-draft-set"
+  | "promotion-failed"
+  | "ready-for-review"
+  | "revision-requested"
+  | "rejected"
+  | "completed"
+  | "needs-attention";
+
+export type ArchitectOutputReviewMode = "single" | "compound";
+
+export interface ArchitectOutputDocumentSlotModel {
+  slotId: string;
+  displayLabel: string;
+  targetPath: string;
+  logicalDocumentId?: string;
+  artifactRevision?: number;
+  disposition?: DocumentDispositionStatus;
+  documentReadState: string;
+  freshnessState?: "fresh" | "stale";
+  readError?: string;
+}
+
+export interface ArchitectOutputPresentedSlotRevision {
+  slotId: string;
+  targetPath: string;
+  artifactRevision: number;
+}
+
+export interface ArchitectOutputWorkspaceModel {
+  workspaceId: WorkspaceId;
+  outputKind: string;
+  bundleMode: "single-output" | "atomic-bundle";
+  state: ArchitectOutputWorkspaceState;
+  railStatus: ProjectLifecycleRailStatus;
+  requiredAction: string;
+  reason: string;
+  evidencePaths: string[];
+  handoff?: {
+    path: string;
+    revision: number;
+  };
+  preparedInstruction?: string;
+  submission?: {
+    submissionId: string;
+    state: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
+    draftSlots: Array<{
+      slotId: string;
+      displayLabel: string;
+      draftRelativePath: string;
+    }>;
+  };
+  promotionError?: string;
+  cleanupStatus?: string;
+  cleanupError?: string;
+  canPrepareHandoff: boolean;
+  canCopyHandoff: boolean;
+  reviewMode: ArchitectOutputReviewMode;
+  documentSlots: ArchitectOutputDocumentSlotModel[];
+  canApplyDisposition: boolean;
+  currentOperatorReviewNotes?: string;
+  domain?: unknown;
+}
+
 export type ArchitectHandoffState =
   | "handoff-unavailable"
   | "handoff-ready"
@@ -224,6 +291,8 @@ export interface ArchitectInterviewWorkspaceModel {
   railStatus: ArchitectInterviewRailStatus;
   handoffState: ArchitectHandoffState;
   handoffInstruction?: string;
+  draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
+  draftPromotionError?: string;
   promptDocument?: ArchitectInterviewDocumentIdentity & { outputMarkdownPath?: string };
   interviewTargets?: {
     markdownPath: string;
@@ -256,6 +325,7 @@ export type ProjectPlanningWorkspaceState =
   | "needs-attention";
 
 export type ProjectPlanningSelectedDocumentRole = "profile" | "roadmap";
+export type PhasePlanningSelectedDocumentRole = "phase-planning" | "work-card-plan";
 
 export type ProjectPlanningReconciliationMode =
   | "greenfield"
@@ -286,6 +356,8 @@ export interface ProjectPlanningWorkspaceModel {
   handoffInstruction?: string;
   handoffArtifactRevision?: number;
   handoffPreparationMessage?: string;
+  draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
+  draftPromotionError?: string;
   canPrepareHandoff: boolean;
   canCopyHandoff: boolean;
   canApplyBundleDisposition: boolean;
@@ -303,19 +375,208 @@ export interface ProjectPlanningWorkspaceModel {
   currentOperatorReviewNotes?: string;
 }
 
+export type PhasePlanningWorkspaceState =
+  | "not-ready"
+  | "ready-for-handoff"
+  | "waiting-for-output"
+  | "partial-output"
+  | "ready-for-review"
+  | "revision-requested"
+  | "rejected"
+  | "completed"
+  | "needs-attention";
+
+export interface PhasePlanningPhaseContext {
+  phaseId: string;
+  title: string;
+  order: number;
+  purpose: string;
+  dependsOn: string[];
+  sourceReferences: string[];
+}
+
+export interface PhasePlanningDocumentIdentity {
+  logicalDocumentId: string;
+  markdownPath: string;
+  artifactRevision: number;
+  disposition: DocumentDispositionStatus;
+  documentReadState: string;
+  freshnessState?: "fresh" | "stale";
+  participationRole?: string;
+  artifactType?: string;
+  readError?: string;
+  operatorReviewNotes?: string;
+}
+
+export interface PhasePlanningWorkspaceModel {
+  state: PhasePlanningWorkspaceState;
+  railStatus: ProjectLifecycleRailStatus;
+  requiredAction: string;
+  reason: string;
+  evidencePaths: string[];
+  handoffState: ArchitectHandoffState;
+  handoffMarkdownPath?: string;
+  handoffInstruction?: string;
+  handoffArtifactRevision?: number;
+  handoffPreparationMessage?: string;
+  draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
+  draftPromotionError?: string;
+  canPrepareHandoff: boolean;
+  canCopyHandoff: boolean;
+  canApplyBundleDisposition: boolean;
+  phase: PhasePlanningPhaseContext | null;
+  phasePlanningTarget: string;
+  workCardPlanTarget: string;
+  phasePlanningDocument?: PhasePlanningDocumentIdentity;
+  workCardPlanDocument?: PhasePlanningDocumentIdentity;
+  selectedPlanningDocumentRole: PhasePlanningSelectedDocumentRole;
+  bundleSynchronizationState: "missing" | "partial" | "synchronized" | "mixed-disposition" | "mixed-notes" | "invalid";
+  currentOperatorReviewNotes?: string;
+}
+
+export type PhaseInterviewWorkspaceState =
+  | "not-ready"
+  | "ready-for-handoff"
+  | "waiting-for-output"
+  | "ready-for-review"
+  | "revision-requested"
+  | "rejected"
+  | "completed"
+  | "needs-attention";
+
+export type PhaseInterviewSelectedDocumentRole = "phase-interview";
+
+export interface PhaseInterviewDocumentIdentity {
+  logicalDocumentId: string;
+  markdownPath: string;
+  artifactRevision: number;
+  disposition: DocumentDispositionStatus;
+  documentReadState: string;
+  freshnessState?: "fresh" | "stale";
+  participationRole?: string;
+  artifactType?: string;
+  readError?: string;
+  operatorReviewNotes?: string;
+}
+
+export interface PhaseInterviewPhaseContext {
+  phaseId: string;
+  title: string;
+  order: number;
+  purpose: string;
+  dependsOn: string[];
+  sourceReferences: string[];
+  dependencyCloseoutPaths: string[];
+}
+
+export interface PhaseInterviewWorkspaceModel {
+  state: PhaseInterviewWorkspaceState;
+  railStatus: ProjectLifecycleRailStatus;
+  requiredAction: string;
+  reason: string;
+  evidencePaths: string[];
+  handoffState: ArchitectHandoffState;
+  handoffMarkdownPath?: string;
+  handoffInstruction?: string;
+  handoffArtifactRevision?: number;
+  handoffPreparationMessage?: string;
+  draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
+  draftPromotionError?: string;
+  canPrepareHandoff: boolean;
+  canCopyHandoff: boolean;
+  canApplyDisposition: boolean;
+  phase?: PhaseInterviewPhaseContext;
+  phaseInterviewTarget: string;
+  interviewDocument?: PhaseInterviewDocumentIdentity;
+  selectedReviewDocumentRole: PhaseInterviewSelectedDocumentRole;
+  currentOperatorReviewNotes?: string;
+}
+
+export interface WorkCardIntakeCandidateProjection {
+  candidateId: string;
+  order: number;
+  title: string;
+  purpose: string;
+  dependsOn: string[];
+  resolutionStatus: string;
+  resolutionReason: string;
+  evidencePaths: string[];
+  carriedForwardToPhaseId?: string;
+}
+
+export interface WorkCardIntakeProjection {
+  phaseId: string;
+  sourceWorkCardPlanPath: string;
+  selectionReason: string;
+  candidate: WorkCardIntakeCandidateProjection;
+  handoffMarkdownPath: string;
+  formalWorkCardMarkdownPath: string;
+}
+
 export interface CurrentWorkspaceModel {
   activeWorkspaceId: WorkspaceId;
   level: string;
   stage: string;
+  architectOutputState?: ArchitectOutputWorkspaceState;
+  railStatus?: ProjectLifecycleRailStatus;
+  canPrepareHandoff?: boolean;
   currentPhaseId?: string;
   currentWorkCardId?: string;
+  executionContext: ExecutionContextProjection;
   currentTarget: string;
+  workCardIntake?: WorkCardIntakeProjection;
   sourceEvidence: string[];
   requiredAction: string;
   expectedOutput: string;
   eligibility: string;
   blocker?: string;
+  draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
+  draftPromotionError?: string;
   expectedNextState: string;
+}
+
+export type PhaseLoopStep =
+  | "Phase Intake"
+  | "Phase Planning"
+  | "Work Cards"
+  | "Phase Validation"
+  | "Phase Close";
+
+export type WorkCardLoopStep =
+  | "Work Card Intake"
+  | "Planning"
+  | "Build / Review"
+  | "Validation"
+  | "Close"
+  | "Repair";
+
+export interface ExecutionContextPhaseProjection {
+  state: "none" | "active";
+  phaseId?: string;
+  title?: string;
+  order?: number;
+  totalPhaseCount?: number;
+  purpose?: string;
+  dependsOn: string[];
+  loopStep?: PhaseLoopStep;
+  projectStep?: string;
+  reason: string;
+}
+
+export interface ExecutionContextWorkCardProjection {
+  state: "none" | "active";
+  workCardId?: string;
+  title?: string;
+  loopStep?: WorkCardLoopStep;
+  dispositionOrState: string;
+  repairId?: string;
+  parentWorkCardId?: string;
+  reason: string;
+}
+
+export interface ExecutionContextProjection {
+  phase: ExecutionContextPhaseProjection;
+  workCard: ExecutionContextWorkCardProjection;
 }
 
 export interface WorkspaceMigrationPreviewItem {
@@ -339,38 +600,6 @@ export interface WorkspaceMigrationResult {
   preview: WorkspaceMigrationPreview;
   migratedPaths: string[];
   deletedPaths: string[];
-}
-
-export interface PhaseInterviewOutputSaveResult {
-  phaseId: string;
-  phaseInterviewMarkdownPath: string;
-  currentWorkspaceModel: CurrentWorkspaceModel;
-}
-
-export interface PhasePlanningOutputsInput {
-  phasePlanningMarkdown: string;
-  workCardPlanMarkdown: string;
-}
-
-export interface PhasePlanningOutputsSaveResult {
-  phaseId: string;
-  phasePlanningMarkdownPath: string;
-  workCardPlanMarkdownPath: string;
-  currentWorkspaceModel: CurrentWorkspaceModel;
-}
-
-export interface FormalWorkCardOutputSaveResult {
-  phaseId: string;
-  workCardId: string;
-  formalWorkCardMarkdownPath: string;
-  currentWorkspaceModel: CurrentWorkspaceModel;
-}
-
-export interface RepairWorkCardOutputSaveResult {
-  phaseId: string;
-  repairId: string;
-  repairWorkCardMarkdownPath: string;
-  currentWorkspaceModel: CurrentWorkspaceModel;
 }
 
 export interface ChampCityApi {
@@ -404,30 +633,15 @@ export interface ChampCityApi {
   ) => Promise<ArchitectBrowserFoundationStatus>;
   confirmArchitectSignedIn: () => Promise<ArchitectBrowserFoundationStatus>;
   reloadArchitectBrowser: () => Promise<ArchitectBrowserFoundationStatus>;
-  getArchitectInterviewWorkspaceModel: () => Promise<ArchitectInterviewWorkspaceModel>;
-  copyArchitectHandoff: () => Promise<RuntimeActionResult>;
-  saveArchitectInterviewOutput: (
-    markdownBody: string,
-  ) => Promise<ArchitectInterviewWorkspaceModel>;
-  copyPhaseMapHandoff: () => Promise<RuntimeActionResult>;
-  savePhaseInterviewOutput: (markdownBody: string) => Promise<PhaseInterviewOutputSaveResult>;
-  savePhasePlanningOutputs: (
-    input: PhasePlanningOutputsInput,
-  ) => Promise<PhasePlanningOutputsSaveResult>;
-  saveFormalWorkCardOutput: (markdownBody: string) => Promise<FormalWorkCardOutputSaveResult>;
-  saveRepairWorkCardOutput: (markdownBody: string) => Promise<RepairWorkCardOutputSaveResult>;
-  reviewArchitectInterview: (
+  getArchitectOutputWorkspaceModel: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
+  prepareArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
+  copyArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<RuntimeActionResult>;
+  reviewArchitectOutput: (
+    workspaceId: WorkspaceId,
     status: DocumentDispositionStatus,
     operatorReviewNotes: string,
-    expectedSourceKey?: string,
-  ) => Promise<ArchitectInterviewWorkspaceModel>;
-  getProjectPlanningWorkspaceModel: () => Promise<ProjectPlanningWorkspaceModel>;
-  prepareProjectPlanningHandoff: () => Promise<ProjectPlanningWorkspaceModel>;
-  copyProjectPlanningHandoff: () => Promise<RuntimeActionResult>;
-  reviewProjectPlanningBundle: (
-    status: DocumentDispositionStatus,
-    operatorReviewNotes: string,
-  ) => Promise<ProjectPlanningWorkspaceModel>;
+    presentedRevisions: ArchitectOutputPresentedSlotRevision[],
+  ) => Promise<ArchitectOutputWorkspaceModel>;
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
   applyCurrentDisposition: (

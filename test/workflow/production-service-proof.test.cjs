@@ -7,7 +7,7 @@ const test = require("node:test");
 const {
   getArchitectInterviewWorkspaceModel,
   reviewArchitectInterview,
-  saveCurrentArchitectInterviewOutput,
+  prepareArchitectInterviewHandoff,
 } = require("../../dist/main/architectInterview/architectInterviewService.js");
 const {
   getCurrentWorkspaceModel,
@@ -43,6 +43,14 @@ function assertSingleMarkdown(root, relativePath) {
   assert.equal(fs.existsSync(path.join(root, relativePath.replace(/\.md$/, ".json"))), false);
 }
 
+function submitDraft(root, body) {
+  const prepared = prepareArchitectInterviewHandoff(root);
+  const draftPath = prepared.handoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
+  fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
+  fs.writeFileSync(path.join(root, draftPath), body, "utf8");
+  return getArchitectInterviewWorkspaceModel(root);
+}
+
 test("Proof 2 production-service workflow reaches Project Planning after revised Architect output", () => {
   const root = tempWorkspace();
   const intakeResult = submitProjectIntake({
@@ -65,7 +73,7 @@ test("Proof 2 production-service workflow reaches Project Planning after revised
   assert.equal(waiting.railStatus, "Waiting for Output");
   assert.equal(waiting.interviewTargets.markdownPath, intakeResult.architectInterviewTargetMarkdownPath);
 
-  const firstSave = saveCurrentArchitectInterviewOutput(root, "# Project Understanding\n\nInitial Architect body.\n");
+  const firstSave = submitDraft(root, "# Project Understanding\n\nInitial Architect body.\n");
   const interviewPath = firstSave.interviewTargets.markdownPath;
   assertSingleMarkdown(root, interviewPath);
   let parsed = readCanonical(root, interviewPath);
@@ -83,7 +91,7 @@ test("Proof 2 production-service workflow reaches Project Planning after revised
   assert.equal(parsed.metadata.documentDisposition.status, "RevisionRequested");
   assert.equal(parsed.metadata.documentDisposition.notes, "Tighten the planning implications.");
 
-  saveCurrentArchitectInterviewOutput(root, "# Project Understanding\n\nRevised Architect body with planning implications.\n");
+  submitDraft(root, "# Project Understanding\n\nRevised Architect body with planning implications.\n");
   parsed = readCanonical(root, interviewPath);
   assert.equal(parsed.metadata.artifactRevision, 2);
   assert.equal(parsed.metadata.documentDisposition.status, "Pending");
@@ -161,5 +169,5 @@ test("current workflow opens missing Phase Map with Profile and Roadmap input ev
 
   assert.equal(model.activeWorkspaceId, "project-phase-map");
   assert.deepEqual(model.sourceEvidence, [profile, roadmap]);
-  assert.equal(model.eligibility, "Phase Map is ready.");
+  assert.equal(model.eligibility, "Ready");
 });

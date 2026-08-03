@@ -19,27 +19,33 @@ test("document refresh reloads the still-selected document detail", () => {
   assert.match(appSource, /await loadDocument\(selectedDocumentId, \{ preserveOnFailure: true \}\)/);
 });
 
-test("Project Planning uses dedicated dual-pane controls instead of the generic lifecycle shell", () => {
+test("catalog Architect-output workspaces use the generic action and review shell", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
 
-  assert.match(appSource, /ProjectPlanningActionBar/);
-  assert.match(appSource, /ProjectPlanningPreviewReview/);
-  assert.match(appSource, /activeWorkspaceId !== "project-planning-review"/);
+  assert.match(appSource, /<ArchitectOutputActionBar/);
+  assert.match(appSource, /<ArchitectOutputReviewShell/);
   assert.match(appSource, /isArchitectEnabledWorkspace\(activeWorkspaceId\)/);
+  assert.match(appSource, /prepareArchitectOutputHandoff\(activeWorkspaceId\)/);
+  assert.match(appSource, /copyArchitectOutputHandoff\(activeWorkspaceId\)/);
+  assert.match(appSource, /reviewArchitectOutput\(/);
+  assert.doesNotMatch(appSource, /ProjectPlanningActionBar/);
+  assert.doesNotMatch(appSource, /ProjectPlanningPreviewReview/);
   assert.doesNotMatch(appSource, /Workspace Migration Required/);
   assert.doesNotMatch(appSource, /Project Profile Markdown/);
   assert.doesNotMatch(appSource, /Project Roadmap Markdown/);
 });
 
-test("Phase Map uses embedded Architect controls with Phase Map-specific handoff labels", () => {
+test("Phase Map uses generic Architect-output controls with structured preview plug-in only", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
 
-  assert.match(appSource, /PhaseMapActionBar/);
   assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
-  assert.match(appSource, /Prepare Phase Map Handoff/);
-  assert.match(appSource, /Copy Phase Map Handoff/);
-  assert.match(appSource, /copyPhaseMapHandoff/);
-  assert.doesNotMatch(appSource, /project-phase-map"[\s\S]{0,120}Run Current Handoff Action/);
+  assert.match(appSource, /PhaseMapDocumentPreview/);
+  assert.match(appSource, /ArchitectOutputActionBar/);
+  assert.doesNotMatch(appSource, /PhaseMapActionBar/);
+  assert.doesNotMatch(appSource, /PhaseMapPreviewReview/);
+  assert.doesNotMatch(appSource, /Prepare Phase Map Handoff/);
+  assert.doesNotMatch(appSource, /Copy Phase Map Handoff/);
+  assert.doesNotMatch(appSource, /copyPhaseMapHandoff/);
   assert.doesNotMatch(appSource, /Phase Map Markdown/);
   assert.doesNotMatch(appSource, /savePhaseMapOutput/);
 });
@@ -76,4 +82,16 @@ test("Phase Map actions do not offer disposition before a Phase Map output is se
   assert.match(appSource, /activeWorkspaceId !== "project-phase-map" \|\| selectedDocumentIsPhaseMapOutput/);
   assert.match(appSource, /selectedDocument\.metadata\.participationRole !== "nonReviewHandoff"/);
   assert.match(appSource, /No documents in this workflow step\./);
+});
+
+test("Work Card Planning preparation uses the intake view instead of generic document review", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+
+  assert.match(appSource, /<WorkCardIntakeWorkspace/);
+  assert.match(appSource, /isWorkCardPlanningPreparation/);
+  assert.match(appSource, /generateWorkCardIntakeAndTransition/);
+  assert.match(appSource, /window\.champcity\.generateCurrentHandoff\(\)/);
+  assert.match(appSource, /nextModel\?\.activeWorkspaceId !== "work-card-planning" \|\| nextModel\.workCardIntake/);
+  assert.match(appSource, /!isWorkCardPlanningPreparation \? \(/);
+  assert.doesNotMatch(appSource, /Generate Work Card Intake Handoff[\s\S]*CurrentActionPanel/);
 });

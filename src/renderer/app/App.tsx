@@ -3,14 +3,12 @@ import { Clipboard, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
 import {
   type ClosureDecision,
   type CurrentWorkspaceModel,
+  type ArchitectOutputWorkspaceModel,
   projectTypeOptions,
   type RuntimeActionResult,
   workspaceDefinitions,
   type ArchitectBrowserFoundationStatus,
-  type ArchitectInterviewWorkspaceModel,
-  type ArchitectInterviewSelectedDocumentRole,
-  type ProjectPlanningSelectedDocumentRole,
-  type ProjectPlanningWorkspaceModel,
+  type ArchitectInterviewRailStatus,
   type ProjectIntakeSubmission,
   type WorkspaceId,
   type WorkspaceSelection,
@@ -31,9 +29,7 @@ import {
 } from "../../shared/workspaces/documentWorkspace";
 import {
   shouldRenderGenericPreviewDispositionControls,
-  shouldRenderPhaseMapDispositionControls,
   shouldRenderInlineProjectIntakeDisposition,
-  deriveArchitectInterviewRailStatus,
   isArchitectInterviewDualPaneWorkspace,
 } from "../../shared/workspaces/projectRailPresentation";
 import {
@@ -44,18 +40,28 @@ import {
 import { deriveProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
 import { deriveProjectLifecycleRailStatuses } from "../../shared/workspaces/projectLifecycleRailStatus";
 import {
-  buildArchitectInterviewEvidenceFingerprint,
-  getArchitectInterviewReviewRegionState,
-  hydrateArchitectInterviewReviewEditState,
-  reviewEditStateFromModel,
-  type ArchitectInterviewReviewEditState,
-} from "../../shared/architectInterview/architectInterviewRefreshState";
-import {
   createArchitectAttachmentCoordinator,
   shouldShowArchitectBrowserRetry,
   type ArchitectHostMeasurement,
 } from "../../shared/architectInterview/architectBrowserAttachmentCoordinator";
 import { NestedWorkflowRail } from "./NestedWorkflowRail";
+import {
+  PhaseMapDocumentPreview,
+  shouldRenderPhaseMapDocumentPreview,
+} from "./phaseMapPresentation";
+import {
+  shouldRenderWorkCardPlanDocumentPreview,
+  WorkCardPlanDocumentPreview,
+} from "./workCardPlanPresentation";
+import { ExecutionContextDashboard } from "./ExecutionContextDashboard";
+import {
+  buildArchitectOutputEvidenceFingerprint,
+  markSingleDisplayedArchitectOutputRevisionViewed,
+  presentedRevisionsForArchitectOutputModel,
+  revisionKeyForArchitectOutputSlot,
+  selectArchitectOutputSlot,
+} from "./architectOutputWorkspaceRefresh";
+import { WorkCardIntakeWorkspace } from "./WorkCardIntakeWorkspace";
 
 const neutralMessage = "Document workflow not yet implemented";
 const handoffWorkspaceIds = new Set<WorkspaceId>([
@@ -78,28 +84,19 @@ const specializedDispositionWorkspaceIds = new Set<WorkspaceId>([
   "project-validation",
   "project-close",
 ]);
+const workCardArchitectLayoutWorkspaceIds = new Set<WorkspaceId>([
+  "work-card-planning",
+  "work-card-repair",
+]);
 const dispositionOptions = [
   { label: "Approve", status: "Approved" },
   { label: "Reject", status: "Rejected" },
   { label: "Request Revision", status: "RevisionRequested" },
 ] as const;
-const revisionRequestedFeedback =
-  "Revision requested. Copy the revised handoff and send it in the embedded ChatGPT pane. The handoff includes your revision instructions. The revised Interview will return here as Pending after the Architect saves it through MCP.";
-const revisedHandoffCopiedFeedback =
-  "Revised handoff copied. Paste and send it in embedded ChatGPT.";
-const projectPlanningHandoffCopiedFeedback =
-  "Project Planning handoff copied. Paste and send it manually in embedded ChatGPT.";
-const phaseMapHandoffPreparedFeedback =
-  "Phase Map handoff prepared. Copy the Phase Map handoff and send it manually in embedded ChatGPT.";
-const phaseMapHandoffCopiedFeedback =
-  "Phase Map handoff copied. Paste and send it manually in embedded ChatGPT.";
-
-function architectReviewAppliedFeedback(status: DocumentDispositionStatus): string {
-  if (status === "RevisionRequested") {
-    return revisionRequestedFeedback;
-  }
-  return `Architect Interview disposition applied: ${status}.`;
-}
+const architectOutputPreparedFeedback =
+  "Architect handoff prepared. Copy it and send it manually in embedded ChatGPT.";
+const architectOutputCopiedFeedback =
+  "Architect handoff copied. Paste and send it manually in embedded ChatGPT.";
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -122,22 +119,6 @@ type ArchitectActionFeedback = {
   kind: "success" | "info" | "error";
   message: string;
 } | null;
-
-type LifecycleArchitectOutputDrafts = {
-  phaseInterviewMarkdown: string;
-  phasePlanningMarkdown: string;
-  workCardPlanMarkdown: string;
-  formalWorkCardMarkdown: string;
-  repairWorkCardMarkdown: string;
-};
-
-const emptyLifecycleArchitectOutputDrafts: LifecycleArchitectOutputDrafts = {
-  phaseInterviewMarkdown: "",
-  phasePlanningMarkdown: "",
-  workCardPlanMarkdown: "",
-  formalWorkCardMarkdown: "",
-  repairWorkCardMarkdown: "",
-};
 
 export function App(): JSX.Element {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(
@@ -162,35 +143,21 @@ export function App(): JSX.Element {
     useState<ProjectIntakeSubmission>(emptyProjectIntake);
   const [architectStatus, setArchitectStatus] =
     useState<ArchitectBrowserFoundationStatus | null>(null);
-  const [architectInterviewModel, setArchitectInterviewModel] =
-    useState<ArchitectInterviewWorkspaceModel | null>(null);
-  const [projectPlanningModel, setProjectPlanningModel] =
-    useState<ProjectPlanningWorkspaceModel | null>(null);
-  const [selectedProjectPlanningRole, setSelectedProjectPlanningRole] =
-    useState<ProjectPlanningSelectedDocumentRole>("profile");
-  const [projectPlanningReviewStatus, setProjectPlanningReviewStatus] =
+  const [architectOutputModel, setArchitectOutputModel] =
+    useState<ArchitectOutputWorkspaceModel | null>(null);
+  const [selectedArchitectOutputSlotId, setSelectedArchitectOutputSlotId] =
+    useState<string | null>(null);
+  const [architectOutputReviewStatus, setArchitectOutputReviewStatus] =
     useState<DocumentDispositionStatus | "">("");
-  const [projectPlanningReviewNotes, setProjectPlanningReviewNotes] = useState("");
-  const [viewedProjectPlanningRevisionKeys, setViewedProjectPlanningRevisionKeys] =
+  const [architectOutputReviewNotes, setArchitectOutputReviewNotes] = useState("");
+  const [viewedArchitectOutputRevisionKeys, setViewedArchitectOutputRevisionKeys] =
     useState<string[]>([]);
-  const [architectReviewEdit, setArchitectReviewEdit] =
-    useState<ArchitectInterviewReviewEditState | null>(null);
   const [architectActionFeedback, setArchitectActionFeedback] =
     useState<ArchitectActionFeedback>(null);
-  const [lifecycleArchitectOutputs, setLifecycleArchitectOutputs] =
-    useState<LifecycleArchitectOutputDrafts>(emptyLifecycleArchitectOutputDrafts);
-  const [architectPollingError, setArchitectPollingError] = useState("");
-  const [projectPlanningPollingError, setProjectPlanningPollingError] = useState("");
-  const [phaseMapPollingError, setPhaseMapPollingError] = useState("");
-  const architectEvidenceFingerprintRef = useRef<string | null>(null);
-  const projectPlanningFingerprintRef = useRef<string | null>(null);
-  const phaseMapFingerprintRef = useRef<string | null>(null);
-  const architectPollInFlightRef = useRef(false);
-  const architectPollRequestRef = useRef(0);
-  const projectPlanningPollInFlightRef = useRef<number | null>(null);
-  const projectPlanningPollRequestRef = useRef(0);
-  const phaseMapPollInFlightRef = useRef<number | null>(null);
-  const phaseMapPollRequestRef = useRef(0);
+  const [architectOutputPollingError, setArchitectOutputPollingError] = useState("");
+  const architectOutputFingerprintRef = useRef<string | null>(null);
+  const architectOutputPollInFlightRef = useRef<number | null>(null);
+  const architectOutputPollRequestRef = useRef(0);
   const architectBoundsSequenceRef = useRef(0);
   const architectAttachmentGenerationRef = useRef(0);
   const architectBoundsRafRef = useRef<number | null>(null);
@@ -199,6 +166,9 @@ export function App(): JSX.Element {
     useRef<ReturnType<typeof createArchitectAttachmentCoordinator> | null>(null);
   const [architectAttachmentError, setArchitectAttachmentError] = useState("");
   const [currentModel, setCurrentModel] = useState<CurrentWorkspaceModel | null>(null);
+  const [isWorkCardIntakeGenerating, setIsWorkCardIntakeGenerating] = useState(false);
+  const [workCardIntakeError, setWorkCardIntakeError] = useState("");
+  const [workCardIntakeFeedback, setWorkCardIntakeFeedback] = useState("");
   const [actionInputs, setActionInputs] = useState({
     defect: "",
     closureDecision: "Close" as ClosureDecision,
@@ -208,6 +178,10 @@ export function App(): JSX.Element {
   const architectHostRef = useRef<HTMLDivElement | null>(null);
   const workspaceSurfaceRef = useRef<HTMLElement | null>(null);
   const documentReviewSurfaceRef = useRef<HTMLElement | null>(null);
+  const isWorkCardPlanningPreparation =
+    activeWorkspaceId === "work-card-planning" && Boolean(currentModel?.workCardIntake);
+  const isVisibleArchitectOutputWorkspace =
+    isArchitectEnabledWorkspace(activeWorkspaceId) && !isWorkCardPlanningPreparation;
 
   useEffect(() => {
     void window.champcity.getSelectedWorkspace().then((selection) => {
@@ -241,11 +215,28 @@ export function App(): JSX.Element {
   }, [selectedDocumentId]);
 
   useEffect(() => {
+    if (activeWorkspaceId === "work-card-intake") {
+      transitionToWorkflowStep("work-card-planning");
+      return;
+    }
+    if (activeWorkspaceId === "work-card-planning" && currentModel?.workCardIntake) {
+      setFeedback("");
+      setDocumentError("");
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      setSelectedStatus("");
+      return;
+    }
+    setWorkCardIntakeError("");
+    setWorkCardIntakeFeedback("");
+  }, [activeWorkspaceId, currentModel?.workCardIntake]);
+
+  useEffect(() => {
     if (!workspace.ok) {
       return;
     }
 
-    const shouldAttachEmbeddedSurface = isArchitectEnabledWorkspace(activeWorkspaceId);
+    const shouldAttachEmbeddedSurface = isVisibleArchitectOutputWorkspace;
     if (!shouldAttachEmbeddedSurface) {
       const coordinator = architectAttachmentCoordinatorRef.current;
       architectAttachmentCoordinatorRef.current = null;
@@ -354,86 +345,25 @@ export function App(): JSX.Element {
         void window.champcity.hideArchitectBrowser(cleanupGeneration).catch(() => undefined);
       });
     };
-  }, [activeWorkspaceId, workspace.ok]);
+  }, [activeWorkspaceId, isVisibleArchitectOutputWorkspace, workspace.ok]);
 
   useEffect(() => {
-    if (!workspace.ok || activeWorkspaceId !== "architect-interview") {
+    if (!workspace.ok || !isVisibleArchitectOutputWorkspace) {
       return;
     }
 
-    void refreshArchitectInterviewWorkspace({ autoSelectNewOutput: true, force: true });
+    void refreshArchitectOutputWorkspace({ autoSelectOutput: true, force: true });
     const interval = window.setInterval(() => {
       void refreshArchitectStatus();
-      void refreshArchitectInterviewWorkspace({ autoSelectNewOutput: true, quiet: true });
-    }, 3000);
-
-    return () => window.clearInterval(interval);
-  }, [activeWorkspaceId, workspace.ok]);
-
-  useEffect(() => {
-    if (!workspace.ok || activeWorkspaceId !== "project-planning-review") {
-      return;
-    }
-
-    void refreshProjectPlanningWorkspace({ autoSelectOutput: true, force: true });
-    const interval = window.setInterval(() => {
-      void refreshArchitectStatus();
-      void refreshProjectPlanningWorkspace({ autoSelectOutput: true, quiet: true });
+      void refreshArchitectOutputWorkspace({ autoSelectOutput: true, quiet: true });
     }, 3000);
 
     return () => {
       window.clearInterval(interval);
-      projectPlanningPollRequestRef.current += 1;
-      projectPlanningPollInFlightRef.current = null;
+      architectOutputPollRequestRef.current += 1;
+      architectOutputPollInFlightRef.current = null;
     };
-  }, [activeWorkspaceId, workspace.ok]);
-
-  useEffect(() => {
-    if (!workspace.ok || activeWorkspaceId !== "project-phase-map") {
-      return;
-    }
-
-    void refreshPhaseMapWorkspace({ autoSelectOutput: true, force: true });
-    const interval = window.setInterval(() => {
-      void refreshArchitectStatus();
-      void refreshPhaseMapWorkspace({ autoSelectOutput: true, quiet: true });
-    }, 3000);
-
-    return () => {
-      window.clearInterval(interval);
-      phaseMapPollRequestRef.current += 1;
-      phaseMapPollInFlightRef.current = null;
-    };
-  }, [activeWorkspaceId, workspace.ok]);
-
-  useEffect(() => {
-    const selectedRole = architectInterviewRoleForSelection(selectedDocumentId, architectInterviewModel);
-    setArchitectReviewEdit((current) =>
-      hydrateArchitectInterviewReviewEditState({
-        current,
-        model: architectInterviewModel,
-        repositoryIdentity: workspace.ok ? workspace.workspaceRoot : null,
-        selectedRole,
-      }),
-    );
-  }, [architectInterviewModel, selectedDocumentId, workspace]);
-
-  useEffect(() => {
-    if (activeWorkspaceId !== "project-planning-review" || !selectedDocumentId || !projectPlanningModel) {
-      return;
-    }
-    const role = projectPlanningRoleForSelection(selectedDocumentId, projectPlanningModel);
-    if (!role) {
-      return;
-    }
-    const key = projectPlanningRevisionKey(role, projectPlanningModel);
-    if (!key) {
-      return;
-    }
-    setViewedProjectPlanningRevisionKeys((current) =>
-      current.includes(key) ? current : [...current, key],
-    );
-  }, [activeWorkspaceId, projectPlanningModel, selectedDocumentId]);
+  }, [activeWorkspaceId, isVisibleArchitectOutputWorkspace, workspace.ok]);
 
   const workspaceGroups = useMemo(
     () => getWorkspaceGroups(documents, activeWorkspaceId),
@@ -444,17 +374,28 @@ export function App(): JSX.Element {
     () => deriveProjectIntakeRailStatus(documents),
     [documents],
   );
-  const architectInterviewRailStatus = deriveArchitectInterviewRailStatus(architectInterviewModel);
+  const architectInterviewRailStatus = architectInterviewRailStatusFromGenericModel(
+    architectOutputModel,
+  );
   const projectRailStatuses = useMemo(() => {
     const statuses = deriveProjectLifecycleRailStatuses(documents, {
       projectIntakeStatus: projectIntakeRailStatus,
       architectInterviewStatus: architectInterviewRailStatus,
     });
-    if (projectPlanningModel?.railStatus) {
-      statuses["project-planning-review"] = projectPlanningModel.railStatus;
+    if (architectOutputModel) {
+      switch (architectOutputModel.workspaceId) {
+        case "architect-interview":
+        case "project-planning-review":
+        case "project-phase-map":
+        case "phase-interview":
+          statuses[architectOutputModel.workspaceId] = architectOutputModel.railStatus;
+          break;
+        default:
+          break;
+      }
     }
     return statuses;
-  }, [architectInterviewRailStatus, documents, projectIntakeRailStatus, projectPlanningModel]);
+  }, [architectInterviewRailStatus, architectOutputModel, documents, projectIntakeRailStatus]);
   const currentResolvedWorkspace =
     resolverResult?.status === "current" &&
     resolverResult.document.owningWorkspaceId === activeWorkspaceId
@@ -475,13 +416,6 @@ export function App(): JSX.Element {
   );
   const selectedDocumentHasLocalError =
     Boolean(selectedSummary?.readError);
-  const selectedArchitectInterviewRole = architectInterviewRoleForSelection(
-    selectedDocumentId,
-    architectInterviewModel,
-  );
-  const architectReviewStatus = architectReviewEdit?.selectedDisposition ?? "";
-  const architectReviewNotes = architectReviewEdit?.notes ?? "";
-
   async function chooseWorkspace(): Promise<void> {
     setIsChoosing(true);
     setDocumentError("");
@@ -542,11 +476,12 @@ export function App(): JSX.Element {
       });
       setFeedback(getResolverFeedback(nextResolverResult));
       await refreshCurrentModel();
-      await refreshArchitectInterviewWorkspace({
-        force: true,
-        quiet: activeWorkspaceId !== "architect-interview",
-        refreshRepositoryProjection: false,
-      });
+      if (isArchitectEnabledWorkspace(activeWorkspaceId)) {
+        await refreshArchitectOutputWorkspace({
+          force: true,
+          refreshRepositoryProjection: false,
+        });
+      }
       focusProjectIntakeReviewSurface();
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Project Intake could not be saved.");
@@ -565,72 +500,85 @@ export function App(): JSX.Element {
     }
   }
 
-  async function refreshArchitectInterviewWorkspace(
-    options: { autoSelectNewOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean } = {},
+  async function refreshArchitectOutputWorkspace(
+    options: { autoSelectOutput?: boolean; autoSelectNewOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean } = {},
   ): Promise<void> {
-    if (architectPollInFlightRef.current) {
+    if (!workspace.ok) {
       return;
     }
-    architectPollInFlightRef.current = true;
-    const requestId = architectPollRequestRef.current + 1;
-    architectPollRequestRef.current = requestId;
+    if (options.quiet && architectOutputPollInFlightRef.current !== null) {
+      return;
+    }
+    const requestId = architectOutputPollRequestRef.current + 1;
+    architectOutputPollRequestRef.current = requestId;
+    architectOutputPollInFlightRef.current = requestId;
     if (!options.quiet) {
       setDocumentError("");
     }
     try {
-      const nextModel = await window.champcity.getArchitectInterviewWorkspaceModel();
-      if (requestId !== architectPollRequestRef.current) {
+      const nextModel = await window.champcity.getArchitectOutputWorkspaceModel(activeWorkspaceId);
+      if (requestId !== architectOutputPollRequestRef.current) {
         return;
       }
-      const nextFingerprint = buildArchitectInterviewEvidenceFingerprint(
-        workspace.ok ? workspace.workspaceRoot : null,
+      const nextFingerprint = buildArchitectOutputEvidenceFingerprint(
+        workspace.workspaceRoot,
         nextModel,
       );
-      const fingerprintChanged = architectEvidenceFingerprintRef.current !== nextFingerprint;
+      const fingerprintChanged = architectOutputFingerprintRef.current !== nextFingerprint;
       if (!options.force && !fingerprintChanged && options.quiet) {
-        setArchitectPollingError("");
+        setArchitectOutputPollingError("");
         return;
       }
-      architectEvidenceFingerprintRef.current = nextFingerprint;
-      setArchitectPollingError("");
-      setArchitectInterviewModel(nextModel);
-      const nextInterviewId = nextModel.interviewDocument?.logicalDocumentId ?? null;
+      architectOutputFingerprintRef.current = nextFingerprint;
+      setArchitectOutputPollingError(nextModel.state === "promotion-failed" ? nextModel.promotionError ?? nextModel.reason : "");
+      setArchitectOutputModel(nextModel);
+      if (fingerprintChanged) {
+        setViewedArchitectOutputRevisionKeys([]);
+      }
+      const selectedSlot = selectArchitectOutputSlot(
+        nextModel,
+        selectedArchitectOutputSlotId,
+      );
+      if (!selectedArchitectOutputSlotId && selectedSlot) {
+        setSelectedArchitectOutputSlotId(selectedSlot.slotId);
+      }
+      const nextDocumentId = selectedSlot?.logicalDocumentId ?? null;
 
       if (
-        options.autoSelectNewOutput &&
-        nextInterviewId &&
-        selectedDocumentId !== nextInterviewId
+        (options.autoSelectOutput ?? options.autoSelectNewOutput) &&
+        nextDocumentId &&
+        selectedDocumentId !== nextDocumentId
       ) {
-        setSelectedDocumentId(nextInterviewId);
-      } else if (!selectedDocumentId && nextModel.promptDocument?.logicalDocumentId) {
-        setSelectedDocumentId(nextModel.promptDocument.logicalDocumentId);
+        setSelectedDocumentId(nextDocumentId);
       }
       if (options.refreshRepositoryProjection ?? fingerprintChanged) {
         const nextDocuments = await window.champcity.listDocuments();
-        if (requestId !== architectPollRequestRef.current) {
+        if (requestId !== architectOutputPollRequestRef.current) {
           return;
         }
         applyDocumentInventory(nextDocuments);
         const nextResolverResult = await window.champcity.resolveCurrentDocument();
-        if (requestId !== architectPollRequestRef.current) {
+        if (requestId !== architectOutputPollRequestRef.current) {
           return;
         }
         setResolverResult(nextResolverResult);
         await refreshCurrentModel();
-        const previewId = nextInterviewId ?? selectedDocumentId ?? nextModel.promptDocument?.logicalDocumentId;
-        if (previewId) {
-          await loadDocument(previewId, { preserveOnFailure: true });
+        if (nextDocumentId) {
+          await loadDocument(nextDocumentId, {
+            architectOutputModelForViewedRevision: nextModel,
+            preserveOnFailure: true,
+          });
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Architect Interview model could not be loaded.";
-      setArchitectPollingError(message);
+      const message = error instanceof Error ? error.message : "Architect output model could not be loaded.";
+      setArchitectOutputPollingError(message);
       if (!options.quiet) {
         setDocumentError(message);
       }
     } finally {
-      if (requestId === architectPollRequestRef.current) {
-        architectPollInFlightRef.current = false;
+      if (architectOutputPollInFlightRef.current === requestId) {
+        architectOutputPollInFlightRef.current = null;
       }
     }
   }
@@ -638,20 +586,11 @@ export function App(): JSX.Element {
   async function copyArchitectHandoff(): Promise<void> {
     setDocumentError("");
     setArchitectFeedback(null);
-    const isRevisionHandoff = architectInterviewModel?.state === "revision-requested";
     try {
-      const result = await window.champcity.copyArchitectHandoff();
-      setArchitectFeedback(
-        {
-          kind: "success",
-          message: isRevisionHandoff
-            ? revisedHandoffCopiedFeedback
-            : result.message,
-        },
-        4500,
-      );
+      await window.champcity.copyArchitectOutputHandoff(activeWorkspaceId);
+      setArchitectFeedback({ kind: "success", message: architectOutputCopiedFeedback }, 4500);
       await refreshArchitectStatus();
-      await refreshArchitectInterviewWorkspace();
+      await refreshArchitectOutputWorkspace({ force: true });
     } catch (error) {
       setArchitectFeedback({
         kind: "error",
@@ -660,281 +599,20 @@ export function App(): JSX.Element {
     }
   }
 
-  async function refreshProjectPlanningWorkspace(
-    options: { autoSelectOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean } = {},
-  ): Promise<void> {
-    if (!workspace.ok) {
-      return;
-    }
-    if (options.quiet && projectPlanningPollInFlightRef.current !== null) {
-      return;
-    }
-    const requestId = projectPlanningPollRequestRef.current + 1;
-    projectPlanningPollRequestRef.current = requestId;
-    projectPlanningPollInFlightRef.current = requestId;
-    if (!options.quiet) {
-      setDocumentError("");
-    }
-    try {
-      const nextModel = await window.champcity.getProjectPlanningWorkspaceModel();
-      if (requestId !== projectPlanningPollRequestRef.current) {
-        return;
-      }
-      const nextFingerprint = buildProjectPlanningEvidenceFingerprint(workspace.workspaceRoot, nextModel);
-      const fingerprintChanged = projectPlanningFingerprintRef.current !== nextFingerprint;
-      if (!options.force && !fingerprintChanged && options.quiet) {
-        setProjectPlanningPollingError("");
-        return;
-      }
-      projectPlanningFingerprintRef.current = nextFingerprint;
-      setProjectPlanningPollingError("");
-      setProjectPlanningModel(nextModel);
-      if (fingerprintChanged) {
-        setViewedProjectPlanningRevisionKeys([]);
-      }
-      const selectedRole = selectedProjectPlanningRole;
-      const preferredDocumentId =
-        selectedRole === "roadmap"
-          ? nextModel.roadmapDocument?.logicalDocumentId
-          : nextModel.profileDocument?.logicalDocumentId;
-      const fallbackDocumentId =
-        nextModel.profileDocument?.logicalDocumentId ?? nextModel.roadmapDocument?.logicalDocumentId ?? null;
-      const nextDocumentId = preferredDocumentId ?? fallbackDocumentId;
-      if (options.autoSelectOutput && nextDocumentId && selectedDocumentId !== nextDocumentId) {
-        setSelectedDocumentId(nextDocumentId);
-      }
-      if (options.refreshRepositoryProjection ?? fingerprintChanged) {
-        const nextDocuments = await window.champcity.listDocuments();
-        if (requestId !== projectPlanningPollRequestRef.current) {
-          return;
-        }
-        applyDocumentInventory(nextDocuments);
-        const nextResolverResult = await window.champcity.resolveCurrentDocument();
-        if (requestId !== projectPlanningPollRequestRef.current) {
-          return;
-        }
-        setResolverResult(nextResolverResult);
-        try {
-          const nextCurrentModel = await window.champcity.getCurrentWorkspaceModel();
-          if (requestId !== projectPlanningPollRequestRef.current) {
-            return;
-          }
-          setCurrentModel(nextCurrentModel);
-        } catch {
-          if (requestId !== projectPlanningPollRequestRef.current) {
-            return;
-          }
-          setCurrentModel(null);
-        }
-        if (requestId !== projectPlanningPollRequestRef.current) {
-          return;
-        }
-        if (nextDocumentId) {
-          await loadProjectPlanningDocumentForRequest(nextDocumentId, requestId);
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Project Planning model could not be loaded.";
-      if (requestId === projectPlanningPollRequestRef.current) {
-        setProjectPlanningPollingError(message);
-      }
-      if (!options.quiet) {
-        setDocumentError(message);
-      }
-    } finally {
-      if (projectPlanningPollInFlightRef.current === requestId) {
-        projectPlanningPollInFlightRef.current = null;
-      }
-    }
-  }
-
-  async function refreshPhaseMapWorkspace(
-    options: { autoSelectOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean } = {},
-  ): Promise<void> {
-    if (!workspace.ok) {
-      return;
-    }
-    if (options.quiet && phaseMapPollInFlightRef.current !== null) {
-      return;
-    }
-    const requestId = phaseMapPollRequestRef.current + 1;
-    phaseMapPollRequestRef.current = requestId;
-    phaseMapPollInFlightRef.current = requestId;
-    if (!options.quiet) {
-      setDocumentError("");
-    }
-    try {
-      const nextDocuments = await window.champcity.listDocuments();
-      if (requestId !== phaseMapPollRequestRef.current) {
-        return;
-      }
-      const nextFingerprint = buildPhaseMapEvidenceFingerprint(workspace.workspaceRoot, nextDocuments);
-      const fingerprintChanged = phaseMapFingerprintRef.current !== nextFingerprint;
-      if (!options.force && !fingerprintChanged && options.quiet) {
-        setPhaseMapPollingError("");
-        return;
-      }
-      phaseMapFingerprintRef.current = nextFingerprint;
-      setPhaseMapPollingError("");
-
-      const shouldRefreshRepositoryProjection =
-        options.refreshRepositoryProjection ?? (fingerprintChanged || Boolean(options.force));
-      if (!shouldRefreshRepositoryProjection) {
-        return;
-      }
-
-      applyDocumentInventory(nextDocuments);
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      if (requestId !== phaseMapPollRequestRef.current) {
-        return;
-      }
-      setResolverResult(nextResolverResult);
-      try {
-        const nextCurrentModel = await window.champcity.getCurrentWorkspaceModel();
-        if (requestId !== phaseMapPollRequestRef.current) {
-          return;
-        }
-        setCurrentModel(nextCurrentModel);
-      } catch {
-        if (requestId !== phaseMapPollRequestRef.current) {
-          return;
-        }
-        setCurrentModel(null);
-      }
-
-      const nextOutputDocument = phaseMapOutputDocument(nextDocuments);
-      const nextHandoffDocument = phaseMapHandoffDocument(nextDocuments);
-      const nextDocumentId =
-        options.autoSelectOutput && nextOutputDocument
-          ? nextOutputDocument.logicalDocumentId
-          : selectedDocumentId ?? nextOutputDocument?.logicalDocumentId ?? nextHandoffDocument?.logicalDocumentId ?? null;
-      if (options.autoSelectOutput && nextOutputDocument && selectedDocumentId !== nextOutputDocument.logicalDocumentId) {
-        setSelectedDocumentId(nextOutputDocument.logicalDocumentId);
-      }
-      if (nextDocumentId) {
-        const detail = await window.champcity.readDocument(nextDocumentId);
-        if (requestId !== phaseMapPollRequestRef.current) {
-          return;
-        }
-        setSelectedDocument(detail);
-        setSelectedStatus(
-          detail.effectiveDisposition === "Pending" ? "" : detail.effectiveDisposition,
-        );
-        if (detail.readError) {
-          setDocumentError(detail.readError);
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Phase Map workspace could not be refreshed.";
-      if (requestId === phaseMapPollRequestRef.current) {
-        setPhaseMapPollingError(message);
-      }
-      if (!options.quiet) {
-        setDocumentError(message);
-      }
-    } finally {
-      if (phaseMapPollInFlightRef.current === requestId) {
-        phaseMapPollInFlightRef.current = null;
-      }
-    }
-  }
-
-  async function prepareProjectPlanningHandoff(): Promise<void> {
+  async function prepareArchitectOutputFromAction(): Promise<void> {
     setDocumentError("");
     setArchitectFeedback(null);
     try {
-      const nextModel = await window.champcity.prepareProjectPlanningHandoff();
-      setProjectPlanningModel(nextModel);
-      setArchitectFeedback({
-        kind: "success",
-        message: nextModel.handoffPreparationMessage ?? "Project Planning handoff prepared.",
-      }, 3500);
-      await refreshDocuments();
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Project Planning handoff could not be prepared.",
-      });
-    }
-  }
-
-  async function copyProjectPlanningHandoff(): Promise<void> {
-    setDocumentError("");
-    setArchitectFeedback(null);
-    try {
-      await window.champcity.copyProjectPlanningHandoff();
-      setArchitectFeedback({ kind: "success", message: projectPlanningHandoffCopiedFeedback }, 4500);
-      await refreshArchitectStatus();
-      await refreshProjectPlanningWorkspace({ force: true });
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Project Planning handoff could not be copied.",
-      });
-    }
-  }
-
-  async function preparePhaseMapHandoff(): Promise<void> {
-    setDocumentError("");
-    setArchitectFeedback(null);
-    try {
-      await window.champcity.generateCurrentHandoff();
-      setArchitectFeedback({ kind: "success", message: phaseMapHandoffPreparedFeedback }, 4500);
-      const nextDocuments = await window.champcity.listDocuments();
-      applyDocumentInventory(nextDocuments);
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
-      await refreshCurrentModel();
-      transitionToWorkflowStep("project-phase-map", {
-        documents: nextDocuments,
-        resolverResult: nextResolverResult,
-      });
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Phase Map handoff could not be prepared.",
-      });
-    }
-  }
-
-  async function copyPhaseMapHandoff(): Promise<void> {
-    setDocumentError("");
-    setArchitectFeedback(null);
-    try {
-      await window.champcity.copyPhaseMapHandoff();
-      setArchitectFeedback({ kind: "success", message: phaseMapHandoffCopiedFeedback }, 4500);
-      await refreshArchitectStatus();
-      await refreshPhaseMapWorkspace({ force: true });
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Phase Map handoff could not be copied.",
-      });
-    }
-  }
-
-  async function applyProjectPlanningReview(): Promise<void> {
-    if (!projectPlanningReviewStatus) {
-      return;
-    }
-    setIsApplying(true);
-    setDocumentError("");
-    setFeedback("");
-    try {
-      const nextModel = await window.champcity.reviewProjectPlanningBundle(
-        projectPlanningReviewStatus,
-        projectPlanningReviewNotes,
-      );
-      setProjectPlanningModel(nextModel);
-      setProjectPlanningReviewStatus("");
-      setProjectPlanningReviewNotes("");
-      setFeedback(`Project Planning bundle disposition applied: ${projectPlanningReviewStatus}.`);
+      const nextModel = await window.champcity.prepareArchitectOutputHandoff(activeWorkspaceId);
+      setArchitectOutputModel(nextModel);
+      setArchitectFeedback({ kind: "success", message: architectOutputPreparedFeedback }, 3500);
       await refreshDocuments({ useResolver: true });
-      await refreshProjectPlanningWorkspace({ force: true });
+      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Project Planning review could not be applied.");
-    } finally {
-      setIsApplying(false);
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Architect handoff could not be prepared.",
+      });
     }
   }
 
@@ -986,43 +664,33 @@ export function App(): JSX.Element {
     await coordinator.retry();
   }
 
-  async function applyArchitectInterviewReview(): Promise<void> {
-    if (!architectReviewEdit?.sourceToken || !architectReviewEdit.selectedDisposition) {
-      setDocumentError("Refresh the Architect Interview output before applying review.");
+  async function applyArchitectOutputReview(): Promise<void> {
+    if (!architectOutputReviewStatus) {
+      setDocumentError("Select a disposition before applying review.");
       return;
     }
-    const selectedDisposition = architectReviewEdit.selectedDisposition;
+    if (!architectOutputModel) {
+      setDocumentError("Refresh the Architect output workspace before applying review.");
+      return;
+    }
     setIsApplying(true);
     setDocumentError("");
     setFeedback("");
     try {
-      const nextModel = await window.champcity.reviewArchitectInterview(
-        selectedDisposition,
-        architectReviewEdit.notes,
-        architectReviewEdit.sourceToken,
+      const nextModel = await window.champcity.reviewArchitectOutput(
+        activeWorkspaceId,
+        architectOutputReviewStatus,
+        architectOutputReviewNotes,
+        presentedRevisionsForArchitectOutputModel(architectOutputModel),
       );
-      setArchitectInterviewModel(nextModel);
-      setArchitectReviewEdit(reviewEditStateFromModel(workspace.ok ? workspace.workspaceRoot : null, nextModel));
-      architectEvidenceFingerprintRef.current = buildArchitectInterviewEvidenceFingerprint(
-        workspace.ok ? workspace.workspaceRoot : null,
-        nextModel,
-      );
-      const nextDocuments = await window.champcity.listDocuments();
-      applyDocumentInventory(nextDocuments);
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
-      await refreshCurrentModel();
-      if (nextModel.interviewDocument?.logicalDocumentId) {
-        setSelectedDocumentId(nextModel.interviewDocument.logicalDocumentId);
-        await loadDocument(nextModel.interviewDocument.logicalDocumentId, { preserveOnFailure: true });
-      }
-      transitionToWorkflowStep("architect-interview", {
-        documents: nextDocuments,
-        preferredDocumentId: nextModel.interviewDocument?.logicalDocumentId ?? null,
-      });
-      setFeedback(architectReviewAppliedFeedback(selectedDisposition));
+      setArchitectOutputModel(nextModel);
+      setArchitectOutputReviewStatus("");
+      setArchitectOutputReviewNotes("");
+      await refreshDocuments({ useResolver: true });
+      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
+      setFeedback(`Architect output disposition applied: ${architectOutputReviewStatus}.`);
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Architect Interview review could not be applied.");
+      setDocumentError(error instanceof Error ? error.message : "Architect output review could not be applied.");
     } finally {
       setIsApplying(false);
     }
@@ -1052,69 +720,54 @@ export function App(): JSX.Element {
     }
   }
 
-  async function saveLifecycleArchitectOutput(): Promise<void> {
-    setIsApplying(true);
+  async function generateWorkCardIntakeAndTransition(): Promise<void> {
+    if (isWorkCardIntakeGenerating) {
+      return;
+    }
+    setIsWorkCardIntakeGenerating(true);
+    setWorkCardIntakeError("");
+    setWorkCardIntakeFeedback("");
     setDocumentError("");
     setFeedback("");
     try {
-      let selectedPath = "";
-      switch (activeWorkspaceId) {
-        case "phase-interview": {
-          const result = await window.champcity.savePhaseInterviewOutput(lifecycleArchitectOutputs.phaseInterviewMarkdown);
-          selectedPath = result.phaseInterviewMarkdownPath;
-          setCurrentModel(result.currentWorkspaceModel);
-          setLifecycleArchitectOutputs((current) => ({ ...current, phaseInterviewMarkdown: "" }));
-          break;
-        }
-        case "phase-planning-bundle": {
-          const result = await window.champcity.savePhasePlanningOutputs({
-            phasePlanningMarkdown: lifecycleArchitectOutputs.phasePlanningMarkdown,
-            workCardPlanMarkdown: lifecycleArchitectOutputs.workCardPlanMarkdown,
-          });
-          selectedPath = result.phasePlanningMarkdownPath;
-          setCurrentModel(result.currentWorkspaceModel);
-          setLifecycleArchitectOutputs((current) => ({
-            ...current,
-            phasePlanningMarkdown: "",
-            workCardPlanMarkdown: "",
-          }));
-          break;
-        }
-        case "work-card-planning": {
-          const result = await window.champcity.saveFormalWorkCardOutput(lifecycleArchitectOutputs.formalWorkCardMarkdown);
-          selectedPath = result.formalWorkCardMarkdownPath;
-          setCurrentModel(result.currentWorkspaceModel);
-          setLifecycleArchitectOutputs((current) => ({ ...current, formalWorkCardMarkdown: "" }));
-          break;
-        }
-        case "work-card-repair": {
-          const result = await window.champcity.saveRepairWorkCardOutput(lifecycleArchitectOutputs.repairWorkCardMarkdown);
-          selectedPath = result.repairWorkCardMarkdownPath;
-          setCurrentModel(result.currentWorkspaceModel);
-          setLifecycleArchitectOutputs((current) => ({ ...current, repairWorkCardMarkdown: "" }));
-          break;
-        }
-        default:
-          throw new Error("Current workflow step does not accept Architect output.");
-      }
-      setFeedback("Architect Output saved.");
+      const result = await window.champcity.generateCurrentHandoff();
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      const nextModel = await refreshCurrentModel();
+      if (nextModel?.activeWorkspaceId !== "work-card-planning" || nextModel.workCardIntake) {
+        const resolvedWorkspace = nextModel?.activeWorkspaceId ?? "unresolved";
+        setWorkCardIntakeFeedback(result.message);
+        setWorkCardIntakeError(
+          `Work Card Planning handoff generated, but the refreshed workspace resolved to ${resolvedWorkspace} without Formal Work Card preparation.`,
+        );
+        transitionToWorkflowStep("work-card-planning", { documents: nextDocuments });
+        return;
+      }
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
-      const savedDocument = nextDocuments.find((document) => document.markdownPath === selectedPath);
-      if (savedDocument) {
-        transitionToWorkflowStep(activeWorkspaceId, {
-          documents: nextDocuments,
-          preferredDocumentId: savedDocument.logicalDocumentId,
-          resolverResult: nextResolverResult,
-        });
-      }
+      transitionToWorkflowStep("work-card-planning", {
+        documents: nextDocuments,
+        preferredDocumentId: preferredDocumentIdFromResolver(
+          nextResolverResult,
+          "work-card-planning",
+        ),
+        resolverResult: nextResolverResult,
+      });
+      await refreshArchitectOutputWorkspace({
+        autoSelectOutput: true,
+        force: true,
+        refreshRepositoryProjection: false,
+      });
+      setFeedback(result.message);
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Architect Output could not be saved.");
+      setWorkCardIntakeError(error instanceof Error ? error.message : "Work Card Planning handoff could not be generated.");
     } finally {
-      setIsApplying(false);
+      setIsWorkCardIntakeGenerating(false);
     }
+  }
+
+  async function saveLifecycleArchitectOutput(): Promise<void> {
+    setDocumentError("Direct Architect output import has been retired. Use Prepare Handoff, Copy Handoff, and MCP-created temporary drafts.");
   }
 
   async function refreshDocuments(options: { useResolver?: boolean } = {}): Promise<void> {
@@ -1130,24 +783,16 @@ export function App(): JSX.Element {
       ) {
         await loadDocument(selectedDocumentId, { preserveOnFailure: true });
       }
-      await refreshArchitectInterviewWorkspace({
-        autoSelectNewOutput: activeWorkspaceId === "architect-interview",
-        force: true,
-        quiet: activeWorkspaceId !== "architect-interview",
-        refreshRepositoryProjection: false,
-      });
-      await refreshProjectPlanningWorkspace({
-        autoSelectOutput: activeWorkspaceId === "project-planning-review",
-        force: true,
-        quiet: activeWorkspaceId !== "project-planning-review",
-        refreshRepositoryProjection: false,
-      });
-      await refreshPhaseMapWorkspace({
-        autoSelectOutput: activeWorkspaceId === "project-phase-map",
-        force: true,
-        quiet: activeWorkspaceId !== "project-phase-map",
-        refreshRepositoryProjection: false,
-      });
+      if (
+        isArchitectEnabledWorkspace(activeWorkspaceId) &&
+        !(activeWorkspaceId === "work-card-planning" && nextCurrentModel?.workCardIntake)
+      ) {
+        await refreshArchitectOutputWorkspace({
+          autoSelectOutput: true,
+          force: true,
+          refreshRepositoryProjection: false,
+        });
+      }
       if (options.useResolver) {
         const nextResolverResult = await window.champcity.resolveCurrentDocument();
         selectResolverResult(nextResolverResult, {
@@ -1200,25 +845,16 @@ export function App(): JSX.Element {
     setProjectIntakeConfirmation(clearedPostSubmitState.confirmation);
     setCurrentModel(null);
     setArchitectStatus(null);
-    setArchitectInterviewModel(null);
-    setArchitectReviewEdit(null);
-    setProjectPlanningModel(null);
-    setProjectPlanningReviewStatus("");
-    setProjectPlanningReviewNotes("");
-    setViewedProjectPlanningRevisionKeys([]);
+    setArchitectOutputModel(null);
+    setSelectedArchitectOutputSlotId(null);
+    setArchitectOutputReviewStatus("");
+    setArchitectOutputReviewNotes("");
+    setViewedArchitectOutputRevisionKeys([]);
     setArchitectFeedback(null);
-    setArchitectPollingError("");
-    setProjectPlanningPollingError("");
-    setPhaseMapPollingError("");
-    architectEvidenceFingerprintRef.current = null;
-    projectPlanningFingerprintRef.current = null;
-    phaseMapFingerprintRef.current = null;
-    architectPollRequestRef.current += 1;
-    architectPollInFlightRef.current = false;
-    projectPlanningPollRequestRef.current += 1;
-    projectPlanningPollInFlightRef.current = null;
-    phaseMapPollRequestRef.current += 1;
-    phaseMapPollInFlightRef.current = null;
+    setArchitectOutputPollingError("");
+    architectOutputFingerprintRef.current = null;
+    architectOutputPollRequestRef.current += 1;
+    architectOutputPollInFlightRef.current = null;
   }
 
   function applyDocumentInventory(nextDocuments: PlanningDocumentSummary[]): void {
@@ -1294,7 +930,10 @@ export function App(): JSX.Element {
 
   async function loadDocument(
     logicalDocumentId: string,
-    options: { preserveOnFailure?: boolean } = {},
+    options: {
+      architectOutputModelForViewedRevision?: ArchitectOutputWorkspaceModel | null;
+      preserveOnFailure?: boolean;
+    } = {},
   ): Promise<void> {
     setDocumentError("");
     setFeedback("");
@@ -1304,6 +943,15 @@ export function App(): JSX.Element {
       setSelectedStatus(
         detail.effectiveDisposition === "Pending" ? "" : detail.effectiveDisposition,
       );
+      if (isArchitectEnabledWorkspace(activeWorkspaceId)) {
+        setViewedArchitectOutputRevisionKeys((current) =>
+          markSingleDisplayedArchitectOutputRevisionViewed(
+            options.architectOutputModelForViewedRevision ?? architectOutputModel,
+            detail,
+            current,
+          ),
+        );
+      }
       if (detail.readError) {
         setDocumentError("Document could not be read as canonical Markdown.");
       } else if (detail.readError) {
@@ -1312,32 +960,6 @@ export function App(): JSX.Element {
     } catch (error) {
       if (!options.preserveOnFailure) {
         setSelectedDocument(null);
-      }
-      setDocumentError(error instanceof Error ? error.message : "Document could not be loaded.");
-    }
-  }
-
-  async function loadProjectPlanningDocumentForRequest(
-    logicalDocumentId: string,
-    requestId: number,
-  ): Promise<void> {
-    setDocumentError("");
-    setFeedback("");
-    try {
-      const detail = await window.champcity.readDocument(logicalDocumentId);
-      if (requestId !== projectPlanningPollRequestRef.current) {
-        return;
-      }
-      setSelectedDocument(detail);
-      setSelectedStatus(
-        detail.effectiveDisposition === "Pending" ? "" : detail.effectiveDisposition,
-      );
-      if (detail.readError) {
-        setDocumentError(detail.readError);
-      }
-    } catch (error) {
-      if (requestId !== projectPlanningPollRequestRef.current) {
-        return;
       }
       setDocumentError(error instanceof Error ? error.message : "Document could not be loaded.");
     }
@@ -1358,11 +980,12 @@ export function App(): JSX.Element {
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       const nextCurrentModel = await refreshCurrentModel();
-      await refreshArchitectInterviewWorkspace({
-        force: true,
-        quiet: activeWorkspaceId !== "architect-interview",
-        refreshRepositoryProjection: false,
-      });
+      if (isArchitectEnabledWorkspace(activeWorkspaceId)) {
+        await refreshArchitectOutputWorkspace({
+          force: true,
+          refreshRepositoryProjection: false,
+        });
+      }
       if (
         selectedStatus === "Approved" &&
         nextResolverResult.status === "current" &&
@@ -1427,28 +1050,6 @@ export function App(): JSX.Element {
     );
   }
 
-  function selectArchitectInterviewDocument(
-    role: ArchitectInterviewSelectedDocumentRole,
-    model: ArchitectInterviewWorkspaceModel | null,
-  ): void {
-    const documentId = role === "interview"
-      ? model?.interviewDocument?.logicalDocumentId
-      : model?.promptDocument?.logicalDocumentId;
-    if (documentId) {
-      setSelectedDocumentId(documentId);
-    }
-  }
-
-  function selectProjectPlanningDocument(role: ProjectPlanningSelectedDocumentRole): void {
-    setSelectedProjectPlanningRole(role);
-    const documentId = role === "roadmap"
-      ? projectPlanningModel?.roadmapDocument?.logicalDocumentId
-      : projectPlanningModel?.profileDocument?.logicalDocumentId;
-    if (documentId) {
-      setSelectedDocumentId(documentId);
-    }
-  }
-
   return (
     <main className="app-root">
       <NestedWorkflowRail
@@ -1492,12 +1093,16 @@ export function App(): JSX.Element {
               ) : null}
             </div>
           </section>
+          <ExecutionContextDashboard
+            model={currentModel}
+            workspace={workspace}
+          />
         </aside>
 
         <section
           className={[
             "workspace-surface",
-            isArchitectEnabledWorkspace(activeWorkspaceId) ? "architect-interview-surface" : "",
+            isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
           ].filter(Boolean).join(" ")}
           aria-labelledby="workspace-heading"
           ref={workspaceSurfaceRef}
@@ -1521,7 +1126,7 @@ export function App(): JSX.Element {
             </div>
           </header>
 
-          {!isArchitectEnabledWorkspace(activeWorkspaceId) ? (
+          {!isVisibleArchitectOutputWorkspace ? (
             <CurrentWorkspaceBanner
               activeWorkspaceLabel={activeWorkspace.label}
               model={currentModel}
@@ -1541,67 +1146,27 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {activeWorkspaceId === "architect-interview" ? (
-            <ArchitectInterviewActionBar
-              browserStatus={architectStatus}
-              attachmentError={architectAttachmentError}
+          {isVisibleArchitectOutputWorkspace ? (
+            <ArchitectOutputActionBar
               actionFeedback={architectActionFeedback}
-              model={architectInterviewModel}
-              pollingError={architectPollingError}
+              attachmentError={architectAttachmentError}
+              browserStatus={architectStatus}
+              model={architectOutputModel}
               onCopyHandoff={copyArchitectHandoff}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
+              onPrepareHandoff={prepareArchitectOutputFromAction}
               onRefresh={() => {
-                void refreshDocuments();
                 void refreshArchitectStatus();
-                void refreshArchitectInterviewWorkspace({ force: true });
-              }}
-              onRetryBrowser={() => void retryArchitectBrowser()}
-              onSelectDocument={(role) => selectArchitectInterviewDocument(role, architectInterviewModel)}
-              selectedRole={selectedArchitectInterviewRole}
-            />
-          ) : null}
-
-          {activeWorkspaceId === "project-planning-review" ? (
-            <ProjectPlanningActionBar
-              actionFeedback={architectActionFeedback}
-              attachmentError={architectAttachmentError}
-              browserStatus={architectStatus}
-              model={projectPlanningModel}
-              onCopyHandoff={copyProjectPlanningHandoff}
-              onPrepareHandoff={prepareProjectPlanningHandoff}
-              onRefresh={() => {
-                void refreshDocuments();
-                void refreshArchitectStatus();
-                void refreshProjectPlanningWorkspace({ force: true });
+                void refreshArchitectOutputWorkspace({ force: true });
               }}
               onReloadBrowser={() => void reloadArchitectBrowser()}
               onRetryBrowser={() => void retryArchitectBrowser()}
-              onSelectDocument={(role) => selectProjectPlanningDocument(role)}
-              pollingError={projectPlanningPollingError}
-              selectedRole={selectedProjectPlanningRole}
+              pollingError={architectOutputPollingError}
             />
           ) : null}
 
-          {activeWorkspaceId === "project-phase-map" ? (
-            <PhaseMapActionBar
-              actionFeedback={architectActionFeedback}
-              attachmentError={architectAttachmentError}
-              browserStatus={architectStatus}
-              currentModel={currentModel}
-              documents={documents}
-              onCopyHandoff={copyPhaseMapHandoff}
-              onPrepareHandoff={preparePhaseMapHandoff}
-              onRefresh={() => {
-                void refreshArchitectStatus();
-                void refreshPhaseMapWorkspace({ force: true });
-              }}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
-              onRetryBrowser={() => void retryArchitectBrowser()}
-              pollingError={phaseMapPollingError}
-            />
-          ) : null}
-
-          {activeWorkspaceId !== "project-intake-capture" && !isArchitectEnabledWorkspace(activeWorkspaceId) ? (
+          {activeWorkspaceId !== "project-intake-capture" &&
+          !isWorkCardPlanningPreparation &&
+          !isVisibleArchitectOutputWorkspace ? (
             <CurrentActionPanel
               activeWorkspaceId={activeWorkspaceId}
               inputs={actionInputs}
@@ -1612,9 +1177,22 @@ export function App(): JSX.Element {
             />
           ) : null}
 
+          {isWorkCardPlanningPreparation ? (
+            <WorkCardIntakeWorkspace
+              actionError={workCardIntakeError}
+              actionFeedback={workCardIntakeFeedback}
+              isGenerating={isWorkCardIntakeGenerating}
+              model={currentModel}
+              onGenerate={() => void generateWorkCardIntakeAndTransition()}
+            />
+          ) : null}
+
+          {!isWorkCardPlanningPreparation ? (
           <section
             className={
-              isArchitectInterviewDualPaneWorkspace(activeWorkspaceId)
+              workCardArchitectLayoutWorkspaceIds.has(activeWorkspaceId)
+                ? "document-workspace work-card-architect-workspace"
+                : isArchitectInterviewDualPaneWorkspace(activeWorkspaceId) || activeWorkspaceId === "phase-planning-bundle"
                 ? "document-workspace architect-interview-workspace"
                 : "document-workspace"
             }
@@ -1622,7 +1200,7 @@ export function App(): JSX.Element {
             ref={documentReviewSurfaceRef}
             tabIndex={-1}
           >
-            {!isArchitectEnabledWorkspace(activeWorkspaceId) ? (
+            {!isVisibleArchitectOutputWorkspace ? (
             <div className="document-list" aria-label={`${activeWorkspace.label} documents`}>
               {workspaceGroups.length === 0 ? (
                 <div className="empty-list">
@@ -1721,70 +1299,43 @@ export function App(): JSX.Element {
                 </div>
               ) : null}
 
-              <pre className="preview-body">
-                {selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? neutralMessage}
-              </pre>
+              {selectedDocument && shouldRenderPhaseMapDocumentPreview(selectedDocument) ? (
+                <PhaseMapDocumentPreview document={selectedDocument} />
+              ) : selectedDocument && shouldRenderWorkCardPlanDocumentPreview(selectedDocument) ? (
+                <WorkCardPlanDocumentPreview document={selectedDocument} />
+              ) : (
+                <pre className="preview-body">
+                  {selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? neutralMessage}
+                </pre>
+              )}
 
-              {activeWorkspaceId !== "architect-interview" &&
-              activeWorkspaceId !== "project-planning-review" &&
-              activeWorkspaceId !== "project-phase-map" ? (
-                <LifecycleArchitectOutputImport
-                  activeWorkspaceId={activeWorkspaceId}
-                  disabled={isApplying}
-                  onChange={setLifecycleArchitectOutputs}
-                  onSave={saveLifecycleArchitectOutput}
-                  value={lifecycleArchitectOutputs}
-                />
-              ) : null}
-
-              {activeWorkspaceId === "architect-interview" ? (
-                <ArchitectInterviewPreviewReview
-                  canApplyReview={
-                    getArchitectInterviewReviewRegionState({
-                      model: architectInterviewModel,
-                      selectedRole: selectedArchitectInterviewRole,
-                    }).kind === "valid" && Boolean(architectReviewStatus)
-                  }
+              {isVisibleArchitectOutputWorkspace ? (
+                <ArchitectOutputReviewShell
                   isApplying={isApplying}
-                  model={architectInterviewModel}
-                  notes={architectReviewNotes}
-                  onNotesChange={(notes) => setArchitectReviewEdit((current) => current
-                    ? { ...current, notes, isDirty: true }
-                    : current)}
-                  onReview={applyArchitectInterviewReview}
-                  onStatusChange={(status) => setArchitectReviewEdit((current) => current
-                    ? { ...current, selectedDisposition: status, isDirty: true }
-                    : current)}
-                  selectedRole={selectedArchitectInterviewRole}
-                  status={architectReviewStatus}
-                />
-              ) : activeWorkspaceId === "project-planning-review" ? (
-                <ProjectPlanningPreviewReview
-                  canApplyReview={
-                    Boolean(projectPlanningReviewStatus) &&
-                    Boolean(projectPlanningModel?.canApplyBundleDisposition) &&
-                    projectPlanningDocumentsViewed(projectPlanningModel, viewedProjectPlanningRevisionKeys)
-                  }
-                  isApplying={isApplying}
-                  model={projectPlanningModel}
-                  notes={projectPlanningReviewNotes}
-                  onNotesChange={setProjectPlanningReviewNotes}
-                  onReview={applyProjectPlanningReview}
-                  onStatusChange={setProjectPlanningReviewStatus}
-                  status={projectPlanningReviewStatus}
-                  viewedBoth={projectPlanningDocumentsViewed(projectPlanningModel, viewedProjectPlanningRevisionKeys)}
-                />
-              ) : activeWorkspaceId === "project-phase-map" ? (
-                <PhaseMapPreviewReview
-                  isApplying={isApplying}
-                  onReview={applyDisposition}
-                  onStatusChange={setSelectedStatus}
-                  selectedDocument={selectedDocument}
-                  status={selectedStatus}
+                  model={architectOutputModel}
+                  notes={architectOutputReviewNotes}
+                  onNotesChange={setArchitectOutputReviewNotes}
+                  onReview={applyArchitectOutputReview}
+                  onSelectSlot={(slotId) => {
+                    setSelectedArchitectOutputSlotId(slotId);
+                    const slot = architectOutputModel?.documentSlots.find((candidate) => candidate.slotId === slotId);
+                    if (slot?.logicalDocumentId) {
+                      setSelectedDocumentId(slot.logicalDocumentId);
+                    }
+                  }}
+                  onStatusChange={setArchitectOutputReviewStatus}
+                  onViewedRevision={(key) => {
+                    setViewedArchitectOutputRevisionKeys((current) =>
+                      current.includes(key) ? current : [...current, key],
+                    );
+                  }}
+                  selectedSlotId={selectedArchitectOutputSlotId}
+                  status={architectOutputReviewStatus}
+                  viewedRevisionKeys={viewedArchitectOutputRevisionKeys}
                 />
               ) : specializedDispositionWorkspaceIds.has(activeWorkspaceId) ? (
                 <div className="document-feedback" role="status">
-                  Specialized review controls appear when the current outputs exist.
+                  Review controls appear when the current lifecycle document is ready.
                 </div>
               ) : shouldRenderGenericPreviewDispositionControls(
                   activeWorkspaceId,
@@ -1793,7 +1344,7 @@ export function App(): JSX.Element {
                 renderDispositionControls("disposition-controls")
               ) : null}
             </article>
-            {isArchitectEnabledWorkspace(activeWorkspaceId) ? (
+            {isVisibleArchitectOutputWorkspace ? (
               <aside className="architect-surface-pane" aria-label="Architect browser surface">
                 <div className="architect-pane-header">
                   <strong>Embedded ChatGPT</strong>
@@ -1807,9 +1358,182 @@ export function App(): JSX.Element {
               </aside>
             ) : null}
           </section>
+          ) : null}
         </section>
       </div>
     </main>
+  );
+}
+
+function ArchitectOutputActionBar({
+  actionFeedback,
+  attachmentError,
+  browserStatus,
+  model,
+  onCopyHandoff,
+  onPrepareHandoff,
+  onRefresh,
+  onReloadBrowser,
+  onRetryBrowser,
+  pollingError,
+}: {
+  actionFeedback: ArchitectActionFeedback;
+  attachmentError: string;
+  browserStatus: ArchitectBrowserFoundationStatus | null;
+  model: ArchitectOutputWorkspaceModel | null;
+  onCopyHandoff: () => void;
+  onPrepareHandoff: () => void;
+  onRefresh: () => void;
+  onReloadBrowser: () => void;
+  onRetryBrowser: () => void;
+  pollingError: string;
+}): JSX.Element {
+  const browserPresentation = architectBrowserPresentation(browserStatus);
+  const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
+  const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
+  return (
+    <section className="architect-action-bar" aria-label="Architect output controls">
+      <div className="architect-action-context">
+        <span>Lifecycle</span>
+        <strong>{model?.railStatus ?? "Not Ready"}</strong>
+      </div>
+      <div className="architect-action-context wide">
+        <span>Required Action</span>
+        <strong>{model?.requiredAction ?? "Resolve repository evidence."}</strong>
+      </div>
+      <div className="architect-action-buttons">
+        <button className="architect-command-button icon-button text-button" disabled={!model?.canPrepareHandoff} onClick={onPrepareHandoff} type="button">
+          <FolderOpen aria-hidden="true" size={18} />
+          Prepare Handoff
+        </button>
+        <button className="architect-command-button icon-button text-button" disabled={!model?.canCopyHandoff} onClick={onCopyHandoff} type="button">
+          <Clipboard aria-hidden="true" size={18} />
+          Copy Handoff
+        </button>
+        <button className="architect-command-button icon-button text-button" onClick={onRefresh} type="button">
+          <RefreshCw aria-hidden="true" size={18} />
+          Refresh Outputs
+        </button>
+        <button className="architect-command-button icon-button text-button" onClick={onReloadBrowser} type="button">
+          <RotateCcw aria-hidden="true" size={18} />
+          Reload ChatGPT
+        </button>
+        {showRetryButton ? (
+          <button className="architect-command-button icon-button text-button" onClick={onRetryBrowser} type="button">
+            <RotateCcw aria-hidden="true" size={18} />
+            Retry Browser
+          </button>
+        ) : null}
+      </div>
+      <div className={`architect-browser-status ${actionMessage?.kind ?? "info"}`}>
+        <strong>{browserPresentation.label}</strong>
+        <span>{actionMessage?.message ?? model?.reason ?? browserPresentation.detail}</span>
+      </div>
+    </section>
+  );
+}
+
+function ArchitectOutputReviewShell({
+  isApplying,
+  model,
+  notes,
+  onNotesChange,
+  onReview,
+  onSelectSlot,
+  onStatusChange,
+  onViewedRevision,
+  selectedSlotId,
+  status,
+  viewedRevisionKeys,
+}: {
+  isApplying: boolean;
+  model: ArchitectOutputWorkspaceModel | null;
+  notes: string;
+  onNotesChange: (notes: string) => void;
+  onReview: () => void;
+  onSelectSlot: (slotId: string) => void;
+  onStatusChange: (status: DocumentDispositionStatus | "") => void;
+  onViewedRevision: (key: string) => void;
+  selectedSlotId: string | null;
+  status: DocumentDispositionStatus | "";
+  viewedRevisionKeys: string[];
+}): JSX.Element {
+  const selectedSlot =
+    model?.documentSlots.find((slot) => slot.slotId === selectedSlotId) ??
+    model?.documentSlots[0];
+  const currentRevisionKeys = model?.documentSlots
+    .map((slot) => revisionKeyForArchitectOutputSlot(slot))
+    .filter((key): key is string => Boolean(key)) ?? [];
+  const allCurrentRevisionsViewed =
+    currentRevisionKeys.length > 0 &&
+    currentRevisionKeys.every((key) => viewedRevisionKeys.includes(key));
+  const canReview =
+    Boolean(model?.canApplyDisposition) &&
+    Boolean(status) &&
+    allCurrentRevisionsViewed &&
+    (status !== "RevisionRequested" || Boolean(notes.trim()));
+
+  return (
+    <section className="architect-review-panel" aria-label="Architect output review">
+      {model && model.documentSlots.length > 1 ? (
+        <div className="architect-document-selector" role="tablist" aria-label="Current output slots">
+          {model.documentSlots.map((slot) => {
+            const revisionKey = revisionKeyForArchitectOutputSlot(slot);
+            return (
+              <button
+                aria-selected={selectedSlot?.slotId === slot.slotId}
+                className={selectedSlot?.slotId === slot.slotId ? "document-choice selected" : "document-choice"}
+                disabled={!slot.logicalDocumentId}
+                key={slot.slotId}
+                onClick={() => {
+                  onSelectSlot(slot.slotId);
+                  if (revisionKey) {
+                    onViewedRevision(revisionKey);
+                  }
+                }}
+                type="button"
+              >
+                <span>{slot.displayLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <label>
+        <span>Disposition</span>
+        <select
+          disabled={isApplying || !model?.canApplyDisposition}
+          onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus | "")}
+          value={status}
+        >
+          <option value="">Select disposition</option>
+          {dispositionOptions.map((option) => (
+            <option key={option.status} value={option.status}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>Review Notes</span>
+        <textarea
+          disabled={isApplying || !model?.canApplyDisposition}
+          onChange={(event) => onNotesChange(event.target.value)}
+          value={notes}
+        />
+      </label>
+      <button
+        className="apply-button"
+        disabled={isApplying || !canReview}
+        onClick={onReview}
+        type="button"
+      >
+        Apply Review
+      </button>
+      {!allCurrentRevisionsViewed && model?.canApplyDisposition ? (
+        <div className="document-feedback" role="status">
+          Open every current output revision before approval.
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1943,649 +1667,6 @@ function CurrentActionPanel({
         </>
       ) : null}
     </section>
-  );
-}
-
-function ArchitectInterviewActionBar({
-  actionFeedback,
-  attachmentError,
-  browserStatus,
-  model,
-  onCopyHandoff,
-  onReloadBrowser,
-  onRefresh,
-  onRetryBrowser,
-  onSelectDocument,
-  pollingError,
-  selectedRole,
-}: {
-  actionFeedback: ArchitectActionFeedback;
-  attachmentError: string;
-  browserStatus: ArchitectBrowserFoundationStatus | null;
-  model: ArchitectInterviewWorkspaceModel | null;
-  onCopyHandoff: () => void;
-  onReloadBrowser: () => void;
-  onRefresh: () => void;
-  onRetryBrowser: () => void;
-  onSelectDocument: (role: ArchitectInterviewSelectedDocumentRole) => void;
-  pollingError: string;
-  selectedRole: ArchitectInterviewSelectedDocumentRole;
-}): JSX.Element {
-  const browserPresentation = architectBrowserPresentation(browserStatus);
-  const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
-  const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
-  const copyHandoffLabel = model?.state === "revision-requested"
-    ? "Copy Revised Handoff"
-    : "Copy Architect Handoff";
-
-  return (
-    <section className="architect-action-bar" aria-label="Architect Interview controls">
-      <div className="architect-action-context">
-        <span>Lifecycle</span>
-        <strong>{model?.railStatus ?? "Open"}</strong>
-      </div>
-
-      <div className="architect-required-action">
-        <span>Required Action</span>
-        <strong>{model?.requiredAction ?? "Refresh to resolve the required action."}</strong>
-      </div>
-
-      <div className="architect-browser-state">
-        <span>Embedded ChatGPT</span>
-        <strong>{browserPresentation.label}</strong>
-        <small>{browserPresentation.detail}</small>
-      </div>
-
-      <div className="architect-document-selector" role="group" aria-label="Architect Interview document selector">
-        <button
-          className={selectedRole === "prompt" ? "document-choice selected" : "document-choice"}
-          disabled={!model?.promptDocument}
-          onClick={() => onSelectDocument("prompt")}
-          type="button"
-        >
-          Prompt
-        </button>
-        <button
-          className={selectedRole === "interview" ? "document-choice selected" : "document-choice"}
-          disabled={!model?.interviewDocument}
-          onClick={() => onSelectDocument("interview")}
-          type="button"
-        >
-          Interview
-        </button>
-      </div>
-
-      <button
-        className="apply-button architect-copy-button"
-        disabled={!model?.canCopyHandoff}
-        onClick={onCopyHandoff}
-        type="button"
-      >
-        <Clipboard aria-hidden="true" size={16} />
-        {copyHandoffLabel}
-      </button>
-
-      <button className="icon-button text-button" onClick={onRefresh} type="button">
-        <RefreshCw aria-hidden="true" size={18} />
-        Refresh Output
-      </button>
-
-      <button className="icon-button text-button" onClick={onReloadBrowser} type="button">
-        <RefreshCw aria-hidden="true" size={18} />
-        Reload ChatGPT
-      </button>
-
-      {showRetryButton ? (
-        <button className="apply-button" onClick={onRetryBrowser} type="button">
-          Retry Embedded Browser
-        </button>
-      ) : null}
-
-      {actionMessage ? (
-        <div
-          className={`architect-action-message ${actionMessage.kind}`}
-          role={actionMessage.kind === "error" ? "alert" : "status"}
-        >
-          {actionMessage.message}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function ProjectPlanningActionBar({
-  actionFeedback,
-  attachmentError,
-  browserStatus,
-  model,
-  onCopyHandoff,
-  onPrepareHandoff,
-  onRefresh,
-  onReloadBrowser,
-  onRetryBrowser,
-  onSelectDocument,
-  pollingError,
-  selectedRole,
-}: {
-  actionFeedback: ArchitectActionFeedback;
-  attachmentError: string;
-  browserStatus: ArchitectBrowserFoundationStatus | null;
-  model: ProjectPlanningWorkspaceModel | null;
-  onCopyHandoff: () => void;
-  onPrepareHandoff: () => void;
-  onRefresh: () => void;
-  onReloadBrowser: () => void;
-  onRetryBrowser: () => void;
-  onSelectDocument: (role: ProjectPlanningSelectedDocumentRole) => void;
-  pollingError: string;
-  selectedRole: ProjectPlanningSelectedDocumentRole;
-}): JSX.Element {
-  const browserPresentation = architectBrowserPresentation(browserStatus);
-  const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
-  const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
-
-  return (
-    <section className="architect-action-bar project-planning-action-bar" aria-label="Project Planning controls">
-      <div className="architect-action-context">
-        <span>Lifecycle</span>
-        <strong>{model?.railStatus ?? "Not Ready"}</strong>
-      </div>
-
-      <div className="architect-required-action">
-        <span>Required Action</span>
-        <strong>{model?.requiredAction ?? "Refresh to resolve Project Planning evidence."}</strong>
-      </div>
-
-      <div className="architect-browser-state">
-        <span>Embedded ChatGPT</span>
-        <strong>{browserPresentation.label}</strong>
-        <small>{browserPresentation.detail}</small>
-      </div>
-
-      <div className="architect-document-selector" role="group" aria-label="Project Planning document selector">
-        <button
-          className={selectedRole === "profile" ? "document-choice selected" : "document-choice"}
-          disabled={!model?.profileDocument}
-          onClick={() => onSelectDocument("profile")}
-          type="button"
-        >
-          Profile
-        </button>
-        <button
-          className={selectedRole === "roadmap" ? "document-choice selected" : "document-choice"}
-          disabled={!model?.roadmapDocument}
-          onClick={() => onSelectDocument("roadmap")}
-          type="button"
-        >
-          Roadmap
-        </button>
-      </div>
-
-      <button
-        className="apply-button architect-copy-button"
-        disabled={!model?.canPrepareHandoff}
-        onClick={onPrepareHandoff}
-        type="button"
-      >
-        Prepare Project Planning Handoff
-      </button>
-
-      <button
-        className="apply-button architect-copy-button"
-        disabled={!model?.canCopyHandoff}
-        onClick={onCopyHandoff}
-        type="button"
-      >
-        <Clipboard aria-hidden="true" size={16} />
-        Copy Project Planning Handoff
-      </button>
-
-      <button className="icon-button text-button" onClick={onRefresh} type="button">
-        <RefreshCw aria-hidden="true" size={18} />
-        Refresh Planning Outputs
-      </button>
-
-      <button className="icon-button text-button" onClick={onReloadBrowser} type="button">
-        <RefreshCw aria-hidden="true" size={18} />
-        Reload ChatGPT
-      </button>
-
-      {showRetryButton ? (
-        <button className="apply-button" onClick={onRetryBrowser} type="button">
-          Retry Embedded Browser
-        </button>
-      ) : null}
-
-      {actionMessage ? (
-        <div
-          className={`architect-action-message ${actionMessage.kind}`}
-          role={actionMessage.kind === "error" ? "alert" : "status"}
-        >
-          {actionMessage.message}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function PhaseMapPreviewReview({
-  isApplying,
-  onReview,
-  onStatusChange,
-  selectedDocument,
-  status,
-}: {
-  isApplying: boolean;
-  onReview: () => void;
-  onStatusChange: (status: DocumentDispositionStatus | "") => void;
-  selectedDocument: PlanningDocumentDetail | null;
-  status: DocumentDispositionStatus | "";
-}): JSX.Element {
-  const canApplyReview = shouldRenderPhaseMapDispositionControls(selectedDocument);
-  const reviewDocument = canApplyReview ? selectedDocument : null;
-
-  if (!reviewDocument) {
-    return (
-      <div className="document-feedback architect-preview-disposition" role="status">
-        Phase Map disposition controls appear after selecting a readable Pending, Rejected, or RevisionRequested Phase Map output.
-      </div>
-    );
-  }
-
-  return (
-    <div className="architect-preview-disposition phase-map-review" aria-label="Phase Map Review">
-      <div className="architect-review-current">
-        <span>Phase Map Review</span>
-        <strong>Current: {reviewDocument.effectiveDisposition}</strong>
-      </div>
-      <label>
-        <span>Disposition</span>
-        <select
-          disabled={isApplying}
-          onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus | "")}
-          value={status}
-        >
-          <option value="">Select disposition</option>
-          {dispositionOptions.map((option) => (
-            <option key={option.status} value={option.status}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        className="apply-button"
-        disabled={!status || isApplying}
-        onClick={onReview}
-        type="button"
-      >
-        Apply Phase Map Review
-      </button>
-    </div>
-  );
-}
-
-function PhaseMapActionBar({
-  actionFeedback,
-  attachmentError,
-  browserStatus,
-  currentModel,
-  documents,
-  onCopyHandoff,
-  onPrepareHandoff,
-  onRefresh,
-  onReloadBrowser,
-  onRetryBrowser,
-  pollingError,
-}: {
-  actionFeedback: ArchitectActionFeedback;
-  attachmentError: string;
-  browserStatus: ArchitectBrowserFoundationStatus | null;
-  currentModel: CurrentWorkspaceModel | null;
-  documents: PlanningDocumentSummary[];
-  onCopyHandoff: () => void;
-  onPrepareHandoff: () => void;
-  onRefresh: () => void;
-  onReloadBrowser: () => void;
-  onRetryBrowser: () => void;
-  pollingError: string;
-}): JSX.Element {
-  const browserPresentation = architectBrowserPresentation(browserStatus);
-  const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
-  const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
-  const handoffDocument = phaseMapHandoffDocument(documents);
-  const outputDocument = phaseMapOutputDocument(documents);
-  const canPrepareHandoff =
-    currentModel?.activeWorkspaceId === "project-phase-map" &&
-    !handoffDocument &&
-    !outputDocument;
-
-  return (
-    <section className="architect-action-bar phase-map-action-bar" aria-label="Phase Map controls">
-      <div className="architect-action-context">
-        <span>Lifecycle</span>
-        <strong>{outputDocument?.effectiveDisposition ?? (handoffDocument ? "Waiting for Output" : "Ready")}</strong>
-      </div>
-
-      <div className="architect-required-action">
-        <span>Required Action</span>
-        <strong>{currentModel?.requiredAction ?? "Prepare the Phase Map handoff from approved Project Planning inputs."}</strong>
-      </div>
-
-      <div className="architect-browser-state">
-        <span>Embedded ChatGPT</span>
-        <strong>{browserPresentation.label}</strong>
-        <small>{browserPresentation.detail}</small>
-      </div>
-
-      <div className="architect-required-action">
-        <span>Phase Map Evidence</span>
-        <strong>{handoffDocument?.displayFilename ?? "No Phase Map handoff prepared"}</strong>
-        <small>{outputDocument?.displayFilename ?? "No Phase Map output selected yet"}</small>
-      </div>
-
-      {!handoffDocument && !outputDocument ? (
-        <button
-          className="apply-button architect-copy-button"
-          disabled={!canPrepareHandoff}
-          onClick={onPrepareHandoff}
-          type="button"
-        >
-          Prepare Phase Map Handoff
-        </button>
-      ) : null}
-
-      {handoffDocument ? (
-        <button
-          className="apply-button architect-copy-button"
-          onClick={onCopyHandoff}
-          type="button"
-        >
-          <Clipboard aria-hidden="true" size={16} />
-          Copy Phase Map Handoff
-        </button>
-      ) : null}
-
-      <button className="icon-button text-button" onClick={onRefresh} type="button">
-        <RefreshCw aria-hidden="true" size={18} />
-        Refresh Phase Map
-      </button>
-
-      <button className="icon-button text-button" onClick={onReloadBrowser} type="button">
-        <RefreshCw aria-hidden="true" size={18} />
-        Reload ChatGPT
-      </button>
-
-      {showRetryButton ? (
-        <button className="apply-button" onClick={onRetryBrowser} type="button">
-          Retry Embedded Browser
-        </button>
-      ) : null}
-
-      {actionMessage ? (
-        <div
-          className={`architect-action-message ${actionMessage.kind}`}
-          role={actionMessage.kind === "error" ? "alert" : "status"}
-        >
-          {actionMessage.message}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function ProjectPlanningPreviewReview({
-  canApplyReview,
-  isApplying,
-  model,
-  notes,
-  onNotesChange,
-  onReview,
-  onStatusChange,
-  status,
-  viewedBoth,
-}: {
-  canApplyReview: boolean;
-  isApplying: boolean;
-  model: ProjectPlanningWorkspaceModel | null;
-  notes: string;
-  onNotesChange: (value: string) => void;
-  onReview: () => void;
-  onStatusChange: (status: DocumentDispositionStatus) => void;
-  status: DocumentDispositionStatus | "";
-  viewedBoth: boolean;
-}): JSX.Element {
-  if (!model?.profileDocument || !model.roadmapDocument) {
-    return (
-      <div className="document-feedback architect-preview-disposition" role="status">
-        {model?.reason ?? "Project Profile and Project Roadmap will appear here after MCP writes both exact outputs."}
-      </div>
-    );
-  }
-
-  if (!model.canApplyBundleDisposition) {
-    return (
-      <div className="document-error architect-preview-disposition" role="status">
-        <strong>Needs Attention</strong>
-        <span>{model.reason}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="architect-preview-disposition project-planning-review" aria-label="Project Planning Bundle Review">
-      <div className="architect-review-current">
-        <span>Bundle Review</span>
-        <strong>Current: {model.profileDocument.disposition}</strong>
-      </div>
-      <label>
-        <span>Disposition</span>
-        <select
-          onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus)}
-          value={status}
-        >
-          <option value="">Select disposition</option>
-          {dispositionOptions.map((option) => (
-            <option key={option.status} value={option.status}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="architect-notes">
-        <span>{status === "RevisionRequested" ? "Revision Instructions" : "Review Notes"}</span>
-        <textarea
-          disabled={isApplying}
-          onChange={(event) => onNotesChange(event.target.value)}
-          value={notes}
-        />
-      </label>
-      <button
-        className="apply-button"
-        disabled={
-          !canApplyReview ||
-          isApplying ||
-          (status === "RevisionRequested" && notes.trim().length === 0) ||
-          (status === "Approved" && !viewedBoth)
-        }
-        onClick={onReview}
-        type="button"
-      >
-        Apply Planning Bundle Review
-      </button>
-    </div>
-  );
-}
-
-function LifecycleArchitectOutputImport({
-  activeWorkspaceId,
-  disabled,
-  onChange,
-  onSave,
-  value,
-}: {
-  activeWorkspaceId: WorkspaceId;
-  disabled: boolean;
-  onChange: (value: LifecycleArchitectOutputDrafts) => void;
-  onSave: () => void;
-  value: LifecycleArchitectOutputDrafts;
-}): JSX.Element | null {
-  const update = <Key extends keyof LifecycleArchitectOutputDrafts>(
-    key: Key,
-    nextValue: LifecycleArchitectOutputDrafts[Key],
-  ): void => {
-    onChange({ ...value, [key]: nextValue });
-  };
-
-  const textarea = (key: keyof LifecycleArchitectOutputDrafts, label: string): JSX.Element => (
-    <label>
-      <span>{label}</span>
-      <textarea
-        disabled={disabled}
-        onChange={(event) => update(key, event.target.value)}
-        value={value[key]}
-      />
-    </label>
-  );
-
-  const content = (() => {
-    switch (activeWorkspaceId) {
-      case "phase-interview":
-        return {
-          target: "Phase Interview",
-          fields: [textarea("phaseInterviewMarkdown", "Phase Interview Markdown")],
-          canSave: Boolean(value.phaseInterviewMarkdown.trim()),
-        };
-      case "phase-planning-bundle":
-        return {
-          target: "Phase Planning and Work Card Plan",
-          fields: [
-            textarea("phasePlanningMarkdown", "Phase Planning Markdown"),
-            textarea("workCardPlanMarkdown", "Work Card Plan Markdown"),
-          ],
-          canSave: Boolean(value.phasePlanningMarkdown.trim() && value.workCardPlanMarkdown.trim()),
-        };
-      case "work-card-planning":
-        return {
-          target: "Formal Work Card",
-          fields: [textarea("formalWorkCardMarkdown", "Formal Work Card Markdown")],
-          canSave: Boolean(value.formalWorkCardMarkdown.trim()),
-        };
-      case "work-card-repair":
-        return {
-          target: "Repair Work Card",
-          fields: [textarea("repairWorkCardMarkdown", "Repair Work Card Markdown")],
-          canSave: Boolean(value.repairWorkCardMarkdown.trim()),
-        };
-      default:
-        return null;
-    }
-  })();
-
-  if (!content) {
-    return null;
-  }
-
-  return (
-    <section className="architect-output-import" aria-label="Architect Output">
-      <div className="architect-output-header">
-        <span>Architect Output</span>
-        <strong>{content.target}</strong>
-      </div>
-      {content.fields.map((field, index) => (
-        <div key={index}>{field}</div>
-      ))}
-      <button
-        className="apply-button"
-        disabled={disabled || !content.canSave}
-        onClick={onSave}
-        type="button"
-      >
-        Save Architect Output
-      </button>
-    </section>
-  );
-}
-
-function ArchitectInterviewPreviewReview({
-  canApplyReview,
-  isApplying,
-  model,
-  notes,
-  onNotesChange,
-  onReview,
-  onStatusChange,
-  selectedRole,
-  status,
-}: {
-  canApplyReview: boolean;
-  isApplying: boolean;
-  model: ArchitectInterviewWorkspaceModel | null;
-  notes: string;
-  onNotesChange: (value: string) => void;
-  onReview: () => void;
-  onStatusChange: (status: DocumentDispositionStatus) => void;
-  selectedRole: ArchitectInterviewSelectedDocumentRole;
-  status: DocumentDispositionStatus | "";
-}): JSX.Element {
-  const reviewRegion = getArchitectInterviewReviewRegionState({ model, selectedRole });
-
-  if (reviewRegion.kind === "prompt-or-missing") {
-    return (
-      <div className="document-feedback architect-preview-disposition" role="status">
-        {reviewRegion.statement}
-      </div>
-    );
-  }
-
-  if (reviewRegion.kind === "invalid") {
-    return (
-      <div className="document-error architect-preview-disposition" role="status">
-        <strong>Needs Attention</strong>
-        <span>{reviewRegion.diagnostics}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="architect-preview-disposition" aria-label="Interview Review">
-      <div className="architect-review-current">
-        <span>Interview Review</span>
-        <strong>Current: {model?.interviewDisposition ?? "Pending"}</strong>
-      </div>
-      <label>
-        <span>Disposition</span>
-        <select
-          onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus)}
-          value={status}
-        >
-          <option value="">Select disposition</option>
-          {dispositionOptions.map((option) => (
-            <option key={option.status} value={option.status}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {status === "RevisionRequested" ? (
-        <label className="architect-notes">
-          <span>Revision Instructions</span>
-          <textarea
-            disabled={!canApplyReview}
-            onChange={(event) => onNotesChange(event.target.value)}
-            value={notes}
-          />
-        </label>
-      ) : null}
-      <button
-        className="apply-button"
-        disabled={!canApplyReview || isApplying || (status === "RevisionRequested" && notes.trim().length === 0)}
-        onClick={onReview}
-        type="button"
-      >
-        Apply Interview Review
-      </button>
-    </div>
   );
 }
 
@@ -2745,127 +1826,29 @@ function getResolverFeedback(result: FirstNonApprovedResult): string {
   return `Document ${result.document.orderPosition} of ${result.document.totalDocumentCount}: ${result.document.displayTitle}`;
 }
 
-function architectInterviewRoleForSelection(
-  selectedDocumentId: string | null,
-  model: ArchitectInterviewWorkspaceModel | null,
-): ArchitectInterviewSelectedDocumentRole {
-  if (selectedDocumentId && selectedDocumentId === model?.interviewDocument?.logicalDocumentId) {
-    return "interview";
-  }
-  return "prompt";
-}
-
-function projectPlanningRoleForSelection(
-  selectedDocumentId: string | null,
-  model: ProjectPlanningWorkspaceModel | null,
-): ProjectPlanningSelectedDocumentRole | null {
-  if (!selectedDocumentId || !model) {
-    return null;
-  }
-  if (selectedDocumentId === model.profileDocument?.logicalDocumentId) {
-    return "profile";
-  }
-  if (selectedDocumentId === model.roadmapDocument?.logicalDocumentId) {
-    return "roadmap";
-  }
-  return null;
-}
-
-function projectPlanningRevisionKey(
-  role: ProjectPlanningSelectedDocumentRole,
-  model: ProjectPlanningWorkspaceModel | null,
-): string | null {
-  const document = role === "profile" ? model?.profileDocument : model?.roadmapDocument;
-  return document ? `${role}:${document.markdownPath}:${document.artifactRevision}` : null;
-}
-
-function projectPlanningDocumentsViewed(
-  model: ProjectPlanningWorkspaceModel | null,
-  viewedKeys: string[],
-): boolean {
-  const profileKey = projectPlanningRevisionKey("profile", model);
-  const roadmapKey = projectPlanningRevisionKey("roadmap", model);
-  return Boolean(profileKey && roadmapKey && viewedKeys.includes(profileKey) && viewedKeys.includes(roadmapKey));
-}
-
-function buildProjectPlanningEvidenceFingerprint(
-  workspaceRoot: string,
-  model: ProjectPlanningWorkspaceModel,
-): string {
-  return JSON.stringify({
-    workspaceRoot,
-    state: model.state,
-    handoff: [model.handoffMarkdownPath, model.handoffArtifactRevision],
-    profile: model.profileDocument
-      ? [model.profileDocument.markdownPath, model.profileDocument.artifactRevision, model.profileDocument.disposition]
-      : null,
-    roadmap: model.roadmapDocument
-      ? [model.roadmapDocument.markdownPath, model.roadmapDocument.artifactRevision, model.roadmapDocument.disposition]
-      : null,
-    bundle: model.bundleSynchronizationState,
-  });
-}
-
-function buildPhaseMapEvidenceFingerprint(
-  workspaceRoot: string,
-  documents: PlanningDocumentSummary[],
-): string {
-  return JSON.stringify({
-    workspaceRoot,
-    phaseMapDocuments: documents
-      .filter((document) =>
-        document.metadata.artifactType === "phase-map" ||
-        (
-          document.metadata.artifactType === "generated-handoff" &&
-          document.metadata.canonical?.workflowData.handoffKind === "phase-map"
-        ),
-      )
-      .map((document) => ({
-        markdownPath: document.markdownPath,
-        artifactRevision: document.metadata.artifactRevision,
-        disposition: document.effectiveDisposition,
-        readError: document.readError ?? "",
-        workflowData: document.metadata.canonical?.workflowData ?? {},
-        sourceRevisions: document.metadata.sourceRevisions ?? [],
-      })),
-  });
-}
-
 function isArchitectEnabledWorkspace(activeWorkspaceId: WorkspaceId): boolean {
   return activeWorkspaceId === "architect-interview" ||
+    activeWorkspaceId === "phase-interview" ||
+    activeWorkspaceId === "phase-planning-bundle" ||
     activeWorkspaceId === "project-planning-review" ||
-    activeWorkspaceId === "project-phase-map";
+    activeWorkspaceId === "project-phase-map" ||
+    activeWorkspaceId === "work-card-planning" ||
+    activeWorkspaceId === "work-card-repair";
 }
 
-function phaseMapHandoffDocument(documents: PlanningDocumentSummary[]): PlanningDocumentSummary | null {
-  return documents
-    .filter((document) => document.metadata.artifactType === "generated-handoff")
-    .filter((document) => document.metadata.participationRole === "nonReviewHandoff")
-    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "phase-map")
-    .at(-1) ?? null;
-}
-
-function phaseMapOutputDocument(documents: PlanningDocumentSummary[]): PlanningDocumentSummary | null {
-  return documents
-    .filter((document) => classifyPlanningDocument(document).workspaceId === "project-phase-map")
-    .filter(isWorkflowReviewDocument)
-    .at(-1) ?? null;
-}
-
-function architectPreviewMessage(
-  selectedRole: ArchitectInterviewSelectedDocumentRole,
-  model: ArchitectInterviewWorkspaceModel | null,
-): string {
-  if (selectedRole === "prompt") {
-    return "Prompt is an Approved non-review handoff input. Interview disposition controls are unavailable for this document.";
+function architectInterviewRailStatusFromGenericModel(
+  model: ArchitectOutputWorkspaceModel | null,
+): ArchitectInterviewRailStatus {
+  if (model?.workspaceId !== "architect-interview") {
+    return "Open";
   }
-  if (!model?.interviewDocument) {
-    return "Waiting for the Architect-authored Interview output at the exact prompt targets.";
+  if (model.railStatus === "Ready" || model.railStatus === "Not Ready") {
+    return "Open";
   }
-  if (!model.canApplyDisposition) {
-    return model.reason;
+  if (model.railStatus === "In Progress" || model.railStatus === "Conflict") {
+    return "Needs Attention";
   }
-  return "Interview output is the Operator review target.";
+  return model.railStatus;
 }
 
 function architectBrowserPresentation(status: ArchitectBrowserFoundationStatus | null): {
@@ -3040,7 +2023,10 @@ function CurrentWorkspaceBanner({
   activeWorkspaceLabel: string;
   model: CurrentWorkspaceModel | null;
   resolverResult: FirstNonApprovedResult | null;
-}): JSX.Element {
+}): JSX.Element | null {
+  if (model?.activeWorkspaceId === "work-card-intake") {
+    return null;
+  }
   const current = resolverResult?.status === "current" ? resolverResult.document : null;
   const requiredWorkspaceLabel = model
     ? workspaceDefinitions.find((definition) => definition.id === model.activeWorkspaceId)?.label

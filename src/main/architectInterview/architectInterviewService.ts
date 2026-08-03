@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type {
   ArchitectInterviewWorkspaceModel,
@@ -13,18 +11,13 @@ import {
 import { buildArchitectInterviewReviewSourceKey } from "../../shared/architectInterview/architectInterviewRefreshState";
 import {
   updateCanonicalMarkdownDisposition,
-  writeCanonicalMarkdownDocument,
 } from "../documents/canonicalMarkdownDocumentWriter";
-import {
-  type CanonicalDocumentMetadata,
-  metadataOpenDelimiter,
-  metadataCloseDelimiter,
-  parseCanonicalMarkdownDocument,
-} from "../../shared/documents/canonicalMarkdown";
+import { getArchitectInterviewDraftStatus, prepareArchitectInterviewDraftSubmission } from "./architectInterviewDraftPilot";
 
 export function getArchitectInterviewWorkspaceModel(
   workspaceRoot: string,
 ): ArchitectInterviewWorkspaceModel {
+  const draftStatus = getArchitectInterviewDraftStatus(workspaceRoot);
   const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
   if (context.status !== "ready") {
     return {
@@ -45,6 +38,12 @@ export function getArchitectInterviewWorkspaceModel(
 
   const interview = context.interview;
   const inspectableInterview = interview ?? context.invalidInterview;
+  const writableDraftStatus = draftStatus &&
+    draftStatus.submission.state !== "promoted" &&
+    draftStatus.submission.state !== "promotion-failed"
+      ? draftStatus
+      : undefined;
+  const canPrepareHandoff = canPrepareHandoffForContext(context);
   const invalidInterviewReason = context.invalidInterviewReason;
   const documentReadState = inspectableInterview?.documentReadState ?? "missing";
   const freshnessState = inspectableInterview?.freshnessState ?? context.invalidInterviewFreshnessState ?? "fresh";
@@ -56,7 +55,9 @@ export function getArchitectInterviewWorkspaceModel(
     !interview.readError &&
     interview.freshnessState === "fresh",
   );
-  const state = invalidInterviewReason ? "needs-attention" : deriveWorkspaceState(interview);
+  const state = invalidInterviewReason || draftStatus?.submission.state === "promotion-failed"
+    ? "needs-attention"
+    : deriveWorkspaceState(interview);
   const railStatus = deriveRailStatus(state, interview);
   const selectedReviewDocumentRole: ArchitectInterviewSelectedDocumentRole =
     hasReviewableInterview || hasInspectableInterview ? "interview" : "prompt";
@@ -65,18 +66,8 @@ export function getArchitectInterviewWorkspaceModel(
   return {
     state,
     railStatus,
-    handoffState: "handoff-ready",
-    handoffInstruction: buildArchitectHandoffInstruction({
-      promptMarkdownPath: context.prompt.markdownPath,
-      promptJsonRevision: context.prompt.artifactRevision,
-      projectIntakeMarkdownPath: context.projectIntake.markdownPath,
-      projectIntakeJsonRevision: context.projectIntake.artifactRevision,
-      outputMarkdownPath: context.interviewTargets.markdownPath,
-      currentOperatorReviewNotes,
-      currentInterviewDisposition: interview?.disposition,
-      invalidInterviewReason,
-      hasInvalidInterview: Boolean(context.invalidInterview),
-    }),
+    handoffState: canPrepareHandoff || writableDraftStatus ? "handoff-ready" : "handoff-unavailable",
+    handoffInstruction: writableDraftStatus ? writableDraftStatus.preparedInstruction : undefined,
     promptDocument: context.prompt,
     interviewTargets: context.interviewTargets,
     interviewDocument: inspectableInterview,
@@ -84,14 +75,20 @@ export function getArchitectInterviewWorkspaceModel(
     interviewDisposition: interview?.disposition,
     documentReadState,
     freshnessState,
-    canCopyHandoff: true,
+    canCopyHandoff: canPrepareHandoff,
     canApplyDisposition: invalidInterviewReason ? false : canApplyDisposition,
     currentOperatorReviewNotes,
     projectIntakeComplete: railStatus === "Completed",
-    requiredAction: invalidInterviewReason
-      ? "Interview output was saved but cannot be reviewed because its metadata is missing or stale. Copy the correction handoff and resend it in the embedded Architect chat."
+    draftSubmissionState: draftStatus?.submission.state,
+    draftPromotionError: draftStatus?.promotionError,
+    requiredAction: draftStatus?.submission.state === "promotion-failed"
+      ? `Architect Interview draft promotion failed: ${draftStatus.promotionError ?? "Correct the body and prepare a fresh handoff."}`
+      : invalidInterviewReason
+      ? "Interview output was saved but cannot be reviewed because its metadata is missing, stale, or ineligible for replacement."
       : requiredActionForState(state, selectedReviewDocumentRole),
-    reason: invalidInterviewReason
+    reason: draftStatus?.submission.state === "promotion-failed"
+      ? draftStatus.promotionError ?? "Architect Interview draft promotion failed."
+      : invalidInterviewReason
       ? `Interview output was saved but cannot be reviewed: ${invalidInterviewReason}`
       : reasonForState(state, interview),
     evidencePaths: context.evidencePaths,
@@ -99,51 +96,8 @@ export function getArchitectInterviewWorkspaceModel(
   };
 }
 
-export function saveCurrentArchitectInterviewOutput(
-  workspaceRoot: string,
-  markdownBody: string,
-): ArchitectInterviewWorkspaceModel {
-  const body = markdownBody.trim();
-  if (!body) {
-    throw new Error("Architect Interview output requires substantive Markdown.");
-  }
-  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
-    throw new Error("Architect Interview output must not contain application metadata delimiters.");
-  }
-
-  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
-  if (context.status !== "ready") {
-    throw new Error(context.reason);
-  }
-
-  const target = context.interviewTargets.markdownPath;
-  const sourceRevisions = [
-    { path: context.projectIntake.markdownPath, revision: context.projectIntake.artifactRevision },
-    { path: context.prompt.markdownPath, revision: context.prompt.artifactRevision },
-  ];
-
-  const existing = readExistingCanonical(workspaceRoot, target);
-  const metadata: CanonicalDocumentMetadata = {
-    schemaVersion: 1,
-    artifactType: "project-architect-interview",
-    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
-    participationRole: "gatingReview",
-    identity: context.expectedProjectIdentity,
-    sourceRevisions,
-    workflowData: {},
-    documentDisposition: {
-      status: "Pending",
-      notes: "",
-      reviewedAt: null,
-    },
-  };
-  writeCanonicalMarkdownDocument({
-    workspaceRoot,
-    relativePath: target,
-    metadata,
-    bodyMarkdown: body,
-  });
-
+export function prepareArchitectInterviewHandoff(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
+  prepareArchitectInterviewDraftSubmission(workspaceRoot);
   return getArchitectInterviewWorkspaceModel(workspaceRoot);
 }
 
@@ -275,26 +229,30 @@ function reasonForState(
   return "Repository evidence controls Architect Interview status.";
 }
 
+function canPrepareHandoffForContext(
+  context: Extract<ReturnType<typeof resolveCanonicalArchitectInterviewContext>, { status: "ready" }>,
+): boolean {
+  if (context.invalidInterview || context.invalidInterviewReason) return false;
+  if (!context.interview) return true;
+  return context.interview.disposition === "RevisionRequested";
+}
+
 function buildArchitectHandoffInstruction({
   currentInterviewDisposition,
   currentOperatorReviewNotes,
-  outputMarkdownPath,
+  draftMarkdownPath,
   projectIntakeJsonRevision,
   projectIntakeMarkdownPath,
   promptJsonRevision,
   promptMarkdownPath,
-  invalidInterviewReason,
-  hasInvalidInterview,
 }: {
   promptMarkdownPath: string;
   promptJsonRevision: number;
   projectIntakeMarkdownPath: string;
   projectIntakeJsonRevision: number;
-  outputMarkdownPath: string;
+  draftMarkdownPath: string;
   currentInterviewDisposition?: DocumentDispositionStatus;
   currentOperatorReviewNotes?: string;
-  invalidInterviewReason?: string;
-  hasInvalidInterview?: boolean;
 }): string {
   const revisionInstruction =
     currentInterviewDisposition === "RevisionRequested" && currentOperatorReviewNotes
@@ -308,18 +266,6 @@ function buildArchitectHandoffInstruction({
     `- path: ${projectIntakeMarkdownPath} revision: ${projectIntakeJsonRevision}`,
     `- path: ${promptMarkdownPath} revision: ${promptJsonRevision}`,
   ];
-  const correctionInstruction =
-    hasInvalidInterview && invalidInterviewReason
-      ? [
-          "",
-          "Correction mode:",
-          `- Current validation failure: ${invalidInterviewReason}`,
-          `- Existing Interview Markdown target for reading only: ${outputMarkdownPath}`,
-          "- Read the existing Interview output at that exact target if it is available.",
-          "- Preserve and revise the complete existing Interview body.",
-          "- Save the corrected complete Interview through the same artifact_toolbox submission action.",
-        ]
-      : [];
 
   return [
     "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
@@ -329,49 +275,39 @@ function buildArchitectHandoffInstruction({
     `- Prompt Markdown: ${promptMarkdownPath}`,
     `- Project Intake Markdown: ${projectIntakeMarkdownPath}`,
     "",
+    "Use these current source revisions:",
+    ...sourceRevisionMarkdownLines,
+    "",
     "Conduct the Project Architect Interview conversationally with the Operator in this chat.",
     "Continue until material scope, constraints, risks, decisions, unresolved questions, and planning direction are resolved.",
     "Chat text is not the durable record.",
     "Do not create placeholder output before the interview is substantively complete.",
     "Do not return a snippet as completion.",
     "Do not require manual Operator handling of completed Interview output.",
-    "When the interview or revision is substantively complete, synthesize one complete substantive Project Architect Interview Markdown document.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
-    "Call artifact_toolbox with this invocation shape:",
+    "When the interview or revision is substantively complete, synthesize one complete substantive Project Architect Interview Markdown document body.",
+    "Resolve the configured ChampCity MCP workspace ID for <PROJECT_REPO> if it is not already known.",
+    "Write only that body to this exact temporary draft path:",
+    `- Temporary draft Markdown: ${draftMarkdownPath}`,
+    "Call artifact_toolbox.create_markdown_artifact with this invocation structure:",
     "```json",
     "{",
-    '  "action": "submit_handoff_outputs",',
+    '  "action": "create_markdown_artifact",',
     '  "workspaceId": "<resolved workspace ID>",',
     '  "params": {',
-    '    "handoffKind": "architect-interview",',
-    '    "outputs": {',
-    '      "architectInterviewMarkdown": "<complete substantive Interview Markdown>"',
-    "    }",
+    '    "relativePath": "' + draftMarkdownPath + '",',
+    '    "content": "<complete body-only Interview Markdown>",',
+    '    "overwrite": false',
     "  }",
     "}",
     "```",
-    "The handoff kind is a selector, not authority.",
-    "The MCP server derives targets, metadata, identity, source revisions, participation role, revision, and Pending disposition from the current Approved handoff.",
-    "Do not supply target path, artifact metadata, identity, source revisions, participation role, disposition, metadata delimiters, serialized canonical JSON, retired save actions, a generic Markdown writer, a local import field, or a manual file-copy fallback.",
-    "Report completion only after the tool returns saved or already_saved.",
-    "After success, respond with a concise saved-and-ready-for-review confirmation.",
+    "Do not supply canonical metadata, a final canonical output path, route-specific handoff fields, hashes, digests, checksums, tokens, metadata delimiters, or any hidden authorization value.",
+    "Do not call the retired submission action, any retired Interview save action, or any alternate file-writing route.",
+    "The workflow remains incomplete until this temporary draft is created and ChampCity A/I promotes it.",
+    "After creating the draft, respond with a concise draft-created confirmation.",
     "If the action is unavailable, denied, or fails, provide the exact failure and remain incomplete.",
-    "Display-only application-owned final disposition: Document.Status=Pending.",
-    "",
-    "Display-only current source revisions:",
-    ...sourceRevisionMarkdownLines,
-    "The application owns source revision fields; field name revision, not artifactRevision.",
+    "ChampCity A/I alone constructs the final canonical Interview and its metadata, revision, source revisions, and Pending disposition.",
     "",
     "Read and address current Operator revision notes when the existing Interview is RevisionRequested.",
     ...revisionInstruction,
-    ...correctionInstruction,
   ].join("\n");
-}
-
-function readExistingCanonical(workspaceRoot: string, relativePath: string) {
-  const absolutePath = path.join(workspaceRoot, relativePath);
-  if (!fs.existsSync(absolutePath)) {
-    return null;
-  }
-  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
 }

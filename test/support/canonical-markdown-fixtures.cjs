@@ -104,6 +104,18 @@ function seedApprovedPhaseInterview(root, phaseId = "phase-01") {
 }
 
 function seedApprovedPhasePlanningBundle(root, phaseId = "phase-01", candidateId = "WC01") {
+  const documents = listPlanningDocuments(root);
+  const sourceRevisions = [
+    "planning/project/PROJECT_PROFILE.md",
+    "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+    "planning/project/Phase_Map/PHASE_MAP_demo.md",
+    `planning/phases/${phaseId}/Phase_Interview.md`,
+  ].map((markdownPath) => {
+    const document = documents.find((candidate) => candidate.markdownPath === markdownPath);
+    return document
+      ? { path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 }
+      : null;
+  }).filter(Boolean);
   const candidate = {
     candidateId,
     order: 1,
@@ -117,12 +129,15 @@ function seedApprovedPhasePlanningBundle(root, phaseId = "phase-01", candidateId
   const planning = writeDoc(root, `planning/phases/${phaseId}/Phase_Planning.md`, "phase-planning", "Approved", {
     participationRole: "compoundGatingReview",
     identity: { phaseId },
-    workflowData: { candidates: [candidate] },
+    sourceRevisions,
+    workflowData: {},
   });
   const plan = writeDoc(root, `planning/phases/${phaseId}/Work_Card_Plan.md`, "work-card-plan", "Approved", {
     participationRole: "compoundGatingReview",
     identity: { phaseId },
+    sourceRevisions,
     workflowData: { candidates: [candidate] },
+    bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify([candidate], null, 2)}\n\`\`\`\n`,
   });
   return { planning, plan, candidate };
 }

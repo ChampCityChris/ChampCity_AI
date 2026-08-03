@@ -12,6 +12,7 @@ import {
   validateCandidates,
   type WorkCardCandidate,
 } from "../phasePlanning/phasePlanningService";
+import type { WorkCardIntakeProjection } from "../../shared/workspaceContracts";
 
 export type CandidateSelectionState =
   | "eligible"
@@ -48,6 +49,12 @@ export interface WorkCardIntakeHandoffResult {
   candidateId: string;
   handoffMarkdownPath: string;
   formalWorkCardMarkdownPath: string;
+}
+
+interface WorkCardIntakeContext extends WorkCardIntakeProjection {
+  sourcePhasePlanningPath: string;
+  sourcePhasePlanningRevision: number;
+  sourceWorkCardPlanRevision: number;
 }
 
 export function selectNextWorkCardCandidate(
@@ -114,21 +121,13 @@ export function generateWorkCardIntakeHandoff(
   workspaceRoot: string,
   phaseId: string,
 ): WorkCardIntakeHandoffResult {
-  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
-  if (selection.state !== "selected") {
-    throw new Error(`No eligible Work Card candidate is available: ${selection.state}`);
-  }
-  const candidate = selection.selectedCandidate;
-  const phasePlanning = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
-  const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
-  const slug = slugify(candidate.title);
-  const handoffMarkdownPath = `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${candidate.candidateId}.md`;
-  const formalWorkCardMarkdownPath = `planning/phases/${phaseId}/Work_Cards/${candidate.candidateId}_${slug}.md`;
+  const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId);
+  const candidate = context.candidate;
 
   const content = { candidate: { ...candidate, phaseId } };
   writeCanonicalMarkdownDocument({
     workspaceRoot,
-    relativePath: handoffMarkdownPath,
+    relativePath: context.handoffMarkdownPath,
     metadata: {
       schemaVersion: 1,
       artifactType: "work-card-intake-handoff",
@@ -136,23 +135,87 @@ export function generateWorkCardIntakeHandoff(
       participationRole: "nonReviewHandoff",
       identity: { phaseId, workCardId: candidate.candidateId },
       sourceRevisions: [
-        { path: phasePlanning.markdownPath, revision: phasePlanning.metadata.artifactRevision ?? 1 },
-        { path: workCardPlan.markdownPath, revision: workCardPlan.metadata.artifactRevision ?? 1 },
+        { path: context.sourcePhasePlanningPath, revision: context.sourcePhasePlanningRevision },
+        { path: context.sourceWorkCardPlanPath, revision: context.sourceWorkCardPlanRevision },
       ],
       workflowData: {
         ...content,
-        formalWorkCardTarget: formalWorkCardMarkdownPath,
+        formalWorkCardTarget: context.formalWorkCardMarkdownPath,
       },
       documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
     },
-    bodyMarkdown: `# Work Card Intake Architect Handoff - ${candidate.candidateId}\n\nFormal Work Card Markdown: ${formalWorkCardMarkdownPath}\n`,
+    bodyMarkdown: `# Work Card Intake Architect Handoff - ${candidate.candidateId}\n\nFormal Work Card Markdown: ${context.formalWorkCardMarkdownPath}\n`,
   });
 
   return {
     phaseId,
     candidateId: candidate.candidateId,
-    handoffMarkdownPath,
-    formalWorkCardMarkdownPath,
+    handoffMarkdownPath: context.handoffMarkdownPath,
+    formalWorkCardMarkdownPath: context.formalWorkCardMarkdownPath,
+  };
+}
+
+export function getWorkCardIntakeProjection(
+  workspaceRoot: string,
+  phaseId: string,
+): WorkCardIntakeProjection {
+  const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId);
+  return {
+    phaseId: context.phaseId,
+    sourceWorkCardPlanPath: context.sourceWorkCardPlanPath,
+    selectionReason: context.selectionReason,
+    candidate: context.candidate,
+    handoffMarkdownPath: context.handoffMarkdownPath,
+    formalWorkCardMarkdownPath: context.formalWorkCardMarkdownPath,
+  };
+}
+
+function resolveWorkCardIntakeContext(
+  workspaceRoot: string,
+  phaseId: string,
+): WorkCardIntakeContext {
+  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
+  if (selection.state !== "selected") {
+    throw new Error(`No eligible Work Card candidate is available: ${selection.state}`);
+  }
+  const candidate = selection.selectedCandidate;
+  const phasePlanning = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
+  const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
+  const targets = workCardIntakeTargets(phaseId, candidate);
+  const selectionReason =
+    selection.explanations.find((entry) => entry.candidateId === candidate.candidateId)?.reason ??
+    "Candidate is eligible.";
+  return {
+    phaseId,
+    sourcePhasePlanningPath: phasePlanning.markdownPath,
+    sourcePhasePlanningRevision: phasePlanning.metadata.artifactRevision ?? 1,
+    sourceWorkCardPlanPath: workCardPlan.markdownPath,
+    sourceWorkCardPlanRevision: workCardPlan.metadata.artifactRevision ?? 1,
+    selectionReason,
+    candidate: {
+      candidateId: candidate.candidateId,
+      order: candidate.order,
+      title: candidate.title,
+      purpose: candidate.purpose,
+      dependsOn: candidate.dependsOn,
+      resolutionStatus: candidate.resolutionStatus,
+      resolutionReason: candidate.resolutionReason,
+      evidencePaths: candidate.evidencePaths,
+      carriedForwardToPhaseId: candidate.carriedForwardToPhaseId,
+    },
+    handoffMarkdownPath: targets.handoffMarkdownPath,
+    formalWorkCardMarkdownPath: targets.formalWorkCardMarkdownPath,
+  };
+}
+
+function workCardIntakeTargets(
+  phaseId: string,
+  candidate: Pick<WorkCardCandidate, "candidateId" | "title">,
+): Pick<WorkCardIntakeProjection, "handoffMarkdownPath" | "formalWorkCardMarkdownPath"> {
+  const slug = slugify(candidate.title);
+  return {
+    handoffMarkdownPath: `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${candidate.candidateId}.md`,
+    formalWorkCardMarkdownPath: `planning/phases/${phaseId}/Work_Cards/${candidate.candidateId}_${slug}.md`,
   };
 }
 

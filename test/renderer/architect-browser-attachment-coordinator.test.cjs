@@ -368,7 +368,7 @@ test("Architect Interview source layout removes generic panels and preserves dua
 
   assert.match(appSource, /<section className="project-selector" aria-label="Selected Project">/);
   assert.doesNotMatch(appSource, /workspace-status ready/);
-  assert.match(appSource, /!isArchitectEnabledWorkspace\(activeWorkspaceId\) \? \(\s*<CurrentWorkspaceBanner/s);
+  assert.match(appSource, /!isVisibleArchitectOutputWorkspace \? \(\s*<CurrentWorkspaceBanner/s);
   assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
   assert.match(styleSource, /grid-template-rows:\s*auto auto minmax\(0, 1fr\);/);
   assert.match(appSource, /<article className="document-preview">/);
@@ -377,5 +377,5 @@ test("Architect Interview source layout removes generic panels and preserves dua
   assert.doesNotMatch(appSource, /surfaceMode/);
   assert.doesNotMatch(styleSource, /surface-mode/);
   assert.match(appSource, /shouldShowArchitectBrowserRetry\(browserStatus, attachmentError\)/);
-  assert.match(appSource, /Retry Embedded Browser/);
+  assert.match(appSource, /Retry Browser/);
 });

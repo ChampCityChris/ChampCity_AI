@@ -24,6 +24,10 @@ import {
   type ProjectPlanningArtifactIdentity,
 } from "./projectPlanningContext";
 import {
+  getProjectPlanningDraftBundleStatus,
+  prepareProjectPlanningDraftBundleSubmission,
+} from "./projectPlanningDraftBundle";
+import {
   projectPlanningRequiredProfileSections,
   projectPlanningRequiredRoadmapSections,
 } from "./projectPlanningPreflight";
@@ -77,6 +81,7 @@ export function generateProjectPlanningHandoff(workspaceRoot: string): ProjectPl
 export function getProjectPlanningWorkspaceModel(
   workspaceRoot: string,
 ): ProjectPlanningWorkspaceModel {
+  const draftStatus = getProjectPlanningDraftBundleStatus(workspaceRoot);
   const context = resolveProjectPlanningContext(workspaceRoot);
   if (context.status !== "ready") {
     return {
@@ -91,26 +96,44 @@ export function getProjectPlanningWorkspaceModel(
       canApplyBundleDisposition: false,
       selectedPlanningDocumentRole: "profile",
       bundleSynchronizationState: "invalid",
+      draftSubmissionState: draftStatus?.submission.state,
+      draftPromotionError: draftStatus?.promotionError,
     };
   }
 
   const invalidReason = context.invalidHandoffReason ?? context.invalidProfileReason ?? context.invalidRoadmapReason;
   const profile = context.profile ?? context.invalidProfile;
   const roadmap = context.roadmap ?? context.invalidRoadmap;
-  const state = invalidReason ? "needs-attention" : deriveWorkspaceState(context);
+  const writableDraftStatus = draftStatus &&
+    draftStatus.submission.state !== "promoted" &&
+    draftStatus.submission.state !== "promotion-failed"
+      ? draftStatus
+      : undefined;
+  const canPrepareDraft = canPrepareDraftBundleForContext(context);
+  const state = draftStatus?.submission.state === "promotion-failed" || invalidReason
+    ? "needs-attention"
+    : deriveWorkspaceState(context);
   const notes = sharedOperatorReviewNotes(profile, roadmap);
   return {
     state,
     railStatus: deriveRailStatus(state),
-    requiredAction: requiredActionForState(state),
-    reason: invalidReason ?? reasonForState(state),
+    requiredAction: draftStatus?.submission.state === "promotion-failed"
+      ? `Project Planning draft bundle promotion failed: ${draftStatus.promotionError ?? "Correct both drafts and prepare a fresh handoff."}`
+      : requiredActionForState(state),
+    reason: draftStatus?.submission.state === "promotion-failed"
+      ? draftStatus.promotionError ?? "Project Planning draft bundle promotion failed."
+      : invalidReason ?? reasonForState(state),
     evidencePaths: context.evidencePaths,
-    handoffState: context.handoff ? "handoff-ready" : "handoff-unavailable",
+    handoffState: context.handoff && (canPrepareDraft || writableDraftStatus)
+      ? "handoff-ready"
+      : "handoff-unavailable",
     handoffMarkdownPath: context.handoffMarkdownPath,
-    handoffInstruction: buildProjectPlanningHandoffInstruction(context),
+    handoffInstruction: writableDraftStatus ? writableDraftStatus.preparedInstruction : undefined,
     handoffArtifactRevision: context.handoff?.artifactRevision,
-    canPrepareHandoff: state === "ready-for-handoff" && !invalidReason,
-    canCopyHandoff: Boolean(context.handoff) && !Boolean(context.invalidHandoffReason),
+    draftSubmissionState: draftStatus?.submission.state,
+    draftPromotionError: draftStatus?.promotionError,
+    canPrepareHandoff: canPrepareDraft,
+    canCopyHandoff: Boolean(context.handoff) && (canPrepareDraft || Boolean(writableDraftStatus)),
     canApplyBundleDisposition: canApplyBundleDisposition(context),
     reconciliationMode: context.reconciliationMode,
     repositoryReviewRequired: context.repositoryReviewRequired,
@@ -131,16 +154,20 @@ export function prepareProjectPlanningHandoff(
   workspaceRoot: string,
 ): ProjectPlanningWorkspaceModel {
   const result = generateProjectPlanningHandoff(workspaceRoot);
+  prepareProjectPlanningDraftBundleSubmission(workspaceRoot);
   return {
     ...getProjectPlanningWorkspaceModel(workspaceRoot),
     handoffPreparationMessage: result.alreadyPrepared
-      ? "Project Planning handoff is already prepared."
-      : "Project Planning handoff prepared.",
+      ? "Project Planning draft bundle prepared from the current handoff."
+      : "Project Planning handoff and draft bundle prepared.",
   };
 }
 
 export function getProjectPlanningHandoffInstruction(workspaceRoot: string): string {
-  const model = getProjectPlanningWorkspaceModel(workspaceRoot);
+  let model = getProjectPlanningWorkspaceModel(workspaceRoot);
+  if (!model.handoffInstruction && model.canCopyHandoff) {
+    model = prepareProjectPlanningHandoff(workspaceRoot);
+  }
   if (!model.canCopyHandoff || !model.handoffInstruction) {
     throw new Error(model.reason || "Project Planning handoff is not ready to copy.");
   }
@@ -292,7 +319,7 @@ function buildProjectPlanningHandoffBody(context: ReturnType<typeof requireReady
     "Required Project Roadmap sections:",
     ...projectPlanningRequiredRoadmapSections().map((heading) => `- ${heading}`),
     "",
-    "Browser chat is not durable authority. The Architect must call artifact_toolbox.submit_handoff_outputs.",
+    "Browser chat is not durable authority. The Architect must create both temporary body-only Markdown drafts through the generic artifact toolbox Markdown writer.",
     "",
   ].join("\n");
 }
@@ -360,6 +387,18 @@ function canApplyBundleDisposition(context: ReturnType<typeof requireReadyProjec
   return Boolean(context.profile && context.roadmap && deriveBundleSynchronizationState(context) === "synchronized");
 }
 
+function canPrepareDraftBundleForContext(context: ReturnType<typeof requireReadyProjectPlanningContext>): boolean {
+  if (context.invalidHandoffReason || context.invalidProfileReason || context.invalidRoadmapReason) return false;
+  if (!context.handoff) return false;
+  if (!context.profile && !context.roadmap) return true;
+  if (!context.profile || !context.roadmap) return false;
+  return (
+    deriveBundleSynchronizationState(context) === "synchronized" &&
+    context.profile.disposition === "RevisionRequested" &&
+    context.roadmap.disposition === "RevisionRequested"
+  );
+}
+
 function deriveBundleSynchronizationState(context: ReturnType<typeof requireReadyProjectPlanningContext>): ProjectPlanningWorkspaceModel["bundleSynchronizationState"] {
   if (context.invalidProfileReason || context.invalidRoadmapReason || context.invalidHandoffReason) return "invalid";
   if (!context.profile && !context.roadmap) return "missing";
@@ -393,9 +432,14 @@ function identityForContract(identity: ProjectPlanningArtifactIdentity): Project
   };
 }
 
-function buildProjectPlanningHandoffInstruction(context: ReturnType<typeof requireReadyProjectPlanningContext>): string {
+function buildProjectPlanningHandoffInstruction(
+  context: ReturnType<typeof requireReadyProjectPlanningContext>,
+  submission: ReturnType<typeof prepareProjectPlanningDraftBundleSubmission>,
+): string {
   const revisionNotes = sharedOperatorReviewNotes(context.profile, context.roadmap);
   const includeRevisionNotes = (context.profile?.disposition === "RevisionRequested" || context.roadmap?.disposition === "RevisionRequested") && revisionNotes;
+  const profileDraftPath = draftPathForSlot(submission, "project-profile");
+  const roadmapDraftPath = draftPathForSlot(submission, "project-roadmap");
   return [
     "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
     "This handoff is for the embedded Project Planning Architect chat.",
@@ -423,6 +467,13 @@ function buildProjectPlanningHandoffInstruction(context: ReturnType<typeof requi
     `- Project Profile target: ${context.profileMarkdownPath}`,
     `- Project Roadmap target: ${context.roadmapMarkdownPath}`,
     "",
+    "Both outputs belong to one atomic Project Planning draft bundle.",
+    "MCP creates only these temporary body-only drafts:",
+    `- Temporary Project Profile draft path: ${profileDraftPath}`,
+    `- Temporary Project Roadmap draft path: ${roadmapDraftPath}`,
+    "ChampCity A/I owns final targets, canonical metadata, validation, revisions, atomic promotion, cleanup, and review state.",
+    "The workflow remains incomplete until both temporary drafts are created and ChampCity A/I promotes the bundle.",
+    "",
     "The Project Profile Markdown body must contain these exact headings:",
     "# Project Profile",
     ...projectPlanningRequiredProfileSections().map((heading) => `## ${heading}`),
@@ -446,28 +497,48 @@ function buildProjectPlanningHandoffInstruction(context: ReturnType<typeof requi
     ...context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
     ...(context.handoff ? [`- path: ${context.handoff.markdownPath} revision: ${context.handoff.artifactRevision}`] : []),
     "",
-    "When both complete bodies are ready, call ChampCity MCP with this invocation shape:",
+    "When the complete Project Profile body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
     "{",
-    '  "action": "submit_handoff_outputs",',
+    '  "action": "create_markdown_artifact",',
     '  "workspaceId": "<resolved workspace ID>",',
     '  "params": {',
-    '    "handoffKind": "project-planning",',
-    '    "outputs": {',
-    '      "projectProfileMarkdown": "<complete Project Profile Markdown body>",',
-    '      "projectRoadmapMarkdown": "<complete Project Roadmap Markdown body>"',
-    "    }",
+    '    "relativePath": "' + profileDraftPath + '",',
+    '    "content": "<complete body-only Project Profile Markdown>",',
+    '    "overwrite": false',
     "  }",
     "}",
     "```",
-    "The handoff kind is a selector, not authority.",
-    "The MCP server derives targets, metadata, identity, source revisions, participation roles, revisions, and Pending disposition from the current Approved handoff.",
-    "Do not pass targets, metadata, identity, source revisions, reconciliation fields, or other authority fields as params.",
-    "Do not write placeholders. Do not use retired save actions, a generic Markdown writer, a manual document-body import fallback, a local import field, or a manual file-copy fallback.",
-    "Remain incomplete until artifact_toolbox.submit_handoff_outputs returns saved or already_saved.",
+    "",
+    "When the complete Project Roadmap body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "```json",
+    "{",
+    '  "action": "create_markdown_artifact",',
+    '  "workspaceId": "<resolved workspace ID>",',
+    '  "params": {',
+    '    "relativePath": "' + roadmapDraftPath + '",',
+    '    "content": "<complete body-only Project Roadmap Markdown>",',
+    '    "overwrite": false',
+    "  }",
+    "}",
+    "```",
+    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, reconciliation fields, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
+    "Do not write placeholders. Do not call retired Project Planning submission actions, retired save actions, domain-specific write routes, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",
+    "After both drafts are created, respond with a concise draft-created confirmation.",
     "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",
     ...(includeRevisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
   ].join("\n");
+}
+
+function draftPathForSlot(
+  submission: ReturnType<typeof prepareProjectPlanningDraftBundleSubmission>,
+  slotId: "project-profile" | "project-roadmap",
+): string {
+  const slot = submission.expectedDraftSlots.find((candidate) => candidate.slotId === slotId);
+  if (!slot) {
+    throw new Error("Project Planning draft submission is missing an expected slot.");
+  }
+  return slot.draftRelativePath;
 }
 
 function readExistingCanonical(workspaceRoot: string, relativePath: string) {

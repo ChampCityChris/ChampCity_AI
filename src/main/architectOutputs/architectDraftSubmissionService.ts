@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type {
+  ArchitectDraftCleanupResult,
   ArchitectDraftInspectionResult,
   ArchitectDraftSlotExpectation,
   ArchitectDraftSlotRead,
@@ -16,8 +17,20 @@ import {
   buildArchitectDraftSlotPath,
 } from "./architectDraftPaths";
 
-export function createArchitectDraftSubmission<TSlotId extends string, TSelection>(
-  definition: ArchitectOutputDefinition<TSlotId, TSelection>,
+interface ArchitectDraftCleanupTestHooks {
+  failBeforeExpectedDraftDelete?: (draftRelativePath: string) => Error | string | undefined;
+}
+
+let cleanupTestHooks: ArchitectDraftCleanupTestHooks = {};
+
+export function __setArchitectDraftCleanupTestHooks(
+  hooks: ArchitectDraftCleanupTestHooks = {},
+): void {
+  cleanupTestHooks = hooks;
+}
+
+export function createArchitectDraftSubmission<TSlotId extends string, TSelection, TDomainContext>(
+  definition: ArchitectOutputDefinition<TSlotId, TSelection, TDomainContext>,
   context: ArchitectDraftSubmissionContext,
   state: ArchitectDraftSubmissionState = "waiting-for-drafts",
 ): ArchitectDraftSubmission<TSlotId, TSelection> {
@@ -102,6 +115,10 @@ export function cleanupArchitectDraftSubmission<TSlotId extends string>(
     if (!isInside(submissionDirectory, absolutePath)) {
       throw new Error("Architect draft cleanup path escapes the exact submission directory.");
     }
+    const injectedError = cleanupTestHooks.failBeforeExpectedDraftDelete?.(draftRelativePath);
+    if (injectedError) {
+      throw injectedError instanceof Error ? injectedError : new Error(injectedError);
+    }
     if (fs.existsSync(absolutePath)) {
       fs.unlinkSync(absolutePath);
     }
@@ -113,6 +130,21 @@ export function cleanupArchitectDraftSubmission<TSlotId extends string>(
     if (!isDirectoryNotEmpty(error)) {
       throw error;
     }
+  }
+}
+
+export function retryArchitectDraftSubmissionCleanup<TSlotId extends string>(
+  workspaceRoot: string,
+  submission: ArchitectDraftSubmission<TSlotId>,
+): ArchitectDraftCleanupResult {
+  try {
+    cleanupArchitectDraftSubmission(workspaceRoot, submission);
+    return { cleanupStatus: "completed" };
+  } catch (error) {
+    return {
+      cleanupStatus: "failed",
+      cleanupError: boundedErrorMessage(error),
+    };
   }
 }
 
@@ -137,6 +169,13 @@ function terminalState(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function boundedErrorMessage(error: unknown): string {
+  const message = errorMessage(error);
+  return message.length <= 1000
+    ? message
+    : "Architect draft cleanup error exceeded the supported message bound.";
 }
 
 function isDirectoryNotEmpty(error: unknown): boolean {

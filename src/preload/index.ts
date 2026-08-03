@@ -67,68 +67,29 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "architectBrowser:reload",
     ) as ReturnType<ChampCityApi["reloadArchitectBrowser"]>,
-  getArchitectInterviewWorkspaceModel: () =>
+  getArchitectOutputWorkspaceModel: (workspaceId) =>
     ipcRenderer.invoke(
-      "architectInterview:getModel",
-    ) as ReturnType<ChampCityApi["getArchitectInterviewWorkspaceModel"]>,
-  copyArchitectHandoff: () =>
+      "architectOutput:getWorkspaceModel",
+      workspaceId,
+    ) as ReturnType<ChampCityApi["getArchitectOutputWorkspaceModel"]>,
+  prepareArchitectOutputHandoff: (workspaceId) =>
     ipcRenderer.invoke(
-      "architectInterview:copyHandoff",
-    ) as ReturnType<ChampCityApi["copyArchitectHandoff"]>,
-  reviewArchitectInterview: (status, operatorReviewNotes, expectedSourceKey) =>
+      "architectOutput:prepareHandoff",
+      workspaceId,
+    ) as ReturnType<ChampCityApi["prepareArchitectOutputHandoff"]>,
+  copyArchitectOutputHandoff: (workspaceId) =>
     ipcRenderer.invoke(
-      "architectInterview:review",
+      "architectOutput:copyHandoff",
+      workspaceId,
+    ) as ReturnType<ChampCityApi["copyArchitectOutputHandoff"]>,
+  reviewArchitectOutput: (workspaceId, status, operatorReviewNotes, presentedRevisions) =>
+    ipcRenderer.invoke(
+      "architectOutput:review",
+      workspaceId,
       status,
       operatorReviewNotes,
-      expectedSourceKey,
-    ) as ReturnType<ChampCityApi["reviewArchitectInterview"]>,
-  saveArchitectInterviewOutput: (markdownBody) =>
-    ipcRenderer.invoke(
-      "architectInterview:saveOutput",
-      markdownBody,
-    ) as ReturnType<ChampCityApi["saveArchitectInterviewOutput"]>,
-  getProjectPlanningWorkspaceModel: () =>
-    ipcRenderer.invoke(
-      "projectPlanning:getModel",
-    ) as ReturnType<ChampCityApi["getProjectPlanningWorkspaceModel"]>,
-  prepareProjectPlanningHandoff: () =>
-    ipcRenderer.invoke(
-      "projectPlanning:prepareHandoff",
-    ) as ReturnType<ChampCityApi["prepareProjectPlanningHandoff"]>,
-  copyProjectPlanningHandoff: () =>
-    ipcRenderer.invoke(
-      "projectPlanning:copyHandoff",
-    ) as ReturnType<ChampCityApi["copyProjectPlanningHandoff"]>,
-  reviewProjectPlanningBundle: (status, operatorReviewNotes) =>
-    ipcRenderer.invoke(
-      "projectPlanning:reviewBundle",
-      status,
-      operatorReviewNotes,
-    ) as ReturnType<ChampCityApi["reviewProjectPlanningBundle"]>,
-  copyPhaseMapHandoff: () =>
-    ipcRenderer.invoke(
-      "phaseMap:copyHandoff",
-    ) as ReturnType<ChampCityApi["copyPhaseMapHandoff"]>,
-  savePhaseInterviewOutput: (markdownBody) =>
-    ipcRenderer.invoke(
-      "phaseInterview:saveOutput",
-      markdownBody,
-    ) as ReturnType<ChampCityApi["savePhaseInterviewOutput"]>,
-  savePhasePlanningOutputs: (input) =>
-    ipcRenderer.invoke(
-      "phasePlanning:saveOutputs",
-      input,
-    ) as ReturnType<ChampCityApi["savePhasePlanningOutputs"]>,
-  saveFormalWorkCardOutput: (markdownBody) =>
-    ipcRenderer.invoke(
-      "workCardPlanning:saveOutput",
-      markdownBody,
-    ) as ReturnType<ChampCityApi["saveFormalWorkCardOutput"]>,
-  saveRepairWorkCardOutput: (markdownBody) =>
-    ipcRenderer.invoke(
-      "workCardRepair:saveOutput",
-      markdownBody,
-    ) as ReturnType<ChampCityApi["saveRepairWorkCardOutput"]>,
+      presentedRevisions,
+    ) as ReturnType<ChampCityApi["reviewArchitectOutput"]>,
   getCurrentWorkspaceModel: () =>
     ipcRenderer.invoke(
       "currentWorkflow:getModel",

@@ -119,13 +119,6 @@ const projectRailItems: readonly ProjectRailItem[] = [
 
 const workCardLoopItems: readonly LoopRailItem[] = [
   {
-    id: "work-card-intake",
-    label: "Work Card Intake",
-    fullLabel: "Work Card Intake",
-    destination: "work-card-intake",
-    stateFor: exactWorkspace("work-card-intake"),
-  },
-  {
     id: "work-card-planning",
     label: "Planning",
     fullLabel: "Work Card Planning",
@@ -385,7 +378,10 @@ function WorkflowLoopRail({
           <span className="text-[10px] font-bold leading-[1.05] text-slate-200">{title}</span>
         </div>
         <div className="relative min-w-0 flex-1">
-          <div className="grid grid-cols-6 gap-1">
+          <div
+            className="grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+          >
             {items.map((item, index) => {
               const state = item.stateFor(activeWorkspaceId);
               return (

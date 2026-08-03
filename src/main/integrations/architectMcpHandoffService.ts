@@ -1,10 +1,11 @@
 import path from "node:path";
 import type { ArchitectHandoffManifest } from "../../shared/workspaceContracts";
-import { getArchitectInterviewWorkspaceModel } from "../architectInterview/architectInterviewService";
+import { getArchitectInterviewWorkspaceModel, prepareArchitectInterviewHandoff } from "../architectInterview/architectInterviewService";
 
 export function buildArchitectHandoffManifest(workspaceRoot: string): ArchitectHandoffManifest {
   try {
-    const model = getArchitectInterviewWorkspaceModel(workspaceRoot);
+    const current = getArchitectInterviewWorkspaceModel(workspaceRoot);
+    const model = current.handoffInstruction ? current : prepareArchitectInterviewHandoff(workspaceRoot);
     if (!model.canCopyHandoff || !model.promptDocument || !model.interviewTargets || !model.handoffInstruction) {
       return {
         state: model.state === "needs-attention" ? "handoff-failed" : "handoff-unavailable",

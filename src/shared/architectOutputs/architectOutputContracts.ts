@@ -46,10 +46,15 @@ export interface ArchitectBodyValidationIssue {
   message: string;
 }
 
-export interface ArchitectCanonicalDocumentBuildInput<TSlotId extends string = string> {
+export interface ArchitectCanonicalDocumentBuildInput<
+  TSlotId extends string = string,
+  TDomainContext = unknown,
+> {
+  workspaceRoot: string;
   submission: ArchitectDraftSubmission<TSlotId>;
   slotId: TSlotId;
   bodyMarkdown: string;
+  domainContext: TDomainContext;
 }
 
 export interface ArchitectCanonicalDocumentBuildResult {
@@ -57,33 +62,69 @@ export interface ArchitectCanonicalDocumentBuildResult {
   metadata: CanonicalDocumentMetadata;
 }
 
-export interface ArchitectOutputSlotDefinition<TSlotId extends string = string> {
+export interface ArchitectOutputSlotDefinition<
+  TSlotId extends string = string,
+  TDomainContext = unknown,
+> {
   slotId: TSlotId;
   displayLabel: string;
   draftPathComponent: string;
-  validateBody: (bodyMarkdown: string) => void;
+  validateBody: (bodyMarkdown: string, domainContext: TDomainContext) => void;
   buildCanonicalDocument: (
-    input: ArchitectCanonicalDocumentBuildInput<TSlotId>,
+    input: ArchitectCanonicalDocumentBuildInput<TSlotId, TDomainContext>,
   ) => ArchitectCanonicalDocumentBuildResult;
 }
 
-export interface ArchitectPostPromotionSelectionInput<TSlotId extends string = string> {
+export interface ArchitectPostPromotionSelectionInput<
+  TSlotId extends string = string,
+  TDomainContext = unknown,
+> {
   submission: ArchitectDraftSubmission<TSlotId>;
   promotedDocuments: readonly ArchitectCanonicalDocumentBuildResult[];
+  domainContext: TDomainContext;
+}
+
+export interface ArchitectOutputPreparation<TDomainContext = unknown> {
+  sourceHandoff: SourceRevision;
+  domainContext: TDomainContext;
+}
+
+export interface ArchitectOutputPromotionContextInput<TDomainContext = unknown> {
+  workspaceRoot: string;
+  submission: ArchitectDraftSubmission;
+  preparedContext: TDomainContext;
+}
+
+export interface ArchitectOutputPreparedInstructionInput<
+  TSlotId extends string = string,
+  TDomainContext = unknown,
+> {
+  workspaceRoot: string;
+  submission: ArchitectDraftSubmission<TSlotId>;
+  sourceHandoff: SourceRevision;
+  domainContext: TDomainContext;
 }
 
 export interface ArchitectOutputDefinition<
   TSlotId extends string = string,
   TSelection = unknown,
+  TDomainContext = unknown,
 > {
   outputKind: string;
   owningWorkspaceId: string;
   bundleMode: ArchitectOutputBundleMode;
-  slots: readonly ArchitectOutputSlotDefinition<TSlotId>[];
+  slots: readonly ArchitectOutputSlotDefinition<TSlotId, TDomainContext>[];
   buildSubmissionId: (context: ArchitectDraftSubmissionContext) => string;
   buildPromotionGroupId: (context: ArchitectDraftSubmissionContext) => string;
+  resolvePreparation: (workspaceRoot: string) => ArchitectOutputPreparation<TDomainContext>;
+  resolvePromotionContext: (
+    input: ArchitectOutputPromotionContextInput<TDomainContext>,
+  ) => TDomainContext;
+  buildPreparedInstruction?: (
+    input: ArchitectOutputPreparedInstructionInput<TSlotId, TDomainContext>,
+  ) => string;
   buildPostPromotionSelection: (
-    input: ArchitectPostPromotionSelectionInput<TSlotId>,
+    input: ArchitectPostPromotionSelectionInput<TSlotId, TDomainContext>,
   ) => TSelection;
 }
 
@@ -107,6 +148,13 @@ export type ArchitectDraftPromotionStatus =
   | "promoted"
   | "superseded";
 
+export type ArchitectDraftCleanupStatus = "not-attempted" | "completed" | "failed";
+
+export interface ArchitectDraftCleanupResult {
+  cleanupStatus: Exclude<ArchitectDraftCleanupStatus, "not-attempted">;
+  cleanupError?: string;
+}
+
 export interface ArchitectDraftPromotionResult<TSelection = unknown> {
   status: ArchitectDraftPromotionStatus;
   submission: ArchitectDraftSubmission<string, TSelection>;
@@ -114,4 +162,6 @@ export interface ArchitectDraftPromotionResult<TSelection = unknown> {
   selection?: TSelection;
   alreadyPromoted: boolean;
   error?: string;
+  cleanupStatus?: ArchitectDraftCleanupStatus;
+  cleanupError?: string;
 }

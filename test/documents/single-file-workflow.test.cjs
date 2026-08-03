@@ -13,7 +13,7 @@ const {
 } = require("../../dist/main/documents/planningDocumentService.js");
 const {
   getArchitectInterviewWorkspaceModel,
-  saveCurrentArchitectInterviewOutput,
+  prepareArchitectInterviewHandoff,
   reviewArchitectInterview,
 } = require("../../dist/main/architectInterview/architectInterviewService.js");
 const {
@@ -39,6 +39,14 @@ function intake(root) {
   });
 }
 
+function submitDraft(root, body) {
+  const prepared = prepareArchitectInterviewHandoff(root);
+  const draftPath = prepared.handoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
+  fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
+  fs.writeFileSync(path.join(root, draftPath), body, "utf8");
+  return getArchitectInterviewWorkspaceModel(root);
+}
+
 test("Project Intake and Architect Output create canonical Markdown only", () => {
   const root = tempWorkspace();
   const result = intake(root);
@@ -51,12 +59,7 @@ test("Project Intake and Architect Output create canonical Markdown only", () =>
   setDocumentDisposition(root, intakeDoc.logicalDocumentId, "Approved");
   let model = getArchitectInterviewWorkspaceModel(root);
   assert.equal(model.railStatus, "Waiting for Output");
-  assert.throws(
-    () => saveCurrentArchitectInterviewOutput(root, "<!-- CHAMPCITY-METADATA\n{}\nCHAMPCITY-METADATA -->\n# Bad\n"),
-    /must not contain application metadata delimiters/,
-  );
-
-  const saved = saveCurrentArchitectInterviewOutput(root, "# Project Understanding\n\nThe project needs a single-file governed workflow.");
+  const saved = submitDraft(root, "# Project Understanding\n\nThe project needs a single-file governed workflow.");
   assert.equal(fs.existsSync(path.join(root, saved.interviewTargets.markdownPath)), true);
   assert.equal(fs.existsSync(path.join(root, saved.interviewTargets.markdownPath.replace(/\.md$/, ".json"))), false);
   const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, saved.interviewTargets.markdownPath), "utf8"));

@@ -18,8 +18,8 @@ import {
 } from "../documents/canonicalMarkdownDocumentWriter";
 import type { ArchitectOutputRegistry } from "./architectOutputRegistry";
 import {
-  cleanupArchitectDraftSubmission,
   inspectArchitectDraftSubmission,
+  retryArchitectDraftSubmissionCleanup,
 } from "./architectDraftSubmissionService";
 
 const maxDraftBodyBytes = 512 * 1024;
@@ -28,6 +28,7 @@ export interface PromoteArchitectDraftSubmissionInput<TSelection = unknown> {
   workspaceRoot: string;
   registry: ArchitectOutputRegistry;
   submission: ArchitectDraftSubmission<string, TSelection>;
+  preparedContext?: unknown;
 }
 
 export function promoteArchitectDraftSubmission<TSelection = unknown>(
@@ -44,6 +45,7 @@ export function promoteArchitectDraftSubmission<TSelection = unknown>(
       submission: input.submission as ArchitectDraftSubmission<string, TSelection>,
       finalRelativePaths: [],
       alreadyPromoted: false,
+      cleanupStatus: "not-attempted",
     };
   }
 
@@ -54,9 +56,13 @@ export function promoteArchitectDraftSubmission<TSelection = unknown>(
       finalRelativePaths: input.submission.promotionRecord?.finalRelativePaths ?? [],
       selection: input.submission.promotionRecord?.selection as TSelection | undefined,
       alreadyPromoted: true,
+      cleanupStatus: "not-attempted",
     };
   }
 
+  let promotedSubmission!: ArchitectDraftSubmission<string, TSelection>;
+  let finalRelativePaths!: string[];
+  let selection!: TSelection;
   try {
     assertSubmissionMatchesDefinition(input.submission, definition);
     const inspection = inspectArchitectDraftSubmission(input.workspaceRoot, input.submission);
@@ -66,22 +72,52 @@ export function promoteArchitectDraftSubmission<TSelection = unknown>(
         submission: { ...input.submission, state: inspection.state },
         finalRelativePaths: [],
         alreadyPromoted: false,
+        cleanupStatus: "not-attempted",
       };
     }
+
+    const domainContext = definition.resolvePromotionContext
+      ? definition.resolvePromotionContext({
+          workspaceRoot: input.workspaceRoot,
+          submission: input.submission,
+          preparedContext: input.preparedContext,
+        })
+      : input.preparedContext;
 
     const documents = definition.slots.map((slot) => {
       const draft = requireDraft(inspection.presentSlots, slot.slotId);
       validateGenericBodyInvariants(draft.bodyMarkdown, slot.slotId);
-      slot.validateBody(draft.bodyMarkdown);
+      slot.validateBody(draft.bodyMarkdown, domainContext);
       return {
         ...slot.buildCanonicalDocument({
+          workspaceRoot: input.workspaceRoot,
           submission: input.submission,
           slotId: slot.slotId,
           bodyMarkdown: draft.bodyMarkdown,
+          domainContext,
         }),
         bodyMarkdown: draft.bodyMarkdown,
       };
     });
+
+    const promotedDocuments = documents.map((document): ArchitectCanonicalDocumentBuildResult => ({
+      relativePath: document.relativePath,
+      metadata: document.metadata,
+    }));
+    selection = definition.buildPostPromotionSelection({
+      submission: input.submission,
+      promotedDocuments,
+      domainContext,
+    });
+    finalRelativePaths = promotedDocuments.map((document) => document.relativePath);
+    promotedSubmission = {
+      ...input.submission,
+      state: "promoted",
+      promotionRecord: {
+        finalRelativePaths,
+        selection,
+      },
+    };
 
     if (definition.bundleMode === "single-output") {
       writeCanonicalMarkdownDocument({
@@ -100,32 +136,6 @@ export function promoteArchitectDraftSubmission<TSelection = unknown>(
     }
 
     verifyFinalCanonicalDocuments(input.workspaceRoot, documents);
-    cleanupArchitectDraftSubmission(input.workspaceRoot, input.submission);
-
-    const promotedDocuments = documents.map((document): ArchitectCanonicalDocumentBuildResult => ({
-      relativePath: document.relativePath,
-      metadata: document.metadata,
-    }));
-    const selection = definition.buildPostPromotionSelection({
-      submission: input.submission,
-      promotedDocuments,
-    });
-    const finalRelativePaths = promotedDocuments.map((document) => document.relativePath);
-    const promotedSubmission: ArchitectDraftSubmission<string, TSelection> = {
-      ...input.submission,
-      state: "promoted",
-      promotionRecord: {
-        finalRelativePaths,
-        selection,
-      },
-    };
-    return {
-      status: "promoted",
-      submission: promotedSubmission,
-      finalRelativePaths,
-      selection,
-      alreadyPromoted: false,
-    };
   } catch (error) {
     return {
       status: "promotion-failed",
@@ -133,8 +143,20 @@ export function promoteArchitectDraftSubmission<TSelection = unknown>(
       finalRelativePaths: [],
       alreadyPromoted: false,
       error: errorMessage(error),
+      cleanupStatus: "not-attempted",
     };
   }
+
+  const cleanupResult = retryArchitectDraftSubmissionCleanup(input.workspaceRoot, input.submission);
+  return {
+    status: "promoted",
+    submission: promotedSubmission,
+    finalRelativePaths,
+    selection,
+    alreadyPromoted: false,
+    cleanupStatus: cleanupResult.cleanupStatus,
+    cleanupError: cleanupResult.cleanupError,
+  };
 }
 
 function assertSubmissionMatchesDefinition(

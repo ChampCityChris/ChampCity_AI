@@ -113,5 +113,6 @@ export function shouldRenderArchitectInterviewDispositionControls({
 export function isArchitectInterviewDualPaneWorkspace(activeWorkspaceId: WorkspaceId): boolean {
   return activeWorkspaceId === "architect-interview" ||
     activeWorkspaceId === "project-planning-review" ||
+    activeWorkspaceId === "phase-interview" ||
     activeWorkspaceId === "project-phase-map";
 }

@@ -1,33 +1,39 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-  type CanonicalDocumentMetadata,
-  metadataCloseDelimiter,
-  metadataOpenDelimiter,
-  parseCanonicalMarkdownDocument,
-} from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
-import { isSemanticallyComplete } from "../../shared/documents/lifecycleArtifact";
+import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
+import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
+import type {
+  PhaseInterviewWorkspaceModel,
+  PhaseInterviewWorkspaceState,
+} from "../../shared/workspaceContracts";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
-  setDocumentDisposition,
 } from "../documents/planningDocumentService";
-import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
-import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
+import {
+  updateCanonicalMarkdownDisposition,
+  writeCanonicalMarkdownDocument,
+} from "../documents/canonicalMarkdownDocumentWriter";
+import {
+  canPreparePhaseInterviewDraft,
+  draftPathForPhaseInterview,
+  getActivePhaseInterviewDraftSubmission,
+  getPhaseInterviewDraftStatus,
+  phaseInterviewHandoffPath,
+  phaseInterviewOutputPath,
+  phaseInterviewRequiredSections,
+  phaseInterviewSubmissionContractId,
+  preparePhaseInterviewDraftSubmission,
+  resolvePhaseInterviewDraftContext,
+  type PhaseInterviewReadyContext,
+} from "./phaseInterviewDraftOutput";
 
 export interface PhaseInterviewHandoffResult {
   phaseId: string;
   handoffMarkdownPath: string;
   interviewMarkdownPath: string;
-}
-
-export interface PhaseInterviewDraftOptions {
-  clarificationRequired?: boolean;
-  questionsAndAnswers?: Array<{ question: string; answer: string }>;
-  acceptedAssumptions?: string[];
-  constraintsRisksDependenciesOutcome?: string;
+  alreadyPrepared?: boolean;
 }
 
 export interface PhaseIntakeCompletion {
@@ -36,47 +42,184 @@ export interface PhaseIntakeCompletion {
   reason: string;
 }
 
-export function generatePhaseInterviewHandoff(
-  workspaceRoot: string,
-  options: PhaseInterviewDraftOptions = {},
-): PhaseInterviewHandoffResult {
-  const selectedPhase = selectedPhaseFromProjection(workspaceRoot);
-  const profile = requiredApproved(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md");
-  const roadmap = requiredApproved(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md");
-  const phaseMap = requiredApproved(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".md");
-  const priorCloseouts = priorCloseoutSources(workspaceRoot, selectedPhase);
-  const handoffMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Architect_Handoffs/PHASE_INTERVIEW_ARCHITECT_HANDOFF_${selectedPhase.phaseId}.md`;
-  const interviewMarkdownPath = `planning/phases/${selectedPhase.phaseId}/Phase_Interview.md`;
+export function generatePhaseInterviewHandoff(workspaceRoot: string): PhaseInterviewHandoffResult {
+  const context = requireReadyPhaseInterviewContext(workspaceRoot);
+  const sourceRevisions = [
+    { path: context.profile.markdownPath, revision: context.profile.metadata.artifactRevision ?? 1 },
+    { path: context.roadmap.markdownPath, revision: context.roadmap.metadata.artifactRevision ?? 1 },
+    { path: context.phaseMap.markdownPath, revision: context.phaseMap.metadata.artifactRevision ?? 1 },
+    ...context.dependencyCloseouts.map((document) => ({
+      path: document.markdownPath,
+      revision: document.metadata.artifactRevision ?? 1,
+    })),
+  ];
+  const metadata = phaseInterviewHandoffMetadata(context, sourceRevisions);
+  const bodyMarkdown = buildPhaseInterviewHandoffBody(context, sourceRevisions);
+  const existing = readExistingCanonical(workspaceRoot, context.handoffMarkdownPath);
+  if (existing && handoffMatchesCurrentEvidence(existing, metadata, bodyMarkdown)) {
+    preparePhaseInterviewDraftSubmission(workspaceRoot);
+    return {
+      phaseId: context.selectedPhase.phaseId,
+      handoffMarkdownPath: context.handoffMarkdownPath,
+      interviewMarkdownPath: context.interviewMarkdownPath,
+      alreadyPrepared: true,
+    };
+  }
+
   writeCanonicalMarkdownDocument({
     workspaceRoot,
-    relativePath: handoffMarkdownPath,
+    relativePath: context.handoffMarkdownPath,
     metadata: {
-      schemaVersion: 1,
-      artifactType: "generated-handoff",
-      artifactRevision: 1,
-      participationRole: "nonReviewHandoff",
-      identity: { handoffKind: "phase-interview", phaseId: selectedPhase.phaseId },
-      sourceRevisions: [
-        { path: profile.markdownPath, revision: profile.metadata.artifactRevision ?? 1 },
-        { path: roadmap.markdownPath, revision: roadmap.metadata.artifactRevision ?? 1 },
-        { path: phaseMap.markdownPath, revision: phaseMap.metadata.artifactRevision ?? 1 },
-        ...priorCloseouts.map((document) => ({ path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 })),
-      ],
-      workflowData: {
-        handoffKind: "phase-interview",
-        phase: selectedPhase,
-        outputTarget: interviewMarkdownPath,
-      },
-      documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
+      ...metadata,
+      artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
     },
-    bodyMarkdown: `# Phase Interview Handoff\n\nOutput Markdown: ${interviewMarkdownPath}\n`,
+    bodyMarkdown,
   });
 
+  preparePhaseInterviewDraftSubmission(workspaceRoot);
   return {
-    phaseId: selectedPhase.phaseId,
-    handoffMarkdownPath,
-    interviewMarkdownPath,
+    phaseId: context.selectedPhase.phaseId,
+    handoffMarkdownPath: context.handoffMarkdownPath,
+    interviewMarkdownPath: context.interviewMarkdownPath,
+    alreadyPrepared: false,
   };
+}
+
+export function getPhaseInterviewWorkspaceModel(
+  workspaceRoot: string,
+): PhaseInterviewWorkspaceModel {
+  const draftStatus = getPhaseInterviewDraftStatus(workspaceRoot);
+  const context = resolvePhaseInterviewDraftContext(workspaceRoot);
+  if (context.status !== "ready") {
+    return {
+      state: context.status === "not-ready" ? "not-ready" : "needs-attention",
+      railStatus: context.status === "not-ready" ? "Not Ready" : "Needs Attention",
+      requiredAction: context.reason,
+      reason: context.reason,
+      evidencePaths: context.evidencePaths,
+      handoffState: "handoff-unavailable",
+      canPrepareHandoff: false,
+      canCopyHandoff: false,
+      canApplyDisposition: false,
+      phaseInterviewTarget: "",
+      selectedReviewDocumentRole: "phase-interview",
+      draftSubmissionState: draftStatus?.submission.state,
+      draftPromotionError: draftStatus?.promotionError,
+    };
+  }
+
+  const inspectableInterview = context.interview ?? context.invalidInterview;
+  const writableDraftStatus = draftStatus &&
+    draftStatus.submission.state !== "promoted" &&
+    draftStatus.submission.state !== "promotion-failed"
+      ? draftStatus
+      : undefined;
+  const invalidReason = context.invalidInterviewReason;
+  const canPrepareHandoff = canPreparePhaseInterviewDraft(context) || !context.handoff;
+  const canCopyHandoff = Boolean(context.handoff) && (
+    canPreparePhaseInterviewDraft(context) || Boolean(writableDraftStatus)
+  );
+  const state = draftStatus?.submission.state === "promotion-failed" || invalidReason
+    ? "needs-attention"
+    : deriveWorkspaceState(context);
+  const currentOperatorReviewNotes = context.interview?.operatorReviewNotes;
+
+  return {
+    state,
+    railStatus: deriveRailStatus(state),
+    requiredAction: draftStatus?.submission.state === "promotion-failed"
+      ? `Phase Interview draft promotion failed: ${draftStatus.promotionError ?? "Correct the draft and prepare a fresh handoff."}`
+      : invalidReason
+      ? "Phase Interview output was saved but cannot be reviewed because its metadata is missing, stale, or ineligible for replacement."
+      : requiredActionForState(state),
+    reason: draftStatus?.submission.state === "promotion-failed"
+      ? draftStatus.promotionError ?? "Phase Interview draft promotion failed."
+      : invalidReason
+      ? `Phase Interview output was saved but cannot be reviewed: ${invalidReason}`
+      : reasonForState(state),
+    evidencePaths: context.evidencePaths,
+    handoffState: canCopyHandoff || canPrepareHandoff ? "handoff-ready" : "handoff-unavailable",
+    handoffMarkdownPath: context.handoffMarkdownPath,
+    handoffInstruction: writableDraftStatus ? writableDraftStatus.preparedInstruction : undefined,
+    handoffArtifactRevision: context.handoff?.metadata.artifactRevision,
+    handoffPreparationMessage: undefined,
+    draftSubmissionState: draftStatus?.submission.state,
+    draftPromotionError: draftStatus?.promotionError,
+    canPrepareHandoff,
+    canCopyHandoff,
+    canApplyDisposition: Boolean(
+      context.interview &&
+      context.interview.documentReadState === "readable" &&
+      context.interview.freshnessState === "fresh" &&
+      !invalidReason,
+    ),
+    phase: {
+      phaseId: context.selectedPhase.phaseId,
+      title: context.selectedPhase.title,
+      order: context.selectedPhase.order,
+      purpose: context.selectedPhase.purpose,
+      dependsOn: [...context.selectedPhase.dependsOn],
+      sourceReferences: [...context.selectedPhase.sourceReferences],
+      dependencyCloseoutPaths: context.dependencyCloseouts.map((document) => document.markdownPath),
+    },
+    phaseInterviewTarget: context.interviewMarkdownPath,
+    interviewDocument: inspectableInterview,
+    selectedReviewDocumentRole: "phase-interview",
+    currentOperatorReviewNotes,
+  };
+}
+
+export function preparePhaseInterviewHandoff(
+  workspaceRoot: string,
+): PhaseInterviewWorkspaceModel {
+  const result = generatePhaseInterviewHandoff(workspaceRoot);
+  return {
+    ...getPhaseInterviewWorkspaceModel(workspaceRoot),
+    handoffPreparationMessage: result.alreadyPrepared
+      ? "Phase Interview draft prepared from the current handoff."
+      : "Phase Interview handoff and draft prepared.",
+  };
+}
+
+export function getPhaseInterviewHandoffInstruction(workspaceRoot: string): string {
+  let model = getPhaseInterviewWorkspaceModel(workspaceRoot);
+  if (!model.handoffInstruction && (model.canCopyHandoff || model.canPrepareHandoff)) {
+    model = preparePhaseInterviewHandoff(workspaceRoot);
+  }
+  if (!model.canCopyHandoff || !model.handoffInstruction) {
+    throw new Error(model.reason || "Phase Interview handoff is not ready to copy.");
+  }
+  return model.handoffInstruction;
+}
+
+export function reviewPhaseInterview(
+  workspaceRoot: string,
+  status: DocumentDispositionStatus,
+  operatorReviewNotes = "",
+): PhaseInterviewWorkspaceModel {
+  const trimmedNotes = operatorReviewNotes.trim();
+  if (status === "RevisionRequested" && !trimmedNotes) {
+    throw new Error("RevisionRequested requires Operator revision instructions.");
+  }
+  const context = requireReadyPhaseInterviewContext(workspaceRoot);
+  if (!context.interview) {
+    throw new Error("Phase Interview output is not available for review.");
+  }
+  if (
+    context.interview.documentReadState !== "readable" ||
+    context.interview.readError ||
+    context.interview.freshnessState !== "fresh"
+  ) {
+    throw new Error("Only a readable, fresh Phase Interview Markdown document can be reviewed.");
+  }
+  updateCanonicalMarkdownDisposition({
+    workspaceRoot,
+    relativePath: context.interview.markdownPath,
+    status,
+    notes: trimmedNotes,
+    reviewedAt: new Date().toISOString(),
+  });
+  return getPhaseInterviewWorkspaceModel(workspaceRoot);
 }
 
 export function setPhaseInterviewDisposition(
@@ -84,53 +227,34 @@ export function setPhaseInterviewDisposition(
   phaseId: string,
   status: DocumentDispositionStatus,
 ): void {
-  const interview = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Phase_Interview`, ".md");
-  setDocumentDisposition(workspaceRoot, interview.logicalDocumentId, status);
-}
-
-export function savePhaseInterviewOutput(
-  workspaceRoot: string,
-  markdownBody: string,
-): {
-  phaseId: string;
-  phaseInterviewMarkdownPath: string;
-} {
-  const bodyMarkdown = substantiveMarkdown(markdownBody, "Phase Interview");
-  const handoff = requiredApprovedHandoff(workspaceRoot);
-  const workflowData = handoff.metadata.canonical?.workflowData ?? {};
-  const phase = workflowData.phase;
-  const phaseId = phase && typeof phase === "object" && typeof (phase as { phaseId?: unknown }).phaseId === "string"
-    ? (phase as { phaseId: string }).phaseId
-    : typeof handoff.metadata.canonical?.identity.phaseId === "string"
-      ? handoff.metadata.canonical.identity.phaseId
-      : "";
-  if (!phaseId) {
-    throw new Error("Phase Interview handoff does not provide phaseId.");
+  const expectedPath = phaseInterviewOutputPath(phaseId);
+  const interview = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath === expectedPath);
+  if (!interview) {
+    throw new Error(`Phase Interview document is missing: ${expectedPath}`);
   }
-  const phaseInterviewMarkdownPath = requiredMarkdownTarget(workflowData.outputTarget, "outputTarget");
-  const sourceRevisions = sourceRevisionsFromHandoff(handoff);
-
-  writeCanonicalMarkdownDocument({
+  updateCanonicalMarkdownDisposition({
     workspaceRoot,
-    relativePath: phaseInterviewMarkdownPath,
-    metadata: outputMetadata({
-      workspaceRoot,
-      relativePath: phaseInterviewMarkdownPath,
-      phaseId,
-      sourceRevisions,
-    }),
-    bodyMarkdown,
+    relativePath: interview.markdownPath,
+    status,
+    reviewedAt: new Date().toISOString(),
   });
-
-  return { phaseId, phaseInterviewMarkdownPath };
 }
 
 export function getPhaseIntakeCompletion(
   workspaceRoot: string,
   phaseId?: string,
 ): PhaseIntakeCompletion {
-  const selectedPhaseId = phaseId ?? selectedPhaseFromProjection(workspaceRoot).phaseId;
-  const interview = findByPrefix(workspaceRoot, `planning/phases/${selectedPhaseId}/Phase_Interview`, ".md");
+  const context = resolvePhaseInterviewDraftContext(workspaceRoot);
+  const selectedPhaseId = phaseId ?? (context.status === "ready" ? context.selectedPhase.phaseId : undefined);
+  if (!selectedPhaseId) {
+    return {
+      complete: false,
+      reason: context.status === "ready" ? "Phase Interview selected phase is unavailable." : context.reason,
+    };
+  }
+  const interview = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath === phaseInterviewOutputPath(selectedPhaseId));
   if (!interview) {
     return {
       complete: false,
@@ -153,112 +277,214 @@ export function getPhaseIntakeCompletion(
   };
 }
 
-function selectedPhaseFromProjection(workspaceRoot: string): PhaseMapPhase {
-  const projection = getPhaseMapProjection(workspaceRoot);
-  if (projection.state !== "first-incomplete") {
-    throw new Error(`Resolver-selected phase is unavailable: ${projection.state}`);
+function requireReadyPhaseInterviewContext(workspaceRoot: string): PhaseInterviewReadyContext {
+  const context = resolvePhaseInterviewDraftContext(workspaceRoot);
+  if (context.status !== "ready") {
+    throw new Error(context.reason);
   }
-  return projection.phase;
+  return context;
 }
 
-function priorCloseoutSources(workspaceRoot: string, phase: PhaseMapPhase): PlanningDocumentSummary[] {
-  const documents = listPlanningDocuments(workspaceRoot);
-  const dependencyIds = new Set(phase.dependsOn);
-  return documents
-    .filter((document) => document.displayFilename.toLowerCase().includes("phase_closeout"))
-    .filter((document) => document.metadata.phaseId && dependencyIds.has(document.metadata.phaseId))
-    .filter(isSemanticallyComplete);
-}
-
-function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
-  const handoff = listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.metadata.artifactType === "generated-handoff")
-    .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "phase-interview")
-    .filter((document) => document.effectiveDisposition === "Approved")
-    .at(-1);
-  if (!handoff) {
-    throw new Error("Current Approved Phase Interview handoff is required.");
-  }
-  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
-    throw new Error("Current Phase Interview handoff is stale.");
-  }
-  return handoff;
-}
-
-function outputMetadata(input: {
-  workspaceRoot: string;
-  relativePath: string;
-  phaseId: string;
-  sourceRevisions: SourceRevision[];
-}): CanonicalDocumentMetadata {
-  const existing = readExistingCanonical(input.workspaceRoot, input.relativePath);
+function phaseInterviewHandoffMetadata(
+  context: PhaseInterviewReadyContext,
+  sourceRevisions: PhaseInterviewReadyContext["sourceRevisions"],
+): CanonicalDocumentMetadata {
   return {
     schemaVersion: 1,
-    artifactType: "phase-interview",
-    artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
-    participationRole: "gatingReview",
-    identity: { phaseId: input.phaseId },
-    sourceRevisions: input.sourceRevisions,
-    workflowData: {},
-    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+    artifactType: "generated-handoff",
+    artifactRevision: 1,
+    participationRole: "nonReviewHandoff",
+    identity: {
+      handoffKind: "phase-interview",
+      phaseId: context.selectedPhase.phaseId,
+    },
+    sourceRevisions,
+    workflowData: {
+      handoffKind: "phase-interview",
+      contractId: phaseInterviewSubmissionContractId,
+      phase: context.selectedPhase,
+      outputTarget: context.interviewMarkdownPath,
+      requiredSections: [...phaseInterviewRequiredSections()],
+    },
+    documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
+}
+
+function buildPhaseInterviewHandoffBody(
+  context: PhaseInterviewReadyContext,
+  sourceRevisions: PhaseInterviewReadyContext["sourceRevisions"],
+): string {
+  return [
+    "# Phase Interview Handoff",
+    "",
+    `Contract ID: ${phaseInterviewSubmissionContractId}`,
+    `Selected Phase ID: ${context.selectedPhase.phaseId}`,
+    `Selected Phase Title: ${context.selectedPhase.title}`,
+    `Selected Phase Order: ${context.selectedPhase.order}`,
+    `Selected Phase Purpose: ${context.selectedPhase.purpose}`,
+    `Phase Interview Markdown: ${context.interviewMarkdownPath}`,
+    "",
+    "Selected phase dependencies:",
+    ...(context.selectedPhase.dependsOn.length > 0 ? context.selectedPhase.dependsOn.map((dependency) => `- ${dependency}`) : ["- none"]),
+    "",
+    "Selected phase source references:",
+    ...(context.selectedPhase.sourceReferences.length > 0 ? context.selectedPhase.sourceReferences.map((reference) => `- ${reference}`) : ["- none"]),
+    "",
+    "Dependency closeout evidence:",
+    ...(context.dependencyCloseouts.length > 0 ? context.dependencyCloseouts.map((document) => `- ${document.markdownPath}`) : ["- none"]),
+    "",
+    "Current source revisions:",
+    ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
+    "",
+    "Browser chat is not durable authority. The Architect must create one temporary body-only Markdown draft through the generic artifact toolbox Markdown writer.",
+  ].join("\n");
+}
+
+function buildPhaseInterviewHandoffInstruction(
+  context: PhaseInterviewReadyContext,
+  draftMarkdownPath: string,
+): string {
+  const revisionNotes = context.interview?.disposition === "RevisionRequested"
+    ? context.interview.operatorReviewNotes
+    : undefined;
+  return [
+    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
+    "This handoff is for the embedded Phase Interview Architect chat.",
+    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    "",
+    "Read these exact current inputs:",
+    `- Approved Project Profile: ${context.profile.markdownPath}`,
+    `- Approved Project Roadmap: ${context.roadmap.markdownPath}`,
+    `- Approved Phase Map: ${context.phaseMap.markdownPath}`,
+    `- Selected phase entry: ${context.selectedPhase.phaseId} / ${context.selectedPhase.title}`,
+    `- Current Phase Interview handoff: ${context.handoff?.markdownPath ?? context.handoffMarkdownPath}`,
+    ...(context.dependencyCloseouts.length > 0
+      ? context.dependencyCloseouts.map((document) => `- Approved dependency closeout: ${document.markdownPath}`)
+      : ["- Approved dependency closeouts: none"]),
+    "",
+    "Do not ask for information already resolved by project evidence.",
+    "Ask one primary question at a time in plain language.",
+    "Make Architect-owned technical recommendations rather than transferring design work to the Operator.",
+    "When a material choice exists, provide your recommended answer first.",
+    "The Operator may answer `use your recommendation` or `unsure`; treat either as permission to proceed with the best evidence-grounded recommendation.",
+    "Aim for approximately 5-10 substantive questions as a soft range.",
+    "Before final output, summarize decisions and remaining issues.",
+    "Confirm the final phase understanding before creating the document unless the Operator directs immediate completion.",
+    "The Phase Interview resolves phase scope, non-scope, inherited constraints, dependencies, unknowns, risks, assumptions, acceptance direction, and planning inputs.",
+    "Do not pre-author Work Cards and do not replace Phase Planning.",
+    "",
+    "The final Phase Interview Markdown body must contain these exact section headings:",
+    ...phaseInterviewRequiredSections().map((heading) => `- ${heading}`),
+    "",
+    "MCP creates only this temporary body-only draft:",
+    `- Temporary Phase Interview draft path: ${draftMarkdownPath}`,
+    `- Final canonical target owned by ChampCity A/I: ${context.interviewMarkdownPath}`,
+    "ChampCity A/I owns final canonical metadata, validation, revision, promotion, cleanup, and review state.",
+    "The workflow remains incomplete until the temporary draft is created and ChampCity A/I promotes it.",
+    "",
+    "When the complete body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "```json",
+    "{",
+    '  "action": "create_markdown_artifact",',
+    '  "workspaceId": "<resolved workspace ID>",',
+    '  "params": {',
+    '    "relativePath": "' + draftMarkdownPath + '",',
+    '    "content": "<complete body-only Phase Interview Markdown>",',
+    '    "overwrite": false',
+    "  }",
+    "}",
+    "```",
+    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
+    "Do not call retired Phase Interview save actions, direct final-body writes, domain-specific write routes, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",
+    "After the draft is created, respond with a concise draft-created confirmation.",
+    "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",
+    "",
+    "Current source revisions:",
+    ...context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
+    ...(revisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
+  ].join("\n");
+}
+
+function deriveWorkspaceState(context: PhaseInterviewReadyContext): PhaseInterviewWorkspaceState {
+  if (!context.handoff) return "ready-for-handoff";
+  if (!context.interview) return "waiting-for-output";
+  if (context.interview.documentReadState !== "readable" || context.interview.readError || context.interview.freshnessState === "stale") {
+    return "needs-attention";
+  }
+  if (context.interview.disposition === "Approved") return "completed";
+  if (context.interview.disposition === "RevisionRequested") return "revision-requested";
+  if (context.interview.disposition === "Rejected") return "rejected";
+  return "ready-for-review";
+}
+
+function deriveRailStatus(state: PhaseInterviewWorkspaceState): PhaseInterviewWorkspaceModel["railStatus"] {
+  if (state === "not-ready") return "Not Ready";
+  if (state === "ready-for-handoff") return "Ready";
+  if (state === "waiting-for-output") return "Waiting for Output";
+  if (state === "completed") return "Completed";
+  if (state === "needs-attention") return "Needs Attention";
+  return "Awaiting Approval";
+}
+
+function requiredActionForState(state: PhaseInterviewWorkspaceState): string {
+  switch (state) {
+    case "ready-for-handoff":
+      return "Prepare Phase Interview handoff, copy the MCP instruction, and send it manually in embedded ChatGPT.";
+    case "waiting-for-output":
+      return "Paste and send the copied Phase Interview instruction in embedded ChatGPT, then wait for the MCP-written output.";
+    case "ready-for-review":
+      return "Review the Pending Phase Interview output and apply a disposition.";
+    case "revision-requested":
+      return "Copy the revised Phase Interview instruction and send it in embedded ChatGPT.";
+    case "rejected":
+      return "Resolve the rejected Phase Interview before continuing.";
+    case "completed":
+      return "Phase Interview is Approved; Phase Planning is ready.";
+    default:
+      return "Resolve Phase Interview evidence before reviewing.";
+  }
+}
+
+function reasonForState(state: PhaseInterviewWorkspaceState): string {
+  if (state === "ready-for-handoff") return "Approved Profile, Roadmap, Phase Map, and selected phase evidence are available.";
+  if (state === "waiting-for-output") return "Current Approved handoff exists; exact Phase Interview output is not present.";
+  if (state === "completed") return "Phase Interview is current, readable, fresh, and Approved.";
+  return "Repository evidence controls Phase Interview status.";
+}
+
+function handoffMatchesCurrentEvidence(
+  existing: NonNullable<ReturnType<typeof readExistingCanonical>>,
+  expectedMetadata: CanonicalDocumentMetadata,
+  expectedBodyMarkdown: string,
+): boolean {
+  const metadataWithoutRevision = (metadata: CanonicalDocumentMetadata) => ({
+    schemaVersion: metadata.schemaVersion,
+    artifactType: metadata.artifactType,
+    participationRole: metadata.participationRole,
+    identity: metadata.identity,
+    sourceRevisions: metadata.sourceRevisions,
+    workflowData: metadata.workflowData,
+    documentDisposition: metadata.documentDisposition,
+  });
+  return (
+    JSON.stringify(metadataWithoutRevision(existing.metadata)) ===
+      JSON.stringify(metadataWithoutRevision(expectedMetadata)) &&
+    existing.bodyMarkdown === expectedBodyMarkdown
+  );
 }
 
 function readExistingCanonical(workspaceRoot: string, relativePath: string) {
   const absolutePath = path.join(workspaceRoot, relativePath);
-  if (!fs.existsSync(absolutePath)) {
-    return null;
-  }
-  return parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+  return fs.existsSync(absolutePath)
+    ? parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"))
+    : null;
 }
 
-function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRevision[] {
-  return [
-    ...(handoff.metadata.sourceRevisions ?? []),
-    { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 },
-  ];
+export function getPhaseInterviewDraftSubmissionStatus(workspaceRoot: string) {
+  return getPhaseInterviewDraftStatus(workspaceRoot);
 }
 
-function requiredMarkdownTarget(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value.trim() || path.isAbsolute(value) || value.includes("..") || !value.endsWith(".md")) {
-    throw new Error(`Phase Interview handoff is missing ${field}.`);
-  }
-  return value;
-}
-
-function substantiveMarkdown(value: string, label: string): string {
-  const body = value.trim();
-  if (!body) {
-    throw new Error(`${label} output requires substantive Markdown.`);
-  }
-  if (body.includes(metadataOpenDelimiter) || body.includes(metadataCloseDelimiter)) {
-    throw new Error(`${label} output must not contain application metadata delimiters.`);
-  }
-  return body;
-}
-
-function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {
-  const document = requiredAny(workspaceRoot, prefix, extension);
-  if (document.effectiveDisposition !== "Approved") {
-    throw new Error(`Current Approved input is required: ${prefix}`);
-  }
-  if (evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "stale") {
-    throw new Error(`Current input is stale: ${prefix}`);
-  }
-  return document;
-}
-
-function requiredAny(workspaceRoot: string, prefix: string, extension: ".md") {
-  const document = findByPrefix(workspaceRoot, prefix, extension);
-  if (!document) {
-    throw new Error(`Phase Interview document is missing: ${prefix}`);
-  }
-  return document;
-}
-
-function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
-  return listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.markdownPath.startsWith(prefix))
-    .filter((document) => document.markdownPath.endsWith(extension))
-    .at(-1);
+export function getPhaseInterviewActiveDraftPath(workspaceRoot: string): string | undefined {
+  const active = getActivePhaseInterviewDraftSubmission(workspaceRoot);
+  return active ? draftPathForPhaseInterview(active.submission) : undefined;
 }

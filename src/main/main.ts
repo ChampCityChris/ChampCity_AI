@@ -7,6 +7,7 @@ import {
 } from "./workspaceSettings";
 import {
   applyDispositionInitialization,
+  assertGenericDocumentDispositionRouteAllowed,
   listPlanningDocuments,
   previewDispositionInitialization,
   readPlanningDocument,
@@ -23,21 +24,11 @@ import {
   setArchitectBrowserBounds,
 } from "./browser/architectBrowserService";
 import {
-  getArchitectInterviewWorkspaceModel,
-  reviewArchitectInterview,
-  saveCurrentArchitectInterviewOutput,
-} from "./architectInterview/architectInterviewService";
-import {
-  getProjectPlanningHandoffInstruction,
-  getProjectPlanningWorkspaceModel,
-  prepareProjectPlanningHandoff,
-  reviewProjectPlanningBundle,
-} from "./projectPlanning/projectPlanningService";
-import { getPhaseMapHandoffInstruction } from "./phaseMap/phaseMapService";
-import { savePhaseInterviewOutput } from "./phaseInterview/phaseInterviewService";
-import { savePhasePlanningOutputs } from "./phasePlanning/phasePlanningService";
-import { saveFormalWorkCardOutput } from "./workCardPlanning/workCardPlanningService";
-import { saveRepairWorkCardOutput } from "./workCardRepair/workCardRepairService";
+  getArchitectOutputWorkspaceModel,
+  prepareArchitectOutputHandoff,
+  resolveArchitectOutputCopyHandoff,
+  reviewArchitectOutput,
+} from "./architectOutputs/architectOutputWorkspaceService";
 import {
   applyCurrentDisposition,
   createPhaseCloseoutForCurrentPhase,
@@ -61,15 +52,11 @@ import type {
   ProjectIntakeSubmission,
   ProjectIntakeSubmissionResult,
   ArchitectBrowserFoundationStatus,
-  ArchitectInterviewWorkspaceModel,
+  ArchitectOutputPresentedSlotRevision,
+  ArchitectOutputWorkspaceModel,
   CurrentWorkspaceModel,
-  ProjectPlanningWorkspaceModel,
   RuntimeActionResult,
-  PhaseInterviewOutputSaveResult,
-  PhasePlanningOutputsInput,
-  PhasePlanningOutputsSaveResult,
-  FormalWorkCardOutputSaveResult,
-  RepairWorkCardOutputSaveResult,
+  WorkspaceId,
   WorkspaceMigrationPreview,
   WorkspaceMigrationResult,
   WorkspaceSelection,
@@ -189,7 +176,9 @@ ipcMain.handle("documents:read", (_event, logicalDocumentId: string) => {
 ipcMain.handle(
   "documents:setDisposition",
   (_event, logicalDocumentId: string, status: DocumentDispositionStatus) => {
-    return setDocumentDisposition(getRequiredWorkspaceRoot(), logicalDocumentId, status);
+    const workspaceRoot = getRequiredWorkspaceRoot();
+    assertGenericDocumentDispositionRouteAllowed(workspaceRoot, logicalDocumentId);
+    return setDocumentDisposition(workspaceRoot, logicalDocumentId, status);
   },
 );
 
@@ -247,109 +236,48 @@ ipcMain.handle("architectBrowser:reload", (): ArchitectBrowserFoundationStatus =
   return reloadArchitectBrowserSurface(getRequiredWorkspaceRoot());
 });
 
-ipcMain.handle("architectInterview:getModel", (): ArchitectInterviewWorkspaceModel => {
-  return getArchitectInterviewWorkspaceModel(getRequiredWorkspaceRoot());
-});
-
-ipcMain.handle("architectInterview:copyHandoff", (): RuntimeActionResult => {
-  const model = getArchitectInterviewWorkspaceModel(getRequiredWorkspaceRoot());
-  if (!model.canCopyHandoff || !model.handoffInstruction) {
-    throw new Error(model.reason || "Architect handoff is not available.");
-  }
-  clipboard.writeText(model.handoffInstruction);
-  return {
-    ok: true,
-    action: "architectInterview:copyHandoff",
-    message: "Architect handoff copied. Paste and send it manually in the embedded Architect chat.",
-    payload: {
-      bytes: Buffer.byteLength(model.handoffInstruction, "utf8"),
-    },
-  };
-});
-
 ipcMain.handle(
-  "architectInterview:review",
-  (_event, status: DocumentDispositionStatus, operatorReviewNotes: string, expectedSourceKey?: string): ArchitectInterviewWorkspaceModel => {
-    return reviewArchitectInterview(getRequiredWorkspaceRoot(), status, operatorReviewNotes, expectedSourceKey);
+  "architectOutput:getWorkspaceModel",
+  (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel => {
+    return getArchitectOutputWorkspaceModel(getRequiredWorkspaceRoot(), workspaceId);
   },
 );
 
-ipcMain.handle("architectInterview:saveOutput", (_event, markdownBody: string): ArchitectInterviewWorkspaceModel => {
-  return saveCurrentArchitectInterviewOutput(getRequiredWorkspaceRoot(), markdownBody);
-});
-
-ipcMain.handle("projectPlanning:getModel", (): ProjectPlanningWorkspaceModel => {
-  return getProjectPlanningWorkspaceModel(getRequiredWorkspaceRoot());
-});
-
-ipcMain.handle("projectPlanning:prepareHandoff", (): ProjectPlanningWorkspaceModel => {
-  return prepareProjectPlanningHandoff(getRequiredWorkspaceRoot());
-});
-
-ipcMain.handle("projectPlanning:copyHandoff", (): RuntimeActionResult => {
-  const instruction = getProjectPlanningHandoffInstruction(getRequiredWorkspaceRoot());
-  clipboard.writeText(instruction);
-  return {
-    ok: true,
-    action: "projectPlanning:copyHandoff",
-    message: "Project Planning handoff copied. Paste and send it manually in the embedded ChatGPT pane.",
-    payload: {
-      bytes: Buffer.byteLength(instruction, "utf8"),
-    },
-  };
-});
-
 ipcMain.handle(
-  "projectPlanning:reviewBundle",
-  (_event, status: DocumentDispositionStatus, operatorReviewNotes: string): ProjectPlanningWorkspaceModel => {
-    return reviewProjectPlanningBundle(getRequiredWorkspaceRoot(), status, operatorReviewNotes);
+  "architectOutput:prepareHandoff",
+  (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel => {
+    return prepareArchitectOutputHandoff(getRequiredWorkspaceRoot(), workspaceId);
   },
 );
 
-ipcMain.handle("phaseMap:copyHandoff", (): RuntimeActionResult => {
-  const instruction = getPhaseMapHandoffInstruction(getRequiredWorkspaceRoot());
-  clipboard.writeText(instruction);
-  return {
-    ok: true,
-    action: "phaseMap:copyHandoff",
-    message: "Phase Map handoff copied. Paste and send it manually in the embedded ChatGPT pane.",
-    payload: {
-      bytes: Buffer.byteLength(instruction, "utf8"),
-    },
-  };
-});
+ipcMain.handle(
+  "architectOutput:copyHandoff",
+  (_event, workspaceId: WorkspaceId): RuntimeActionResult => {
+    const workspaceRoot = getRequiredWorkspaceRoot();
+    const { instruction, result } = resolveArchitectOutputCopyHandoff(workspaceRoot, workspaceId);
+    clipboard.writeText(instruction);
+    return result;
+  },
+);
 
-ipcMain.handle("phaseInterview:saveOutput", (_event, markdownBody: string): PhaseInterviewOutputSaveResult => {
-  const workspaceRoot = getRequiredWorkspaceRoot();
-  return {
-    ...savePhaseInterviewOutput(workspaceRoot, markdownBody),
-    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
-  };
-});
-
-ipcMain.handle("phasePlanning:saveOutputs", (_event, input: PhasePlanningOutputsInput): PhasePlanningOutputsSaveResult => {
-  const workspaceRoot = getRequiredWorkspaceRoot();
-  return {
-    ...savePhasePlanningOutputs(workspaceRoot, input),
-    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
-  };
-});
-
-ipcMain.handle("workCardPlanning:saveOutput", (_event, markdownBody: string): FormalWorkCardOutputSaveResult => {
-  const workspaceRoot = getRequiredWorkspaceRoot();
-  return {
-    ...saveFormalWorkCardOutput(workspaceRoot, markdownBody),
-    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
-  };
-});
-
-ipcMain.handle("workCardRepair:saveOutput", (_event, markdownBody: string): RepairWorkCardOutputSaveResult => {
-  const workspaceRoot = getRequiredWorkspaceRoot();
-  return {
-    ...saveRepairWorkCardOutput(workspaceRoot, markdownBody),
-    currentWorkspaceModel: getCurrentWorkspaceModel(workspaceRoot),
-  };
-});
+ipcMain.handle(
+  "architectOutput:review",
+  (
+    _event,
+    workspaceId: WorkspaceId,
+    status: DocumentDispositionStatus,
+    operatorReviewNotes: string,
+    presentedRevisions: ArchitectOutputPresentedSlotRevision[],
+  ): ArchitectOutputWorkspaceModel => {
+    return reviewArchitectOutput(
+      getRequiredWorkspaceRoot(),
+      workspaceId,
+      status,
+      operatorReviewNotes,
+      presentedRevisions,
+    );
+  },
+);
 
 ipcMain.handle("currentWorkflow:getModel", (): CurrentWorkspaceModel => {
   return getCurrentWorkspaceModel(getRequiredWorkspaceRoot());
