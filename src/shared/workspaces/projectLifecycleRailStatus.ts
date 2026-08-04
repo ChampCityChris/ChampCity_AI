@@ -42,6 +42,29 @@ export function deriveProjectLifecycleRailStatuses(
   };
 }
 
+export function deriveArchitectInterviewRailStatusFromDocuments(
+  documents: PlanningDocumentSummary[],
+): ArchitectInterviewRailStatus {
+  const interview = activeDocuments(documents)
+    .filter((document) => document.metadata.artifactType === "project-architect-interview")
+    .filter((document) => isReviewable(documents, document))
+    .at(-1);
+  if (interview?.effectiveDisposition === "Approved") {
+    return "Completed";
+  }
+  if (interview) {
+    return interview.effectiveDisposition === "RevisionRequested" || interview.effectiveDisposition === "Rejected"
+      ? "Needs Attention"
+      : "Awaiting Approval";
+  }
+  const prompt = activeDocuments(documents)
+    .filter((document) => document.metadata.artifactType === "project-architect-interview-prompt")
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .filter((document) => isReviewable(documents, document))
+    .at(-1);
+  return prompt ? "Waiting for Output" : "Open";
+}
+
 export function projectRailStatusForWorkspace(
   statuses: ProjectTopRailStatusMap,
   workspaceId: WorkspaceId,

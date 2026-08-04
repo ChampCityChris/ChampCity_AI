@@ -13,6 +13,7 @@ const {
   shouldRenderPhaseMapDispositionControls,
 } = require("../../dist/shared/workspaces/projectRailPresentation.js");
 const {
+  deriveArchitectInterviewRailStatusFromDocuments,
   deriveProjectLifecycleRailStatuses,
 } = require("../../dist/shared/workspaces/projectLifecycleRailStatus.js");
 const {
@@ -138,6 +139,36 @@ test("Architect Interview rail status is evidence-derived and independent from s
   assert.equal(presentation.statusLabel, "Waiting for Output");
   assert.equal(deriveArchitectInterviewRailStatus({ railStatus: "Completed" }), "Completed");
   assert.equal(deriveArchitectInterviewRailStatus(null), "Open");
+});
+
+test("Architect Interview rail status can be derived from repository documents without active Architect model", () => {
+  const root = tempWorkspace("champcity-rail-architect-doc-status-");
+  const seeded = seedApprovedProjectIntake(root, "demo");
+  let documents = listPlanningDocuments(root);
+
+  assert.equal(deriveArchitectInterviewRailStatusFromDocuments(documents), "Waiting for Output");
+
+  writeDoc(root, seeded.interview, "project-architect-interview", "Approved", {
+    sourceRevisions: [
+      { path: seeded.intake, revision: 1 },
+      { path: seeded.prompt, revision: 1 },
+    ],
+  });
+  documents = listPlanningDocuments(root);
+  assert.equal(deriveArchitectInterviewRailStatusFromDocuments(documents), "Completed");
+
+  const statuses = deriveProjectLifecycleRailStatuses(documents, {
+    projectIntakeStatus: "Completed",
+    architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
+  });
+  assert.notEqual(statuses["project-planning-review"], "Not Ready");
+});
+
+test("App does not derive Architect Interview rail status from unrelated active Architect-output model", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+
+  assert.match(appSource, /deriveArchitectInterviewRailStatusFromDocuments\(documents\)/);
+  assert.match(appSource, /architectOutputModel\?\.workspaceId === "architect-interview"/);
 });
 
 test("Architect Interview prompt selection hides disposition controls", () => {
@@ -276,7 +307,7 @@ test("visible Work Card loop has one Planning item and no separate Intake item",
   const source = fs.readFileSync(railSourcePath, "utf8");
   const workCardLoopSource = source.slice(
     source.indexOf("const workCardLoopItems"),
-    source.indexOf("const repairLoopItem"),
+    source.indexOf("const phaseStepIdsByLoopStep"),
   );
 
   assert.match(workCardLoopSource, /label:\s*"Planning"/);

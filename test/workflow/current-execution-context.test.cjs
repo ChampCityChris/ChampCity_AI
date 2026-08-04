@@ -242,11 +242,15 @@ test("close-return selection can create next Work Card Intake handoff without ma
   );
 
   model = getCurrentWorkspaceModel(root);
-  assert.equal(model.activeWorkspaceId, "work-card-close");
-  assert.equal(model.currentWorkCardId, "WC01");
+  assert.equal(model.activeWorkspaceId, "work-card-planning");
+  assert.equal(model.currentWorkCardId, "WC02");
+  assert.equal(model.executionContext.workCard.workCardId, "WC02");
+  assert.equal(model.executionContext.workCard.loopStep, "Planning");
+  assert.equal(model.workCardIntake, undefined);
+  assert.match(model.sourceEvidence.join(";"), /WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02\.md/);
   assert.throws(
     () => generateCurrentHandoff(root),
-    /Current workflow step does not authorize a handoff action: work-card-close/,
+    /Current workflow step does not authorize a handoff action: work-card-planning/,
   );
 });
 

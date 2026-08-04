@@ -203,8 +203,12 @@ export function NestedWorkflowRail({
   const showPhaseLoop = phaseOrWorkCardWorkspaceIds.has(activeWorkspaceId);
   const showWorkCardLoop =
     activeWorkspaceId === "phase-work-card-selection" || workCardWorkspaceIds.has(activeWorkspaceId);
-  const activePhaseStepId = currentPhaseStepId(executionContext, activeWorkspaceId);
-  const activeWorkCardStepId = currentWorkCardStepId(executionContext, activeWorkspaceId);
+  const authorityWorkspaceId =
+    requiredWorkspaceId && phaseOrWorkCardWorkspaceIds.has(requiredWorkspaceId)
+      ? requiredWorkspaceId
+      : activeWorkspaceId;
+  const activePhaseStepId = currentPhaseStepId(executionContext, authorityWorkspaceId);
+  const activeWorkCardStepId = currentWorkCardStepId(executionContext, authorityWorkspaceId);
 
   return (
     <section aria-label="Workflow navigation" className="workflow-navigation-header">
@@ -239,7 +243,7 @@ export function NestedWorkflowRail({
 
       {showPhaseLoop ? (
         <ContextLoopBar
-          activeWorkspaceId={activeWorkspaceId}
+          activeWorkspaceId={authorityWorkspaceId}
           activeStepId={activePhaseStepId}
           ariaLabel="Phase loop"
           context={phaseContext(executionContext)}
@@ -251,7 +255,7 @@ export function NestedWorkflowRail({
 
       {showWorkCardLoop ? (
         <ContextLoopBar
-          activeWorkspaceId={activeWorkspaceId}
+          activeWorkspaceId={authorityWorkspaceId}
           activeStepId={activeWorkCardStepId}
           ariaLabel="Work Card loop"
           context={workCardContext(executionContext)}

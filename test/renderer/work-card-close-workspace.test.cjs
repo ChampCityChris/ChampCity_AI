@@ -167,5 +167,6 @@ test("App routes work-card-close through close projection instead of generic han
   assert.doesNotMatch(closeReturnSource, /generateCurrentHandoff/);
   assert.doesNotMatch(componentSource, /generateCurrentHandoff/);
   assert.match(appSource, /window\.champcity\.generateCloseReturnNextIntakeHandoff\(\)/);
-  assert.match(appSource, /handoffWorkspaceIds\.has\(activeWorkspaceId\) && !isCloseReturnSelection/);
+  assert.match(appSource, /<WorkCardSelectionWorkspace/);
+  assert.match(appSource, /!isWorkCardClose &&\s*!isWorkCardSelection/);
 });

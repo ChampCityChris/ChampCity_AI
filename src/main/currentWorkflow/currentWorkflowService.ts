@@ -213,6 +213,10 @@ function resolveCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspaceCo
   if (activeRepairModel) {
     return activeRepairModel;
   }
+  const nextCandidatePlanningModel = approvedWorkCardIntakeWithoutApprovedFormalModel(workspaceRoot);
+  if (nextCandidatePlanningModel) {
+    return nextCandidatePlanningModel;
+  }
   const validatedReportModel = modelForPendingReportWithValidationDecision(workspaceRoot, document);
   if (validatedReportModel) {
     return validatedReportModel;
@@ -641,6 +645,54 @@ function missingWorkCardIntakeOrFormalModel(workspaceRoot: string): CurrentWorks
     expectedNextState: "Pending Formal Work Card becomes the current review document.",
     fallbackEvidence: [handoff.markdownPath],
   });
+}
+
+function approvedWorkCardIntakeWithoutApprovedFormalModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {
+  const projection = getPhaseMapProjection(workspaceRoot);
+  if (projection.state !== "first-incomplete") {
+    return null;
+  }
+  const phaseId = projection.phase.phaseId;
+  const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId);
+  if (!phasePlanning.complete) {
+    return null;
+  }
+  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
+  if (selection.state !== "selected") {
+    return null;
+  }
+  const candidateId = selection.selectedCandidate.candidateId;
+  const documents = listPlanningDocuments(workspaceRoot);
+  const handoff = documents
+    .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
+    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
+    .filter((document) => document.metadata.workCardId === candidateId || document.metadata.canonical?.identity.workCardId === candidateId)
+    .filter((document) => document.effectiveDisposition === "Approved")
+    .at(-1);
+  if (!handoff) {
+    return null;
+  }
+  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
+  const formal = typeof target === "string"
+    ? documents.find((document) => document.markdownPath === target)
+    : undefined;
+  if (formal?.effectiveDisposition === "Approved") {
+    return null;
+  }
+  const model = currentModelFromArchitectOutput(workspaceRoot, "work-card-planning", {
+    level: "work-card",
+    stage: "planning",
+    currentPhaseId: phaseId,
+    currentWorkCardId: candidateId,
+    currentTarget: "Formal Work Card",
+    expectedOutput: `Formal Work Card Markdown for ${candidateId}.`,
+    expectedNextState: "Pending Formal Work Card becomes the current review document.",
+    fallbackEvidence: [handoff.markdownPath],
+  });
+  return {
+    ...model,
+    sourceEvidence: [handoff.markdownPath, ...model.sourceEvidence.filter((path) => path !== handoff.markdownPath)],
+  };
 }
 
 function missingImplementerReportModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {

@@ -42,7 +42,10 @@ import {
   type ProjectIntakePostSubmitConfirmation,
 } from "../../shared/projectIntake/postSubmitReviewState";
 import { deriveProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
-import { deriveProjectLifecycleRailStatuses } from "../../shared/workspaces/projectLifecycleRailStatus";
+import {
+  deriveArchitectInterviewRailStatusFromDocuments,
+  deriveProjectLifecycleRailStatuses,
+} from "../../shared/workspaces/projectLifecycleRailStatus";
 import {
   createArchitectAttachmentCoordinator,
   shouldShowArchitectBrowserRetry,
@@ -72,6 +75,7 @@ import {
   WorkCardCloseWorkspace,
   workCardCloseProjectionFromResult,
 } from "./WorkCardCloseWorkspace";
+import { WorkCardSelectionWorkspace } from "./WorkCardSelectionWorkspace";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
@@ -220,6 +224,8 @@ export function App(): JSX.Element {
     activeWorkspaceId === "work-card-report-review";
   const isWorkCardClose =
     activeWorkspaceId === "work-card-close";
+  const isWorkCardSelection =
+    activeWorkspaceId === "phase-work-card-selection";
   const isPhaseMapFigmaWorkspace =
     activeWorkspaceId === "project-phase-map";
   const isVisibleArchitectOutputWorkspace =
@@ -493,9 +499,13 @@ export function App(): JSX.Element {
     () => deriveProjectIntakeRailStatus(documents),
     [documents],
   );
-  const architectInterviewRailStatus = architectInterviewRailStatusFromGenericModel(
-    architectOutputModel,
+  const documentDerivedArchitectInterviewRailStatus = useMemo(
+    () => deriveArchitectInterviewRailStatusFromDocuments(documents),
+    [documents],
   );
+  const architectInterviewRailStatus = architectOutputModel?.workspaceId === "architect-interview"
+    ? architectInterviewRailStatusFromGenericModel(architectOutputModel)
+    : documentDerivedArchitectInterviewRailStatus;
   const projectRailStatuses = useMemo(() => {
     const statuses = deriveProjectLifecycleRailStatuses(documents, {
       projectIntakeStatus: projectIntakeRailStatus,
@@ -620,7 +630,7 @@ export function App(): JSX.Element {
   }
 
   async function refreshArchitectOutputWorkspace(
-    options: { autoSelectOutput?: boolean; autoSelectNewOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean } = {},
+    options: { autoSelectOutput?: boolean; autoSelectNewOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean; workspaceId?: WorkspaceId } = {},
   ): Promise<void> {
     if (!workspace.ok) {
       return;
@@ -635,7 +645,9 @@ export function App(): JSX.Element {
       setDocumentError("");
     }
     try {
-      const nextModel = await window.champcity.getArchitectOutputWorkspaceModel(activeWorkspaceId);
+      const nextModel = options.workspaceId
+        ? await window.champcity.getArchitectOutputWorkspaceModel(options.workspaceId)
+        : await window.champcity.getArchitectOutputWorkspaceModel(activeWorkspaceId);
       if (requestId !== architectOutputPollRequestRef.current) {
         return;
       }
@@ -1072,12 +1084,31 @@ export function App(): JSX.Element {
     setDocumentError("");
     setFeedback("");
     try {
+      const closeReturnSelection = closeReturnSelectionProjectionFromResult(closeReturnSelectionResult);
+      const selectedCandidateId = closeReturnSelection?.state === "selected"
+        ? closeReturnSelection.workCardIntake.candidate.candidateId
+        : null;
       const result = await window.champcity.generateCloseReturnNextIntakeHandoff();
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
       const nextModel = await refreshCurrentModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
+      if (
+        nextModel?.activeWorkspaceId !== "work-card-planning" ||
+        nextModel.currentWorkCardId !== selectedCandidateId ||
+        nextModel.workCardIntake
+      ) {
+        const resolvedWorkspace = nextModel?.activeWorkspaceId ?? "unresolved";
+        setWorkCardIntakeError(
+          `Close-return intake handoff generated, but the refreshed workspace resolved to ${resolvedWorkspace} for ${nextModel?.currentWorkCardId ?? "no Work Card"} instead of ${selectedCandidateId ?? "the selected candidate"}.`,
+        );
+        setWorkCardIntakeFeedback(result.message);
+        return;
+      }
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      setSelectedStatus("");
       transitionToWorkflowStep("work-card-planning", {
         documents: nextDocuments,
         preferredDocumentId: preferredDocumentIdFromResolver(
@@ -1086,17 +1117,12 @@ export function App(): JSX.Element {
         ),
         resolverResult: nextResolverResult,
       });
-      if (nextModel?.activeWorkspaceId !== "work-card-planning" || nextModel.workCardIntake) {
-        const resolvedWorkspace = nextModel?.activeWorkspaceId ?? "unresolved";
-        setWorkCardIntakeError(
-          `Close-return intake handoff generated, but the refreshed workspace resolved to ${resolvedWorkspace} without Formal Work Card preparation.`,
-        );
-      }
       setCloseReturnSelectionResult(null);
       await refreshArchitectOutputWorkspace({
         autoSelectOutput: true,
         force: true,
         refreshRepositoryProjection: false,
+        workspaceId: "work-card-planning",
       });
       setFeedback(result.message);
     } catch (error) {
@@ -1405,13 +1431,15 @@ export function App(): JSX.Element {
     !isWorkCardBuildingReview &&
     !isWorkCardReportReview &&
     !isVisibleArchitectOutputWorkspace &&
-    !isWorkCardClose;
+    !isWorkCardClose &&
+    !isWorkCardSelection;
   const usesFigmaWorkspaceBody =
     activeWorkspaceId === "project-intake-capture" ||
     isVisibleArchitectOutputWorkspace ||
     isWorkCardBuildingReview ||
     isWorkCardReportReview ||
     isWorkCardClose ||
+    isWorkCardSelection ||
     isFigmaActionWorkspace;
   const currentArchitectRevisionKeys = architectOutputModel?.documentSlots
     .map((slot) => revisionKeyForArchitectOutputSlot(slot))
@@ -1683,14 +1711,11 @@ export function App(): JSX.Element {
           {isFigmaActionWorkspace ? (
             <FigmaActionWorkspace
               activeWorkspaceId={activeWorkspaceId}
-              closeReturnSelection={closeReturnSelectionProjectionFromResult(closeReturnSelectionResult)}
               documentError={documentError}
               feedback={feedback}
               inputs={actionInputs}
-              isCloseReturnIntakeGenerating={isWorkCardIntakeGenerating}
               model={currentModel}
               onChange={setActionInputs}
-              onGenerateCloseReturnIntake={() => void generateCloseReturnNextIntakeAndTransition()}
               onRun={runWorkspaceAction}
               onSelectDocument={setSelectedDocumentId}
               selectedDocument={selectedDocument}
@@ -1776,7 +1801,18 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {!isVisibleArchitectOutputWorkspace && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardClose && activeWorkspaceId !== "project-intake-capture" ? (
+          {isWorkCardSelection ? (
+            <WorkCardSelectionWorkspace
+              actionError={workCardIntakeError || documentError}
+              actionFeedback={workCardIntakeFeedback || feedback}
+              isGenerating={isWorkCardIntakeGenerating}
+              model={currentModel}
+              onPreparePlanning={() => void generateCloseReturnNextIntakeAndTransition()}
+              projection={closeReturnSelectionProjectionFromResult(closeReturnSelectionResult)}
+            />
+          ) : null}
+
+          {!isVisibleArchitectOutputWorkspace && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardClose && !isWorkCardSelection && activeWorkspaceId !== "project-intake-capture" ? (
           <section
             className={[
               isArchitectInterviewDualPaneWorkspace(activeWorkspaceId) || activeWorkspaceId === "phase-planning-bundle"
@@ -2284,14 +2320,11 @@ function selectedDocumentHasError(
 
 function FigmaActionWorkspace({
   activeWorkspaceId,
-  closeReturnSelection,
   documentError,
   feedback,
   inputs,
-  isCloseReturnIntakeGenerating,
   model,
   onChange,
-  onGenerateCloseReturnIntake,
   onRun,
   onSelectDocument,
   selectedDocument,
@@ -2301,7 +2334,6 @@ function FigmaActionWorkspace({
   workspaceOk,
 }: {
   activeWorkspaceId: WorkspaceId;
-  closeReturnSelection: CloseReturnSelectionProjection | null;
   documentError: string;
   feedback: string;
   inputs: {
@@ -2310,7 +2342,6 @@ function FigmaActionWorkspace({
     rationale: string;
     status: DocumentDispositionStatus;
   };
-  isCloseReturnIntakeGenerating: boolean;
   model: CurrentWorkspaceModel | null;
   onChange: (value: {
     defect: string;
@@ -2318,7 +2349,6 @@ function FigmaActionWorkspace({
     rationale: string;
     status: DocumentDispositionStatus;
   }) => void;
-  onGenerateCloseReturnIntake: () => void;
   onRun: (action: () => Promise<RuntimeActionResult>) => Promise<void>;
   onSelectDocument: (logicalDocumentId: string) => void;
   selectedDocument: PlanningDocumentDetail | null;
@@ -2340,8 +2370,6 @@ function FigmaActionWorkspace({
   const canApplyDisposition =
     specializedDispositionWorkspaceIds.has(activeWorkspaceId) && canApplyPhaseMapDisposition;
   const hasDocuments = workspaceGroups.some((group) => group.documents.length > 0);
-  const isCloseReturnSelection =
-    activeWorkspaceId === "phase-work-card-selection" && Boolean(closeReturnSelection);
   const actionPath = [model?.level, model?.stage, model?.currentPhaseId, model?.currentWorkCardId]
     .filter(Boolean)
     .join(" / ") || "Repository evidence required";
@@ -2400,7 +2428,7 @@ function FigmaActionWorkspace({
                       </button>
                     </>
                   ) : null}
-                  {handoffWorkspaceIds.has(activeWorkspaceId) && !isCloseReturnSelection ? (
+                  {handoffWorkspaceIds.has(activeWorkspaceId) ? (
                     <button
                       className="min-h-8 rounded bg-sky-500 px-3 text-[13px] font-semibold text-[#0c0e14] transition-colors hover:bg-sky-400"
                       onClick={() => onRun(() => window.champcity.generateCurrentHandoff())}
@@ -2455,14 +2483,6 @@ function FigmaActionWorkspace({
               </div>
             </FigmaInfoCard>
 
-            {isCloseReturnSelection && closeReturnSelection ? (
-              <CloseReturnSelectionCard
-                isGenerating={isCloseReturnIntakeGenerating}
-                onGenerate={onGenerateCloseReturnIntake}
-                projection={closeReturnSelection}
-              />
-            ) : null}
-
             {!hasDocuments ? (
               <FigmaEmptyDocSlot message={workspaceOk ? "No documents in this workflow step." : neutralMessage} />
             ) : null}
@@ -2492,95 +2512,6 @@ function FigmaActionWorkspace({
         </div>
       </div>
     </section>
-  );
-}
-
-function CloseReturnSelectionCard({
-  isGenerating,
-  onGenerate,
-  projection,
-}: {
-  isGenerating: boolean;
-  onGenerate: () => void;
-  projection: CloseReturnSelectionProjection;
-}): JSX.Element {
-  const isSelected = projection.state === "selected";
-  const selected = isSelected ? projection.workCardIntake : null;
-  const terminalReason = isSelected ? "" : projection.reason;
-  const selectionReason = isSelected ? projection.selectionReason : "";
-  const formalTargetKey = ["formal", "WorkCard", "MarkdownPath"].join("") as keyof WorkCardIntakeProjection;
-  const formalTargetPath = selected ? String(selected[formalTargetKey]) : "";
-  const summary = selected
-    ? `${selected.candidate.order}. ${selected.candidate.candidateId} - ${selected.candidate.title}`
-    : terminalReason;
-
-  return (
-    <FigmaInfoCard>
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div className="min-w-0">
-          <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Close-Return Selection</p>
-          <p className="break-words text-[13px] font-semibold text-foreground">{summary}</p>
-          <p className="mt-1 break-all font-mono text-[12px] text-muted-foreground">
-            Closed: {projection.phaseId} / {projection.closedWorkCardId}
-          </p>
-        </div>
-        <span className="rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-widest text-sky-400">
-          {projection.state}
-        </span>
-      </div>
-
-      {selected ? (
-        <>
-          <FigmaInfoGrid
-            items={[
-              { label: "Selected Candidate", value: selected.candidate.candidateId },
-              { label: "Resolution", value: selected.candidate.resolutionStatus },
-              { label: "Selection Eligibility", value: selectionReason, muted: true },
-              { label: "Intake Target", value: selected.handoffMarkdownPath, muted: true },
-              { label: "Formal Work Card Target", value: formalTargetPath, muted: true },
-            ]}
-          />
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-            <div className="min-w-0">
-              <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Scoped Action Authority</p>
-              <p className="break-words text-[13px] text-muted-foreground">
-                Uses close-return verification before creating the normal Work Card Intake handoff.
-              </p>
-            </div>
-            <button
-              className="min-h-8 rounded bg-sky-500 px-3 text-[13px] font-semibold text-[#0c0e14] transition-colors hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isGenerating}
-              onClick={onGenerate}
-              type="button"
-            >
-              {isGenerating ? "Preparing..." : "Prepare Work Card Planning"}
-            </button>
-          </div>
-        </>
-      ) : (
-        <p className="text-[13px] text-muted-foreground">{terminalReason}</p>
-      )}
-
-      <div className="mt-3 border-t border-border pt-3">
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Candidate Explanations</p>
-        <div className="space-y-2">
-          {projection.explanations.length > 0 ? projection.explanations.map((entry) => (
-            <div className="rounded border border-border bg-muted px-3 py-2" key={entry.candidateId}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <strong className="font-mono text-[12px] text-foreground">{entry.candidateId}</strong>
-                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{entry.state}</span>
-              </div>
-              <p className="mt-1 break-words text-[12px] text-muted-foreground">{entry.reason}</p>
-              {entry.evidencePaths.length > 0 ? (
-                <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{entry.evidencePaths.join("; ")}</p>
-              ) : null}
-            </div>
-          )) : (
-            <p className="text-[12px] text-muted-foreground">No candidate explanations were returned.</p>
-          )}
-        </div>
-      </div>
-    </FigmaInfoCard>
   );
 }
 
