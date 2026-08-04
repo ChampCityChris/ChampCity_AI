@@ -21,12 +21,16 @@ const {
   setDocumentDisposition,
 } = require("../../dist/main/documents/planningDocumentService.js");
 const {
+  __setCanonicalMarkdownWriterTestHooks,
+} = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+const {
   createRepairWorkCard,
 } = require("../../dist/main/workCardRepair/workCardRepairService.js");
 const {
   generateWorkCardIntakeHandoff,
 } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
 const {
+  metadataOpenDelimiter,
   parseCanonicalMarkdownDocument,
 } = require("../../dist/shared/documents/canonicalMarkdown.js");
 const {
@@ -135,6 +139,100 @@ test("architect output review blocks stale presented revisions and then permits 
   const current = getArchitectOutputWorkspaceModel(root, "work-card-planning");
   const reviewed = reviewArchitectOutput(root, "work-card-planning", "Approved", "", presentedRevisions(current));
   assert.equal(reviewed.documentSlots[0].disposition, "Approved");
+  assert.equal(
+    fs.existsSync(path.join(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md")),
+    true,
+  );
+});
+
+test("approving Formal Work Card through architectOutput review atomically creates Pending Implementer Report", () => {
+  const root = tempWorkspace("champcity-formal-approval-report-");
+  seedFormalPrerequisites(root);
+  generateWorkCardIntakeHandoff(root, "phase-01");
+  promoteFormal(root, "WC01");
+  const pending = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  const formalPath = pending.documentSlots[0].targetPath;
+  const reportPath = "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
+
+  reviewArchitectOutput(root, "work-card-planning", "Approved", "", presentedRevisions(pending));
+
+  const formal = readCanonical(root, formalPath);
+  const report = readCanonical(root, reportPath);
+  assert.equal(formal.metadata.documentDisposition.status, "Approved");
+  assert.equal(report.metadata.documentDisposition.status, "Pending");
+  assert.deepEqual(report.metadata.sourceRevisions, [{ path: formalPath, revision: 1 }]);
+  assert.match(report.bodyMarkdown, /Status: Pending Implementer completion\./);
+});
+
+test("Formal Work Card approval rollback preserves bytes when companion report verification fails", () => {
+  const root = tempWorkspace("champcity-formal-approval-rollback-");
+  seedFormalPrerequisites(root);
+  generateWorkCardIntakeHandoff(root, "phase-01");
+  promoteFormal(root, "WC01");
+  const pending = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  const formalPath = pending.documentSlots[0].targetPath;
+  const reportPath = "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
+  const beforeFormal = fs.readFileSync(path.join(root, formalPath), "utf8");
+
+  __setCanonicalMarkdownWriterTestHooks({
+    failInstalledVerification(relativePath) {
+      return relativePath === reportPath ? "Injected report verification failure." : undefined;
+    },
+  });
+  try {
+    assert.throws(
+      () => reviewArchitectOutput(root, "work-card-planning", "Approved", "", presentedRevisions(pending)),
+      /Injected report verification failure/,
+    );
+  } finally {
+    __setCanonicalMarkdownWriterTestHooks({});
+  }
+
+  assert.equal(fs.readFileSync(path.join(root, formalPath), "utf8"), beforeFormal);
+  assert.equal(fs.existsSync(path.join(root, reportPath)), false);
+});
+
+test("conflicting Implementer Report blocks Formal Work Card approval without mutation", () => {
+  const root = tempWorkspace("champcity-formal-approval-conflict-");
+  seedFormalPrerequisites(root);
+  generateWorkCardIntakeHandoff(root, "phase-01");
+  promoteFormal(root, "WC01");
+  const pending = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  const formalPath = pending.documentSlots[0].targetPath;
+  const conflictPath = "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_wrong.md";
+  writeDoc(root, conflictPath, "implementer-report", "Pending", {
+    identity: { phaseId: "phase-01", workCardId: "WC01" },
+  });
+  const beforeFormal = fs.readFileSync(path.join(root, formalPath), "utf8");
+  const beforeConflict = fs.readFileSync(path.join(root, conflictPath), "utf8");
+
+  assert.throws(
+    () => reviewArchitectOutput(root, "work-card-planning", "Approved", "", presentedRevisions(pending)),
+    /Conflicting Implementer Report target/,
+  );
+  assert.equal(fs.readFileSync(path.join(root, formalPath), "utf8"), beforeFormal);
+  assert.equal(fs.readFileSync(path.join(root, conflictPath), "utf8"), beforeConflict);
+});
+
+test("non-Approved Formal Work Card review outcomes create no Implementer Report", () => {
+  for (const status of ["RevisionRequested", "Rejected"]) {
+    const root = tempWorkspace(`champcity-formal-review-no-report-${status}-`);
+    seedFormalPrerequisites(root);
+    generateWorkCardIntakeHandoff(root, "phase-01");
+    promoteFormal(root, "WC01");
+    const pending = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+    const reportPath = "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
+
+    reviewArchitectOutput(
+      root,
+      "work-card-planning",
+      status,
+      status === "RevisionRequested" ? "Revise the Work Card." : "",
+      presentedRevisions(pending),
+    );
+
+    assert.equal(fs.existsSync(path.join(root, reportPath)), false, status);
+  }
 });
 
 test("atomic architect bundle review is synchronized and rejects mixed bundle authority unchanged", () => {
@@ -260,6 +358,87 @@ test("repair work card prompt contract includes exact repair identity and requir
   }
 });
 
+test("repair Work Card promotion accepts embedded heading examples when return target is present", () => {
+  const root = tempWorkspace("champcity-repair-heading-examples-");
+  const repair = seedRepairHandoff(root, "WC01", "Preserve embedded examples.");
+  const prepared = prepareArchitectOutputHandoff(root, "work-card-repair");
+
+  writeDraft(
+    root,
+    prepared.submission.draftSlots[0].draftRelativePath,
+    repairBodyWithEmbeddedHeadingExamples(repair.repairId, repair.defect, "work-card-building-review"),
+  );
+  const promoted = getArchitectOutputWorkspaceModel(root, "work-card-repair");
+  const canonical = readCanonical(root, repair.repairMarkdownPath);
+
+  assert.equal(promoted.state, "ready-for-review");
+  assert.equal(promoted.documentSlots[0].targetPath, repair.repairMarkdownPath);
+  assert.equal(promoted.documentSlots[0].disposition, "Pending");
+  assert.ok(promoted.documentSlots[0].logicalDocumentId);
+  assert.equal(promoted.canApplyDisposition, true);
+  assert.equal(canonical.metadata.artifactType, "repair-work-card");
+  assert.equal(canonical.metadata.documentDisposition.status, "Pending");
+  assert.equal(canonical.metadata.identity.repairId, repair.repairId);
+  assert.equal(canonical.metadata.workflowData.returnTarget, "work-card-building-review");
+  assert.equal(canonical.bodyMarkdown.includes("```markdown\n# Example Repair Heading"), true);
+});
+
+test("repair Work Card promotion accepts substantive bodies without former title or section shape", () => {
+  const root = tempWorkspace("champcity-repair-freeform-");
+  const repair = seedRepairHandoff(root, "WC01", "Accept freeform Repair body.");
+  const prepared = prepareArchitectOutputHandoff(root, "work-card-repair");
+
+  writeDraft(
+    root,
+    prepared.submission.draftSlots[0].draftRelativePath,
+    [
+      "This is a substantive Repair Work Card body.",
+      "",
+      "It does not use the former exact title or section heading shape.",
+      "The exact authorized return target is work-card-building-review.",
+    ].join("\n"),
+  );
+  const promoted = getArchitectOutputWorkspaceModel(root, "work-card-repair");
+
+  assert.equal(promoted.state, "ready-for-review");
+  assert.equal(promoted.documentSlots[0].targetPath, repair.repairMarkdownPath);
+  assert.equal(promoted.documentSlots[0].disposition, "Pending");
+});
+
+test("repair Work Card retained validators reject empty metadata and missing return target without mutation", () => {
+  for (const entry of [
+    {
+      label: "empty",
+      body: "   \n",
+      expectedError: /empty/,
+    },
+    {
+      label: "metadata",
+      body: `${metadataOpenDelimiter}\n{}\n-->\n\nReturn target: work-card-building-review.`,
+      expectedError: /metadata delimiters/,
+    },
+    {
+      label: "missing-return-target",
+      body: "Substantive Repair body that omits the exact application authorized target.",
+      expectedError: /Return Target section must agree/,
+    },
+  ]) {
+    const root = tempWorkspace(`champcity-repair-retained-${entry.label}-`);
+    const repair = seedRepairHandoff(root, "WC01", `Reject ${entry.label}.`);
+    writeRepairOutput(root, repair, "RevisionRequested");
+    const before = fs.readFileSync(path.join(root, repair.repairMarkdownPath), "utf8");
+    const prepared = prepareArchitectOutputHandoff(root, "work-card-repair");
+
+    writeDraft(root, prepared.submission.draftSlots[0].draftRelativePath, entry.body);
+    const failed = getArchitectOutputWorkspaceModel(root, "work-card-repair");
+
+    assert.equal(failed.state, "promotion-failed", entry.label);
+    assert.match(failed.promotionError, entry.expectedError, entry.label);
+    assert.equal(fs.readFileSync(path.join(root, repair.repairMarkdownPath), "utf8"), before, entry.label);
+    assert.equal(fs.existsSync(path.join(root, prepared.submission.draftSlots[0].draftRelativePath)), true, entry.label);
+  }
+});
+
 test("formal, repair, and phase map workspace states classify final output before prepare eligibility", () => {
   for (const entry of formalStateCases()) {
     const root = tempWorkspace(`champcity-formal-state-${entry.label}-`);
@@ -269,7 +448,7 @@ test("formal, repair, and phase map workspace states classify final output befor
     }
     if (entry.promotionFailed) {
       const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
-      writeDraft(root, prepared.submission.draftSlots[0].draftRelativePath, "# Wrong Work Card\n");
+      writeDraft(root, prepared.submission.draftSlots[0].draftRelativePath, "   \n");
     }
     assertWorkspaceState(root, "work-card-planning", entry);
   }
@@ -537,7 +716,7 @@ test("Current Workflow projects explicit promotion failure for Formal Repair and
       setup(root) {
         seedFormalOutputTarget(root);
       },
-      invalidBody: "# Wrong Work Card\n",
+      invalidBody: "   \n",
     },
     {
       workspaceId: "work-card-repair",
@@ -784,5 +963,26 @@ function repairWorkCardBody(repairId, defect, returnTarget) {
       heading === "Return Target" ? `${returnTarget} remains the required return target.` : `${heading} content.`,
     ]),
     "",
+  ].join("\n");
+}
+
+function repairBodyWithEmbeddedHeadingExamples(repairId, defect, returnTarget) {
+  return [
+    `# ${repairId} - ${defect}`,
+    "",
+    `The exact authorized return target is ${returnTarget}.`,
+    "",
+    "```markdown",
+    "# Example Repair Heading",
+    "",
+    "## Return Target",
+    "Example prose can mention work-card-building-review without becoming runtime heading authority.",
+    "",
+    "## Acceptance Criteria",
+    "Example criteria.",
+    "```",
+    "",
+    "## Confirmed Defect",
+    "The body is substantive and includes literal H1/H2 examples.",
   ].join("\n");
 }

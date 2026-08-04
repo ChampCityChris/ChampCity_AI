@@ -62,7 +62,7 @@ export function classifyPlanningDocument(
   }
 
   if (isImplementerReport(searchable)) {
-    return { ...workspace("work-card-building-review"), group: "Implementer reports" };
+    return { ...workspace("work-card-report-review"), group: "Implementer reports" };
   }
 
   if (isPhasePlanning(searchable)) {

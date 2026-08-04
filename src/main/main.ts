@@ -31,14 +31,19 @@ import {
 } from "./architectOutputs/architectOutputWorkspaceService";
 import {
   applyCurrentDisposition,
+  applyOperatorValidationDecisionForCurrentWorkCard,
   createPhaseCloseoutForCurrentPhase,
   createProjectCloseoutForCurrentProject,
   createRepairForCurrentFailure,
   createValidationAttemptForCurrentWorkCard,
+  generateCloseReturnNextIntakeHandoff,
   generateCurrentHandoff,
+  getCloseReturnSelectionProjection,
   getCurrentCloseProjection,
   getCurrentWorkspaceModel,
+  resolveCurrentAdvisoryReviewPrompt,
 } from "./currentWorkflow/currentWorkflowService";
+import { codexImplementerExecutionService } from "./workCardBuilding/codexImplementerExecutionService";
 import {
   migrateWorkspaceToCanonicalMarkdownV1,
   previewWorkspaceMigrationToCanonicalMarkdownV1,
@@ -54,7 +59,9 @@ import type {
   ArchitectBrowserFoundationStatus,
   ArchitectOutputPresentedSlotRevision,
   ArchitectOutputWorkspaceModel,
+  CodexImplementerExecutionModel,
   CurrentWorkspaceModel,
+  OperatorValidationDecisionInput,
   RuntimeActionResult,
   WorkspaceId,
   WorkspaceMigrationPreview,
@@ -283,12 +290,42 @@ ipcMain.handle("currentWorkflow:getModel", (): CurrentWorkspaceModel => {
   return getCurrentWorkspaceModel(getRequiredWorkspaceRoot());
 });
 
+ipcMain.handle("codexImplementer:getStatus", (): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("codexImplementer:start", (): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.start(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("codexImplementer:cancel", (): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot());
+});
+
 ipcMain.handle("currentWorkflow:generateHandoff", (): RuntimeActionResult => {
   return generateCurrentHandoff(getRequiredWorkspaceRoot());
 });
 
-ipcMain.handle("currentWorkflow:applyDisposition", (_event, status: DocumentDispositionStatus): RuntimeActionResult => {
-  return applyCurrentDisposition(getRequiredWorkspaceRoot(), status);
+ipcMain.handle("currentWorkflow:copyAdvisoryReviewPrompt", (): RuntimeActionResult => {
+  const { instruction, result } = resolveCurrentAdvisoryReviewPrompt(getRequiredWorkspaceRoot());
+  clipboard.writeText(instruction);
+  return result;
+});
+
+ipcMain.handle("currentWorkflow:applyOperatorValidationDecision", (
+  _event,
+  input: OperatorValidationDecisionInput,
+): RuntimeActionResult => {
+  return applyOperatorValidationDecisionForCurrentWorkCard(getRequiredWorkspaceRoot(), input);
+});
+
+ipcMain.handle("currentWorkflow:applyDisposition", (
+  _event,
+  status: DocumentDispositionStatus,
+  operatorReviewNotes = "",
+  targetWorkspaceId?: WorkspaceId,
+): RuntimeActionResult => {
+  return applyCurrentDisposition(getRequiredWorkspaceRoot(), status, operatorReviewNotes, targetWorkspaceId);
 });
 
 ipcMain.handle("currentWorkflow:createRepair", (_event, defect: string): RuntimeActionResult => {
@@ -309,6 +346,14 @@ ipcMain.handle("currentWorkflow:createProjectCloseout", (_event, closureDecision
 
 ipcMain.handle("currentWorkflow:getCloseProjection", (): RuntimeActionResult => {
   return getCurrentCloseProjection(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:getCloseReturnSelectionProjection", (): RuntimeActionResult => {
+  return getCloseReturnSelectionProjection(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:generateCloseReturnNextIntakeHandoff", (): RuntimeActionResult => {
+  return generateCloseReturnNextIntakeHandoff(getRequiredWorkspaceRoot());
 });
 
 app.whenReady().then(() => {

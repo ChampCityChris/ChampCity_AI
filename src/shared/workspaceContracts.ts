@@ -243,6 +243,15 @@ export interface RuntimeActionResult {
   payload?: unknown;
 }
 
+export type OperatorValidationDecision = "ValidatePassed" | "RequestRepair";
+
+export interface OperatorValidationDecisionInput {
+  decision: OperatorValidationDecision;
+  operatorNotes: string;
+  advisorySummary?: string;
+  repairDefectText?: string;
+}
+
 export type ArchitectInterviewWorkspaceState =
   | "prerequisites-unavailable"
   | "ready-for-handoff"
@@ -513,6 +522,100 @@ export interface WorkCardIntakeProjection {
   formalWorkCardMarkdownPath: string;
 }
 
+export interface WorkCardBuildingReviewProjection {
+  phaseId: string;
+  workCardId: string;
+  workCardTitle: string;
+  formalWorkCardPath: string;
+  formalWorkCardRevision: number;
+  implementerReportPath: string;
+  report?: {
+    logicalDocumentId: string;
+    artifactRevision?: number;
+    disposition: DocumentDispositionStatus;
+  };
+  reportDocumentReadState: string;
+  reportFreshnessState?: "fresh" | "stale";
+  reportReadError?: string;
+  reportMissing: boolean;
+}
+
+export interface WorkCardCloseProjection {
+  closed: boolean;
+  returnTarget: WorkspaceId;
+  reason: string;
+}
+
+export interface WorkCardCandidateSelectionExplanation {
+  candidateId: string;
+  state:
+    | "eligible"
+    | "complete"
+    | "dependency-blocked"
+    | "deferred"
+    | "superseded"
+    | "already-satisfied"
+    | "carried-forward";
+  reason: string;
+  evidencePaths: string[];
+}
+
+export type CloseReturnSelectionProjection =
+  | {
+      state: "selected";
+      phaseId: string;
+      closedWorkCardId: string;
+      close: WorkCardCloseProjection;
+      selectionReason: string;
+      workCardIntake: WorkCardIntakeProjection;
+      explanations: WorkCardCandidateSelectionExplanation[];
+    }
+  | {
+      state: "invalid-plan" | "all-complete" | "dependency-blocked" | "explicitly-resolved";
+      phaseId?: string;
+      closedWorkCardId: string;
+      close: WorkCardCloseProjection;
+      reason: string;
+      explanations: WorkCardCandidateSelectionExplanation[];
+    };
+
+export type CodexImplementerExecutionState =
+  | "unavailable"
+  | "ready"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type CodexImplementerIntegrationMode = "sdk" | "app-server-stdio-fallback";
+
+export interface CodexImplementerExecutionModel {
+  state: CodexImplementerExecutionState;
+  lastRunState: Exclude<CodexImplementerExecutionState, "unavailable" | "ready" | "running"> | null;
+  canRunAgain: boolean;
+  retryBlocker: string | null;
+  integrationMode: CodexImplementerIntegrationMode;
+  phaseId: string | null;
+  workCardId: string | null;
+  workCardTitle: string | null;
+  projectRoot: string | null;
+  formalWorkCardPath: string | null;
+  formalWorkCardRevision: number | null;
+  formalWorkCardSha256: string | null;
+  implementerReportPath: string | null;
+  implementerReportRevision: number | null;
+  implementerReportSha256: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  elapsedMs: number | null;
+  eventTail: string[];
+  stderrTail: string[];
+  finalResponseTail: string[];
+  failureReason: string | null;
+  reportUpdated: boolean;
+  reportSha256After: string | null;
+}
+
 export interface CurrentWorkspaceModel {
   activeWorkspaceId: WorkspaceId;
   level: string;
@@ -530,6 +633,7 @@ export interface CurrentWorkspaceModel {
   expectedOutput: string;
   eligibility: string;
   blocker?: string;
+  workCardBuildingReview?: WorkCardBuildingReviewProjection;
   draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
   draftPromotionError?: string;
   expectedNextState: string;
@@ -545,8 +649,8 @@ export type PhaseLoopStep =
 export type WorkCardLoopStep =
   | "Work Card Intake"
   | "Planning"
-  | "Build / Review"
-  | "Validation"
+  | "Build"
+  | "Review & Validation"
   | "Close"
   | "Repair";
 
@@ -643,9 +747,21 @@ export interface ChampCityApi {
     presentedRevisions: ArchitectOutputPresentedSlotRevision[],
   ) => Promise<ArchitectOutputWorkspaceModel>;
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
+  getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
+  startCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
+  cancelCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
+  getCurrentCloseProjection: () => Promise<RuntimeActionResult>;
+  getCloseReturnSelectionProjection: () => Promise<RuntimeActionResult>;
+  generateCloseReturnNextIntakeHandoff: () => Promise<RuntimeActionResult>;
+  copyCurrentWorkCardAdvisoryReviewPrompt: () => Promise<RuntimeActionResult>;
+  applyOperatorValidationDecisionForCurrentWorkCard: (
+    input: OperatorValidationDecisionInput,
+  ) => Promise<RuntimeActionResult>;
   applyCurrentDisposition: (
     status: DocumentDispositionStatus,
+    operatorReviewNotes?: string,
+    targetWorkspaceId?: WorkspaceId,
   ) => Promise<RuntimeActionResult>;
   createRepairForCurrentFailure: (defect: string) => Promise<RuntimeActionResult>;
   createValidationAttemptForCurrentWorkCard: () => Promise<RuntimeActionResult>;
@@ -728,9 +844,15 @@ export const visibleWorkspaceDefinitions: readonly WorkspaceDefinition[] = creat
   },
   {
     id: "work-card-building-review",
-    label: "Implementer Handoff and Report Review",
+    label: "Implementer Build",
     location: { level: "workCard", stage: "building" },
     order: 10,
+  },
+  {
+    id: "work-card-report-review",
+    label: "Review & Validation",
+    location: { level: "workCard", stage: "building" },
+    order: 15,
   },
   {
     id: "work-card-repair",
@@ -845,9 +967,15 @@ export const phase08WorkspaceDefinitions: readonly WorkspaceDefinition[] = creat
   },
   {
     id: "work-card-building-review",
-    label: "Implementer Handoff and Report Review",
+    label: "Implementer Build",
     location: { level: "workCard", stage: "building" },
     order: 10,
+  },
+  {
+    id: "work-card-report-review",
+    label: "Review & Validation",
+    location: { level: "workCard", stage: "building" },
+    order: 15,
   },
   {
     id: "work-card-repair",

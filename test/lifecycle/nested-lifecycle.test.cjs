@@ -120,9 +120,15 @@ test("visible workspaces are registry definitions with preserved legacy labels a
       },
       {
         id: "work-card-building-review",
-        label: "Implementer Handoff and Report Review",
+        label: "Implementer Build",
         location: { level: "workCard", stage: "building" },
         order: 10,
+      },
+      {
+        id: "work-card-report-review",
+        label: "Review & Validation",
+        location: { level: "workCard", stage: "building" },
+        order: 15,
       },
       {
         id: "work-card-repair",

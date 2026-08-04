@@ -364,18 +364,26 @@ test("Architect browser retry visibility is derived from attachment failure stat
 
 test("Architect Interview source layout removes generic panels and preserves dual-pane retry surface", () => {
   const appSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "App.tsx"), "utf8");
+  const sidebarSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "figma", "FigmaSidebar.tsx"), "utf8");
+  const browserPanelSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "figma", "FigmaBrowserPanel.tsx"), "utf8");
   const styleSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "styles.css"), "utf8");
 
-  assert.match(appSource, /<section className="project-selector" aria-label="Selected Project">/);
+  assert.match(appSource, /<FigmaSidebar/);
+  assert.match(sidebarSource, /aria-label="Select Project"/);
   assert.doesNotMatch(appSource, /workspace-status ready/);
-  assert.match(appSource, /!isVisibleArchitectOutputWorkspace \? \(\s*<CurrentWorkspaceBanner/s);
+  assert.match(appSource, /usesFigmaWorkspaceBody/);
+  assert.match(appSource, /!usesFigmaWorkspaceBody \? \(\s*<CurrentWorkspaceBanner/s);
   assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
-  assert.match(styleSource, /grid-template-rows:\s*auto auto minmax\(0, 1fr\);/);
-  assert.match(appSource, /<article className="document-preview">/);
-  assert.match(appSource, /<aside className="architect-surface-pane" aria-label="Architect browser surface">/);
-  assert.doesNotMatch(appSource, /External/);
+  assert.match(styleSource, /\.workspace-surface\.figma-workspace-surface[\s\S]{0,220}grid-template-rows:\s*auto minmax\(0, 1fr\);/);
+  assert.match(appSource, /figma-doc-chat-workspace/);
+  assert.match(appSource, /<FigmaDocumentCard/);
+  assert.match(appSource, /<FigmaBrowserPanel/);
+  assert.match(appSource, /<FigmaBrowserActionsPanel/);
+  assert.match(browserPanelSource, /<aside className="architect-surface-pane figma-browser-panel" aria-label="Embedded ChatGPT browser">/);
+  assert.match(browserPanelSource, /ref=\{hostRef\} className="architect-browser-host figma-browser-host"/);
   assert.doesNotMatch(appSource, /surfaceMode/);
   assert.doesNotMatch(styleSource, /surface-mode/);
   assert.match(appSource, /shouldShowArchitectBrowserRetry\(browserStatus, attachmentError\)/);
   assert.match(appSource, /Retry Browser/);
+  assert.match(appSource, /shouldShowArchitectBrowserRetry\(architectStatus, architectAttachmentError\)/);
 });

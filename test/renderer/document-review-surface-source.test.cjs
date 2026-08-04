@@ -19,15 +19,19 @@ test("document refresh reloads the still-selected document detail", () => {
   assert.match(appSource, /await loadDocument\(selectedDocumentId, \{ preserveOnFailure: true \}\)/);
 });
 
-test("catalog Architect-output workspaces use the generic action and review shell", () => {
+test("catalog Architect-output workspaces use the Figma document and browser action panels", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
 
-  assert.match(appSource, /<ArchitectOutputActionBar/);
-  assert.match(appSource, /<ArchitectOutputReviewShell/);
+  assert.match(appSource, /usesFigmaWorkspaceBody/);
+  assert.match(appSource, /<section[\s\S]{0,240}className=\{\[[\s\S]{0,160}"figma-doc-chat-workspace"/);
+  assert.match(appSource, /<FigmaDocumentCard/);
+  assert.match(appSource, /<FigmaArchitectReviewPanel/);
+  assert.match(appSource, /<FigmaBrowserActionsPanel/);
   assert.match(appSource, /isArchitectEnabledWorkspace\(activeWorkspaceId\)/);
   assert.match(appSource, /prepareArchitectOutputHandoff\(activeWorkspaceId\)/);
   assert.match(appSource, /copyArchitectOutputHandoff\(activeWorkspaceId\)/);
   assert.match(appSource, /reviewArchitectOutput\(/);
+  assert.match(appSource, /!usesFigmaWorkspaceBody \? \(\s*<CurrentWorkspaceBanner/s);
   assert.doesNotMatch(appSource, /ProjectPlanningActionBar/);
   assert.doesNotMatch(appSource, /ProjectPlanningPreviewReview/);
   assert.doesNotMatch(appSource, /Workspace Migration Required/);
@@ -35,12 +39,15 @@ test("catalog Architect-output workspaces use the generic action and review shel
   assert.doesNotMatch(appSource, /Project Roadmap Markdown/);
 });
 
-test("Phase Map uses generic Architect-output controls with structured preview plug-in only", () => {
+test("Phase Map uses the compact Figma phase-list workspace instead of the dual-pane browser surface", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
 
   assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
-  assert.match(appSource, /PhaseMapDocumentPreview/);
-  assert.match(appSource, /ArchitectOutputActionBar/);
+  assert.match(appSource, /isPhaseMapFigmaWorkspace/);
+  assert.match(appSource, /<FigmaPhaseMapWorkspace/);
+  assert.match(appSource, /isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace/);
+  assert.match(appSource, /isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace\) \|\| isWorkCardReportReview/);
+  assert.match(appSource, /<FigmaBrowserActionsPanel/);
   assert.doesNotMatch(appSource, /PhaseMapActionBar/);
   assert.doesNotMatch(appSource, /PhaseMapPreviewReview/);
   assert.doesNotMatch(appSource, /Prepare Phase Map Handoff/);
@@ -63,11 +70,13 @@ test("application shell routes workflow navigation through one transition helper
 
 test("left sidebar owns project selection and does not duplicate workflow-step lists", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const sidebarSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "figma", "FigmaSidebar.tsx"), "utf8");
 
-  assert.match(appSource, /<aside className="sidebar" aria-label="Project navigation">/);
-  assert.match(appSource, /<section className="project-selector" aria-label="Selected Project">/);
-  assert.match(appSource, /Choose Project/);
-  assert.match(appSource, /Clear Project/);
+  assert.match(appSource, /<FigmaSidebar/);
+  assert.match(sidebarSource, /<aside className="sidebar figma-sidebar" aria-label="Project navigation">/);
+  assert.match(sidebarSource, /aria-label="Select Project"/);
+  assert.match(sidebarSource, /Choose Project/);
+  assert.match(sidebarSource, /Clear Project/);
   assert.doesNotMatch(appSource, /<small>\{workspace\.ok \? workspace\.workspaceRoot/);
   assert.doesNotMatch(appSource, /Choose Workspace/);
   assert.doesNotMatch(appSource, /Selected workspace/);
@@ -89,9 +98,11 @@ test("Work Card Planning preparation uses the intake view instead of generic doc
 
   assert.match(appSource, /<WorkCardIntakeWorkspace/);
   assert.match(appSource, /isWorkCardPlanningPreparation/);
+  assert.match(appSource, /const isFigmaActionWorkspace =/);
+  assert.match(appSource, /<FigmaActionWorkspace/);
   assert.match(appSource, /generateWorkCardIntakeAndTransition/);
   assert.match(appSource, /window\.champcity\.generateCurrentHandoff\(\)/);
   assert.match(appSource, /nextModel\?\.activeWorkspaceId !== "work-card-planning" \|\| nextModel\.workCardIntake/);
-  assert.match(appSource, /!isWorkCardPlanningPreparation \? \(/);
+  assert.match(appSource, /!isWorkCardPlanningPreparation &&\s*!isWorkCardBuildingReview &&\s*!isWorkCardReportReview &&\s*!isFigmaActionWorkspace/);
   assert.doesNotMatch(appSource, /Generate Work Card Intake Handoff[\s\S]*CurrentActionPanel/);
 });

@@ -94,14 +94,49 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "currentWorkflow:getModel",
     ) as ReturnType<ChampCityApi["getCurrentWorkspaceModel"]>,
+  getCodexImplementerExecutionStatus: () =>
+    ipcRenderer.invoke(
+      "codexImplementer:getStatus",
+    ) as ReturnType<ChampCityApi["getCodexImplementerExecutionStatus"]>,
+  startCodexImplementerExecution: () =>
+    ipcRenderer.invoke(
+      "codexImplementer:start",
+    ) as ReturnType<ChampCityApi["startCodexImplementerExecution"]>,
+  cancelCodexImplementerExecution: () =>
+    ipcRenderer.invoke(
+      "codexImplementer:cancel",
+    ) as ReturnType<ChampCityApi["cancelCodexImplementerExecution"]>,
   generateCurrentHandoff: () =>
     ipcRenderer.invoke(
       "currentWorkflow:generateHandoff",
     ) as ReturnType<ChampCityApi["generateCurrentHandoff"]>,
-  applyCurrentDisposition: (status) =>
+  getCurrentCloseProjection: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:getCloseProjection",
+    ) as ReturnType<ChampCityApi["getCurrentCloseProjection"]>,
+  getCloseReturnSelectionProjection: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:getCloseReturnSelectionProjection",
+    ) as ReturnType<ChampCityApi["getCloseReturnSelectionProjection"]>,
+  generateCloseReturnNextIntakeHandoff: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:generateCloseReturnNextIntakeHandoff",
+    ) as ReturnType<ChampCityApi["generateCloseReturnNextIntakeHandoff"]>,
+  copyCurrentWorkCardAdvisoryReviewPrompt: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:copyAdvisoryReviewPrompt",
+    ) as ReturnType<ChampCityApi["copyCurrentWorkCardAdvisoryReviewPrompt"]>,
+  applyOperatorValidationDecisionForCurrentWorkCard: (input) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:applyOperatorValidationDecision",
+      input,
+    ) as ReturnType<ChampCityApi["applyOperatorValidationDecisionForCurrentWorkCard"]>,
+  applyCurrentDisposition: (status, operatorReviewNotes, targetWorkspaceId) =>
     ipcRenderer.invoke(
       "currentWorkflow:applyDisposition",
       status,
+      operatorReviewNotes,
+      targetWorkspaceId,
     ) as ReturnType<ChampCityApi["applyCurrentDisposition"]>,
   createRepairForCurrentFailure: (defect) =>
     ipcRenderer.invoke(

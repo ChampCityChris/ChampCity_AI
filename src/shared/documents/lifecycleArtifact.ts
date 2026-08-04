@@ -86,7 +86,7 @@ export function classifyLifecycleArtifact(
   }
 
   if (normalized.includes("/implementer_reports/")) {
-    return classification("implementer-report", metadataRole ?? "gatingReview", "work-card-building-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
+    return classification("implementer-report", metadataRole ?? "gatingReview", "work-card-report-review", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
   if (

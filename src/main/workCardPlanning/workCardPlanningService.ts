@@ -17,6 +17,10 @@ import {
 } from "../documents/planningDocumentService";
 import { updateCanonicalMarkdownDisposition } from "../documents/canonicalMarkdownDocumentWriter";
 import {
+  approveFormalWorkCardAndRegisterReport,
+  resolveWorkCardImplementerReportContext,
+} from "../workCardBuilding/workCardBuildingReviewService";
+import {
   getActiveArchitectOutputRuntimeSubmission,
   getArchitectOutputRuntimeStatus,
   prepareArchitectOutputRuntimeSubmission,
@@ -49,6 +53,7 @@ interface FormalWorkCardContext {
   candidateId: string;
   candidate: Record<string, unknown>;
   targetPath: string;
+  implementerReportPath: string;
   sourceRevisions: SourceRevision[];
   existing?: PlanningDocumentSummary;
 }
@@ -173,12 +178,19 @@ export function setFormalWorkCardDisposition(
   status: DocumentDispositionStatus,
 ): PlanningDocumentSummary {
   const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
-  updateCanonicalMarkdownDisposition({
-    workspaceRoot,
-    relativePath: formal.markdownPath,
-    status,
-    reviewedAt: new Date().toISOString(),
-  });
+  if (status === "Approved") {
+    approveFormalWorkCardAndRegisterReport({
+      workspaceRoot,
+      formalWorkCardPath: formal.markdownPath,
+    });
+  } else {
+    updateCanonicalMarkdownDisposition({
+      workspaceRoot,
+      relativePath: formal.markdownPath,
+      status,
+      reviewedAt: new Date().toISOString(),
+    });
+  }
   return requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
 }
 
@@ -271,6 +283,13 @@ function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardCont
     : candidateId;
   const targetPath = formalWorkCardTargetFromHandoff(handoff);
   const existing = listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === targetPath);
+  const implementerReportPath = resolveWorkCardImplementerReportContext(workspaceRoot, {
+    phaseId,
+    workCardId,
+    formalWorkCardPath: targetPath,
+    formalWorkCardRevision: existing?.metadata.artifactRevision ?? 1,
+    workCardTitle: typeof candidate.title === "string" ? candidate.title : undefined,
+  }).implementerReportPath;
   const context = {
     handoff,
     phaseId,
@@ -278,6 +297,7 @@ function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardCont
     candidateId,
     candidate,
     targetPath,
+    implementerReportPath,
     sourceRevisions: sourceRevisionsFromHandoff(handoff),
     existing,
   };
@@ -417,7 +437,11 @@ function buildFormalWorkCardPreparedInstruction(
     "",
     "Application-owned outputs:",
     `- final Formal Work Card target: ${context.targetPath}`,
+    `- Implementer Report target: ${context.implementerReportPath}`,
     `- temporary body-only draft path: ${draftPath}`,
+    "",
+    "Application-owned Implementer Report target:",
+    `- ${context.implementerReportPath}`,
     "",
     "Evidence inputs:",
     ...evidenceLines,
@@ -464,6 +488,7 @@ function buildFormalWorkCardPreparedInstruction(
     "- Authorized Surface lists expected production and test files. Permit only a narrowly necessary adjacent correction that preserves the architecture, is documented, and is fully tested.",
     "- Acceptance Criteria prove the actual production path. Require positive and negative proof, state before and after the action, final repository bytes or rendered projection, failure handling, retry behavior when relevant, and downstream readiness. Source-string checks may support wiring but cannot be primary runtime proof.",
     "- Negative Constraints prohibit alternate persistence, retired fallbacks, duplicate authority, unauthorized compatibility wrappers, duplicate schemas, manual imports, unnecessary migration, unrelated workspace changes, and Git operations unless explicitly authorized.",
+    "- Implementer Report Requirements must name the exact application-owned Implementer Report target above and state that the Implementer updates that existing canonical report rather than creating an alternate report. Implementation is incomplete until the report at that exact path contains the complete auditable evidence required by the Work Card and remains Pending for Architect review.",
     "- Implementer Report Requirements map every acceptance criterion to concrete evidence, list all changed files and adjacent corrections, identify production paths exercised, commands and results, Operator validation remaining, scope expansion, and residual risk.",
     "- Manual Validation contains only visual, interactive, timing-sensitive, or embedded-browser checks that require the running product.",
     "",
@@ -533,38 +558,6 @@ const formalWorkCardHeadings = [
   "Manual Validation",
 ] as const;
 
-function validateFormalWorkCardBody(bodyMarkdown: string, workCardId: string): void {
+function validateFormalWorkCardBody(bodyMarkdown: string, _workCardId: string): void {
   substantiveMarkdown(bodyMarkdown, "Formal Work Card");
-  validateOneH1Prefix(bodyMarkdown, workCardId, "Formal Work Card");
-  validateExactH2s(bodyMarkdown, formalWorkCardHeadings, "Formal Work Card");
-}
-
-function validateOneH1Prefix(bodyMarkdown: string, id: string, label: string): void {
-  const h1s = bodyMarkdown.replace(/\r\n?/g, "\n").split("\n").filter((line) => line.startsWith("# "));
-  if (h1s.length !== 1 || !h1s[0].startsWith(`# ${id}`)) {
-    throw new Error(`${label} draft requires one H1 beginning with ${id}.`);
-  }
-}
-
-function validateExactH2s(
-  bodyMarkdown: string,
-  headings: readonly string[],
-  label: string,
-): void {
-  const normalized = bodyMarkdown.replace(/\r\n?/g, "\n");
-  const lines = normalized.split("\n");
-  for (const heading of headings) {
-    const matches = lines
-      .map((line, index) => ({ line, index }))
-      .filter((entry) => entry.line.trim() === `## ${heading}`);
-    if (matches.length !== 1) {
-      throw new Error(`${label} draft requires exactly one ## ${heading}.`);
-    }
-    const start = matches[0].index + 1;
-    const nextHeading = lines.findIndex((line, index) => index >= start && /^#{1,2} /.test(line));
-    const end = nextHeading === -1 ? lines.length : nextHeading;
-    if (!lines.slice(start, end).join("\n").trim()) {
-      throw new Error(`${label} draft requires substantive content under ## ${heading}.`);
-    }
-  }
 }

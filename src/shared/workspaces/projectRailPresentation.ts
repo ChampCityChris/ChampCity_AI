@@ -114,5 +114,9 @@ export function isArchitectInterviewDualPaneWorkspace(activeWorkspaceId: Workspa
   return activeWorkspaceId === "architect-interview" ||
     activeWorkspaceId === "project-planning-review" ||
     activeWorkspaceId === "phase-interview" ||
-    activeWorkspaceId === "project-phase-map";
+    activeWorkspaceId === "project-phase-map" ||
+    activeWorkspaceId === "work-card-planning" ||
+    activeWorkspaceId === "work-card-building-review" ||
+    activeWorkspaceId === "work-card-report-review" ||
+    activeWorkspaceId === "work-card-repair";
 }

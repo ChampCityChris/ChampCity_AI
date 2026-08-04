@@ -618,44 +618,12 @@ const repairWorkCardHeadings = [
 
 function validateRepairWorkCardBody(
   bodyMarkdown: string,
-  repairId: string,
+  _repairId: string,
   returnTarget: unknown,
 ): void {
   substantiveMarkdown(bodyMarkdown, "Repair Work Card");
-  validateOneH1Prefix(bodyMarkdown, repairId, "Repair Work Card");
-  validateExactH2s(bodyMarkdown, repairWorkCardHeadings, "Repair Work Card");
   if (typeof returnTarget === "string" && !bodyMarkdown.includes(returnTarget)) {
     throw new Error("Repair Work Card Return Target section must agree with the handoff return target.");
-  }
-}
-
-function validateOneH1Prefix(bodyMarkdown: string, id: string, label: string): void {
-  const h1s = bodyMarkdown.replace(/\r\n?/g, "\n").split("\n").filter((line) => line.startsWith("# "));
-  if (h1s.length !== 1 || !h1s[0].startsWith(`# ${id}`)) {
-    throw new Error(`${label} draft requires one H1 beginning with ${id}.`);
-  }
-}
-
-function validateExactH2s(
-  bodyMarkdown: string,
-  headings: readonly string[],
-  label: string,
-): void {
-  const normalized = bodyMarkdown.replace(/\r\n?/g, "\n");
-  const lines = normalized.split("\n");
-  for (const heading of headings) {
-    const matches = lines
-      .map((line, index) => ({ line, index }))
-      .filter((entry) => entry.line.trim() === `## ${heading}`);
-    if (matches.length !== 1) {
-      throw new Error(`${label} draft requires exactly one ## ${heading}.`);
-    }
-    const start = matches[0].index + 1;
-    const nextHeading = lines.findIndex((line, index) => index >= start && /^#{1,2} /.test(line));
-    const end = nextHeading === -1 ? lines.length : nextHeading;
-    if (!lines.slice(start, end).join("\n").trim()) {
-      throw new Error(`${label} draft requires substantive content under ## ${heading}.`);
-    }
   }
 }
 

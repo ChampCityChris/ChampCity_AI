@@ -9,7 +9,7 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
-test("renderer uses one generic Architect-output refresh, action bar, and review shell", () => {
+test("renderer uses one generic Architect-output refresh with Figma workspace review panels", () => {
   const source = read("src/renderer/app/App.tsx");
   const refreshSource = read("src/renderer/app/architectOutputWorkspaceRefresh.ts");
 
@@ -17,20 +17,15 @@ test("renderer uses one generic Architect-output refresh, action bar, and review
   assert.match(source, /prepareArchitectOutputHandoff\(activeWorkspaceId\)/);
   assert.match(source, /copyArchitectOutputHandoff\(activeWorkspaceId\)/);
   assert.match(source, /reviewArchitectOutput\(/);
-  assert.match(source, /function ArchitectOutputActionBar/);
-  assert.match(source, /function ArchitectOutputReviewShell/);
-  const actionBarSource = source.slice(
-    source.indexOf("function ArchitectOutputActionBar"),
-    source.indexOf("function ArchitectOutputReviewShell"),
-  );
-  const reviewShellSource = source.slice(
-    source.indexOf("function ArchitectOutputReviewShell"),
-    source.indexOf("function CurrentActionPanel"),
-  );
-  assert.doesNotMatch(actionBarSource, /architect-document-selector/);
-  assert.match(reviewShellSource, /model\.documentSlots\.length > 1/);
-  assert.match(reviewShellSource, /architect-document-selector/);
-  assert.match(reviewShellSource, /document-choice/);
+  assert.match(source, /usesFigmaWorkspaceBody/);
+  assert.match(source, /<FigmaDocumentCard/);
+  assert.match(source, /<FigmaArchitectReviewPanel/);
+  assert.match(source, /<FigmaBrowserActionsPanel/);
+  assert.match(source, /slots=\{architectOutputModel\?\.documentSlots\}/);
+  assert.doesNotMatch(source, /function ArchitectOutputActionBar/);
+  assert.doesNotMatch(source, /function ArchitectOutputReviewShell/);
+  assert.doesNotMatch(source, /<ArchitectOutputActionBar/);
+  assert.doesNotMatch(source, /<ArchitectOutputReviewShell/);
   assert.match(source, /architectOutputPollInFlightRef/);
   assert.match(source, /architectOutputPollRequestRef/);
   assert.match(source, /buildArchitectOutputEvidenceFingerprint/);
@@ -52,7 +47,7 @@ test("renderer uses one generic Architect-output refresh, action bar, and review
   assert.match(source, /generateWorkCardIntakeAndTransition/);
   assert.match(source, /generateCurrentHandoff\(\)/);
   assert.match(source, /isVisibleArchitectOutputWorkspace/);
-  assert.match(source, /work-card-architect-workspace/);
+  assert.doesNotMatch(source, /work-card-architect-workspace/);
   assert.doesNotMatch(source, /ProjectPlanningActionBar|PhaseMapActionBar|PhasePlanningActionBar|ArchitectInterviewActionBar/);
   assert.doesNotMatch(source, /ProjectPlanningPreviewReview|PhaseMapPreviewReview|PhasePlanningPreviewReview/);
   assert.doesNotMatch(source, /LifecycleArchitectOutputImport/);

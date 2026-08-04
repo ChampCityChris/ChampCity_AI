@@ -46,6 +46,7 @@ import {
   resolveProductionArchitectOutputDefinition,
 } from "./productionArchitectOutputCatalog";
 import { prepareFormalWorkCardDraftSubmission } from "../workCardPlanning/workCardPlanningService";
+import { buildApprovedFormalWorkCardAndReportDocuments } from "../workCardBuilding/workCardBuildingReviewService";
 import {
   prepareRepairWorkCardDraftSubmission,
   resolveExactActiveRepairWorkCardContext,
@@ -212,13 +213,23 @@ export function reviewArchitectOutput(
   const reviewedAt = new Date().toISOString();
   if (model.bundleMode === "single-output") {
     const slot = model.documentSlots[0];
-    updateCanonicalMarkdownDisposition({
-      workspaceRoot,
-      relativePath: slot.targetPath,
-      status,
-      notes,
-      reviewedAt,
-    });
+    if (workspaceId === "work-card-planning" && status === "Approved") {
+      writeCanonicalMarkdownDocuments(buildApprovedFormalWorkCardAndReportDocuments({
+        workspaceRoot,
+        formalWorkCardPath: slot.targetPath,
+        approvedStatus: status,
+        notes,
+        reviewedAt,
+      }));
+    } else {
+      updateCanonicalMarkdownDisposition({
+        workspaceRoot,
+        relativePath: slot.targetPath,
+        status,
+        notes,
+        reviewedAt,
+      });
+    }
   } else {
     writeCanonicalMarkdownDocuments(model.documentSlots.map((slot) => {
       const existing = parseCanonicalMarkdownDocument(

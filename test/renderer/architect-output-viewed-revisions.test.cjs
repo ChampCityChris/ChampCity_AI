@@ -2,9 +2,12 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  loadRendererSourceModule,
+} = require("./renderer-source-loader.cjs");
+const {
   markSingleDisplayedArchitectOutputRevisionViewed,
   revisionKeyForArchitectOutputSlot,
-} = require("../../dist/renderer/app/architectOutputWorkspaceRefresh.js");
+} = loadRendererSourceModule("src/renderer/app/architectOutputWorkspaceRefresh.ts");
 
 function slot(overrides = {}) {
   return {

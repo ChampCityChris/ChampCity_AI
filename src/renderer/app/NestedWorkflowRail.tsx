@@ -1,6 +1,11 @@
-import { ArrowRight, CornerDownRight, CornerUpLeft, RotateCcw, Wrench } from "lucide-react";
+import { Check } from "lucide-react";
 
-import type { ArchitectInterviewRailStatus, ProjectLifecycleRailStatus, WorkspaceId } from "../../shared/workspaceContracts";
+import type {
+  ArchitectInterviewRailStatus,
+  ExecutionContextProjection,
+  ProjectLifecycleRailStatus,
+  WorkspaceId,
+} from "../../shared/workspaceContracts";
 import type { ProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
 import {
   deriveProjectRailPresentation,
@@ -9,6 +14,7 @@ import {
 
 interface NestedWorkflowRailProps {
   activeWorkspaceId: WorkspaceId;
+  executionContext?: ExecutionContextProjection;
   onWorkspaceChange: (workspaceId: WorkspaceId) => void;
   architectInterviewStatus?: ArchitectInterviewRailStatus;
   projectRailStatuses?: Partial<Record<WorkspaceId, ProjectLifecycleRailStatus>>;
@@ -17,22 +23,13 @@ interface NestedWorkflowRailProps {
   workspaceCounts?: Partial<Record<WorkspaceId, number>>;
 }
 
-type WorkflowTone = "project" | "phase" | "workCard" | "close" | "repair";
 type SelectionState = "exact" | "parent" | "available";
+type StageTone = "completed" | "in-progress" | "not-ready" | "pending";
 
 interface ProjectRailItem {
   id: string;
   label: string;
   destination: WorkspaceId;
-  tone: WorkflowTone;
-}
-
-interface ProjectRailGroup {
-  id: string;
-  label: string;
-  start: number;
-  span: number;
-  tone: WorkflowTone;
 }
 
 interface LoopRailItem {
@@ -47,6 +44,7 @@ const workCardWorkspaceIds = new Set<WorkspaceId>([
   "work-card-intake",
   "work-card-planning",
   "work-card-building-review",
+  "work-card-report-review",
   "work-card-repair",
   "work-card-validation",
   "work-card-close",
@@ -65,103 +63,15 @@ const phaseOrWorkCardWorkspaceIds = new Set<WorkspaceId>([
   ...workCardWorkspaceIds,
 ]);
 
-const projectRailGroups: readonly ProjectRailGroup[] = [
-  { id: "project-intake", label: "PROJECT INTAKE", start: 1, span: 2, tone: "project" },
-  { id: "project-planning", label: "PROJECT PLANNING", start: 3, span: 2, tone: "project" },
-  { id: "phases", label: "PHASES", start: 5, span: 1, tone: "phase" },
-  { id: "project-close", label: "PROJECT CLOSE", start: 6, span: 2, tone: "close" },
-];
-
 const projectRailItems: readonly ProjectRailItem[] = [
-  {
-    id: "project-intake",
-    label: "Project Intake",
-    destination: "project-intake-capture",
-    tone: "project",
-  },
-  {
-    id: "architect-interview",
-    label: "Architect Interview",
-    destination: "architect-interview",
-    tone: "project",
-  },
-  {
-    id: "project-planning",
-    label: "Project Planning",
-    destination: "project-planning-review",
-    tone: "project",
-  },
-  {
-    id: "phase-map",
-    label: "Phase Map",
-    destination: "project-phase-map",
-    tone: "project",
-  },
-  {
-    id: "phases",
-    label: "Phases",
-    destination: "phase-interview",
-    tone: "phase",
-  },
-  {
-    id: "project-validation",
-    label: "Project Validation",
-    destination: "project-validation",
-    tone: "close",
-  },
-  {
-    id: "project-close",
-    label: "Project Close",
-    destination: "project-close",
-    tone: "close",
-  },
+  { id: "project-intake", label: "Project Intake", destination: "project-intake-capture" },
+  { id: "architect-interview", label: "Architect Interview", destination: "architect-interview" },
+  { id: "project-planning", label: "Project Planning", destination: "project-planning-review" },
+  { id: "phase-map", label: "Phase Map", destination: "project-phase-map" },
+  { id: "phases", label: "Phases", destination: "phase-interview" },
+  { id: "project-validation", label: "Project Validation", destination: "project-validation" },
+  { id: "project-close", label: "Project Close", destination: "project-close" },
 ];
-
-const workCardLoopItems: readonly LoopRailItem[] = [
-  {
-    id: "work-card-planning",
-    label: "Planning",
-    fullLabel: "Work Card Planning",
-    destination: "work-card-planning",
-    stateFor: exactWorkspace("work-card-planning"),
-  },
-  {
-    id: "work-card-building-review",
-    label: "Build / Review",
-    fullLabel: "Build / Report Review",
-    destination: "work-card-building-review",
-    stateFor: exactWorkspace("work-card-building-review"),
-  },
-  {
-    id: "work-card-validation",
-    label: "Validation",
-    fullLabel: "Work Card Validation",
-    destination: "work-card-validation",
-    stateFor: exactWorkspace("work-card-validation"),
-  },
-  {
-    id: "work-card-close",
-    label: "Close",
-    fullLabel: "Work Card Close",
-    destination: "work-card-close",
-    stateFor: exactWorkspace("work-card-close"),
-  },
-  {
-    id: "next-card",
-    label: "Next Card",
-    fullLabel: "Next Work Card",
-    destination: "phase-work-card-selection",
-    stateFor: exactWorkspace("phase-work-card-selection"),
-  },
-];
-
-const repairLoopItem: LoopRailItem = {
-  id: "work-card-repair",
-  label: "Repair",
-  fullLabel: "Repair when needed",
-  destination: "work-card-repair",
-  stateFor: exactWorkspace("work-card-repair"),
-};
 
 const phaseLoopItems: readonly LoopRailItem[] = [
   {
@@ -213,84 +123,144 @@ const phaseLoopItems: readonly LoopRailItem[] = [
   },
 ];
 
+const workCardLoopItems: readonly LoopRailItem[] = [
+  {
+    id: "work-card-loop",
+    label: "Work Card Loop",
+    fullLabel: "Work Card Loop",
+    destination: "phase-work-card-selection",
+    stateFor: (workspaceId) =>
+      workspaceId === "phase-work-card-selection"
+        ? "exact"
+        : "available",
+  },
+  {
+    id: "work-card-planning",
+    label: "Planning",
+    fullLabel: "Work Card Planning",
+    destination: "work-card-planning",
+    stateFor: exactWorkspace("work-card-planning"),
+  },
+  {
+    id: "work-card-building-review",
+    label: "Build",
+    fullLabel: "Implementer Build",
+    destination: "work-card-building-review",
+    stateFor: exactWorkspace("work-card-building-review"),
+  },
+  {
+    id: "work-card-report-review",
+    label: "Review & Validation",
+    fullLabel: "Review & Validation",
+    destination: "work-card-report-review",
+    stateFor: (workspaceId) =>
+      workspaceId === "work-card-report-review" || workspaceId === "work-card-validation"
+        ? "exact"
+        : "available",
+  },
+  {
+    id: "work-card-repair",
+    label: "Repair",
+    fullLabel: "Repair when needed",
+    destination: "work-card-repair",
+    stateFor: exactWorkspace("work-card-repair"),
+  },
+  {
+    id: "work-card-close",
+    label: "Close / Next",
+    fullLabel: "Close / Next Work Card",
+    destination: "work-card-close",
+    stateFor: exactWorkspace("work-card-close"),
+  },
+];
+
+const phaseStepIdsByLoopStep = {
+  "Phase Intake": "phase-intake",
+  "Phase Planning": "phase-planning",
+  "Work Cards": "phase-work-cards",
+  "Phase Validation": "phase-validation",
+  "Phase Close": "phase-close",
+} as const;
+
+const workCardStepIdsByLoopStep = {
+  "Work Card Intake": "work-card-loop",
+  Planning: "work-card-planning",
+  Build: "work-card-building-review",
+  "Review & Validation": "work-card-report-review",
+  Repair: "work-card-repair",
+  Close: "work-card-close",
+} as const;
+
 export function NestedWorkflowRail({
   activeWorkspaceId,
   architectInterviewStatus = "Open",
+  executionContext,
   onWorkspaceChange,
   projectRailStatuses = {},
   projectIntakeStatus = "Open",
   requiredWorkspaceId = null,
 }: NestedWorkflowRailProps): JSX.Element {
+  const showPhaseLoop = phaseOrWorkCardWorkspaceIds.has(activeWorkspaceId);
+  const showWorkCardLoop =
+    activeWorkspaceId === "phase-work-card-selection" || workCardWorkspaceIds.has(activeWorkspaceId);
+  const activePhaseStepId = currentPhaseStepId(executionContext, activeWorkspaceId);
+  const activeWorkCardStepId = currentWorkCardStepId(executionContext, activeWorkspaceId);
+
   return (
-    <section
-      aria-label="Workflow navigation"
-      className="workflow-navigation-header border-b border-slate-700/80 bg-[#111821] text-slate-100 shadow-[0_8px_18px_rgba(2,6,23,0.22)]"
-    >
-      <div className="px-4 pb-1.5 pt-2">
-        <div className="grid grid-cols-7 gap-1.5">
-          {projectRailGroups.map((group) => (
-            <div
-              className={[
-                "flex h-4 items-center justify-center rounded border px-1 text-center text-[9px] font-semibold uppercase leading-none tracking-[0.14em]",
-                groupHeaderClass(group.tone),
-              ].join(" ")}
-              key={group.id}
-              style={{ gridColumn: `${group.start} / span ${group.span}` }}
-            >
-              {group.label}
-            </div>
-          ))}
-        </div>
+    <section aria-label="Workflow navigation" className="workflow-navigation-header">
+      <div className="figma-pipeline-nav" aria-label="Project pipeline">
+        {projectRailItems.map((item, index) => {
+          const state = getProjectRailItemState(item, activeWorkspaceId);
+          const presentation = deriveProjectRailPresentation({
+            activeWorkspaceId,
+            architectInterviewStatus:
+              item.id === "architect-interview" ? architectInterviewStatus : undefined,
+            descendantWorkspaceIds:
+              item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
+            destinationWorkspaceId: item.destination,
+            requiredWorkspaceId,
+            statusLabel:
+              projectRailStatuses[item.destination] ??
+              (item.id === "project-intake" ? projectIntakeStatus : undefined),
+          });
 
-        <div className="mt-1 grid grid-cols-7 gap-1.5">
-          {projectRailItems.map((item, index) => {
-            const state = getProjectRailItemState(item, activeWorkspaceId);
-            const presentation = deriveProjectRailPresentation({
-              activeWorkspaceId,
-              descendantWorkspaceIds:
-                item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
-              destinationWorkspaceId: item.destination,
-              requiredWorkspaceId,
-              statusLabel: projectRailStatuses[item.destination] ??
-                (item.id === "project-intake" ? projectIntakeStatus : undefined),
-              architectInterviewStatus: item.id === "architect-interview" ? architectInterviewStatus : undefined,
-            });
-            return (
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1" key={item.id}>
-                <WorkflowStepButton
-                  index={index}
-                  label={item.label}
-                  onClick={() => onWorkspaceChange(item.destination)}
-                  presentation={presentation}
-                  state={state}
-                  tone={item.tone}
-                />
-                {index < projectRailItems.length - 1 ? (
-                  <WorkflowGuideConnector state={state} />
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+          return (
+            <PipelineStep
+              index={index}
+              key={item.id}
+              label={item.label}
+              onClick={() => onWorkspaceChange(item.destination)}
+              presentation={presentation}
+              state={state}
+            />
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2.5 border-t border-slate-700/70 px-4 py-2">
-        <WorkflowLoopRail
+      {showPhaseLoop ? (
+        <ContextLoopBar
           activeWorkspaceId={activeWorkspaceId}
-          items={workCardLoopItems}
-          onWorkspaceChange={onWorkspaceChange}
-          repairItem={repairLoopItem}
-          title="Work Card Loop"
-          tone="workCard"
-        />
-        <WorkflowLoopRail
-          activeWorkspaceId={activeWorkspaceId}
+          activeStepId={activePhaseStepId}
+          ariaLabel="Phase loop"
+          context={phaseContext(executionContext)}
           items={phaseLoopItems}
+          label="Phase Loop"
           onWorkspaceChange={onWorkspaceChange}
-          title="Phase Loop"
-          tone="phase"
         />
-      </div>
+      ) : null}
+
+      {showWorkCardLoop ? (
+        <ContextLoopBar
+          activeWorkspaceId={activeWorkspaceId}
+          activeStepId={activeWorkCardStepId}
+          ariaLabel="Work Card loop"
+          context={workCardContext(executionContext)}
+          items={workCardLoopItems}
+          label="Work Card Loop"
+          onWorkspaceChange={onWorkspaceChange}
+          workCard
+        />
+      ) : null}
     </section>
   );
 }
@@ -306,249 +276,225 @@ function getProjectRailItemState(
   if (item.id === "phases") {
     return phaseOrWorkCardWorkspaceIds.has(activeWorkspaceId) ? "parent" : "available";
   }
-
   return item.destination === activeWorkspaceId ? "exact" : "available";
 }
 
-function WorkflowStepButton({
+function PipelineStep({
   index,
   label,
   onClick,
   presentation,
   state,
-  tone,
 }: {
   index: number;
   label: string;
   onClick: () => void;
   presentation: ProjectRailPresentation;
   state: SelectionState;
-  tone: WorkflowTone;
 }): JSX.Element {
-  const stateLabel = presentation.statusLabel;
-
+  const tone = pipelineStatusTone(presentation.statusLabel, presentation.isRequired);
+  const selected = state === "exact" || state === "parent";
+  const connectorComplete = tone === "completed";
   return (
-    <button
-      aria-current={state === "exact" ? "page" : undefined}
-      aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${stateLabel}.${presentation.isRequired ? " Current required step." : ""} Open workflow step.`}
-      className={[
-        "group flex h-[62px] min-w-0 flex-col rounded-md border px-2 py-1.5 text-left transition-colors",
-        stepStateClass(tone, state),
-        presentation.isRequired ? requiredStepClass() : "",
-      ].join(" ")}
-      onClick={onClick}
-      title={`Open ${label}`}
-      type="button"
-    >
-      <span className="flex w-full items-center gap-1 text-[9px] font-bold uppercase leading-none tracking-[0.08em]">
-        <span className={state === "available" ? "opacity-55" : "opacity-85"}>
-          {String(index + 1).padStart(2, "0")}
+    <div className="figma-pipeline-stage">
+      {index > 0 ? (
+        <span className={`figma-stage-connector ${connectorComplete ? "completed" : ""}`} aria-hidden="true" />
+      ) : null}
+      <button
+        aria-current={state === "exact" ? "page" : undefined}
+        aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${presentation.statusLabel}.${presentation.isRequired ? " Current required step." : ""} Open workflow step.`}
+        className={[
+          "figma-pipeline-step",
+          selected ? "active" : "",
+          state === "parent" ? "parent" : "",
+          presentation.isRequired ? "required" : "",
+          tone,
+        ].filter(Boolean).join(" ")}
+        data-status={tone}
+        onClick={onClick}
+        type="button"
+      >
+        <StageIcon active={selected} tone={tone} />
+        <span className="figma-stage-copy">
+          <strong>{label}</strong>
+          <span className={`figma-pipeline-status ${tone}`}>{presentation.statusLabel}</span>
         </span>
-        <span className="ml-auto">{stateLabel}</span>
-      </span>
-      <span className="mt-1 text-[12px] font-bold leading-[1.1] text-current">{label}</span>
-    </button>
+      </button>
+      {index < projectRailItems.length - 1 ? (
+        <span className={`figma-stage-connector ${connectorComplete ? "completed" : ""}`} aria-hidden="true" />
+      ) : null}
+    </div>
   );
 }
 
-function requiredStepClass(): string {
-  return "ring-2 ring-inset ring-[#8ab4a7]/90";
-}
-
-function WorkflowLoopRail({
+function ContextLoopBar({
   activeWorkspaceId,
+  activeStepId,
+  ariaLabel,
+  context,
   items,
+  label,
   onWorkspaceChange,
-  repairItem,
-  title,
-  tone,
+  workCard = false,
 }: {
   activeWorkspaceId: WorkspaceId;
+  activeStepId: string;
+  ariaLabel: string;
+  context: { id: string; position: string };
   items: readonly LoopRailItem[];
+  label: string;
   onWorkspaceChange: (workspaceId: WorkspaceId) => void;
-  repairItem?: LoopRailItem;
-  title: string;
-  tone: WorkflowTone;
+  workCard?: boolean;
 }): JSX.Element {
+  const currentIndex = Math.max(0, items.findIndex((item) => item.id === activeStepId));
   return (
-    <div className={["h-[64px] min-w-0 rounded-md border px-2.5 py-1.5", loopCardClass(tone)].join(" ")}>
-      <div className="flex h-full min-w-0 items-start gap-2">
-        <div className="flex w-[82px] shrink-0 items-center gap-1 pt-2">
-          <RotateCcw aria-hidden="true" className="shrink-0" size={10} />
-          <span className="text-[10px] font-bold leading-[1.05] text-slate-200">{title}</span>
-        </div>
-        <div className="relative min-w-0 flex-1">
-          <div
-            className="grid gap-1"
-            style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
-          >
-            {items.map((item, index) => {
-              const state = item.stateFor(activeWorkspaceId);
-              return (
-                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-0.5" key={item.id}>
-                  <LoopItemButton
-                    fullLabel={item.fullLabel}
-                    label={item.label}
-                    onClick={() => onWorkspaceChange(item.destination)}
-                    state={state}
-                    tone={tone}
-                  />
-                  {index < items.length - 1 ? (
-                    <ArrowRight
-                      aria-hidden="true"
-                      className={state === "exact" ? "shrink-0 text-cyan-300/80" : state === "parent" ? "shrink-0 text-violet-300/70" : "shrink-0 text-slate-500"}
-                      size={10}
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-          {repairItem ? (
-            <div className="absolute left-[50%] top-[38px] flex w-[96px] -translate-x-1/2 items-center justify-center gap-0.5">
-              <CornerDownRight aria-hidden="true" className="shrink-0 text-amber-300/75" size={9} />
-              <LoopItemButton
-                fullLabel={repairItem.fullLabel}
-                icon={<Wrench aria-hidden="true" size={8} />}
-                label={repairItem.label}
-                onClick={() => onWorkspaceChange(repairItem.destination)}
-                isBranch
-                state={repairItem.stateFor(activeWorkspaceId)}
-                tone="repair"
-              />
-              <CornerUpLeft aria-label="Returns to Validation" className="shrink-0 text-amber-300/75" size={9} />
+    <div
+      aria-label={ariaLabel}
+      className={`figma-context-loop-bar ${workCard ? "figma-work-card-loop-bar" : "figma-phase-loop-bar"}`}
+    >
+      <div className="figma-loop-context">
+        <span>{label}</span>
+        <strong>{context.id}</strong>
+        <small>{context.position}</small>
+      </div>
+      <div className="figma-context-loop-items">
+        {items.map((item, index) => {
+          const state = item.stateFor(activeWorkspaceId);
+          const selected = state === "exact" || state === "parent";
+          const tone: StageTone = index < currentIndex
+            ? "completed"
+            : index === currentIndex
+              ? "in-progress"
+              : "pending";
+          const isRepair = item.id === "work-card-repair";
+          return (
+            <div className="figma-sub-stage" key={item.id}>
+              {index > 0 ? (
+                <span className={`figma-sub-connector ${index <= currentIndex ? "completed" : ""}`} aria-hidden="true" />
+              ) : null}
+              <button
+                aria-current={selected ? "step" : undefined}
+                aria-label={`${item.fullLabel}: ${tone}. Open workflow step.`}
+                className={[
+                  "figma-sub-pill",
+                  selected ? "active" : "",
+                  state === "parent" ? "parent" : "",
+                  isRepair ? "repair" : "",
+                  tone,
+                ].filter(Boolean).join(" ")}
+                data-status={tone}
+                onClick={() => onWorkspaceChange(item.destination)}
+                title={`Open ${item.fullLabel}`}
+                type="button"
+              >
+                <StageIcon active={selected} small tone={tone} />
+                <span>{item.label}</span>
+              </button>
             </div>
-          ) : null}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function LoopItemButton({
-  fullLabel,
-  icon,
-  isBranch = false,
-  label,
-  onClick,
-  state,
+function StageIcon({
+  active,
+  small = false,
   tone,
 }: {
-  fullLabel: string;
-  icon?: JSX.Element;
-  isBranch?: boolean;
-  label: string;
-  onClick: () => void;
-  state: SelectionState;
-  tone: WorkflowTone;
+  active: boolean;
+  small?: boolean;
+  tone: StageTone;
 }): JSX.Element {
   return (
-    <button
-      aria-current={state === "exact" ? "page" : undefined}
-      aria-label={`${fullLabel}: ${state}. Open workflow step.`}
+    <span
+      aria-hidden="true"
       className={[
-        isBranch
-          ? "flex h-[18px] min-w-0 items-center justify-center gap-1 rounded border px-1.5 text-center text-[8px] font-bold leading-none transition-colors"
-          : "flex h-[32px] min-w-0 items-center justify-center gap-1 rounded-md border px-1.5 text-center text-[9px] font-bold leading-none transition-colors",
-        loopStateClass(tone, state),
-      ].join(" ")}
-      onClick={onClick}
-      title={`Open ${fullLabel}`}
-      type="button"
+        "figma-stage-icon",
+        small ? "small" : "",
+        active ? "active" : "",
+        tone,
+      ].filter(Boolean).join(" ")}
     >
-      {icon}
-      <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
-    </button>
+      {tone === "completed" ? <Check size={small ? 8 : 10} strokeWidth={3} /> : null}
+      {tone === "in-progress" ? <i /> : null}
+      {tone === "not-ready" ? <b>!</b> : null}
+      {tone === "pending" ? <i /> : null}
+    </span>
   );
 }
 
-function WorkflowGuideConnector({ state }: { state: SelectionState }): JSX.Element {
-  return (
-    <div className="flex w-3 shrink-0 items-center justify-center" aria-hidden="true">
-      <ArrowRight
-        className={state === "exact" ? "text-cyan-300/85" : state === "parent" ? "text-violet-300/70" : "text-slate-500"}
-        size={12}
-      />
-    </div>
-  );
+function currentPhaseStepId(
+  executionContext: ExecutionContextProjection | undefined,
+  activeWorkspaceId: WorkspaceId,
+): string {
+  const loopStep = executionContext?.phase.state === "active"
+    ? executionContext.phase.loopStep
+    : undefined;
+  if (loopStep) {
+    return phaseStepIdsByLoopStep[loopStep];
+  }
+  return phaseLoopItems.find((item) => item.stateFor(activeWorkspaceId) !== "available")?.id ?? "phase-intake";
 }
 
-function groupHeaderClass(tone: WorkflowTone): string {
-  return {
-    project: "border-blue-400/25 bg-blue-400/10 text-blue-200/90",
-    phase: "border-violet-400/25 bg-violet-400/10 text-violet-200/90",
-    workCard: "border-cyan-400/25 bg-cyan-400/10 text-cyan-200/90",
-    close: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200/90",
-    repair: "border-amber-400/25 bg-amber-400/10 text-amber-200/90",
-  }[tone];
+function currentWorkCardStepId(
+  executionContext: ExecutionContextProjection | undefined,
+  activeWorkspaceId: WorkspaceId,
+): string {
+  const loopStep = executionContext?.workCard.state === "active"
+    ? executionContext.workCard.loopStep
+    : undefined;
+  if (loopStep) {
+    return workCardStepIdsByLoopStep[loopStep];
+  }
+  return workCardLoopItems.find((item) => item.stateFor(activeWorkspaceId) === "exact")?.id ?? "work-card-loop";
 }
 
-function stepStateClass(tone: WorkflowTone, state: SelectionState): string {
-  if (state === "exact") {
-    return {
-      project: "border-cyan-300/90 bg-cyan-400/15 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.18),0_0_18px_rgba(34,211,238,0.14)] hover:bg-cyan-400/20",
-      phase: "border-cyan-300/90 bg-cyan-400/15 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.18),0_0_18px_rgba(34,211,238,0.14)] hover:bg-cyan-400/20",
-      workCard: "border-cyan-300/90 bg-cyan-400/15 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.18),0_0_18px_rgba(34,211,238,0.14)] hover:bg-cyan-400/20",
-      close: "border-cyan-300/90 bg-cyan-400/15 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.18),0_0_18px_rgba(34,211,238,0.14)] hover:bg-cyan-400/20",
-      repair: "border-cyan-300/90 bg-cyan-400/15 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.18),0_0_18px_rgba(34,211,238,0.14)] hover:bg-cyan-400/20",
-    }[tone];
+function phaseContext(executionContext: ExecutionContextProjection | undefined): {
+  id: string;
+  position: string;
+} {
+  const phase = executionContext?.phase;
+  if (phase?.state !== "active") {
+    return { id: "No active phase", position: "Repository derived" };
   }
-
-  if (state === "parent") {
-    return {
-      project: "border-violet-300/65 bg-violet-400/10 text-violet-100 shadow-none hover:bg-violet-400/14",
-      phase: "border-violet-300/65 bg-violet-400/10 text-violet-100 shadow-none hover:bg-violet-400/14",
-      workCard: "border-violet-300/65 bg-violet-400/10 text-violet-100 shadow-none hover:bg-violet-400/14",
-      close: "border-violet-300/65 bg-violet-400/10 text-violet-100 shadow-none hover:bg-violet-400/14",
-      repair: "border-violet-300/65 bg-violet-400/10 text-violet-100 shadow-none hover:bg-violet-400/14",
-    }[tone];
-  }
-
   return {
-    project: "border-slate-600/90 bg-slate-900/60 text-slate-300 hover:border-blue-300/55 hover:bg-slate-800/80 hover:text-slate-50",
-    phase: "border-slate-600/90 bg-slate-900/60 text-slate-300 hover:border-violet-300/55 hover:bg-slate-800/80 hover:text-slate-50",
-    workCard: "border-slate-600/90 bg-slate-900/60 text-slate-300 hover:border-cyan-300/55 hover:bg-slate-800/80 hover:text-slate-50",
-    close: "border-slate-600/90 bg-slate-900/60 text-slate-300 hover:border-emerald-300/55 hover:bg-slate-800/80 hover:text-slate-50",
-    repair: "border-slate-600/90 bg-slate-900/60 text-slate-300 hover:border-amber-300/55 hover:bg-slate-800/80 hover:text-slate-50",
-  }[tone];
+    id: phase.phaseId ?? "Current phase",
+    position: `Phase ${phase.order ?? "?"} of ${phase.totalPhaseCount ?? "?"}`,
+  };
 }
 
-function loopCardClass(tone: WorkflowTone): string {
+function workCardContext(executionContext: ExecutionContextProjection | undefined): {
+  id: string;
+  position: string;
+} {
+  const workCard = executionContext?.workCard;
+  if (workCard?.state !== "active") {
+    return { id: "No active Work Card", position: "Repository derived" };
+  }
   return {
-    project: "border-blue-400/20 bg-slate-950/35 text-blue-100",
-    phase: "border-violet-400/20 bg-slate-950/35 text-violet-100",
-    workCard: "border-cyan-400/20 bg-slate-950/35 text-cyan-100",
-    close: "border-emerald-400/20 bg-slate-950/35 text-emerald-100",
-    repair: "border-amber-400/20 bg-slate-950/35 text-amber-100",
-  }[tone];
+    id: workCard.workCardId ?? "Current Work Card",
+    position: `${workCard.loopStep ?? "Current step"} in phase`,
+  };
 }
 
-function loopStateClass(tone: WorkflowTone, state: SelectionState): string {
-  if (state === "exact") {
-    return {
-      project: "border-cyan-300/90 bg-cyan-400/18 text-cyan-50 shadow-[0_0_0_1px_rgba(103,232,249,0.16)] hover:bg-cyan-400/24",
-      phase: "border-cyan-300/90 bg-cyan-400/18 text-cyan-50 shadow-[0_0_0_1px_rgba(103,232,249,0.16)] hover:bg-cyan-400/24",
-      workCard: "border-cyan-300/90 bg-cyan-400/18 text-cyan-50 shadow-[0_0_0_1px_rgba(103,232,249,0.16)] hover:bg-cyan-400/24",
-      close: "border-cyan-300/90 bg-cyan-400/18 text-cyan-50 shadow-[0_0_0_1px_rgba(103,232,249,0.16)] hover:bg-cyan-400/24",
-      repair: "border-amber-300/95 bg-amber-400/20 text-amber-50 shadow-[0_0_0_1px_rgba(251,191,36,0.18),0_0_12px_rgba(245,158,11,0.14)] hover:bg-amber-400/26",
-    }[tone];
+function pipelineStatusTone(statusLabel: string, isRequired: boolean): StageTone {
+  const normalized = statusLabel.toLowerCase();
+  if (normalized.includes("complete") || normalized.includes("approved")) {
+    return "completed";
   }
-
-  if (state === "parent") {
-    return {
-      project: "border-violet-300/60 bg-violet-400/10 text-violet-100 hover:bg-violet-400/14",
-      phase: "border-violet-300/60 bg-violet-400/10 text-violet-100 hover:bg-violet-400/14",
-      workCard: "border-violet-300/60 bg-violet-400/10 text-violet-100 hover:bg-violet-400/14",
-      close: "border-violet-300/60 bg-violet-400/10 text-violet-100 hover:bg-violet-400/14",
-      repair: "border-violet-300/60 bg-violet-400/10 text-violet-100 hover:bg-violet-400/14",
-    }[tone];
+  if (normalized.includes("attention") || normalized.includes("not ready") || normalized.includes("error")) {
+    return "not-ready";
   }
-
-  return {
-    project: "border-slate-600/75 bg-slate-900/65 text-slate-300 hover:border-blue-300/50 hover:bg-slate-800/85 hover:text-slate-50",
-    phase: "border-slate-600/75 bg-slate-900/65 text-slate-300 hover:border-violet-300/50 hover:bg-slate-800/85 hover:text-slate-50",
-    workCard: "border-slate-600/75 bg-slate-900/65 text-slate-300 hover:border-cyan-300/50 hover:bg-slate-800/85 hover:text-slate-50",
-    close: "border-slate-600/75 bg-slate-900/65 text-slate-300 hover:border-emerald-300/50 hover:bg-slate-800/85 hover:text-slate-50",
-    repair: "border-amber-400/45 bg-slate-900/65 text-amber-200 hover:border-amber-300/70 hover:bg-amber-400/10 hover:text-amber-50",
-  }[tone];
+  if (
+    isRequired ||
+    normalized.includes("progress") ||
+    normalized.includes("waiting") ||
+    normalized.includes("awaiting") ||
+    normalized.includes("ready")
+  ) {
+    return "in-progress";
+  }
+  return "pending";
 }

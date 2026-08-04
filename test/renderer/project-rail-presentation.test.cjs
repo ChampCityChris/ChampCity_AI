@@ -168,6 +168,10 @@ test("embedded Architect workspaces use dual-pane mode without changing other wo
   assert.equal(isArchitectInterviewDualPaneWorkspace("architect-interview"), true);
   assert.equal(isArchitectInterviewDualPaneWorkspace("project-planning-review"), true);
   assert.equal(isArchitectInterviewDualPaneWorkspace("project-phase-map"), true);
+  assert.equal(isArchitectInterviewDualPaneWorkspace("work-card-planning"), true);
+  assert.equal(isArchitectInterviewDualPaneWorkspace("work-card-building-review"), true);
+  assert.equal(isArchitectInterviewDualPaneWorkspace("work-card-report-review"), true);
+  assert.equal(isArchitectInterviewDualPaneWorkspace("work-card-repair"), true);
   assert.equal(isArchitectInterviewDualPaneWorkspace("project-intake-capture"), false);
 });
 
@@ -217,14 +221,17 @@ test("Phase Map disposition controls render only for readable selected Phase Map
   );
 });
 
-test("Architect-output dual-pane preview renders the generic review shell", () => {
+test("Architect-output dual-pane preview renders the Figma review workspace panels", () => {
   const source = fs.readFileSync(appSourcePath, "utf8");
 
-  assert.match(source, /<ArchitectOutputReviewShell/);
-  assert.match(source, /aria-label="Architect output review"/);
+  assert.match(source, /figma-doc-chat-workspace/);
+  assert.match(source, /<FigmaDocumentCard/);
+  assert.match(source, /<FigmaArchitectReviewPanel/);
+  assert.match(source, /aria-label="Document disposition"/);
   assert.match(source, /Apply Review/);
   assert.match(source, /onReview=\{applyArchitectOutputReview\}/);
   assert.match(source, /viewedArchitectOutputRevisionKeys/);
+  assert.doesNotMatch(source, /<ArchitectOutputReviewShell/);
   assert.doesNotMatch(source, /<PhaseMapPreviewReview/);
   assert.doesNotMatch(source, /onReview=\{applyDisposition\}[\s\S]{0,120}Apply Phase Map Review/);
   assert.doesNotMatch(source, /Specialized review controls appear when the current outputs exist/);
@@ -274,23 +281,28 @@ test("visible Work Card loop has one Planning item and no separate Intake item",
 
   assert.match(workCardLoopSource, /label:\s*"Planning"/);
   assert.match(workCardLoopSource, /destination:\s*"work-card-planning"/);
+  assert.match(workCardLoopSource, /label:\s*"Build"/);
+  assert.match(workCardLoopSource, /destination:\s*"work-card-building-review"/);
+  assert.match(workCardLoopSource, /label:\s*"Review & Validation"/);
+  assert.match(workCardLoopSource, /destination:\s*"work-card-report-review"/);
+  assert.match(workCardLoopSource, /label:\s*"Close \/ Next"/);
+  assert.doesNotMatch(workCardLoopSource, /label:\s*"Validation"/);
+  assert.doesNotMatch(workCardLoopSource, /destination:\s*"work-card-validation"/);
   assert.doesNotMatch(workCardLoopSource, /label:\s*"Work Card Intake"/);
   assert.doesNotMatch(workCardLoopSource, /destination:\s*"work-card-intake"/);
 });
 
-test("Work Card Architect workspaces use dedicated 56/44 layout without changing other dual-pane layouts", () => {
+test("Work Card Architect workspaces reuse the shared dual-pane layout", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
   const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
-  const workCardLayoutRule = stylesSource.match(/\.document-workspace\.work-card-architect-workspace\s*\{(?<body>[^}]*)\}/);
   const existingArchitectRule = stylesSource.match(/\.document-workspace\.architect-interview-workspace\s*\{(?<body>[^}]*)\}/);
 
-  assert.match(appSource, /workCardArchitectLayoutWorkspaceIds/);
-  assert.match(appSource, /"document-workspace work-card-architect-workspace"/);
-  assert.ok(workCardLayoutRule);
-  assert.match(workCardLayoutRule.groups.body, /minmax\(560px,\s*56fr\)\s+minmax\(420px,\s*44fr\)/);
+  assert.doesNotMatch(appSource, /workCardArchitectLayoutWorkspaceIds/);
+  assert.doesNotMatch(appSource, /work-card-architect-workspace/);
+  assert.match(appSource, /isArchitectInterviewDualPaneWorkspace\(activeWorkspaceId\)/);
   assert.ok(existingArchitectRule);
   assert.match(existingArchitectRule.groups.body, /minmax\(0,\s*0\.95fr\)\s+minmax\(0,\s*1\.05fr\)/);
-  assert.match(stylesSource, /@media \(max-width:\s*1080px\)[\s\S]*\.document-workspace\.work-card-architect-workspace[\s\S]*grid-template-columns:\s*1fr/);
+  assert.doesNotMatch(stylesSource, /work-card-architect-workspace/);
 });
 
 test("project rail reports duplicate current Project Planning handoffs as Needs Attention", () => {
