@@ -80,7 +80,7 @@ test("updated Figma navigation renders nested production phase and Work Card row
   assert.match(markup, /Phase Map/);
   assert.match(markup, /Project Validation/);
   assert.match(markup, /Project Close/);
-  assert.match(markup, /Work Card Loop/);
+  assert.match(markup, /Work Card Map/);
   assert.match(markup, /Review &amp; Validation/);
   assert.match(markup, /Phase Loop/);
   assert.match(markup, /Repair/);

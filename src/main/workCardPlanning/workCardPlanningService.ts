@@ -29,7 +29,7 @@ import {
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
 import { getPhaseMapProjection } from "../phaseMap/phaseMapService";
 import { getPhasePlanningCompletion } from "../phasePlanning/phasePlanningService";
-import { selectNextWorkCardCandidate } from "../workCardIntake/workCardIntakeService";
+import { resolveActiveWorkCardPlanningHandoff } from "../workCardIntake/workCardIntakeService";
 
 export interface FormalWorkCardResult {
   phaseId: string;
@@ -54,8 +54,16 @@ interface FormalWorkCardContext {
   candidate: Record<string, unknown>;
   targetPath: string;
   implementerReportPath: string;
+  selectedWorkspaceTarget: SelectedWorkspaceTargetDescriptor;
   sourceRevisions: SourceRevision[];
   existing?: PlanningDocumentSummary;
+}
+
+interface SelectedWorkspaceTargetDescriptor {
+  repositoryReference: "<PROJECT_REPO>";
+  handoffPath: string;
+  formalWorkCardTargetPath: string;
+  implementerReportTargetPath: string;
 }
 
 export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
@@ -133,7 +141,11 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     if (
       context.handoff.markdownPath !== submission.sourceHandoff.path ||
       (context.handoff.metadata.artifactRevision ?? 1) !== submission.sourceHandoff.revision ||
+      context.phaseId !== original.phaseId ||
+      context.workCardId !== original.workCardId ||
+      context.candidateId !== original.candidateId ||
       context.targetPath !== original.targetPath ||
+      context.implementerReportPath !== original.implementerReportPath ||
       JSON.stringify(context.sourceRevisions) !== JSON.stringify(original.sourceRevisions)
     ) {
       throw new Error("Formal Work Card draft no longer matches the current Work Card Intake handoff.");
@@ -298,6 +310,12 @@ function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardCont
     candidate,
     targetPath,
     implementerReportPath,
+    selectedWorkspaceTarget: {
+      repositoryReference: "<PROJECT_REPO>" as const,
+      handoffPath: handoff.markdownPath,
+      formalWorkCardTargetPath: targetPath,
+      implementerReportTargetPath: implementerReportPath,
+    },
     sourceRevisions: sourceRevisionsFromHandoff(handoff),
     existing,
   };
@@ -338,13 +356,13 @@ function resolveCurrentFormalWorkCardSelection(workspaceRoot: string): {
   if (!phasePlanning.complete) {
     throw new Error("Current Approved Phase Planning bundle is required before Formal Work Card planning.");
   }
-  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
-  if (selection.state !== "selected") {
-    throw new Error(`No eligible current Work Card candidate is available: ${selection.state}.`);
+  const handoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot, phaseId);
+  if (!handoff) {
+    throw new Error("Current active Work Card Intake handoff is required before Formal Work Card planning.");
   }
   return {
     phaseId,
-    workCardId: selection.selectedCandidate.candidateId,
+    workCardId: handoff.workCardId,
   };
 }
 
@@ -421,17 +439,30 @@ function buildFormalWorkCardPreparedInstruction(
   const revisionInstructionLines = currentOperatorRevisionInstructionLines(context.existing);
   const evidenceLines = context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`);
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    "Use the selected project workspace for this Work Card.",
+    "The application has already resolved the target workspace for this handoff.",
+    "Use ChampCity MCP with repository reference <PROJECT_REPO> for that selected project workspace only.",
+    "Before making repository claims, verify that the selected workspace contains the approved Work Card Intake handoff path below and accepts the Formal Work Card target path below.",
+    "Do not use any other workspace as the implementation target.",
+    "If the selected workspace cannot be verified through these exact paths, abort as incomplete.",
+    "",
+    "Application-owned selected workspace target binding:",
+    `- selected workspace repository reference: ${context.selectedWorkspaceTarget.repositoryReference}`,
+    `- approved Work Card Intake handoff path: ${context.selectedWorkspaceTarget.handoffPath}`,
+    `- Formal Work Card target path: ${context.selectedWorkspaceTarget.formalWorkCardTargetPath}`,
+    `- Implementer Report target path: ${context.selectedWorkspaceTarget.implementerReportTargetPath}`,
     "",
     "This is the Formal Work Card Architect session.",
     "",
     "Read the exact current Approved Work Card Intake handoff:",
     `- path: ${sourceHandoff.path}`,
     `- revision: ${sourceHandoff.revision}`,
+    `- selected workspace verification evidence: this handoff path and the Formal Work Card target must both exist or be valid targets in the same selected workspace.`,
     "",
     "Selected Work Card:",
     `- ID: ${context.workCardId}`,
+    `- phase ID: ${context.phaseId}`,
+    `- candidate ID: ${context.candidateId}`,
     `- title: ${candidateTitle}`,
     `- candidate context: ${JSON.stringify(context.candidate)}`,
     "",

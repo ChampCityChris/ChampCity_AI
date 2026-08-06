@@ -182,6 +182,13 @@ function domainContextFor(definition) {
         candidateId: "WC41",
         candidate: { candidateId: "WC41", title: "Domain-Specific Architect Handoff Prompt Contracts" },
         targetPath: "planning/phases/phase-01/Work_Cards/WC41_domain_specific_architect_handoff_prompt_contracts.md",
+        implementerReportPath: "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC41_domain_specific_architect_handoff_prompt_contracts.md",
+        selectedWorkspaceTarget: {
+          repositoryReference: "<PROJECT_REPO>",
+          handoffPath: "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_HANDOFF_WC41.md",
+          formalWorkCardTargetPath: "planning/phases/phase-01/Work_Cards/WC41_domain_specific_architect_handoff_prompt_contracts.md",
+          implementerReportTargetPath: "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC41_domain_specific_architect_handoff_prompt_contracts.md",
+        },
         sourceRevisions: [source("planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_HANDOFF_WC41.md", 3)],
       };
     case "repair-work-card":
@@ -360,4 +367,18 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(formalActionBlocks[0].params.relativePath, /formal-work-card\.md$/);
   assert.doesNotMatch(formalPrompt, /"relativePath":\s*"planning\/phases\/phase-01\/Work_Cards/);
   assert.doesNotMatch(formalPrompt, /prepared Formal Work Card Architect output handoff/);
+
+  const repairPrompt = prompts.get("repair-work-card").instruction;
+  assert.match(repairPrompt, /^This is the Repair Work Card Architect session\.$/m);
+  assert.match(repairPrompt, /Use the selected project workspace already connected in this task/);
+  assert.match(repairPrompt, /Do not inspect or write any other repository or workspace/);
+  assert.match(repairPrompt, /Phase ID: phase-01/);
+  assert.match(repairPrompt, /Repair ID: WC41-REPAIR01/);
+  assert.match(repairPrompt, /Parent Work Card: WC41/);
+  assert.match(repairPrompt, /Source evidence path: planning\/phases\/phase-01\/Implementer_Reports\/IMPLEMENTER_REPORT_WC41\.md/);
+  assert.match(repairPrompt, /Repair handoff path: planning\/phases\/phase-01\/Architect_Handoffs\/REPAIR_ARCHITECT_HANDOFF_WC41-REPAIR01\.md/);
+  assert.match(repairPrompt, /Return target: work-card-building-review/);
+  assert.match(repairPrompt, /Final Repair Work Card target: planning\/phases\/phase-01\/Work_Cards\/WC41-REPAIR01_prompt_contract_mismatch\.md/);
+  assert.doesNotMatch(repairPrompt, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
+  assert.doesNotMatch(repairPrompt, /ChampCityChris|champcity_ai/i);
 });

@@ -36,11 +36,14 @@ import {
   createProjectCloseoutForCurrentProject,
   createRepairForCurrentFailure,
   createValidationAttemptForCurrentWorkCard,
+  beginWorkCardPlanning,
   generateCloseReturnNextIntakeHandoff,
   generateCurrentHandoff,
   getCloseReturnSelectionProjection,
   getCurrentCloseProjection,
+  getCurrentRepairWorkspaceProjection,
   getCurrentWorkspaceModel,
+  getCurrentWorkCardMapProjection,
   resolveCurrentAdvisoryReviewPrompt,
 } from "./currentWorkflow/currentWorkflowService";
 import { codexImplementerExecutionService } from "./workCardBuilding/codexImplementerExecutionService";
@@ -52,6 +55,7 @@ import { buildLocalRendererContextMenuTemplate } from "./contextMenu/localRender
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
 import type {
   AppInfo,
+  BeginWorkCardPlanningOptions,
   BrowserViewBounds,
   ClosureDecision,
   ProjectIntakeSubmission,
@@ -63,6 +67,7 @@ import type {
   CurrentWorkspaceModel,
   OperatorValidationDecisionInput,
   RuntimeActionResult,
+  WorkCardMapProjectionOptions,
   WorkspaceId,
   WorkspaceMigrationPreview,
   WorkspaceMigrationResult,
@@ -306,6 +311,23 @@ ipcMain.handle("currentWorkflow:generateHandoff", (): RuntimeActionResult => {
   return generateCurrentHandoff(getRequiredWorkspaceRoot());
 });
 
+ipcMain.handle("currentWorkflow:getWorkCardMapProjection", (
+  _event,
+  phaseId: string,
+  options: WorkCardMapProjectionOptions = {},
+): RuntimeActionResult => {
+  return getCurrentWorkCardMapProjection(getRequiredWorkspaceRoot(), phaseId, options);
+});
+
+ipcMain.handle("currentWorkflow:beginWorkCardPlanning", (
+  _event,
+  phaseId: string,
+  candidateId: string,
+  options: BeginWorkCardPlanningOptions = {},
+): RuntimeActionResult => {
+  return beginWorkCardPlanning(getRequiredWorkspaceRoot(), phaseId, candidateId, options);
+});
+
 ipcMain.handle("currentWorkflow:copyAdvisoryReviewPrompt", (): RuntimeActionResult => {
   const { instruction, result } = resolveCurrentAdvisoryReviewPrompt(getRequiredWorkspaceRoot());
   clipboard.writeText(instruction);
@@ -328,7 +350,7 @@ ipcMain.handle("currentWorkflow:applyDisposition", (
   return applyCurrentDisposition(getRequiredWorkspaceRoot(), status, operatorReviewNotes, targetWorkspaceId);
 });
 
-ipcMain.handle("currentWorkflow:createRepair", (_event, defect: string): RuntimeActionResult => {
+ipcMain.handle("currentWorkflow:createRepair", (_event, defect = ""): RuntimeActionResult => {
   return createRepairForCurrentFailure(getRequiredWorkspaceRoot(), defect);
 });
 
@@ -346,6 +368,10 @@ ipcMain.handle("currentWorkflow:createProjectCloseout", (_event, closureDecision
 
 ipcMain.handle("currentWorkflow:getCloseProjection", (): RuntimeActionResult => {
   return getCurrentCloseProjection(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle("currentWorkflow:getRepairWorkspaceProjection", (): RuntimeActionResult => {
+  return getCurrentRepairWorkspaceProjection(getRequiredWorkspaceRoot());
 });
 
 ipcMain.handle("currentWorkflow:getCloseReturnSelectionProjection", (): RuntimeActionResult => {

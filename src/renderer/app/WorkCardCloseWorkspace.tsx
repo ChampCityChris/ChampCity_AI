@@ -103,7 +103,7 @@ export function WorkCardCloseWorkspace({
                 <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Next Workspace</p>
                 <p className="break-words text-[13px] text-foreground">
                   {canReturn
-                    ? "Phase Work Card Selection"
+                    ? "Work Card Map"
                     : projection?.reason ?? "Current close evidence is not ready."}
                 </p>
               </div>

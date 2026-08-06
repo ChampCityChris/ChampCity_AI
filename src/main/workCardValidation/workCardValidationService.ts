@@ -6,6 +6,7 @@ import type { DocumentDispositionStatus } from "../../shared/documents/documentD
 import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
+import { requireReadyImplementerReportForReview } from "../workCardBuilding/workCardBuildingReviewService";
 
 export interface ValidationAttemptResult {
   attemptNumber: number;
@@ -242,12 +243,10 @@ export function getWorkCardCloseProjection(workspaceRoot: string, phaseId: strin
 }
 
 function latestApprovedReport(workspaceRoot: string, phaseId: string, workCardId: string) {
-  const report = listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}`))
-    .filter((document) => document.effectiveDisposition === "Approved")
-    .at(-1);
-  if (!report) throw new Error("Current Approved implementation or repair report is required.");
-  if (evaluateDocumentFreshness(workspaceRoot, report.logicalDocumentId).state === "stale") throw new Error("Implementation report is stale.");
+  const report = requireReadyImplementerReportForReview(workspaceRoot, phaseId, workCardId);
+  if (report.effectiveDisposition !== "Approved") {
+    throw new Error("Current Approved implementation or repair report is required.");
+  }
   return report;
 }
 
@@ -256,15 +255,7 @@ function currentApprovedFormalWorkCard(workspaceRoot: string, phaseId: string, w
 }
 
 function currentImplementerReport(workspaceRoot: string, phaseId: string, workCardId: string): PlanningDocumentSummary {
-  const reports = listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}`))
-    .filter((document) => document.metadata.artifactType === "implementer-report")
-    .filter((document) => document.metadata.workCardId === workCardId || document.metadata.canonical?.identity.workCardId === workCardId);
-  const report = reports.at(-1);
-  if (!report) {
-    throw new Error("Current Implementer Report is required.");
-  }
-  return report;
+  return requireReadyImplementerReportForReview(workspaceRoot, phaseId, workCardId);
 }
 
 function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md") {

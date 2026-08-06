@@ -20,9 +20,7 @@ const {
 test("work card validation creates Markdown-only validation record and closes on approval", () => {
   const root = tempWorkspace("champcity-work-card-validation-");
   seedApprovedFormalWorkCard(root, "phase-01", "WC01");
-  writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "Approved", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-  });
+  writeReadyImplementerReport(root, "phase-01", "WC01", "Approved");
 
   const result = createValidationAttempt(root, "phase-01", "WC01");
   assert.equal(result.attemptNumber, 1);
@@ -36,13 +34,7 @@ test("work card validation creates Markdown-only validation record and closes on
 test("advisory Architect prompt is generated from repository evidence", () => {
   const root = tempWorkspace("champcity-work-card-advisory-prompt-");
   seedApprovedFormalWorkCard(root, "phase-01", "WC01");
-  writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "Pending", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-    sourceRevisions: [{ path: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", revision: 1 }],
-    workflowData: {
-      filesChanged: ["src/main/workCardValidation/workCardValidationService.ts"],
-    },
-  });
+  writeReadyImplementerReport(root, "phase-01", "WC01", "Pending");
 
   const result = buildAdvisoryArchitectReviewPrompt(root, "phase-01", "WC01");
   assert.match(result.instruction, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
@@ -61,10 +53,7 @@ test("advisory Architect prompt is generated from repository evidence", () => {
 test("Operator Validate Passed writes validation authority without mutating Implementer Report disposition", () => {
   const root = tempWorkspace("champcity-operator-validate-passed-");
   seedApprovedFormalWorkCard(root, "phase-01", "WC01");
-  const reportPath = writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "Pending", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-    sourceRevisions: [{ path: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", revision: 1 }],
-  });
+  const reportPath = writeReadyImplementerReport(root, "phase-01", "WC01", "Pending");
 
   const result = applyOperatorValidationDecision(root, "phase-01", "WC01", {
     decision: "ValidatePassed",
@@ -85,10 +74,7 @@ test("Operator Validate Passed writes validation authority without mutating Impl
 test("Operator Request Repair requires defect text, writes one RevisionRequested validation record, and blocks duplicate final decision", () => {
   const root = tempWorkspace("champcity-operator-request-repair-");
   seedApprovedFormalWorkCard(root, "phase-01", "WC01");
-  writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "Pending", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-    sourceRevisions: [{ path: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", revision: 1 }],
-  });
+  writeReadyImplementerReport(root, "phase-01", "WC01", "Pending");
 
   assert.throws(
     () => applyOperatorValidationDecision(root, "phase-01", "WC01", {
@@ -119,3 +105,67 @@ test("Operator Request Repair requires defect text, writes one RevisionRequested
   );
   assert.equal(records.length, 1);
 });
+
+test("Operator validation rejects a reserved skeleton Implementer Report", () => {
+  const root = tempWorkspace("champcity-operator-skeleton-blocked-");
+  seedApprovedFormalWorkCard(root, "phase-01", "WC01");
+  writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "Pending", {
+    identity: { phaseId: "phase-01", workCardId: "WC01" },
+    sourceRevisions: [{ path: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", revision: 1 }],
+    workflowData: {
+      repositoryVerification: "Pending Implementer verification.",
+      filesChanged: [],
+      implementationSummary: "",
+      validationResults: [],
+      acceptanceEvidence: [],
+    },
+    bodyMarkdown: [
+      "# Implementer Report - WC01",
+      "",
+      "Status: Pending Implementer completion.",
+      "",
+      "## Repository Verification",
+      "## Implementation Summary",
+      "## Files Modified",
+      "## Validation Performed",
+      "",
+    ].join("\n"),
+  });
+
+  assert.throws(
+    () => buildAdvisoryArchitectReviewPrompt(root, "phase-01", "WC01"),
+    /reserved scaffold/,
+  );
+  assert.throws(
+    () => applyOperatorValidationDecision(root, "phase-01", "WC01", {
+      decision: "ValidatePassed",
+      operatorNotes: "Trying to validate skeleton.",
+    }),
+    /reserved scaffold/,
+  );
+});
+
+function writeReadyImplementerReport(root, phaseId, workCardId, status = "Pending") {
+  return writeDoc(root, `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_first_work_card.md`, "implementer-report", status, {
+    identity: { phaseId, workCardId },
+    sourceRevisions: [{ path: `planning/phases/${phaseId}/Work_Cards/${workCardId}_first_work_card.md`, revision: 1 }],
+    workflowData: {
+      repositoryVerification: "Verified approved repo root.",
+      filesChanged: ["src/main/workCardValidation/workCardValidationService.ts"],
+      implementationSummary: "Implemented backend validation readiness enforcement.",
+      validationResults: ["work card validation service test passed"],
+      acceptanceEvidence: ["Operator validation accepts ready reports and rejects skeleton reports"],
+    },
+    bodyMarkdown: [
+      `# Implementer Report - ${workCardId}`,
+      "",
+      "Status: Pending Operator review.",
+      "",
+      "## Files Modified",
+      "src/main/workCardValidation/workCardValidationService.ts",
+      "## Validation Performed",
+      "work card validation service test passed",
+      "",
+    ].join("\n"),
+  });
+}

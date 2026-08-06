@@ -17,9 +17,10 @@ test("main, preload, and renderer expose evidence-derived current workflow actio
   const contracts = [
     ["currentWorkflow:getModel", "getCurrentWorkspaceModel"],
     ["currentWorkflow:generateHandoff", "generateCurrentHandoff"],
+    ["currentWorkflow:getWorkCardMapProjection", "getWorkCardMapProjection"],
+    ["currentWorkflow:beginWorkCardPlanning", "beginWorkCardPlanning"],
     ["currentWorkflow:getCloseProjection", "getCurrentCloseProjection"],
-    ["currentWorkflow:getCloseReturnSelectionProjection", "getCloseReturnSelectionProjection"],
-    ["currentWorkflow:generateCloseReturnNextIntakeHandoff", "generateCloseReturnNextIntakeHandoff"],
+    ["currentWorkflow:getRepairWorkspaceProjection", "getCurrentRepairWorkspaceProjection"],
     ["codexImplementer:getStatus", "getCodexImplementerExecutionStatus"],
     ["codexImplementer:start", "startCodexImplementerExecution"],
     ["codexImplementer:cancel", "cancelCodexImplementerExecution"],

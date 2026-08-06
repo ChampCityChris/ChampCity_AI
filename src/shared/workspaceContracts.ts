@@ -522,12 +522,65 @@ export interface WorkCardIntakeProjection {
   formalWorkCardMarkdownPath: string;
 }
 
+export type WorkCardMapCandidateStatus = "Complete" | "Eligible" | "Ineligible";
+
+export interface WorkCardMapCandidateProjection {
+  candidateId: string;
+  order: number;
+  title: string;
+  purpose: string;
+  dependsOn: string[];
+  status?: WorkCardMapCandidateStatus;
+  reason: string;
+  evidencePaths: string[];
+  handoffMarkdownPath: string;
+  formalWorkCardMarkdownPath: string;
+  isActive?: boolean;
+  formalWorkCardDocument?: {
+    displayFilename: string;
+    disposition: DocumentDispositionStatus;
+    documentReadState: string;
+    readError?: string;
+    bodyMarkdown?: string;
+  };
+}
+
+export type WorkCardMapProjection =
+  | {
+      state: "ready" | "all-complete";
+      phaseId: string;
+      sourceWorkCardPlanPath: string;
+      candidates: WorkCardMapCandidateProjection[];
+      phaseValidationWorkspaceId: "phase-validation";
+      reason: string;
+    }
+  | {
+      state: "needs-attention";
+      phaseId?: string;
+      sourceWorkCardPlanPath?: string;
+      candidates: WorkCardMapCandidateProjection[];
+      phaseValidationWorkspaceId: "phase-validation";
+      reason: string;
+    };
+
+export interface WorkCardMapProjectionOptions {
+  closeReturnCompleted?: boolean;
+}
+
+export interface BeginWorkCardPlanningOptions {
+  closeReturnCompleted?: boolean;
+}
+
 export interface WorkCardBuildingReviewProjection {
   phaseId: string;
   workCardId: string;
   workCardTitle: string;
   formalWorkCardPath: string;
   formalWorkCardRevision: number;
+  implementationContractType?: "formal-work-card" | "repair-work-card";
+  implementationContractLabel?: string;
+  parentWorkCardId?: string;
+  repairId?: string;
   implementerReportPath: string;
   report?: {
     logicalDocumentId: string;
@@ -538,11 +591,61 @@ export interface WorkCardBuildingReviewProjection {
   reportFreshnessState?: "fresh" | "stale";
   reportReadError?: string;
   reportMissing: boolean;
+  reportReadiness: "missing" | "reserved-skeleton" | "ready-for-review" | "invalid" | "conflict";
+  reportReadinessReason: string;
 }
 
 export interface WorkCardCloseProjection {
   closed: boolean;
   returnTarget: WorkspaceId;
+  reason: string;
+}
+
+export type WorkCardRepairWorkspaceState =
+  | "handoff-needed"
+  | "handoff-ready"
+  | "draft-pending"
+  | "repair-card-reviewable"
+  | "needs-attention";
+
+export type WorkCardRepairEvidenceRole =
+  | "primary-validation-record"
+  | "primary-implementer-report"
+  | "supporting-implementer-report"
+  | "supporting-formal-work-card";
+
+export interface WorkCardRepairEvidenceDocument {
+  role: WorkCardRepairEvidenceRole;
+  label: string;
+  markdownPath: string;
+  logicalDocumentId?: string;
+  artifactRevision?: number;
+  disposition?: DocumentDispositionStatus;
+  documentReadState: "readable" | "missing" | "invalid" | "read-error";
+  readError?: string;
+  bodyMarkdown?: string;
+}
+
+export interface WorkCardRepairProjection {
+  state: WorkCardRepairWorkspaceState;
+  phaseId?: string;
+  parentWorkCardId?: string;
+  repairId?: string;
+  evidencePath?: string;
+  evidenceRevision?: number;
+  primaryEvidenceDocument?: WorkCardRepairEvidenceDocument;
+  supportingEvidenceDocuments?: WorkCardRepairEvidenceDocument[];
+  operatorValidationNotes?: string;
+  advisorySummary?: string;
+  repairDefectText?: string;
+  repairOrigin?: "preValidationReportReview" | "postValidationRecord";
+  repairWorkCardTarget?: string;
+  returnTarget?: WorkspaceId;
+  handoffPath?: string;
+  handoffRevision?: number;
+  canCreateRepairHandoff: boolean;
+  canPrepareArchitectHandoff: boolean;
+  canCopyArchitectHandoff: boolean;
   reason: string;
 }
 
@@ -649,7 +752,7 @@ export type PhaseLoopStep =
 export type WorkCardLoopStep =
   | "Work Card Intake"
   | "Planning"
-  | "Build"
+  | "Implement"
   | "Review & Validation"
   | "Close"
   | "Repair";
@@ -751,7 +854,17 @@ export interface ChampCityApi {
   startCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
   cancelCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
+  getWorkCardMapProjection: (
+    phaseId: string,
+    options?: WorkCardMapProjectionOptions,
+  ) => Promise<RuntimeActionResult>;
+  beginWorkCardPlanning: (
+    phaseId: string,
+    candidateId: string,
+    options?: BeginWorkCardPlanningOptions,
+  ) => Promise<RuntimeActionResult>;
   getCurrentCloseProjection: () => Promise<RuntimeActionResult>;
+  getCurrentRepairWorkspaceProjection: () => Promise<RuntimeActionResult>;
   getCloseReturnSelectionProjection: () => Promise<RuntimeActionResult>;
   generateCloseReturnNextIntakeHandoff: () => Promise<RuntimeActionResult>;
   copyCurrentWorkCardAdvisoryReviewPrompt: () => Promise<RuntimeActionResult>;
@@ -763,7 +876,7 @@ export interface ChampCityApi {
     operatorReviewNotes?: string,
     targetWorkspaceId?: WorkspaceId,
   ) => Promise<RuntimeActionResult>;
-  createRepairForCurrentFailure: (defect: string) => Promise<RuntimeActionResult>;
+  createRepairForCurrentFailure: (defect?: string) => Promise<RuntimeActionResult>;
   createValidationAttemptForCurrentWorkCard: () => Promise<RuntimeActionResult>;
   createPhaseCloseoutForCurrentPhase: (
     closureDecision: ClosureDecision,
@@ -826,7 +939,7 @@ export const visibleWorkspaceDefinitions: readonly WorkspaceDefinition[] = creat
   },
   {
     id: "phase-work-card-selection",
-    label: "Work Card Selection",
+    label: "Work Card Map",
     location: { level: "phase", stage: "building" },
     order: 10,
   },
@@ -844,7 +957,7 @@ export const visibleWorkspaceDefinitions: readonly WorkspaceDefinition[] = creat
   },
   {
     id: "work-card-building-review",
-    label: "Implementer Build",
+    label: "Implement",
     location: { level: "workCard", stage: "building" },
     order: 10,
   },
@@ -937,7 +1050,7 @@ export const phase08WorkspaceDefinitions: readonly WorkspaceDefinition[] = creat
   },
   {
     id: "phase-work-card-selection",
-    label: "Work Card Selection",
+    label: "Work Card Map",
     location: { level: "phase", stage: "building" },
     order: 10,
   },
@@ -967,7 +1080,7 @@ export const phase08WorkspaceDefinitions: readonly WorkspaceDefinition[] = creat
   },
   {
     id: "work-card-building-review",
-    label: "Implementer Build",
+    label: "Implement",
     location: { level: "workCard", stage: "building" },
     order: 10,
   },

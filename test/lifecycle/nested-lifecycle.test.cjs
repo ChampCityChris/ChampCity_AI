@@ -43,7 +43,7 @@ test("static lifecycle relationships encode containment and return targets only"
   ]);
 });
 
-test("visible workspaces are registry definitions with preserved legacy labels and Architect Interview", () => {
+test("visible workspaces are registry definitions with current labels and Architect Interview", () => {
   assert.deepEqual(
     workspaceDefinitions.map(({ id, label, location, order }) => ({
       id,
@@ -102,7 +102,7 @@ test("visible workspaces are registry definitions with preserved legacy labels a
       },
       {
         id: "phase-work-card-selection",
-        label: "Work Card Selection",
+        label: "Work Card Map",
         location: { level: "phase", stage: "building" },
         order: 10,
       },
@@ -120,7 +120,7 @@ test("visible workspaces are registry definitions with preserved legacy labels a
       },
       {
         id: "work-card-building-review",
-        label: "Implementer Build",
+        label: "Implement",
         location: { level: "workCard", stage: "building" },
         order: 10,
       },

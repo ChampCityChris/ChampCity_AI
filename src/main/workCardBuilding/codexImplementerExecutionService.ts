@@ -19,6 +19,8 @@ export const CODEX_AUTH_UNAVAILABLE_MESSAGE =
 
 const maxTailItems = 24;
 const maxTailTextLength = 1200;
+const finalReportReadAttempts = 6;
+const finalReportReadDelayMs = 25;
 
 export interface CodexThreadAdapter {
   readonly id: string | null;
@@ -39,6 +41,8 @@ interface ExecutionContext {
   formalWorkCardPath: string;
   formalWorkCardRevision: number;
   formalWorkCardSha256: string;
+  implementationContractType: "formal-work-card" | "repair-work-card";
+  implementationContractLabel: string;
   implementerReportPath: string;
   implementerReportRevision: number;
   implementerReportSha256: string;
@@ -67,6 +71,13 @@ type TerminalCodexImplementerExecutionState = Exclude<
 interface RetryReadiness {
   canRunAgain: boolean;
   retryBlocker: string | null;
+}
+
+interface FinalReportEvidence {
+  exists: boolean;
+  sha256: string | null;
+  canonicalRevision: number | null;
+  readError: string | null;
 }
 
 export class CodexImplementerExecutionService {
@@ -187,6 +198,8 @@ export class CodexImplementerExecutionService {
 
   private async executeWithSdk(session: SessionRecord, sdk: CodexSdkAdapter): Promise<void> {
     const prompt = buildCodexImplementerPrompt(session);
+    let terminalState: CodexImplementerExecutionState = "failed";
+    let terminalFailureReason: string | null = "Codex execution failed.";
     try {
       const thread = sdk.startThread({
         workingDirectory: session.projectRoot,
@@ -209,29 +222,31 @@ export class CodexImplementerExecutionService {
         }
       }
       if (session.cancellationRequested || session.abortController?.signal.aborted) {
-        session.state = "cancelled";
-        session.failureReason = "Codex execution was cancelled.";
+        terminalState = "cancelled";
+        terminalFailureReason = "Codex execution was cancelled.";
       } else {
-        session.state = "completed";
-        session.failureReason = null;
+        terminalState = "completed";
+        terminalFailureReason = null;
       }
     } catch (error) {
       if (session.cancellationRequested || session.abortController?.signal.aborted) {
-        session.state = "cancelled";
-        session.failureReason = "Codex execution was cancelled.";
+        terminalState = "cancelled";
+        terminalFailureReason = "Codex execution was cancelled.";
       } else {
-        session.state = "failed";
+        terminalState = "failed";
         const message = messageForCodexFailure(error);
-        session.failureReason = message;
+        terminalFailureReason = message;
         appendTail(session.stderrTail, message);
       }
     } finally {
-      session.completedAt = this.now();
       session.abortController = null;
-      refreshReportEvidence(session);
-      if (session.state === "completed" && !session.reportUpdated) {
+      session.failureReason = terminalFailureReason;
+      await refreshReportEvidence(session, terminalState);
+      if (terminalState === "completed" && !session.reportUpdated) {
         session.failureReason = "Codex completed, but the Implementer Report was not updated.";
       }
+      session.completedAt = this.now();
+      session.state = terminalState;
       appendTail(session.eventTail, `execution.${session.state}`);
     }
   }
@@ -248,25 +263,28 @@ export class CodexImplementerExecutionService {
         current.activeWorkspaceId !== "work-card-building-review" &&
         current.activeWorkspaceId !== "work-card-report-review"
       ) {
-        throw new Error("Run Codex Implementer is available only in the Implementer Build workspace.");
+        throw new Error("Run Codex Implementer is available only in the Implement workspace.");
       }
       const projection = current.workCardBuildingReview;
       if (!projection) {
-        throw new Error("Current Implementer Build projection does not resolve an Approved Formal Work Card.");
+        throw new Error("Current Implement projection does not resolve an Approved Work Card Contract.");
       }
 
       const documents = listPlanningDocuments(projectRoot);
       const formal = documents.find((document) => document.markdownPath === projection.formalWorkCardPath);
       if (!formal || formal.documentReadState !== "readable" || formal.readError) {
-        throw new Error("Current Approved Formal Work Card is missing or unreadable.");
+        throw new Error("Current Approved Work Card Contract is missing or unreadable.");
       }
       if (formal.effectiveDisposition !== "Approved") {
-        throw new Error("Current Formal Work Card must be Approved before Codex execution.");
+        throw new Error("Current Work Card Contract must be Approved before Codex execution.");
       }
 
       const report = documents.find((document) => document.markdownPath === projection.implementerReportPath);
       if (!report || projection.reportMissing) {
         throw new Error("Existing Pending Implementer Report is required before Codex execution.");
+      }
+      if (projection.reportReadiness === "invalid" || projection.reportReadiness === "conflict") {
+        throw new Error(projection.reportReadinessReason);
       }
       if (report.documentReadState !== "readable" || report.readError) {
         throw new Error(report.readError ?? "Existing Implementer Report is unreadable.");
@@ -288,6 +306,8 @@ export class CodexImplementerExecutionService {
         formalWorkCardPath: projection.formalWorkCardPath,
         formalWorkCardRevision: formalMetadata.artifactRevision,
         formalWorkCardSha256: sha256ForRelativePath(projectRoot, projection.formalWorkCardPath),
+        implementationContractType: projection.implementationContractType ?? "formal-work-card",
+        implementationContractLabel: projection.implementationContractLabel ?? "Approved Work Card Contract",
         implementerReportPath: projection.implementerReportPath,
         implementerReportRevision: reportMetadata.artifactRevision,
         implementerReportSha256: sha256ForRelativePath(projectRoot, projection.implementerReportPath),
@@ -333,6 +353,9 @@ export class CodexImplementerExecutionService {
 export const codexImplementerExecutionService = new CodexImplementerExecutionService();
 
 export function buildCodexImplementerPrompt(context: ExecutionContext): string {
+  const contractDocumentLabel = context.implementationContractType === "formal-work-card"
+    ? "Formal Work Card"
+    : "Work Card Contract";
   return `You are the Implementer for ChampCity A/I.
 
 Working directory:
@@ -341,11 +364,11 @@ Working directory:
 - Do not write absolute local machine paths into repository artifacts.
 
 Authority:
-- The Approved Formal Work Card is the sole implementation contract.
+- The ${context.implementationContractLabel} is the sole implementation contract.
 - Read it before changing files.
-- Formal Work Card path: ${context.formalWorkCardPath}
-- Formal Work Card artifact revision: ${context.formalWorkCardRevision}
-- Formal Work Card SHA-256: ${context.formalWorkCardSha256}
+- ${contractDocumentLabel} path: ${context.formalWorkCardPath}
+- ${contractDocumentLabel} artifact revision: ${context.formalWorkCardRevision}
+- ${contractDocumentLabel} SHA-256: ${context.formalWorkCardSha256}
 
 Required report:
 - Use the existing application-owned Implementer Report.
@@ -547,24 +570,128 @@ function sameExecutionContext(left: SessionRecord, right: ExecutionContext): boo
   );
 }
 
-function refreshReportEvidence(session: SessionRecord): void {
-  const absolutePath = path.join(session.projectRoot, session.implementerReportPath);
-  if (!fs.existsSync(absolutePath)) {
-    session.reportSha256After = null;
-    session.reportUpdated = false;
+async function refreshReportEvidence(
+  session: SessionRecord,
+  terminalState: CodexImplementerExecutionState,
+): Promise<void> {
+  const evidence = await readStableFinalReportEvidence(session.projectRoot, session.implementerReportPath);
+  session.reportSha256After = evidence.sha256;
+  session.reportUpdated = Boolean(
+    evidence.exists &&
+    (
+      evidence.sha256 !== session.implementerReportSha256 ||
+      (
+        evidence.canonicalRevision !== null &&
+        evidence.canonicalRevision !== session.implementerReportRevision
+      )
+    ),
+  );
+
+  if (terminalState !== "completed" || !session.reportUpdated) {
     return;
   }
 
-  session.reportSha256After = sha256ForRelativePath(session.projectRoot, session.implementerReportPath);
-  let revisionAfter = session.implementerReportRevision;
-  try {
-    revisionAfter = readCanonicalMetadata(session.projectRoot, session.implementerReportPath).artifactRevision;
-  } catch {
-    revisionAfter = session.implementerReportRevision;
+  if (evidence.readError) {
+    session.failureReason = evidence.readError;
+    appendTail(session.stderrTail, evidence.readError);
+    return;
   }
-  session.reportUpdated =
-    session.reportSha256After !== session.implementerReportSha256 ||
-    revisionAfter !== session.implementerReportRevision;
+
+  const readinessBlocker = finalReportReadinessBlocker(session);
+  if (readinessBlocker) {
+    session.failureReason = readinessBlocker;
+    appendTail(session.stderrTail, readinessBlocker);
+    return;
+  }
+
+  session.failureReason = null;
+}
+
+async function readStableFinalReportEvidence(
+  workspaceRoot: string,
+  relativePath: string,
+): Promise<FinalReportEvidence> {
+  let previous: FinalReportEvidence | null = null;
+  let latest: FinalReportEvidence | null = null;
+  for (let attempt = 0; attempt < finalReportReadAttempts; attempt += 1) {
+    latest = readFinalReportEvidence(workspaceRoot, relativePath);
+    if (previous && sameFinalReportEvidence(previous, latest)) {
+      return latest;
+    }
+    previous = latest;
+    if (attempt < finalReportReadAttempts - 1) {
+      await delay(finalReportReadDelayMs);
+    }
+  }
+  return latest ?? {
+    exists: false,
+    sha256: null,
+    canonicalRevision: null,
+    readError: "Implementer Report could not be read after Codex completion.",
+  };
+}
+
+function readFinalReportEvidence(workspaceRoot: string, relativePath: string): FinalReportEvidence {
+  const absolutePath = path.join(workspaceRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return {
+      exists: false,
+      sha256: null,
+      canonicalRevision: null,
+      readError: null,
+    };
+  }
+
+  const bytes = fs.readFileSync(absolutePath);
+  const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+  try {
+    const parsed = parseCanonicalMarkdownDocument(bytes.toString("utf8"));
+    return {
+      exists: true,
+      sha256,
+      canonicalRevision: parsed.metadata.artifactRevision,
+      readError: null,
+    };
+  } catch (error) {
+    return {
+      exists: true,
+      sha256,
+      canonicalRevision: null,
+      readError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function sameFinalReportEvidence(left: FinalReportEvidence, right: FinalReportEvidence): boolean {
+  return (
+    left.exists === right.exists &&
+    left.sha256 === right.sha256 &&
+    left.canonicalRevision === right.canonicalRevision &&
+    left.readError === right.readError
+  );
+}
+
+function finalReportReadinessBlocker(session: SessionRecord): string | null {
+  try {
+    const projection = getCurrentWorkspaceModel(session.projectRoot).workCardBuildingReview;
+    if (
+      !projection ||
+      projection.phaseId !== session.phaseId ||
+      projection.workCardId !== session.workCardId ||
+      projection.implementerReportPath !== session.implementerReportPath
+    ) {
+      return "Final Implementer Report readiness could not be resolved for the completed Codex run.";
+    }
+    return projection.reportReadiness === "ready-for-review"
+      ? null
+      : projection.reportReadinessReason;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function readCanonicalMetadata(workspaceRoot: string, relativePath: string) {

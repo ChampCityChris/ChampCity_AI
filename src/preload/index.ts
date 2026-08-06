@@ -110,10 +110,27 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "currentWorkflow:generateHandoff",
     ) as ReturnType<ChampCityApi["generateCurrentHandoff"]>,
+  getWorkCardMapProjection: (phaseId, options) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:getWorkCardMapProjection",
+      phaseId,
+      options,
+    ) as ReturnType<ChampCityApi["getWorkCardMapProjection"]>,
+  beginWorkCardPlanning: (phaseId, candidateId, options) =>
+    ipcRenderer.invoke(
+      "currentWorkflow:beginWorkCardPlanning",
+      phaseId,
+      candidateId,
+      options,
+    ) as ReturnType<ChampCityApi["beginWorkCardPlanning"]>,
   getCurrentCloseProjection: () =>
     ipcRenderer.invoke(
       "currentWorkflow:getCloseProjection",
     ) as ReturnType<ChampCityApi["getCurrentCloseProjection"]>,
+  getCurrentRepairWorkspaceProjection: () =>
+    ipcRenderer.invoke(
+      "currentWorkflow:getRepairWorkspaceProjection",
+    ) as ReturnType<ChampCityApi["getCurrentRepairWorkspaceProjection"]>,
   getCloseReturnSelectionProjection: () =>
     ipcRenderer.invoke(
       "currentWorkflow:getCloseReturnSelectionProjection",

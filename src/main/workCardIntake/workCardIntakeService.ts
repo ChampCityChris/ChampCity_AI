@@ -1,7 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
-import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
@@ -12,7 +9,21 @@ import {
   validateCandidates,
   type WorkCardCandidate,
 } from "../phasePlanning/phasePlanningService";
-import type { WorkCardIntakeProjection } from "../../shared/workspaceContracts";
+import type {
+  WorkCardIntakeProjection,
+  BeginWorkCardPlanningOptions,
+  WorkCardMapProjectionOptions,
+  WorkCardMapProjection,
+} from "../../shared/workspaceContracts";
+import {
+  getWorkCardMapProjectionFromAuthority,
+  readPlannedWorkCardCandidates,
+  resolveActiveWorkCardAuthorityFromLoop,
+  resolveActiveWorkCardPlanningHandoffFromLoop,
+  resolveWorkCardLoopAuthority,
+  selectNextWorkCardCandidateFromAuthority,
+  workCardIntakeTargets as authorityWorkCardIntakeTargets,
+} from "../workCardLoop/workCardLoopAuthorityService";
 
 export type CandidateSelectionState =
   | "eligible"
@@ -49,6 +60,43 @@ export interface WorkCardIntakeHandoffResult {
   candidateId: string;
   handoffMarkdownPath: string;
   formalWorkCardMarkdownPath: string;
+  reusedExisting: boolean;
+}
+
+export interface ActiveWorkCardPlanningHandoff {
+  handoff: PlanningDocumentSummary;
+  phaseId: string;
+  workCardId: string;
+  formalWorkCardMarkdownPath: string;
+  closePendingEvidencePaths?: string[];
+}
+
+export type ActiveWorkCardAuthority =
+  | {
+      status: "none";
+      phaseId?: string;
+      reason: string;
+      evidencePaths: string[];
+    }
+  | {
+      status: "active";
+      phaseId: string;
+      workCardId: string;
+      handoff: PlanningDocumentSummary;
+      formalWorkCardMarkdownPath: string;
+      reason: string;
+      evidencePaths: string[];
+    }
+  | {
+      status: "conflict";
+      phaseId?: string;
+      activeWorkCardIds: string[];
+      reason: string;
+      evidencePaths: string[];
+    };
+
+interface ActiveWorkCardAuthorityOptions {
+  treatClosePendingAsActive?: boolean;
 }
 
 interface WorkCardIntakeContext extends WorkCardIntakeProjection {
@@ -61,68 +109,33 @@ export function selectNextWorkCardCandidate(
   workspaceRoot: string,
   phaseId: string,
 ): CandidateSelectionResult {
-  const completion = getPhasePlanningCompletion(workspaceRoot, phaseId);
-  if (!completion.complete) {
-    return {
-      state: "invalid-plan",
-      phaseId,
-      reason: "Candidate selection requires a current Approved Phase Planning bundle.",
-      explanations: [],
-    };
-  }
-
-  let candidates: WorkCardCandidate[];
-  try {
-    candidates = readCandidates(workspaceRoot, phaseId);
-  } catch (error) {
-    return {
-      state: "invalid-plan",
-      phaseId,
-      reason: error instanceof Error ? error.message : String(error),
-      explanations: [],
-    };
-  }
-
-  const explanations = candidates
-    .slice()
-    .sort((left, right) => left.order - right.order)
-    .map((candidate) => explainCandidate(workspaceRoot, phaseId, candidate, candidates));
-  const selected = explanations.find((entry) => entry.state === "eligible");
-
-  if (selected) {
-    return {
-      state: "selected",
-      phaseId,
-      selectedCandidate: candidates.find((candidate) => candidate.candidateId === selected.candidateId)!,
-      explanations,
-    };
-  }
-
-  if (explanations.every((entry) => entry.state === "complete")) {
-    return { state: "all-complete", phaseId, reason: "All planned candidates are complete.", explanations };
-  }
-  if (explanations.some((entry) => entry.state === "dependency-blocked")) {
-    return {
-      state: "dependency-blocked",
-      phaseId,
-      reason: "No candidate is eligible because one or more planned candidates are waiting on predecessors.",
-      explanations,
-    };
-  }
-  return {
-    state: "explicitly-resolved",
-    phaseId,
-    reason: "All remaining candidates are explicitly resolved without intake.",
-    explanations,
-  };
+  return selectNextWorkCardCandidateFromAuthority(workspaceRoot, phaseId);
 }
 
 export function generateWorkCardIntakeHandoff(
   workspaceRoot: string,
   phaseId: string,
+  candidateId?: string,
+  options: WorkCardMapProjectionOptions = {},
 ): WorkCardIntakeHandoffResult {
-  const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId);
+  const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId, candidateId, options);
   const candidate = context.candidate;
+  const existing = currentApprovedHandoffForCandidate(
+    workspaceRoot,
+    phaseId,
+    candidate.candidateId,
+    context.handoffMarkdownPath,
+    context.formalWorkCardMarkdownPath,
+  );
+  if (existing) {
+    return {
+      phaseId,
+      candidateId: candidate.candidateId,
+      handoffMarkdownPath: context.handoffMarkdownPath,
+      formalWorkCardMarkdownPath: context.formalWorkCardMarkdownPath,
+      reusedExisting: true,
+    };
+  }
 
   const content = { candidate: { ...candidate, phaseId } };
   writeCanonicalMarkdownDocument({
@@ -152,14 +165,16 @@ export function generateWorkCardIntakeHandoff(
     candidateId: candidate.candidateId,
     handoffMarkdownPath: context.handoffMarkdownPath,
     formalWorkCardMarkdownPath: context.formalWorkCardMarkdownPath,
+    reusedExisting: false,
   };
 }
 
 export function getWorkCardIntakeProjection(
   workspaceRoot: string,
   phaseId: string,
+  candidateId?: string,
 ): WorkCardIntakeProjection {
-  const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId);
+  const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId, candidateId);
   return {
     phaseId: context.phaseId,
     sourceWorkCardPlanPath: context.sourceWorkCardPlanPath,
@@ -170,21 +185,158 @@ export function getWorkCardIntakeProjection(
   };
 }
 
+export function getWorkCardMapProjection(
+  workspaceRoot: string,
+  phaseId: string,
+  options: WorkCardMapProjectionOptions = {},
+): WorkCardMapProjection {
+  return getWorkCardMapProjectionFromAuthority(workspaceRoot, phaseId, options);
+}
+
+export function beginWorkCardPlanningForCandidate(
+  workspaceRoot: string,
+  phaseId: string,
+  candidateId: string,
+  options: BeginWorkCardPlanningOptions = {},
+): WorkCardIntakeHandoffResult {
+  const activeAuthority = resolveActiveWorkCardAuthority(workspaceRoot, phaseId, {
+    treatClosePendingAsActive: !options.closeReturnCompleted,
+  });
+  if (activeAuthority.status === "conflict") {
+    throw new Error(`${activeAuthority.reason} Evidence: ${activeAuthority.evidencePaths.join("; ")}`);
+  }
+  if (activeAuthority.status === "active") {
+    if (activeAuthority.workCardId !== candidateId) {
+      throw new Error(
+        `Cannot begin ${candidateId} because ${activeAuthority.workCardId} is the active Work Card. Evidence: ${activeAuthority.evidencePaths.join("; ")}`,
+      );
+    }
+    return {
+      phaseId: activeAuthority.phaseId,
+      candidateId: activeAuthority.workCardId,
+      handoffMarkdownPath: activeAuthority.handoff.markdownPath,
+      formalWorkCardMarkdownPath: activeAuthority.formalWorkCardMarkdownPath,
+      reusedExisting: true,
+    };
+  }
+  const projection = getWorkCardMapProjection(workspaceRoot, phaseId, {
+    closeReturnCompleted: options.closeReturnCompleted,
+  });
+  if (projection.state === "needs-attention") {
+    throw new Error(projection.reason);
+  }
+  const candidate = projection.candidates.find((entry) => entry.candidateId === candidateId);
+  if (!candidate) {
+    throw new Error(`Requested Work Card candidate does not exist in the current Work Card Plan: ${candidateId}`);
+  }
+  if (candidate.status !== "Eligible") {
+    throw new Error(`Begin Planning requires an Eligible Work Card candidate: ${candidateId}`);
+  }
+  return generateWorkCardIntakeHandoff(workspaceRoot, phaseId, candidateId, options);
+}
+
+export function resolveActiveWorkCardAuthority(
+  workspaceRoot: string,
+  phaseId?: string,
+  options: ActiveWorkCardAuthorityOptions = {},
+): ActiveWorkCardAuthority {
+  return resolveActiveWorkCardAuthorityFromLoop(workspaceRoot, phaseId, options);
+}
+
+export function resolveActiveWorkCardPlanningHandoff(
+  workspaceRoot: string,
+  phaseId?: string,
+): ActiveWorkCardPlanningHandoff | undefined {
+  return resolveActiveWorkCardPlanningHandoffFromLoop(workspaceRoot, phaseId);
+}
+
 function resolveWorkCardIntakeContext(
   workspaceRoot: string,
   phaseId: string,
+  candidateId?: string,
+  options: WorkCardMapProjectionOptions = {},
 ): WorkCardIntakeContext {
+  if (candidateId) {
+    return resolveRequestedWorkCardIntakeContext(workspaceRoot, phaseId, candidateId, options);
+  }
+
   const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
   if (selection.state !== "selected") {
     throw new Error(`No eligible Work Card candidate is available: ${selection.state}`);
   }
   const candidate = selection.selectedCandidate;
-  const phasePlanning = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
-  const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
-  const targets = workCardIntakeTargets(phaseId, candidate);
   const selectionReason =
     selection.explanations.find((entry) => entry.candidateId === candidate.candidateId)?.reason ??
     "Candidate is eligible.";
+  return buildWorkCardIntakeContext(workspaceRoot, phaseId, candidate, selectionReason);
+}
+
+function resolveRequestedWorkCardIntakeContext(
+  workspaceRoot: string,
+  phaseId: string,
+  candidateId: string,
+  options: WorkCardMapProjectionOptions,
+): WorkCardIntakeContext {
+  const authority = resolveWorkCardLoopAuthority(workspaceRoot, phaseId, options);
+  const candidateProjection = authority.candidates.find((candidate) => candidate.candidateId === candidateId);
+  if (!candidateProjection) {
+    throw new Error(`Requested Work Card candidate does not exist in the current Work Card Plan: ${candidateId}`);
+  }
+  if (authority.status === "conflict") {
+    throw new Error(`${authority.reason} Evidence: ${authority.sourceEvidence.join("; ")}`);
+  }
+  if (authority.status === "no-plan" || authority.status === "not-applicable") {
+    throw new Error(authority.reason);
+  }
+  if (authority.status === "all-complete") {
+    throw new Error(`Begin Planning requires an Eligible Work Card candidate: ${candidateId}. ${authority.reason}`);
+  }
+  if (authority.status === "active") {
+    if (authority.workCardId !== candidateId || !candidateProjection.isActive) {
+      throw new Error(
+        `Cannot begin ${candidateId} because ${authority.workCardId ?? "another Work Card"} is the active Work Card. Evidence: ${authority.sourceEvidence.join("; ")}`,
+      );
+    }
+    return buildWorkCardIntakeContext(
+      workspaceRoot,
+      phaseId,
+      requirePlannedCandidate(workspaceRoot, phaseId, candidateId),
+      candidateProjection.reason || authority.reason,
+    );
+  }
+  if (candidateProjection.status !== "Eligible") {
+    throw new Error(`Begin Planning requires an Eligible Work Card candidate: ${candidateId}. ${candidateProjection.reason}`);
+  }
+  return buildWorkCardIntakeContext(
+    workspaceRoot,
+    phaseId,
+    requirePlannedCandidate(workspaceRoot, phaseId, candidateId),
+    candidateProjection.reason,
+  );
+}
+
+function requirePlannedCandidate(
+  workspaceRoot: string,
+  phaseId: string,
+  candidateId: string,
+): WorkCardCandidate {
+  const candidate = readCandidates(workspaceRoot, phaseId)
+    .find((entry) => entry.candidateId === candidateId);
+  if (!candidate) {
+    throw new Error(`Requested Work Card candidate does not exist in the current Work Card Plan: ${candidateId}`);
+  }
+  return candidate;
+}
+
+function buildWorkCardIntakeContext(
+  workspaceRoot: string,
+  phaseId: string,
+  candidate: WorkCardCandidate,
+  selectionReason: string,
+): WorkCardIntakeContext {
+  const phasePlanning = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Phase_Planning`, ".md");
+  const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
+  const targets = workCardIntakeTargets(phaseId, candidate);
   return {
     phaseId,
     sourcePhasePlanningPath: phasePlanning.markdownPath,
@@ -212,97 +364,28 @@ function workCardIntakeTargets(
   phaseId: string,
   candidate: Pick<WorkCardCandidate, "candidateId" | "title">,
 ): Pick<WorkCardIntakeProjection, "handoffMarkdownPath" | "formalWorkCardMarkdownPath"> {
-  const slug = slugify(candidate.title);
-  return {
-    handoffMarkdownPath: `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${candidate.candidateId}.md`,
-    formalWorkCardMarkdownPath: `planning/phases/${phaseId}/Work_Cards/${candidate.candidateId}_${slug}.md`,
-  };
+  return authorityWorkCardIntakeTargets(phaseId, candidate);
 }
 
-function explainCandidate(
-  workspaceRoot: string,
-  phaseId: string,
-  candidate: WorkCardCandidate,
-  candidates: WorkCardCandidate[],
-): CandidateSelectionExplanation {
-  if (candidate.resolutionStatus === "deferred") {
-    return explanation(candidate, "deferred", `Candidate is deferred: ${candidate.resolutionReason}`);
-  }
-  if (candidate.resolutionStatus === "superseded") {
-    return explanation(candidate, "superseded", `Candidate is superseded: ${candidate.resolutionReason}`);
-  }
-  if (candidate.resolutionStatus === "alreadySatisfied") {
-    return explanation(candidate, "already-satisfied", `Candidate is already satisfied: ${candidate.resolutionReason}`);
-  }
-  if (candidate.resolutionStatus === "carriedForward") {
-    return explanation(candidate, "carried-forward", `Candidate is carried forward: ${candidate.resolutionReason}`);
-  }
-  const completionEvidence = candidateCompletionEvidence(workspaceRoot, phaseId, candidate.candidateId);
-  if (completionEvidence.length > 0) {
-    return explanation(candidate, "complete", "Candidate is complete because current Approved validation evidence exists.", completionEvidence);
-  }
-  const blocked = candidate.dependsOn.filter((dependencyId) =>
-    !dependencySatisfied(workspaceRoot, phaseId, dependencyId, candidates),
-  );
-  if (blocked.length > 0) {
-    return explanation(candidate, "dependency-blocked", `Candidate is blocked by incomplete predecessors: ${blocked.join(", ")}.`);
-  }
-  return explanation(candidate, "eligible", "Candidate is planned, incomplete, and all predecessors permit continuation.");
-}
-
-function dependencySatisfied(
-  workspaceRoot: string,
-  phaseId: string,
-  dependencyId: string,
-  candidates: WorkCardCandidate[],
-): boolean {
-  const dependency = candidates.find((candidate) => candidate.candidateId === dependencyId);
-  if (!dependency) {
-    return false;
-  }
-  if (dependency.resolutionStatus !== "planned") {
-    return true;
-  }
-  return candidateCompletionEvidence(workspaceRoot, phaseId, dependencyId).length > 0;
-}
-
-function candidateCompletionEvidence(
+function currentApprovedHandoffForCandidate(
   workspaceRoot: string,
   phaseId: string,
   candidateId: string,
-): string[] {
+  handoffMarkdownPath: string,
+  formalWorkCardMarkdownPath: string,
+): PlanningDocumentSummary | undefined {
   return listPlanningDocuments(workspaceRoot)
+    .filter((document) => document.markdownPath === handoffMarkdownPath)
+    .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
     .filter((document) => document.effectiveDisposition === "Approved")
-    .filter((document) => document.metadata.phaseId === phaseId)
-    .filter((document) => document.metadata.candidateId === candidateId || document.metadata.workCardId === candidateId)
-    .filter((document) => {
-      const value = [document.markdownPath, document.displayFilename]
-        .filter(Boolean)
-        .join("/")
-        .toLowerCase();
-      return value.includes("validation") || value.includes("operator_validation");
-    })
-    .map((document) => document.markdownPath);
-}
-
-function explanation(
-  candidate: WorkCardCandidate,
-  state: CandidateSelectionState,
-  reason: string,
-  extraEvidencePaths: string[] = [],
-): CandidateSelectionExplanation {
-  return {
-    candidateId: candidate.candidateId,
-    state,
-    reason,
-    evidencePaths: [...candidate.evidencePaths, ...extraEvidencePaths],
-  };
+    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
+    .filter((document) => document.metadata.workCardId === candidateId || document.metadata.canonical?.identity.workCardId === candidateId)
+    .filter((document) => document.metadata.canonical?.workflowData.formalWorkCardTarget === formalWorkCardMarkdownPath)
+    .find((document) => evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "fresh");
 }
 
 function readCandidates(workspaceRoot: string, phaseId: string): WorkCardCandidate[] {
-  const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md");
-  const parsed = readWorkflowData(workspaceRoot, workCardPlan.markdownPath);
-  return validateCandidates(parsed.candidates);
+  return readPlannedWorkCardCandidates(workspaceRoot, phaseId);
 }
 
 function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md"): PlanningDocumentSummary {
@@ -320,13 +403,4 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md
     throw new Error(`Canonical Markdown input is required: ${prefix}`);
   }
   return document;
-}
-
-function readWorkflowData(workspaceRoot: string, relativePath: string): Record<string, unknown> {
-  const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(workspaceRoot, relativePath), "utf8"));
-  return parsed.metadata.workflowData;
-}
-
-function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "work_card";
 }

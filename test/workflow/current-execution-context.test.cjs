@@ -5,11 +5,15 @@ const test = require("node:test");
 const {
   applyCurrentDisposition,
   applyOperatorValidationDecisionForCurrentWorkCard,
+  beginWorkCardPlanning,
+  createRepairForCurrentFailure,
   generateCloseReturnNextIntakeHandoff,
   generateCurrentHandoff,
   getCloseReturnSelectionProjection,
   getCurrentCloseProjection,
+  getCurrentRepairWorkspaceProjection,
   getCurrentWorkspaceModel,
+  getCurrentWorkCardMapProjection,
 } = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
 const {
   generateWorkCardIntakeHandoff,
@@ -120,18 +124,20 @@ test("current execution context projects Work Card intake, planning, build, vali
   seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
 
   let model = getCurrentWorkspaceModel(root);
-  assert.equal(model.activeWorkspaceId, "work-card-planning");
-  assert.equal(model.workCardIntake.phaseId, "phase-01");
-  assert.equal(model.workCardIntake.sourceWorkCardPlanPath, "planning/phases/phase-01/Work_Card_Plan.md");
-  assert.equal(model.workCardIntake.candidate.candidateId, "WC01");
-  assert.equal(model.workCardIntake.handoffMarkdownPath, "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01.md");
-  assert.equal(model.workCardIntake.formalWorkCardMarkdownPath, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
-  assert.equal(model.executionContext.workCard.workCardId, "WC01");
-  assert.equal(model.executionContext.workCard.title, "First Work Card");
-  assert.equal(model.executionContext.workCard.loopStep, "Planning");
+  assert.equal(model.activeWorkspaceId, "phase-work-card-selection");
+  assert.equal(model.workCardIntake, undefined);
+  assert.equal(model.executionContext.workCard.state, "none");
+  const map = getCurrentWorkCardMapProjection(root, "phase-01");
+  assert.equal(map.action, "currentWorkflow:getWorkCardMapProjection");
+  assert.equal(map.payload.candidates[0].candidateId, "WC01");
+  assert.equal(map.payload.candidates[0].status, "Eligible");
+  assert.throws(
+    () => generateCurrentHandoff(root),
+    /Work Card Map requires candidate-scoped Begin Planning/,
+  );
 
-  const handoff = generateCurrentHandoff(root);
-  assert.equal(handoff.action, "currentWorkflow:generateHandoff");
+  const handoff = beginWorkCardPlanning(root, "phase-01", "WC01");
+  assert.equal(handoff.action, "currentWorkflow:beginWorkCardPlanning");
   assert.equal(handoff.payload.handoffMarkdownPath, "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01.md");
   const handoffDocument = listPlanningDocuments(root)
     .find((document) => document.markdownPath === handoff.payload.handoffMarkdownPath);
@@ -154,8 +160,22 @@ test("current execution context projects Work Card intake, planning, build, vali
 
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");
   model = getCurrentWorkspaceModel(root);
+  assert.equal(model.activeWorkspaceId, "work-card-building-review");
+  assert.equal(model.workCardBuildingReview.reportReadiness, "reserved-skeleton");
+  assert.equal(model.executionContext.workCard.loopStep, "Implement");
+  assert.throws(
+    () => applyOperatorValidationDecisionForCurrentWorkCard(root, {
+      decision: "ValidatePassed",
+      operatorNotes: "Operator validation passed.",
+    }),
+    /Current workflow step must be Review & Validation/,
+  );
+
+  writeReadyImplementerReport(root, "phase-01", "WC01");
+  model = getCurrentWorkspaceModel(root);
   assert.equal(model.activeWorkspaceId, "work-card-report-review");
   assert.equal(model.workCardBuildingReview.report.disposition, "Pending");
+  assert.equal(model.workCardBuildingReview.reportReadiness, "ready-for-review");
   assert.equal(model.executionContext.workCard.loopStep, "Review & Validation");
   assert.throws(
     () => applyCurrentDisposition(root, "Approved"),
@@ -182,11 +202,16 @@ test("current execution context projects Work Card intake, planning, build, vali
   assert.equal(candidateSelection.state, "all-complete");
   assert.equal(candidateSelection.explanations[0].state, "complete");
   assert.match(candidateSelection.explanations[0].reason, /Approved validation evidence/);
-  const closeReturnSelection = getCloseReturnSelectionProjection(root);
-  assert.equal(closeReturnSelection.action, "currentWorkflow:getCloseReturnSelectionProjection");
-  assert.equal(closeReturnSelection.payload.state, "all-complete");
-  assert.equal(closeReturnSelection.payload.closedWorkCardId, "WC01");
-  assert.equal(closeReturnSelection.payload.close.closed, true);
+  const directMap = getCurrentWorkCardMapProjection(root, "phase-01");
+  assert.equal(directMap.payload.state, "ready");
+  assert.equal(directMap.payload.phaseValidationWorkspaceId, "phase-validation");
+  assert.equal(directMap.payload.candidates[0].status, "Eligible");
+  assert.equal(directMap.payload.candidates[0].isActive, true);
+  const completeMap = getCurrentWorkCardMapProjection(root, "phase-01", { closeReturnCompleted: true });
+  assert.equal(completeMap.payload.state, "all-complete");
+  assert.equal(completeMap.payload.phaseValidationWorkspaceId, "phase-validation");
+  assert.equal(completeMap.payload.candidates[0].status, "Complete");
+  assert.equal(completeMap.payload.candidates[0].isActive, false);
   assert.throws(
     () => generateCloseReturnNextIntakeHandoff(root),
     /No eligible Work Card candidate is available after close return: all-complete/,
@@ -201,6 +226,7 @@ test("close-return selection can create next Work Card Intake handoff without ma
   generateWorkCardIntakeHandoff(root, "phase-01");
   promoteFormalWorkCard(root, "WC01");
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");
+  writeReadyImplementerReport(root, "phase-01", "WC01");
   applyOperatorValidationDecisionForCurrentWorkCard(root, {
     decision: "ValidatePassed",
     operatorNotes: "Operator validation passed.",
@@ -222,8 +248,24 @@ test("close-return selection can create next Work Card Intake handoff without ma
     "complete",
   );
 
-  const handoff = generateCloseReturnNextIntakeHandoff(root);
-  assert.equal(handoff.action, "currentWorkflow:generateCloseReturnNextIntakeHandoff");
+  const directMap = getCurrentWorkCardMapProjection(root, "phase-01");
+  assert.equal(directMap.payload.state, "ready");
+  assert.equal(directMap.payload.candidates.find((entry) => entry.candidateId === "WC01").status, "Eligible");
+  assert.equal(directMap.payload.candidates.find((entry) => entry.candidateId === "WC01").isActive, true);
+  assert.equal(directMap.payload.candidates.find((entry) => entry.candidateId === "WC02").status, "Ineligible");
+  assert.throws(
+    () => beginWorkCardPlanning(root, "phase-01", "WC02"),
+    /Cannot begin WC02 because WC01 is the active Work Card/,
+  );
+
+  const map = getCurrentWorkCardMapProjection(root, "phase-01", { closeReturnCompleted: true });
+  assert.equal(map.payload.state, "ready");
+  assert.equal(map.payload.candidates.find((entry) => entry.candidateId === "WC01").status, "Complete");
+  assert.equal(map.payload.candidates.find((entry) => entry.candidateId === "WC01").isActive, false);
+  assert.equal(map.payload.candidates.find((entry) => entry.candidateId === "WC02").status, "Eligible");
+
+  const handoff = beginWorkCardPlanning(root, "phase-01", "WC02", { closeReturnCompleted: true });
+  assert.equal(handoff.action, "currentWorkflow:beginWorkCardPlanning");
   assert.equal(handoff.payload.candidateId, "WC02");
   assert.equal(
     handoff.payload.handoffMarkdownPath,
@@ -254,6 +296,138 @@ test("close-return selection can create next Work Card Intake handoff without ma
   );
 });
 
+test("candidate-scoped Begin Planning keeps a later simultaneously eligible candidate active", () => {
+  const root = tempWorkspace("champcity-explicit-later-candidate-");
+  seedProjectThroughPhaseMap(root);
+  seedApprovedPhaseInterview(root, "phase-01");
+  writeSimultaneouslyEligiblePhasePlanningBundle(root);
+
+  const map = getCurrentWorkCardMapProjection(root, "phase-01");
+  assert.equal(map.payload.state, "ready");
+  assert.equal(map.payload.candidates.find((entry) => entry.candidateId === "WC01").status, "Eligible");
+  assert.equal(map.payload.candidates.find((entry) => entry.candidateId === "WC02").status, "Eligible");
+
+  const handoff = beginWorkCardPlanning(root, "phase-01", "WC02");
+  assert.equal(handoff.payload.candidateId, "WC02");
+  assert.equal(
+    handoff.payload.handoffMarkdownPath,
+    "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02.md",
+  );
+
+  const model = getCurrentWorkspaceModel(root);
+  assert.equal(model.activeWorkspaceId, "work-card-planning");
+  assert.equal(model.currentWorkCardId, "WC02");
+  assert.equal(model.executionContext.workCard.workCardId, "WC02");
+  assert.match(model.sourceEvidence.join(";"), /WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02\.md/);
+  assert.doesNotMatch(model.sourceEvidence.join(";"), /WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01\.md/);
+
+  const lockedMap = getCurrentWorkCardMapProjection(root, "phase-01");
+  assert.equal(lockedMap.payload.candidates.find((entry) => entry.candidateId === "WC02").isActive, true);
+  assert.equal(lockedMap.payload.candidates.find((entry) => entry.candidateId === "WC02").status, "Eligible");
+  assert.equal(lockedMap.payload.candidates.find((entry) => entry.candidateId === "WC01").status, "Ineligible");
+  assert.throws(
+    () => beginWorkCardPlanning(root, "phase-01", "WC01"),
+    /Cannot begin WC01 because WC02 is the active Work Card/,
+  );
+
+  const planningModel = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  assert.equal(
+    planningModel.handoff.path,
+    "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02.md",
+  );
+  assert.equal(
+    planningModel.documentSlots.find((slot) => slot.slotId === "formal-work-card").targetPath,
+    "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md",
+  );
+
+  writeDoc(root, "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md", "formal-work-card", "Approved", {
+    identity: { phaseId: "phase-01", workCardId: "WC02", candidateId: "WC02" },
+    bodyMarkdown: formalWorkCardBody("WC02"),
+  });
+  const continued = beginWorkCardPlanning(root, "phase-01", "WC02");
+  assert.equal(continued.payload.reusedExisting, true);
+  assert.equal(continued.payload.currentWorkspace.activeWorkspaceId, "work-card-building-review");
+  assert.equal(continued.payload.currentWorkspace.currentWorkCardId, "WC02");
+  assert.equal(continued.payload.currentWorkspace.workCardBuildingReview.reportMissing, true);
+});
+
+test("current workflow routes WC02 approved Formal Work Card to Implement despite stale WC01 close evidence", () => {
+  const root = tempWorkspace("champcity-current-workflow-stale-close-");
+  seedProjectThroughPhaseMap(root);
+  seedApprovedPhaseInterview(root, "phase-01");
+  writeTwoCandidatePhasePlanningBundle(root);
+  generateWorkCardIntakeHandoff(root, "phase-01", "WC01");
+  writeDoc(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", "formal-work-card", "Approved", {
+    identity: { phaseId: "phase-01", workCardId: "WC01", candidateId: "WC01" },
+    bodyMarkdown: formalWorkCardBody("WC01"),
+  });
+  writeReadyImplementerReport(root, "phase-01", "WC01");
+  writeDoc(root, "planning/phases/phase-01/Validation_Records/VALIDATION_RECORD_WC01_ATTEMPT01.md", "validation-record", "Approved", {
+    identity: { phaseId: "phase-01", workCardId: "WC01", candidateId: "WC01" },
+    sourceRevisions: [
+      { path: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", revision: 1 },
+      { path: "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", revision: 1 },
+    ],
+  });
+
+  beginWorkCardPlanning(root, "phase-01", "WC02", { closeReturnCompleted: true });
+  writeDoc(root, "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md", "formal-work-card", "Approved", {
+    identity: { phaseId: "phase-01", workCardId: "WC02", candidateId: "WC02" },
+    bodyMarkdown: formalWorkCardBody("WC02"),
+  });
+
+  const model = getCurrentWorkspaceModel(root);
+
+  assert.equal(model.activeWorkspaceId, "work-card-building-review");
+  assert.equal(model.currentWorkCardId, "WC02");
+  assert.equal(model.executionContext.workCard.workCardId, "WC02");
+  assert.equal(model.executionContext.workCard.loopStep, "Implement");
+  assert.match(model.expectedOutput, /IMPLEMENTER_REPORT_WC02_second_work_card\.md/);
+  assert.doesNotMatch(model.sourceEvidence.join(";"), /VALIDATION_RECORD_WC01/);
+});
+
+test("multiple active Work Cards surface a Work Card Map conflict", () => {
+  const root = tempWorkspace("champcity-active-work-card-conflict-");
+  seedProjectThroughPhaseMap(root);
+  seedApprovedPhaseInterview(root, "phase-01");
+  writeSimultaneouslyEligiblePhasePlanningBundle(root);
+  generateWorkCardIntakeHandoff(root, "phase-01", "WC01");
+  writeDoc(root, "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02.md", "work-card-intake-handoff", "Approved", {
+    participationRole: "nonReviewHandoff",
+    identity: { phaseId: "phase-01", workCardId: "WC02" },
+    workflowData: {
+      candidate: {
+        candidateId: "WC02",
+        order: 2,
+        title: "Second Work Card",
+        purpose: "Implement the second unit.",
+        dependsOn: [],
+        resolutionStatus: "planned",
+        resolutionReason: "",
+        evidencePaths: [],
+        phaseId: "phase-01",
+      },
+      formalWorkCardTarget: "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md",
+    },
+  });
+
+  const map = getCurrentWorkCardMapProjection(root, "phase-01");
+  assert.equal(map.payload.state, "needs-attention");
+  assert.match(map.payload.reason, /Multiple active incomplete Work Cards exist in this phase: WC01, WC02/);
+  assert.equal(
+    map.payload.candidates.every((candidate) => ["Complete", "Eligible", "Ineligible"].includes(candidate.status)),
+    true,
+  );
+
+  const model = getCurrentWorkspaceModel(root);
+  assert.equal(model.activeWorkspaceId, "phase-work-card-selection");
+  assert.equal(model.blocker, map.payload.reason);
+  assert.throws(
+    () => beginWorkCardPlanning(root, "phase-01", "WC01"),
+    /Multiple active incomplete Work Cards/,
+  );
+});
+
 test("close-return selection blocks without Approved close evidence and preserves repair routing", () => {
   const missingCloseRoot = tempWorkspace("champcity-close-return-missing-");
   seedProjectThroughPhaseMap(missingCloseRoot);
@@ -262,6 +436,7 @@ test("close-return selection blocks without Approved close evidence and preserve
   generateWorkCardIntakeHandoff(missingCloseRoot, "phase-01");
   promoteFormalWorkCard(missingCloseRoot, "WC01");
   setFormalWorkCardDisposition(missingCloseRoot, "phase-01", "WC01", "Approved");
+  writeReadyImplementerReport(missingCloseRoot, "phase-01", "WC01");
 
   assert.equal(getCurrentWorkspaceModel(missingCloseRoot).activeWorkspaceId, "work-card-report-review");
   assert.throws(
@@ -276,6 +451,7 @@ test("close-return selection blocks without Approved close evidence and preserve
   generateWorkCardIntakeHandoff(repairRoot, "phase-01");
   promoteFormalWorkCard(repairRoot, "WC01");
   setFormalWorkCardDisposition(repairRoot, "phase-01", "WC01", "Approved");
+  writeReadyImplementerReport(repairRoot, "phase-01", "WC01");
   applyOperatorValidationDecisionForCurrentWorkCard(repairRoot, {
     decision: "RequestRepair",
     operatorNotes: "Repair required.",
@@ -290,7 +466,7 @@ test("close-return selection blocks without Approved close evidence and preserve
   );
 });
 
-test("current workflow Build Review recovery creates missing report through generate handoff route", () => {
+test("current workflow Implement recovery creates missing report through generate handoff route", () => {
   const root = tempWorkspace("champcity-execution-context-report-recovery-");
   seedProjectThroughPhaseMap(root);
   seedApprovedPhaseInterview(root, "phase-01");
@@ -314,10 +490,23 @@ test("current workflow Build Review recovery creates missing report through gene
   assert.equal(created.payload.markdownPath, model.workCardBuildingReview.implementerReportPath);
 
   model = getCurrentWorkspaceModel(root);
-  assert.equal(model.activeWorkspaceId, "work-card-report-review");
+  assert.equal(model.activeWorkspaceId, "work-card-building-review");
   assert.equal(model.workCardBuildingReview.reportMissing, false);
   assert.equal(model.workCardBuildingReview.report.disposition, "Pending");
-  assert.equal(model.executionContext.workCard.loopStep, "Review & Validation");
+  assert.equal(model.workCardBuildingReview.reportReadiness, "reserved-skeleton");
+  assert.equal(model.executionContext.workCard.loopStep, "Implement");
+  assert.throws(
+    () => applyOperatorValidationDecisionForCurrentWorkCard(root, {
+      decision: "ValidatePassed",
+      operatorNotes: "Operator validation passed.",
+    }),
+    /Current workflow step must be Review & Validation/,
+  );
+
+  writeReadyImplementerReport(root, "phase-01", "WC01");
+  model = getCurrentWorkspaceModel(root);
+  assert.equal(model.activeWorkspaceId, "work-card-report-review");
+  assert.equal(model.workCardBuildingReview.reportReadiness, "ready-for-review");
   assert.throws(
     () => generateCurrentHandoff(root),
     /Current workflow step does not authorize a handoff action/,
@@ -332,6 +521,7 @@ test("ineligible Work Card selection exposes no Planning handoff action and writ
 
   const model = getCurrentWorkspaceModel(root);
   assert.notEqual(model.activeWorkspaceId, "work-card-planning");
+  assert.notEqual(model.activeWorkspaceId, "phase-work-card-selection");
   assert.equal(model.workCardIntake, undefined);
   assert.throws(
     () => generateCurrentHandoff(root),
@@ -356,9 +546,7 @@ test("current execution context shows repair ID without replacing parent Work Ca
   generateWorkCardIntakeHandoff(root, "phase-01");
   promoteFormalWorkCard(root, "WC01");
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");
-  const reportPath = writeDoc(root, "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md", "implementer-report", "Approved", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-  });
+  const reportPath = writeReadyImplementerReport(root, "phase-01", "WC01", "Approved");
   writeDoc(root, "planning/phases/phase-01/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC01-REPAIR01.md", "generated-handoff", "Approved", {
     participationRole: "nonReviewHandoff",
     identity: { handoffKind: "repair", phaseId: "phase-01", repairId: "WC01-REPAIR01" },
@@ -384,6 +572,71 @@ test("current execution context shows repair ID without replacing parent Work Ca
   assert.equal(model.executionContext.workCard.parentWorkCardId, "WC01");
   assert.equal(model.executionContext.workCard.loopStep, "Repair");
 });
+
+test("current repair action derives defect from RevisionRequested validation record", () => {
+  const root = tempWorkspace("champcity-current-repair-derived-defect-");
+  seedMvpValidationRepairRecord(root, {
+    repairDefectText: "Repair the workspace Architect handoff flow.",
+  });
+
+  const before = getCurrentRepairWorkspaceProjection(root).payload;
+  assert.equal(before.phaseId, "MVP-01");
+  assert.equal(before.parentWorkCardId, "WC02");
+  assert.equal(before.repairDefectText, "Repair the workspace Architect handoff flow.");
+  assert.equal(before.state, "handoff-needed");
+
+  const created = createRepairForCurrentFailure(root);
+  assert.equal(created.action, "currentWorkflow:createRepair");
+  assert.equal(created.payload.repairId, "WC02-REPAIR01");
+  assert.equal(
+    created.payload.handoffMarkdownPath,
+    "planning/phases/MVP-01/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC02-REPAIR01.md",
+  );
+
+  const reused = createRepairForCurrentFailure(root);
+  assert.deepEqual(reused.payload, created.payload);
+  const after = getCurrentRepairWorkspaceProjection(root).payload;
+  assert.equal(after.state, "handoff-ready");
+  assert.equal(after.repairWorkCardTarget, created.payload.repairMarkdownPath);
+});
+
+test("current repair action blocks when validation record lacks repair defect text", () => {
+  const root = tempWorkspace("champcity-current-repair-missing-defect-");
+  seedMvpValidationRepairRecord(root);
+
+  const projection = getCurrentRepairWorkspaceProjection(root).payload;
+  assert.equal(projection.state, "handoff-needed");
+  assert.equal(projection.phaseId, "MVP-01");
+  assert.throws(
+    () => createRepairForCurrentFailure(root),
+    /RevisionRequested validation record is missing repairDefectText/,
+  );
+});
+
+function seedMvpValidationRepairRecord(root, workflowData = {}) {
+  const formalPath = writeDoc(root, "planning/phases/MVP-01/Work_Cards/WC02_first.md", "formal-work-card", "Approved", {
+    identity: { phaseId: "MVP-01", workCardId: "WC02" },
+  });
+  const reportPath = writeDoc(root, "planning/phases/MVP-01/Implementer_Reports/IMPLEMENTER_REPORT_WC02_first.md", "implementer-report", "Approved", {
+    identity: { phaseId: "MVP-01", workCardId: "WC02" },
+    sourceRevisions: [{ path: formalPath, revision: 1 }],
+  });
+  return writeDoc(root, "planning/phases/MVP-01/Validation_Records/VALIDATION_RECORD_WC02_ATTEMPT01.md", "validation-record", "RevisionRequested", {
+    identity: { phaseId: "MVP-01", workCardId: "WC02" },
+    sourceRevisions: [
+      { path: formalPath, revision: 1 },
+      { path: reportPath, revision: 1 },
+    ],
+    workflowData: {
+      operatorValidationNotes: "Operator validation notes.",
+      advisorySummary: "Advisory summary.",
+      formalWorkCardPath: formalPath,
+      implementerReportPath: reportPath,
+      implementerReportRevision: 1,
+      ...workflowData,
+    },
+  });
+}
 
 function promoteFormalWorkCard(root, workCardId) {
   const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
@@ -416,6 +669,56 @@ function writeBlockedPhasePlanningBundle(root) {
     identity: { phaseId },
     workflowData: { candidates: [candidate] },
     bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify([candidate], null, 2)}\n\`\`\`\n`,
+  });
+}
+
+function writeSimultaneouslyEligiblePhasePlanningBundle(root) {
+  const phaseId = "phase-01";
+  const documents = listPlanningDocuments(root);
+  const sourceRevisions = [
+    "planning/project/PROJECT_PROFILE.md",
+    "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+    "planning/project/Phase_Map/PHASE_MAP_demo.md",
+    `planning/phases/${phaseId}/Phase_Interview.md`,
+  ].map((markdownPath) => {
+    const document = documents.find((candidate) => candidate.markdownPath === markdownPath);
+    return document
+      ? { path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 }
+      : null;
+  }).filter(Boolean);
+  const candidates = [
+    {
+      candidateId: "WC01",
+      order: 1,
+      title: "First Work Card",
+      purpose: "Implement the first unit.",
+      dependsOn: [],
+      resolutionStatus: "planned",
+      resolutionReason: "",
+      evidencePaths: [],
+    },
+    {
+      candidateId: "WC02",
+      order: 2,
+      title: "Second Work Card",
+      purpose: "Implement the second unit.",
+      dependsOn: [],
+      resolutionStatus: "planned",
+      resolutionReason: "",
+      evidencePaths: [],
+    },
+  ];
+  writeDoc(root, `planning/phases/${phaseId}/Phase_Planning.md`, "phase-planning", "Approved", {
+    participationRole: "compoundGatingReview",
+    identity: { phaseId },
+    sourceRevisions,
+  });
+  writeDoc(root, `planning/phases/${phaseId}/Work_Card_Plan.md`, "work-card-plan", "Approved", {
+    participationRole: "compoundGatingReview",
+    identity: { phaseId },
+    sourceRevisions,
+    workflowData: { candidates },
+    bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify(candidates, null, 2)}\n\`\`\`\n`,
   });
 }
 
@@ -497,4 +800,33 @@ function formalWorkCardBody(workCardId) {
     "Manual.",
     "",
   ].join("\n");
+}
+
+function writeReadyImplementerReport(root, phaseId, workCardId, status = "Pending", slug = "first_work_card") {
+  return writeDoc(root, `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_${slug}.md`, "implementer-report", status, {
+    identity: { phaseId, workCardId },
+    sourceRevisions: [
+      { path: `planning/phases/${phaseId}/Work_Cards/${workCardId}_${slug}.md`, revision: 1 },
+    ],
+    workflowData: {
+      repositoryVerification: "Verified approved repo root.",
+      filesChanged: ["src/main/currentWorkflow/currentWorkflowService.ts"],
+      implementationSummary: "Implemented a substantive readiness gate for the current workflow.",
+      validationResults: ["current execution context test passed"],
+      acceptanceEvidence: ["ready report routes to Review & Validation"],
+    },
+    bodyMarkdown: [
+      `# Implementer Report - ${workCardId}`,
+      "",
+      "Status: Pending Operator review.",
+      "",
+      "## Repository Verification",
+      "Verified approved repo root.",
+      "## Implementation Summary",
+      "Implemented a substantive readiness gate for the current workflow.",
+      "## Validation Performed",
+      "current execution context test passed",
+      "",
+    ].join("\n"),
+  });
 }

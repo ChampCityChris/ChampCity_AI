@@ -4613,6 +4613,165 @@ body {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.work-card-repair-workspace {
+  grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 0.85fr);
+}
+
+.work-card-repair-column {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.work-card-repair-actions {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.work-card-repair-actions span {
+  display: block;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.work-card-repair-status-strip {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.work-card-repair-status-strip span {
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.work-card-repair-status-strip strong {
+  color: var(--foreground);
+  font-size: 0.9rem;
+}
+
+.work-card-repair-status-strip span,
+.work-card-repair-status-strip strong,
+.work-card-repair-status-strip small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.work-card-repair-disposition-slot {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.work-card-repair-disposition-slot .figma-disposition-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.work-card-repair-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 14px;
+}
+
+.work-card-repair-actions strong,
+.work-card-repair-actions p {
+  overflow-wrap: anywhere;
+}
+
+.work-card-repair-actions strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.95rem;
+}
+
+.work-card-repair-actions p {
+  margin: 4px 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+}
+
+.work-card-repair-primary,
+.work-card-repair-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.work-card-repair-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.work-card-repair-secondary {
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--foreground);
+}
+
+.work-card-repair-primary:disabled,
+.work-card-repair-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.work-card-repair-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.work-card-repair-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 0.84rem;
+}
+
+.work-card-repair-message.success {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.work-card-repair-message.error {
+  color: #f87171;
+}
+
+.work-card-repair-architect-column .figma-browser-panel {
+  flex: 1;
+}
+
 .figma-intake-form-column,
 .figma-doc-review-column,
 .figma-browser-column {
@@ -5330,6 +5489,653 @@ body {
   opacity: 1;
 }
 
+.figma-work-card-map-workspace {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 16px;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.figma-work-card-map-column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  width: min(785px, 100%);
+}
+
+.figma-work-card-map-card,
+.figma-work-card-map-item {
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.figma-work-card-map-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 92px;
+  padding: 14px 12px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.figma-work-card-map-title-row {
+  display: flex;
+  min-width: 0;
+}
+
+.figma-work-card-map-title-row span,
+.figma-work-card-map-complete-row span,
+.figma-work-card-map-field span {
+  color: var(--figma-shell-muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.figma-work-card-map-title-row h2 {
+  margin: 4px 0 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.figma-work-card-map-title-row small {
+  display: block;
+  max-width: 580px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--figma-shell-muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.figma-work-card-map-pill,
+.figma-work-card-map-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.figma-work-card-map-pill,
+.figma-work-card-map-status.eligible {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+}
+
+.figma-work-card-map-status.complete {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+}
+
+.figma-work-card-map-status.ineligible {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.figma-work-card-map-card-body {
+  padding: 12px;
+}
+
+.figma-work-card-map-card-body p {
+  margin: 0;
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.figma-work-card-map-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.figma-work-card-map-item {
+  min-height: 62px;
+}
+
+.figma-work-card-map-item-button {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 12px;
+  color: var(--figma-shell-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.figma-work-card-map-item-button:hover {
+  color: var(--foreground);
+}
+
+.figma-work-card-map-item.active {
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+}
+
+.figma-work-card-map-item-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.figma-work-card-map-index {
+  display: grid;
+  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  color: var(--figma-shell-muted);
+  background: color-mix(in srgb, var(--muted) 72%, var(--background));
+  border-radius: 4px;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.figma-work-card-map-item.active .figma-work-card-map-index {
+  color: #062033;
+  background: #7dd3fc;
+}
+
+.figma-work-card-map-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.figma-work-card-map-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.figma-work-card-map-meta-row span {
+  color: var(--figma-shell-muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.figma-work-card-map-meta-row em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 6px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  border-radius: 4px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.figma-work-card-map-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--figma-shell-muted);
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.figma-work-card-map-item.active .figma-work-card-map-copy strong {
+  color: var(--foreground);
+}
+
+.figma-work-card-map-copy p {
+  max-width: 620px;
+  margin: 2px 0 0;
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.figma-work-card-map-details {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.figma-work-card-map-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 28px;
+}
+
+.figma-work-card-map-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.figma-work-card-map-field p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--figma-shell-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.figma-work-card-map-field p.mono {
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
+.figma-work-card-map-detail-actions,
+.figma-work-card-map-complete-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.figma-work-card-map-begin,
+.figma-work-card-map-validation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.figma-work-card-map-begin:hover:not(:disabled),
+.figma-work-card-map-validation:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.figma-work-card-map-begin:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.figma-work-card-map-complete-row {
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.figma-work-card-map-complete-row p {
+  margin: 4px 0 0;
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+}
+
+.figma-work-card-map-screen {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.figma-work-card-map-screen-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 16px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+
+.figma-work-card-map-screen-header h1 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.figma-work-card-map-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.figma-work-card-map-primary-action:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.figma-work-card-map-primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.figma-work-card-map-dual-pane {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
+  gap: 40px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.figma-work-card-map-list-pane,
+.figma-work-card-map-doc-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.figma-work-card-map-list-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.figma-work-card-map-list-header p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.figma-work-card-map-list-header small,
+.figma-work-card-map-list-header > span {
+  color: var(--figma-shell-muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.figma-work-card-map-list-header small {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.figma-work-card-map-list-header > span {
+  max-width: 420px;
+}
+
+.figma-work-card-map-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.figma-work-card-map-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 70px;
+  padding: 12px;
+  color: var(--figma-shell-muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.figma-work-card-map-list li + li {
+  margin-top: 8px;
+}
+
+.figma-work-card-map-list-item:hover {
+  background: var(--muted);
+}
+
+.figma-work-card-map-list-item.selected {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+}
+
+.figma-work-card-map-list-item.selected .figma-work-card-map-index {
+  color: #062033;
+  background: #7dd3fc;
+}
+
+.figma-work-card-map-list-item.selected .figma-work-card-map-copy strong {
+  color: var(--foreground);
+}
+
+.figma-work-card-map-doc-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.figma-work-card-map-doc-header,
+.figma-work-card-map-doc-actions,
+.figma-work-card-map-doc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.figma-work-card-map-doc-header {
+  justify-content: space-between;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 14px;
+  background: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.figma-work-card-map-doc-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figma-work-card-map-doc-actions {
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.figma-work-card-map-doc-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  color: var(--figma-shell-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.figma-work-card-map-doc-actions button:hover:not(:disabled) {
+  color: var(--foreground);
+}
+
+.figma-work-card-map-doc-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.figma-work-card-map-doc-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 24px;
+}
+
+.figma-work-card-map-doc-body h1,
+.figma-work-card-map-doc-body h2,
+.figma-work-card-map-doc-body h3,
+.figma-work-card-map-doc-body p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.figma-work-card-map-doc-body h1 {
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.figma-work-card-map-doc-body h2 {
+  margin-top: 12px;
+  padding-bottom: 8px;
+  color: var(--foreground);
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.figma-work-card-map-doc-body h3 {
+  margin-top: 14px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.figma-work-card-map-doc-body p,
+.figma-work-card-map-doc-body li {
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+.figma-work-card-map-doc-body li {
+  margin-left: 18px;
+}
+
+.figma-work-card-map-doc-space {
+  height: 8px;
+}
+
+.figma-work-card-map-doc-meta {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.figma-work-card-map-doc-footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  color: var(--figma-shell-muted);
+  background: var(--muted);
+  border-top: 1px solid var(--border);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
+.figma-work-card-map-doc-footer span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figma-work-card-map-complete-callout {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 12px;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.figma-work-card-map-complete-callout span {
+  color: var(--figma-shell-muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.figma-work-card-map-complete-callout p {
+  margin: 0;
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+}
+
 .figma-document-card .phase-map-preview,
 .figma-document-card .work-card-plan-preview {
   min-height: 100%;
@@ -5347,5 +6153,36 @@ body {
   .figma-doc-review-column,
   .figma-browser-column {
     min-height: 520px;
+  }
+
+  .figma-work-card-map-dual-pane {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    overflow-y: auto;
+  }
+
+  .figma-work-card-map-list-pane,
+  .figma-work-card-map-doc-pane {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 720px) {
+  .figma-work-card-map-card-header,
+  .figma-work-card-map-item-button,
+  .figma-work-card-map-complete-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .figma-work-card-map-status,
+  .figma-work-card-map-pill,
+  .figma-work-card-map-begin,
+  .figma-work-card-map-validation {
+    width: fit-content;
+  }
+
+  .figma-work-card-map-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

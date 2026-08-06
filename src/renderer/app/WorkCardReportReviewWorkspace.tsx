@@ -58,6 +58,7 @@ export function WorkCardReportReviewWorkspace({
     : null;
   const reportIsCurrent =
     Boolean(projection?.report) &&
+    projection?.reportReadiness === "ready-for-review" &&
     projection?.reportDocumentReadState === "readable" &&
     projection.reportFreshnessState === "fresh" &&
     !projection.reportReadError;

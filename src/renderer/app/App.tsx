@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Clipboard, ExternalLink, FileText, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Clipboard, FileText, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
 import {
-  type CloseReturnSelectionProjection,
   type ClosureDecision,
   type CodexImplementerExecutionModel,
   type CurrentWorkspaceModel,
   type ArchitectOutputWorkspaceModel,
   projectTypeOptions,
   type RuntimeActionResult,
-  type WorkCardCandidateSelectionExplanation,
-  type WorkCardIntakeProjection,
+  type WorkCardRepairProjection,
+  type WorkCardMapCandidateProjection,
+  type WorkCardMapProjection,
   workspaceDefinitions,
   type ArchitectBrowserFoundationStatus,
   type ArchitectInterviewRailStatus,
@@ -75,7 +75,9 @@ import {
   WorkCardCloseWorkspace,
   workCardCloseProjectionFromResult,
 } from "./WorkCardCloseWorkspace";
-import { WorkCardSelectionWorkspace } from "./WorkCardSelectionWorkspace";
+import { WorkCardMapWorkspace } from "./WorkCardMapWorkspace";
+import { WorkCardRepairWorkspace } from "./WorkCardRepairWorkspace";
+import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
@@ -111,6 +113,13 @@ const architectOutputPreparedFeedback =
 const architectOutputCopiedFeedback =
   "Architect handoff copied. Paste and send it manually in embedded ChatGPT.";
 const figmaThemePreferenceKey = "champcity:figma-theme";
+const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
+  "work-card-planning",
+  "work-card-building-review",
+  "work-card-report-review",
+  "work-card-repair",
+  "work-card-close",
+]);
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -163,6 +172,7 @@ export function App(): JSX.Element {
   const [isChoosingProjectRepository, setIsChoosingProjectRepository] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isRepairPromptPreparing, setIsRepairPromptPreparing] = useState(false);
   const [isSubmittingIntake, setIsSubmittingIntake] = useState(false);
   const [projectIntake, setProjectIntake] =
     useState<ProjectIntakeSubmission>(emptyProjectIntake);
@@ -190,8 +200,11 @@ export function App(): JSX.Element {
   const [architectOutputPollingError, setArchitectOutputPollingError] = useState("");
   const [workCardCloseProjectionResult, setWorkCardCloseProjectionResult] =
     useState<RuntimeActionResult | null>(null);
-  const [closeReturnSelectionResult, setCloseReturnSelectionResult] =
+  const [workCardRepairProjectionResult, setWorkCardRepairProjectionResult] =
     useState<RuntimeActionResult | null>(null);
+  const [workCardMapResult, setWorkCardMapResult] =
+    useState<RuntimeActionResult | null>(null);
+  const [workCardCloseReturnCompleted, setWorkCardCloseReturnCompleted] = useState(false);
   const architectOutputFingerprintRef = useRef<string | null>(null);
   const architectOutputPollInFlightRef = useRef<number | null>(null);
   const architectOutputPollRequestRef = useRef(0);
@@ -222,16 +235,22 @@ export function App(): JSX.Element {
     activeWorkspaceId === "work-card-building-review";
   const isWorkCardReportReview =
     activeWorkspaceId === "work-card-report-review";
+  const isWorkCardRepair =
+    activeWorkspaceId === "work-card-repair";
   const isWorkCardClose =
     activeWorkspaceId === "work-card-close";
-  const isWorkCardSelection =
+  const isWorkCardMap =
     activeWorkspaceId === "phase-work-card-selection";
   const isPhaseMapFigmaWorkspace =
     activeWorkspaceId === "project-phase-map";
   const isVisibleArchitectOutputWorkspace =
-    isArchitectEnabledWorkspace(activeWorkspaceId) && !isWorkCardPlanningPreparation;
+    isArchitectEnabledWorkspace(activeWorkspaceId) && !isWorkCardPlanningPreparation && !isWorkCardRepair;
+  const shouldPollArchitectOutputWorkspace =
+    isVisibleArchitectOutputWorkspace || isWorkCardRepair;
+  const architectBrowserWorkspaceAvailable =
+    (isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace) || isWorkCardReportReview;
   const shouldAttachEmbeddedArchitectSurface =
-    ((isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace) || isWorkCardReportReview) &&
+    (architectBrowserWorkspaceAvailable || (isWorkCardRepair && !isPhaseMapFigmaWorkspace)) &&
     isArchitectPaneVisible;
 
   useEffect(() => {
@@ -299,6 +318,9 @@ export function App(): JSX.Element {
     }
     setWorkCardIntakeError("");
     setWorkCardIntakeFeedback("");
+    if (activeWorkspaceId !== "work-card-repair") {
+      setWorkCardRepairProjectionResult(null);
+    }
   }, [activeWorkspaceId, currentModel?.workCardBuildingReview, currentModel?.workCardIntake, documents, selectedDocumentId]);
 
   useEffect(() => {
@@ -352,9 +374,26 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     if (activeWorkspaceId !== "phase-work-card-selection") {
-      setCloseReturnSelectionResult(null);
+      setWorkCardMapResult(null);
+      if (activeWorkspaceId !== "work-card-close") {
+        setWorkCardCloseReturnCompleted(false);
+      }
     }
   }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!workspace.ok || activeWorkspaceId !== "phase-work-card-selection") {
+      return;
+    }
+    const phaseId = currentModel?.currentPhaseId;
+    if (!phaseId) {
+      setDocumentError("Work Card Map requires a current phase.");
+      return;
+    }
+    void refreshWorkCardMapProjection(phaseId, {
+      closeReturnCompleted: workCardCloseReturnCompleted,
+    });
+  }, [activeWorkspaceId, currentModel?.currentPhaseId, workCardCloseReturnCompleted, workspace.ok]);
 
   useEffect(() => {
     if (!workspace.ok) {
@@ -473,14 +512,20 @@ export function App(): JSX.Element {
   }, [activeWorkspaceId, shouldAttachEmbeddedArchitectSurface, workspace.ok]);
 
   useEffect(() => {
-    if (!workspace.ok || !isVisibleArchitectOutputWorkspace) {
+    if (!workspace.ok || !shouldPollArchitectOutputWorkspace) {
       return;
     }
 
     void refreshArchitectOutputWorkspace({ autoSelectOutput: true, force: true });
+    if (isWorkCardRepair) {
+      void refreshWorkCardRepairProjection();
+    }
     const interval = window.setInterval(() => {
       void refreshArchitectStatus();
       void refreshArchitectOutputWorkspace({ autoSelectOutput: true, quiet: true });
+      if (isWorkCardRepair) {
+        void refreshWorkCardRepairProjection({ quiet: true });
+      }
     }, 3000);
 
     return () => {
@@ -488,7 +533,7 @@ export function App(): JSX.Element {
       architectOutputPollRequestRef.current += 1;
       architectOutputPollInFlightRef.current = null;
     };
-  }, [activeWorkspaceId, isVisibleArchitectOutputWorkspace, workspace.ok]);
+  }, [activeWorkspaceId, isWorkCardRepair, shouldPollArchitectOutputWorkspace, workspace.ok]);
 
   const workspaceGroups = useMemo(
     () => getWorkspaceGroups(documents, activeWorkspaceId),
@@ -543,6 +588,28 @@ export function App(): JSX.Element {
       null,
     [documents, selectedDocumentId],
   );
+  const repairWorkCardSlot = architectOutputModel?.workspaceId === "work-card-repair"
+    ? architectOutputModel.documentSlots.find((slot) => slot.slotId === "repair-work-card")
+    : undefined;
+  const selectedRepairWorkCardDocument =
+    selectedDocument && repairWorkCardSlot?.logicalDocumentId === selectedDocument.logicalDocumentId
+      ? selectedDocument
+      : null;
+  const selectRepairWorkCardReviewDocument = useCallback(() => {
+    if (!repairWorkCardSlot?.logicalDocumentId) {
+      return;
+    }
+    setSelectedArchitectOutputSlotId(repairWorkCardSlot.slotId);
+    const revisionKey = revisionKeyForArchitectOutputSlot(repairWorkCardSlot);
+    if (revisionKey) {
+      setViewedArchitectOutputRevisionKeys((current) =>
+        current.includes(revisionKey) ? current : [...current, revisionKey],
+      );
+    }
+    setSelectedDocumentId((current) =>
+      current === repairWorkCardSlot.logicalDocumentId ? current : repairWorkCardSlot.logicalDocumentId ?? current,
+    );
+  }, [repairWorkCardSlot]);
   const selectedDocumentHasLocalError =
     Boolean(selectedSummary?.readError);
   async function chooseWorkspace(): Promise<void> {
@@ -863,25 +930,127 @@ export function App(): JSX.Element {
     }
   }
 
+  async function refreshWorkCardRepairProjection(
+    options: { quiet?: boolean } = {},
+  ): Promise<RuntimeActionResult | null> {
+    try {
+      const result = await window.champcity.getCurrentRepairWorkspaceProjection();
+      setWorkCardRepairProjectionResult(result);
+      return result;
+    } catch (error) {
+      setWorkCardRepairProjectionResult(null);
+      if (!options.quiet) {
+        setDocumentError(error instanceof Error ? error.message : "Work Card Repair projection could not be loaded.");
+      }
+      return null;
+    }
+  }
+
+  async function createRepairHandoffFromCurrentEvidence(): Promise<void> {
+    setIsApplying(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const result = await window.champcity.createRepairForCurrentFailure();
+      setFeedback(result.message);
+      const nextDocuments = await window.champcity.listDocuments();
+      applyDocumentInventory(nextDocuments);
+      const nextModel = await refreshCurrentModel();
+      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setResolverResult(nextResolverResult);
+      transitionToWorkflowStep("work-card-repair", {
+        documents: nextDocuments,
+        resolverResult: nextResolverResult,
+      });
+      await refreshWorkCardRepairProjection();
+      await refreshArchitectOutputWorkspace({
+        autoSelectOutput: true,
+        force: true,
+        refreshRepositoryProjection: false,
+        workspaceId: nextModel?.activeWorkspaceId === "work-card-repair" ? "work-card-repair" : activeWorkspaceId,
+      });
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Repair handoff could not be created.");
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  async function prepareRepairWorkCardPromptFromEvidence(): Promise<void> {
+    setIsRepairPromptPreparing(true);
+    setDocumentError("");
+    setFeedback("");
+    setArchitectFeedback(null);
+    try {
+      const currentProjection = workCardRepairProjection ??
+        workCardRepairProjectionFromResult(await refreshWorkCardRepairProjection());
+      if (!currentProjection?.handoffPath) {
+        await window.champcity.createRepairForCurrentFailure();
+      }
+      const nextDocuments = await window.champcity.listDocuments();
+      applyDocumentInventory(nextDocuments);
+      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setResolverResult(nextResolverResult);
+      await refreshCurrentModel();
+      const nextModel = await window.champcity.prepareArchitectOutputHandoff("work-card-repair");
+      setArchitectOutputModel(nextModel);
+      setArchitectFeedback({
+        kind: "success",
+        message: "Repair Work Card prompt prepared. Copy it and send it manually in embedded ChatGPT.",
+      }, 4500);
+      await refreshWorkCardRepairProjection();
+      await refreshArchitectOutputWorkspace({
+        autoSelectOutput: true,
+        force: true,
+        refreshRepositoryProjection: false,
+        workspaceId: "work-card-repair",
+      });
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Repair Work Card prompt could not be prepared.",
+      });
+    } finally {
+      setIsRepairPromptPreparing(false);
+    }
+  }
+
+  async function refreshWorkCardMapProjection(
+    phaseId: string,
+    options = {},
+  ): Promise<RuntimeActionResult | null> {
+    try {
+      const result = await window.champcity.getWorkCardMapProjection(phaseId, options);
+      setWorkCardMapResult(result);
+      return result;
+    } catch (error) {
+      setWorkCardMapResult(null);
+      setDocumentError(error instanceof Error ? error.message : "Work Card Map could not be loaded.");
+      return null;
+    }
+  }
+
   async function returnFromWorkCardCloseToSelection(): Promise<void> {
     setIsApplying(true);
     setDocumentError("");
     setFeedback("");
     try {
-      const selectionResult = await window.champcity.getCloseReturnSelectionProjection();
-      setCloseReturnSelectionResult(selectionResult);
-      const projection = closeReturnSelectionProjectionFromResult(selectionResult);
-      if (!projection) {
-        setDocumentError("Close-return selection projection was malformed.");
-        await refreshCurrentModel();
+      const phaseId = currentModel?.currentPhaseId;
+      if (!phaseId) {
+        setDocumentError("Work Card Map requires a current phase.");
         return;
       }
+      const mapResult = await window.champcity.getWorkCardMapProjection(phaseId, {
+        closeReturnCompleted: true,
+      });
+      setWorkCardCloseReturnCompleted(true);
+      setWorkCardMapResult(mapResult);
       setWorkCardCloseProjectionResult(
         {
           ok: true,
           action: "currentWorkflow:getWorkCardCloseProjection",
-          message: projection.close.reason,
-          payload: projection.close,
+          message: "Work Card Close returned to the Work Card Map.",
+          payload: { closed: true, returnTarget: "phase-work-card-selection", reason: "Work Card Close returned to the Work Card Map." },
         },
       );
 
@@ -898,7 +1067,7 @@ export function App(): JSX.Element {
         ),
         resolverResult: nextResolverResult,
       });
-      setFeedback(selectionResult.message);
+      setFeedback(mapResult.message);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Work Card close return could not be completed.");
     } finally {
@@ -1035,6 +1204,7 @@ export function App(): JSX.Element {
     setIsWorkCardIntakeGenerating(true);
     setWorkCardIntakeError("");
     setWorkCardIntakeFeedback("");
+    setWorkCardRepairProjectionResult(null);
     setDocumentError("");
     setFeedback("");
     try {
@@ -1074,7 +1244,7 @@ export function App(): JSX.Element {
     }
   }
 
-  async function generateCloseReturnNextIntakeAndTransition(): Promise<void> {
+  async function beginMappedWorkCardPlanningAndTransition(candidateId: string): Promise<void> {
     if (isWorkCardIntakeGenerating) {
       return;
     }
@@ -1084,49 +1254,57 @@ export function App(): JSX.Element {
     setDocumentError("");
     setFeedback("");
     try {
-      const closeReturnSelection = closeReturnSelectionProjectionFromResult(closeReturnSelectionResult);
-      const selectedCandidateId = closeReturnSelection?.state === "selected"
-        ? closeReturnSelection.workCardIntake.candidate.candidateId
-        : null;
-      const result = await window.champcity.generateCloseReturnNextIntakeHandoff();
+      const phaseId = workCardMapProjectionFromResult(workCardMapResult)?.phaseId ?? currentModel?.currentPhaseId;
+      if (!phaseId) {
+        setWorkCardIntakeError("Work Card Map requires a current phase before planning can begin.");
+        return;
+      }
+      const result = await window.champcity.beginWorkCardPlanning(phaseId, candidateId, {
+        closeReturnCompleted: workCardCloseReturnCompleted,
+      });
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
       const nextModel = await refreshCurrentModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       if (
-        nextModel?.activeWorkspaceId !== "work-card-planning" ||
-        nextModel.currentWorkCardId !== selectedCandidateId ||
-        nextModel.workCardIntake
+        !nextModel ||
+        !activeWorkCardResumeWorkspaceIds.has(nextModel.activeWorkspaceId) ||
+        !currentModelMatchesCandidate(nextModel, candidateId) ||
+        (nextModel.activeWorkspaceId === "work-card-planning" && nextModel.workCardIntake)
       ) {
         const resolvedWorkspace = nextModel?.activeWorkspaceId ?? "unresolved";
         setWorkCardIntakeError(
-          `Close-return intake handoff generated, but the refreshed workspace resolved to ${resolvedWorkspace} for ${nextModel?.currentWorkCardId ?? "no Work Card"} instead of ${selectedCandidateId ?? "the selected candidate"}.`,
+          `Work Card action completed, but the refreshed workspace resolved to ${resolvedWorkspace} for ${nextModel?.currentWorkCardId ?? "no Work Card"} instead of ${candidateId}.`,
         );
         setWorkCardIntakeFeedback(result.message);
         return;
       }
+      const destinationWorkspaceId = nextModel.activeWorkspaceId;
       setSelectedDocumentId(null);
       setSelectedDocument(null);
       setSelectedStatus("");
-      transitionToWorkflowStep("work-card-planning", {
+      transitionToWorkflowStep(destinationWorkspaceId, {
         documents: nextDocuments,
         preferredDocumentId: preferredDocumentIdFromResolver(
           nextResolverResult,
-          "work-card-planning",
+          destinationWorkspaceId,
         ),
         resolverResult: nextResolverResult,
       });
-      setCloseReturnSelectionResult(null);
-      await refreshArchitectOutputWorkspace({
-        autoSelectOutput: true,
-        force: true,
-        refreshRepositoryProjection: false,
-        workspaceId: "work-card-planning",
-      });
+      setWorkCardMapResult(null);
+      setWorkCardCloseReturnCompleted(false);
+      if (isArchitectEnabledWorkspace(destinationWorkspaceId)) {
+        await refreshArchitectOutputWorkspace({
+          autoSelectOutput: true,
+          force: true,
+          refreshRepositoryProjection: false,
+          workspaceId: destinationWorkspaceId,
+        });
+      }
       setFeedback(result.message);
     } catch (error) {
-      setWorkCardIntakeError(error instanceof Error ? error.message : "Close-return Work Card Intake handoff could not be generated.");
+      setWorkCardIntakeError(error instanceof Error ? error.message : "Work Card Planning could not be started.");
     } finally {
       setIsWorkCardIntakeGenerating(false);
     }
@@ -1424,22 +1602,24 @@ export function App(): JSX.Element {
     projectRailStatuses[activeWorkspaceId as keyof typeof projectRailStatuses] ??
     "Pending";
   const embeddedBrowserAvailable =
-    (isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace) || isWorkCardReportReview;
+    architectBrowserWorkspaceAvailable || (isWorkCardRepair && !isPhaseMapFigmaWorkspace);
   const isFigmaActionWorkspace =
     activeWorkspaceId !== "project-intake-capture" &&
     !isWorkCardPlanningPreparation &&
     !isWorkCardBuildingReview &&
     !isWorkCardReportReview &&
     !isVisibleArchitectOutputWorkspace &&
+    !isWorkCardRepair &&
     !isWorkCardClose &&
-    !isWorkCardSelection;
+    !isWorkCardMap;
   const usesFigmaWorkspaceBody =
     activeWorkspaceId === "project-intake-capture" ||
     isVisibleArchitectOutputWorkspace ||
     isWorkCardBuildingReview ||
     isWorkCardReportReview ||
+    isWorkCardRepair ||
     isWorkCardClose ||
-    isWorkCardSelection ||
+    isWorkCardMap ||
     isFigmaActionWorkspace;
   const currentArchitectRevisionKeys = architectOutputModel?.documentSlots
     .map((slot) => revisionKeyForArchitectOutputSlot(slot))
@@ -1456,6 +1636,7 @@ export function App(): JSX.Element {
     activeWorkspaceId === "project-intake-capture"
       ? "Project Intake Questionnaire"
       : activeWorkspace.label;
+  const workCardRepairProjection = workCardRepairProjectionFromResult(workCardRepairProjectionResult);
 
   async function copySelectedDocumentBody(): Promise<void> {
     if (!selectedDocument) {
@@ -1505,6 +1686,7 @@ export function App(): JSX.Element {
           aria-labelledby="workspace-heading"
           ref={workspaceSurfaceRef}
         >
+          {!isWorkCardMap ? (
           <header className="workspace-header">
             <div className="workspace-heading-copy">
               <h1 id="workspace-heading">{workspaceHeadingLabel}</h1>
@@ -1551,6 +1733,7 @@ export function App(): JSX.Element {
             </div>
             ) : null}
           </header>
+          ) : null}
 
           {!usesFigmaWorkspaceBody ? (
             <CurrentWorkspaceBanner
@@ -1708,6 +1891,55 @@ export function App(): JSX.Element {
             </section>
           ) : null}
 
+          {isWorkCardRepair ? (
+            <WorkCardRepairWorkspace
+              actionError={documentError || architectOutputPollingError}
+              actionFeedback={feedback}
+              architectOutputModel={architectOutputModel}
+              browserPanel={
+                <FigmaBrowserPanel
+                  hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()}
+                  onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label}
+                />
+              }
+              isArchitectPaneVisible={isArchitectPaneVisible}
+              isCreating={isApplying}
+              isPreparing={isRepairPromptPreparing}
+              model={currentModel}
+              onCopyHandoff={() => void copyArchitectHandoff()}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+              onPrepareHandoff={() => void prepareRepairWorkCardPromptFromEvidence()}
+              onRefresh={() => {
+                void refreshDocuments({ useResolver: true });
+                void refreshArchitectStatus();
+                void refreshArchitectOutputWorkspace({ force: true });
+                void refreshWorkCardRepairProjection();
+              }}
+              onSelectRepairWorkCard={selectRepairWorkCardReviewDocument}
+              projection={workCardRepairProjection}
+              repairWorkCardDocument={selectedRepairWorkCardDocument}
+              repairReviewPanel={
+                architectOutputModel?.documentSlots.some((slot) => slot.logicalDocumentId) ? (
+                  <FigmaArchitectReviewPanel
+                    allCurrentRevisionsViewed={allCurrentArchitectRevisionsViewed}
+                    canApply={canApplyArchitectReview}
+                    isApplying={isApplying}
+                    model={architectOutputModel}
+                    notes={architectOutputReviewNotes}
+                    onNotesChange={setArchitectOutputReviewNotes}
+                    onReview={applyArchitectOutputReview}
+                    onStatusChange={setArchitectOutputReviewStatus}
+                    status={architectOutputReviewStatus}
+                    selectedDocument={selectedRepairWorkCardDocument}
+                  />
+                ) : undefined
+              }
+            />
+          ) : null}
+
           {isFigmaActionWorkspace ? (
             <FigmaActionWorkspace
               activeWorkspaceId={activeWorkspaceId}
@@ -1801,18 +2033,19 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {isWorkCardSelection ? (
-            <WorkCardSelectionWorkspace
+          {isWorkCardMap ? (
+            <WorkCardMapWorkspace
               actionError={workCardIntakeError || documentError}
               actionFeedback={workCardIntakeFeedback || feedback}
-              isGenerating={isWorkCardIntakeGenerating}
+              isBeginningPlanning={isWorkCardIntakeGenerating}
               model={currentModel}
-              onPreparePlanning={() => void generateCloseReturnNextIntakeAndTransition()}
-              projection={closeReturnSelectionProjectionFromResult(closeReturnSelectionResult)}
+              onBeginPlanning={(candidateId) => void beginMappedWorkCardPlanningAndTransition(candidateId)}
+              onOpenPhaseValidation={() => transitionToWorkflowStep("phase-validation")}
+              projection={workCardMapProjectionFromResult(workCardMapResult)}
             />
           ) : null}
 
-          {!isVisibleArchitectOutputWorkspace && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardClose && !isWorkCardSelection && activeWorkspaceId !== "project-intake-capture" ? (
+          {!isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && activeWorkspaceId !== "project-intake-capture" ? (
           <section
             className={[
               isArchitectInterviewDualPaneWorkspace(activeWorkspaceId) || activeWorkspaceId === "phase-planning-bundle"
@@ -1948,140 +2181,6 @@ export function App(): JSX.Element {
           ) : null}
         </section>
       </div>
-    </div>
-  );
-}
-
-function FigmaDocumentCard({
-  documentError,
-  feedback,
-  onCopy,
-  onSelectSlot,
-  selectedDocument,
-  selectedSlotId,
-  slots = [],
-}: {
-  documentError: string;
-  feedback: string;
-  onCopy: () => void;
-  onSelectSlot?: (slotId: string, logicalDocumentId?: string) => void;
-  selectedDocument: PlanningDocumentDetail | null;
-  selectedSlotId?: string | null;
-  slots?: ArchitectOutputWorkspaceModel["documentSlots"];
-}): JSX.Element {
-  const hasTabs = slots.length > 1 && Boolean(onSelectSlot);
-  const selectedStatus = selectedDocument?.effectiveDisposition ?? "Pending";
-
-  return (
-    <article className="figma-document-card" aria-label="Current document">
-      {hasTabs ? (
-        <div className="figma-document-tabs" role="tablist" aria-label="Current output documents">
-          {slots.map((slot) => {
-            const isActive = selectedSlotId === slot.slotId ||
-              Boolean(slot.logicalDocumentId && slot.logicalDocumentId === selectedDocument?.logicalDocumentId);
-            return (
-              <button
-                aria-selected={isActive}
-                className={isActive ? "active" : ""}
-                disabled={!slot.logicalDocumentId}
-                key={slot.slotId}
-                onClick={() => onSelectSlot?.(slot.slotId, slot.logicalDocumentId)}
-                type="button"
-              >
-                <FileText aria-hidden="true" size={14} />
-                {slot.displayLabel}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
-      <header className="figma-document-card-header">
-        <div className="figma-document-title-row">
-          <FileText aria-hidden="true" size={14} />
-          <strong>{selectedDocument?.displayFilename ?? "No document selected"}</strong>
-        </div>
-        <div className="figma-document-card-actions">
-          {selectedDocument ? (
-            <span className={`figma-document-status ${selectedStatus.toLowerCase()}`}>
-              {selectedStatus}
-            </span>
-          ) : null}
-          <button disabled={!selectedDocument} onClick={onCopy} type="button">
-            <Clipboard aria-hidden="true" size={13} />
-            Copy
-          </button>
-          <button disabled title="Open document is not exposed through the current renderer API" type="button">
-            <ExternalLink aria-hidden="true" size={13} />
-            Open
-          </button>
-        </div>
-      </header>
-
-      <div className="figma-document-path-row">
-        <FileText aria-hidden="true" size={12} />
-        <span>{selectedDocument?.markdownPath ?? "Repository-relative path"}</span>
-      </div>
-
-      {selectedDocumentHasError(selectedDocument, documentError) ? (
-        <div className="document-error" role="status">
-          {documentError || selectedDocument?.readError || "Document must be readable as canonical Markdown before applying a disposition."}
-        </div>
-      ) : null}
-
-      {feedback ? <div className="document-feedback" role="status">{feedback}</div> : null}
-
-      <div className="figma-document-card-body">
-        {selectedDocument && shouldRenderPhaseMapDocumentPreview(selectedDocument) ? (
-          <PhaseMapDocumentPreview document={selectedDocument} />
-        ) : selectedDocument && shouldRenderWorkCardPlanDocumentPreview(selectedDocument) ? (
-          <WorkCardPlanDocumentPreview document={selectedDocument} />
-        ) : selectedDocument ? (
-          <FigmaMarkdownBody markdown={selectedDocument.bodyMarkdown ?? selectedDocument.preview ?? ""} />
-        ) : (
-          <div className="figma-empty-document">
-            <strong>No document yet</strong>
-            <span>{neutralMessage}</span>
-          </div>
-        )}
-      </div>
-
-      <footer className="figma-document-card-footer">
-        <span>{selectedDocument?.markdownPath ?? "Repository-relative path"}</span>
-      </footer>
-    </article>
-  );
-}
-
-function FigmaMarkdownBody({ markdown }: { markdown: string }): JSX.Element {
-  const lines = markdown.split(/\r?\n/);
-  return (
-    <div className="figma-markdown-body">
-      {lines.map((line, index) => {
-        const key = `${index}-${line.slice(0, 16)}`;
-        const trimmed = line.trim();
-        if (!trimmed) {
-          return <div className="figma-markdown-space" key={key} />;
-        }
-        if (trimmed.startsWith("### ")) {
-          return <h4 key={key}>{trimmed.slice(4)}</h4>;
-        }
-        if (trimmed.startsWith("## ")) {
-          return <h3 key={key}>{trimmed.slice(3)}</h3>;
-        }
-        if (trimmed.startsWith("# ")) {
-          return <h2 key={key}>{trimmed.slice(2)}</h2>;
-        }
-        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-          return (
-            <p className="figma-markdown-list-item" key={key}>
-              <span aria-hidden="true">-</span>
-              {trimmed.slice(2)}
-            </p>
-          );
-        }
-        return <p key={key}>{trimmed}</p>;
-      })}
     </div>
   );
 }
@@ -2311,13 +2410,6 @@ function FigmaBrowserActionsPanel({
   );
 }
 
-function selectedDocumentHasError(
-  selectedDocument: PlanningDocumentDetail | null,
-  documentError: string,
-): boolean {
-  return Boolean(documentError || selectedDocument?.readError);
-}
-
 function FigmaActionWorkspace({
   activeWorkspaceId,
   documentError,
@@ -2445,23 +2537,6 @@ function FigmaActionWorkspace({
                     >
                       Create Current Validation Attempt
                     </button>
-                  ) : null}
-                  {activeWorkspaceId === "work-card-repair" ? (
-                    <>
-                      <input
-                        className="min-h-8 rounded border border-border bg-input-background px-2 text-[13px] text-foreground outline-none transition-colors focus:border-primary/50"
-                        onChange={(event) => update("defect", event.target.value)}
-                        placeholder="Bounded defect"
-                        value={inputs.defect}
-                      />
-                      <button
-                        className="min-h-8 rounded border border-amber-500/20 bg-amber-500/10 px-3 text-[13px] font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
-                        onClick={() => onRun(() => window.champcity.createRepairForCurrentFailure(inputs.defect))}
-                        type="button"
-                      >
-                        Create Current Repair Handoff
-                      </button>
-                    </>
                   ) : null}
                   {activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close" ? (
                     <FigmaCloseControls
@@ -2743,17 +2818,6 @@ function CurrentActionPanel({
           Create Current Validation Attempt
         </button>
       ) : null}
-      {activeWorkspaceId === "work-card-repair" ? (
-        <>
-          <label>
-            <span>Bounded Defect</span>
-            <input onChange={(event) => update("defect", event.target.value)} value={inputs.defect} />
-          </label>
-          <button className="apply-button" onClick={() => onRun(() => window.champcity.createRepairForCurrentFailure(inputs.defect))} type="button">
-            Create Current Repair Handoff
-          </button>
-        </>
-      ) : null}
       {activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close" ? (
         <>
           <label>
@@ -3020,96 +3084,153 @@ function architectBrowserPresentation(status: ArchitectBrowserFoundationStatus |
   };
 }
 
-function closeReturnSelectionProjectionFromResult(
+function workCardMapProjectionFromResult(
   result: RuntimeActionResult | null,
-): CloseReturnSelectionProjection | null {
+): WorkCardMapProjection | null {
   if (!result || !isAppRecord(result.payload)) {
     return null;
   }
   const payload = result.payload;
   if (
     typeof payload.state !== "string" ||
-    typeof payload.closedWorkCardId !== "string" ||
-    !isAppRecord(payload.close) ||
-    typeof payload.close.closed !== "boolean" ||
-    typeof payload.close.returnTarget !== "string" ||
-    typeof payload.close.reason !== "string" ||
-    !Array.isArray(payload.explanations) ||
-    !payload.explanations.every(isCandidateSelectionExplanation)
+    !Array.isArray(payload.candidates) ||
+    !payload.candidates.every(isWorkCardMapCandidateProjection) ||
+    payload.phaseValidationWorkspaceId !== "phase-validation" ||
+    typeof payload.reason !== "string"
   ) {
     return null;
   }
-  const base = {
-    phaseId: typeof payload.phaseId === "string" ? payload.phaseId : undefined,
-    closedWorkCardId: payload.closedWorkCardId,
-    close: {
-      closed: payload.close.closed,
-      returnTarget: payload.close.returnTarget as WorkspaceId,
-      reason: payload.close.reason,
-    },
-    explanations: payload.explanations,
-  };
   if (
-    payload.state === "selected" &&
+    (payload.state === "ready" || payload.state === "all-complete") &&
     typeof payload.phaseId === "string" &&
-    typeof payload.selectionReason === "string" &&
-    isWorkCardIntakeProjection(payload.workCardIntake)
+    typeof payload.sourceWorkCardPlanPath === "string"
   ) {
     return {
-      ...base,
-      state: "selected",
+      state: payload.state,
       phaseId: payload.phaseId,
-      selectionReason: payload.selectionReason,
-      workCardIntake: payload.workCardIntake,
+      sourceWorkCardPlanPath: payload.sourceWorkCardPlanPath,
+      candidates: payload.candidates,
+      phaseValidationWorkspaceId: "phase-validation",
+      reason: payload.reason,
     };
   }
-  if (
-    (
-      payload.state === "invalid-plan" ||
-      payload.state === "all-complete" ||
-      payload.state === "dependency-blocked" ||
-      payload.state === "explicitly-resolved"
-    ) &&
-    typeof payload.reason === "string"
-  ) {
+  if (payload.state === "needs-attention") {
     return {
-      ...base,
-      state: payload.state,
+      state: "needs-attention",
+      phaseId: typeof payload.phaseId === "string" ? payload.phaseId : undefined,
+      sourceWorkCardPlanPath: typeof payload.sourceWorkCardPlanPath === "string" ? payload.sourceWorkCardPlanPath : undefined,
+      candidates: payload.candidates,
+      phaseValidationWorkspaceId: "phase-validation",
       reason: payload.reason,
     };
   }
   return null;
 }
 
-function isCandidateSelectionExplanation(value: unknown): value is WorkCardCandidateSelectionExplanation {
-  return isAppRecord(value) &&
-    typeof value.candidateId === "string" &&
-    typeof value.state === "string" &&
-    typeof value.reason === "string" &&
-    Array.isArray(value.evidencePaths) &&
-    value.evidencePaths.every((entry) => typeof entry === "string");
+function workCardRepairProjectionFromResult(
+  result: RuntimeActionResult | null,
+): WorkCardRepairProjection | null {
+  if (!result || !isAppRecord(result.payload)) {
+    return null;
+  }
+  const payload = result.payload;
+  if (
+    ![
+      "handoff-needed",
+      "handoff-ready",
+      "draft-pending",
+      "repair-card-reviewable",
+      "needs-attention",
+    ].includes(String(payload.state)) ||
+    typeof payload.canCreateRepairHandoff !== "boolean" ||
+    typeof payload.canPrepareArchitectHandoff !== "boolean" ||
+    typeof payload.canCopyArchitectHandoff !== "boolean" ||
+    typeof payload.reason !== "string"
+  ) {
+    return null;
+  }
+  return {
+    state: payload.state as WorkCardRepairProjection["state"],
+    phaseId: stringOrUndefined(payload.phaseId),
+    parentWorkCardId: stringOrUndefined(payload.parentWorkCardId),
+    repairId: stringOrUndefined(payload.repairId),
+    evidencePath: stringOrUndefined(payload.evidencePath),
+    evidenceRevision: typeof payload.evidenceRevision === "number" ? payload.evidenceRevision : undefined,
+    primaryEvidenceDocument: isWorkCardRepairEvidenceDocument(payload.primaryEvidenceDocument)
+      ? payload.primaryEvidenceDocument
+      : undefined,
+    supportingEvidenceDocuments: Array.isArray(payload.supportingEvidenceDocuments)
+      ? payload.supportingEvidenceDocuments.filter(isWorkCardRepairEvidenceDocument)
+      : undefined,
+    operatorValidationNotes: stringOrUndefined(payload.operatorValidationNotes),
+    advisorySummary: stringOrUndefined(payload.advisorySummary),
+    repairDefectText: stringOrUndefined(payload.repairDefectText),
+    repairOrigin: payload.repairOrigin === "preValidationReportReview" || payload.repairOrigin === "postValidationRecord"
+      ? payload.repairOrigin
+      : undefined,
+    repairWorkCardTarget: stringOrUndefined(payload.repairWorkCardTarget),
+    returnTarget: stringOrUndefined(payload.returnTarget) as WorkCardRepairProjection["returnTarget"],
+    handoffPath: stringOrUndefined(payload.handoffPath),
+    handoffRevision: typeof payload.handoffRevision === "number" ? payload.handoffRevision : undefined,
+    canCreateRepairHandoff: payload.canCreateRepairHandoff,
+    canPrepareArchitectHandoff: payload.canPrepareArchitectHandoff,
+    canCopyArchitectHandoff: payload.canCopyArchitectHandoff,
+    reason: payload.reason,
+  };
 }
 
-function isWorkCardIntakeProjection(value: unknown): value is WorkCardIntakeProjection {
-  if (!isAppRecord(value) || !isAppRecord(value.candidate)) {
+function isWorkCardRepairEvidenceDocument(value: unknown): value is NonNullable<WorkCardRepairProjection["primaryEvidenceDocument"]> {
+  if (!isAppRecord(value)) {
     return false;
   }
+  return (
+    [
+      "primary-validation-record",
+      "primary-implementer-report",
+      "supporting-implementer-report",
+      "supporting-formal-work-card",
+    ].includes(String(value.role)) &&
+    typeof value.label === "string" &&
+    typeof value.markdownPath === "string" &&
+    ["readable", "missing", "invalid", "read-error"].includes(String(value.documentReadState)) &&
+    (value.logicalDocumentId === undefined || typeof value.logicalDocumentId === "string") &&
+    (value.artifactRevision === undefined || typeof value.artifactRevision === "number") &&
+    (value.disposition === undefined || typeof value.disposition === "string") &&
+    (value.readError === undefined || typeof value.readError === "string") &&
+    (value.bodyMarkdown === undefined || typeof value.bodyMarkdown === "string")
+  );
+}
+
+function isWorkCardMapCandidateProjection(value: unknown): value is WorkCardMapCandidateProjection {
   const formalTargetKey = ["formal", "WorkCard", "MarkdownPath"].join("");
-  return typeof value.phaseId === "string" &&
-    typeof value.sourceWorkCardPlanPath === "string" &&
-    typeof value.selectionReason === "string" &&
+  return isAppRecord(value) &&
+    typeof value.candidateId === "string" &&
+    typeof value.order === "number" &&
+    typeof value.title === "string" &&
+    typeof value.purpose === "string" &&
+    Array.isArray(value.dependsOn) &&
+    value.dependsOn.every((entry) => typeof entry === "string") &&
+    (value.status === undefined ||
+      value.status === "Complete" ||
+      value.status === "Eligible" ||
+      value.status === "Ineligible") &&
+    typeof value.reason === "string" &&
+    Array.isArray(value.evidencePaths) &&
+    value.evidencePaths.every((entry) => typeof entry === "string") &&
     typeof value.handoffMarkdownPath === "string" &&
     typeof value[formalTargetKey] === "string" &&
-    typeof value.candidate.candidateId === "string" &&
-    typeof value.candidate.order === "number" &&
-    typeof value.candidate.title === "string" &&
-    typeof value.candidate.purpose === "string" &&
-    Array.isArray(value.candidate.dependsOn) &&
-    value.candidate.dependsOn.every((entry) => typeof entry === "string") &&
-    typeof value.candidate.resolutionStatus === "string" &&
-    typeof value.candidate.resolutionReason === "string" &&
-    Array.isArray(value.candidate.evidencePaths) &&
-    value.candidate.evidencePaths.every((entry) => typeof entry === "string");
+    (value.isActive === undefined || typeof value.isActive === "boolean");
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function currentModelMatchesCandidate(model: CurrentWorkspaceModel, candidateId: string): boolean {
+  const workCard = model.executionContext.workCard;
+  return model.currentWorkCardId === candidateId ||
+    workCard.workCardId === candidateId ||
+    workCard.parentWorkCardId === candidateId;
 }
 
 function isAppRecord(value: unknown): value is Record<string, unknown> {

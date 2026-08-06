@@ -310,9 +310,11 @@ test("visible Work Card loop has one Planning item and no separate Intake item",
     source.indexOf("const phaseStepIdsByLoopStep"),
   );
 
+  assert.match(workCardLoopSource, /label:\s*"Work Card Map"/);
+  assert.match(workCardLoopSource, /destination:\s*"phase-work-card-selection"/);
   assert.match(workCardLoopSource, /label:\s*"Planning"/);
   assert.match(workCardLoopSource, /destination:\s*"work-card-planning"/);
-  assert.match(workCardLoopSource, /label:\s*"Build"/);
+  assert.match(workCardLoopSource, /label:\s*"Implement"/);
   assert.match(workCardLoopSource, /destination:\s*"work-card-building-review"/);
   assert.match(workCardLoopSource, /label:\s*"Review & Validation"/);
   assert.match(workCardLoopSource, /destination:\s*"work-card-report-review"/);

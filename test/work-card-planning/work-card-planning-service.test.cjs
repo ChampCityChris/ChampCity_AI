@@ -8,6 +8,8 @@ const {
   parseCanonicalMarkdownDocument,
 } = require("../../dist/shared/documents/canonicalMarkdown.js");
 const {
+  formalWorkCardArchitectOutputDefinition,
+  getActiveFormalWorkCardDraftSubmission,
   getWorkCardBuildingEligibility,
   setFormalWorkCardDisposition,
 } = require("../../dist/main/workCardPlanning/workCardPlanningService.js");
@@ -16,6 +18,7 @@ const {
   prepareArchitectOutputHandoff,
 } = require("../../dist/main/architectOutputs/architectOutputWorkspaceService.js");
 const {
+  beginWorkCardPlanningForCandidate,
   generateWorkCardIntakeHandoff,
 } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
 const {
@@ -24,6 +27,8 @@ const {
   seedApprovedProjectPlanning,
   seedPhaseMap,
   tempWorkspace,
+  writeDoc,
+  listPlanningDocuments,
 } = require("../support/canonical-markdown-fixtures.cjs");
 
 test("work card planning creates Markdown-only Formal Work Card and approves eligibility", () => {
@@ -44,6 +49,39 @@ test("work card planning creates Markdown-only Formal Work Card and approves eli
 
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");
   assert.equal(getWorkCardBuildingEligibility(root, "phase-01", "WC01").eligible, true);
+});
+
+test("formal Work Card preparation targets the active selected candidate", () => {
+  const root = tempWorkspace("champcity-work-card-planning-active-candidate-");
+  seedApprovedProjectPlanning(root);
+  seedPhaseMap(root, "phase-01");
+  seedApprovedPhaseInterview(root, "phase-01");
+  writeSimultaneouslyEligiblePhasePlanningBundle(root);
+
+  const handoff = beginWorkCardPlanningForCandidate(root, "phase-01", "WC02");
+  assert.equal(handoff.candidateId, "WC02");
+
+  const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
+  assert.equal(
+    prepared.handoff.path,
+    "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02.md",
+  );
+  assert.equal(
+    prepared.documentSlots.find((slot) => slot.slotId === "formal-work-card").targetPath,
+    "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md",
+  );
+
+  writeDraft(root, prepared.submission.draftSlots[0].draftRelativePath, formalWorkCardBody("WC02"));
+  const promoted = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  assert.equal(
+    promoted.documentSlots.find((slot) => slot.slotId === "formal-work-card").targetPath,
+    "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md",
+  );
+  const canonical = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md"), "utf8"),
+  );
+  assert.equal(canonical.metadata.identity.workCardId, "WC02");
+  assert.equal(canonical.metadata.identity.candidateId, "WC02");
 });
 
 test("formal Work Card promotion accepts substantive bodies with embedded heading examples", () => {
@@ -180,13 +218,52 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.match(instruction, new RegExp(revisionNotes.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(instruction, /Current Operator revision instructions:/);
   assert.match(instruction, /Application-owned Implementer Report target:\n- planning\/phases\/phase-01\/Implementer_Reports\/IMPLEMENTER_REPORT_WC01_first_work_card\.md/);
+  assert.match(instruction, /Use the selected project workspace for this Work Card/);
+  assert.match(instruction, /The application has already resolved the target workspace for this handoff/);
+  assert.match(instruction, /Do not use any other workspace as the implementation target/);
+  assert.match(instruction, /If the selected workspace cannot be verified through these exact paths, abort as incomplete/);
+  assert.match(instruction, /Application-owned selected workspace target binding:/);
+  assert.match(instruction, /selected workspace repository reference: <PROJECT_REPO>/);
+  assert.match(instruction, /approved Work Card Intake handoff path: planning\/phases\/phase-01\/Architect_Handoffs\/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01\.md/);
+  assert.match(instruction, /Formal Work Card target path: planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md/);
+  assert.match(instruction, /Implementer Report target path: planning\/phases\/phase-01\/Implementer_Reports\/IMPLEMENTER_REPORT_WC01_first_work_card\.md/);
+  assert.match(instruction, /phase ID: phase-01/);
+  assert.match(instruction, /candidate ID: WC01/);
+  assert.match(instruction, /selected workspace verification evidence/);
   assert.match(instruction, /Implementer Report Requirements must name the exact application-owned Implementer Report target above/);
   assert.match(instruction, /updates that existing canonical report rather than creating an alternate report/);
   assert.match(instruction, /Implementation is incomplete until the report at that exact path contains the complete auditable evidence/);
+  assert.doesNotMatch(instruction, /ChampCity_AI/);
+  assert.doesNotMatch(instruction, /champcity_ai/);
   assert.equal(actionBlocks.length, 1);
   assert.equal(actionBlocks[0].params.relativePath, prepared.submission.draftSlots[0].draftRelativePath);
   assert.equal(actionBlocks[0].params.overwrite, false);
   assert.doesNotMatch(instruction, /"relativePath":\s*"planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md"/);
+});
+
+test("formal Work Card promotion context rejects mismatched active target evidence", () => {
+  const root = tempWorkspace("champcity-work-card-planning-target-guard-");
+  seedApprovedProjectPlanning(root);
+  seedPhaseMap(root, "phase-01");
+  seedApprovedPhaseInterview(root, "phase-01");
+  seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
+  generateWorkCardIntakeHandoff(root, "phase-01");
+
+  prepareArchitectOutputHandoff(root, "work-card-planning");
+  const active = getActiveFormalWorkCardDraftSubmission(root);
+  assert.ok(active);
+
+  assert.throws(
+    () => formalWorkCardArchitectOutputDefinition.resolvePromotionContext({
+      workspaceRoot: root,
+      submission: active.submission,
+      preparedContext: {
+        ...active.preparedContext,
+        targetPath: "planning/phases/phase-01/Work_Cards/WC99_wrong_target.md",
+      },
+    }),
+    /Formal Work Card draft no longer matches the current Work Card Intake handoff/,
+  );
 });
 
 function writeCanonicalFormal(root, relativePath, status, notes = "") {
@@ -222,6 +299,56 @@ function writeCanonicalFormal(root, relativePath, status, notes = "") {
 function writeDraft(root, draftRelativePath, bodyMarkdown) {
   fs.mkdirSync(path.dirname(path.join(root, draftRelativePath)), { recursive: true });
   fs.writeFileSync(path.join(root, draftRelativePath), bodyMarkdown, "utf8");
+}
+
+function writeSimultaneouslyEligiblePhasePlanningBundle(root) {
+  const phaseId = "phase-01";
+  const documents = listPlanningDocuments(root);
+  const sourceRevisions = [
+    "planning/project/PROJECT_PROFILE.md",
+    "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+    "planning/project/Phase_Map/PHASE_MAP_demo.md",
+    `planning/phases/${phaseId}/Phase_Interview.md`,
+  ].map((markdownPath) => {
+    const document = documents.find((candidate) => candidate.markdownPath === markdownPath);
+    return document
+      ? { path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 }
+      : null;
+  }).filter(Boolean);
+  const candidates = [
+    {
+      candidateId: "WC01",
+      order: 1,
+      title: "First Work Card",
+      purpose: "Implement the first unit.",
+      dependsOn: [],
+      resolutionStatus: "planned",
+      resolutionReason: "",
+      evidencePaths: [],
+    },
+    {
+      candidateId: "WC02",
+      order: 2,
+      title: "Second Work Card",
+      purpose: "Implement the second unit.",
+      dependsOn: [],
+      resolutionStatus: "planned",
+      resolutionReason: "",
+      evidencePaths: [],
+    },
+  ];
+  writeDoc(root, `planning/phases/${phaseId}/Phase_Planning.md`, "phase-planning", "Approved", {
+    participationRole: "compoundGatingReview",
+    identity: { phaseId },
+    sourceRevisions,
+  });
+  writeDoc(root, `planning/phases/${phaseId}/Work_Card_Plan.md`, "work-card-plan", "Approved", {
+    participationRole: "compoundGatingReview",
+    identity: { phaseId },
+    sourceRevisions,
+    workflowData: { candidates },
+    bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify(candidates, null, 2)}\n\`\`\`\n`,
+  });
 }
 
 function formalWorkCardBody(workCardId) {

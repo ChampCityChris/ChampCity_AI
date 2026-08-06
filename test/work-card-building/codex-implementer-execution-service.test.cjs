@@ -25,7 +25,7 @@ const {
   writeDoc,
 } = require("../support/canonical-markdown-fixtures.cjs");
 
-test("Codex Implementer service starts SDK thread from current Build Review context and exact prompt", async () => {
+test("Codex Implementer service starts SDK thread from current Implement context and exact prompt", async () => {
   const root = seedBuildReviewWorkspace();
   const captured = {};
   const service = new CodexImplementerExecutionService(async () => ({
@@ -81,6 +81,79 @@ test("Codex Implementer service reports SDK success without report changes as in
   assert.equal(completed.failureReason, "Codex completed, but the Implementer Report was not updated.");
   assert.equal(completed.lastRunState, "completed");
   assert.equal(completed.canRunAgain, true);
+});
+
+test("Codex Implementer service clears transient duplicate metadata after final canonical report refresh", async () => {
+  const root = seedBuildReviewWorkspace();
+  const service = new CodexImplementerExecutionService(async () => ({
+    startThread() {
+      return {
+        id: null,
+        async runStreamed() {
+          return { events: transientDuplicateThenCanonicalEvents(root) };
+        },
+      };
+    },
+  }));
+
+  await service.start(root);
+  const completed = await waitForState(service, root, "completed");
+  const current = getCurrentWorkspaceModel(root);
+
+  assert.equal(completed.reportUpdated, true);
+  assert.equal(completed.failureReason, null);
+  assert.equal(completed.retryBlocker, null);
+  assert.equal(current.activeWorkspaceId, "work-card-report-review");
+  assert.equal(current.workCardBuildingReview.reportReadiness, "ready-for-review");
+  assert.doesNotMatch(current.workCardBuildingReview.reportReadinessReason, /duplicate metadata/i);
+});
+
+test("Codex Implementer service blocks final duplicate metadata report from Review & Validation", async () => {
+  const root = seedBuildReviewWorkspace();
+  const service = new CodexImplementerExecutionService(async () => ({
+    startThread() {
+      return {
+        id: null,
+        async runStreamed() {
+          return { events: finalDuplicateMetadataEvents(root) };
+        },
+      };
+    },
+  }));
+
+  await service.start(root);
+  const completed = await waitForState(service, root, "completed");
+  const current = getCurrentWorkspaceModel(root);
+
+  assert.equal(completed.reportUpdated, true);
+  assert.match(completed.failureReason, /duplicate metadata block/);
+  assert.match(completed.retryBlocker, /duplicate metadata block/);
+  assert.equal(current.activeWorkspaceId, "work-card-building-review");
+  assert.equal(current.workCardBuildingReview.reportReadiness, "invalid");
+  assert.match(current.workCardBuildingReview.reportReadinessReason, /duplicate metadata block/);
+});
+
+test("Codex Implementer service treats canonical blocked report as reviewable evidence", async () => {
+  const root = seedBuildReviewWorkspace();
+  const service = new CodexImplementerExecutionService(async () => ({
+    startThread() {
+      return {
+        id: null,
+        async runStreamed() {
+          return { events: blockedCanonicalReportEvents(root) };
+        },
+      };
+    },
+  }));
+
+  await service.start(root);
+  const completed = await waitForState(service, root, "completed");
+  const current = getCurrentWorkspaceModel(root);
+
+  assert.equal(completed.reportUpdated, true);
+  assert.equal(completed.failureReason, null);
+  assert.equal(current.activeWorkspaceId, "work-card-report-review");
+  assert.equal(current.workCardBuildingReview.reportReadiness, "ready-for-review");
 });
 
 test("Codex Implementer service rejects a second in-flight launch and cancels only the tracked SDK run", async () => {
@@ -160,7 +233,10 @@ test("Codex Implementer service maps auth-like SDK failure and preserves retry e
 async function* successfulEvents(root) {
   yield { type: "thread.started", thread_id: "thread-test" };
   yield { type: "turn.started" };
-  fs.appendFileSync(path.join(root, reportPath()), "\nCodex evidence added.\n", "utf8");
+  writeSubstantiveImplementerReport(root, {
+    implementationSummary: "Implemented the requested repair.",
+    acceptanceEvidence: ["final canonical report is ready for review"],
+  });
   yield {
     type: "item.completed",
     item: { id: "agent-1", type: "agent_message", text: "Updated the report." },
@@ -184,6 +260,66 @@ async function* noMutationEvents() {
     type: "item.completed",
     item: { id: "agent-1", type: "agent_message", text: "Done." },
   };
+  yield {
+    type: "turn.completed",
+    usage: {
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      cache_write_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+    },
+  };
+}
+
+async function* transientDuplicateThenCanonicalEvents(root) {
+  yield { type: "thread.started", thread_id: "thread-test" };
+  yield { type: "turn.started" };
+  writeDuplicateMetadataReport(root);
+  yield {
+    type: "item.completed",
+    item: { id: "agent-1", type: "agent_message", text: "Intermediate report write." },
+  };
+  writeSubstantiveImplementerReport(root, {
+    implementationSummary: "Implemented the requested repair after a transient editor state.",
+    acceptanceEvidence: ["final canonical report bytes control readiness"],
+  });
+  yield {
+    type: "turn.completed",
+    usage: {
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      cache_write_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+    },
+  };
+}
+
+async function* finalDuplicateMetadataEvents(root) {
+  yield { type: "thread.started", thread_id: "thread-test" };
+  yield { type: "turn.started" };
+  writeDuplicateMetadataReport(root);
+  yield {
+    type: "turn.completed",
+    usage: {
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      cache_write_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+    },
+  };
+}
+
+async function* blockedCanonicalReportEvents(root) {
+  yield { type: "thread.started", thread_id: "thread-test" };
+  yield { type: "turn.started" };
+  writeSubstantiveImplementerReport(root, {
+    implementationSummary: "Implementation is blocked by a missing approved local SDK.",
+    blockers: ["The approved SDK family is not installed in the environment."],
+    acceptanceEvidence: ["blocked report remains substantive Implementer evidence"],
+  });
   yield {
     type: "turn.completed",
     usage: {
@@ -272,4 +408,49 @@ function seedBuildReviewWorkspace() {
 
 function reportPath() {
   return "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
+}
+
+function writeDuplicateMetadataReport(root) {
+  const absolutePath = path.join(root, reportPath());
+  const content = fs.readFileSync(absolutePath, "utf8");
+  fs.writeFileSync(
+    absolutePath,
+    `${content}\n<!-- CHAMPCITY-METADATA\n{}\nCHAMPCITY-METADATA -->\n`,
+    "utf8",
+  );
+}
+
+function writeSubstantiveImplementerReport(root, {
+  implementationSummary,
+  blockers = [],
+  acceptanceEvidence,
+}) {
+  return writeDoc(root, reportPath(), "implementer-report", "Pending", {
+    identity: { phaseId: "phase-01", workCardId: "WC01" },
+    sourceRevisions: [
+      { path: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", revision: 1 },
+    ],
+    workflowData: {
+      repositoryVerification: "Verified approved repo root.",
+      filesChanged: ["src/main/workCardBuilding/codexImplementerExecutionService.ts"],
+      implementationSummary,
+      validationResults: ["focused Codex execution tests passed"],
+      acceptanceEvidence,
+      blockers,
+    },
+    bodyMarkdown: [
+      "# Implementer Report - WC01",
+      "",
+      "Status: Pending Operator review.",
+      "",
+      "## Repository Verification",
+      "Verified approved repo root.",
+      "## Implementation Summary",
+      implementationSummary,
+      "## Acceptance Evidence",
+      ...acceptanceEvidence,
+      ...(blockers.length ? ["## Blockers", ...blockers] : []),
+      "",
+    ].join("\n"),
+  });
 }

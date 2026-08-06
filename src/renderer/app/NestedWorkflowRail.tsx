@@ -126,8 +126,8 @@ const phaseLoopItems: readonly LoopRailItem[] = [
 const workCardLoopItems: readonly LoopRailItem[] = [
   {
     id: "work-card-loop",
-    label: "Work Card Loop",
-    fullLabel: "Work Card Loop",
+    label: "Work Card Map",
+    fullLabel: "Work Card Map",
     destination: "phase-work-card-selection",
     stateFor: (workspaceId) =>
       workspaceId === "phase-work-card-selection"
@@ -143,8 +143,8 @@ const workCardLoopItems: readonly LoopRailItem[] = [
   },
   {
     id: "work-card-building-review",
-    label: "Build",
-    fullLabel: "Implementer Build",
+    label: "Implement",
+    fullLabel: "Implement",
     destination: "work-card-building-review",
     stateFor: exactWorkspace("work-card-building-review"),
   },
@@ -185,7 +185,7 @@ const phaseStepIdsByLoopStep = {
 const workCardStepIdsByLoopStep = {
   "Work Card Intake": "work-card-loop",
   Planning: "work-card-planning",
-  Build: "work-card-building-review",
+  Implement: "work-card-building-review",
   "Review & Validation": "work-card-report-review",
   Repair: "work-card-repair",
   Close: "work-card-close",
@@ -260,7 +260,7 @@ export function NestedWorkflowRail({
           ariaLabel="Work Card loop"
           context={workCardContext(executionContext)}
           items={workCardLoopItems}
-          label="Work Card Loop"
+          label="Work Card Map"
           onWorkspaceChange={onWorkspaceChange}
           workCard
         />

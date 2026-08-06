@@ -114,14 +114,14 @@ test("Review & Validation workspace offers evidence choices and Operator validat
   assert.doesNotMatch(source, /className="work-card-report-reference"/);
 });
 
-test("Review & Validation is a visible Work Card Building workspace between Build and Repair", () => {
+test("Review & Validation is a visible Work Card Implement workspace between Implement and Repair", () => {
   const source = fs.readFileSync(workspaceSourcePath, "utf8");
   const registrySlice = source.slice(
     source.indexOf("id: \"work-card-building-review\""),
     source.indexOf("id: \"work-card-validation\""),
   );
 
-  assert.match(registrySlice, /id:\s*"work-card-building-review"[\s\S]*label:\s*"Implementer Build"[\s\S]*order:\s*10/);
+  assert.match(registrySlice, /id:\s*"work-card-building-review"[\s\S]*label:\s*"Implement"[\s\S]*order:\s*10/);
   assert.match(registrySlice, /id:\s*"work-card-report-review"[\s\S]*label:\s*"Review & Validation"[\s\S]*order:\s*15/);
   assert.match(registrySlice, /id:\s*"work-card-repair"[\s\S]*order:\s*20/);
 });

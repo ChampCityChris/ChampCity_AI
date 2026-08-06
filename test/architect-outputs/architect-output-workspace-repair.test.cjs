@@ -543,6 +543,44 @@ test("repair path prepares, promotes revision one, reviews to RevisionRequested,
   assert.equal(revisionTwo.documentSlots[0].artifactRevision, 2);
 });
 
+test("approving Repair Work Card creates repair-specific report and routes to Implement", () => {
+  const root = tempWorkspace("champcity-repair-approval-build-");
+  const repair = seedRepairHandoff(root, "WC01", "Fix approved repair routing.");
+  const prepared = prepareArchitectOutputHandoff(root, "work-card-repair");
+  writeDraft(
+    root,
+    prepared.submission.draftSlots[0].draftRelativePath,
+    repairWorkCardBody(repair.repairId, repair.defect, "work-card-building-review"),
+  );
+  const pending = getArchitectOutputWorkspaceModel(root, "work-card-repair");
+
+  const reviewed = reviewArchitectOutput(
+    root,
+    "work-card-repair",
+    "Approved",
+    "",
+    presentedRevisions(pending),
+  );
+
+  const reportPath = `planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_${repair.repairId}.md`;
+  const report = readCanonical(root, reportPath);
+  const current = getCurrentWorkspaceModel(root);
+
+  assert.equal(reviewed.state, "completed");
+  assert.equal(readCanonical(root, repair.repairMarkdownPath).metadata.documentDisposition.status, "Approved");
+  assert.equal(report.metadata.artifactType, "implementer-report");
+  assert.equal(report.metadata.identity.workCardId, repair.repairId);
+  assert.equal(report.metadata.identity.repairId, repair.repairId);
+  assert.equal(report.metadata.identity.parentWorkCardId, "WC01");
+  assert.deepEqual(report.metadata.sourceRevisions, [{ path: repair.repairMarkdownPath, revision: 1 }]);
+  assert.match(report.bodyMarkdown, /Approved Repair Work Card Contract:/);
+  assert.equal(current.activeWorkspaceId, "work-card-building-review");
+  assert.equal(current.currentWorkCardId, repair.repairId);
+  assert.equal(current.workCardBuildingReview.formalWorkCardPath, repair.repairMarkdownPath);
+  assert.equal(current.workCardBuildingReview.implementationContractType, "repair-work-card");
+  assert.equal(current.workCardBuildingReview.implementerReportPath, reportPath);
+});
+
 test("Formal and Repair revision prompts include exact Operator instructions", () => {
   const formalRoot = tempWorkspace("champcity-formal-revision-prompt-");
   seedFormalOutputTarget(formalRoot);
@@ -689,7 +727,7 @@ test("missing and conflicting Repair authority are non-mutating and cannot redir
 
   const conflictRoot = tempWorkspace("champcity-repair-conflict-current-work-");
   const first = seedRepairHandoff(conflictRoot, "WC01", "First unresolved repair.");
-  const second = seedRepairHandoff(conflictRoot, "WC02", "Second unresolved repair.");
+  const second = writeRepairHandoffFixture(conflictRoot, "WC02", "Second unresolved repair.");
   const firstBefore = fs.readFileSync(path.join(conflictRoot, first.handoffMarkdownPath), "utf8");
   const secondBefore = fs.readFileSync(path.join(conflictRoot, second.handoffMarkdownPath), "utf8");
   writeDoc(conflictRoot, "planning/project/PROJECT_PROFILE.md", "project-profile", "RevisionRequested", {
@@ -778,6 +816,34 @@ function seedRepairHandoff(root, workCardId, defect) {
     evidencePath,
     defect,
   };
+}
+
+function writeRepairHandoffFixture(root, workCardId, defect) {
+  const evidencePath = writeDoc(root, `planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_repair.md`, "implementer-report", "RevisionRequested", {
+    identity: { phaseId: "phase-01", workCardId },
+    notes: "Repair required.",
+  });
+  const repairId = `${workCardId}-REPAIR01`;
+  const slug = defect.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "repair";
+  const handoffMarkdownPath = `planning/phases/phase-01/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_${repairId}.md`;
+  const repairMarkdownPath = `planning/phases/phase-01/Work_Cards/${repairId}_${slug}.md`;
+  writeDoc(root, handoffMarkdownPath, "generated-handoff", "Approved", {
+    participationRole: "nonReviewHandoff",
+    identity: { handoffKind: "repair", phaseId: "phase-01", repairId },
+    sourceRevisions: [{ path: evidencePath, revision: 1 }],
+    workflowData: {
+      handoffKind: "repair",
+      repairId,
+      originalParentWorkCardId: workCardId,
+      origin: "preValidationReportReview",
+      evidencePath,
+      boundedDefect: defect,
+      returnTarget: "work-card-building-review",
+      repairWorkCardTarget: repairMarkdownPath,
+    },
+    bodyMarkdown: `# Repair Architect Handoff\n\nRepair Work Card Markdown: ${repairMarkdownPath}\n`,
+  });
+  return { repairId, handoffMarkdownPath, repairMarkdownPath, evidencePath, defect };
 }
 
 function writeFormalOutput(root, target, status) {

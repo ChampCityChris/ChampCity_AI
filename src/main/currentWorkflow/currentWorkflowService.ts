@@ -1,6 +1,7 @@
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type {
   ClosureDecision,
+  BeginWorkCardPlanningOptions,
   CloseReturnSelectionProjection,
   CurrentWorkspaceModel,
   ExecutionContextPhaseProjection,
@@ -9,6 +10,7 @@ import type {
   PhaseLoopStep,
   RuntimeActionResult,
   WorkCardCloseProjection,
+  WorkCardMapProjectionOptions,
   WorkCardLoopStep,
   WorkspaceId,
 } from "../../shared/workspaceContracts";
@@ -39,10 +41,18 @@ import {
   getPhasePlanningWorkspaceModel,
 } from "../phasePlanning/phasePlanningService";
 import {
+  beginWorkCardPlanningForCandidate,
   generateWorkCardIntakeHandoff,
+  getWorkCardMapProjection,
   getWorkCardIntakeProjection,
+  resolveActiveWorkCardAuthority,
+  resolveActiveWorkCardPlanningHandoff,
   selectNextWorkCardCandidate,
 } from "../workCardIntake/workCardIntakeService";
+import {
+  resolveWorkCardLoopAuthority,
+  type WorkCardLoopAuthorityProjection,
+} from "../workCardLoop/workCardLoopAuthorityService";
 import {
   getWorkCardBuildingEligibility,
   setFormalWorkCardDisposition,
@@ -61,6 +71,8 @@ import {
 } from "../workCardValidation/workCardValidationService";
 import {
   createRepairWorkCard,
+  getWorkCardRepairProjection,
+  resolveCurrentRepairEvidence,
   resolveExactActiveRepairWorkCardContext,
 } from "../workCardRepair/workCardRepairService";
 import { getArchitectOutputWorkspaceModel } from "../architectOutputs/architectOutputWorkspaceService";
@@ -91,7 +103,7 @@ function resolveVisibleWorkCardBuildingReviewProjection(
   workspaceRoot: string,
   model: CurrentWorkspaceCoreModel,
 ): CurrentWorkspaceModel["workCardBuildingReview"] {
-  if (model.currentPhaseId && model.currentWorkCardId && !/-REPAIR\d+$/i.test(model.currentWorkCardId)) {
+  if (model.currentPhaseId && model.currentWorkCardId) {
     try {
       return getWorkCardBuildingReviewProjection(workspaceRoot, model.currentPhaseId, model.currentWorkCardId);
     } catch {
@@ -189,9 +201,7 @@ function resolveCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspaceCo
       missingPhaseMapModel(workspaceRoot) ??
       missingPhaseInterviewModel(workspaceRoot) ??
       missingPhasePlanningModel(workspaceRoot) ??
-      missingWorkCardIntakeOrFormalModel(workspaceRoot) ??
-      missingImplementerReportModel(workspaceRoot) ??
-      missingRepairWorkCardModel(workspaceRoot);
+      workCardLoopAuthorityModel(workspaceRoot);
     if (missingModel) {
       return missingModel;
     }
@@ -209,21 +219,19 @@ function resolveCurrentWorkspaceModel(workspaceRoot: string): CurrentWorkspaceCo
   }
 
   const document = current.document;
+  const workCardLoopFirstModel = isWorkCardLoopDocument(document)
+    ? workCardLoopAuthorityModel(workspaceRoot)
+    : null;
+  if (workCardLoopFirstModel) {
+    return workCardLoopFirstModel;
+  }
   const activeRepairModel = repairModelForRevisionRequestedEvidence(workspaceRoot, document);
   if (activeRepairModel) {
     return activeRepairModel;
   }
-  const nextCandidatePlanningModel = approvedWorkCardIntakeWithoutApprovedFormalModel(workspaceRoot);
-  if (nextCandidatePlanningModel) {
-    return nextCandidatePlanningModel;
-  }
-  const validatedReportModel = modelForPendingReportWithValidationDecision(workspaceRoot, document);
-  if (validatedReportModel) {
-    return validatedReportModel;
-  }
-  const pendingReportBuildModel = buildModelForPendingImplementerReport(workspaceRoot, document);
-  if (pendingReportBuildModel) {
-    return pendingReportBuildModel;
+  const workCardLoopModel = workCardLoopFirstModel ?? workCardLoopAuthorityModel(workspaceRoot);
+  if (workCardLoopModel) {
+    return workCardLoopModel;
   }
   if (isArchitectOutputWorkspace(document.owningWorkspaceId)) {
     return currentModelFromArchitectOutput(workspaceRoot, document.owningWorkspaceId, {
@@ -285,6 +293,21 @@ function buildModelForPendingImplementerReport(
     document.selectedPhaseId,
     document.selectedWorkCardId,
   );
+  if (projection.reportReadiness !== "ready-for-review") {
+    return {
+      activeWorkspaceId: "work-card-building-review",
+      level: "work-card",
+      stage: "building",
+      currentPhaseId: document.selectedPhaseId,
+      currentWorkCardId: document.selectedWorkCardId,
+      currentTarget: "Implement",
+      sourceEvidence: [projection.formalWorkCardPath, projection.implementerReportPath],
+      requiredAction: projection.reportReadinessReason,
+      expectedOutput: projection.implementerReportPath,
+      eligibility: projection.reportReadinessReason,
+      expectedNextState: "A substantive ready Implementer Report becomes reviewable.",
+    };
+  }
   return {
     activeWorkspaceId: "work-card-report-review",
     level: "work-card",
@@ -400,6 +423,40 @@ function repairModelForRevisionRequestedEvidence(
     expectedNextState: "Pending Repair Work Card becomes reviewable and remains owned by its parent.",
     fallbackEvidence: resolved.evidencePaths.length > 0 ? resolved.evidencePaths : [document.markdownPath],
   });
+}
+
+function isWorkCardLoopDocument(document: {
+  artifactType?: string;
+  owningWorkspaceId?: WorkspaceId;
+  selectedWorkCardId?: string;
+  markdownPath?: string;
+}): boolean {
+  if (document.owningWorkspaceId && [
+    "phase-work-card-selection",
+    "work-card-intake",
+    "work-card-planning",
+    "work-card-building-review",
+    "work-card-report-review",
+    "work-card-validation",
+    "work-card-repair",
+    "work-card-close",
+  ].includes(document.owningWorkspaceId)) {
+    return true;
+  }
+  if (document.selectedWorkCardId) {
+    return true;
+  }
+  if (document.artifactType && [
+    "work-card-intake-handoff",
+    "formal-work-card",
+    "implementer-report",
+    "validation-record",
+    "generated-handoff",
+    "repair-work-card",
+  ].includes(document.artifactType)) {
+    return true;
+  }
+  return Boolean(document.markdownPath?.replace(/\\/g, "/").includes("/Work_Cards/"));
 }
 
 function missingProjectPlanningModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {
@@ -600,51 +657,236 @@ function missingWorkCardIntakeOrFormalModel(workspaceRoot: string): CurrentWorks
   if (!phasePlanning.complete) {
     return null;
   }
-  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
-  if (selection.state !== "selected") {
-    return null;
-  }
-  const intakeProjection = getWorkCardIntakeProjection(workspaceRoot, phaseId);
-  const candidate = intakeProjection.candidate;
-  const handoff = listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
-    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
-    .filter((document) => document.metadata.workCardId === candidate.candidateId || document.metadata.canonical?.identity.workCardId === candidate.candidateId)
-    .filter((document) => document.effectiveDisposition === "Approved")
-    .at(-1);
-  if (!handoff) {
+  const map = getWorkCardMapProjection(workspaceRoot, phaseId);
+  if (map.state === "needs-attention") {
     return {
-      activeWorkspaceId: "work-card-planning",
-      level: "work-card",
-      stage: "planning",
+      activeWorkspaceId: "phase-work-card-selection",
+      level: "phase",
+      stage: "building",
       currentPhaseId: phaseId,
-      currentWorkCardId: candidate.candidateId,
-      currentTarget: "Work Card Planning",
-      workCardIntake: intakeProjection,
-      sourceEvidence: [intakeProjection.sourceWorkCardPlanPath],
-      requiredAction: "Approved Phase Planning bundle is available; prepare Work Card Planning.",
-      expectedOutput: `Approved Work Card Planning intake handoff for ${candidate.candidateId}.`,
-      eligibility: intakeProjection.selectionReason,
-      expectedNextState: "Formal Work Card Architect-output preparation becomes available in Planning.",
+      currentTarget: "Work Card Map",
+      sourceEvidence: [map.sourceWorkCardPlanPath, ...map.candidates.flatMap((candidate) => candidate.evidencePaths)]
+        .filter((value): value is string => Boolean(value)),
+      requiredAction: map.reason,
+      expectedOutput: "Resolve Work Card Map authority before beginning another candidate.",
+      eligibility: "Needs attention",
+      blocker: map.reason,
+      expectedNextState: "After conflict resolution, one active Work Card continues or the map allows candidate planning.",
     };
   }
-  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
-  const formal = typeof target === "string"
-    ? listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === target)
-    : undefined;
-  if (formal) {
+  if (map.state !== "ready") {
     return null;
   }
-  return currentModelFromArchitectOutput(workspaceRoot, "work-card-planning", {
+  const handoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot, phaseId);
+  if (!handoff) {
+    return {
+      activeWorkspaceId: "phase-work-card-selection",
+      level: "phase",
+      stage: "building",
+      currentPhaseId: phaseId,
+      currentTarget: "Work Card Map",
+      sourceEvidence: [map.sourceWorkCardPlanPath],
+      requiredAction: "Select an Eligible Work Card candidate from the Work Card Map and begin planning.",
+      expectedOutput: "Candidate-scoped Work Card Intake handoff for the selected Work Card candidate.",
+      eligibility: map.reason,
+      expectedNextState: "Work Card Planning opens for the selected candidate.",
+    };
+  }
+  const activeFormal = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath === handoff.formalWorkCardMarkdownPath);
+  if (activeFormal?.effectiveDisposition === "Approved") {
+    return null;
+  }
+  const model = currentModelFromArchitectOutput(workspaceRoot, "work-card-planning", {
     level: "work-card",
     stage: "planning",
     currentPhaseId: phaseId,
-    currentWorkCardId: candidate.candidateId,
+    currentWorkCardId: handoff.workCardId,
     currentTarget: "Formal Work Card",
-    expectedOutput: `Formal Work Card Markdown for ${candidate.candidateId}.`,
+    expectedOutput: `Formal Work Card Markdown for ${handoff.workCardId}.`,
     expectedNextState: "Pending Formal Work Card becomes the current review document.",
-    fallbackEvidence: [handoff.markdownPath],
+    fallbackEvidence: [handoff.handoff.markdownPath],
   });
+  return {
+    ...model,
+    sourceEvidence: [
+      handoff.handoff.markdownPath,
+      ...model.sourceEvidence.filter((path) => path !== handoff.handoff.markdownPath),
+    ],
+  };
+}
+
+function workCardLoopAuthorityModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {
+  const projection = getPhaseMapProjection(workspaceRoot);
+  if (projection.state !== "first-incomplete") {
+    return null;
+  }
+  const phaseId = projection.phase.phaseId;
+  const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId);
+  if (!phasePlanning.complete) {
+    return null;
+  }
+  const authority = resolveWorkCardLoopAuthority(workspaceRoot, phaseId);
+  return currentModelFromWorkCardLoopAuthority(workspaceRoot, authority);
+}
+
+function currentModelFromWorkCardLoopAuthority(
+  workspaceRoot: string,
+  authority: WorkCardLoopAuthorityProjection,
+): CurrentWorkspaceCoreModel | null {
+  const phaseId = authority.phaseId;
+  if (authority.status === "no-plan" || authority.status === "not-applicable") {
+    return null;
+  }
+  if (authority.status === "conflict") {
+    return {
+      activeWorkspaceId: "phase-work-card-selection",
+      level: "phase",
+      stage: "building",
+      currentPhaseId: phaseId,
+      currentTarget: "Work Card Map",
+      sourceEvidence: authority.sourceEvidence,
+      requiredAction: authority.requiredAction,
+      expectedOutput: "Resolve Work Card Map active Work Card conflict.",
+      eligibility: "Needs attention",
+      blocker: authority.blocker ?? authority.reason,
+      expectedNextState: "After conflict resolution, one active Work Card continues or the map allows candidate planning.",
+    };
+  }
+  if (!phaseId) {
+    return null;
+  }
+  if (authority.status === "map-ready" || authority.status === "all-complete") {
+    return {
+      activeWorkspaceId: "phase-work-card-selection",
+      level: "phase",
+      stage: "building",
+      currentPhaseId: phaseId,
+      currentTarget: "Work Card Map",
+      sourceEvidence: authority.sourceEvidence,
+      requiredAction: authority.requiredAction,
+      expectedOutput: authority.status === "all-complete"
+        ? "Phase Validation workspace for the current phase."
+        : "Candidate-scoped Work Card Intake handoff for the selected Work Card candidate.",
+      eligibility: authority.status === "all-complete" ? "Complete" : authority.reason,
+      expectedNextState: authority.status === "all-complete"
+        ? "Operator may continue to Phase Validation."
+        : "Work Card Planning opens for the selected candidate.",
+    };
+  }
+
+  const workCardId = authority.workCardId;
+  if (!workCardId) {
+    return null;
+  }
+  if (authority.workspaceId === "work-card-planning") {
+    const model = currentModelFromArchitectOutput(workspaceRoot, "work-card-planning", {
+      level: "work-card",
+      stage: "planning",
+      currentPhaseId: phaseId,
+      currentWorkCardId: workCardId,
+      currentTarget: "Formal Work Card",
+      expectedOutput: `Formal Work Card Markdown for ${workCardId}.`,
+      expectedNextState: "Pending Formal Work Card becomes the current review document.",
+      fallbackEvidence: authority.sourceEvidence,
+    });
+    return {
+      ...model,
+      currentWorkCardId: workCardId,
+      sourceEvidence: [
+        ...authority.sourceEvidence,
+        ...model.sourceEvidence.filter((path) => !authority.sourceEvidence.includes(path)),
+      ],
+    };
+  }
+  if (authority.workspaceId === "work-card-building-review") {
+    const projection = getWorkCardBuildingReviewProjection(workspaceRoot, phaseId, workCardId);
+    const isRepairImplementation = projection.implementationContractType === "repair-work-card";
+    return {
+      activeWorkspaceId: "work-card-building-review",
+      level: "work-card",
+      stage: "building",
+      currentPhaseId: phaseId,
+      currentWorkCardId: workCardId,
+      currentTarget: isRepairImplementation ? "Repair Implement" : "Implement",
+      sourceEvidence: authority.sourceEvidence,
+      requiredAction: authority.requiredAction,
+      expectedOutput: projection.implementerReportPath,
+      eligibility: `${projection.implementationContractLabel ?? "Approved Work Card Contract"} is the Implement instruction.`,
+      expectedNextState: "A substantive ready Implementer Report becomes Review & Validation.",
+    };
+  }
+  if (authority.workspaceId === "work-card-report-review") {
+    return {
+      activeWorkspaceId: "work-card-report-review",
+      level: "work-card",
+      stage: "building",
+      currentPhaseId: phaseId,
+      currentWorkCardId: workCardId,
+      currentTarget: "Review & Validation",
+      sourceEvidence: authority.sourceEvidence,
+      requiredAction: authority.requiredAction,
+      expectedOutput: authority.implementerReportPath ?? "Current Implementer Report.",
+      eligibility: "Current Pending Implementer Report is fresh and ready for Review & Validation.",
+      expectedNextState: "Operator decision creates the Validation Record authority.",
+    };
+  }
+  if (authority.workspaceId === "work-card-close") {
+    return {
+      activeWorkspaceId: "work-card-close",
+      level: "work-card",
+      stage: "close",
+      currentPhaseId: phaseId,
+      currentWorkCardId: workCardId,
+      currentTarget: "Close / Next Work Card",
+      sourceEvidence: authority.sourceEvidence,
+      requiredAction: authority.requiredAction,
+      expectedOutput: "Close / Next Work Card decision.",
+      eligibility: "Current Approved Validation Record is fresh.",
+      expectedNextState: "Work Card can advance to close or next candidate behavior.",
+    };
+  }
+  if (authority.workspaceId === "work-card-repair") {
+    return currentModelFromArchitectOutput(workspaceRoot, "work-card-repair", {
+      level: "work-card",
+      stage: "repair",
+      currentPhaseId: phaseId,
+      currentWorkCardId: authority.repairId ?? workCardId,
+      currentTarget: "Repair Work Card",
+      expectedOutput: "Repair Work Card Markdown.",
+      expectedNextState: "Pending Repair Work Card becomes reviewable and remains owned by its parent.",
+      fallbackEvidence: authority.sourceEvidence,
+    });
+  }
+  return null;
+}
+
+function workCardMapCompletionModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {
+  const projection = getPhaseMapProjection(workspaceRoot);
+  if (projection.state !== "first-incomplete") {
+    return null;
+  }
+  const phaseId = projection.phase.phaseId;
+  const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId);
+  if (!phasePlanning.complete) {
+    return null;
+  }
+  const map = getWorkCardMapProjection(workspaceRoot, phaseId);
+  if (map.state !== "all-complete") {
+    return null;
+  }
+  return {
+    activeWorkspaceId: "phase-work-card-selection",
+    level: "phase",
+    stage: "building",
+    currentPhaseId: phaseId,
+    currentTarget: "Work Card Map",
+    sourceEvidence: [map.sourceWorkCardPlanPath],
+    requiredAction: "All planned Work Cards are complete for this phase; continue to Phase Validation.",
+    expectedOutput: "Phase Validation workspace for the current phase.",
+    eligibility: "Complete",
+    expectedNextState: "Operator may continue to Phase Validation.",
+  };
 }
 
 function approvedWorkCardIntakeWithoutApprovedFormalModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {
@@ -657,42 +899,76 @@ function approvedWorkCardIntakeWithoutApprovedFormalModel(workspaceRoot: string)
   if (!phasePlanning.complete) {
     return null;
   }
-  const selection = selectNextWorkCardCandidate(workspaceRoot, phaseId);
-  if (selection.state !== "selected") {
-    return null;
+  const activeAuthority = resolveActiveWorkCardAuthority(workspaceRoot, phaseId);
+  if (activeAuthority.status === "conflict") {
+    return {
+      activeWorkspaceId: "phase-work-card-selection",
+      level: "phase",
+      stage: "building",
+      currentPhaseId: phaseId,
+      currentTarget: "Work Card Map",
+      sourceEvidence: activeAuthority.evidencePaths,
+      requiredAction: activeAuthority.reason,
+      expectedOutput: "Resolve Work Card Map active Work Card conflict.",
+      eligibility: "Needs attention",
+      blocker: activeAuthority.reason,
+      expectedNextState: "After conflict resolution, one active Work Card continues.",
+    };
   }
-  const candidateId = selection.selectedCandidate.candidateId;
-  const documents = listPlanningDocuments(workspaceRoot);
-  const handoff = documents
-    .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
-    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
-    .filter((document) => document.metadata.workCardId === candidateId || document.metadata.canonical?.identity.workCardId === candidateId)
-    .filter((document) => document.effectiveDisposition === "Approved")
-    .at(-1);
+  const handoff = activeAuthority.status === "active"
+    ? {
+        handoff: activeAuthority.handoff,
+        phaseId: activeAuthority.phaseId,
+        workCardId: activeAuthority.workCardId,
+        formalWorkCardMarkdownPath: activeAuthority.formalWorkCardMarkdownPath,
+      }
+    : undefined;
   if (!handoff) {
     return null;
   }
-  const target = handoff.metadata.canonical?.workflowData.formalWorkCardTarget;
-  const formal = typeof target === "string"
-    ? documents.find((document) => document.markdownPath === target)
-    : undefined;
-  if (formal?.effectiveDisposition === "Approved") {
+  const activeFormal = listPlanningDocuments(workspaceRoot)
+    .find((document) => document.markdownPath === handoff.formalWorkCardMarkdownPath);
+  if (activeFormal?.effectiveDisposition === "Approved") {
     return null;
   }
   const model = currentModelFromArchitectOutput(workspaceRoot, "work-card-planning", {
     level: "work-card",
     stage: "planning",
     currentPhaseId: phaseId,
-    currentWorkCardId: candidateId,
+    currentWorkCardId: handoff.workCardId,
     currentTarget: "Formal Work Card",
-    expectedOutput: `Formal Work Card Markdown for ${candidateId}.`,
+    expectedOutput: `Formal Work Card Markdown for ${handoff.workCardId}.`,
     expectedNextState: "Pending Formal Work Card becomes the current review document.",
-    fallbackEvidence: [handoff.markdownPath],
+    fallbackEvidence: [handoff.handoff.markdownPath],
   });
   return {
     ...model,
-    sourceEvidence: [handoff.markdownPath, ...model.sourceEvidence.filter((path) => path !== handoff.markdownPath)],
+    sourceEvidence: [
+      handoff.handoff.markdownPath,
+      ...model.sourceEvidence.filter((path) => path !== handoff.handoff.markdownPath),
+    ],
   };
+}
+
+function phaseHasOpenWorkCardLifecycle(workspaceRoot: string, phaseId: string): boolean {
+  const documents = listPlanningDocuments(workspaceRoot);
+  const formalWorkCardIds = documents
+    .filter((document) => document.metadata.artifactType === "formal-work-card")
+    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
+    .map((document) => document.metadata.workCardId ??
+      (typeof document.metadata.canonical?.identity.workCardId === "string"
+        ? document.metadata.canonical.identity.workCardId
+        : undefined))
+    .filter((workCardId): workCardId is string => Boolean(workCardId));
+  return formalWorkCardIds.some((workCardId) =>
+    !documents
+      .filter((document) => document.metadata.artifactType === "validation-record")
+      .filter((document) => document.effectiveDisposition === "Approved")
+      .some((document) =>
+        (document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId) &&
+        (document.metadata.workCardId === workCardId || document.metadata.canonical?.identity.workCardId === workCardId)
+      )
+  );
 }
 
 function missingImplementerReportModel(workspaceRoot: string): CurrentWorkspaceCoreModel | null {
@@ -711,7 +987,7 @@ function missingImplementerReportModel(workspaceRoot: string): CurrentWorkspaceC
     return null;
   }
   const projection = getWorkCardBuildingReviewProjection(workspaceRoot, phaseId, workCardId);
-  if (!projection.reportMissing) {
+  if (projection.reportReadiness === "ready-for-review") {
     return null;
   }
   return {
@@ -720,12 +996,14 @@ function missingImplementerReportModel(workspaceRoot: string): CurrentWorkspaceC
     stage: "building",
     currentPhaseId: phaseId,
     currentWorkCardId: workCardId,
-    currentTarget: "Implementer Build",
+    currentTarget: "Implement",
     sourceEvidence: [formal.markdownPath, projection.implementerReportPath],
-    requiredAction: "Approved Formal Work Card is available; create the application-owned Implementer Report.",
+    requiredAction: projection.reportReadiness === "missing"
+      ? "Approved Formal Work Card is available; create the application-owned Implementer Report."
+      : projection.reportReadinessReason,
     expectedOutput: projection.implementerReportPath,
     eligibility: eligibility.reason,
-    expectedNextState: "Pending Implementer Report becomes the current review document.",
+    expectedNextState: "A substantive ready Implementer Report becomes reviewable.",
   };
 }
 
@@ -939,7 +1217,7 @@ function workCardLoopStepForWorkspace(workspaceId: WorkspaceId): WorkCardLoopSte
     case "work-card-planning":
       return "Planning";
     case "work-card-building-review":
-      return "Build";
+      return "Implement";
     case "work-card-report-review":
       return "Review & Validation";
     case "work-card-validation":
@@ -1117,7 +1395,7 @@ export function generateCurrentHandoff(workspaceRoot: string): RuntimeActionResu
       case "phase-planning-bundle":
         return generatePhasePlanningHandoff(workspaceRoot);
       case "phase-work-card-selection":
-        return selectNextWorkCardCandidate(workspaceRoot, requirePhaseId(model));
+        throw new Error("Work Card Map requires candidate-scoped Begin Planning.");
       case "work-card-planning":
         if (model.workCardIntake) {
           return generateWorkCardIntakeHandoff(workspaceRoot, requirePhaseId(model));
@@ -1136,6 +1414,38 @@ export function generateCurrentHandoff(workspaceRoot: string): RuntimeActionResu
     }
   })();
   return runtimeResult("currentWorkflow:generateHandoff", "Current handoff action completed.", payload);
+}
+
+export function getCurrentWorkCardMapProjection(
+  workspaceRoot: string,
+  phaseId: string,
+  options: WorkCardMapProjectionOptions = {},
+): RuntimeActionResult {
+  return runtimeResult(
+    "currentWorkflow:getWorkCardMapProjection",
+    "Work Card Map loaded.",
+    getWorkCardMapProjection(workspaceRoot, phaseId, options),
+  );
+}
+
+export function beginWorkCardPlanning(
+  workspaceRoot: string,
+  phaseId: string,
+  candidateId: string,
+  options: BeginWorkCardPlanningOptions = {},
+): RuntimeActionResult {
+  const handoff = beginWorkCardPlanningForCandidate(workspaceRoot, phaseId, candidateId, options);
+  const refreshedModel = getCurrentWorkspaceModel(workspaceRoot);
+  const planningModel = getArchitectOutputWorkspaceModel(workspaceRoot, "work-card-planning");
+  return runtimeResult(
+    "currentWorkflow:beginWorkCardPlanning",
+    `Work Card Planning prepared for ${candidateId}.`,
+    {
+      ...handoff,
+      currentWorkspace: refreshedModel,
+      planningTarget: planningModel,
+    },
+  );
 }
 
 export function getCloseReturnSelectionProjection(workspaceRoot: string): RuntimeActionResult {
@@ -1201,7 +1511,7 @@ export function applyCurrentDisposition(
       case "work-card-repair":
         throw new Error("Catalog Architect-output workspaces must use architectOutput:review.");
       case "work-card-building-review":
-        throw new Error("Implementer Build does not authorize report disposition. Open Review & Validation.");
+        throw new Error("Implement does not authorize report disposition. Open Review & Validation.");
       case "work-card-report-review":
         throw new Error("Review & Validation does not authorize Implementer Report disposition. Use the Operator validation decision controls.");
       case "work-card-validation":
@@ -1288,13 +1598,17 @@ export function createValidationAttemptForCurrentWorkCard(workspaceRoot: string)
 
 export function createRepairForCurrentFailure(
   workspaceRoot: string,
-  defect: string,
+  defect = "",
 ): RuntimeActionResult {
-  const trimmedDefect = defect.trim();
+  const evidence = resolveCurrentRepairEvidence(workspaceRoot);
+  const trimmedDefect = defect.trim() || evidence.repairDefectText?.trim() || "";
   if (!trimmedDefect) {
-    throw new Error("Repair defect is required.");
+    throw new Error(
+      evidence.origin === "postValidationRecord"
+        ? "RevisionRequested validation record is missing repairDefectText."
+        : "Repair defect is required for pre-validation report repair evidence.",
+    );
   }
-  const evidence = latestRevisionRequestedEvidence(workspaceRoot);
   const payload = createRepairWorkCard(
     workspaceRoot,
     evidence.phaseId,
@@ -1304,6 +1618,14 @@ export function createRepairForCurrentFailure(
     trimmedDefect,
   );
   return runtimeResult("currentWorkflow:createRepair", "Repair handoff created from current RevisionRequested evidence.", payload);
+}
+
+export function getCurrentRepairWorkspaceProjection(workspaceRoot: string): RuntimeActionResult {
+  return runtimeResult(
+    "currentWorkflow:getRepairWorkspaceProjection",
+    "Work Card Repair workspace projection loaded.",
+    getWorkCardRepairProjection(workspaceRoot),
+  );
 }
 
 export function createPhaseCloseoutForCurrentPhase(
@@ -1385,38 +1707,6 @@ function requireWorkCardId(model: CurrentWorkspaceModel): string {
   return model.currentWorkCardId;
 }
 
-function latestRevisionRequestedEvidence(workspaceRoot: string): {
-  phaseId: string;
-  workCardId: string;
-  path: string;
-  origin: "preValidationReportReview" | "postValidationRecord";
-} {
-  const candidates = listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.effectiveDisposition === "RevisionRequested")
-    .map((document) => {
-      const path = document.markdownPath;
-      const normalizedPath = path.replace(/\\/g, "/");
-      const phaseId = normalizedPath.match(/planning\/phases\/(phase-\d+)\//i)?.[1];
-      const workCardId =
-        normalizedPath.match(/IMPLEMENTER_REPORT_([A-Z0-9-]+)/i)?.[1] ??
-        normalizedPath.match(/VALIDATION_RECORD_([A-Z0-9-]+)_ATTEMPT/i)?.[1];
-      const origin: "preValidationReportReview" | "postValidationRecord" =
-        normalizedPath.toLowerCase().includes("/implementer_reports/")
-          ? "preValidationReportReview"
-          : "postValidationRecord";
-      return phaseId && workCardId && path
-        ? { phaseId, workCardId, path, origin }
-        : null;
-    })
-    .filter((value): value is NonNullable<typeof value> => Boolean(value));
-
-  const candidate = candidates.at(-1);
-  if (!candidate) {
-    throw new Error("Current RevisionRequested report or validation record evidence is required.");
-  }
-  return candidate;
-}
-
 function expectedOutputForWorkspace(workspaceId: WorkspaceId): string {
   switch (workspaceId) {
     case "project-planning-review":
@@ -1443,7 +1733,7 @@ function expectedOutputForWorkspace(workspaceId: WorkspaceId): string {
 function expectedNextStateForWorkspace(workspaceId: WorkspaceId): string {
   switch (workspaceId) {
     case "work-card-planning":
-      return "Approved Work Card advances to Implementer building review.";
+      return "Approved Work Card advances to Implement.";
     case "work-card-building-review":
       return "Pending Implementer Report advances to Review & Validation.";
     case "work-card-report-review":

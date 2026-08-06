@@ -26,26 +26,34 @@ export function WorkCardBuildingReviewWorkspace({
 }): JSX.Element {
   const projection = model?.workCardBuildingReview;
   const reportIsPending = projection?.report?.disposition === "Pending";
+  const contractLabel = projection?.implementationContractLabel ?? "Approved Work Card Contract";
+  const revisionLabel = projection?.implementationContractType === "repair-work-card" ? "Repair Revision" : "Formal Revision";
 
   return (
-    <section className="work-card-building-workspace" aria-label="Work Card Build and Codex Execution">
-      <section className="work-card-building-context" aria-label="Build context and controls">
+    <section className="work-card-building-workspace" aria-label="Work Card Implement and Codex Execution">
+      <section className="work-card-building-context" aria-label="Implement context and controls">
         <header>
           <div>
             <span>Current Work Card</span>
             <h2>{projection?.workCardId ?? model?.currentWorkCardId ?? "Work Card"}</h2>
           </div>
-          <strong>{projection?.workCardTitle ?? model?.currentTarget ?? "Implementer Build"}</strong>
+          <strong>{projection?.workCardTitle ?? model?.currentTarget ?? "Implement"}</strong>
         </header>
         <dl>
           <div>
-            <dt>Approved Formal Work Card</dt>
-            <dd>{projection?.formalWorkCardPath ?? "Resolve current Approved Formal Work Card."}</dd>
+            <dt>{contractLabel}</dt>
+            <dd>{projection?.formalWorkCardPath ?? "Resolve current Approved Work Card Contract."}</dd>
           </div>
           <div>
-            <dt>Formal Revision</dt>
+            <dt>{revisionLabel}</dt>
             <dd>{projection?.formalWorkCardRevision ?? "Waiting"}</dd>
           </div>
+          {projection?.parentWorkCardId ? (
+            <div>
+              <dt>Parent Work Card</dt>
+              <dd>{projection.parentWorkCardId}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Implementer Report Target</dt>
             <dd>{projection?.implementerReportPath ?? "Resolve report target."}</dd>
@@ -60,11 +68,11 @@ export function WorkCardBuildingReviewWorkspace({
           </div>
           <div>
             <dt>Report Readiness</dt>
-            <dd>
-              {[projection?.reportDocumentReadState, projection?.reportFreshnessState]
-                .filter(Boolean)
-                .join(" / ") || "Waiting"}
-            </dd>
+            <dd>{projection?.reportReadiness ?? "Waiting"}</dd>
+          </div>
+          <div>
+            <dt>Readiness Reason</dt>
+            <dd>{projection?.reportReadinessReason ?? "Waiting"}</dd>
           </div>
         </dl>
         <LastRunSummary execution={codexExecution} />
@@ -167,7 +175,9 @@ function CodexExecutionConsole({
   const reportUpdated = execution?.reportUpdated ? "Updated" : "Not updated";
   const postRunMessage =
     state === "completed" || state === "failed" || state === "cancelled"
-      ? "Review the existing Implementer Report in Review & Validation."
+      ? projection?.reportReadiness === "ready-for-review"
+        ? "Review the existing Implementer Report in Review & Validation."
+        : "Complete the reserved Implementer Report before Review & Validation."
       : null;
 
   return (
@@ -184,7 +194,7 @@ function CodexExecutionConsole({
       </header>
       <dl>
         <div>
-          <dt>Formal Work Card</dt>
+          <dt>Work Card Contract</dt>
           <dd>{projection ? `${projection.formalWorkCardPath} revision ${projection.formalWorkCardRevision}` : "Waiting"}</dd>
         </div>
         <div>

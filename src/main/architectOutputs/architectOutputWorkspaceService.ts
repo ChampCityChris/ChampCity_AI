@@ -46,7 +46,11 @@ import {
   resolveProductionArchitectOutputDefinition,
 } from "./productionArchitectOutputCatalog";
 import { prepareFormalWorkCardDraftSubmission } from "../workCardPlanning/workCardPlanningService";
-import { buildApprovedFormalWorkCardAndReportDocuments } from "../workCardBuilding/workCardBuildingReviewService";
+import { resolveActiveWorkCardPlanningHandoff } from "../workCardIntake/workCardIntakeService";
+import {
+  buildApprovedFormalWorkCardAndReportDocuments,
+  buildApprovedRepairWorkCardAndReportDocuments,
+} from "../workCardBuilding/workCardBuildingReviewService";
 import {
   prepareRepairWorkCardDraftSubmission,
   resolveExactActiveRepairWorkCardContext,
@@ -110,6 +114,9 @@ function exactHandoffForWorkspace(
   documents: PlanningDocumentSummary[],
   workspaceId: WorkspaceId,
 ): { path: string; revision: number } | undefined {
+  if (workspaceId === "work-card-planning") {
+    return exactWorkCardPlanningHandoff(workspaceRoot, documents);
+  }
   if (workspaceId !== "work-card-repair") {
     return handoffForWorkspace(documents, workspaceId);
   }
@@ -221,6 +228,14 @@ export function reviewArchitectOutput(
         notes,
         reviewedAt,
       }));
+    } else if (workspaceId === "work-card-repair" && status === "Approved") {
+      writeCanonicalMarkdownDocuments(buildApprovedRepairWorkCardAndReportDocuments({
+        workspaceRoot,
+        repairWorkCardPath: slot.targetPath,
+        approvedStatus: status,
+        notes,
+        reviewedAt,
+      }));
     } else {
       updateCanonicalMarkdownDisposition({
         workspaceRoot,
@@ -318,7 +333,7 @@ function targetPathsForWorkspace(
     targets.set("phase-planning", stringValue(handoffDocument?.metadata.canonical?.workflowData.phasePlanningTarget) ?? latestPath(documents, "phase-planning"));
     targets.set("work-card-plan", stringValue(handoffDocument?.metadata.canonical?.workflowData.workCardPlanTarget) ?? latestPath(documents, "work-card-plan"));
   } else if (workspaceId === "work-card-planning") {
-    const handoff = handoffForWorkspace(documents, workspaceId);
+    const handoff = exactWorkCardPlanningHandoff(workspaceRoot, documents);
     const handoffDocument = handoff ? documents.find((document) => document.markdownPath === handoff.path) : undefined;
     targets.set("formal-work-card", stringValue(handoffDocument?.metadata.canonical?.workflowData.formalWorkCardTarget) ?? latestPath(documents, "formal-work-card"));
   } else if (workspaceId === "work-card-repair") {
@@ -345,10 +360,7 @@ function handoffForWorkspace(
         .filter((document) => document.effectiveDisposition === "Approved")
         .at(-1)
     : workspaceId === "work-card-planning"
-      ? documents
-          .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
-          .filter((document) => document.effectiveDisposition === "Approved")
-          .at(-1)
+      ? undefined
       : documents
           .filter((document) => document.metadata.artifactType === "generated-handoff")
           .filter((document) => document.metadata.canonical?.workflowData.handoffKind === handoffKindByWorkspace[workspaceId])
@@ -357,6 +369,20 @@ function handoffForWorkspace(
   return handoff
     ? { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 }
     : undefined;
+}
+
+function exactWorkCardPlanningHandoff(
+  workspaceRoot: string,
+  documents: PlanningDocumentSummary[],
+): { path: string; revision: number } | undefined {
+  const activeHandoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot);
+  if (activeHandoff) {
+    return {
+      path: activeHandoff.handoff.markdownPath,
+      revision: activeHandoff.handoff.metadata.artifactRevision ?? 1,
+    };
+  }
+  return undefined;
 }
 
 function domainOverlay(
