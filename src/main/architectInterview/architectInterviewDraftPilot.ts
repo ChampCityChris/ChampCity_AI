@@ -28,6 +28,17 @@ const owningWorkspaceId = "architect-interview";
 const slotId = "interview";
 
 type ActiveInterviewSubmission = ActiveArchitectOutputRuntimeSubmission;
+interface ActiveInterviewChatHandoff {
+  workspaceRoot: string;
+  sourceHandoff: ArchitectDraftSubmission["sourceHandoff"];
+  projectIntake: {
+    path: string;
+    revision: number;
+  };
+  preparedInstruction: string;
+}
+
+const activeInterviewChatHandoffByWorkspace = new Map<string, ActiveInterviewChatHandoff>();
 
 const projectArchitectInterviewTitle = "Project Architect Interview";
 const projectArchitectInterviewSections = [
@@ -122,7 +133,7 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
     );
   },
   buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
-    return buildProjectArchitectInterviewPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
+    return buildProjectArchitectInterviewFinalizationInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments }) {
     return { selectedRole: "interview", markdownPath: promotedDocuments[0].relativePath };
@@ -131,6 +142,51 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
 
 export function prepareArchitectInterviewDraftSubmission(workspaceRoot: string): ArchitectDraftSubmission {
   return prepareArchitectOutputRuntimeSubmission(workspaceRoot, outputKind, owningWorkspaceId);
+}
+
+export function prepareArchitectInterviewChatHandoff(workspaceRoot: string): string {
+  const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  const context = requireReadyContext(resolvedWorkspaceRoot);
+  assertCanPrepareSubmission(context);
+  const sourceHandoff = { path: context.prompt.markdownPath, revision: context.prompt.artifactRevision };
+  const preparedInstruction = buildProjectArchitectInterviewChatInstruction(
+    resolvedWorkspaceRoot,
+    context,
+    sourceHandoff,
+  );
+  activeInterviewChatHandoffByWorkspace.set(resolvedWorkspaceRoot, {
+    workspaceRoot: resolvedWorkspaceRoot,
+    sourceHandoff,
+    projectIntake: {
+      path: context.projectIntake.markdownPath,
+      revision: context.projectIntake.artifactRevision,
+    },
+    preparedInstruction,
+  });
+  return preparedInstruction;
+}
+
+export function getPreparedArchitectInterviewChatHandoff(workspaceRoot: string): string | undefined {
+  const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  const active = activeInterviewChatHandoffByWorkspace.get(resolvedWorkspaceRoot);
+  if (!active) return undefined;
+  try {
+    const context = requireReadyContext(resolvedWorkspaceRoot);
+    assertCanPrepareSubmission(context);
+    if (
+      active.sourceHandoff.path !== context.prompt.markdownPath ||
+      active.sourceHandoff.revision !== context.prompt.artifactRevision ||
+      active.projectIntake.path !== context.projectIntake.markdownPath ||
+      active.projectIntake.revision !== context.projectIntake.artifactRevision
+    ) {
+      activeInterviewChatHandoffByWorkspace.delete(resolvedWorkspaceRoot);
+      return undefined;
+    }
+    return active.preparedInstruction;
+  } catch {
+    activeInterviewChatHandoffByWorkspace.delete(resolvedWorkspaceRoot);
+    return undefined;
+  }
 }
 
 export function getArchitectInterviewDraftStatus(workspaceRoot: string): ActiveInterviewSubmission | undefined {
@@ -194,7 +250,50 @@ function readExistingCanonical(workspaceRoot: string, relativePath: string) {
     : null;
 }
 
-function buildProjectArchitectInterviewPreparedInstruction(
+function buildProjectArchitectInterviewChatInstruction(
+  workspaceRoot: string,
+  context: CanonicalArchitectInterviewReadyContext,
+  sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
+): string {
+  const revisionNotes = context.interview?.disposition === "RevisionRequested"
+    ? context.interview.operatorReviewNotes
+    : undefined;
+  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+    {},
+    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
+  );
+  return [
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
+      includeDiagnosticsToolboxHint: false,
+    }),
+    "",
+    "This handoff starts or continues the Project Architect Interview. It is not a draft write-back handoff.",
+    "",
+    "Read these exact current inputs:",
+    `- Approved Project Architect Interview prompt: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
+    `- Approved Project Intake: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
+    "",
+    "Conduct the Project Architect Interview conversationally with the Operator.",
+    "Ask one primary question at a time and continue until material scope, constraints, risks, decisions, unresolved questions, acceptance direction, and planning direction are resolved.",
+    "Do not return a snippet as completion.",
+    `Final output identity: ${projectArchitectInterviewTitle}`,
+    `Final canonical target owned by ChampCity A/I, for context only: ${context.interviewTargets.markdownPath}`,
+    "",
+    "When the interview or revision direction is substantively complete, present a concise confirmation summary.",
+    "Ask the Operator to confirm or correct that summary.",
+    "Stop and wait for Operator confirmation before any draft creation or write-back.",
+    "Do not create, save, or request any Markdown artifact during this handoff.",
+    "",
+    "The eventual Project Architect Interview Markdown body must contain these exact headings:",
+    `# ${projectArchitectInterviewTitle}`,
+    ...projectArchitectInterviewSections.map((heading) => `## ${heading}`),
+    "",
+    "Read and address current Operator revision notes when the existing Interview is RevisionRequested.",
+    ...(revisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
+  ].join("\n");
+}
+
+function buildProjectArchitectInterviewFinalizationInstruction(
   workspaceRoot: string,
   context: CanonicalArchitectInterviewReadyContext,
   submission: ArchitectDraftSubmission<typeof slotId>,
@@ -209,14 +308,17 @@ function buildProjectArchitectInterviewPreparedInstruction(
     inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
   );
   return [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
+      includeDiagnosticsToolboxHint: false,
+    }),
+    "",
+    "This is the Finalize Interview Draft handoff. Use it only after the Operator has confirmed or corrected the interview completion summary.",
     "",
     "Read these exact current inputs:",
     `- Approved Project Architect Interview prompt: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
     `- Approved Project Intake: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
     "",
-    "Conduct the Project Architect Interview conversationally with the Operator until material scope, constraints, risks, decisions, unresolved questions, and planning direction are resolved.",
-    "Do not return a snippet as completion.",
+    "Write only the complete body-only Project Architect Interview Markdown that reflects the confirmed interview summary.",
     `Final output identity: ${projectArchitectInterviewTitle}`,
     `Final canonical target owned by ChampCity A/I: ${context.interviewTargets.markdownPath}`,
     `Temporary draft Markdown: ${draftPath}`,

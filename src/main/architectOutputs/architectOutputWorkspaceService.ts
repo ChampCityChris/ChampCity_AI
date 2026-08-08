@@ -21,7 +21,10 @@ import {
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
 import {
+  getPreparedArchitectInterviewFinalDraftInstruction,
+  getPreparedArchitectInterviewHandoffInstruction,
   getArchitectInterviewWorkspaceModel,
+  prepareArchitectInterviewFinalDraftHandoff,
   prepareArchitectInterviewHandoff,
   regenerateArchitectInterviewPrompt,
 } from "../architectInterview/architectInterviewService";
@@ -71,12 +74,17 @@ export function getArchitectOutputWorkspaceModel(
   const submission = getActiveArchitectOutputRuntimeSubmission(workspaceRoot, workspaceId);
   const classifiedState = deriveState(slots, submission?.submission.state);
   const model = domainOverlay(workspaceRoot, workspaceId, classifiedState);
+  const interviewDomainModel = workspaceId === "architect-interview"
+    ? model.domain as ReturnType<typeof getArchitectInterviewWorkspaceModel> | undefined
+    : undefined;
   const state = model.state ?? classifiedState;
   const handoff = sourceHandoffFromSubmission(submission?.submission.sourceHandoff) ??
     exactHandoffForWorkspace(workspaceRoot, documents, workspaceId);
-  const preparedInstruction = submission && canCopySubmission(submission.submission.state)
-    ? submission.preparedInstruction
-    : undefined;
+  const preparedInstruction = interviewDomainModel
+    ? interviewDomainModel.handoffInstruction
+    : submission && canCopySubmission(submission.submission.state)
+      ? submission.preparedInstruction
+      : undefined;
 
   return {
     workspaceId,
@@ -104,13 +112,16 @@ export function getArchitectOutputWorkspaceModel(
     cleanupStatus: submission?.cleanupStatus,
     cleanupError: submission?.cleanupError,
     canPrepareHandoff: model.canPrepareHandoff ?? canPrepareFromState(state),
-    canCopyHandoff: Boolean(preparedInstruction),
+    canCopyHandoff: interviewDomainModel ? interviewDomainModel.canCopyHandoff : Boolean(preparedInstruction),
     canRegeneratePrompt: model.canRegeneratePrompt,
     reviewMode: definition.bundleMode === "atomic-bundle" ? "compound" : "single",
     documentSlots: slots,
     canApplyDisposition: slots.length > 0 && slots.every(isReviewableSlot),
     currentOperatorReviewNotes: sharedReviewNotes(slots, documents),
     domain: model.domain,
+    canPrepareFinalDraftHandoff: interviewDomainModel?.canPrepareFinalDraftHandoff,
+    canCopyFinalDraftHandoff: interviewDomainModel?.canCopyFinalDraftHandoff,
+    finalDraftPreparedInstruction: interviewDomainModel?.finalDraftHandoffInstruction,
   };
 }
 
@@ -172,10 +183,20 @@ export function regenerateArchitectInterviewPromptWorkspace(
   return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
 }
 
+export function prepareArchitectInterviewFinalDraftHandoffWorkspace(
+  workspaceRoot: string,
+): ArchitectOutputWorkspaceModel {
+  prepareArchitectInterviewFinalDraftHandoff(workspaceRoot);
+  return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
+}
+
 export function getPreparedArchitectOutputInstruction(
   workspaceRoot: string,
   workspaceId: WorkspaceId,
 ): string {
+  if (workspaceId === "architect-interview") {
+    return getPreparedArchitectInterviewHandoffInstruction(workspaceRoot);
+  }
   const definition = resolveDefinitionByWorkspace(workspaceId);
   const instruction = getActivePreparedArchitectOutputInstruction(
     workspaceRoot,
@@ -185,6 +206,12 @@ export function getPreparedArchitectOutputInstruction(
     throw new Error("Prepare Handoff must be completed before Copy Handoff.");
   }
   return instruction;
+}
+
+export function getPreparedArchitectInterviewFinalDraftOutputInstruction(
+  workspaceRoot: string,
+): string {
+  return getPreparedArchitectInterviewFinalDraftInstruction(workspaceRoot);
 }
 
 export function copyArchitectOutputHandoffResult(
@@ -207,6 +234,21 @@ export function resolveArchitectOutputCopyHandoff(
   return {
     instruction,
     result: copyArchitectOutputHandoffResult(workspaceId, instruction),
+  };
+}
+
+export function resolveArchitectInterviewCopyFinalDraftHandoff(
+  workspaceRoot: string,
+): { instruction: string; result: RuntimeActionResult } {
+  const instruction = getPreparedArchitectInterviewFinalDraftOutputInstruction(workspaceRoot);
+  return {
+    instruction,
+    result: {
+      ok: true,
+      action: "architectInterview:copyFinalDraftHandoff",
+      message: "Final Draft handoff copied. Paste and send it manually after the interview summary is confirmed.",
+      payload: { bytes: Buffer.byteLength(instruction, "utf8"), workspaceId: "architect-interview" },
+    },
   };
 }
 

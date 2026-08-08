@@ -86,6 +86,14 @@ const api: ChampCityApi = {
       "architectOutput:copyHandoff",
       workspaceId,
     ) as ReturnType<ChampCityApi["copyArchitectOutputHandoff"]>,
+  prepareArchitectInterviewFinalDraftHandoff: () =>
+    ipcRenderer.invoke(
+      "architectInterview:prepareFinalDraftHandoff",
+    ) as ReturnType<ChampCityApi["prepareArchitectInterviewFinalDraftHandoff"]>,
+  copyArchitectInterviewFinalDraftHandoff: () =>
+    ipcRenderer.invoke(
+      "architectInterview:copyFinalDraftHandoff",
+    ) as ReturnType<ChampCityApi["copyArchitectInterviewFinalDraftHandoff"]>,
   reviewArchitectOutput: (workspaceId, status, operatorReviewNotes, presentedRevisions) =>
     ipcRenderer.invoke(
       "architectOutput:review",

@@ -305,6 +305,12 @@ test("production App binds the Figma shell to existing document, browser, Codex,
   assert.match(appSource, /Regenerate Interview Prompt/);
   assert.match(appSource, /Prepare ChatGPT Handoff/);
   assert.match(appSource, /Copy ChatGPT Handoff/);
+  assert.match(appSource, /prepareArchitectInterviewFinalDraftHandoff/);
+  assert.match(appSource, /copyArchitectInterviewFinalDraftHandoff/);
+  assert.match(appSource, /Prepare Final Draft Handoff/);
+  assert.match(appSource, /Copy Final Draft Handoff/);
+  assert.match(appSource, /canPrepareFinalDraftHandoff/);
+  assert.match(appSource, /canCopyFinalDraftHandoff/);
   assert.match(appSource, /workspaceHeadingLabel/);
   assert.match(appSource, /Project Intake Questionnaire/);
   assert.match(appSource, /<FigmaProjectIntakeDispositionPanel/);

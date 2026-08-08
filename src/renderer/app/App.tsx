@@ -112,6 +112,10 @@ const architectOutputPreparedFeedback =
   "Architect handoff prepared. Copy it and send it manually in embedded ChatGPT.";
 const architectOutputCopiedFeedback =
   "Architect handoff copied. Paste and send it manually in embedded ChatGPT.";
+const architectInterviewFinalDraftPreparedFeedback =
+  "Final Draft handoff prepared. Copy it after confirming the interview summary.";
+const architectInterviewFinalDraftCopiedFeedback =
+  "Final Draft handoff copied. Paste and send it manually after the interview summary is confirmed.";
 const figmaThemePreferenceKey = "champcity:figma-theme";
 const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
   "work-card-planning",
@@ -817,6 +821,39 @@ export function App(): JSX.Element {
       setArchitectFeedback({
         kind: "error",
         message: error instanceof Error ? error.message : "Architect handoff could not be prepared.",
+      });
+    }
+  }
+
+  async function prepareArchitectInterviewFinalDraftFromAction(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback(null);
+    try {
+      const nextModel = await window.champcity.prepareArchitectInterviewFinalDraftHandoff();
+      setArchitectOutputModel(nextModel);
+      setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftPreparedFeedback }, 3500);
+      await refreshDocuments({ useResolver: true });
+      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Final Draft handoff could not be prepared.",
+      });
+    }
+  }
+
+  async function copyArchitectInterviewFinalDraftHandoff(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback(null);
+    try {
+      await window.champcity.copyArchitectInterviewFinalDraftHandoff();
+      setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftCopiedFeedback }, 4500);
+      await refreshArchitectStatus();
+      await refreshArchitectOutputWorkspace({ force: true });
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Final Draft handoff could not be copied.",
       });
     }
   }
@@ -1915,6 +1952,16 @@ export function App(): JSX.Element {
                     }
                     model={architectOutputModel}
                     onCopyHandoff={copyArchitectHandoff}
+                    onCopyFinalDraftHandoff={
+                      activeWorkspaceId === "architect-interview"
+                        ? copyArchitectInterviewFinalDraftHandoff
+                        : undefined
+                    }
+                    onPrepareFinalDraftHandoff={
+                      activeWorkspaceId === "architect-interview"
+                        ? prepareArchitectInterviewFinalDraftFromAction
+                        : undefined
+                    }
                     onPrepareHandoff={prepareArchitectOutputFromAction}
                     onRegeneratePrompt={regenerateArchitectInterviewPromptFromAction}
                     onRefresh={() => {
@@ -2427,7 +2474,9 @@ function FigmaBrowserActionsPanel({
   handoffActionsVisible = true,
   model,
   onCopyHandoff,
+  onCopyFinalDraftHandoff,
   onPrepareHandoff,
+  onPrepareFinalDraftHandoff,
   onRegeneratePrompt,
   onRefresh,
   onReloadBrowser,
@@ -2443,7 +2492,9 @@ function FigmaBrowserActionsPanel({
   handoffActionsVisible?: boolean;
   model: ArchitectOutputWorkspaceModel | null;
   onCopyHandoff: () => void;
+  onCopyFinalDraftHandoff?: () => void;
   onPrepareHandoff: () => void;
+  onPrepareFinalDraftHandoff?: () => void;
   onRegeneratePrompt?: () => void;
   onRefresh: () => void;
   onReloadBrowser: () => void;
@@ -2480,6 +2531,26 @@ function FigmaBrowserActionsPanel({
               <Clipboard aria-hidden="true" size={14} />
               {copyHandoffLabel}
             </button>
+            {onPrepareFinalDraftHandoff && onCopyFinalDraftHandoff ? (
+              <>
+                <button
+                  disabled={!model?.canPrepareFinalDraftHandoff}
+                  onClick={onPrepareFinalDraftHandoff}
+                  type="button"
+                >
+                  <FileText aria-hidden="true" size={14} />
+                  Prepare Final Draft Handoff
+                </button>
+                <button
+                  disabled={!model?.canCopyFinalDraftHandoff}
+                  onClick={onCopyFinalDraftHandoff}
+                  type="button"
+                >
+                  <Clipboard aria-hidden="true" size={14} />
+                  Copy Final Draft Handoff
+                </button>
+              </>
+            ) : null}
           </>
         ) : null}
         {contextualActions ? (

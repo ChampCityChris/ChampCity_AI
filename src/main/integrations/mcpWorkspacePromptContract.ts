@@ -36,6 +36,7 @@ export function readExplicitMcpWorkspaceBinding(workspaceRoot: string): BoundMcp
 export function buildMcpWorkspaceBindingPromptBlock(
   workspaceRoot: string,
   workflowData?: Record<string, unknown>,
+  options: { includeDiagnosticsToolboxHint?: boolean } = {},
 ): string[] {
   const binding = workflowData
     ? bindingForPrompt(workspaceRoot, workflowData)
@@ -49,7 +50,9 @@ export function buildMcpWorkspaceBindingPromptBlock(
     `- Use ChampCity MCP workspaceId "${binding.workspaceId}" only.`,
     "- Use this workspaceId in every ChampCity MCP tool call.",
     "- Do not inspect, search, compare, or fall back to any other configured workspace.",
-    "- diagnostics_toolbox.list_workspaces may be used only to confirm that this workspaceId exists.",
+    ...(options.includeDiagnosticsToolboxHint === false
+      ? []
+      : ["- diagnostics_toolbox.list_workspaces may be used only to confirm that this workspaceId exists."]),
     "- If the bound workspaceId is absent, inaccessible, or does not contain the exact required artifact path, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH.",
   ];
 }

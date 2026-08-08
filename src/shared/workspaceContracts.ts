@@ -153,6 +153,9 @@ export interface ArchitectOutputWorkspaceModel {
   canApplyDisposition: boolean;
   currentOperatorReviewNotes?: string;
   domain?: unknown;
+  canPrepareFinalDraftHandoff?: boolean;
+  canCopyFinalDraftHandoff?: boolean;
+  finalDraftPreparedInstruction?: string;
 }
 
 export type ArchitectHandoffState =
@@ -326,6 +329,9 @@ export interface ArchitectInterviewWorkspaceModel {
   canRegeneratePrompt?: boolean;
   canPrepareHandoff?: boolean;
   canCopyHandoff: boolean;
+  canPrepareFinalDraftHandoff?: boolean;
+  canCopyFinalDraftHandoff?: boolean;
+  finalDraftHandoffInstruction?: string;
   canApplyDisposition: boolean;
   currentOperatorReviewNotes?: string;
   projectIntakeComplete: boolean;
@@ -858,6 +864,8 @@ export interface ChampCityApi {
   prepareArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
   regenerateArchitectInterviewPrompt: () => Promise<ArchitectOutputWorkspaceModel>;
   copyArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<RuntimeActionResult>;
+  prepareArchitectInterviewFinalDraftHandoff: () => Promise<ArchitectOutputWorkspaceModel>;
+  copyArchitectInterviewFinalDraftHandoff: () => Promise<RuntimeActionResult>;
   reviewArchitectOutput: (
     workspaceId: WorkspaceId,
     status: DocumentDispositionStatus,

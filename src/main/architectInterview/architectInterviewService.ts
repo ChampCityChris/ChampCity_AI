@@ -18,11 +18,12 @@ import { buildArchitectInterviewReviewSourceKey } from "../../shared/architectIn
 import {
   updateCanonicalMarkdownDisposition,
 } from "../documents/canonicalMarkdownDocumentWriter";
-import { getArchitectInterviewDraftStatus, prepareArchitectInterviewDraftSubmission } from "./architectInterviewDraftPilot";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
-  buildMcpWorkspaceBindingPromptBlock,
-} from "../integrations/mcpWorkspacePromptContract";
+  getArchitectInterviewDraftStatus,
+  getPreparedArchitectInterviewChatHandoff,
+  prepareArchitectInterviewChatHandoff,
+  prepareArchitectInterviewDraftSubmission,
+} from "./architectInterviewDraftPilot";
 
 export function getArchitectInterviewWorkspaceModel(
   workspaceRoot: string,
@@ -77,6 +78,8 @@ export function getArchitectInterviewWorkspaceModel(
       ? draftStatus
       : undefined;
   const canPrepareHandoff = canPrepareHandoffForContext(context);
+  const preparedChatHandoff = getPreparedArchitectInterviewChatHandoff(workspaceRoot);
+  const finalDraftHandoffInstruction = writableDraftStatus ? writableDraftStatus.preparedInstruction : undefined;
   const invalidInterviewReason = context.invalidInterviewReason;
   const documentReadState = inspectableInterview?.documentReadState ?? "missing";
   const freshnessState = inspectableInterview?.freshnessState ?? context.invalidInterviewFreshnessState ?? "fresh";
@@ -99,8 +102,8 @@ export function getArchitectInterviewWorkspaceModel(
   return {
     state,
     railStatus,
-    handoffState: canPrepareHandoff || writableDraftStatus ? "handoff-ready" : "handoff-unavailable",
-    handoffInstruction: writableDraftStatus ? writableDraftStatus.preparedInstruction : undefined,
+    handoffState: canPrepareHandoff || preparedChatHandoff || writableDraftStatus ? "handoff-ready" : "handoff-unavailable",
+    handoffInstruction: preparedChatHandoff,
     promptDocument: context.prompt,
     interviewTargets: context.interviewTargets,
     interviewDocument: inspectableInterview,
@@ -110,7 +113,10 @@ export function getArchitectInterviewWorkspaceModel(
     freshnessState,
     canRegeneratePrompt: false,
     canPrepareHandoff,
-    canCopyHandoff: canPrepareHandoff,
+    canCopyHandoff: Boolean(preparedChatHandoff),
+    canPrepareFinalDraftHandoff: canPrepareHandoff,
+    canCopyFinalDraftHandoff: Boolean(finalDraftHandoffInstruction),
+    finalDraftHandoffInstruction,
     canApplyDisposition: invalidInterviewReason ? false : canApplyDisposition,
     currentOperatorReviewNotes,
     projectIntakeComplete: railStatus === "Completed",
@@ -132,8 +138,29 @@ export function getArchitectInterviewWorkspaceModel(
 }
 
 export function prepareArchitectInterviewHandoff(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
+  prepareArchitectInterviewChatHandoff(workspaceRoot);
+  return getArchitectInterviewWorkspaceModel(workspaceRoot);
+}
+
+export function prepareArchitectInterviewFinalDraftHandoff(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
   prepareArchitectInterviewDraftSubmission(workspaceRoot);
   return getArchitectInterviewWorkspaceModel(workspaceRoot);
+}
+
+export function getPreparedArchitectInterviewHandoffInstruction(workspaceRoot: string): string {
+  const instruction = getPreparedArchitectInterviewChatHandoff(workspaceRoot);
+  if (!instruction) {
+    throw new Error("Prepare ChatGPT Handoff must be completed before Copy ChatGPT Handoff.");
+  }
+  return instruction;
+}
+
+export function getPreparedArchitectInterviewFinalDraftInstruction(workspaceRoot: string): string {
+  const model = getArchitectInterviewWorkspaceModel(workspaceRoot);
+  if (!model.canCopyFinalDraftHandoff || !model.finalDraftHandoffInstruction) {
+    throw new Error("Prepare Final Draft Handoff must be completed before Copy Final Draft Handoff.");
+  }
+  return model.finalDraftHandoffInstruction;
 }
 
 export function regenerateArchitectInterviewPrompt(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
@@ -310,87 +337,4 @@ function canPrepareHandoffForContext(
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function buildArchitectHandoffInstruction({
-  currentInterviewDisposition,
-  currentOperatorReviewNotes,
-  draftMarkdownPath,
-  workspaceRoot,
-  projectIntakeJsonRevision,
-  projectIntakeMarkdownPath,
-  promptJsonRevision,
-  promptMarkdownPath,
-}: {
-  workspaceRoot: string;
-  promptMarkdownPath: string;
-  promptJsonRevision: number;
-  projectIntakeMarkdownPath: string;
-  projectIntakeJsonRevision: number;
-  draftMarkdownPath: string;
-  currentInterviewDisposition?: DocumentDispositionStatus;
-  currentOperatorReviewNotes?: string;
-}): string {
-  const revisionInstruction =
-    currentInterviewDisposition === "RevisionRequested" && currentOperatorReviewNotes
-      ? [
-          "",
-          "Current Operator revision notes to address:",
-          currentOperatorReviewNotes,
-        ]
-      : [];
-  const sourceRevisionMarkdownLines = [
-    `- path: ${projectIntakeMarkdownPath} revision: ${projectIntakeJsonRevision}`,
-    `- path: ${promptMarkdownPath} revision: ${promptJsonRevision}`,
-  ];
-  const promptWorkflowData = readCanonicalWorkflowData(workspaceRoot, promptMarkdownPath);
-
-  return [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
-    "This handoff is for the embedded Architect chat.",
-    "",
-    "Read these exact handoff inputs:",
-    `- Prompt Markdown: ${promptMarkdownPath}`,
-    `- Project Intake Markdown: ${projectIntakeMarkdownPath}`,
-    "",
-    "Use these current source revisions:",
-    ...sourceRevisionMarkdownLines,
-    "",
-    "Conduct the Project Architect Interview conversationally with the Operator in this chat.",
-    "Continue until material scope, constraints, risks, decisions, unresolved questions, and planning direction are resolved.",
-    "Chat text is not the durable record.",
-    "Do not create placeholder output before the interview is substantively complete.",
-    "Do not return a snippet as completion.",
-    "Do not require manual Operator handling of completed Interview output.",
-    "When the interview or revision is substantively complete, synthesize one complete substantive Project Architect Interview Markdown document body.",
-    "Write only that body to this exact temporary draft path:",
-    `- Temporary draft Markdown: ${draftMarkdownPath}`,
-    "Call artifact_toolbox.create_markdown_artifact with this invocation structure:",
-    "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
-      workspaceRoot,
-      draftMarkdownPath,
-      "<complete body-only Interview Markdown>",
-      promptWorkflowData,
-    ),
-    "```",
-    "Do not supply canonical metadata, a final canonical output path, route-specific handoff fields, hashes, digests, checksums, tokens, metadata delimiters, or any hidden authorization value.",
-    "Do not call the retired submission action, any retired Interview save action, or any alternate file-writing route.",
-    "The workflow remains incomplete until this temporary draft is created and ChampCity A/I promotes it.",
-    "After creating the draft, respond with a concise draft-created confirmation.",
-    "If the action is unavailable, denied, or fails, provide the exact failure and remain incomplete.",
-    "ChampCity A/I alone constructs the final canonical Interview and its metadata, revision, source revisions, and Pending disposition.",
-    "",
-    "Read and address current Operator revision notes when the existing Interview is RevisionRequested.",
-    ...revisionInstruction,
-  ].join("\n");
-}
-
-function readCanonicalWorkflowData(workspaceRoot: string, relativePath: string): Record<string, unknown> {
-  if (path.isAbsolute(relativePath) || relativePath.includes("..")) {
-    throw new Error("Architect Interview prompt path must be repository-relative.");
-  }
-  return parseCanonicalMarkdownDocument(
-    fs.readFileSync(path.join(path.resolve(workspaceRoot), relativePath), "utf8"),
-  ).metadata.workflowData;
 }

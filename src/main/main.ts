@@ -25,8 +25,10 @@ import {
 } from "./browser/architectBrowserService";
 import {
   getArchitectOutputWorkspaceModel,
+  prepareArchitectInterviewFinalDraftHandoffWorkspace,
   prepareArchitectOutputHandoff,
   regenerateArchitectInterviewPromptWorkspace,
+  resolveArchitectInterviewCopyFinalDraftHandoff,
   resolveArchitectOutputCopyHandoff,
   reviewArchitectOutput,
 } from "./architectOutputs/architectOutputWorkspaceService";
@@ -275,6 +277,23 @@ ipcMain.handle(
   (_event, workspaceId: WorkspaceId): RuntimeActionResult => {
     const workspaceRoot = getRequiredWorkspaceRoot();
     const { instruction, result } = resolveArchitectOutputCopyHandoff(workspaceRoot, workspaceId);
+    clipboard.writeText(instruction);
+    return result;
+  },
+);
+
+ipcMain.handle(
+  "architectInterview:prepareFinalDraftHandoff",
+  (): ArchitectOutputWorkspaceModel => {
+    return prepareArchitectInterviewFinalDraftHandoffWorkspace(getRequiredWorkspaceRoot());
+  },
+);
+
+ipcMain.handle(
+  "architectInterview:copyFinalDraftHandoff",
+  (): RuntimeActionResult => {
+    const workspaceRoot = getRequiredWorkspaceRoot();
+    const { instruction, result } = resolveArchitectInterviewCopyFinalDraftHandoff(workspaceRoot);
     clipboard.writeText(instruction);
     return result;
   },

@@ -7,6 +7,7 @@ const test = require("node:test");
 const {
   getArchitectInterviewWorkspaceModel,
   reviewArchitectInterview,
+  prepareArchitectInterviewFinalDraftHandoff,
   prepareArchitectInterviewHandoff,
 } = require("../../dist/main/architectInterview/architectInterviewService.js");
 const {
@@ -55,8 +56,9 @@ function assertSingleMarkdown(root, relativePath) {
 }
 
 function submitDraft(root, body) {
-  const prepared = prepareArchitectInterviewHandoff(root);
-  const draftPath = prepared.handoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
+  prepareArchitectInterviewHandoff(root);
+  const finalized = prepareArchitectInterviewFinalDraftHandoff(root);
+  const draftPath = finalized.finalDraftHandoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
   fs.writeFileSync(path.join(root, draftPath), body, "utf8");
   return getArchitectInterviewWorkspaceModel(root);

@@ -57,14 +57,23 @@ test("one generic Architect-output IPC and preload contract serves all catalog w
     "getArchitectOutputWorkspaceModel",
     "prepareArchitectOutputHandoff",
     "copyArchitectOutputHandoff",
+    "prepareArchitectInterviewFinalDraftHandoff",
+    "copyArchitectInterviewFinalDraftHandoff",
     "reviewArchitectOutput",
   ]) {
     assert.match(preloadSource, new RegExp(`${method}:`), method);
     assert.match(rendererSource, new RegExp(`window\\.champcity\\.${method}`), method);
   }
+  for (const channel of [
+    "architectInterview:prepareFinalDraftHandoff",
+    "architectInterview:copyFinalDraftHandoff",
+  ]) {
+    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
+  }
 
   for (const retired of [
-    /architectInterview:/,
+    /architectInterview:save/,
+    /architectInterview:submit/,
     /projectPlanning:/,
     /phaseInterview:/,
     /phasePlanning:/,

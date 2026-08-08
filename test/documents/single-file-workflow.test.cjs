@@ -13,6 +13,7 @@ const {
 } = require("../../dist/main/documents/planningDocumentService.js");
 const {
   getArchitectInterviewWorkspaceModel,
+  prepareArchitectInterviewFinalDraftHandoff,
   prepareArchitectInterviewHandoff,
   reviewArchitectInterview,
 } = require("../../dist/main/architectInterview/architectInterviewService.js");
@@ -51,8 +52,9 @@ function intake(root) {
 }
 
 function submitDraft(root, body) {
-  const prepared = prepareArchitectInterviewHandoff(root);
-  const draftPath = prepared.handoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
+  prepareArchitectInterviewHandoff(root);
+  const finalized = prepareArchitectInterviewFinalDraftHandoff(root);
+  const draftPath = finalized.finalDraftHandoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
   fs.writeFileSync(path.join(root, draftPath), body, "utf8");
   return getArchitectInterviewWorkspaceModel(root);
