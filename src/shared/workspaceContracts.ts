@@ -21,12 +21,21 @@ export type WorkspaceSelection =
   | {
       ok: true;
       workspaceRoot: string;
+      mcpWorkspaceBinding?: McpWorkspaceBinding;
     }
   | {
       ok: false;
       workspaceRoot: null;
       reason: string;
     };
+
+export interface McpWorkspaceBinding {
+  mcpWorkspaceId: string;
+  label?: string;
+  repositoryName?: string;
+  branch?: string;
+  gitBacked: boolean;
+}
 
 export interface AppInfo {
   name: "ChampCity A/I";
@@ -138,6 +147,7 @@ export interface ArchitectOutputWorkspaceModel {
   cleanupError?: string;
   canPrepareHandoff: boolean;
   canCopyHandoff: boolean;
+  canRegeneratePrompt?: boolean;
   reviewMode: ArchitectOutputReviewMode;
   documentSlots: ArchitectOutputDocumentSlotModel[];
   canApplyDisposition: boolean;
@@ -167,7 +177,7 @@ export interface ArchitectHandoffManifest {
   projectIntakeMarkdownPath?: string;
   interviewMarkdownTargetPath?: string;
   handoffInstruction?: string;
-  repositoryReference?: "<PROJECT_REPO>";
+  mcpWorkspaceBinding?: McpWorkspaceBinding;
   reason?: string;
 }
 
@@ -254,6 +264,7 @@ export interface OperatorValidationDecisionInput {
 
 export type ArchitectInterviewWorkspaceState =
   | "prerequisites-unavailable"
+  | "prompt-missing"
   | "ready-for-handoff"
   | "waiting-for-output"
   | "ready-for-review"
@@ -280,7 +291,7 @@ export type ProjectLifecycleRailStatus =
   | "Needs Attention"
   | "Conflict";
 
-export type ArchitectInterviewSelectedDocumentRole = "prompt" | "interview";
+export type ArchitectInterviewSelectedDocumentRole = "project-intake" | "prompt" | "interview";
 
 export interface ArchitectInterviewDocumentIdentity {
   logicalDocumentId: string;
@@ -302,6 +313,7 @@ export interface ArchitectInterviewWorkspaceModel {
   handoffInstruction?: string;
   draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
   draftPromotionError?: string;
+  projectIntakeDocument?: ArchitectInterviewDocumentIdentity;
   promptDocument?: ArchitectInterviewDocumentIdentity & { outputMarkdownPath?: string };
   interviewTargets?: {
     markdownPath: string;
@@ -311,6 +323,8 @@ export interface ArchitectInterviewWorkspaceModel {
   interviewDisposition?: DocumentDispositionStatus;
   documentReadState?: string;
   freshnessState?: "fresh" | "stale";
+  canRegeneratePrompt?: boolean;
+  canPrepareHandoff?: boolean;
   canCopyHandoff: boolean;
   canApplyDisposition: boolean;
   currentOperatorReviewNotes?: string;
@@ -842,6 +856,7 @@ export interface ChampCityApi {
   reloadArchitectBrowser: () => Promise<ArchitectBrowserFoundationStatus>;
   getArchitectOutputWorkspaceModel: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
   prepareArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
+  regenerateArchitectInterviewPrompt: () => Promise<ArchitectOutputWorkspaceModel>;
   copyArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<RuntimeActionResult>;
   reviewArchitectOutput: (
     workspaceId: WorkspaceId,

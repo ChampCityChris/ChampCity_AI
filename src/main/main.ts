@@ -26,6 +26,7 @@ import {
 import {
   getArchitectOutputWorkspaceModel,
   prepareArchitectOutputHandoff,
+  regenerateArchitectInterviewPromptWorkspace,
   resolveArchitectOutputCopyHandoff,
   reviewArchitectOutput,
 } from "./architectOutputs/architectOutputWorkspaceService";
@@ -259,6 +260,13 @@ ipcMain.handle(
   "architectOutput:prepareHandoff",
   (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel => {
     return prepareArchitectOutputHandoff(getRequiredWorkspaceRoot(), workspaceId);
+  },
+);
+
+ipcMain.handle(
+  "architectOutput:regenerateInterviewPrompt",
+  (): ArchitectOutputWorkspaceModel => {
+    return regenerateArchitectInterviewPromptWorkspace(getRequiredWorkspaceRoot());
   },
 );
 

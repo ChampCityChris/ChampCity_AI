@@ -1,13 +1,21 @@
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
-import { analyzeProjectIntakeCorpus } from "../../shared/projectIntake/projectIntakeCorpus";
+import {
+  analyzeProjectIntakeCorpus,
+  isCanonicalProjectIntakePath,
+} from "../../shared/projectIntake/projectIntakeCorpus";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
+import {
+  projectArchitectInterviewPromptPath,
+  projectArchitectInterviewTargetPath,
+} from "./projectArchitectInterviewPromptWriter";
 
 export type CanonicalArchitectInterviewContextStatus =
   | "prerequisites-unavailable"
+  | "prompt-missing-recoverable"
   | "ready"
   | "conflict"
   | "local-error";
@@ -49,7 +57,18 @@ export interface CanonicalArchitectInterviewReadyContext {
 export type CanonicalArchitectInterviewContext =
   | CanonicalArchitectInterviewReadyContext
   | {
-      status: Exclude<CanonicalArchitectInterviewContextStatus, "ready">;
+      status: "prompt-missing-recoverable";
+      reason: string;
+      projectIntake: CanonicalArtifactIdentity;
+      projectSlug: string;
+      promptTargetPath: string;
+      interviewTargets: {
+        markdownPath: string;
+      };
+      evidencePaths: string[];
+    }
+  | {
+      status: Exclude<CanonicalArchitectInterviewContextStatus, "ready" | "prompt-missing-recoverable">;
       reason: string;
       evidencePaths: string[];
     };
@@ -75,12 +94,30 @@ export function resolveCanonicalArchitectInterviewContext(
       return localError("The active Project Intake is not readable as canonical Markdown.", evidence(intakeDocument));
     }
     const intakeIdentity = identityFor(intakeDocument);
+    const projectSlug = projectSlugForIntake(intakeDocument);
+    const deterministicPromptPath = projectArchitectInterviewPromptPath(projectSlug);
+    const deterministicInterviewTargetPath = projectArchitectInterviewTargetPath(projectSlug);
 
     const promptCandidates = documents.filter((document) =>
       isCurrentAssociatedPrompt(document, intakeIdentity),
     );
     if (promptCandidates.length === 0) {
-      return unavailable("No Approved associated Project Architect Interview Prompt Markdown document is available.", evidence(intakeDocument));
+      const targetDocument = documents.find((document) => document.markdownPath === deterministicPromptPath);
+      if (targetDocument) {
+        return conflict(
+          "Project Architect Interview Prompt target exists but is not the current Approved associated prompt. Resolve the conflicting prompt file before regenerating.",
+          [...evidence(intakeDocument), ...evidence(targetDocument)],
+        );
+      }
+      return {
+        status: "prompt-missing-recoverable",
+        reason: "Project Architect Interview Prompt Markdown is missing and can be regenerated from the Approved Project Intake.",
+        projectIntake: intakeIdentity,
+        projectSlug,
+        promptTargetPath: deterministicPromptPath,
+        interviewTargets: { markdownPath: deterministicInterviewTargetPath },
+        evidencePaths: evidence(intakeDocument),
+      };
     }
     if (promptCandidates.length > 1) {
       return conflict(
@@ -297,6 +334,31 @@ function sortRecord(value: Record<string, unknown>): Record<string, unknown> {
 function defaultInterviewTarget(promptDocument: PlanningDocumentSummary): string {
   const slug = promptDocument.markdownPath.match(/PROJECT_ARCHITECT_INTERVIEW_PROMPT_(.+)\.md$/)?.[1] ?? "project";
   return `planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_${slug}.md`;
+}
+
+function projectSlugForIntake(document: PlanningDocumentSummary): string {
+  const identity = document.metadata.canonical?.identity ?? {};
+  const workflowData = document.metadata.canonical?.workflowData ?? {};
+  const fromIdentity = stringValue(identity["Project.ArtifactKey"]) ?? stringValue(identity.projectSlug);
+  if (fromIdentity) {
+    return fromIdentity;
+  }
+  const fromWorkflow = stringValue(workflowData.projectSlug);
+  if (fromWorkflow) {
+    return fromWorkflow;
+  }
+  if (isCanonicalProjectIntakePath(document.markdownPath)) {
+    const filename = document.markdownPath.split("/").at(-1) ?? "";
+    const slug = filename.replace(/\.md$/i, "").replace(/^PROJECT_INTAKE_?/i, "").trim();
+    if (slug) {
+      return slug;
+    }
+  }
+  throw new Error("Current Project Intake evidence does not provide projectSlug.");
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function evidence(document: PlanningDocumentSummary): string[] {

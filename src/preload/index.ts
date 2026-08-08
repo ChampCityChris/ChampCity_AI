@@ -77,6 +77,10 @@ const api: ChampCityApi = {
       "architectOutput:prepareHandoff",
       workspaceId,
     ) as ReturnType<ChampCityApi["prepareArchitectOutputHandoff"]>,
+  regenerateArchitectInterviewPrompt: () =>
+    ipcRenderer.invoke(
+      "architectOutput:regenerateInterviewPrompt",
+    ) as ReturnType<ChampCityApi["regenerateArchitectInterviewPrompt"]>,
   copyArchitectOutputHandoff: (workspaceId) =>
     ipcRenderer.invoke(
       "architectOutput:copyHandoff",

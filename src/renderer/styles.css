@@ -176,6 +176,33 @@ button {
   font: inherit;
 }
 
+select {
+  color: var(--foreground);
+  background-color: var(--card);
+  border-color: var(--border);
+  color-scheme: light;
+}
+
+select option {
+  color: #0f1117;
+  background-color: #eaecf0;
+}
+
+select:disabled,
+select option:disabled {
+  color: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
+  background-color: color-mix(in srgb, var(--muted) 84%, var(--card));
+}
+
+.dark select {
+  color-scheme: dark;
+}
+
+.dark select option {
+  color: #e2e8f0;
+  background-color: #12151f;
+}
+
 .app-root {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -4220,6 +4247,176 @@ h1 {
 .figma-sub-pill.repair.active.in-progress .figma-stage-icon i,
 .figma-sub-pill.repair.parent.in-progress .figma-stage-icon i {
   background: #fbbf24;
+}
+
+html:not(.dark) .figma-pipeline-nav {
+  background: #d7dce5;
+  border-bottom-color: rgba(71, 85, 105, 0.18);
+}
+
+html:not(.dark) .figma-stage-connector,
+html:not(.dark) .figma-sub-connector {
+  background: rgba(100, 116, 139, 0.22);
+}
+
+html:not(.dark) .figma-stage-connector.completed,
+html:not(.dark) .figma-sub-connector.completed {
+  background: rgba(22, 101, 52, 0.32);
+}
+
+html:not(.dark) .figma-pipeline-step {
+  color: #475569;
+}
+
+html:not(.dark) .figma-pipeline-step:hover {
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(71, 85, 105, 0.18);
+}
+
+html:not(.dark) .figma-pipeline-step.active.completed {
+  color: #14532d;
+  background: rgba(22, 101, 52, 0.12);
+  border-color: rgba(22, 101, 52, 0.32);
+}
+
+html:not(.dark) .figma-pipeline-step.active.in-progress,
+html:not(.dark) .figma-pipeline-step.parent.in-progress {
+  color: #075985;
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(2, 132, 199, 0.36);
+}
+
+html:not(.dark) .figma-pipeline-step.active.not-ready,
+html:not(.dark) .figma-pipeline-step.parent.not-ready {
+  color: #7c2d12;
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(180, 83, 9, 0.34);
+}
+
+html:not(.dark) .figma-pipeline-step.active.pending {
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(71, 85, 105, 0.22);
+}
+
+html:not(.dark) .figma-pipeline-step.completed:not(.active):not(.parent) strong,
+html:not(.dark) .figma-sub-pill.completed:not(.active):not(.parent) {
+  color: #334155;
+}
+
+html:not(.dark) .figma-pipeline-step.not-ready:not(.active):not(.parent) strong {
+  color: #92400e;
+}
+
+html:not(.dark) .figma-pipeline-step.pending:not(.active):not(.parent) strong {
+  color: #64748b;
+}
+
+html:not(.dark) .figma-pipeline-status.completed { color: #166534; }
+html:not(.dark) .figma-pipeline-status.in-progress { color: #0369a1; }
+html:not(.dark) .figma-pipeline-status.not-ready { color: #92400e; }
+html:not(.dark) .figma-pipeline-status.pending { color: #64748b; }
+
+html:not(.dark) .figma-stage-icon {
+  background: #eef2f7;
+  border-color: rgba(100, 116, 139, 0.42);
+}
+
+html:not(.dark) .figma-stage-icon.completed {
+  color: #166534;
+  background: rgba(22, 101, 52, 0.12);
+  border-color: rgba(22, 101, 52, 0.34);
+}
+
+html:not(.dark) .figma-stage-icon.in-progress {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(2, 132, 199, 0.42);
+}
+
+html:not(.dark) .figma-stage-icon.in-progress i {
+  background: #0369a1;
+}
+
+html:not(.dark) .figma-stage-icon.not-ready {
+  color: #92400e;
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(180, 83, 9, 0.36);
+}
+
+html:not(.dark) .figma-context-loop-bar {
+  background: #e0e4eb;
+  border-bottom-color: rgba(71, 85, 105, 0.16);
+}
+
+html:not(.dark) .figma-work-card-loop-bar {
+  background: #e5e8ee;
+  border-bottom-color: rgba(71, 85, 105, 0.14);
+}
+
+html:not(.dark) .figma-loop-context {
+  border-right-color: rgba(71, 85, 105, 0.18);
+}
+
+html:not(.dark) .figma-loop-context > span,
+html:not(.dark) .figma-loop-context small,
+html:not(.dark) .figma-work-card-loop-bar .figma-loop-context > span,
+html:not(.dark) .figma-work-card-loop-bar .figma-loop-context small {
+  color: #64748b;
+}
+
+html:not(.dark) .figma-loop-context strong,
+html:not(.dark) .figma-work-card-loop-bar .figma-loop-context strong {
+  color: #1f2937;
+}
+
+html:not(.dark) .figma-sub-pill {
+  color: #64748b;
+}
+
+html:not(.dark) .figma-sub-pill:hover {
+  color: #334155;
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(71, 85, 105, 0.18);
+}
+
+html:not(.dark) .figma-sub-pill.active.completed,
+html:not(.dark) .figma-sub-pill.parent.completed {
+  color: #14532d;
+  background: rgba(22, 101, 52, 0.12);
+  border-color: rgba(22, 101, 52, 0.32);
+}
+
+html:not(.dark) .figma-sub-pill.active.in-progress,
+html:not(.dark) .figma-sub-pill.parent.in-progress {
+  color: #075985;
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(2, 132, 199, 0.36);
+}
+
+html:not(.dark) .figma-sub-pill.active.pending,
+html:not(.dark) .figma-sub-pill.parent.pending {
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(71, 85, 105, 0.22);
+}
+
+html:not(.dark) .figma-sub-pill.repair.active.in-progress,
+html:not(.dark) .figma-sub-pill.repair.parent.in-progress {
+  color: #7c2d12;
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(180, 83, 9, 0.34);
+}
+
+html:not(.dark) .figma-sub-pill.repair.active.in-progress .figma-stage-icon,
+html:not(.dark) .figma-sub-pill.repair.parent.in-progress .figma-stage-icon {
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(180, 83, 9, 0.34);
+}
+
+html:not(.dark) .figma-sub-pill.repair.active.in-progress .figma-stage-icon i,
+html:not(.dark) .figma-sub-pill.repair.parent.in-progress .figma-stage-icon i {
+  background: #92400e;
 }
 
 @media (max-width: 1050px) {

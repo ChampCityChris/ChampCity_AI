@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { WorkspaceSelection } from "../shared/workspaceContracts";
+import type { McpWorkspaceBinding, WorkspaceSelection } from "../shared/workspaceContracts";
+import { requireBoundMcpWorkspace } from "./integrations/mcpWorkspacePromptContract";
 
 const settingsFileName = "workspace-settings.json";
 
 interface StoredWorkspaceSettings {
   workspaceRoot: string;
+  mcpWorkspaceBinding?: McpWorkspaceBinding;
 }
 
 export function getWorkspaceSettingsPath(userDataRoot: string): string {
@@ -27,9 +29,11 @@ export function validateWorkspaceRoot(workspaceRoot: string): WorkspaceSelection
 
     fs.accessSync(resolvedRoot, fs.constants.R_OK | fs.constants.W_OK);
 
+    const mcpWorkspaceBinding = optionalMcpWorkspaceBinding(resolvedRoot);
     return {
       ok: true,
       workspaceRoot: resolvedRoot,
+      ...(mcpWorkspaceBinding ? { mcpWorkspaceBinding } : {}),
     };
   } catch {
     return {
@@ -86,11 +90,29 @@ export function saveSelectedWorkspace(
   fs.mkdirSync(userDataRoot, { recursive: true });
   fs.writeFileSync(
     getWorkspaceSettingsPath(userDataRoot),
-    JSON.stringify({ workspaceRoot: validation.workspaceRoot }, null, 2),
+    JSON.stringify({
+      workspaceRoot: validation.workspaceRoot,
+      ...(validation.mcpWorkspaceBinding ? { mcpWorkspaceBinding: validation.mcpWorkspaceBinding } : {}),
+    } satisfies StoredWorkspaceSettings, null, 2),
     "utf8",
   );
 
   return validation;
+}
+
+function optionalMcpWorkspaceBinding(workspaceRoot: string): McpWorkspaceBinding | undefined {
+  try {
+    const binding = requireBoundMcpWorkspace(workspaceRoot);
+    return {
+      mcpWorkspaceId: binding.workspaceId,
+      label: binding.label,
+      repositoryName: binding.repositoryName,
+      branch: binding.branch,
+      gitBacked: binding.gitBacked,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export function clearSelectedWorkspace(userDataRoot: string): WorkspaceSelection {

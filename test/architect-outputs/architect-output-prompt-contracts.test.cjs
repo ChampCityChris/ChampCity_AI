@@ -1,4 +1,7 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -184,7 +187,8 @@ function domainContextFor(definition) {
         targetPath: "planning/phases/phase-01/Work_Cards/WC41_domain_specific_architect_handoff_prompt_contracts.md",
         implementerReportPath: "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC41_domain_specific_architect_handoff_prompt_contracts.md",
         selectedWorkspaceTarget: {
-          repositoryReference: "<PROJECT_REPO>",
+          mcpWorkspaceId: "alpha",
+          workspaceLabel: "Alpha Test Workspace",
           handoffPath: "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_HANDOFF_WC41.md",
           formalWorkCardTargetPath: "planning/phases/phase-01/Work_Cards/WC41_domain_specific_architect_handoff_prompt_contracts.md",
           implementerReportTargetPath: "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC41_domain_specific_architect_handoff_prompt_contracts.md",
@@ -215,13 +219,81 @@ function domainContextFor(definition) {
 
 function promptFor(definition) {
   const submission = submissionFor(definition);
+  const workspaceRoot = boundPromptWorkspaceRoot();
   const instruction = definition.buildPreparedInstruction({
-    workspaceRoot: "<PROJECT_REPO>",
+    workspaceRoot,
     submission,
     sourceHandoff: submission.sourceHandoff,
     domainContext: domainContextFor(definition),
   });
   return { instruction, submission };
+}
+
+function boundPromptWorkspaceRoot(workspaceId = "alpha") {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-prompt-contract-"));
+  fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".champcity", "mcp-workspace-binding.json"),
+    JSON.stringify({
+      mcpWorkspaceId: workspaceId,
+      label: `${workspaceId.toUpperCase()} Test Workspace`,
+      repositoryName: `Test/${workspaceId}`,
+      gitBacked: true,
+    }, null, 2),
+    "utf8",
+  );
+  return root;
+}
+
+function gitBackedPromptWorkspaceRootWithoutBinding(repositoryName) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-unbound-git-prompt-"));
+  fs.mkdirSync(path.join(root, ".git"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".git", "config"),
+    [
+      "[core]",
+      "\trepositoryformatversion = 0",
+      "\tfilemode = false",
+      "[remote \"origin\"]",
+      `\turl = https://github.com/${repositoryName}.git`,
+      "\tfetch = +refs/heads/*:refs/remotes/origin/*",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, ".git", "HEAD"),
+    "ref: refs/heads/main\n",
+    "utf8",
+  );
+  return root;
+}
+
+function boundPromptWorkspaceRootForRepository(workspaceId, repositoryName) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-bound-git-prompt-"));
+  fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".git"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".champcity", "mcp-workspace-binding.json"),
+    JSON.stringify({
+      mcpWorkspaceId: workspaceId,
+      label: "Configured MCP Workspace",
+      repositoryName,
+      branch: "main",
+      gitBacked: true,
+    }, null, 2),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, ".git", "config"),
+    [
+      "[remote \"origin\"]",
+      `\turl = https://github.com/${repositoryName}.git`,
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  return root;
 }
 
 function jsonActionBlocks(instruction) {
@@ -302,8 +374,18 @@ test("production prompt matrix states all nine slot contracts before draft write
     for (const slot of submission.expectedDraftSlots) {
       const block = actionBlocks.find((candidate) => candidate.params.relativePath === slot.draftRelativePath);
       assert.ok(block, `${definition.outputKind} writes temporary path for ${slot.slotId}`);
+      assert.equal(block.workspaceId, "alpha", `${definition.outputKind} uses bound workspaceId`);
       assert.equal(block.params.overwrite, false);
     }
+    assert.match(instruction, /MCP workspace binding:/);
+    assert.match(instruction, /Bound workspaceId: alpha/);
+    assert.match(instruction, /Use ChampCity MCP workspaceId "alpha" only\./);
+    assert.match(instruction, /BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH/);
+    assert.doesNotMatch(instruction, /Resolve the configured workspace ID/);
+    assert.doesNotMatch(instruction, /when it is not already known/);
+    assert.doesNotMatch(instruction, /workspaceId": "<resolved workspace ID>"/);
+    assert.doesNotMatch(instruction, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
+    assert.doesNotMatch(instruction, /Treat that selected workspace as <PROJECT_REPO>/);
   }
 
   const phaseMapPrompt = prompts.get("phase-map").instruction;
@@ -370,7 +452,7 @@ test("production prompt matrix states all nine slot contracts before draft write
 
   const repairPrompt = prompts.get("repair-work-card").instruction;
   assert.match(repairPrompt, /^This is the Repair Work Card Architect session\.$/m);
-  assert.match(repairPrompt, /Use the selected project workspace already connected in this task/);
+  assert.match(repairPrompt, /Bound workspaceId: alpha/);
   assert.match(repairPrompt, /Do not inspect or write any other repository or workspace/);
   assert.match(repairPrompt, /Phase ID: phase-01/);
   assert.match(repairPrompt, /Repair ID: WC41-REPAIR01/);
@@ -381,4 +463,90 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(repairPrompt, /Final Repair Work Card target: planning\/phases\/phase-01\/Work_Cards\/WC41-REPAIR01_prompt_contract_mismatch\.md/);
   assert.doesNotMatch(repairPrompt, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
   assert.doesNotMatch(repairPrompt, /ChampCityChris|champcity_ai/i);
+});
+
+test("workspace-bound MCP prompt contract forbids multi-workspace fallback", () => {
+  const definition = activeProductionArchitectOutputDefinitions()
+    .find((candidate) => candidate.outputKind === "phase-map");
+  assert.ok(definition);
+  const submission = submissionFor(definition);
+  const instruction = definition.buildPreparedInstruction({
+    workspaceRoot: boundPromptWorkspaceRoot("alpha"),
+    submission,
+    sourceHandoff: submission.sourceHandoff,
+    domainContext: domainContextFor(definition),
+  });
+
+  assert.match(instruction, /Bound workspaceId: alpha/);
+  assert.match(instruction, /Do not inspect, search, compare, or fall back to any other configured workspace\./);
+  assert.match(instruction, /If the bound workspaceId is absent, inaccessible, or does not contain the exact required artifact path, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH\./);
+  assert.doesNotMatch(instruction, /beta/);
+});
+
+test("prompt generation is blocked without projectRepository route authority", () => {
+  const definition = activeProductionArchitectOutputDefinitions()
+    .find((candidate) => candidate.outputKind === "phase-map");
+  assert.ok(definition);
+  const submission = submissionFor(definition);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-unbound-prompt-"));
+
+  assert.throws(
+    () => definition.buildPreparedInstruction({
+      workspaceRoot: root,
+      submission,
+      sourceHandoff: submission.sourceHandoff,
+      domainContext: domainContextFor(definition),
+    }),
+    /BLOCKED_PROJECT_REPOSITORY_MCP_ROUTE_REQUIRED/,
+  );
+});
+
+test("Git repository identity without explicit MCP binding does not derive workspaceId", () => {
+  const definition = activeProductionArchitectOutputDefinitions()
+    .find((candidate) => candidate.outputKind === "phase-map");
+  assert.ok(definition);
+  const submission = submissionFor(definition);
+  const root = gitBackedPromptWorkspaceRootWithoutBinding("ChampCityChris/ChampCity_GPT_MCP");
+
+  assert.throws(
+    () => definition.buildPreparedInstruction({
+      workspaceRoot: root,
+      submission,
+      sourceHandoff: submission.sourceHandoff,
+      domainContext: domainContextFor(definition),
+    }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /BLOCKED_PROJECT_REPOSITORY_MCP_ROUTE_REQUIRED/);
+      assert.match(error.message, /projectRepository/);
+      assert.doesNotMatch(error.message, /champcity_gpt_mcp/);
+      return true;
+    },
+  );
+});
+
+test("explicit MCP binding is used literally despite similar repository name", () => {
+  const definition = activeProductionArchitectOutputDefinitions()
+    .find((candidate) => candidate.outputKind === "phase-map");
+  assert.ok(definition);
+  const submission = submissionFor(definition);
+  const instruction = definition.buildPreparedInstruction({
+    workspaceRoot: boundPromptWorkspaceRootForRepository(
+      "champcity_gpt",
+      "ChampCityChris/ChampCity_GPT_MCP",
+    ),
+    submission,
+    sourceHandoff: submission.sourceHandoff,
+    domainContext: domainContextFor(definition),
+  });
+  const actionBlocks = jsonActionBlocks(instruction);
+
+  assert.match(instruction, /Bound workspaceId: champcity_gpt/);
+  assert.match(instruction, /Bound repository: ChampCityChris\/ChampCity_GPT_MCP/);
+  assert.match(instruction, /Use ChampCity MCP workspaceId "champcity_gpt" only\./);
+  assert.doesNotMatch(instruction, /Bound workspaceId: champcity_gpt_mcp/);
+  assert.ok(actionBlocks.length > 0);
+  for (const block of actionBlocks) {
+    assert.equal(block.workspaceId, "champcity_gpt");
+  }
 });

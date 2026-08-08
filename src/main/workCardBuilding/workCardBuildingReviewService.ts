@@ -17,6 +17,10 @@ import {
   writeCanonicalMarkdownDocument,
   writeCanonicalMarkdownDocuments,
 } from "../documents/canonicalMarkdownDocumentWriter";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export interface ImplementerReportResult {
   markdownPath: string;
@@ -490,7 +494,11 @@ function buildImplementerReportDocument(
   workspaceRoot: string,
   context: WorkCardImplementerReportContext,
 ): Parameters<typeof writeCanonicalMarkdownDocuments>[0][number] {
-  const workflowData = {
+  const sourceRevisions = [{
+    path: context.formalWorkCardPath,
+    revision: context.formalWorkCardRevision,
+  }];
+  const workflowData = mergeRepositoryAuthorityIntoWorkflowData({
     repositoryVerification: "Pending Implementer verification.",
     filesChanged: [],
     implementationSummary: "",
@@ -499,7 +507,7 @@ function buildImplementerReportDocument(
     deviations: [],
     blockers: [],
     remainingOperatorValidation: [],
-  };
+  }, inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions));
   return {
     workspaceRoot,
     relativePath: context.implementerReportPath,
@@ -514,10 +522,7 @@ function buildImplementerReportDocument(
         ...(context.repairId ? { repairId: context.repairId } : {}),
         ...(context.parentWorkCardId ? { parentWorkCardId: context.parentWorkCardId } : {}),
       },
-      sourceRevisions: [{
-        path: context.formalWorkCardPath,
-        revision: context.formalWorkCardRevision,
-      }],
+      sourceRevisions,
       workflowData,
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },

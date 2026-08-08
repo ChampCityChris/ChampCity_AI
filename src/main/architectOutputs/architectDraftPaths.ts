@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import path from "node:path";
 import type { SourceRevision } from "../../shared/documents/planningDocument";
 
@@ -6,8 +7,7 @@ export const maxArchitectDraftSubmissionIdLength = 240;
 export const maxArchitectDraftRelativePathLength = 320;
 
 const safeSegmentPattern = /^[a-z0-9][a-z0-9-]*$/;
-const encodedPathSegmentPattern = /^[a-z2-7]+$/;
-const base32Alphabet = "abcdefghijklmnopqrstuvwxyz234567";
+const sourcePathDigestLength = 20;
 
 export interface DeterministicArchitectDraftSubmissionIdInput {
   outputKind: string;
@@ -28,7 +28,8 @@ export function buildDeterministicArchitectDraftSubmissionId(
     safePathSegment(input.owningWorkspaceId, "owning workspace ID"),
     safePathSegment(input.outputKind, "output kind"),
     safePathSegment(input.submissionKey, "submission key"),
-    encodeRepositoryRelativePath(sourcePath),
+    "src",
+    sourcePathDigest(sourcePath),
     `r${safeSourceRevision(input.sourceHandoff.revision)}`,
   ];
   return assertSafeSubmissionId(parts.join("-"));
@@ -141,37 +142,12 @@ function normalizeRepositoryRelativePath(relativePath: string, field: string): s
   return segments.join("/");
 }
 
-function encodeRepositoryRelativePath(relativePath: string): string {
-  return relativePath
-    .split("/")
-    .map((segment) => encodePathSegment(segment))
-    .join("-");
-}
-
-function encodePathSegment(segment: string): string {
-  const encoded = encodeBase32(Buffer.from(segment, "utf8"));
-  if (!encodedPathSegmentPattern.test(encoded)) {
-    throw new Error("Architect draft source handoff path cannot be encoded safely.");
-  }
-  return encoded;
-}
-
-function encodeBase32(bytes: Buffer): string {
-  let bits = 0;
-  let value = 0;
-  let output = "";
-  for (const byte of bytes) {
-    value = (value << 8) | byte;
-    bits += 8;
-    while (bits >= 5) {
-      output += base32Alphabet[(value >>> (bits - 5)) & 31];
-      bits -= 5;
-    }
-  }
-  if (bits > 0) {
-    output += base32Alphabet[(value << (5 - bits)) & 31];
-  }
-  return output;
+function sourcePathDigest(relativePath: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(relativePath, "utf8")
+    .digest("hex")
+    .slice(0, sourcePathDigestLength);
 }
 
 function safeSourceRevision(revision: number): number {

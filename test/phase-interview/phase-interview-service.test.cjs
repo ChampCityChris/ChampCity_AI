@@ -39,7 +39,9 @@ test("phase interview handoff uses one generic temporary draft invocation", () =
   const model = preparePhaseInterviewHandoff(root);
   assert.equal(model.phase.phaseId, "phase-01");
   assert.match(model.handoffInstruction, /"action": "create_markdown_artifact"/);
-  assert.match(model.handoffInstruction, /"workspaceId": "<resolved workspace ID>"/);
+  assert.match(model.handoffInstruction, /"workspaceId": "alpha"/);
+  assert.match(model.handoffInstruction, /Bound workspaceId: alpha/);
+  assert.doesNotMatch(model.handoffInstruction, /<resolved workspace ID>/);
   assert.match(model.handoffInstruction, /"params": \{/);
   assert.match(model.handoffInstruction, /"overwrite": false/);
   assert.match(model.handoffInstruction, /Phase Understanding/);

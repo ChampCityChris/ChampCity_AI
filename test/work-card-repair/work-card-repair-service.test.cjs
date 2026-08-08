@@ -164,7 +164,8 @@ test("repair projection enables Architect preparation and copy after handoff cre
   assert.equal(projection.state, "draft-pending");
   assert.equal(projection.canCopyArchitectHandoff, true);
   const refreshed = getArchitectOutputWorkspaceModel(root, "work-card-repair");
-  assert.match(refreshed.preparedInstruction, /Use the selected project workspace already connected in this task/);
+  assert.match(refreshed.preparedInstruction, /Bound workspaceId: alpha/);
+  assert.match(refreshed.preparedInstruction, /Use ChampCity MCP workspaceId "alpha" only\./);
   assert.match(refreshed.preparedInstruction, /Treat the Validation Record as the repair authority/);
   assert.match(refreshed.preparedInstruction, /Read the Validation Record first/);
   assert.match(refreshed.preparedInstruction, new RegExp(`Validation Record path: ${evidencePath}`));

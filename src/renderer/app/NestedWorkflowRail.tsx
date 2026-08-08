@@ -203,12 +203,12 @@ export function NestedWorkflowRail({
   const showPhaseLoop = phaseOrWorkCardWorkspaceIds.has(activeWorkspaceId);
   const showWorkCardLoop =
     activeWorkspaceId === "phase-work-card-selection" || workCardWorkspaceIds.has(activeWorkspaceId);
-  const authorityWorkspaceId =
+  const requiredLoopWorkspaceId =
     requiredWorkspaceId && phaseOrWorkCardWorkspaceIds.has(requiredWorkspaceId)
       ? requiredWorkspaceId
       : activeWorkspaceId;
-  const activePhaseStepId = currentPhaseStepId(executionContext, authorityWorkspaceId);
-  const activeWorkCardStepId = currentWorkCardStepId(executionContext, authorityWorkspaceId);
+  const activePhaseStepId = currentPhaseStepId(executionContext, requiredLoopWorkspaceId);
+  const activeWorkCardStepId = currentWorkCardStepId(executionContext, requiredLoopWorkspaceId);
 
   return (
     <section aria-label="Workflow navigation" className="workflow-navigation-header">
@@ -223,9 +223,14 @@ export function NestedWorkflowRail({
               item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
             destinationWorkspaceId: item.destination,
             requiredWorkspaceId,
-            statusLabel:
-              projectRailStatuses[item.destination] ??
-              (item.id === "project-intake" ? projectIntakeStatus : undefined),
+            statusLabel: projectRailStatusForItem({
+              activeWorkspaceId,
+              executionContext,
+              item,
+              projectIntakeStatus,
+              projectRailStatuses,
+              requiredWorkspaceId,
+            }),
           });
 
           return (
@@ -243,7 +248,7 @@ export function NestedWorkflowRail({
 
       {showPhaseLoop ? (
         <ContextLoopBar
-          activeWorkspaceId={authorityWorkspaceId}
+          activeWorkspaceId={activeWorkspaceId}
           activeStepId={activePhaseStepId}
           ariaLabel="Phase loop"
           context={phaseContext(executionContext)}
@@ -255,7 +260,7 @@ export function NestedWorkflowRail({
 
       {showWorkCardLoop ? (
         <ContextLoopBar
-          activeWorkspaceId={authorityWorkspaceId}
+          activeWorkspaceId={activeWorkspaceId}
           activeStepId={activeWorkCardStepId}
           ariaLabel="Work Card loop"
           context={workCardContext(executionContext)}
@@ -266,6 +271,59 @@ export function NestedWorkflowRail({
         />
       ) : null}
     </section>
+  );
+}
+
+function projectRailStatusForItem({
+  activeWorkspaceId,
+  executionContext,
+  item,
+  projectIntakeStatus,
+  projectRailStatuses,
+  requiredWorkspaceId,
+}: {
+  activeWorkspaceId: WorkspaceId;
+  executionContext: ExecutionContextProjection | undefined;
+  item: ProjectRailItem;
+  projectIntakeStatus: ProjectIntakeRailStatus;
+  projectRailStatuses: Partial<Record<WorkspaceId, ProjectLifecycleRailStatus>>;
+  requiredWorkspaceId: WorkspaceId | null;
+}): ProjectLifecycleRailStatus | ProjectIntakeRailStatus | ArchitectInterviewRailStatus | undefined {
+  const status =
+    projectRailStatuses[item.destination] ??
+    (item.id === "project-intake" ? projectIntakeStatus : undefined);
+  if (
+    item.id === "phases" &&
+    shouldShowPhasesInProgress({
+      activeWorkspaceId,
+      executionContext,
+      requiredWorkspaceId,
+      status,
+    })
+  ) {
+    return "In Progress";
+  }
+  return status;
+}
+
+function shouldShowPhasesInProgress({
+  activeWorkspaceId,
+  executionContext,
+  requiredWorkspaceId,
+  status,
+}: {
+  activeWorkspaceId: WorkspaceId;
+  executionContext: ExecutionContextProjection | undefined;
+  requiredWorkspaceId: WorkspaceId | null;
+  status: ProjectLifecycleRailStatus | ProjectIntakeRailStatus | ArchitectInterviewRailStatus | undefined;
+}): boolean {
+  if (status === "Needs Attention" || status === "Not Ready") {
+    return false;
+  }
+  return (
+    executionContext?.phase.state === "active" ||
+    phaseOrWorkCardWorkspaceIds.has(activeWorkspaceId) ||
+    Boolean(requiredWorkspaceId && phaseOrWorkCardWorkspaceIds.has(requiredWorkspaceId))
   );
 }
 

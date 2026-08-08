@@ -31,6 +31,17 @@ const {
 function tempWorkspace() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-proof2-"));
   fs.mkdirSync(path.join(root, "planning"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".champcity", "mcp-workspace-binding.json"),
+    JSON.stringify({
+      mcpWorkspaceId: "alpha",
+      label: "Alpha Test Workspace",
+      repositoryName: "Test/Alpha",
+      gitBacked: true,
+    }, null, 2),
+    "utf8",
+  );
   return root;
 }
 

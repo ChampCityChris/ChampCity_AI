@@ -19,6 +19,15 @@ import {
   type ActiveArchitectOutputRuntimeSubmission,
 } from "../architectOutputs/architectOutputRuntimeService";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSources,
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export type RepairOrigin = "preValidationReportReview" | "postValidationRecord";
 
@@ -107,7 +116,10 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
               repairId: context.repairId,
               parentWorkCardId: context.parentWorkCardId,
             },
-            workflowData: repairWorkflowData(context),
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              repairWorkflowData(context),
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+            ),
           }
         : outputMetadata({
             workspaceRoot,
@@ -157,8 +169,8 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     assertRepairWorkCardEligible(workspaceRoot, context);
     return context;
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildRepairWorkCardPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildRepairWorkCardPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments, domainContext: context }) {
     return {
@@ -614,6 +626,7 @@ export function createRepairWorkCard(
     boundedDefect: trimmedDefect,
     returnTarget,
   };
+  const sourceRevisions = [{ path: evidence.markdownPath, revision: evidenceRevision }];
   writeCanonicalMarkdownDocument({
     workspaceRoot,
     relativePath: handoffMarkdownPath,
@@ -623,8 +636,11 @@ export function createRepairWorkCard(
       artifactRevision: 1,
       participationRole: "nonReviewHandoff",
       identity: { handoffKind: "repair", phaseId, repairId },
-      sourceRevisions: [{ path: evidence.markdownPath, revision: evidenceRevision }],
-      workflowData: { ...content, repairWorkCardTarget: repairMarkdownPath },
+      sourceRevisions,
+      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+        { ...content, repairWorkCardTarget: repairMarkdownPath },
+        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      ),
       documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
     },
     bodyMarkdown: repairHandoffBodyMarkdown(repairMarkdownPath),
@@ -801,7 +817,10 @@ function normalizeDefectSlugHandoffIfSafe(
       ...parsed.metadata,
       artifactRevision: parsed.metadata.artifactRevision + 1,
       workflowData: {
-        ...parsed.metadata.workflowData,
+        ...mergeRepositoryAuthorityIntoWorkflowData(
+          parsed.metadata.workflowData,
+          inheritRepositoryAuthorityFromSources(parsed.metadata.workflowData),
+        ),
         repairWorkCardTarget: deterministicTarget,
       },
     },
@@ -1057,7 +1076,10 @@ function outputMetadata(input: {
       parentWorkCardId: input.parentWorkCardId,
     },
     sourceRevisions: input.sourceRevisions,
-    workflowData: repairWorkflowData(input),
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      repairWorkflowData(input),
+      inheritRepositoryAuthorityFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
+    ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
 }
@@ -1087,6 +1109,7 @@ function readExistingCanonical(workspaceRoot: string, relativePath: string) {
 }
 
 function buildRepairWorkCardPreparedInstruction(
+  workspaceRoot: string,
   context: RepairWorkCardContext,
   submission: ArchitectDraftSubmission<typeof slotId>,
   sourceHandoff: SourceRevision,
@@ -1105,10 +1128,12 @@ function buildRepairWorkCardPreparedInstruction(
   const formalWorkCardPath = stringValue(context.workflowData.formalWorkCardPath) ??
     "Not recorded in the Repair evidence.";
   const revisionInstructionLines = currentOperatorRevisionInstructionLines(context.existing);
+  const promptWorkflowData = context.handoff.metadata?.canonical?.workflowData ?? {};
   return [
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    "",
     "This is the Repair Work Card Architect session.",
     "This is the prepared Repair Work Card Architect output handoff.",
-    "Use the selected project workspace already connected in this task. Treat that selected workspace as <PROJECT_REPO>.",
     "Do not inspect or write any other repository or workspace.",
     "Treat the Validation Record as the repair authority. Do not invent or request a separate advisory-review document.",
     "Read the Validation Record first when this is a post-validation repair.",
@@ -1128,6 +1153,7 @@ function buildRepairWorkCardPreparedInstruction(
     `Return target: ${returnTarget}`,
     `Final Repair Work Card target: ${context.targetPath}`,
     `Temporary body-only draft path: ${draftPath}`,
+    "If any exact source path above is absent from the bound workspace, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH.",
     "",
     ...revisionInstructionLines,
     "Evidence inputs:",
@@ -1144,15 +1170,12 @@ function buildRepairWorkCardPreparedInstruction(
     "",
     "When the body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${draftPath}",`,
-    '    "content": "<complete body-only Repair Work Card Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftPath,
+      "<complete body-only Repair Work Card Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "After the draft is created, respond with a concise draft-created confirmation.",
   ].join("\n");

@@ -11,8 +11,29 @@ const {
 } = require("../../dist/main/documents/planningDocumentService.js");
 
 function tempWorkspace(prefix = "champcity-canonical-fixture-") {
+  return tempWorkspaceWithOptions(prefix, { mcpBinding: true });
+}
+
+function tempWorkspaceWithoutBinding(prefix = "champcity-canonical-unbound-fixture-") {
+  return tempWorkspaceWithOptions(prefix, { mcpBinding: false });
+}
+
+function tempWorkspaceWithOptions(prefix, options) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fs.mkdirSync(path.join(root, "planning"), { recursive: true });
+  if (options.mcpBinding) {
+    fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, ".champcity", "mcp-workspace-binding.json"),
+      JSON.stringify({
+        mcpWorkspaceId: "alpha",
+        label: "Alpha Test Workspace",
+        repositoryName: "Test/Alpha",
+        gitBacked: true,
+      }, null, 2),
+      "utf8",
+    );
+  }
   return root;
 }
 
@@ -29,6 +50,18 @@ function metadata(artifactType, status = "Approved", overrides = {}) {
       status,
       notes: overrides.notes ?? "",
       reviewedAt: overrides.reviewedAt ?? null,
+    },
+  };
+}
+
+function repositoryAuthority(root) {
+  return {
+    projectRepository: path.resolve(root),
+    mcpWorkspaceBinding: {
+      mcpWorkspaceId: "alpha",
+      label: "Alpha Test Workspace",
+      repositoryName: "Test/Alpha",
+      gitBacked: true,
     },
   };
 }
@@ -54,11 +87,17 @@ function approve(root, relativePath) {
 function seedApprovedProjectIntake(root, slug = "demo") {
   const intake = writeDoc(root, `planning/project/Project_Intake/PROJECT_INTAKE_${slug}.md`, "project-intake", "Approved", {
     identity: { "Project.ArtifactKey": slug },
+    workflowData: {
+      projectRepository: path.resolve(root),
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
   const prompt = writeDoc(root, `planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_${slug}.md`, "project-architect-interview-prompt", "Approved", {
     participationRole: "nonReviewHandoff",
     sourceRevisions: [{ path: intake, revision: 1 }],
     workflowData: {
+      projectRepository: path.resolve(root),
+      repositoryAuthority: repositoryAuthority(root),
       architectOutputTargets: {
         markdown: `planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_${slug}.md`,
       },
@@ -74,9 +113,15 @@ function seedApprovedProjectIntake(root, slug = "demo") {
 function seedApprovedProjectPlanning(root, slug = "demo") {
   const profile = writeDoc(root, "planning/project/PROJECT_PROFILE.md", "project-profile", "Approved", {
     participationRole: "compoundGatingReview",
+    workflowData: {
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
   const roadmap = writeDoc(root, `planning/project/Project_Roadmap/PROJECT_ROADMAP_${slug}.md`, "project-roadmap", "Approved", {
     participationRole: "compoundGatingReview",
+    workflowData: {
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
   return { profile, roadmap };
 }
@@ -92,7 +137,10 @@ function seedPhaseMap(root, phaseId = "phase-01") {
     sourceReferences: ["planning/project/PROJECT_PROFILE.md"],
   };
   writeDoc(root, path, "phase-map", "Approved", {
-    workflowData: { phases: [phase] },
+    workflowData: {
+      phases: [phase],
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
   return { path, phase };
 }
@@ -100,6 +148,9 @@ function seedPhaseMap(root, phaseId = "phase-01") {
 function seedApprovedPhaseInterview(root, phaseId = "phase-01") {
   return writeDoc(root, `planning/phases/${phaseId}/Phase_Interview.md`, "phase-interview", "Approved", {
     identity: { phaseId },
+    workflowData: {
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
 }
 
@@ -130,13 +181,18 @@ function seedApprovedPhasePlanningBundle(root, phaseId = "phase-01", candidateId
     participationRole: "compoundGatingReview",
     identity: { phaseId },
     sourceRevisions,
-    workflowData: {},
+    workflowData: {
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
   const plan = writeDoc(root, `planning/phases/${phaseId}/Work_Card_Plan.md`, "work-card-plan", "Approved", {
     participationRole: "compoundGatingReview",
     identity: { phaseId },
     sourceRevisions,
-    workflowData: { candidates: [candidate] },
+    workflowData: {
+      candidates: [candidate],
+      repositoryAuthority: repositoryAuthority(root),
+    },
     bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify([candidate], null, 2)}\n\`\`\`\n`,
   });
   return { planning, plan, candidate };
@@ -145,6 +201,9 @@ function seedApprovedPhasePlanningBundle(root, phaseId = "phase-01", candidateId
 function seedApprovedFormalWorkCard(root, phaseId = "phase-01", workCardId = "WC01") {
   return writeDoc(root, `planning/phases/${phaseId}/Work_Cards/${workCardId}_first_work_card.md`, "formal-work-card", "Approved", {
     identity: { phaseId, workCardId, candidateId: workCardId },
+    workflowData: {
+      repositoryAuthority: repositoryAuthority(root),
+    },
   });
 }
 
@@ -158,5 +217,6 @@ module.exports = {
   seedApprovedProjectPlanning,
   seedPhaseMap,
   tempWorkspace,
+  tempWorkspaceWithoutBinding,
   writeDoc,
 };

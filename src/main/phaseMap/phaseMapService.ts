@@ -20,6 +20,14 @@ import {
   validatePhaseMapData,
   type PhaseMapPhase,
 } from "./phaseMapDraftOutput";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export type { PhaseMapPhase };
 
@@ -63,13 +71,16 @@ export function generatePhaseMapHandoff(workspaceRoot: string): PhaseMapHandoffR
     participationRole: "nonReviewHandoff",
     identity: { handoffKind: "phase-map", projectSlug },
     sourceRevisions,
-    workflowData: {
-      handoffKind: "phase-map",
-      contractId: phaseMapSubmissionContractId,
-      phaseMapTarget: phaseMapMarkdownPath,
-      requiredTitle: phaseMapRequiredTitle,
-      requiredDomainBlocks: [phaseMapDomainBlock],
-    },
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      {
+        handoffKind: "phase-map",
+        contractId: phaseMapSubmissionContractId,
+        phaseMapTarget: phaseMapMarkdownPath,
+        requiredTitle: phaseMapRequiredTitle,
+        requiredDomainBlocks: [phaseMapDomainBlock],
+      },
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+    ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
   const bodyMarkdown = [
@@ -136,10 +147,10 @@ export function getPhaseMapHandoffInstruction(workspaceRoot: string): string {
     return activeDraft.preparedInstruction;
   }
   const phaseMapDraftPath = draftPathForPhaseMap(activeDraft.submission);
+  const promptWorkflowData = handoff.metadata.canonical?.workflowData ?? {};
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "This handoff is for the embedded Phase Map Architect chat.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
     "",
     "Read these exact current inputs:",
     `- Current Approved Project Profile: ${profile.markdownPath}`,
@@ -185,15 +196,12 @@ export function getPhaseMapHandoffInstruction(workspaceRoot: string): string {
     "",
     "When the complete body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + phaseMapDraftPath + '",',
-    '    "content": "<complete body-only Phase Map Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      phaseMapDraftPath,
+      "<complete body-only Phase Map Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "Do not call retired Phase Map submission actions, retired save actions, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",

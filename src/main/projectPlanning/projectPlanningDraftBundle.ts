@@ -21,6 +21,14 @@ import {
   resolveProjectPlanningContext,
   type ProjectPlanningReadyContext,
 } from "./projectPlanningContext";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 const outputKind = "project-planning";
 const owningWorkspaceId = "project-planning-review";
@@ -64,8 +72,14 @@ export const projectPlanningArchitectOutputDefinition: ArchitectOutputDefinition
           : null;
         const sourceRevisions = sourceRevisionsFor(context);
         const metadata: CanonicalDocumentMetadata = existing
-          ? metadataWithSubstantiveRevision(existing.metadata, sourceRevisions)
-          : freshBundleMetadata(context, "project-profile", sourceRevisions);
+          ? {
+              ...metadataWithSubstantiveRevision(existing.metadata, sourceRevisions),
+              workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+                existing.metadata.workflowData,
+                inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+              ),
+            }
+          : freshBundleMetadata(workspaceRoot, context, "project-profile", sourceRevisions);
         return { relativePath: context.profileMarkdownPath, metadata, bodyMarkdown };
       },
     },
@@ -86,8 +100,14 @@ export const projectPlanningArchitectOutputDefinition: ArchitectOutputDefinition
           : null;
         const sourceRevisions = sourceRevisionsFor(context);
         const metadata: CanonicalDocumentMetadata = existing
-          ? metadataWithSubstantiveRevision(existing.metadata, sourceRevisions)
-          : freshBundleMetadata(context, "project-roadmap", sourceRevisions);
+          ? {
+              ...metadataWithSubstantiveRevision(existing.metadata, sourceRevisions),
+              workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+                existing.metadata.workflowData,
+                inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+              ),
+            }
+          : freshBundleMetadata(workspaceRoot, context, "project-roadmap", sourceRevisions);
         return { relativePath: context.roadmapMarkdownPath, metadata, bodyMarkdown };
       },
     },
@@ -124,8 +144,8 @@ export const projectPlanningArchitectOutputDefinition: ArchitectOutputDefinition
       preparedContext as ProjectPlanningReadyContext,
     );
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildProjectPlanningPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildProjectPlanningPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments }) {
     return {
@@ -221,6 +241,7 @@ function assertCanPromoteBundle(context: ProjectPlanningReadyContext): void {
 }
 
 function freshBundleMetadata(
+  workspaceRoot: string,
   context: ProjectPlanningReadyContext,
   artifactType: "project-profile" | "project-roadmap",
   sourceRevisions: CanonicalDocumentMetadata["sourceRevisions"],
@@ -235,7 +256,10 @@ function freshBundleMetadata(
       "Project.ArtifactKey": context.projectSlug,
     },
     sourceRevisions,
-    workflowData: {},
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      {},
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+    ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
 }
@@ -284,6 +308,7 @@ function readExistingCanonical(workspaceRoot: string, relativePath: string) {
 }
 
 function buildProjectPlanningPreparedInstruction(
+  workspaceRoot: string,
   context: ProjectPlanningReadyContext,
   submission: ArchitectDraftSubmission<ProjectPlanningSlotId>,
   sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
@@ -295,9 +320,12 @@ function buildProjectPlanningPreparedInstruction(
     revisionNotes;
   const profileDraftPath = draftPathForSlot(submission, "project-profile");
   const roadmapDraftPath = draftPathForSlot(submission, "project-roadmap");
+  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+    {},
+    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
+  );
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "Read these exact current inputs:",
     `- Project Intake Markdown: ${context.projectIntake.markdownPath}`,
@@ -335,28 +363,22 @@ function buildProjectPlanningPreparedInstruction(
     "",
     "When the complete Project Profile body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${profileDraftPath}",`,
-    '    "content": "<complete body-only Project Profile Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      profileDraftPath,
+      "<complete body-only Project Profile Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "",
     "When the complete Project Roadmap body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${roadmapDraftPath}",`,
-    '    "content": "<complete body-only Project Roadmap Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      roadmapDraftPath,
+      "<complete body-only Project Roadmap Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, reconciliation fields, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "After both drafts are created, respond with a concise draft-created confirmation.",

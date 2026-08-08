@@ -20,7 +20,11 @@ import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
-import { prepareArchitectInterviewHandoff, getArchitectInterviewWorkspaceModel } from "../architectInterview/architectInterviewService";
+import {
+  getArchitectInterviewWorkspaceModel,
+  prepareArchitectInterviewHandoff,
+  regenerateArchitectInterviewPrompt,
+} from "../architectInterview/architectInterviewService";
 import {
   generateProjectPlanningHandoff,
   getProjectPlanningWorkspaceModel,
@@ -101,6 +105,7 @@ export function getArchitectOutputWorkspaceModel(
     cleanupError: submission?.cleanupError,
     canPrepareHandoff: model.canPrepareHandoff ?? canPrepareFromState(state),
     canCopyHandoff: Boolean(preparedInstruction),
+    canRegeneratePrompt: model.canRegeneratePrompt,
     reviewMode: definition.bundleMode === "atomic-bundle" ? "compound" : "single",
     documentSlots: slots,
     canApplyDisposition: slots.length > 0 && slots.every(isReviewableSlot),
@@ -158,6 +163,13 @@ export function prepareArchitectOutputHandoff(
       throw new Error(`Workspace does not own an Architect output definition: ${workspaceId}`);
   }
   return getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId);
+}
+
+export function regenerateArchitectInterviewPromptWorkspace(
+  workspaceRoot: string,
+): ArchitectOutputWorkspaceModel {
+  regenerateArchitectInterviewPrompt(workspaceRoot);
+  return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
 }
 
 export function getPreparedArchitectOutputInstruction(
@@ -395,6 +407,7 @@ function domainOverlay(
   reason?: string;
   evidencePaths?: string[];
   canPrepareHandoff?: boolean;
+  canRegeneratePrompt?: boolean;
   domain?: unknown;
 } {
   try {
@@ -403,7 +416,7 @@ function domainOverlay(
       case "architect-interview": {
         const model = getArchitectInterviewWorkspaceModel(workspaceRoot);
         return {
-          state: model.state === "prerequisites-unavailable"
+          state: model.state === "prerequisites-unavailable" || model.state === "prompt-missing"
             ? "not-ready"
             : model.state === "waiting-for-output"
             ? "waiting-for-drafts"
@@ -411,7 +424,8 @@ function domainOverlay(
           requiredAction: model.requiredAction,
           reason: model.reason,
           evidencePaths: model.evidencePaths,
-          canPrepareHandoff: model.canCopyHandoff,
+          canPrepareHandoff: model.canPrepareHandoff ?? model.canCopyHandoff,
+          canRegeneratePrompt: model.canRegeneratePrompt,
           domain: model,
         };
       }

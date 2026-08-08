@@ -171,6 +171,34 @@ test("App does not derive Architect Interview rail status from unrelated active 
   assert.match(appSource, /architectOutputModel\?\.workspaceId === "architect-interview"/);
 });
 
+test("App preserves completed Project Planning rail status over transient Architect-output state", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+
+  assert.match(appSource, /architectOutputModel\.workspaceId === "project-planning-review"/);
+  assert.match(appSource, /statuses\["project-planning-review"\] === "Completed"/);
+  assert.match(appSource, /break;/);
+});
+
+test("native select and option rows have explicit theme-readable colors", () => {
+  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
+
+  assert.match(stylesSource, /select\s*\{[\s\S]*color:\s*var\(--foreground\)/);
+  assert.match(stylesSource, /select\s+option\s*\{[\s\S]*background-color:\s*#eaecf0/);
+  assert.match(stylesSource, /\.dark select\s*\{[\s\S]*color-scheme:\s*dark/);
+  assert.match(stylesSource, /\.dark select option\s*\{[\s\S]*background-color:\s*#12151f/);
+  assert.match(stylesSource, /select:disabled,[\s\S]*select option:disabled/);
+});
+
+test("light theme navigation rail uses explicit restrained contrast overrides", () => {
+  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
+
+  assert.match(stylesSource, /html:not\(\.dark\) \.figma-pipeline-nav\s*\{[\s\S]*background:\s*#d7dce5/);
+  assert.match(stylesSource, /html:not\(\.dark\) \.figma-context-loop-bar\s*\{[\s\S]*background:\s*#e0e4eb/);
+  assert.match(stylesSource, /html:not\(\.dark\) \.figma-work-card-loop-bar\s*\{[\s\S]*background:\s*#e5e8ee/);
+  assert.match(stylesSource, /html:not\(\.dark\) \.figma-pipeline-status\.completed\s*\{\s*color:\s*#166534/);
+  assert.match(stylesSource, /html:not\(\.dark\) \.figma-pipeline-status\.in-progress\s*\{\s*color:\s*#0369a1/);
+});
+
 test("Architect Interview prompt selection hides disposition controls", () => {
   assert.equal(
     shouldRenderArchitectInterviewDispositionControls({

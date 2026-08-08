@@ -34,6 +34,14 @@ import {
   type PhasePlanningReadyContext,
   type WorkCardCandidate,
 } from "./phasePlanningDraftBundle";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export {
   candidateResolutionStatuses,
@@ -61,7 +69,7 @@ export interface PhasePlanningCompletion {
 
 export function generatePhasePlanningHandoff(workspaceRoot: string): PhasePlanningHandoffResult {
   const context = requireReadyPhasePlanningContext(workspaceRoot);
-  const metadata = phasePlanningHandoffMetadata(context);
+  const metadata = phasePlanningHandoffMetadata(workspaceRoot, context);
   const bodyMarkdown = buildPhasePlanningHandoffBody(context);
   const existing = readExistingCanonical(workspaceRoot, context.handoffMarkdownPath);
   if (existing && handoffMatchesCurrentEvidence(existing, metadata, bodyMarkdown)) {
@@ -297,7 +305,13 @@ function requireReadyPhasePlanningContext(workspaceRoot: string): PhasePlanningR
   return context;
 }
 
-function phasePlanningHandoffMetadata(context: PhasePlanningReadyContext): CanonicalDocumentMetadata {
+function phasePlanningHandoffMetadata(workspaceRoot: string, context: PhasePlanningReadyContext): CanonicalDocumentMetadata {
+  const sourceRevisions = [
+    { path: context.profile.markdownPath, revision: context.profile.metadata.artifactRevision ?? 1 },
+    { path: context.roadmap.markdownPath, revision: context.roadmap.metadata.artifactRevision ?? 1 },
+    { path: context.phaseMap.markdownPath, revision: context.phaseMap.metadata.artifactRevision ?? 1 },
+    { path: context.phaseInterview.markdownPath, revision: context.phaseInterview.metadata.artifactRevision ?? 1 },
+  ];
   return {
     schemaVersion: 1,
     artifactType: "generated-handoff",
@@ -307,37 +321,41 @@ function phasePlanningHandoffMetadata(context: PhasePlanningReadyContext): Canon
       handoffKind: "phase-planning",
       phaseId: context.selectedPhase.phaseId,
     },
-    sourceRevisions: [
-      { path: context.profile.markdownPath, revision: context.profile.metadata.artifactRevision ?? 1 },
-      { path: context.roadmap.markdownPath, revision: context.roadmap.metadata.artifactRevision ?? 1 },
-      { path: context.phaseMap.markdownPath, revision: context.phaseMap.metadata.artifactRevision ?? 1 },
-      { path: context.phaseInterview.markdownPath, revision: context.phaseInterview.metadata.artifactRevision ?? 1 },
-    ],
-    workflowData: {
-      handoffKind: "phase-planning",
-      contractId: phasePlanningSubmissionContractId,
-      phase: context.selectedPhase,
-      phasePlanningTarget: context.phasePlanningMarkdownPath,
-      workCardPlanTarget: context.workCardPlanMarkdownPath,
-      requiredPhasePlanningSections: phasePlanningRequiredSections(),
-      candidateFields: [
-        "candidateId",
-        "order",
-        "title",
-        "purpose",
-        "dependsOn",
-        "resolutionStatus",
-        "resolutionReason",
-        "evidencePaths",
-        "carriedForwardToPhaseId",
-      ],
-      allowedResolutionStatuses: candidateResolutionStatuses,
-    },
+    sourceRevisions,
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      {
+        handoffKind: "phase-planning",
+        contractId: phasePlanningSubmissionContractId,
+        phase: context.selectedPhase,
+        phasePlanningTarget: context.phasePlanningMarkdownPath,
+        workCardPlanTarget: context.workCardPlanMarkdownPath,
+        requiredPhasePlanningSections: phasePlanningRequiredSections(),
+        candidateFields: [
+          "candidateId",
+          "order",
+          "title",
+          "purpose",
+          "dependsOn",
+          "resolutionStatus",
+          "resolutionReason",
+          "evidencePaths",
+          "carriedForwardToPhaseId",
+        ],
+        allowedResolutionStatuses: candidateResolutionStatuses,
+      },
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+    ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
 }
 
 function buildPhasePlanningHandoffBody(context: PhasePlanningReadyContext): string {
+  const upstreamSourceRevisions = [
+    { path: context.profile.markdownPath, revision: context.profile.metadata.artifactRevision ?? 1 },
+    { path: context.roadmap.markdownPath, revision: context.roadmap.metadata.artifactRevision ?? 1 },
+    { path: context.phaseMap.markdownPath, revision: context.phaseMap.metadata.artifactRevision ?? 1 },
+    { path: context.phaseInterview.markdownPath, revision: context.phaseInterview.metadata.artifactRevision ?? 1 },
+  ];
   return [
     "# Phase Planning Architect Handoff",
     "",
@@ -356,7 +374,7 @@ function buildPhasePlanningHandoffBody(context: PhasePlanningReadyContext): stri
     ...(context.selectedPhase.sourceReferences.length > 0 ? context.selectedPhase.sourceReferences.map((reference) => `- ${reference}`) : ["- none"]),
     "",
     "Current source revisions:",
-    ...phasePlanningHandoffMetadata(context).sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
+    ...upstreamSourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
     "",
     "Candidate schema fields:",
     "- candidateId",
@@ -379,6 +397,7 @@ function buildPhasePlanningHandoffBody(context: PhasePlanningReadyContext): stri
 }
 
 function buildPhasePlanningHandoffInstruction(
+  workspaceRoot: string,
   context: PhasePlanningReadyContext,
   submission: ReturnType<typeof preparePhasePlanningDraftBundleSubmission>,
 ): string {
@@ -386,10 +405,14 @@ function buildPhasePlanningHandoffInstruction(
   const includeRevisionNotes = (context.phasePlanning?.disposition === "RevisionRequested" || context.workCardPlan?.disposition === "RevisionRequested") && revisionNotes;
   const phasePlanningDraftPath = draftPathForPhasePlanningSlot(submission, "phase-planning");
   const workCardPlanDraftPath = draftPathForPhasePlanningSlot(submission, "work-card-plan");
+  const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ??
+    mergeRepositoryAuthorityIntoWorkflowData(
+      {},
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+    );
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "This handoff is for the embedded Phase Planning Architect chat.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
     "",
     "Read these exact current inputs:",
     `- Approved Project Profile: ${context.profile.markdownPath}`,
@@ -437,28 +460,22 @@ function buildPhasePlanningHandoffInstruction(
     "",
     "When the complete Phase Planning body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + phasePlanningDraftPath + '",',
-    '    "content": "<complete body-only Phase Planning Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      phasePlanningDraftPath,
+      "<complete body-only Phase Planning Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "",
     "When the complete Work Card Plan body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + workCardPlanDraftPath + '",',
-    '    "content": "<complete body-only Work Card Plan Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      workCardPlanDraftPath,
+      "<complete body-only Work Card Plan Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply caller metadata, canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, domain save actions, manual imports, file-copy fallbacks, or any other authority fields as params.",
     "After both drafts are created, respond with a concise draft-created confirmation.",

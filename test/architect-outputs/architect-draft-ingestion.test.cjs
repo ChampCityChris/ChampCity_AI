@@ -202,23 +202,6 @@ function readCanonical(root, relativePath) {
   return parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, relativePath), "utf8"));
 }
 
-function findNearBoundSourcePath(definition) {
-  let candidate = "planning/a.md";
-  for (let length = 1; length < 500; length += 1) {
-    const sourcePath = `planning/${"a".repeat(length)}.md`;
-    try {
-      createArchitectDraftSubmission(
-        definition,
-        contextWithSourcePath(sourcePath, 1, "near-bound"),
-      );
-    } catch (error) {
-      return candidate;
-    }
-    candidate = sourcePath;
-  }
-  throw new Error("Could not build a near-bound source path fixture.");
-}
-
 function assertDistinctSubmissionIdentityPair(definition, sourcePathA, sourcePathB) {
   const submissionA = createArchitectDraftSubmission(
     definition,
@@ -236,7 +219,7 @@ function assertDistinctSubmissionIdentityPair(definition, sourcePathA, sourcePat
   return submissionA;
 }
 
-test("submission identity preserves source path boundaries and enforces path bounds before mutation", () => {
+test("submission identity uses compact source digests and stores full source handoff authority", () => {
   const root = tempWorkspace();
   const definition = singleDefinition();
 
@@ -272,25 +255,38 @@ test("submission identity preserves source path boundaries and enforces path bou
   );
   assert.notEqual(revisionTwo.submissionId, collidingA.submissionId);
 
-  const nearBoundPath = findNearBoundSourcePath(definition);
-  const nearBound = createArchitectDraftSubmission(
-    definition,
-    contextWithSourcePath(nearBoundPath, 1, "near-bound"),
-  );
-  assert.ok(nearBound.submissionId.length <= maxArchitectDraftSubmissionIdLength);
-  assert.ok(nearBound.promotionGroupId.length <= maxArchitectDraftSubmissionIdLength);
-  assert.ok(
-    nearBound.expectedDraftSlots[0].draftRelativePath.length <= maxArchitectDraftRelativePathLength,
-  );
-  assert.ok(maxArchitectDraftSubmissionIdLength - nearBound.promotionGroupId.length <= 5);
-
-  const overBoundPath = nearBoundPath.replace(".md", "aaaaaa.md");
-  assert.throws(
-    () => createArchitectDraftSubmission(
+  const realArchitectPromptPath =
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_pocket_decision_log.md";
+  const longRepairHandoffPath =
+    "planning/phases/phase-08/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC46-REPAIR16_repository_authority_mcp_binding_and_compact_draft_ids.md";
+  for (const sourcePath of [realArchitectPromptPath, longRepairHandoffPath]) {
+    const submission = createArchitectDraftSubmission(
       definition,
-      contextWithSourcePath(overBoundPath, 1, "near-bound"),
-    ),
-    /submission ID|relative path/,
+      contextWithSourcePath(sourcePath, 1, "long-source-path"),
+    );
+    assert.match(submission.submissionId, /-src-[a-f0-9]{20}-r1$/);
+    assert.equal(submission.sourceHandoff.path, sourcePath);
+    assert.equal(submission.sourceHandoff.revision, 1);
+    assert.ok(submission.submissionId.length <= maxArchitectDraftSubmissionIdLength);
+    assert.ok(submission.promotionGroupId.length <= maxArchitectDraftSubmissionIdLength);
+    assert.ok(
+      submission.expectedDraftSlots[0].draftRelativePath.length <= maxArchitectDraftRelativePathLength,
+    );
+    assert.doesNotMatch(submission.submissionId, /project-architect-interview-prompts/);
+    assert.doesNotMatch(submission.submissionId, /repair-architect-handoff/);
+  }
+
+  const veryLongSourcePath = `planning/phases/phase-08/Architect_Handoffs/${"VALID_LONG_SOURCE_HANDOFF_PATH_".repeat(12)}.md`;
+  const compact = createArchitectDraftSubmission(
+    definition,
+    contextWithSourcePath(veryLongSourcePath, 1, "very-long-source-path"),
+  );
+  assert.match(compact.submissionId, /-src-[a-f0-9]{20}-r1$/);
+  assert.equal(compact.sourceHandoff.path, veryLongSourcePath);
+  assert.ok(compact.submissionId.length <= maxArchitectDraftSubmissionIdLength);
+  assert.ok(compact.promotionGroupId.length <= maxArchitectDraftSubmissionIdLength);
+  assert.ok(
+    compact.expectedDraftSlots[0].draftRelativePath.length <= maxArchitectDraftRelativePathLength,
   );
   assert.equal(fs.existsSync(path.join(root, "planning", "Architect_Drafts")), false);
   assert.equal(fs.existsSync(path.join(root, "planning", "fixtures")), false);

@@ -24,6 +24,10 @@ import {
   selectNextWorkCardCandidateFromAuthority,
   workCardIntakeTargets as authorityWorkCardIntakeTargets,
 } from "../workCardLoop/workCardLoopAuthorityService";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export type CandidateSelectionState =
   | "eligible"
@@ -138,6 +142,10 @@ export function generateWorkCardIntakeHandoff(
   }
 
   const content = { candidate: { ...candidate, phaseId } };
+  const sourceRevisions = [
+    { path: context.sourcePhasePlanningPath, revision: context.sourcePhasePlanningRevision },
+    { path: context.sourceWorkCardPlanPath, revision: context.sourceWorkCardPlanRevision },
+  ];
   writeCanonicalMarkdownDocument({
     workspaceRoot,
     relativePath: context.handoffMarkdownPath,
@@ -147,14 +155,14 @@ export function generateWorkCardIntakeHandoff(
       artifactRevision: 1,
       participationRole: "nonReviewHandoff",
       identity: { phaseId, workCardId: candidate.candidateId },
-      sourceRevisions: [
-        { path: context.sourcePhasePlanningPath, revision: context.sourcePhasePlanningRevision },
-        { path: context.sourceWorkCardPlanPath, revision: context.sourceWorkCardPlanRevision },
-      ],
-      workflowData: {
-        ...content,
-        formalWorkCardTarget: context.formalWorkCardMarkdownPath,
-      },
+      sourceRevisions,
+      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+        {
+          ...content,
+          formalWorkCardTarget: context.formalWorkCardMarkdownPath,
+        },
+        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      ),
       documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
     },
     bodyMarkdown: `# Work Card Intake Architect Handoff - ${candidate.candidateId}\n\nFormal Work Card Markdown: ${context.formalWorkCardMarkdownPath}\n`,

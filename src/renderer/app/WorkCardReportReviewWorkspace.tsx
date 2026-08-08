@@ -1,4 +1,4 @@
-import { CheckCircle2, Clipboard, Wrench } from "lucide-react";
+import { CheckCircle2, Wrench } from "lucide-react";
 import type {
   CurrentWorkspaceModel,
 } from "../../shared/workspaceContracts";
@@ -17,7 +17,6 @@ export function WorkCardReportReviewWorkspace({
   isApplying,
   model,
   onAdvisorySummaryChange,
-  onCopyAdvisoryPrompt,
   onOperatorNotesChange,
   onRepairDefectTextChange,
   onSelectDocument,
@@ -34,7 +33,6 @@ export function WorkCardReportReviewWorkspace({
   isApplying: boolean;
   model: CurrentWorkspaceModel | null;
   onAdvisorySummaryChange: (value: string) => void;
-  onCopyAdvisoryPrompt: () => void;
   onOperatorNotesChange: (value: string) => void;
   onRepairDefectTextChange: (value: string) => void;
   onSelectDocument: (logicalDocumentId: string) => void;
@@ -155,17 +153,6 @@ export function WorkCardReportReviewWorkspace({
         </article>
 
         <section className="architect-review-panel" aria-label="Operator validation controls">
-          <div className="validation-action-row">
-            <button
-              className="architect-command-button icon-button text-button"
-              disabled={!reportIsCurrent || isApplying}
-              onClick={onCopyAdvisoryPrompt}
-              type="button"
-            >
-              <Clipboard aria-hidden="true" size={18} />
-              Copy Advisory Prompt
-            </button>
-          </div>
           <label>
             <span>Operator validation notes</span>
             <textarea

@@ -28,6 +28,14 @@ import {
   resolvePhaseInterviewDraftContext,
   type PhaseInterviewReadyContext,
 } from "./phaseInterviewDraftOutput";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export interface PhaseInterviewHandoffResult {
   phaseId: string;
@@ -53,7 +61,7 @@ export function generatePhaseInterviewHandoff(workspaceRoot: string): PhaseInter
       revision: document.metadata.artifactRevision ?? 1,
     })),
   ];
-  const metadata = phaseInterviewHandoffMetadata(context, sourceRevisions);
+  const metadata = phaseInterviewHandoffMetadata(workspaceRoot, context, sourceRevisions);
   const bodyMarkdown = buildPhaseInterviewHandoffBody(context, sourceRevisions);
   const existing = readExistingCanonical(workspaceRoot, context.handoffMarkdownPath);
   if (existing && handoffMatchesCurrentEvidence(existing, metadata, bodyMarkdown)) {
@@ -286,6 +294,7 @@ function requireReadyPhaseInterviewContext(workspaceRoot: string): PhaseIntervie
 }
 
 function phaseInterviewHandoffMetadata(
+  workspaceRoot: string,
   context: PhaseInterviewReadyContext,
   sourceRevisions: PhaseInterviewReadyContext["sourceRevisions"],
 ): CanonicalDocumentMetadata {
@@ -299,13 +308,16 @@ function phaseInterviewHandoffMetadata(
       phaseId: context.selectedPhase.phaseId,
     },
     sourceRevisions,
-    workflowData: {
-      handoffKind: "phase-interview",
-      contractId: phaseInterviewSubmissionContractId,
-      phase: context.selectedPhase,
-      outputTarget: context.interviewMarkdownPath,
-      requiredSections: [...phaseInterviewRequiredSections()],
-    },
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      {
+        handoffKind: "phase-interview",
+        contractId: phaseInterviewSubmissionContractId,
+        phase: context.selectedPhase,
+        outputTarget: context.interviewMarkdownPath,
+        requiredSections: [...phaseInterviewRequiredSections()],
+      },
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+    ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
 }
@@ -341,16 +353,21 @@ function buildPhaseInterviewHandoffBody(
 }
 
 function buildPhaseInterviewHandoffInstruction(
+  workspaceRoot: string,
   context: PhaseInterviewReadyContext,
   draftMarkdownPath: string,
 ): string {
   const revisionNotes = context.interview?.disposition === "RevisionRequested"
     ? context.interview.operatorReviewNotes
     : undefined;
+  const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ??
+    mergeRepositoryAuthorityIntoWorkflowData(
+      {},
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+    );
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "This handoff is for the embedded Phase Interview Architect chat.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
     "",
     "Read these exact current inputs:",
     `- Approved Project Profile: ${context.profile.markdownPath}`,
@@ -384,15 +401,12 @@ function buildPhaseInterviewHandoffInstruction(
     "",
     "When the complete body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + draftMarkdownPath + '",',
-    '    "content": "<complete body-only Phase Interview Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftMarkdownPath,
+      "<complete body-only Phase Interview Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "Do not call retired Phase Interview save actions, direct final-body writes, domain-specific write routes, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",

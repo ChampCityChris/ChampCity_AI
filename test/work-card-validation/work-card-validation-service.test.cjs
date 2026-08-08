@@ -37,7 +37,11 @@ test("advisory Architect prompt is generated from repository evidence", () => {
   writeReadyImplementerReport(root, "phase-01", "WC01", "Pending");
 
   const result = buildAdvisoryArchitectReviewPrompt(root, "phase-01", "WC01");
-  assert.match(result.instruction, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
+  assert.match(result.instruction, /Bound workspaceId: alpha/);
+  assert.match(result.instruction, /Use ChampCity MCP workspaceId "alpha" only\./);
+  assert.match(result.instruction, /BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH/);
+  assert.doesNotMatch(result.instruction, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
+  assert.doesNotMatch(result.instruction, /Resolve the configured workspace ID/);
   assert.match(result.instruction, /You are not the disposition authority\./);
   assert.match(result.instruction, /The Operator is the final authority/);
   assert.match(result.instruction, /# Advisory Architect Review — WC01/);

@@ -67,7 +67,6 @@ function renderWorkspace(overrides = {}) {
       isApplying: false,
       model: reportReviewModel(),
       onAdvisorySummaryChange: () => undefined,
-      onCopyAdvisoryPrompt: () => undefined,
       onOperatorNotesChange: () => undefined,
       onRepairDefectTextChange: () => undefined,
       onSelectDocument: () => undefined,
@@ -100,7 +99,6 @@ test("Review & Validation workspace offers evidence choices and Operator validat
   assert.match(source, /className="work-card-report-document-pane"/);
   assert.match(source, /reportIsCurrent/);
   assert.match(source, /Architect review advisory; Operator decision creates validation authority\./);
-  assert.match(source, /Copy Advisory Prompt/);
   assert.match(source, /Operator validation notes/);
   assert.match(source, /Advisory summary \/ pasted recommendation \(optional\)/);
   assert.match(source, /Repair defect text/);
@@ -112,6 +110,8 @@ test("Review & Validation workspace offers evidence choices and Operator validat
   assert.doesNotMatch(source, /Cancel Codex Run/);
   assert.doesNotMatch(source, /Event Tail/);
   assert.doesNotMatch(source, /className="work-card-report-reference"/);
+  assert.doesNotMatch(source, /onCopyAdvisoryPrompt/);
+  assert.doesNotMatch(source, /Copy Advisory Prompt/);
 });
 
 test("Review & Validation is a visible Work Card Implement workspace between Implement and Repair", () => {
@@ -197,10 +197,31 @@ test("Review & Validation App and CSS suppress global context and preserve dual-
   assert.match(appSource, /"figma-doc-chat-workspace review-validation-workspace"/);
   assert.match(appSource, /usesFigmaWorkspaceBody[\s\S]*isWorkCardReportReview/);
   assert.match(appSource, /<FigmaBrowserPanel/);
+  assert.match(appSource, /handoffActionsVisible=\{false\}/);
+  assert.match(appSource, /Copy Advisory Prompt/);
+  assert.match(appSource, /canCopyWorkCardAdvisoryPrompt/);
   assert.match(browserPanelSource, /aria-label="Embedded ChatGPT browser"/);
   assert.match(browserPanelSource, /ref=\{hostRef\} className="architect-browser-host figma-browser-host"/);
   assert.match(stylesSource, /\.workspace-surface\.review-validation-surface/);
   assert.match(stylesSource, /\.review-validation-workspace\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 288px/);
   assert.match(stylesSource, /\.work-card-report-document-pane\s*\{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\) auto/);
   assert.match(stylesSource, /\.work-card-report-evidence-strip\s*\{[\s\S]*grid-template-columns:/);
+});
+
+test("Review & Validation keeps Copy Advisory Prompt in browser actions, not validation controls", () => {
+  const componentMarkup = renderWorkspace();
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const reviewWorkspaceSource = appSource.slice(
+    appSource.indexOf("{isWorkCardReportReview ? ("),
+    appSource.indexOf("{isWorkCardClose ? ("),
+  );
+  const validationWorkspaceSource = fs.readFileSync(componentSourcePath, "utf8");
+
+  assert.doesNotMatch(componentMarkup, /Copy Advisory Prompt/);
+  assert.doesNotMatch(validationWorkspaceSource, /Copy Advisory Prompt/);
+  assert.match(reviewWorkspaceSource, /<FigmaBrowserActionsPanel/);
+  assert.match(reviewWorkspaceSource, /contextualActions=\{/);
+  assert.match(reviewWorkspaceSource, /Copy Advisory Prompt/);
+  assert.match(reviewWorkspaceSource, /disabled=\{!canCopyWorkCardAdvisoryPrompt\}/);
+  assert.match(reviewWorkspaceSource, /handoffActionsVisible=\{false\}/);
 });

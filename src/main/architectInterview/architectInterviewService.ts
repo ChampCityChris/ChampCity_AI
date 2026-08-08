@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
+import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type {
   ArchitectInterviewWorkspaceModel,
   ArchitectInterviewWorkspaceState,
@@ -8,17 +11,45 @@ import {
   resolveCanonicalArchitectInterviewContext,
   type CanonicalArtifactIdentity,
 } from "./architectInterviewContextResolver";
+import {
+  writeProjectArchitectInterviewPrompt,
+} from "./projectArchitectInterviewPromptWriter";
 import { buildArchitectInterviewReviewSourceKey } from "../../shared/architectInterview/architectInterviewRefreshState";
 import {
   updateCanonicalMarkdownDisposition,
 } from "../documents/canonicalMarkdownDocumentWriter";
 import { getArchitectInterviewDraftStatus, prepareArchitectInterviewDraftSubmission } from "./architectInterviewDraftPilot";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
 
 export function getArchitectInterviewWorkspaceModel(
   workspaceRoot: string,
 ): ArchitectInterviewWorkspaceModel {
   const draftStatus = getArchitectInterviewDraftStatus(workspaceRoot);
   const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
+  if (context.status === "prompt-missing-recoverable") {
+    return {
+      state: "prompt-missing",
+      railStatus: "Open",
+      handoffState: "handoff-unavailable",
+      projectIntakeDocument: context.projectIntake,
+      interviewTargets: context.interviewTargets,
+      selectedReviewDocumentRole: "project-intake",
+      documentReadState: context.projectIntake.documentReadState,
+      freshnessState: "fresh",
+      canRegeneratePrompt: true,
+      canPrepareHandoff: false,
+      canCopyHandoff: false,
+      canApplyDisposition: false,
+      projectIntakeComplete: false,
+      requiredAction: "Regenerate Interview Prompt from the Approved Project Intake, then prepare the ChatGPT handoff.",
+      reason: context.reason,
+      evidencePaths: context.evidencePaths,
+      markdownPath: context.projectIntake.markdownPath,
+    };
+  }
   if (context.status !== "ready") {
     return {
       state: context.status === "conflict" || context.status === "local-error"
@@ -26,6 +57,8 @@ export function getArchitectInterviewWorkspaceModel(
         : "prerequisites-unavailable",
       railStatus: context.status === "prerequisites-unavailable" ? "Open" : "Needs Attention",
       handoffState: "handoff-unavailable",
+      canRegeneratePrompt: false,
+      canPrepareHandoff: false,
       canCopyHandoff: false,
       canApplyDisposition: false,
       selectedReviewDocumentRole: "prompt",
@@ -75,6 +108,8 @@ export function getArchitectInterviewWorkspaceModel(
     interviewDisposition: interview?.disposition,
     documentReadState,
     freshnessState,
+    canRegeneratePrompt: false,
+    canPrepareHandoff,
     canCopyHandoff: canPrepareHandoff,
     canApplyDisposition: invalidInterviewReason ? false : canApplyDisposition,
     currentOperatorReviewNotes,
@@ -99,6 +134,42 @@ export function getArchitectInterviewWorkspaceModel(
 export function prepareArchitectInterviewHandoff(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
   prepareArchitectInterviewDraftSubmission(workspaceRoot);
   return getArchitectInterviewWorkspaceModel(workspaceRoot);
+}
+
+export function regenerateArchitectInterviewPrompt(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
+  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
+  if (context.status === "ready") {
+    return getArchitectInterviewWorkspaceModel(workspaceRoot);
+  }
+  if (context.status !== "prompt-missing-recoverable") {
+    throw new Error(context.reason);
+  }
+
+  const workspace = path.resolve(workspaceRoot);
+  const targetPath = path.join(workspace, context.promptTargetPath);
+  if (fs.existsSync(targetPath)) {
+    throw new Error("Project Architect Interview Prompt target already exists and was not recognized as the current Approved prompt. Resolve the conflict before regenerating.");
+  }
+
+  const intake = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(workspace, context.projectIntake.markdownPath), "utf8"),
+  );
+  const projectName = stringValue(intake.metadata.workflowData.projectName);
+  if (!projectName) {
+    throw new Error("Approved Project Intake is missing workflowData.projectName.");
+  }
+
+  writeProjectArchitectInterviewPrompt({
+    workspaceRoot: workspace,
+    projectName,
+    projectSlug: context.projectSlug,
+    projectIntakeMarkdownPath: context.projectIntake.markdownPath,
+    projectIntakeRevision: context.projectIntake.artifactRevision,
+    projectIntakeWorkflowData: intake.metadata.workflowData,
+    architectInterviewTargetMarkdownPath: context.interviewTargets.markdownPath,
+  });
+
+  return getArchitectInterviewWorkspaceModel(workspace);
 }
 
 export function reviewArchitectInterview(
@@ -237,15 +308,21 @@ function canPrepareHandoffForContext(
   return context.interview.disposition === "RevisionRequested";
 }
 
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function buildArchitectHandoffInstruction({
   currentInterviewDisposition,
   currentOperatorReviewNotes,
   draftMarkdownPath,
+  workspaceRoot,
   projectIntakeJsonRevision,
   projectIntakeMarkdownPath,
   promptJsonRevision,
   promptMarkdownPath,
 }: {
+  workspaceRoot: string;
   promptMarkdownPath: string;
   promptJsonRevision: number;
   projectIntakeMarkdownPath: string;
@@ -266,9 +343,10 @@ function buildArchitectHandoffInstruction({
     `- path: ${projectIntakeMarkdownPath} revision: ${projectIntakeJsonRevision}`,
     `- path: ${promptMarkdownPath} revision: ${promptJsonRevision}`,
   ];
+  const promptWorkflowData = readCanonicalWorkflowData(workspaceRoot, promptMarkdownPath);
 
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "This handoff is for the embedded Architect chat.",
     "",
     "Read these exact handoff inputs:",
@@ -285,20 +363,16 @@ function buildArchitectHandoffInstruction({
     "Do not return a snippet as completion.",
     "Do not require manual Operator handling of completed Interview output.",
     "When the interview or revision is substantively complete, synthesize one complete substantive Project Architect Interview Markdown document body.",
-    "Resolve the configured ChampCity MCP workspace ID for <PROJECT_REPO> if it is not already known.",
     "Write only that body to this exact temporary draft path:",
     `- Temporary draft Markdown: ${draftMarkdownPath}`,
     "Call artifact_toolbox.create_markdown_artifact with this invocation structure:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + draftMarkdownPath + '",',
-    '    "content": "<complete body-only Interview Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftMarkdownPath,
+      "<complete body-only Interview Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, a final canonical output path, route-specific handoff fields, hashes, digests, checksums, tokens, metadata delimiters, or any hidden authorization value.",
     "Do not call the retired submission action, any retired Interview save action, or any alternate file-writing route.",
@@ -310,4 +384,13 @@ function buildArchitectHandoffInstruction({
     "Read and address current Operator revision notes when the existing Interview is RevisionRequested.",
     ...revisionInstruction,
   ].join("\n");
+}
+
+function readCanonicalWorkflowData(workspaceRoot: string, relativePath: string): Record<string, unknown> {
+  if (path.isAbsolute(relativePath) || relativePath.includes("..")) {
+    throw new Error("Architect Interview prompt path must be repository-relative.");
+  }
+  return parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(path.resolve(workspaceRoot), relativePath), "utf8"),
+  ).metadata.workflowData;
 }

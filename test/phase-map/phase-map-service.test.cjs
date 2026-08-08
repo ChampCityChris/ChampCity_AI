@@ -117,7 +117,10 @@ test("phase map handoff contains contract authority without fabricated default p
 
   assert.equal(parsed.metadata.workflowData.handoffKind, "phase-map");
   assert.equal(parsed.metadata.workflowData.contractId, "phase-map-output-submission-v1");
-  assert.deepEqual(parsed.metadata.workflowData, {
+  const { repositoryAuthority, ...workflowData } = parsed.metadata.workflowData;
+  assert.equal(repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(repositoryAuthority.projectRepository, require("node:path").resolve(root));
+  assert.deepEqual(workflowData, {
     handoffKind: "phase-map",
     contractId: "phase-map-output-submission-v1",
     phaseMapTarget: result.phaseMapMarkdownPath,
@@ -125,7 +128,7 @@ test("phase map handoff contains contract authority without fabricated default p
     requiredDomainBlocks: ["champcity-phase-map"],
   });
   assert.equal(parsed.metadata.workflowData.phases, undefined);
-  assert.deepEqual(Object.keys(parsed.metadata.workflowData), [
+  assert.deepEqual(Object.keys(workflowData), [
     "handoffKind",
     "contractId",
     "phaseMapTarget",

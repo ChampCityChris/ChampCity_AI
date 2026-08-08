@@ -24,6 +24,14 @@ import {
 } from "../documents/planningDocumentService";
 import { getPhaseIntakeCompletion } from "../phaseInterview/phaseInterviewService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export const phasePlanningSubmissionContractId = "phase-planning-atomic-bundle-v1";
 export const phasePlanningOutputKind = "phase-planning-bundle";
@@ -144,8 +152,14 @@ export const phasePlanningArchitectOutputDefinition: ArchitectOutputDefinition<
           ? readExistingCanonical(workspaceRoot, context.phasePlanningMarkdownPath)
           : null;
         const metadata: CanonicalDocumentMetadata = existing
-          ? metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions)
-          : freshBundleMetadata(context, "phase-planning", {});
+          ? {
+              ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
+              workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+                existing.metadata.workflowData,
+                inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+              ),
+            }
+          : freshBundleMetadata(workspaceRoot, context, "phase-planning", {});
         return { relativePath: context.phasePlanningMarkdownPath, metadata, bodyMarkdown };
       },
     },
@@ -164,9 +178,12 @@ export const phasePlanningArchitectOutputDefinition: ArchitectOutputDefinition<
         const metadata: CanonicalDocumentMetadata = existing
           ? {
               ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
-              workflowData: { candidates },
+              workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+                { candidates },
+                inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+              ),
             }
-          : freshBundleMetadata(context, "work-card-plan", { candidates });
+          : freshBundleMetadata(workspaceRoot, context, "work-card-plan", { candidates });
         return { relativePath: context.workCardPlanMarkdownPath, metadata, bodyMarkdown };
       },
     },
@@ -203,8 +220,8 @@ export const phasePlanningArchitectOutputDefinition: ArchitectOutputDefinition<
       preparedContext as PhasePlanningReadyContext,
     );
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildPhasePlanningPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildPhasePlanningPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments }) {
     return {
@@ -533,6 +550,7 @@ function assertCanPromotePhasePlanningBundle(context: PhasePlanningReadyContext)
 }
 
 function freshBundleMetadata(
+  workspaceRoot: string,
   context: PhasePlanningReadyContext,
   artifactType: "phase-planning" | "work-card-plan",
   workflowData: Record<string, unknown>,
@@ -544,7 +562,10 @@ function freshBundleMetadata(
     participationRole: "compoundGatingReview",
     identity: { phaseId: context.selectedPhase.phaseId },
     sourceRevisions: context.sourceRevisions,
-    workflowData,
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      workflowData,
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+    ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
 }
@@ -699,6 +720,7 @@ function errorMessage(error: unknown): string {
 }
 
 function buildPhasePlanningPreparedInstruction(
+  workspaceRoot: string,
   context: PhasePlanningReadyContext,
   submission: ArchitectDraftSubmission<PhasePlanningSlotId>,
   sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
@@ -710,9 +732,9 @@ function buildPhasePlanningPreparedInstruction(
     revisionNotes;
   const phasePlanningDraftPath = draftPathForPhasePlanningSlot(submission, "phase-planning");
   const workCardPlanDraftPath = draftPathForPhasePlanningSlot(submission, "work-card-plan");
+  const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ?? {};
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "Read these exact current inputs:",
     `- Approved Phase Planning handoff: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
@@ -757,28 +779,22 @@ function buildPhasePlanningPreparedInstruction(
     "",
     "When the complete Phase Planning body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${phasePlanningDraftPath}",`,
-    '    "content": "<complete body-only Phase Planning Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      phasePlanningDraftPath,
+      "<complete body-only Phase Planning Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "",
     "When the complete Work Card Plan body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${workCardPlanDraftPath}",`,
-    '    "content": "<complete body-only Work Card Plan Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      workCardPlanDraftPath,
+      "<complete body-only Work Card Plan Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply caller metadata, canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, domain save actions, manual imports, file-copy fallbacks, or any other authority fields as params.",
     "After both drafts are created, respond with a concise draft-created confirmation.",

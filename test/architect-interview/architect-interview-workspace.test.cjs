@@ -6,8 +6,13 @@ const test = require("node:test");
 const {
   getArchitectInterviewWorkspaceModel,
   prepareArchitectInterviewHandoff,
+  regenerateArchitectInterviewPrompt,
   reviewArchitectInterview,
 } = require("../../dist/main/architectInterview/architectInterviewService.js");
+const {
+  getArchitectOutputWorkspaceModel,
+  prepareArchitectOutputHandoff,
+} = require("../../dist/main/architectOutputs/architectOutputWorkspaceService.js");
 const {
   parseCanonicalMarkdownDocument,
 } = require("../../dist/shared/documents/canonicalMarkdown.js");
@@ -18,10 +23,18 @@ const {
   getActiveArchitectInterviewDraftSubmission,
 } = require("../../dist/main/architectInterview/architectInterviewDraftPilot.js");
 const {
+  approve,
   seedApprovedProjectIntake,
   tempWorkspace,
+  tempWorkspaceWithoutBinding,
   writeDoc,
 } = require("../support/canonical-markdown-fixtures.cjs");
+const {
+  submitProjectIntake,
+} = require("../../dist/main/projectIntake/projectIntakeService.js");
+const {
+  buildArchitectHandoffManifest,
+} = require("../../dist/main/integrations/architectMcpHandoffService.js");
 
 function submitDraft(root, body) {
   const prepared = prepareArchitectInterviewHandoff(root);
@@ -34,6 +47,15 @@ function submitDraft(root, body) {
 function invocationFrom(handoffInstruction) {
   const json = handoffInstruction.match(/```json\n([\s\S]*?)\n```/)[1];
   return JSON.parse(json);
+}
+
+function expectedWorkspaceIdFromRepository(projectRepository) {
+  return path.basename(projectRepository)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function expectedSubmissionId(targets, submissionKey = "request-1") {
@@ -76,7 +98,7 @@ test("Architect Interview workspace promotes an application-owned temporary draf
   const expectedId = expectedSubmissionId(targets);
   assert.deepEqual(invocation, {
     action: "create_markdown_artifact",
-    workspaceId: "<resolved workspace ID>",
+    workspaceId: "alpha",
     params: {
       relativePath: `planning/Architect_Drafts/${expectedId}/interview.md`,
       content: "<complete body-only Interview Markdown>",
@@ -208,4 +230,159 @@ test("Architect Interview model does not carry a truncated authoritative preview
 
   assert.equal(model.interviewDocument.documentReadState, "readable");
   assert.equal(model.preview, undefined);
+});
+
+test("Architect Interview handoff uses projectRepository route when repository authority has no binding", () => {
+  const root = tempWorkspaceWithoutBinding("champcity-architect-interview-unbound-");
+  const result = submitProjectIntake({
+    projectName: "Unbound Interview",
+    projectPurpose: "Keep Architect Interview projection usable without MCP binding.",
+    desiredOutcome: "Handoff setup routes from Project Intake repository authority.",
+    projectType: "Desktop application",
+    projectRepository: root,
+    hasExistingSourceOrPlanning: false,
+    knownConstraints: "",
+    repositoryReviewContext: "",
+  });
+  approve(root, result.projectIntakeMarkdownPath);
+
+  const model = getArchitectInterviewWorkspaceModel(root);
+  assert.equal(model.state, "waiting-for-output");
+  assert.equal(model.promptDocument.markdownPath, result.architectPromptMarkdownPath);
+  assert.equal(model.interviewTargets.markdownPath, result.architectInterviewTargetMarkdownPath);
+
+  const expectedWorkspaceId = expectedWorkspaceIdFromRepository(root);
+  const prepared = prepareArchitectInterviewHandoff(root);
+  const invocation = invocationFrom(prepared.handoffInstruction);
+
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "mcp-workspace-binding.json")), false);
+  assert.equal(prepared.canCopyHandoff, true);
+  assert.equal(invocation.workspaceId, expectedWorkspaceId);
+  assert.match(prepared.handoffInstruction, new RegExp(`Use ChampCity MCP workspaceId "${expectedWorkspaceId}" only\\.`));
+  assert.doesNotMatch(prepared.handoffInstruction, /BLOCKED_MCP_WORKSPACE_BINDING_REQUIRED/);
+  assert.doesNotMatch(prepared.handoffInstruction, /resolve the configured workspace ID|search other workspaces|infer/i);
+
+  const manifest = buildArchitectHandoffManifest(root);
+  assert.equal(manifest.state, "handoff-ready");
+  assert.equal(manifest.mcpWorkspaceBinding.mcpWorkspaceId, expectedWorkspaceId);
+});
+
+test("Architect Interview regenerates a deleted prompt from Approved Project Intake", () => {
+  const outerRoot = tempWorkspaceWithoutBinding("champcity-architect-regenerate-prompt-");
+  const root = path.join(outerRoot, "ChampCity_PDL");
+  fs.mkdirSync(root, { recursive: true });
+  const result = submitProjectIntake({
+    projectName: "Pocket Decision Log",
+    projectPurpose: "Recover a deleted Architect Interview prompt.",
+    desiredOutcome: "The Operator can continue without resubmitting Project Intake.",
+    projectType: "Desktop application",
+    projectRepository: root,
+    hasExistingSourceOrPlanning: false,
+    knownConstraints: "",
+    repositoryReviewContext: "",
+  });
+  approve(root, result.projectIntakeMarkdownPath);
+  const intakeBefore = fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8");
+  fs.unlinkSync(path.join(root, result.architectPromptMarkdownPath));
+
+  const missing = getArchitectInterviewWorkspaceModel(root);
+  assert.equal(missing.state, "prompt-missing");
+  assert.equal(missing.selectedReviewDocumentRole, "project-intake");
+  assert.equal(missing.projectIntakeDocument.markdownPath, result.projectIntakeMarkdownPath);
+  assert.deepEqual(missing.evidencePaths, [result.projectIntakeMarkdownPath]);
+  assert.equal(missing.markdownPath, result.projectIntakeMarkdownPath);
+  assert.equal(missing.canRegeneratePrompt, true);
+  assert.equal(missing.canPrepareHandoff, false);
+  assert.equal(missing.canCopyHandoff, false);
+
+  const genericMissing = getArchitectOutputWorkspaceModel(root, "architect-interview");
+  assert.equal(genericMissing.state, "not-ready");
+  assert.equal(genericMissing.canRegeneratePrompt, true);
+  assert.equal(genericMissing.canPrepareHandoff, false);
+
+  const regenerated = regenerateArchitectInterviewPrompt(root);
+  assert.equal(regenerated.state, "waiting-for-output");
+  assert.equal(regenerated.promptDocument.markdownPath, result.architectPromptMarkdownPath);
+  assert.equal(regenerated.interviewTargets.markdownPath, result.architectInterviewTargetMarkdownPath);
+  assert.equal(fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8"), intakeBefore);
+
+  const prompt = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
+  );
+  assert.equal(prompt.metadata.artifactType, "project-architect-interview-prompt");
+  assert.equal(prompt.metadata.participationRole, "nonReviewHandoff");
+  assert.equal(prompt.metadata.documentDisposition.status, "Approved");
+  assert.deepEqual(prompt.metadata.sourceRevisions, [
+    { path: result.projectIntakeMarkdownPath, revision: 1 },
+  ]);
+  assert.equal(prompt.metadata.workflowData.projectRepository, path.resolve(root));
+  assert.equal(prompt.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
+  assert.equal(prompt.metadata.workflowData.projectSlug, "pocket_decision_log");
+  assert.equal(prompt.metadata.workflowData.architectOutputTargets.markdown, result.architectInterviewTargetMarkdownPath);
+  const regeneratedPromptBytes = fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8");
+
+  const genericReady = getArchitectOutputWorkspaceModel(root, "architect-interview");
+  assert.equal(genericReady.canRegeneratePrompt, false);
+  assert.equal(genericReady.canPrepareHandoff, true);
+  assert.equal(genericReady.canCopyHandoff, false);
+
+  const prepared = prepareArchitectOutputHandoff(root, "architect-interview");
+  assert.equal(prepared.canCopyHandoff, true);
+  assert.match(prepared.preparedInstruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);
+  assert.doesNotMatch(prepared.preparedInstruction, /resolve the configured workspace ID|search other workspaces|infer/i);
+  const invocation = invocationFrom(prepared.preparedInstruction);
+  const active = getActiveArchitectInterviewDraftSubmission(root);
+  assert.equal(fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"), regeneratedPromptBytes);
+  assert.equal(invocation.workspaceId, "champcity_pdl");
+  assert.match(active.submission.submissionId, /^ad-architect-interview-project-architect-interview-request-1-src-[a-f0-9]{20}-r1$/);
+  assert.equal(active.submission.sourceHandoff.path, result.architectPromptMarkdownPath);
+  assert.ok(active.submission.submissionId.length <= 240);
+});
+
+test("Architect Interview regeneration does not overwrite a conflicting prompt target", () => {
+  const root = tempWorkspace("champcity-architect-regenerate-conflict-");
+  const result = submitProjectIntake({
+    projectName: "Conflict Target",
+    projectPurpose: "Keep regeneration bounded.",
+    desiredOutcome: "Existing nonmatching prompt target requires Operator attention.",
+    projectType: "Desktop application",
+    projectRepository: root,
+    hasExistingSourceOrPlanning: false,
+    knownConstraints: "",
+    repositoryReviewContext: "",
+  });
+  approve(root, result.projectIntakeMarkdownPath);
+  fs.unlinkSync(path.join(root, result.architectPromptMarkdownPath));
+  const conflictBody = "# Nonmatching prompt target\n\nDo not overwrite.\n";
+  fs.writeFileSync(path.join(root, result.architectPromptMarkdownPath), conflictBody, "utf8");
+
+  const model = getArchitectInterviewWorkspaceModel(root);
+  assert.equal(model.state, "needs-attention");
+  assert.match(model.reason, /target exists but is not the current Approved associated prompt/);
+  assert.equal(model.canRegeneratePrompt, false);
+  assert.throws(
+    () => regenerateArchitectInterviewPrompt(root),
+    /target exists but is not the current Approved associated prompt/,
+  );
+  assert.equal(fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"), conflictBody);
+});
+
+test("Architect Interview handoff prepares compact draft ID for real long prompt path", () => {
+  const root = tempWorkspace("champcity-architect-interview-long-path-");
+  const targets = seedApprovedProjectIntake(root, "pocket_decision_log");
+  assert.equal(
+    targets.prompt,
+    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_pocket_decision_log.md",
+  );
+
+  const prepared = prepareArchitectInterviewHandoff(root);
+  const invocation = invocationFrom(prepared.handoffInstruction);
+  const active = getActiveArchitectInterviewDraftSubmission(root);
+
+  assert.match(active.submission.submissionId, /^ad-architect-interview-project-architect-interview-request-1-src-[a-f0-9]{20}-r1$/);
+  assert.equal(active.submission.sourceHandoff.path, targets.prompt);
+  assert.equal(active.submission.sourceHandoff.revision, 1);
+  assert.equal(invocation.params.relativePath, `planning/Architect_Drafts/${active.submission.submissionId}/interview.md`);
+  assert.ok(active.submission.submissionId.length <= 240);
+  assert.doesNotMatch(active.submission.submissionId, /project-architect-interview-prompts/);
 });

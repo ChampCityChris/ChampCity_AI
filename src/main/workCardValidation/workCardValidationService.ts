@@ -7,6 +7,11 @@ import type { PlanningDocumentSummary, SourceRevision } from "../../shared/docum
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import { requireReadyImplementerReportForReview } from "../workCardBuilding/workCardBuildingReviewService";
+import { buildMcpWorkspaceBindingPromptBlock } from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export interface ValidationAttemptResult {
   attemptNumber: number;
@@ -53,6 +58,10 @@ export function createValidationAttempt(workspaceRoot: string, phaseId: string, 
     issues: [],
     operatorNotes: "",
   };
+  const sourceRevisions = [
+    { path: workCard.markdownPath, revision: workCard.metadata.artifactRevision ?? 1 },
+    { path: report.markdownPath, revision: report.metadata.artifactRevision ?? 1 },
+  ];
   writeCanonicalMarkdownDocument({
     workspaceRoot,
     relativePath: markdownPath,
@@ -62,11 +71,11 @@ export function createValidationAttempt(workspaceRoot: string, phaseId: string, 
       artifactRevision: 1,
       participationRole: "gatingReview",
       identity: { phaseId, workCardId, candidateId: workCardId, attemptNumber },
-      sourceRevisions: [
-        { path: workCard.markdownPath, revision: workCard.metadata.artifactRevision ?? 1 },
-        { path: report.markdownPath, revision: report.metadata.artifactRevision ?? 1 },
-      ],
-      workflowData: content,
+      sourceRevisions,
+      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+        content,
+        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      ),
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },
     bodyMarkdown: `# Validation Record - ${workCardId} Attempt ${attemptNumber}\n\nOperator-started validation attempt.\n`,
@@ -93,9 +102,9 @@ export function buildAdvisoryArchitectReviewPrompt(
   const changedFiles = changedFilesList(report.metadata.canonical?.workflowData.filesChanged);
   const formalSha256 = sha256RelativeFile(workspaceRoot, formal.markdownPath);
   const reportSha256 = sha256RelativeFile(workspaceRoot, report.markdownPath);
+  const promptWorkflowData = report.metadata.canonical?.workflowData ?? {};
   const instruction = [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "This is an advisory Architect review for Operator decision support.",
     "You are not the disposition authority. Do not approve, reject, validate, or create repair artifacts.",
@@ -105,11 +114,16 @@ export function buildAdvisoryArchitectReviewPrompt(
     `- path: ${formal.markdownPath}`,
     `- revision: ${formalRevision}`,
     `- sha256: ${formalSha256}`,
+    "- read only from the bound workspaceId above",
     "",
     "Read the current Implementer Report:",
     `- path: ${report.markdownPath}`,
     `- revision: ${reportRevision}`,
     `- sha256: ${reportSha256}`,
+    "- read only from the bound workspaceId above",
+    "",
+    "If either exact artifact path, revision, or sha256 fails verification in the bound workspace, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH.",
+    "Do not search other workspaces, switch workspace IDs, or treat a missing exact path in the bound workspace as proof of implementation absence.",
     "",
     "Inspect the implementation evidence named by the report, including changed files, tests, validation output, and any production path necessary to verify the Work Card.",
     "Changed files reported by the Implementer:",
@@ -192,6 +206,10 @@ export function applyOperatorValidationDecision(
     implementerReportPath: report.markdownPath,
     implementerReportRevision: reportSource.revision,
   });
+  const workflowDataWithAuthority = mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData,
+    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+  );
   writeCanonicalMarkdownDocument({
     workspaceRoot,
     relativePath: markdownPath,
@@ -202,7 +220,7 @@ export function applyOperatorValidationDecision(
       attemptNumber,
       sourceRevisions,
       status,
-      workflowData,
+      workflowData: workflowDataWithAuthority,
       dispositionNotes: dispositionNotesForValidation(input, repairDefectText),
     }),
     bodyMarkdown: validationBodyMarkdown({

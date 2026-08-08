@@ -147,7 +147,10 @@ test("project planning greenfield preflight emits the approved submission contra
   const handoff = parseCanonicalMarkdownDocument(
     fs.readFileSync(path.join(root, result.handoffMarkdownPath), "utf8"),
   );
-  assert.deepEqual(handoff.metadata.workflowData, {
+  const { repositoryAuthority, ...handoffWorkflowData } = handoff.metadata.workflowData;
+  assert.equal(repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(repositoryAuthority.projectRepository, path.resolve(root));
+  assert.deepEqual(handoffWorkflowData, {
     handoffKind: "project-planning",
     contractId: "project-planning-output-submission-v2",
     projectProfileTarget: "planning/project/PROJECT_PROFILE.md",
@@ -403,7 +406,9 @@ test("project planning handoff instruction includes exact targets and MCP constr
   const prepared = prepareProjectPlanningHandoff(root);
 
   const instruction = getProjectPlanningHandoffInstruction(root);
-  assert.match(instruction, /<PROJECT_REPO>/);
+  assert.match(instruction, /Bound workspaceId: alpha/);
+  assert.match(instruction, /Use ChampCity MCP workspaceId "alpha" only\./);
+  assert.doesNotMatch(instruction, /<PROJECT_REPO>/);
   assert.match(instruction, new RegExp(seeded.intake.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(instruction, new RegExp(seeded.prompt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(instruction, new RegExp(seeded.interview.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -429,7 +434,7 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.doesNotMatch(instruction, /"handoffKind"/);
   assert.doesNotMatch(instruction, /"projectProfileMarkdown"/);
   assert.doesNotMatch(instruction, /"projectRoadmapMarkdown"/);
-  assert.match(instruction, /Use ChampCity MCP/);
+  assert.match(instruction, /Use ChampCity MCP workspaceId "alpha" only/);
   assert.match(instruction, /Do not write placeholders/);
   assert.match(instruction, /workflow remains incomplete until both temporary drafts are created and ChampCity A\/I promotes the bundle/);
   assert.doesNotMatch(instruction, /save_project_planning_outputs/);
@@ -439,7 +444,7 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.deepEqual(invocations, [
     {
       action: "create_markdown_artifact",
-      workspaceId: "<resolved workspace ID>",
+      workspaceId: "alpha",
       params: {
         relativePath: `planning/Architect_Drafts/${expectedSubmissionId(prepared.handoffMarkdownPath)}/project-profile.md`,
         content: "<complete body-only Project Profile Markdown>",
@@ -448,7 +453,7 @@ test("project planning handoff instruction includes exact targets and MCP constr
     },
     {
       action: "create_markdown_artifact",
-      workspaceId: "<resolved workspace ID>",
+      workspaceId: "alpha",
       params: {
         relativePath: `planning/Architect_Drafts/${expectedSubmissionId(prepared.handoffMarkdownPath)}/project-roadmap.md`,
         content: "<complete body-only Project Roadmap Markdown>",

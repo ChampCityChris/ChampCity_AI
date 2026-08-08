@@ -95,6 +95,93 @@ test("updated Figma navigation renders nested production phase and Work Card row
   assert.match(markup, />Not Ready</);
 });
 
+test("top Phases rail stays In Progress while phase execution remains active", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(NestedWorkflowRail, {
+      activeWorkspaceId: "phase-validation",
+      architectInterviewStatus: "Completed",
+      executionContext: {
+        phase: {
+          state: "active",
+          phaseId: "phase-08",
+          title: "Desktop Application",
+          order: 8,
+          totalPhaseCount: 8,
+          purpose: "Complete the governed desktop workflow.",
+          dependsOn: [],
+          loopStep: "Phase Validation",
+          reason: "Current phase resolved.",
+        },
+        workCard: {
+          state: "none",
+          reason: "No active Work Card.",
+        },
+      },
+      onWorkspaceChange: () => undefined,
+      projectIntakeStatus: "Completed",
+      projectRailStatuses: {
+        "project-intake-capture": "Completed",
+        "architect-interview": "Completed",
+        "project-planning-review": "Completed",
+        "project-phase-map": "Completed",
+        "phase-interview": "Completed",
+        "project-validation": "Not Ready",
+        "project-close": "Open",
+      },
+      requiredWorkspaceId: "phase-validation",
+    }),
+  );
+
+  assert.match(markup, /05 Phases: In Progress\. Current required step\. Open workflow step\./);
+  assert.doesNotMatch(markup, /05 Phases: Completed\. Current required step\. Open workflow step\./);
+});
+
+test("loop selected pill follows the viewed workspace rather than required authority", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(NestedWorkflowRail, {
+      activeWorkspaceId: "work-card-close",
+      architectInterviewStatus: "Completed",
+      executionContext: {
+        phase: {
+          state: "active",
+          phaseId: "phase-08",
+          title: "Desktop Application",
+          order: 8,
+          totalPhaseCount: 8,
+          purpose: "Complete the governed desktop workflow.",
+          dependsOn: [],
+          loopStep: "Work Cards",
+          reason: "Current phase resolved.",
+        },
+        workCard: {
+          state: "active",
+          workCardId: "WC46-REPAIR14",
+          title: "Lifecycle Rail UI Polish",
+          loopStep: "Review & Validation",
+          dispositionOrState: "In Progress",
+          reason: "Review is current.",
+        },
+      },
+      onWorkspaceChange: () => undefined,
+      projectIntakeStatus: "Completed",
+      projectRailStatuses: {
+        "project-intake-capture": "Completed",
+        "architect-interview": "Completed",
+        "project-planning-review": "Completed",
+        "project-phase-map": "Completed",
+        "phase-interview": "In Progress",
+        "project-validation": "Not Ready",
+        "project-close": "Open",
+      },
+      requiredWorkspaceId: "work-card-report-review",
+    }),
+  );
+
+  assert.match(markup, /class="figma-sub-pill in-progress" data-status="in-progress"[^>]*><span[^>]*>[\s\S]*Review &amp; Validation/);
+  assert.match(markup, /class="figma-sub-pill active pending" data-status="pending"[^>]*><span[^>]*>[\s\S]*Close \/ Next/);
+  assert.doesNotMatch(markup, /class="figma-sub-pill active in-progress" data-status="in-progress"[^>]*><span[^>]*>[\s\S]*Review &amp; Validation/);
+});
+
 test("Figma browser chrome hosts the production attachment surface and contains no fake ChatGPT conversation", () => {
   const markup = renderToStaticMarkup(
     React.createElement(FigmaBrowserPanel, {
@@ -214,6 +301,10 @@ test("production App binds the Figma shell to existing document, browser, Codex,
   assert.match(appSource, /window\.champcity\.showArchitectBrowser/);
   assert.match(appSource, /window\.champcity\.hideArchitectBrowser/);
   assert.match(appSource, /window\.champcity\.setArchitectBrowserBounds/);
+  assert.match(appSource, /regenerateArchitectInterviewPrompt/);
+  assert.match(appSource, /Regenerate Interview Prompt/);
+  assert.match(appSource, /Prepare ChatGPT Handoff/);
+  assert.match(appSource, /Copy ChatGPT Handoff/);
   assert.match(appSource, /workspaceHeadingLabel/);
   assert.match(appSource, /Project Intake Questionnaire/);
   assert.match(appSource, /<FigmaProjectIntakeDispositionPanel/);

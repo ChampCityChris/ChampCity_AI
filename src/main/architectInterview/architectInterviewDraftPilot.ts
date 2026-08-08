@@ -14,6 +14,14 @@ import {
 } from "../architectOutputs/architectOutputRuntimeService";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
 import { resolveCanonicalArchitectInterviewContext, type CanonicalArchitectInterviewReadyContext } from "./architectInterviewContextResolver";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 const outputKind = "project-architect-interview";
 const owningWorkspaceId = "architect-interview";
@@ -61,7 +69,13 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
         ? readExistingCanonical(workspaceRoot, context.interviewTargets.markdownPath)
         : null;
       const metadata: CanonicalDocumentMetadata = existing
-        ? metadataWithSubstantiveRevision(existing.metadata, sourceRevisions)
+        ? {
+            ...metadataWithSubstantiveRevision(existing.metadata, sourceRevisions),
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              existing.metadata.workflowData,
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+            ),
+          }
         : {
             schemaVersion: 1,
             artifactType: outputKind,
@@ -69,7 +83,10 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
             participationRole: "gatingReview",
             identity: context.expectedProjectIdentity,
             sourceRevisions,
-            workflowData: {},
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              {},
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+            ),
             documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
           };
       return { relativePath: context.interviewTargets.markdownPath, metadata, bodyMarkdown };
@@ -104,8 +121,8 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
       preparedContext as CanonicalArchitectInterviewReadyContext,
     );
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildProjectArchitectInterviewPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildProjectArchitectInterviewPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments }) {
     return { selectedRole: "interview", markdownPath: promotedDocuments[0].relativePath };
@@ -178,6 +195,7 @@ function readExistingCanonical(workspaceRoot: string, relativePath: string) {
 }
 
 function buildProjectArchitectInterviewPreparedInstruction(
+  workspaceRoot: string,
   context: CanonicalArchitectInterviewReadyContext,
   submission: ArchitectDraftSubmission<typeof slotId>,
   sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
@@ -186,9 +204,12 @@ function buildProjectArchitectInterviewPreparedInstruction(
   const revisionNotes = context.interview?.disposition === "RevisionRequested"
     ? context.interview.operatorReviewNotes
     : undefined;
+  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+    {},
+    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
+  );
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "Read these exact current inputs:",
     `- Approved Project Architect Interview prompt: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
@@ -208,15 +229,12 @@ function buildProjectArchitectInterviewPreparedInstruction(
     "",
     "When the complete Project Architect Interview body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${draftPath}",`,
-    '    "content": "<complete body-only Interview Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftPath,
+      "<complete body-only Interview Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "After the draft is created, respond with a concise draft-created confirmation.",

@@ -2,6 +2,10 @@ import type { DocumentDispositionStatus } from "../../shared/documents/documentD
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
 import { getPhaseMapProjection } from "../phaseMap/phaseMapService";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export function createProjectCloseout(workspaceRoot: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
   assertProjectCloseEligible(workspaceRoot);
@@ -9,6 +13,9 @@ export function createProjectCloseout(workspaceRoot: string, closureDecision: "C
   const documents = listPlanningDocuments(workspaceRoot);
   const slug = projectSlug(documents);
   const markdownPath = `planning/project/Project_Closeouts/PROJECT_CLOSEOUT_${slug}.md`;
+  const sourceRevisions = documents
+    .filter((document) => !document.markdownPath.includes("/Project_Closeouts/"))
+    .map((document) => ({ path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 }));
   writeCanonicalMarkdownDocument({
     workspaceRoot,
     relativePath: markdownPath,
@@ -18,10 +25,11 @@ export function createProjectCloseout(workspaceRoot: string, closureDecision: "C
       artifactRevision: 1,
       participationRole: "compoundGatingReview",
       identity: { closureDecision },
-      sourceRevisions: documents
-        .filter((document) => !document.markdownPath.includes("/Project_Closeouts/"))
-        .map((document) => ({ path: document.markdownPath, revision: document.metadata.artifactRevision ?? 1 })),
-      workflowData: content,
+      sourceRevisions,
+      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+        content,
+        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      ),
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },
     bodyMarkdown: `# Project Closeout\n\nclosureDecision: ${closureDecision}\nrationale: ${rationale}\n`,

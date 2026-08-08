@@ -562,6 +562,12 @@ export function App(): JSX.Element {
         case "project-planning-review":
         case "project-phase-map":
         case "phase-interview":
+          if (
+            architectOutputModel.workspaceId === "project-planning-review" &&
+            statuses["project-planning-review"] === "Completed"
+          ) {
+            break;
+          }
           statuses[architectOutputModel.workspaceId] = architectOutputModel.railStatus;
           break;
         default:
@@ -740,7 +746,8 @@ export function App(): JSX.Element {
       if (!selectedArchitectOutputSlotId && selectedSlot) {
         setSelectedArchitectOutputSlotId(selectedSlot.slotId);
       }
-      const nextDocumentId = selectedSlot?.logicalDocumentId ?? null;
+      const nextDocumentId =
+        selectedSlot?.logicalDocumentId ?? architectInterviewRecoveryDocumentId(nextModel) ?? null;
 
       if (
         (options.autoSelectOutput ?? options.autoSelectNewOutput) &&
@@ -810,6 +817,23 @@ export function App(): JSX.Element {
       setArchitectFeedback({
         kind: "error",
         message: error instanceof Error ? error.message : "Architect handoff could not be prepared.",
+      });
+    }
+  }
+
+  async function regenerateArchitectInterviewPromptFromAction(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback(null);
+    try {
+      const nextModel = await window.champcity.regenerateArchitectInterviewPrompt();
+      setArchitectOutputModel(nextModel);
+      setArchitectFeedback({ kind: "success", message: "Project Architect Interview prompt regenerated." }, 3500);
+      await refreshDocuments({ useResolver: true });
+      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Project Architect Interview prompt could not be regenerated.",
       });
     }
   }
@@ -1637,6 +1661,15 @@ export function App(): JSX.Element {
       ? "Project Intake Questionnaire"
       : activeWorkspace.label;
   const workCardRepairProjection = workCardRepairProjectionFromResult(workCardRepairProjectionResult);
+  const workCardReviewProjection = currentModel?.workCardBuildingReview;
+  const canCopyWorkCardAdvisoryPrompt =
+    isWorkCardReportReview &&
+    Boolean(workCardReviewProjection?.report) &&
+    workCardReviewProjection?.reportReadiness === "ready-for-review" &&
+    workCardReviewProjection?.reportDocumentReadState === "readable" &&
+    workCardReviewProjection?.reportFreshnessState === "fresh" &&
+    !workCardReviewProjection?.reportReadError &&
+    !isApplying;
 
   async function copySelectedDocumentBody(): Promise<void> {
     if (!selectedDocument) {
@@ -1875,9 +1908,15 @@ export function App(): JSX.Element {
                     actionFeedback={architectActionFeedback}
                     attachmentError={architectAttachmentError}
                     browserStatus={architectStatus}
+                    copyHandoffLabel={
+                      activeWorkspaceId === "architect-interview"
+                        ? "Copy ChatGPT Handoff"
+                        : "Copy Handoff"
+                    }
                     model={architectOutputModel}
                     onCopyHandoff={copyArchitectHandoff}
                     onPrepareHandoff={prepareArchitectOutputFromAction}
+                    onRegeneratePrompt={regenerateArchitectInterviewPromptFromAction}
                     onRefresh={() => {
                       void refreshArchitectStatus();
                       void refreshArchitectOutputWorkspace({ force: true });
@@ -1885,6 +1924,11 @@ export function App(): JSX.Element {
                     onReloadBrowser={() => void reloadArchitectBrowser()}
                     onRetryBrowser={() => void retryArchitectBrowser()}
                     pollingError={architectOutputPollingError}
+                    prepareHandoffLabel={
+                      activeWorkspaceId === "architect-interview"
+                        ? "Prepare ChatGPT Handoff"
+                        : "Prepare Handoff"
+                    }
                   />
                 </div>
               ) : null}
@@ -1999,7 +2043,6 @@ export function App(): JSX.Element {
                 isApplying={isApplying}
                 model={currentModel}
                 onAdvisorySummaryChange={setAdvisorySummary}
-                onCopyAdvisoryPrompt={() => void copyWorkCardAdvisoryReviewPrompt()}
                 onOperatorNotesChange={setOperatorValidationNotes}
                 onRepairDefectTextChange={setRepairDefectText}
                 onSelectDocument={setSelectedDocumentId}
@@ -2010,13 +2053,42 @@ export function App(): JSX.Element {
                 selectedDocumentId={selectedDocumentId}
               />
               {isArchitectPaneVisible ? (
-                <FigmaBrowserPanel
-                  hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()}
-                  onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label}
-                />
+                <div className="figma-browser-column">
+                  <FigmaBrowserPanel
+                    hostRef={architectHostRef}
+                    onReload={() => void reloadArchitectBrowser()}
+                    onRetry={() => void retryArchitectBrowser()}
+                    retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                    statusLabel={architectBrowserPresentation(architectStatus).label}
+                  />
+                  <FigmaBrowserActionsPanel
+                    actionFeedback={null}
+                    attachmentError={architectAttachmentError}
+                    browserStatus={architectStatus}
+                    contextualActions={
+                      <button
+                        disabled={!canCopyWorkCardAdvisoryPrompt}
+                        onClick={() => void copyWorkCardAdvisoryReviewPrompt()}
+                        type="button"
+                      >
+                        <Clipboard aria-hidden="true" size={14} />
+                        Copy Advisory Prompt
+                      </button>
+                    }
+                    handoffActionsVisible={false}
+                    model={null}
+                    onCopyHandoff={copyArchitectHandoff}
+                    onPrepareHandoff={prepareArchitectOutputFromAction}
+                    onRefresh={() => {
+                      void refreshDocuments({ useResolver: true });
+                      void refreshArchitectStatus();
+                      void refreshCurrentModel();
+                    }}
+                    onReloadBrowser={() => void reloadArchitectBrowser()}
+                    onRetryBrowser={() => void retryArchitectBrowser()}
+                    pollingError=""
+                  />
+                </div>
               ) : null}
             </section>
           ) : null}
@@ -2350,24 +2422,34 @@ function FigmaBrowserActionsPanel({
   actionFeedback,
   attachmentError,
   browserStatus,
+  copyHandoffLabel = "Copy Handoff",
+  contextualActions,
+  handoffActionsVisible = true,
   model,
   onCopyHandoff,
   onPrepareHandoff,
+  onRegeneratePrompt,
   onRefresh,
   onReloadBrowser,
   onRetryBrowser,
   pollingError,
+  prepareHandoffLabel = "Prepare Handoff",
 }: {
   actionFeedback: ArchitectActionFeedback;
   attachmentError: string;
   browserStatus: ArchitectBrowserFoundationStatus | null;
+  copyHandoffLabel?: string;
+  contextualActions?: JSX.Element;
+  handoffActionsVisible?: boolean;
   model: ArchitectOutputWorkspaceModel | null;
   onCopyHandoff: () => void;
   onPrepareHandoff: () => void;
+  onRegeneratePrompt?: () => void;
   onRefresh: () => void;
   onReloadBrowser: () => void;
   onRetryBrowser: () => void;
   pollingError: string;
+  prepareHandoffLabel?: string;
 }): JSX.Element {
   const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
   const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
@@ -2381,15 +2463,31 @@ function FigmaBrowserActionsPanel({
           <Bot aria-hidden="true" size={14} />
           Reload ChatGPT
         </button>
-        <i aria-hidden="true" />
-        <button disabled={!model?.canPrepareHandoff} onClick={onPrepareHandoff} type="button">
-          <FolderOpen aria-hidden="true" size={14} />
-          Prepare Handoff
-        </button>
-        <button disabled={!model?.canCopyHandoff} onClick={onCopyHandoff} type="button">
-          <Clipboard aria-hidden="true" size={14} />
-          Copy Handoff
-        </button>
+        {handoffActionsVisible ? (
+          <>
+            <i aria-hidden="true" />
+            {model?.canRegeneratePrompt && onRegeneratePrompt ? (
+              <button onClick={onRegeneratePrompt} type="button">
+                <FileText aria-hidden="true" size={14} />
+                Regenerate Interview Prompt
+              </button>
+            ) : null}
+            <button disabled={!model?.canPrepareHandoff} onClick={onPrepareHandoff} type="button">
+              <FolderOpen aria-hidden="true" size={14} />
+              {prepareHandoffLabel}
+            </button>
+            <button disabled={!model?.canCopyHandoff} onClick={onCopyHandoff} type="button">
+              <Clipboard aria-hidden="true" size={14} />
+              {copyHandoffLabel}
+            </button>
+          </>
+        ) : null}
+        {contextualActions ? (
+          <>
+            <i aria-hidden="true" />
+            {contextualActions}
+          </>
+        ) : null}
         <button onClick={onRefresh} type="button">
           <RefreshCw aria-hidden="true" size={14} />
           Refresh
@@ -3024,6 +3122,19 @@ function isArchitectEnabledWorkspace(activeWorkspaceId: WorkspaceId): boolean {
     activeWorkspaceId === "project-phase-map" ||
     activeWorkspaceId === "work-card-planning" ||
     activeWorkspaceId === "work-card-repair";
+}
+
+function architectInterviewRecoveryDocumentId(model: ArchitectOutputWorkspaceModel): string | undefined {
+  if (model.workspaceId !== "architect-interview") {
+    return undefined;
+  }
+  const domain = model.domain as {
+    selectedReviewDocumentRole?: string;
+    projectIntakeDocument?: { logicalDocumentId?: string };
+  } | undefined;
+  return domain?.selectedReviewDocumentRole === "project-intake"
+    ? domain.projectIntakeDocument?.logicalDocumentId
+    : undefined;
 }
 
 function architectInterviewRailStatusFromGenericModel(

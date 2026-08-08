@@ -31,6 +31,14 @@ import {
   projectPlanningRequiredProfileSections,
   projectPlanningRequiredRoadmapSections,
 } from "./projectPlanningPreflight";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 const projectPlanningSubmissionContractId = "project-planning-output-submission-v2";
 
@@ -51,6 +59,7 @@ export function generateProjectPlanningHandoff(workspaceRoot: string): ProjectPl
   const existing = readExistingCanonical(workspaceRoot, context.handoffMarkdownPath);
   const bodyMarkdown = buildProjectPlanningHandoffBody(context);
   const metadata = projectPlanningHandoffMetadata(
+    workspaceRoot,
     context,
     existing ? existing.metadata.artifactRevision + 1 : 1,
   );
@@ -262,6 +271,7 @@ function deriveWorkspaceState(context: ReturnType<typeof requireReadyProjectPlan
 }
 
 function projectPlanningHandoffMetadata(
+  workspaceRoot: string,
   context: ReturnType<typeof requireReadyProjectPlanningContext>,
   artifactRevision: number,
 ): CanonicalDocumentMetadata {
@@ -272,19 +282,22 @@ function projectPlanningHandoffMetadata(
     participationRole: "nonReviewHandoff",
     identity: { handoffKind: "project-planning" },
     sourceRevisions: context.sourceRevisions,
-    workflowData: {
-      handoffKind: "project-planning",
-      contractId: projectPlanningSubmissionContractId,
-      projectProfileTarget: context.profileMarkdownPath,
-      projectRoadmapTarget: context.roadmapMarkdownPath,
-      reconciliationMode: context.reconciliationMode,
-      repositoryReviewRequired: context.repositoryReviewRequired,
-      repositoryReviewContext: context.repositoryReviewContext,
-      legacyPlanningPaths: context.legacyPlanningPaths,
-      sourceEvidencePaths: context.sourceEvidencePaths,
-      requiredProfileSections: projectPlanningRequiredProfileSections(),
-      requiredRoadmapSections: projectPlanningRequiredRoadmapSections(),
-    },
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      {
+        handoffKind: "project-planning",
+        contractId: projectPlanningSubmissionContractId,
+        projectProfileTarget: context.profileMarkdownPath,
+        projectRoadmapTarget: context.roadmapMarkdownPath,
+        reconciliationMode: context.reconciliationMode,
+        repositoryReviewRequired: context.repositoryReviewRequired,
+        repositoryReviewContext: context.repositoryReviewContext,
+        legacyPlanningPaths: context.legacyPlanningPaths,
+        sourceEvidencePaths: context.sourceEvidencePaths,
+        requiredProfileSections: projectPlanningRequiredProfileSections(),
+        requiredRoadmapSections: projectPlanningRequiredRoadmapSections(),
+      },
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+    ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
 }
@@ -433,6 +446,7 @@ function identityForContract(identity: ProjectPlanningArtifactIdentity): Project
 }
 
 function buildProjectPlanningHandoffInstruction(
+  workspaceRoot: string,
   context: ReturnType<typeof requireReadyProjectPlanningContext>,
   submission: ReturnType<typeof prepareProjectPlanningDraftBundleSubmission>,
 ): string {
@@ -440,10 +454,19 @@ function buildProjectPlanningHandoffInstruction(
   const includeRevisionNotes = (context.profile?.disposition === "RevisionRequested" || context.roadmap?.disposition === "RevisionRequested") && revisionNotes;
   const profileDraftPath = draftPathForSlot(submission, "project-profile");
   const roadmapDraftPath = draftPathForSlot(submission, "project-roadmap");
+  const promptSourceRevisions = [
+    ...context.sourceRevisions,
+    ...(context.handoff
+      ? [{ path: context.handoff.markdownPath, revision: context.handoff.artifactRevision }]
+      : []),
+  ];
+  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+    {},
+    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, promptSourceRevisions),
+  );
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "This handoff is for the embedded Project Planning Architect chat.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
     "",
     "Read these exact current inputs:",
     `- Project Intake Markdown: ${context.projectIntake.markdownPath}`,
@@ -499,28 +522,22 @@ function buildProjectPlanningHandoffInstruction(
     "",
     "When the complete Project Profile body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + profileDraftPath + '",',
-    '    "content": "<complete body-only Project Profile Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      profileDraftPath,
+      "<complete body-only Project Profile Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "",
     "When the complete Project Roadmap body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    '    "relativePath": "' + roadmapDraftPath + '",',
-    '    "content": "<complete body-only Project Roadmap Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      roadmapDraftPath,
+      "<complete body-only Project Roadmap Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, reconciliation fields, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "Do not write placeholders. Do not call retired Project Planning submission actions, retired save actions, domain-specific write routes, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",

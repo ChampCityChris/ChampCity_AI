@@ -23,6 +23,14 @@ import {
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export const phaseInterviewSubmissionContractId = "phase-interview-single-output-v1";
 export const phaseInterviewOutputKind = "phase-interview";
@@ -117,7 +125,13 @@ export const phaseInterviewArchitectOutputDefinition: ArchitectOutputDefinition<
         ? readExistingCanonical(workspaceRoot, context.interviewMarkdownPath)
         : null;
       const metadata: CanonicalDocumentMetadata = existing
-        ? metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions)
+        ? {
+            ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              existing.metadata.workflowData,
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+            ),
+          }
         : {
             schemaVersion: 1,
             artifactType: phaseInterviewOutputKind,
@@ -125,7 +139,10 @@ export const phaseInterviewArchitectOutputDefinition: ArchitectOutputDefinition<
             participationRole: "gatingReview",
             identity: { phaseId: context.selectedPhase.phaseId },
             sourceRevisions: context.sourceRevisions,
-            workflowData: {},
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              {},
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+            ),
             documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
           };
       return { relativePath: context.interviewMarkdownPath, metadata, bodyMarkdown };
@@ -163,8 +180,8 @@ export const phaseInterviewArchitectOutputDefinition: ArchitectOutputDefinition<
       preparedContext as PhaseInterviewReadyContext,
     );
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildPhaseInterviewPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildPhaseInterviewPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments }) {
     return {
@@ -514,6 +531,7 @@ function errorMessage(error: unknown): string {
 }
 
 function buildPhaseInterviewPreparedInstruction(
+  workspaceRoot: string,
   context: PhaseInterviewReadyContext,
   submission: ArchitectDraftSubmission<typeof phaseInterviewSlotId>,
   sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
@@ -522,9 +540,9 @@ function buildPhaseInterviewPreparedInstruction(
   const revisionNotes = context.interview?.disposition === "RevisionRequested"
     ? context.interview.operatorReviewNotes
     : undefined;
+  const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ?? {};
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "Read these exact current inputs:",
     `- Approved Phase Interview handoff: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
@@ -552,15 +570,12 @@ function buildPhaseInterviewPreparedInstruction(
     "",
     "When the complete Phase Interview body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${draftPath}",`,
-    '    "content": "<complete body-only Phase Interview Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftPath,
+      "<complete body-only Phase Interview Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "After the draft is created, respond with a concise draft-created confirmation.",

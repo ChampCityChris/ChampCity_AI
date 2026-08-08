@@ -11,7 +11,12 @@ const {
 } = require("../../dist/shared/documents/canonicalMarkdown.js");
 const {
   tempWorkspace,
+  tempWorkspaceWithoutBinding,
 } = require("../support/canonical-markdown-fixtures.cjs");
+const {
+  buildCreateMarkdownArtifactJsonBlock,
+  workspaceIdFromProjectRepository,
+} = require("../../dist/main/integrations/mcpWorkspacePromptContract.js");
 
 function expectedArchitectPrompt(projectName, intakeMarkdownPath) {
   return [
@@ -151,9 +156,24 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
   assert.equal(["projectIntake", "Json", "Path"].join("") in result, false);
   assert.equal(["architectInterviewTarget", "Json", "Path"].join("") in result, false);
 
+  const intake = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8"),
+  );
   const prompt = parseCanonicalMarkdownDocument(
     fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
   );
+
+  assert.equal(result.projectRoot, path.resolve(root));
+  assert.equal(intake.metadata.workflowData.projectRepository, result.projectRoot);
+  assert.equal(intake.metadata.workflowData.repositoryAuthority.projectRepository, result.projectRoot);
+  assert.equal(intake.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(intake.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding.repositoryName, "Test/Alpha");
+  assert.match(intake.bodyMarkdown, new RegExp(`^Project Repository: ${escapeRegex(result.projectRoot)}$`, "m"));
+  assert.equal((intake.bodyMarkdown.match(/^Project Repository:/gm) ?? []).length, 1);
+  assert.equal(prompt.metadata.workflowData.projectRepository, result.projectRoot);
+  assert.equal(prompt.metadata.workflowData.projectRepository, intake.metadata.workflowData.projectRepository);
+  assert.deepEqual(prompt.metadata.workflowData.repositoryAuthority, intake.metadata.workflowData.repositoryAuthority);
+
   assert.equal(
     prompt.bodyMarkdown,
     `${expectedArchitectPrompt("Markdown Only", result.projectIntakeMarkdownPath)}\n`,
@@ -167,3 +187,59 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
   assert.doesNotMatch(prompt.bodyMarkdown, /Temporary draft Markdown: planning\/Architect_Drafts/);
   assert.doesNotMatch(prompt.bodyMarkdown, /workspaceId/);
 });
+
+test("projectRepository folder basename constructs the MCP workspace route", () => {
+  const root = tempWorkspaceWithoutBinding("champcity-project-repository-not-mcp-");
+  const pdlRepository = path.join(root, "ChampCity_PDL");
+  const lines = buildCreateMarkdownArtifactJsonBlock(
+    root,
+    "planning/Architect_Drafts/demo.md",
+    "<body>",
+    {
+      repositoryAuthority: {
+        projectRepository: pdlRepository,
+      },
+    },
+  );
+  const block = JSON.parse(lines.join("\n"));
+
+  assert.equal(workspaceIdFromProjectRepository(pdlRepository), "champcity_pdl");
+  assert.equal(workspaceIdFromProjectRepository(path.join(root, "ChampCity_AI")), "champcity_ai");
+  assert.equal(workspaceIdFromProjectRepository(path.join(root, "ChampCity_GPT")), "champcity_gpt");
+  assert.equal(workspaceIdFromProjectRepository(path.join(root, "ChampCity_RP_Desktop")), "champcity_rp_desktop");
+  assert.equal(workspaceIdFromProjectRepository(path.join(root, "Revisionary")), "revisionary");
+  assert.equal(block.workspaceId, "champcity_pdl");
+  assert.equal(block.action, "create_markdown_artifact");
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "mcp-workspace-binding.json")), false);
+});
+
+test("project intake without explicit MCP binding still persists repository authority", () => {
+  const root = tempWorkspaceWithoutBinding("champcity-project-intake-unbound-");
+  const result = submitProjectIntake({
+    projectName: "Unbound Project",
+    projectPurpose: "Prove repository authority without MCP routing.",
+    desiredOutcome: "Project documents remain usable before MCP binding setup.",
+    projectType: "Desktop application",
+    projectRepository: root,
+    hasExistingSourceOrPlanning: false,
+    knownConstraints: "",
+    repositoryReviewContext: "",
+  });
+
+  const intake = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8"),
+  );
+  const prompt = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
+  );
+
+  assert.equal(intake.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
+  assert.equal(intake.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding, undefined);
+  assert.deepEqual(prompt.metadata.workflowData.repositoryAuthority, intake.metadata.workflowData.repositoryAuthority);
+  assert.equal(prompt.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
+  assert.equal(prompt.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding, undefined);
+});
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

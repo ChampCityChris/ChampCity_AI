@@ -30,6 +30,15 @@ import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutput
 import { getPhaseMapProjection } from "../phaseMap/phaseMapService";
 import { getPhasePlanningCompletion } from "../phasePlanning/phasePlanningService";
 import { resolveActiveWorkCardPlanningHandoff } from "../workCardIntake/workCardIntakeService";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+  resolveMcpWorkspaceBindingForPrompt,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export interface FormalWorkCardResult {
   phaseId: string;
@@ -60,7 +69,8 @@ interface FormalWorkCardContext {
 }
 
 interface SelectedWorkspaceTargetDescriptor {
-  repositoryReference: "<PROJECT_REPO>";
+  mcpWorkspaceId: string;
+  workspaceLabel?: string;
   handoffPath: string;
   formalWorkCardTargetPath: string;
   implementerReportTargetPath: string;
@@ -93,13 +103,16 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
               workCardId: context.workCardId,
               candidateId: context.candidateId,
             },
-            workflowData: {
-              phaseId: context.phaseId,
-              workCardId: context.workCardId,
-              candidateId: context.candidateId,
-              candidate: context.candidate,
-              returnToPhasePlanningOnRejected: true,
-            },
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              {
+                phaseId: context.phaseId,
+                workCardId: context.workCardId,
+                candidateId: context.candidateId,
+                candidate: context.candidate,
+                returnToPhasePlanningOnRejected: true,
+              },
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+            ),
           }
         : outputMetadata({
             workspaceRoot,
@@ -153,8 +166,8 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     assertFormalWorkCardEligible(workspaceRoot, context);
     return context;
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildFormalWorkCardPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildFormalWorkCardPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments, domainContext: context }) {
     return {
@@ -287,6 +300,7 @@ function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary
 function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardContext {
   const handoff = requiredApprovedHandoff(workspaceRoot);
   const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+  const binding = resolveMcpWorkspaceBindingForPrompt(workspaceRoot, workflowData);
   const candidate = candidateFromHandoff(workflowData.candidate);
   const phaseId = candidate.phaseId;
   const candidateId = candidate.candidateId;
@@ -311,7 +325,8 @@ function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardCont
     targetPath,
     implementerReportPath,
     selectedWorkspaceTarget: {
-      repositoryReference: "<PROJECT_REPO>" as const,
+      mcpWorkspaceId: binding.workspaceId,
+      workspaceLabel: binding.label,
       handoffPath: handoff.markdownPath,
       formalWorkCardTargetPath: targetPath,
       implementerReportTargetPath: implementerReportPath,
@@ -387,13 +402,16 @@ function outputMetadata(input: {
       candidateId: input.candidateId,
     },
     sourceRevisions: input.sourceRevisions,
-    workflowData: {
-      phaseId: input.phaseId,
-      workCardId: input.workCardId,
-      candidateId: input.candidateId,
-      candidate: input.candidate,
-      returnToPhasePlanningOnRejected: true,
-    },
+    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      {
+        phaseId: input.phaseId,
+        workCardId: input.workCardId,
+        candidateId: input.candidateId,
+        candidate: input.candidate,
+        returnToPhasePlanningOnRejected: true,
+      },
+      inheritRepositoryAuthorityFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
+    ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
 }
@@ -428,6 +446,7 @@ function sourceRevisionsFromHandoff(handoff: PlanningDocumentSummary): SourceRev
 }
 
 function buildFormalWorkCardPreparedInstruction(
+  workspaceRoot: string,
   context: FormalWorkCardContext,
   submission: ArchitectDraftSubmission<typeof slotId>,
   sourceHandoff: SourceRevision,
@@ -438,16 +457,15 @@ function buildFormalWorkCardPreparedInstruction(
     : context.workCardId;
   const revisionInstructionLines = currentOperatorRevisionInstructionLines(context.existing);
   const evidenceLines = context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`);
+  const promptWorkflowData = context.handoff.metadata?.canonical?.workflowData ?? {};
   return [
-    "Use the selected project workspace for this Work Card.",
-    "The application has already resolved the target workspace for this handoff.",
-    "Use ChampCity MCP with repository reference <PROJECT_REPO> for that selected project workspace only.",
-    "Before making repository claims, verify that the selected workspace contains the approved Work Card Intake handoff path below and accepts the Formal Work Card target path below.",
-    "Do not use any other workspace as the implementation target.",
-    "If the selected workspace cannot be verified through these exact paths, abort as incomplete.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    "Before making repository claims, verify that the bound workspace contains the approved Work Card Intake handoff path below and accepts the Formal Work Card target path below.",
+    "If the bound workspace cannot be verified through these exact paths, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH.",
     "",
     "Application-owned selected workspace target binding:",
-    `- selected workspace repository reference: ${context.selectedWorkspaceTarget.repositoryReference}`,
+    `- selected MCP workspaceId: ${context.selectedWorkspaceTarget.mcpWorkspaceId}`,
+    `- selected MCP workspace label: ${context.selectedWorkspaceTarget.workspaceLabel ?? "Not provided"}`,
     `- approved Work Card Intake handoff path: ${context.selectedWorkspaceTarget.handoffPath}`,
     `- Formal Work Card target path: ${context.selectedWorkspaceTarget.formalWorkCardTargetPath}`,
     `- Implementer Report target path: ${context.selectedWorkspaceTarget.implementerReportTargetPath}`,
@@ -538,15 +556,12 @@ function buildFormalWorkCardPreparedInstruction(
     "When the complete body is ready, call artifact_toolbox.create_markdown_artifact exactly once:",
     "",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${draftPath}",`,
-    '    "content": "<complete body-only Formal Work Card Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftPath,
+      "<complete body-only Formal Work Card Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "",
     "After the draft is created, respond with a concise draft-created confirmation. If the action fails, report the exact failure and remain incomplete.",

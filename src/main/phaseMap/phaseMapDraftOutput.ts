@@ -21,6 +21,14 @@ import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
+import {
+  buildCreateMarkdownArtifactJsonBlock,
+  buildMcpWorkspaceBindingPromptBlock,
+} from "../integrations/mcpWorkspacePromptContract";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export interface PhaseMapPhase {
   phaseId: string;
@@ -93,7 +101,10 @@ export const phaseMapArchitectOutputDefinition: ArchitectOutputDefinition<
       const metadata: CanonicalDocumentMetadata = existing
         ? {
             ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
-            workflowData: { phases },
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              { phases },
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+            ),
           }
         : {
             schemaVersion: 1,
@@ -102,7 +113,10 @@ export const phaseMapArchitectOutputDefinition: ArchitectOutputDefinition<
             participationRole: "gatingReview",
             identity: context.expectedProjectIdentity,
             sourceRevisions: context.sourceRevisions,
-            workflowData: { phases },
+            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              { phases },
+              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+            ),
             documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
           };
       return { relativePath: context.phaseMapMarkdownPath, metadata };
@@ -137,8 +151,8 @@ export const phaseMapArchitectOutputDefinition: ArchitectOutputDefinition<
       preparedContext as PhaseMapReadyContext,
     );
   },
-  buildPreparedInstruction({ submission, sourceHandoff, domainContext: context }) {
-    return buildPhaseMapPreparedInstruction(context, submission, sourceHandoff);
+  buildPreparedInstruction({ workspaceRoot, submission, sourceHandoff, domainContext: context }) {
+    return buildPhaseMapPreparedInstruction(workspaceRoot, context, submission, sourceHandoff);
   },
   buildPostPromotionSelection({ promotedDocuments }) {
     return { selectedRole: "phase-map", markdownPath: promotedDocuments[0].relativePath };
@@ -444,6 +458,7 @@ function errorMessage(error: unknown): string {
 }
 
 function buildPhaseMapPreparedInstruction(
+  workspaceRoot: string,
   context: PhaseMapReadyContext,
   submission: ArchitectDraftSubmission<"phase-map">,
   sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
@@ -452,9 +467,13 @@ function buildPhaseMapPreparedInstruction(
   const revisionNotes = context.phaseMap?.effectiveDisposition === "RevisionRequested"
     ? context.phaseMap.metadata.canonical?.documentDisposition.notes?.trim()
     : undefined;
+  const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ??
+    mergeRepositoryAuthorityIntoWorkflowData(
+      {},
+      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+    );
   return [
-    "Use ChampCity MCP with repository reference <PROJECT_REPO>.",
-    "Resolve the configured workspace ID through diagnostics_toolbox.list_workspaces when it is not already known.",
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "Read these exact current inputs:",
     `- Approved Phase Map handoff: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
@@ -485,15 +504,12 @@ function buildPhaseMapPreparedInstruction(
     "",
     "When the complete Phase Map body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
     "```json",
-    "{",
-    '  "action": "create_markdown_artifact",',
-    '  "workspaceId": "<resolved workspace ID>",',
-    '  "params": {',
-    `    "relativePath": "${draftPath}",`,
-    '    "content": "<complete body-only Phase Map Markdown>",',
-    '    "overwrite": false',
-    "  }",
-    "}",
+    ...buildCreateMarkdownArtifactJsonBlock(
+      workspaceRoot,
+      draftPath,
+      "<complete body-only Phase Map Markdown>",
+      promptWorkflowData,
+    ),
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "After the draft is created, respond with a concise draft-created confirmation.",

@@ -1,6 +1,10 @@
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
+import {
+  inheritRepositoryAuthorityFromSourceRevisions,
+  mergeRepositoryAuthorityIntoWorkflowData,
+} from "../documents/repositoryAuthority";
 
 export function createPhaseCloseout(workspaceRoot: string, phaseId: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
   const content = { phaseId, closureDecision, rationale, completionSummary: "", limitations: [], unresolvedMatters: [] };
@@ -20,7 +24,10 @@ export function createPhaseCloseout(workspaceRoot: string, phaseId: string, clos
       participationRole: "compoundGatingReview",
       identity: { phaseId, closureDecision },
       sourceRevisions,
-      workflowData: content,
+      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+        content,
+        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      ),
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },
     bodyMarkdown: `# Phase Closeout\n\nclosureDecision: ${closureDecision}\nrationale: ${rationale}\n`,

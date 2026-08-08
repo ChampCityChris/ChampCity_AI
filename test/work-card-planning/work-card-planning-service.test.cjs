@@ -37,15 +37,28 @@ test("work card planning creates Markdown-only Formal Work Card and approves eli
   seedPhaseMap(root, "phase-01");
   seedApprovedPhaseInterview(root, "phase-01");
   seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
-  generateWorkCardIntakeHandoff(root, "phase-01");
+  const intakeHandoff = generateWorkCardIntakeHandoff(root, "phase-01");
+  const intakeCanonical = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, intakeHandoff.handoffMarkdownPath), "utf8"),
+  );
+  assert.equal(intakeCanonical.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
+  assert.equal(intakeCanonical.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
 
   const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
+  assert.match(prepared.preparedInstruction, /Use ChampCity MCP workspaceId "alpha" only/);
   const draftPath = prepared.submission.draftSlots[0].draftRelativePath;
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
   fs.writeFileSync(path.join(root, draftPath), formalWorkCardBody("WC01"), "utf8");
   const promoted = getArchitectOutputWorkspaceModel(root, "work-card-planning");
   assert.equal(promoted.documentSlots[0].targetPath, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
   assert.equal(promoted.documentSlots[0].disposition, "Pending");
+  const formalCanonical = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md"), "utf8"),
+  );
+  assert.deepEqual(
+    formalCanonical.metadata.workflowData.repositoryAuthority,
+    intakeCanonical.metadata.workflowData.repositoryAuthority,
+  );
 
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");
   assert.equal(getWorkCardBuildingEligibility(root, "phase-01", "WC01").eligible, true);
@@ -218,12 +231,11 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.match(instruction, new RegExp(revisionNotes.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(instruction, /Current Operator revision instructions:/);
   assert.match(instruction, /Application-owned Implementer Report target:\n- planning\/phases\/phase-01\/Implementer_Reports\/IMPLEMENTER_REPORT_WC01_first_work_card\.md/);
-  assert.match(instruction, /Use the selected project workspace for this Work Card/);
-  assert.match(instruction, /The application has already resolved the target workspace for this handoff/);
-  assert.match(instruction, /Do not use any other workspace as the implementation target/);
-  assert.match(instruction, /If the selected workspace cannot be verified through these exact paths, abort as incomplete/);
+  assert.match(instruction, /Bound workspaceId: alpha/);
+  assert.match(instruction, /Use ChampCity MCP workspaceId "alpha" only\./);
+  assert.match(instruction, /If the bound workspace cannot be verified through these exact paths, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH/);
   assert.match(instruction, /Application-owned selected workspace target binding:/);
-  assert.match(instruction, /selected workspace repository reference: <PROJECT_REPO>/);
+  assert.match(instruction, /selected MCP workspaceId: alpha/);
   assert.match(instruction, /approved Work Card Intake handoff path: planning\/phases\/phase-01\/Architect_Handoffs\/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC01\.md/);
   assert.match(instruction, /Formal Work Card target path: planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md/);
   assert.match(instruction, /Implementer Report target path: planning\/phases\/phase-01\/Implementer_Reports\/IMPLEMENTER_REPORT_WC01_first_work_card\.md/);
@@ -236,6 +248,7 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.doesNotMatch(instruction, /ChampCity_AI/);
   assert.doesNotMatch(instruction, /champcity_ai/);
   assert.equal(actionBlocks.length, 1);
+  assert.equal(actionBlocks[0].workspaceId, "alpha");
   assert.equal(actionBlocks[0].params.relativePath, prepared.submission.draftSlots[0].draftRelativePath);
   assert.equal(actionBlocks[0].params.overwrite, false);
   assert.doesNotMatch(instruction, /"relativePath":\s*"planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md"/);
