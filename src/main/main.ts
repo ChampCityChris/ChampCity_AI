@@ -27,9 +27,11 @@ import {
   getArchitectOutputWorkspaceModel,
   prepareArchitectInterviewFinalDraftHandoffWorkspace,
   prepareArchitectOutputHandoff,
+  preparePhaseInterviewFinalDraftHandoffWorkspace,
   regenerateArchitectInterviewPromptWorkspace,
   resolveArchitectInterviewCopyFinalDraftHandoff,
   resolveArchitectOutputCopyHandoff,
+  resolvePhaseInterviewCopyFinalDraftHandoff,
   reviewArchitectOutput,
 } from "./architectOutputs/architectOutputWorkspaceService";
 import {
@@ -67,6 +69,8 @@ import type {
   ArchitectOutputPresentedSlotRevision,
   ArchitectOutputWorkspaceModel,
   CodexImplementerExecutionModel,
+  CodexMcpElicitationResponse,
+  CodexUserInputResponse,
   CurrentWorkspaceModel,
   OperatorValidationDecisionInput,
   RuntimeActionResult,
@@ -87,6 +91,7 @@ const appInfo: AppInfo = {
   version: app.getVersion(),
 };
 let mainWindow: BrowserWindow | null = null;
+let quitAfterCodexCleanup = false;
 
 function getUserDataRoot(): string {
   return app.getPath("userData");
@@ -300,6 +305,23 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "phaseInterview:prepareFinalDraftHandoff",
+  (): ArchitectOutputWorkspaceModel => {
+    return preparePhaseInterviewFinalDraftHandoffWorkspace(getRequiredWorkspaceRoot());
+  },
+);
+
+ipcMain.handle(
+  "phaseInterview:copyFinalDraftHandoff",
+  (): RuntimeActionResult => {
+    const workspaceRoot = getRequiredWorkspaceRoot();
+    const { instruction, result } = resolvePhaseInterviewCopyFinalDraftHandoff(workspaceRoot);
+    clipboard.writeText(instruction);
+    return result;
+  },
+);
+
+ipcMain.handle(
   "architectOutput:review",
   (
     _event,
@@ -329,6 +351,35 @@ ipcMain.handle("codexImplementer:getStatus", (): Promise<CodexImplementerExecuti
 ipcMain.handle("codexImplementer:start", (): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot());
 });
+
+ipcMain.handle("codexImplementer:startEnvironmentResolution", (): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.startEnvironmentResolution(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle(
+  "codexImplementer:respondToUserInput",
+  (_event, response: CodexUserInputResponse): Promise<CodexImplementerExecutionModel> => {
+    return codexImplementerExecutionService.respondToUserInput(
+      getRequiredWorkspaceRoot(),
+      response.requestId,
+      response.answers,
+    );
+  },
+);
+
+ipcMain.handle(
+  "codexImplementer:respondToMcpElicitation",
+  (_event, response: CodexMcpElicitationResponse): Promise<CodexImplementerExecutionModel> => {
+    return codexImplementerExecutionService.respondToMcpElicitation(
+      getRequiredWorkspaceRoot(),
+      response.requestId,
+      {
+        action: response.action,
+        content: response.content,
+      },
+    );
+  },
+);
 
 ipcMain.handle("codexImplementer:cancel", (): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot());
@@ -423,4 +474,19 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("before-quit", (event) => {
+  if (quitAfterCodexCleanup) {
+    return;
+  }
+  event.preventDefault();
+  void codexImplementerExecutionService.shutdownActiveExecutions()
+    .catch((error) => {
+      console.error("Codex App Server shutdown cleanup failed.", error);
+    })
+    .finally(() => {
+      quitAfterCodexCleanup = true;
+      app.quit();
+    });
 });

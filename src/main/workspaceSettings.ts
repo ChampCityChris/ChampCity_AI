@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { McpWorkspaceBinding, WorkspaceSelection } from "../shared/workspaceContracts";
-import { requireBoundMcpWorkspace } from "./integrations/mcpWorkspacePromptContract";
+import { readExplicitMcpWorkspaceBinding } from "./integrations/mcpWorkspacePromptContract";
 
 const settingsFileName = "workspace-settings.json";
 
@@ -102,7 +102,10 @@ export function saveSelectedWorkspace(
 
 function optionalMcpWorkspaceBinding(workspaceRoot: string): McpWorkspaceBinding | undefined {
   try {
-    const binding = requireBoundMcpWorkspace(workspaceRoot);
+    const binding = readExplicitMcpWorkspaceBinding(workspaceRoot);
+    if (!binding) {
+      return undefined;
+    }
     return {
       mcpWorkspaceId: binding.workspaceId,
       label: binding.label,

@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -52,6 +53,37 @@ test("advisory Architect prompt is generated from repository evidence", () => {
   assert.match(result.instruction, /- src\/main\/workCardValidation\/workCardValidationService\.ts/);
   assert.match(result.formalWorkCardSha256, /^[a-f0-9]{64}$/);
   assert.match(result.implementerReportSha256, /^[a-f0-9]{64}$/);
+});
+
+test("advisory Architect prompt routes from selected root despite report projectRepository evidence", () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-work-card-advisory-pdl-"));
+  const root = path.join(container, "ChampCity_PDL");
+  fs.mkdirSync(path.join(root, "planning"), { recursive: true });
+  seedApprovedFormalWorkCard(root, "phase-01", "WC01");
+  writeReadyImplementerReport(root, "phase-01", "WC01", "Pending", {
+    projectRepository: "repository root",
+  });
+
+  const result = buildAdvisoryArchitectReviewPrompt(root, "phase-01", "WC01");
+
+  assert.match(result.instruction, /Bound workspaceId: champcity_pdl/);
+  assert.match(result.instruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);
+  assert.doesNotMatch(result.instruction, /repository_root/);
+});
+
+test("report readiness rejects mutated nested repository authority", () => {
+  const root = tempWorkspace("champcity-work-card-advisory-authority-mismatch-");
+  seedApprovedFormalWorkCard(root, "phase-01", "WC01");
+  writeReadyImplementerReport(root, "phase-01", "WC01", "Pending", {
+    repositoryAuthority: {
+      projectRepository: "repository root",
+    },
+  });
+
+  assert.throws(
+    () => buildAdvisoryArchitectReviewPrompt(root, "phase-01", "WC01"),
+    /repository authority does not match/,
+  );
 });
 
 test("Operator Validate Passed writes validation authority without mutating Implementer Report disposition", () => {
@@ -149,7 +181,7 @@ test("Operator validation rejects a reserved skeleton Implementer Report", () =>
   );
 });
 
-function writeReadyImplementerReport(root, phaseId, workCardId, status = "Pending") {
+function writeReadyImplementerReport(root, phaseId, workCardId, status = "Pending", workflowDataOverrides = {}) {
   return writeDoc(root, `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_first_work_card.md`, "implementer-report", status, {
     identity: { phaseId, workCardId },
     sourceRevisions: [{ path: `planning/phases/${phaseId}/Work_Cards/${workCardId}_first_work_card.md`, revision: 1 }],
@@ -159,6 +191,7 @@ function writeReadyImplementerReport(root, phaseId, workCardId, status = "Pendin
       implementationSummary: "Implemented backend validation readiness enforcement.",
       validationResults: ["work card validation service test passed"],
       acceptanceEvidence: ["Operator validation accepts ready reports and rejects skeleton reports"],
+      ...workflowDataOverrides,
     },
     bodyMarkdown: [
       `# Implementer Report - ${workCardId}`,

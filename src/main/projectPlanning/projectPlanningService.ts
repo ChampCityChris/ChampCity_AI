@@ -119,6 +119,7 @@ export function getProjectPlanningWorkspaceModel(
       ? draftStatus
       : undefined;
   const canPrepareDraft = canPrepareDraftBundleForContext(context);
+  const canPrepareHandoff = canPrepareHandoffForContext(context);
   const state = draftStatus?.submission.state === "promotion-failed" || invalidReason
     ? "needs-attention"
     : deriveWorkspaceState(context);
@@ -141,7 +142,7 @@ export function getProjectPlanningWorkspaceModel(
     handoffArtifactRevision: context.handoff?.artifactRevision,
     draftSubmissionState: draftStatus?.submission.state,
     draftPromotionError: draftStatus?.promotionError,
-    canPrepareHandoff: canPrepareDraft,
+    canPrepareHandoff,
     canCopyHandoff: Boolean(context.handoff) && (canPrepareDraft || Boolean(writableDraftStatus)),
     canApplyBundleDisposition: canApplyBundleDisposition(context),
     reconciliationMode: context.reconciliationMode,
@@ -329,8 +330,19 @@ function buildProjectPlanningHandoffBody(context: ReturnType<typeof requireReady
     "Required Project Profile sections:",
     ...projectPlanningRequiredProfileSections().map((heading) => `- ${heading}`),
     "",
+    "Ground-zero baseline rule:",
+    "- Project ground zero is the selected project repository plus the local development machine.",
+    "- Do not assume greenfield means the development machine is ready.",
+    "- In Current-State Baseline, Existing Implementation, and Risks and Unknowns, distinguish verified installed, verified missing, and unverified development capabilities; repository-native dependency or bootstrap mechanisms; project-local agent, build, and validation instructions; and any required capability explicitly externally managed.",
+    "- A missing required local development capability is project work by default unless approved evidence establishes external ownership.",
+    "",
     "Required Project Roadmap sections:",
     ...projectPlanningRequiredRoadmapSections().map((heading) => `- ${heading}`),
+    "",
+    "Roadmap sequencing rule:",
+    "- Missing development capabilities required by planned implementation must be sequenced as project work before dependent work.",
+    "- Engineering or foundation stages must establish both machine readiness and repository readiness when applicable.",
+    "- Required capabilities must derive from approved architecture and intended implementation work; do not invent tools merely to fill a foundation.",
     "",
     "Browser chat is not durable authority. The Architect must create both temporary body-only Markdown drafts through the generic artifact toolbox Markdown writer.",
     "",
@@ -412,6 +424,18 @@ function canPrepareDraftBundleForContext(context: ReturnType<typeof requireReady
   );
 }
 
+function canPrepareHandoffForContext(context: ReturnType<typeof requireReadyProjectPlanningContext>): boolean {
+  if (context.invalidHandoffReason || context.invalidProfileReason || context.invalidRoadmapReason) return false;
+  if (!context.profile && !context.roadmap) return true;
+  if (!context.handoff) return false;
+  if (!context.profile || !context.roadmap) return false;
+  return (
+    deriveBundleSynchronizationState(context) === "synchronized" &&
+    context.profile.disposition === "RevisionRequested" &&
+    context.roadmap.disposition === "RevisionRequested"
+  );
+}
+
 function deriveBundleSynchronizationState(context: ReturnType<typeof requireReadyProjectPlanningContext>): ProjectPlanningWorkspaceModel["bundleSynchronizationState"] {
   if (context.invalidProfileReason || context.invalidRoadmapReason || context.invalidHandoffReason) return "invalid";
   if (!context.profile && !context.roadmap) return "missing";
@@ -485,6 +509,7 @@ function buildProjectPlanningHandoffInstruction(
     "Inspect required repository evidence through ChampCity MCP before drafting outputs.",
     "Distinguish verified implementation from declared intent.",
     "Reconcile materially relevant legacy planning as evidence, not authority.",
+    "Treat project ground zero as the selected project repository plus the local development machine. Do not assume a greenfield repository means the host development environment is ready.",
     "",
     "Produce both complete Markdown document bodies for these exact repository-relative targets:",
     `- Project Profile target: ${context.profileMarkdownPath}`,
@@ -502,7 +527,8 @@ function buildProjectPlanningHandoffInstruction(
     ...projectPlanningRequiredProfileSections().map((heading) => `## ${heading}`),
     "",
     "For an existing repository, the Project Profile must cover verified purpose and actual implementation state; technologies, major components, and entry points; implemented, incomplete, defective, or abandoned capabilities; existing planning evidence; adopted, superseded, contradicted, or unresolved prior decisions; risks, ambiguity, and known limitations; and repository-relative evidence references where practical.",
-    "For a greenfield repository, the Project Profile must explicitly state that no prior implementation baseline exists.",
+    "For a greenfield repository, the Project Profile must explicitly state that no prior implementation baseline exists and separately classify local development machine readiness.",
+    "Within Current-State Baseline, Existing Implementation, and Risks and Unknowns, distinguish when relevant and discoverable: verified installed development capabilities; verified missing development capabilities; unverified development capabilities; repository-native dependency or bootstrap mechanisms; existing project-local agent, build, or validation instructions; and any required capability explicitly established as externally managed.",
     "",
     "The Project Roadmap Markdown body must contain these exact headings:",
     "# Project Roadmap",
@@ -510,6 +536,8 @@ function buildProjectPlanningHandoffInstruction(
     "",
     "The Roadmap must begin from the Profile baseline and distinguish, as applicable: Already implemented, Partially implemented, Planned but not implemented, Superseded, Deferred, and New work.",
     "The Roadmap must cover the complete currently intended development lifecycle, not only the MVP boundary.",
+    "Missing development capabilities required by planned implementation must be sequenced as project work before dependent work. Engineering or foundation stages must establish both machine readiness and repository readiness when applicable.",
+    "Do not invent unnecessary tools to populate a foundation; required capabilities must derive from approved architecture and intended implementation work.",
     "MVP phases must remain clearly identified.",
     "Post-MVP phases or roadmap stages must be separately sequenced at the level supported by current evidence.",
     "Every known major workstream from the approved Interview/Profile must be sequenced, explicitly deferred, superseded, or declared conditional.",

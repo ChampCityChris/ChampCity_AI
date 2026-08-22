@@ -39,19 +39,22 @@ test("catalog Architect-output workspaces use the Figma document and browser act
   assert.doesNotMatch(appSource, /Project Roadmap Markdown/);
 });
 
-test("Phase Map uses the compact Figma phase-list workspace instead of the dual-pane browser surface", () => {
+test("Phase Map uses its compact Figma phase-list workspace with shared browser handoff actions", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
 
   assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
   assert.match(appSource, /isPhaseMapFigmaWorkspace/);
   assert.match(appSource, /<FigmaPhaseMapWorkspace/);
+  assert.match(appSource, /\{architectBrowserColumn\}/);
   assert.match(appSource, /isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace/);
-  assert.match(appSource, /isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace\) \|\| isWorkCardReportReview/);
+  assert.match(appSource, /const architectBrowserWorkspaceAvailable =\s*isVisibleArchitectOutputWorkspace \|\| isWorkCardReportReview/);
   assert.match(appSource, /<FigmaBrowserActionsPanel/);
+  assert.match(appSource, /Prepare Phase Map Handoff/);
+  assert.match(appSource, /Copy Phase Map Handoff/);
+  assert.match(appSource, /onPrepareHandoff=\{prepareArchitectOutputFromAction\}/);
+  assert.match(appSource, /onCopyHandoff=\{copyArchitectHandoff\}/);
   assert.doesNotMatch(appSource, /PhaseMapActionBar/);
   assert.doesNotMatch(appSource, /PhaseMapPreviewReview/);
-  assert.doesNotMatch(appSource, /Prepare Phase Map Handoff/);
-  assert.doesNotMatch(appSource, /Copy Phase Map Handoff/);
   assert.doesNotMatch(appSource, /copyPhaseMapHandoff/);
   assert.doesNotMatch(appSource, /Phase Map Markdown/);
   assert.doesNotMatch(appSource, /savePhaseMapOutput/);

@@ -24,6 +24,8 @@ test("main, preload, and renderer expose evidence-derived current workflow actio
     ["codexImplementer:getStatus", "getCodexImplementerExecutionStatus"],
     ["codexImplementer:start", "startCodexImplementerExecution"],
     ["codexImplementer:cancel", "cancelCodexImplementerExecution"],
+    ["codexImplementer:respondToUserInput", "respondToCodexUserInput"],
+    ["codexImplementer:respondToMcpElicitation", "respondToCodexMcpElicitation"],
     ["currentWorkflow:applyDisposition", "applyCurrentDisposition"],
     ["currentWorkflow:copyAdvisoryReviewPrompt", "copyCurrentWorkCardAdvisoryReviewPrompt"],
     ["currentWorkflow:applyOperatorValidationDecision", "applyOperatorValidationDecisionForCurrentWorkCard"],
@@ -34,10 +36,23 @@ test("main, preload, and renderer expose evidence-derived current workflow actio
   ];
 
   for (const [channel, method] of contracts) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\("${channel}"`), channel);
+    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
     assert.match(preloadSource, new RegExp(`${method}:`), method);
     assert.match(rendererSource, new RegExp(`window\\.champcity\\.${method}\\(`), method);
   }
+});
+
+test("Codex Implementer start IPC exposes no renderer permission options", () => {
+  const mainSource = read("src/main/main.ts");
+  const preloadSource = read("src/preload/index.ts");
+  const contractSource = read("src/shared/workspaceContracts.ts");
+
+  assert.doesNotMatch(contractSource, /interface CodexImplementerExecutionStartOptions/);
+  assert.doesNotMatch(contractSource, /networkAccessEnabled\?: boolean/);
+  assert.doesNotMatch(mainSource, /validateCodexImplementerStartOptions/);
+  assert.match(mainSource, /codexImplementerExecutionService\.start\(getRequiredWorkspaceRoot\(\)\)/);
+  assert.match(preloadSource, /startCodexImplementerExecution: \(\) =>/);
+  assert.doesNotMatch(preloadSource, /"codexImplementer:start",\s*options,/);
 });
 
 test("one generic Architect-output IPC and preload contract serves all catalog workspaces", () => {
@@ -59,6 +74,8 @@ test("one generic Architect-output IPC and preload contract serves all catalog w
     "copyArchitectOutputHandoff",
     "prepareArchitectInterviewFinalDraftHandoff",
     "copyArchitectInterviewFinalDraftHandoff",
+    "preparePhaseInterviewFinalDraftHandoff",
+    "copyPhaseInterviewFinalDraftHandoff",
     "reviewArchitectOutput",
   ]) {
     assert.match(preloadSource, new RegExp(`${method}:`), method);
@@ -67,6 +84,8 @@ test("one generic Architect-output IPC and preload contract serves all catalog w
   for (const channel of [
     "architectInterview:prepareFinalDraftHandoff",
     "architectInterview:copyFinalDraftHandoff",
+    "phaseInterview:prepareFinalDraftHandoff",
+    "phaseInterview:copyFinalDraftHandoff",
   ]) {
     assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
   }
@@ -75,7 +94,7 @@ test("one generic Architect-output IPC and preload contract serves all catalog w
     /architectInterview:save/,
     /architectInterview:submit/,
     /projectPlanning:/,
-    /phaseInterview:/,
+    /phaseInterview:(save|submit|saveOutput)/,
     /phasePlanning:/,
     /phaseMap:copyHandoff/,
     /workCardPlanning:saveOutput/,

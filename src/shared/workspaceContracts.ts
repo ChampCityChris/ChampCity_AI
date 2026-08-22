@@ -8,6 +8,9 @@ import type {
   PlanningDocumentSummary,
 } from "./documents/planningDocument";
 import type { DocumentDispositionStatus } from "./documents/documentDisposition";
+import type {
+  DevelopmentEnvironmentPreflightResult,
+} from "./developmentEnvironmentContracts";
 import {
   createWorkspaceRegistry,
   type WorkspaceDefinition,
@@ -513,6 +516,9 @@ export interface PhaseInterviewWorkspaceModel {
   draftPromotionError?: string;
   canPrepareHandoff: boolean;
   canCopyHandoff: boolean;
+  canPrepareFinalDraftHandoff?: boolean;
+  canCopyFinalDraftHandoff?: boolean;
+  finalDraftHandoffInstruction?: string;
   canApplyDisposition: boolean;
   phase?: PhaseInterviewPhaseContext;
   phaseInterviewTarget: string;
@@ -710,12 +716,108 @@ export type CodexImplementerExecutionState =
   | "failed"
   | "cancelled";
 
-export type CodexImplementerIntegrationMode = "sdk" | "app-server-stdio-fallback";
+export type CodexImplementerIntegrationMode = "app-server-stdio";
+export type CodexImplementerExecutionKind =
+  | "work-card-implementation"
+  | "environment-resolution";
+
+export interface CodexRuntimeCapabilityStatus {
+  state: "not-read" | "read" | "unavailable";
+  count: number | null;
+  summary: string;
+  details: string[];
+}
+
+export interface CodexRuntimeCapabilitySummary {
+  configRead: CodexRuntimeCapabilityStatus;
+  mcpServers: CodexRuntimeCapabilityStatus;
+  skills: CodexRuntimeCapabilityStatus;
+  apps: CodexRuntimeCapabilityStatus;
+  plugins: CodexRuntimeCapabilityStatus;
+}
+
+export interface CodexRuntimeStateModel {
+  userAgent: string | null;
+  codexHome: string | null;
+  cwd: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+  approvalPolicy: string | null;
+  approvalsReviewer: string | null;
+  sandbox: string | null;
+  capabilitySummary: CodexRuntimeCapabilitySummary;
+}
+
+export interface CodexApprovalTelemetryModel {
+  requestId: string;
+  type: "command" | "file-change" | "permission";
+  threadId: string | null;
+  turnId: string | null;
+  itemId: string | null;
+  decision: string;
+  completed: boolean;
+}
+
+export interface CodexPendingUserInputModel {
+  requestId: string;
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  questions: Array<{
+    id: string;
+    header: string;
+    question: string;
+    options: Array<{
+      label: string;
+      description: string;
+    }>;
+  }>;
+}
+
+export interface CodexMcpElicitationFieldModel {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  required: boolean;
+  options: Array<{
+    value: string;
+    label: string;
+  }>;
+}
+
+export interface CodexPendingMcpElicitationModel {
+  requestId: string;
+  threadId: string;
+  turnId: string | null;
+  serverName: string;
+  mode: string;
+  message: string;
+  responseSupported: boolean;
+  unsupportedReason: string | null;
+  elicitationId: string | null;
+  url: string | null;
+  requestedSchemaSummary: string;
+  fields: CodexMcpElicitationFieldModel[];
+}
+
+export interface CodexUserInputResponse {
+  requestId: string;
+  answers: Record<string, string[]>;
+}
+
+export interface CodexMcpElicitationResponse {
+  requestId: string;
+  action: "accept" | "decline" | "cancel";
+  content: unknown | null;
+}
 
 export interface CodexImplementerExecutionModel {
   state: CodexImplementerExecutionState;
+  executionKind: CodexImplementerExecutionKind | null;
   lastRunState: Exclude<CodexImplementerExecutionState, "unavailable" | "ready" | "running"> | null;
   canRunAgain: boolean;
+  canResolveEnvironment: boolean;
   retryBlocker: string | null;
   integrationMode: CodexImplementerIntegrationMode;
   phaseId: string | null;
@@ -734,9 +836,27 @@ export interface CodexImplementerExecutionModel {
   eventTail: string[];
   stderrTail: string[];
   finalResponseTail: string[];
+  approvalTail: CodexApprovalTelemetryModel[];
+  runtimeDenialTail: string[];
+  runtimeState: CodexRuntimeStateModel | null;
+  pendingUserInput: CodexPendingUserInputModel | null;
+  pendingMcpElicitation: CodexPendingMcpElicitationModel | null;
   failureReason: string | null;
   reportUpdated: boolean;
   reportSha256After: string | null;
+  developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
+}
+
+export function codexImplementerAvailabilityLabel(
+  execution: Pick<CodexImplementerExecutionModel, "state" | "canRunAgain"> | null,
+): "Ready" | "Unavailable" {
+  const state = execution?.state ?? "unavailable";
+  if (state === "unavailable") {
+    return "Unavailable";
+  }
+  return execution?.canRunAgain || state === "running" || state === "ready"
+    ? "Ready"
+    : "Unavailable";
 }
 
 export interface CurrentWorkspaceModel {
@@ -866,6 +986,8 @@ export interface ChampCityApi {
   copyArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<RuntimeActionResult>;
   prepareArchitectInterviewFinalDraftHandoff: () => Promise<ArchitectOutputWorkspaceModel>;
   copyArchitectInterviewFinalDraftHandoff: () => Promise<RuntimeActionResult>;
+  preparePhaseInterviewFinalDraftHandoff: () => Promise<ArchitectOutputWorkspaceModel>;
+  copyPhaseInterviewFinalDraftHandoff: () => Promise<RuntimeActionResult>;
   reviewArchitectOutput: (
     workspaceId: WorkspaceId,
     status: DocumentDispositionStatus,
@@ -875,6 +997,9 @@ export interface ChampCityApi {
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
   startCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
+  startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
+  respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
+  respondToCodexMcpElicitation: (response: CodexMcpElicitationResponse) => Promise<CodexImplementerExecutionModel>;
   cancelCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
   getWorkCardMapProjection: (

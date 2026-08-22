@@ -102,9 +102,8 @@ export function buildAdvisoryArchitectReviewPrompt(
   const changedFiles = changedFilesList(report.metadata.canonical?.workflowData.filesChanged);
   const formalSha256 = sha256RelativeFile(workspaceRoot, formal.markdownPath);
   const reportSha256 = sha256RelativeFile(workspaceRoot, report.markdownPath);
-  const promptWorkflowData = report.metadata.canonical?.workflowData ?? {};
   const instruction = [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot),
     "",
     "This is an advisory Architect review for Operator decision support.",
     "You are not the disposition authority. Do not approve, reject, validate, or create repair artifacts.",

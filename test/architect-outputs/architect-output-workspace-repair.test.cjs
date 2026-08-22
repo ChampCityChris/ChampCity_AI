@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -75,6 +76,26 @@ function seedProjectThroughPlanning(root) {
       { path: prompt, revision: 1 },
     ],
   });
+}
+
+function tempNamedWorkspace(folderName) {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-named-workspace-"));
+  const root = path.join(parent, folderName);
+  fs.mkdirSync(path.join(root, "planning"), { recursive: true });
+  return root;
+}
+
+function seedApprovedProjectPlanningWithRepositoryAuthority(root, slug = "demo") {
+  const repositoryAuthority = { projectRepository: path.resolve(root) };
+  const profile = writeDoc(root, "planning/project/PROJECT_PROFILE.md", "project-profile", "Approved", {
+    participationRole: "compoundGatingReview",
+    workflowData: { repositoryAuthority },
+  });
+  const roadmap = writeDoc(root, `planning/project/Project_Roadmap/PROJECT_ROADMAP_${slug}.md`, "project-roadmap", "Approved", {
+    participationRole: "compoundGatingReview",
+    workflowData: { repositoryAuthority },
+  });
+  return { profile, roadmap };
 }
 
 function writeDraft(root, draftRelativePath, bodyMarkdown) {
@@ -289,6 +310,65 @@ test("atomic architect bundle review is synchronized and rejects mixed bundle au
   );
   assert.equal(fs.readFileSync(path.join(root, "planning/project/PROJECT_PROFILE.md"), "utf8"), beforeProfile);
   assert.equal(fs.readFileSync(path.join(root, "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md"), "utf8"), beforeRoadmap);
+});
+
+test("Project Planning Architect workspace enables first handoff preparation before copy", () => {
+  const root = tempWorkspace("champcity-project-planning-first-workspace-");
+  seedProjectThroughPlanning(root);
+
+  const first = getArchitectOutputWorkspaceModel(root, "project-planning-review");
+  assert.equal(first.state, "ready-for-handoff");
+  assert.equal(first.canPrepareHandoff, true);
+  assert.equal(first.canCopyHandoff, false);
+  assert.equal(first.preparedInstruction, undefined);
+
+  const prepared = prepareArchitectOutputHandoff(root, "project-planning-review");
+  assert.equal(prepared.state, "waiting-for-drafts");
+  assert.equal(prepared.canPrepareHandoff, true);
+  assert.equal(prepared.canCopyHandoff, true);
+  assert.ok(prepared.handoff);
+  assert.match(prepared.preparedInstruction, /Temporary Project Profile draft path: planning\/Architect_Drafts\//);
+  assert.match(getPreparedArchitectOutputInstruction(root, "project-planning-review"), /one atomic Project Planning draft bundle/);
+});
+
+test("Phase Map Architect workspace uses generic prepare route for first handoff and copy instruction", () => {
+  const root = tempNamedWorkspace("ChampCity_PDL");
+  const { profile, roadmap } = seedApprovedProjectPlanningWithRepositoryAuthority(root, "pocket_decision_log");
+
+  const first = getArchitectOutputWorkspaceModel(root, "project-phase-map");
+  assert.equal(first.state, "ready-for-handoff");
+  assert.equal(first.railStatus, "Ready");
+  assert.equal(first.canPrepareHandoff, true);
+  assert.equal(first.canCopyHandoff, false);
+  assert.equal(first.preparedInstruction, undefined);
+
+  const prepared = prepareArchitectOutputHandoff(root, "project-phase-map");
+  const handoffPath = "planning/project/Architect_Handoffs/PHASE_MAP_ARCHITECT_HANDOFF_pocket_decision_log.md";
+  const parsed = readCanonical(root, handoffPath);
+  const instruction = getPreparedArchitectOutputInstruction(root, "project-phase-map");
+
+  assert.equal(prepared.state, "waiting-for-drafts");
+  assert.equal(prepared.canPrepareHandoff, true);
+  assert.equal(prepared.canCopyHandoff, true);
+  assert.equal(parsed.metadata.artifactType, "generated-handoff");
+  assert.equal(parsed.metadata.participationRole, "nonReviewHandoff");
+  assert.equal(parsed.metadata.documentDisposition.status, "Approved");
+  assert.equal(parsed.metadata.workflowData.handoffKind, "phase-map");
+  assert.equal(parsed.metadata.workflowData.contractId, "phase-map-output-submission-v1");
+  assert.equal(parsed.metadata.workflowData.phaseMapTarget, "planning/project/Phase_Map/PHASE_MAP_pocket_decision_log.md");
+  assert.deepEqual(parsed.metadata.workflowData.requiredDomainBlocks, ["champcity-phase-map"]);
+  assert.deepEqual(parsed.metadata.sourceRevisions, [
+    { path: profile, revision: 1 },
+    { path: roadmap, revision: 1 },
+  ]);
+  assert.equal(parsed.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
+  assert.equal(parsed.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding, undefined);
+  assert.match(instruction, /Bound workspaceId: champcity_pdl/);
+  assert.match(instruction, /"workspaceId": "champcity_pdl"/);
+  assert.match(instruction, /Temporary Phase Map draft path: planning\/Architect_Drafts\//);
+  assert.match(instruction, /Generated Phase Map handoff: planning\/project\/Architect_Handoffs\/PHASE_MAP_ARCHITECT_HANDOFF_pocket_decision_log\.md/);
+  assert.doesNotMatch(instruction, /diagnostics_toolbox\.list_workspaces/);
+  assert.doesNotMatch(instruction, /workspace inference|workspace search|<PROJECT_REPO>|<resolved workspace ID>/i);
 });
 
 test("generic document disposition rejects catalog outputs and permits non-catalog documents", () => {

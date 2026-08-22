@@ -177,6 +177,9 @@ test("project planning greenfield preflight emits the approved submission contra
     ],
   });
   assert.match(handoff.bodyMarkdown, /no prior implementation baseline|Reconciliation Mode: greenfield/i);
+  assert.match(handoff.bodyMarkdown, /Do not assume greenfield means the development machine is ready/);
+  assert.match(handoff.bodyMarkdown, /selected project repository plus the local development machine/);
+  assert.match(handoff.bodyMarkdown, /Missing development capabilities required by planned implementation must be sequenced as project work/);
 });
 
 test("project planning existing-source fixture resolves reconciliation-required without Git", () => {
@@ -333,7 +336,8 @@ test("project planning handoff creates one new revision after a genuine source r
   const finalModel = getProjectPlanningWorkspaceModel(root);
 
   assert.equal(readyAgain.state, "ready-for-handoff");
-  assert.equal(readyAgain.canPrepareHandoff, false);
+  assert.equal(readyAgain.canPrepareHandoff, true);
+  assert.equal(readyAgain.canCopyHandoff, false);
   assert.equal(second.alreadyPrepared, false);
   assert.equal(third.alreadyPrepared, true);
   assert.equal(first.handoffMarkdownPath, second.handoffMarkdownPath);
@@ -396,8 +400,58 @@ test("project planning model resolves ready from exact approved intake prompt an
   const model = getProjectPlanningWorkspaceModel(root);
   assert.equal(model.state, "ready-for-handoff");
   assert.equal(model.railStatus, "Ready");
+  assert.equal(model.canPrepareHandoff, true);
+  assert.equal(model.canCopyHandoff, false);
+  assert.equal(model.handoffState, "handoff-unavailable");
   assert.equal(model.projectProfileTarget, "planning/project/PROJECT_PROFILE.md");
   assert.equal(model.projectRoadmapTarget, "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md");
+});
+
+test("project planning prepares the first handoff and exposes a copyable draft instruction", () => {
+  const root = tempWorkspace("champcity-project-planning-first-handoff-");
+  const seeded = seedReadyProjectPlanning(root);
+  writeDoc(root, seeded.intake, "project-intake", "Approved", {
+    identity: { "Project.ArtifactKey": "demo" },
+    workflowData: {
+      projectRepository: "ChampCity_PDL",
+      repositoryAuthority: {
+        projectRepository: "ChampCity_PDL",
+      },
+    },
+  });
+
+  const firstModel = getProjectPlanningWorkspaceModel(root);
+  assert.equal(firstModel.state, "ready-for-handoff");
+  assert.equal(firstModel.canPrepareHandoff, true);
+  assert.equal(firstModel.canCopyHandoff, false);
+  assert.equal(fs.existsSync(path.join(root, firstModel.handoffMarkdownPath)), false);
+
+  const prepared = prepareProjectPlanningHandoff(root);
+  const handoffPath = prepared.handoffMarkdownPath;
+  assert.equal(handoffPath, "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo.md");
+  assert.equal(fs.existsSync(path.join(root, handoffPath)), true);
+  assert.equal(prepared.state, "waiting-for-output");
+  assert.equal(prepared.canPrepareHandoff, true);
+  assert.equal(prepared.canCopyHandoff, true);
+  assert.equal(prepared.draftSubmissionState, "waiting-for-drafts");
+  assert.match(prepared.handoffInstruction, /Bound workspaceId: alpha/);
+  assert.doesNotMatch(prepared.handoffInstruction, /Bound workspaceId: champcity_pdl/);
+  assert.match(prepared.handoffInstruction, /Temporary Project Profile draft path: planning\/Architect_Drafts\//);
+  assert.match(prepared.handoffInstruction, /Temporary Project Roadmap draft path: planning\/Architect_Drafts\//);
+  assert.doesNotMatch(prepared.handoffInstruction, /<resolved workspace ID>|workspace inference|workspace search|<PROJECT_REPO>/i);
+
+  const handoff = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, handoffPath), "utf8"));
+  assert.equal(handoff.metadata.artifactType, "generated-handoff");
+  assert.equal(handoff.metadata.participationRole, "nonReviewHandoff");
+  assert.equal(handoff.metadata.documentDisposition.status, "Approved");
+  assert.equal(handoff.metadata.workflowData.handoffKind, "project-planning");
+  assert.equal(handoff.metadata.workflowData.contractId, "project-planning-output-submission-v2");
+  assert.equal(handoff.metadata.workflowData.repositoryAuthority.projectRepository, "ChampCity_PDL");
+  assert.deepEqual(handoff.metadata.sourceRevisions, [
+    { path: seeded.intake, revision: 1 },
+    { path: seeded.prompt, revision: 1 },
+    { path: seeded.interview, revision: 1 },
+  ]);
 });
 
 test("project planning handoff instruction includes exact targets and MCP constraints", () => {
@@ -422,6 +476,12 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.match(instruction, /## Post-MVP Roadmap/);
   assert.match(instruction, /## Deferred and Conditional Work/);
   assert.match(instruction, /complete currently intended development lifecycle/);
+  assert.match(instruction, /local development machine/);
+  assert.match(instruction, /verified installed development capabilities/);
+  assert.match(instruction, /verified missing development capabilities/);
+  assert.match(instruction, /unverified development capabilities/);
+  assert.match(instruction, /greenfield repository.*separately classify local development machine readiness/);
+  assert.match(instruction, /Missing development capabilities required by planned implementation must be sequenced as project work before dependent work/);
   assert.match(instruction, /"action": "create_markdown_artifact"/);
   assert.match(instruction, /"relativePath": "planning\/Architect_Drafts\//);
   assert.match(instruction, /"content": "<complete body-only Project Profile Markdown>"/);
@@ -613,6 +673,23 @@ test("project planning ineligible existing output state blocks promotion and pre
   assert.equal(fs.existsSync(path.join(root, active.expectedDraftSlots[1].draftRelativePath)), true);
 });
 
+test("project planning invalid existing handoff blocks first-handoff preparation and copy", () => {
+  const root = tempWorkspace("champcity-project-planning-invalid-handoff-");
+  seedReadyProjectPlanning(root);
+  writeDoc(root, "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo.md", "generated-handoff", "Approved", {
+    participationRole: "gatingReview",
+    workflowData: {
+      handoffKind: "project-planning",
+    },
+  });
+
+  const model = getProjectPlanningWorkspaceModel(root);
+  assert.equal(model.state, "needs-attention");
+  assert.equal(model.canPrepareHandoff, false);
+  assert.equal(model.canCopyHandoff, false);
+  assert.match(model.reason, /non-review handoff/);
+});
+
 test("project planning bundle disposition writes the same notes and status to both outputs", () => {
   const root = tempWorkspace("champcity-project-planning-review-");
   const seeded = seedApprovedProjectIntake(root);
@@ -651,4 +728,9 @@ test("project planning bundle disposition writes the same notes and status to bo
   assert.equal(model.roadmapDocument.disposition, "RevisionRequested");
   assert.equal(model.profileDocument.operatorReviewNotes, "Tighten the roadmap milestones.");
   assert.equal(model.roadmapDocument.operatorReviewNotes, "Tighten the roadmap milestones.");
+  assert.equal(model.state, "revision-requested");
+  assert.equal(model.canPrepareHandoff, true);
+  assert.equal(model.canCopyHandoff, true);
+  const revisionPrepared = prepareProjectPlanningHandoff(root);
+  assert.match(revisionPrepared.handoffInstruction, /Current Operator revision instructions:\nTighten the roadmap milestones\./);
 });

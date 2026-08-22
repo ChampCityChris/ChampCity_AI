@@ -1,9 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { RepositoryAuthority } from "../documents/repositoryAuthority";
-import {
-  repositoryAuthorityFromWorkflowData,
-} from "../documents/repositoryAuthority";
 
 export interface BoundMcpWorkspaceDescriptor {
   workspaceId: string;
@@ -14,19 +10,13 @@ export interface BoundMcpWorkspaceDescriptor {
 }
 
 const bindingRelativePath = ".champcity/mcp-workspace-binding.json";
-const blockedReason =
-  "BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH: selected project has no explicit MCP workspace binding. Bind or select the ChampCity MCP workspace before generating this prompt.";
-const projectRepositoryRouteRequiredReason =
-  "BLOCKED_PROJECT_REPOSITORY_MCP_ROUTE_REQUIRED: current prompt metadata has no projectRepository authority. Regenerate the current canonical handoff from Project Intake before preparing MCP prompts.";
-const projectRepositoryRouteInvalidReason =
-  "BLOCKED_PROJECT_REPOSITORY_MCP_ROUTE_INVALID: projectRepository folder basename does not produce a safe MCP workspaceId. Select a project repository folder with at least one alphanumeric or underscore character.";
+const explicitMcpWorkspaceBindingInvalidReason =
+  "BLOCKED_MCP_WORKSPACE_BINDING_INVALID: configured MCP workspace binding is missing mcpWorkspaceId.";
+const selectedWorkspaceRouteInvalidReason =
+  "BLOCKED_SELECTED_PROJECT_ROOT_MCP_ROUTE_INVALID: selected project root folder basename does not produce a safe MCP workspaceId. Select a project repository folder with at least one alphanumeric or underscore character.";
 
 export function requireBoundMcpWorkspace(workspaceRoot: string): BoundMcpWorkspaceDescriptor {
-  const configured = readConfiguredBinding(workspaceRoot);
-  if (configured) {
-    return configured;
-  }
-  throw new Error(blockedReason);
+  return bindingFromSelectedProjectRoot(workspaceRoot);
 }
 
 export function readExplicitMcpWorkspaceBinding(workspaceRoot: string): BoundMcpWorkspaceDescriptor | null {
@@ -35,12 +25,10 @@ export function readExplicitMcpWorkspaceBinding(workspaceRoot: string): BoundMcp
 
 export function buildMcpWorkspaceBindingPromptBlock(
   workspaceRoot: string,
-  workflowData?: Record<string, unknown>,
+  _workflowData?: Record<string, unknown>,
   options: { includeDiagnosticsToolboxHint?: boolean } = {},
 ): string[] {
-  const binding = workflowData
-    ? bindingForPrompt(workspaceRoot, workflowData)
-    : requireBoundMcpWorkspace(workspaceRoot);
+  const binding = requireBoundMcpWorkspace(workspaceRoot);
   return [
     "MCP workspace binding:",
     `- Bound workspaceId: ${binding.workspaceId}`,
@@ -59,9 +47,9 @@ export function buildMcpWorkspaceBindingPromptBlock(
 
 export function resolveMcpWorkspaceBindingForPrompt(
   workspaceRoot: string,
-  workflowData: Record<string, unknown>,
+  _workflowData?: Record<string, unknown>,
 ): BoundMcpWorkspaceDescriptor {
-  return bindingForPrompt(workspaceRoot, workflowData);
+  return requireBoundMcpWorkspace(workspaceRoot);
 }
 
 export function workspaceIdFromProjectRepository(projectRepository: string): string {
@@ -77,7 +65,7 @@ export function normalizeWorkspaceId(value: string): string {
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
   if (!/^[a-z0-9_]+$/.test(workspaceId)) {
-    throw new Error(projectRepositoryRouteInvalidReason);
+    throw new Error(selectedWorkspaceRouteInvalidReason);
   }
   return workspaceId;
 }
@@ -86,11 +74,9 @@ export function buildCreateMarkdownArtifactJsonBlock(
   workspaceRoot: string,
   relativePath: string,
   contentPlaceholder: string,
-  workflowData?: Record<string, unknown>,
+  _workflowData?: Record<string, unknown>,
 ): string[] {
-  const binding = workflowData
-    ? bindingForPrompt(workspaceRoot, workflowData)
-    : requireBoundMcpWorkspace(workspaceRoot);
+  const binding = requireBoundMcpWorkspace(workspaceRoot);
   return JSON.stringify({
     action: "create_markdown_artifact",
     workspaceId: binding.workspaceId,
@@ -100,43 +86,6 @@ export function buildCreateMarkdownArtifactJsonBlock(
       overwrite: false,
     },
   }, null, 2).split("\n");
-}
-
-function bindingForPrompt(
-  workspaceRoot: string,
-  workflowData: Record<string, unknown>,
-): BoundMcpWorkspaceDescriptor {
-  const authority = repositoryAuthorityFromWorkflowData(workflowData);
-  if (!authority) {
-    const configured = readConfiguredBinding(workspaceRoot);
-    if (configured) {
-      return configured;
-    }
-    throw new Error(projectRepositoryRouteRequiredReason);
-  }
-  if (authority.mcpWorkspaceBinding) {
-    return bindingFromRepositoryAuthority(authority as RepositoryAuthority & {
-      mcpWorkspaceBinding: NonNullable<RepositoryAuthority["mcpWorkspaceBinding"]>;
-    });
-  }
-  const workspaceId = workspaceIdFromProjectRepository(authority.projectRepository);
-  return {
-    workspaceId,
-    repositoryName: projectRepositoryBasename(authority.projectRepository),
-    gitBacked: false,
-  };
-}
-
-function bindingFromRepositoryAuthority(
-  authority: RepositoryAuthority & { mcpWorkspaceBinding: NonNullable<RepositoryAuthority["mcpWorkspaceBinding"]> },
-): BoundMcpWorkspaceDescriptor {
-  return {
-    workspaceId: authority.mcpWorkspaceBinding.mcpWorkspaceId,
-    label: authority.mcpWorkspaceBinding.label,
-    repositoryName: authority.mcpWorkspaceBinding.repositoryName,
-    branch: authority.mcpWorkspaceBinding.branch,
-    gitBacked: authority.mcpWorkspaceBinding.gitBacked,
-  };
 }
 
 export function mcpWorkspaceBindingConfigPath(workspaceRoot: string): string {
@@ -151,7 +100,7 @@ function readConfiguredBinding(workspaceRoot: string): BoundMcpWorkspaceDescript
   const parsed = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<string, unknown>;
   const workspaceId = stringValue(parsed.mcpWorkspaceId) ?? stringValue(parsed.workspaceId);
   if (!workspaceId) {
-    throw new Error(blockedReason);
+    throw new Error(explicitMcpWorkspaceBindingInvalidReason);
   }
   return {
     workspaceId,
@@ -162,6 +111,19 @@ function readConfiguredBinding(workspaceRoot: string): BoundMcpWorkspaceDescript
   };
 }
 
+function bindingFromSelectedProjectRoot(workspaceRoot: string): BoundMcpWorkspaceDescriptor {
+  const resolvedRoot = path.resolve(workspaceRoot);
+  const folderName = path.basename(resolvedRoot).trim();
+  if (!folderName) {
+    throw new Error(selectedWorkspaceRouteInvalidReason);
+  }
+  return {
+    workspaceId: normalizeWorkspaceId(folderName),
+    repositoryName: folderName,
+    gitBacked: false,
+  };
+}
+
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -169,12 +131,12 @@ function stringValue(value: unknown): string | undefined {
 function projectRepositoryBasename(projectRepository: string): string {
   const trimmed = projectRepository.trim();
   if (!trimmed) {
-    throw new Error(projectRepositoryRouteRequiredReason);
+    throw new Error(selectedWorkspaceRouteInvalidReason);
   }
   const normalized = trimmed.replace(/[\\/]+$/g, "").replace(/\\/g, "/");
   const basename = path.posix.basename(normalized).trim();
   if (!basename || basename === "." || basename === "..") {
-    throw new Error(projectRepositoryRouteInvalidReason);
+    throw new Error(selectedWorkspaceRouteInvalidReason);
   }
   return basename;
 }

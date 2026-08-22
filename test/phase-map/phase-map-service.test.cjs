@@ -78,6 +78,7 @@ test("phase map service generates Markdown-only handoff and derives completion f
   assert.match(instruction, /"action": "create_markdown_artifact"/);
   assert.match(instruction, /"overwrite": false/);
   assert.match(instruction, /Temporary draft Markdown: planning\/Architect_Drafts\//);
+  assert.doesNotMatch(instruction, /diagnostics_toolbox\.list_workspaces/);
   assert.doesNotMatch(instruction, /submit_handoff_outputs/);
   assert.doesNotMatch(instruction, /"handoffKind": "phase-map"/);
   assert.doesNotMatch(instruction, /"phaseMapMarkdown"/);

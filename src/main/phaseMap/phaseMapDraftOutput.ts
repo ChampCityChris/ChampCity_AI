@@ -473,7 +473,9 @@ function buildPhaseMapPreparedInstruction(
       inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
     );
   return [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
+      includeDiagnosticsToolboxHint: false,
+    }),
     "",
     "Read these exact current inputs:",
     `- Approved Phase Map handoff: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,

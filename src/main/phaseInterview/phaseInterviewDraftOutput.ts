@@ -87,6 +87,18 @@ type ActivePhaseInterviewSubmission = ActiveArchitectOutputRuntimeSubmission<
   typeof phaseInterviewSlotId,
   PhaseInterviewSelection
 >;
+interface ActivePhaseInterviewChatHandoff {
+  workspaceRoot: string;
+  sourceHandoff: ArchitectDraftSubmission["sourceHandoff"];
+  sourceRevisions: SourceRevision[];
+  selectedPhase: {
+    phaseId: string;
+    title: string;
+  };
+  preparedInstruction: string;
+}
+
+const activePhaseInterviewChatHandoffByWorkspace = new Map<string, ActivePhaseInterviewChatHandoff>();
 
 const requiredPhaseInterviewSections = [
   "Phase Understanding",
@@ -96,6 +108,8 @@ const requiredPhaseInterviewSections = [
   "Inherited Constraints",
   "Dependencies and Prior-Phase Evidence",
   "Material Decisions",
+  "Clarification Required",
+  "Material Questions and Answers",
   "Architect Recommendations",
   "Risks and Unknowns",
   "Assumptions",
@@ -199,6 +213,56 @@ export function preparePhaseInterviewDraftSubmission(
     phaseInterviewOutputKind,
     phaseInterviewOwningWorkspaceId,
   );
+}
+
+export function preparePhaseInterviewChatHandoff(workspaceRoot: string): string {
+  const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  const context = requireReadyContext(resolvedWorkspaceRoot);
+  assertCanPromotePhaseInterview(context);
+  const sourceHandoff = {
+    path: context.handoff.markdownPath,
+    revision: context.handoff.metadata.artifactRevision ?? 1,
+  };
+  const preparedInstruction = buildPhaseInterviewChatInstruction(
+    resolvedWorkspaceRoot,
+    context,
+    sourceHandoff,
+  );
+  activePhaseInterviewChatHandoffByWorkspace.set(resolvedWorkspaceRoot, {
+    workspaceRoot: resolvedWorkspaceRoot,
+    sourceHandoff,
+    sourceRevisions: [...context.sourceRevisions],
+    selectedPhase: {
+      phaseId: context.selectedPhase.phaseId,
+      title: context.selectedPhase.title,
+    },
+    preparedInstruction,
+  });
+  return preparedInstruction;
+}
+
+export function getPreparedPhaseInterviewChatHandoff(workspaceRoot: string): string | undefined {
+  const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  const active = activePhaseInterviewChatHandoffByWorkspace.get(resolvedWorkspaceRoot);
+  if (!active) return undefined;
+  try {
+    const context = requireReadyContext(resolvedWorkspaceRoot);
+    assertCanPromotePhaseInterview(context);
+    if (
+      active.sourceHandoff.path !== context.handoff.markdownPath ||
+      active.sourceHandoff.revision !== (context.handoff.metadata.artifactRevision ?? 1) ||
+      active.selectedPhase.phaseId !== context.selectedPhase.phaseId ||
+      active.selectedPhase.title !== context.selectedPhase.title ||
+      JSON.stringify(active.sourceRevisions) !== JSON.stringify(context.sourceRevisions)
+    ) {
+      activePhaseInterviewChatHandoffByWorkspace.delete(resolvedWorkspaceRoot);
+      return undefined;
+    }
+    return active.preparedInstruction;
+  } catch {
+    activePhaseInterviewChatHandoffByWorkspace.delete(resolvedWorkspaceRoot);
+    return undefined;
+  }
 }
 
 export function getPhaseInterviewDraftStatus(
@@ -542,7 +606,11 @@ function buildPhaseInterviewPreparedInstruction(
     : undefined;
   const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ?? {};
   return [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
+      includeDiagnosticsToolboxHint: false,
+    }),
+    "",
+    "This is the Finalize Phase Interview Draft handoff. Use it only after the Operator has confirmed or corrected the Phase Interview completion summary.",
     "",
     "Read these exact current inputs:",
     `- Approved Phase Interview handoff: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
@@ -554,12 +622,16 @@ function buildPhaseInterviewPreparedInstruction(
       ? context.dependencyCloseouts.map((document) => `- Approved dependency closeout: ${document.markdownPath}`)
       : ["- Approved dependency closeouts: none"]),
     "",
-    "Conduct the Phase Interview conversationally with the Operator. Resolve phase scope, non-scope, inherited constraints, dependencies, unknowns, risks, assumptions, acceptance direction, and planning inputs.",
+    "Write only the complete body-only Phase Interview Markdown that reflects the confirmed phase-understanding summary.",
+    "Record whether Operator clarification was required.",
+    "If clarification questions were asked, preserve the material questions and answers.",
     "Do not pre-author Work Cards and do not replace Phase Planning.",
     "",
     "Produce one complete Phase Interview Markdown body for this exact final target:",
     `- Phase Interview target: ${context.interviewMarkdownPath}`,
-    `- Temporary Phase Interview draft path: ${draftPath}`,
+    `- Temporary draft Markdown: ${draftPath}`,
+    `- Temporary body-only draft path: ${draftPath}`,
+    "The workflow remains incomplete until this temporary draft is created and ChampCity A/I promotes it.",
     "",
     "The Phase Interview Markdown body must contain these exact headings:",
     "# Phase Interview",
@@ -579,6 +651,62 @@ function buildPhaseInterviewPreparedInstruction(
     "```",
     "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
     "After the draft is created, respond with a concise draft-created confirmation.",
+    "Read and address current Operator revision notes when the existing Phase Interview is RevisionRequested.",
+    ...(revisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
+  ].join("\n");
+}
+
+function buildPhaseInterviewChatInstruction(
+  workspaceRoot: string,
+  context: PhaseInterviewReadyContext & { handoff: PlanningDocumentSummary },
+  sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
+): string {
+  const revisionNotes = context.interview?.disposition === "RevisionRequested"
+    ? context.interview.operatorReviewNotes
+    : undefined;
+  const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ?? {};
+  return [
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
+      includeDiagnosticsToolboxHint: false,
+    }),
+    "",
+    "This handoff starts or continues the Phase Interview. It is not a draft write-back handoff.",
+    "",
+    "Read these exact current inputs:",
+    `- Approved Phase Interview handoff: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
+    `- Approved Project Profile: ${context.profile.markdownPath}`,
+    `- Approved Project Roadmap: ${context.roadmap.markdownPath}`,
+    `- Approved Phase Map: ${context.phaseMap.markdownPath}`,
+    `- Selected phase entry: ${context.selectedPhase.phaseId} / ${context.selectedPhase.title}`,
+    ...(context.dependencyCloseouts.length > 0
+      ? context.dependencyCloseouts.map((document) => `- Approved dependency closeout: ${document.markdownPath}`)
+      : ["- Approved dependency closeouts: none"]),
+    "",
+    "Conduct the Phase Interview conversationally with the Operator.",
+    "Use approved evidence before asking questions and do not ask for information already resolved by project evidence.",
+    "Ask one primary question at a time in plain language.",
+    "Distinguish Operator-owned decisions from Architect-owned technical decisions.",
+    "Make Architect-owned technical recommendations instead of transferring design work to the Operator.",
+    "When a material choice exists, provide your recommended answer first.",
+    "The Operator may answer `use your recommendation` or `unsure`; treat either as permission to proceed with the best evidence-grounded recommendation.",
+    "Do not use a target question count, minimum question count, or fixed interview length.",
+    "Ask only material Operator-owned questions that remain unresolved after evidence review and normal Architect judgment.",
+    "If approved evidence resolves the phase context, ask zero clarification questions and proceed directly to the confirmation summary.",
+    "Resolve phase scope, non-scope, inherited constraints, dependencies, unknowns, risks, assumptions, acceptance direction, and planning inputs.",
+    "Do not pre-author Work Cards and do not replace Phase Planning.",
+    "",
+    "When the interview or revision direction is substantively complete, present a concise phase-understanding summary.",
+    "Ask the Operator to confirm or correct that summary.",
+    "Stop and wait for Operator confirmation before finalization, draft creation, or write-back.",
+    "Do not create, save, or request any Markdown artifact during this handoff.",
+    "",
+    "The eventual Phase Interview Markdown body must contain these exact headings:",
+    "# Phase Interview",
+    ...phaseInterviewRequiredSections().map((heading) => `## ${heading}`),
+    "",
+    "The durable Phase Interview must record whether clarification was required.",
+    "When clarification questions were asked, preserve the material questions and answers.",
+    "Read and address current Operator revision notes when the existing Phase Interview is RevisionRequested.",
     ...(revisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
   ].join("\n");
 }

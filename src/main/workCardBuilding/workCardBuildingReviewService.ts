@@ -20,6 +20,7 @@ import {
 import {
   inheritRepositoryAuthorityFromSourceRevisions,
   mergeRepositoryAuthorityIntoWorkflowData,
+  repositoryAuthorityFromWorkflowData,
 } from "../documents/repositoryAuthority";
 
 export interface ImplementerReportResult {
@@ -414,6 +415,14 @@ export function classifyExpectedImplementerReportReadiness(
       report,
     };
   }
+  const authorityMismatch = reportRepositoryAuthorityMismatch(workspaceRoot, metadata);
+  if (authorityMismatch) {
+    return {
+      reportReadiness: "invalid",
+      reportReadinessReason: authorityMismatch,
+      report,
+    };
+  }
   const freshness = evaluateDocumentFreshness(workspaceRoot, report.logicalDocumentId);
   if (freshness.state !== "fresh") {
     return {
@@ -451,6 +460,31 @@ export function classifyExpectedImplementerReportReadiness(
     reportReadinessReason: "Expected Implementer Report is readable, fresh, identity-matching, source-matching, and contains substantive Implementer evidence.",
     report,
   };
+}
+
+function reportRepositoryAuthorityMismatch(
+  workspaceRoot: string,
+  metadata: CanonicalDocumentMetadata,
+): string | null {
+  const nestedAuthority = metadata.workflowData.repositoryAuthority;
+  if (!nestedAuthority || typeof nestedAuthority !== "object" || Array.isArray(nestedAuthority)) {
+    return null;
+  }
+  const reportAuthority = repositoryAuthorityFromWorkflowData({ repositoryAuthority: nestedAuthority });
+  if (!reportAuthority) {
+    return null;
+  }
+  const expectedAuthority = inheritRepositoryAuthorityFromSourceRevisions(
+    workspaceRoot,
+    metadata.sourceRevisions ?? [],
+  );
+  if (!expectedAuthority) {
+    return null;
+  }
+  if (JSON.stringify(reportAuthority) === JSON.stringify(expectedAuthority)) {
+    return null;
+  }
+  return "Expected Implementer Report repository authority does not match the application-owned Work Card authority.";
 }
 
 export function requireReadyImplementerReportForReview(

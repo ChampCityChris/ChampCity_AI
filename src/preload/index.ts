@@ -94,6 +94,14 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "architectInterview:copyFinalDraftHandoff",
     ) as ReturnType<ChampCityApi["copyArchitectInterviewFinalDraftHandoff"]>,
+  preparePhaseInterviewFinalDraftHandoff: () =>
+    ipcRenderer.invoke(
+      "phaseInterview:prepareFinalDraftHandoff",
+    ) as ReturnType<ChampCityApi["preparePhaseInterviewFinalDraftHandoff"]>,
+  copyPhaseInterviewFinalDraftHandoff: () =>
+    ipcRenderer.invoke(
+      "phaseInterview:copyFinalDraftHandoff",
+    ) as ReturnType<ChampCityApi["copyPhaseInterviewFinalDraftHandoff"]>,
   reviewArchitectOutput: (workspaceId, status, operatorReviewNotes, presentedRevisions) =>
     ipcRenderer.invoke(
       "architectOutput:review",
@@ -114,6 +122,20 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "codexImplementer:start",
     ) as ReturnType<ChampCityApi["startCodexImplementerExecution"]>,
+  startCodexEnvironmentResolution: () =>
+    ipcRenderer.invoke(
+      "codexImplementer:startEnvironmentResolution",
+    ) as ReturnType<ChampCityApi["startCodexEnvironmentResolution"]>,
+  respondToCodexUserInput: (response) =>
+    ipcRenderer.invoke(
+      "codexImplementer:respondToUserInput",
+      response,
+    ) as ReturnType<ChampCityApi["respondToCodexUserInput"]>,
+  respondToCodexMcpElicitation: (response) =>
+    ipcRenderer.invoke(
+      "codexImplementer:respondToMcpElicitation",
+      response,
+    ) as ReturnType<ChampCityApi["respondToCodexMcpElicitation"]>,
   cancelCodexImplementerExecution: () =>
     ipcRenderer.invoke(
       "codexImplementer:cancel",

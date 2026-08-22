@@ -39,6 +39,7 @@ import {
   inheritRepositoryAuthorityFromSourceRevisions,
   mergeRepositoryAuthorityIntoWorkflowData,
 } from "../documents/repositoryAuthority";
+import { parseDevelopmentEnvironmentContractFromMarkdown } from "../../shared/developmentEnvironment/developmentEnvironmentContract";
 
 export interface FormalWorkCardResult {
   phaseId: string;
@@ -533,6 +534,10 @@ function buildFormalWorkCardPreparedInstruction(
     "- Objective defines one bounded outcome.",
     "- Runtime Sequence states the exact production path and state transition.",
     "- Required Changes embeds exact approved prompt text, schemas, invocation objects, metadata shapes, or required sequences when practical. The Implementer installs the decision rather than inventing it.",
+    "- If implementation or acceptance depends on a currently unverified machine-level development capability, include exactly one fenced JSON block marked champcity-development-environment. Use schemaVersion 1 and requirements with capabilityId, optional versionConstraint, optional profile, and provisioning set only to managed or external.",
+    "- The champcity-development-environment block states required capability only. Do not place installer commands, package IDs, download URLs, vendor bootstrap scripts, registry keys, executable paths, or absolute machine paths in that block. ChampCity A/I owns detection, installation, configuration, and verification mechanics through the application-owned provisioner.",
+    "- Treat ordinary required local development tooling as managed unless approved evidence explicitly establishes external ownership or a legal/technical boundary. Necessary managed machine-level setup is authorized implementation work, not an unrelated workspace modification.",
+    "- Acceptance Criteria require successful verification of required development capabilities before dependent configure, build, test, run, package, or validation proof. Missing tooling means establish the selected approved tooling, not choose a different architecture.",
     "- Preserved Behavior states accepted authorities and invariants that must not be reopened.",
     "- Authorized Surface lists expected production and test files. Permit only a narrowly necessary adjacent correction that preserves the architecture, is documented, and is fully tested.",
     "- Acceptance Criteria prove the actual production path. Require positive and negative proof, state before and after the action, final repository bytes or rendered projection, failure handling, retry behavior when relevant, and downstream readiness. Source-string checks may support wiring but cannot be primary runtime proof.",
@@ -606,4 +611,5 @@ const formalWorkCardHeadings = [
 
 function validateFormalWorkCardBody(bodyMarkdown: string, _workCardId: string): void {
   substantiveMarkdown(bodyMarkdown, "Formal Work Card");
+  parseDevelopmentEnvironmentContractFromMarkdown(bodyMarkdown);
 }

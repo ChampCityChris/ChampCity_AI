@@ -6,6 +6,7 @@ const test = require("node:test");
 const componentSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "WorkCardBuildingReviewWorkspace.tsx");
 const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
 const stylesSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "styles.css");
+const compiledContractsPath = path.join(__dirname, "..", "..", "dist", "shared", "workspaceContracts.js");
 
 test("Build workspace presents report target, run controls, and terminal retry summary without report review controls", () => {
   const source = fs.readFileSync(componentSourcePath, "utf8");
@@ -14,11 +15,31 @@ test("Build workspace presents report target, run controls, and terminal retry s
   assert.match(source, /Create Implementer Report/);
   assert.match(source, /Run Codex Implementer/);
   assert.match(source, /Cancel Codex Run/);
+  assert.doesNotMatch(source, /Allow network for this Codex run/);
+  assert.doesNotMatch(source, /package or dependency downloads/);
   assert.match(source, /LastRunSummary/);
+  assert.match(source, /DevelopmentEnvironmentStatus/);
+  assert.match(source, /Development environment preflight status/);
+  assert.match(source, /Work Card implementation has not started/);
+  assert.match(source, /Resolve Environment/);
+  assert.match(source, /Command evidence/);
+  assert.match(source, /stageForRequirement/);
   assert.match(source, /canRunAgain/);
+  assert.match(source, /canResolveEnvironment/);
   assert.match(source, /retryBlocker/);
   assert.match(source, /Codex execution console/);
+  assert.match(source, /CodexUserInputPanel/);
+  assert.match(source, /CodexMcpElicitationPanel/);
+  assert.match(source, /MCP Input/);
+  assert.match(source, /RuntimeDiagnostics/);
+  assert.match(source, /capability\.details\.join/);
+  assert.match(source, /Approval Tail/);
+  assert.match(source, /Runtime Denial Tail/);
   assert.match(source, /Review the existing Implementer Report in Review & Validation/);
+  assert.match(source, /Environment Resolution completed\. Work Card implementation has not run yet\./);
+  assert.match(source, /Work Card implementation is now eligible to start\./);
+  assert.match(source, /Environment preparation remains incomplete:/);
+  assert.match(source, /execution\?\.executionKind === "environment-resolution"/);
   assert.doesNotMatch(source, /Apply Review/);
   assert.doesNotMatch(source, /Review Notes/);
   assert.doesNotMatch(source, /Select a document/);
@@ -37,6 +58,37 @@ test("Build workspace uses dedicated two-pane proportions and keeps Codex consol
   assert.equal(consoleRules.some((rule) => /overflow:\s*auto/.test(rule.groups.body)), true);
 });
 
+test("Build workspace maps typed development-environment interactions to distinct labels", () => {
+  const source = fs.readFileSync(componentSourcePath, "utf8");
+
+  assert.match(source, /humanInteractionKind/);
+  assert.match(source, /windows-permission/);
+  assert.match(source, /restart-required/);
+  assert.match(source, /Windows permission required\./);
+  assert.match(source, /Windows restart required\./);
+  assert.match(source, /Windows permission and restart required\./);
+  assert.doesNotMatch(source, /humanInteractionReason[\s\S]{0,120}restart-required/);
+  assert.doesNotMatch(source, /Windows permission required\.\.\./);
+});
+
+test("Build workspace availability distinguishes unavailable preflight retry from Codex readiness", () => {
+  const { codexImplementerAvailabilityLabel } = require(compiledContractsPath);
+
+  assert.equal(codexImplementerAvailabilityLabel({
+    state: "unavailable",
+    canRunAgain: true,
+  }), "Unavailable");
+  assert.equal(codexImplementerAvailabilityLabel({
+    state: "ready",
+    canRunAgain: true,
+  }), "Ready");
+  assert.equal(codexImplementerAvailabilityLabel({
+    state: "running",
+    canRunAgain: false,
+  }), "Ready");
+  assert.equal(codexImplementerAvailabilityLabel(null), "Unavailable");
+});
+
 test("App routes Implementer Build through dedicated Codex workspace without generic action and document surfaces", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
 
@@ -48,5 +100,20 @@ test("App routes Implementer Build through dedicated Codex workspace without gen
   assert.match(appSource, /!isWorkCardPlanningPreparation &&\s*!isWorkCardBuildingReview &&\s*!isWorkCardReportReview &&\s*!isFigmaActionWorkspace/);
   assert.match(appSource, /window\.champcity\.generateCurrentHandoff\(\)/);
   assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(\)/);
+  assert.match(appSource, /window\.champcity\.startCodexEnvironmentResolution\(\)/);
   assert.match(appSource, /window\.champcity\.cancelCodexImplementerExecution\(\)/);
+  assert.match(appSource, /window\.champcity\.respondToCodexUserInput\(/);
+  assert.match(appSource, /window\.champcity\.respondToCodexMcpElicitation\(/);
+});
+
+test("App does not pass renderer permission options into Codex execution", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+
+  assert.doesNotMatch(appSource, /allowNetworkForCodexRun/);
+  assert.doesNotMatch(appSource, /networkAccessEnabled:/);
+  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(\)/);
+  assert.match(appSource, /window\.champcity\.startCodexEnvironmentResolution\(\)/);
+  assert.doesNotMatch(appSource, /workspace-settings\.json/);
+  assert.doesNotMatch(appSource, /sandboxMode:/);
+  assert.doesNotMatch(appSource, /approvalPolicy:/);
 });

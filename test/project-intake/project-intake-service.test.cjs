@@ -191,8 +191,9 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
 test("projectRepository folder basename constructs the MCP workspace route", () => {
   const root = tempWorkspaceWithoutBinding("champcity-project-repository-not-mcp-");
   const pdlRepository = path.join(root, "ChampCity_PDL");
+  fs.mkdirSync(pdlRepository, { recursive: true });
   const lines = buildCreateMarkdownArtifactJsonBlock(
-    root,
+    pdlRepository,
     "planning/Architect_Drafts/demo.md",
     "<body>",
     {

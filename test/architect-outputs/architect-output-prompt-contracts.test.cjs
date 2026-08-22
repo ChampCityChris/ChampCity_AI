@@ -230,7 +230,8 @@ function promptFor(definition) {
 }
 
 function boundPromptWorkspaceRoot(workspaceId = "alpha") {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-prompt-contract-"));
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-prompt-contract-"));
+  const root = path.join(container, workspaceId);
   fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
   fs.writeFileSync(
     path.join(root, ".champcity", "mcp-workspace-binding.json"),
@@ -246,7 +247,8 @@ function boundPromptWorkspaceRoot(workspaceId = "alpha") {
 }
 
 function gitBackedPromptWorkspaceRootWithoutBinding(repositoryName) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-unbound-git-prompt-"));
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-unbound-git-prompt-"));
+  const root = path.join(container, "Alpha");
   fs.mkdirSync(path.join(root, ".git"), { recursive: true });
   fs.writeFileSync(
     path.join(root, ".git", "config"),
@@ -270,7 +272,8 @@ function gitBackedPromptWorkspaceRootWithoutBinding(repositoryName) {
 }
 
 function boundPromptWorkspaceRootForRepository(workspaceId, repositoryName) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-bound-git-prompt-"));
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-bound-git-prompt-"));
+  const root = path.join(container, workspaceId);
   fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
   fs.mkdirSync(path.join(root, ".git"), { recursive: true });
   fs.writeFileSync(
@@ -483,49 +486,43 @@ test("workspace-bound MCP prompt contract forbids multi-workspace fallback", () 
   assert.doesNotMatch(instruction, /beta/);
 });
 
-test("prompt generation is blocked without projectRepository route authority", () => {
+test("prompt generation routes from selected project root without projectRepository route authority", () => {
   const definition = activeProductionArchitectOutputDefinitions()
     .find((candidate) => candidate.outputKind === "phase-map");
   assert.ok(definition);
   const submission = submissionFor(definition);
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-unbound-prompt-"));
+  const root = boundPromptWorkspaceRoot("ChampCity_PDL");
 
-  assert.throws(
-    () => definition.buildPreparedInstruction({
-      workspaceRoot: root,
-      submission,
-      sourceHandoff: submission.sourceHandoff,
-      domainContext: domainContextFor(definition),
-    }),
-    /BLOCKED_PROJECT_REPOSITORY_MCP_ROUTE_REQUIRED/,
-  );
+  const instruction = definition.buildPreparedInstruction({
+    workspaceRoot: root,
+    submission,
+    sourceHandoff: submission.sourceHandoff,
+    domainContext: domainContextFor(definition),
+  });
+
+  assert.match(instruction, /Bound workspaceId: champcity_pdl/);
+  assert.match(instruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);
 });
 
-test("Git repository identity without explicit MCP binding does not derive workspaceId", () => {
+test("Git repository identity does not override selected-root workspaceId", () => {
   const definition = activeProductionArchitectOutputDefinitions()
     .find((candidate) => candidate.outputKind === "phase-map");
   assert.ok(definition);
   const submission = submissionFor(definition);
   const root = gitBackedPromptWorkspaceRootWithoutBinding("ChampCityChris/ChampCity_GPT_MCP");
 
-  assert.throws(
-    () => definition.buildPreparedInstruction({
-      workspaceRoot: root,
-      submission,
-      sourceHandoff: submission.sourceHandoff,
-      domainContext: domainContextFor(definition),
-    }),
-    (error) => {
-      assert.ok(error instanceof Error);
-      assert.match(error.message, /BLOCKED_PROJECT_REPOSITORY_MCP_ROUTE_REQUIRED/);
-      assert.match(error.message, /projectRepository/);
-      assert.doesNotMatch(error.message, /champcity_gpt_mcp/);
-      return true;
-    },
-  );
+  const instruction = definition.buildPreparedInstruction({
+    workspaceRoot: root,
+    submission,
+    sourceHandoff: submission.sourceHandoff,
+    domainContext: domainContextFor(definition),
+  });
+
+  assert.match(instruction, /Bound workspaceId: alpha/);
+  assert.doesNotMatch(instruction, /champcity_gpt_mcp/);
 });
 
-test("explicit MCP binding is used literally despite similar repository name", () => {
+test("explicit MCP binding does not override selected-root workspaceId", () => {
   const definition = activeProductionArchitectOutputDefinitions()
     .find((candidate) => candidate.outputKind === "phase-map");
   assert.ok(definition);
@@ -542,7 +539,7 @@ test("explicit MCP binding is used literally despite similar repository name", (
   const actionBlocks = jsonActionBlocks(instruction);
 
   assert.match(instruction, /Bound workspaceId: champcity_gpt/);
-  assert.match(instruction, /Bound repository: ChampCityChris\/ChampCity_GPT_MCP/);
+  assert.match(instruction, /Bound repository: champcity_gpt/);
   assert.match(instruction, /Use ChampCity MCP workspaceId "champcity_gpt" only\./);
   assert.doesNotMatch(instruction, /Bound workspaceId: champcity_gpt_mcp/);
   assert.ok(actionBlocks.length > 0);

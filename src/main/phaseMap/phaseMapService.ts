@@ -149,7 +149,9 @@ export function getPhaseMapHandoffInstruction(workspaceRoot: string): string {
   const phaseMapDraftPath = draftPathForPhaseMap(activeDraft.submission);
   const promptWorkflowData = handoff.metadata.canonical?.workflowData ?? {};
   return [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
+    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
+      includeDiagnosticsToolboxHint: false,
+    }),
     "This handoff is for the embedded Phase Map Architect chat.",
     "",
     "Read these exact current inputs:",

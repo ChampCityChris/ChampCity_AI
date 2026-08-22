@@ -3,17 +3,48 @@ import fs from "node:fs";
 import path from "node:path";
 import type {
   CodexImplementerExecutionModel,
+  CodexImplementerExecutionKind,
   CodexImplementerExecutionState,
+  CodexApprovalTelemetryModel,
+  CodexMcpElicitationResponse,
+  CodexPendingUserInputModel,
+  CodexPendingMcpElicitationModel,
+  CodexRuntimeStateModel,
 } from "../../shared/workspaceContracts";
-import type { ThreadEvent, ThreadItem, ThreadOptions, TurnOptions } from "@openai/codex-sdk";
+import type {
+  DevelopmentEnvironmentPreflightResult,
+} from "../../shared/developmentEnvironmentContracts";
+import {
+  loadCodexAppServerAdapter,
+  type CodexAppServerAdapterFactory,
+  type CodexAppServerThreadAdapter,
+  type CodexAppServerThreadEvent,
+  type CodexAppServerThreadItem,
+  type CodexAppServerThreadOptions,
+  type CodexAppServerTurnOptions,
+} from "./codexAppServerTransport";
 import {
   parseCanonicalMarkdownDocument,
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateDocumentFreshness, listPlanningDocuments } from "../documents/planningDocumentService";
 import { getCurrentWorkspaceModel } from "../currentWorkflow/currentWorkflowService";
+import {
+  type CodexImplementerExecutionPolicy,
+  type CodexImplementerExecutionPolicyResolver,
+  resolveDefaultCodexImplementerExecutionPolicy,
+  threadOptionsFromCodexImplementerPolicy,
+} from "./codexImplementerExecutionPolicy";
+import {
+  developmentEnvironmentPreflightService,
+  type DevelopmentEnvironmentPreflightService,
+} from "../developmentEnvironment/developmentEnvironmentPreflightService";
+import {
+  refreshWindowsProcessEnvironment,
+  type WindowsEnvironmentRefreshResult,
+} from "../developmentEnvironment/windowsEnvironmentRefresh";
 
 export const CODEX_RUNTIME_UNAVAILABLE_MESSAGE =
-  "Codex SDK or local Codex runtime is not available from this application environment. Install Codex locally, authenticate it, then refresh.";
+  "Codex App Server or local Codex runtime is not available from this application environment. Install Codex locally, authenticate it, then refresh.";
 export const CODEX_AUTH_UNAVAILABLE_MESSAGE =
   "Codex is not authenticated in this local environment. Run codex login in a terminal, sign in with ChatGPT or your chosen Codex authentication method, then refresh.";
 
@@ -24,14 +55,20 @@ const finalReportReadDelayMs = 25;
 
 export interface CodexThreadAdapter {
   readonly id: string | null;
-  runStreamed(input: string, options?: TurnOptions): Promise<{ events: AsyncIterable<ThreadEvent> }>;
+  runStreamed(input: string, options?: CodexAppServerTurnOptions): Promise<{ events: AsyncIterable<CodexAppServerThreadEvent> }>;
+  respondToUserInput?(requestId: string, answers: Record<string, string[]>): Promise<void>;
+  respondToMcpElicitation?(requestId: string, response: Omit<CodexMcpElicitationResponse, "requestId">): Promise<void>;
+  interrupt?(): Promise<void>;
+  dispose?(): Promise<void>;
 }
 
-export interface CodexSdkAdapter {
-  startThread(options?: ThreadOptions): CodexThreadAdapter;
+export interface CodexAppServerExecutionAdapter {
+  startThread(options?: CodexAppServerThreadOptions): CodexThreadAdapter;
+  getRuntimeState?(): CodexRuntimeStateModel;
+  dispose?(): Promise<void>;
 }
 
-export type CodexSdkAdapterFactory = () => Promise<CodexSdkAdapter>;
+export type CodexAppServerExecutionAdapterFactory = CodexAppServerAdapterFactory;
 
 interface ExecutionContext {
   phaseId: string;
@@ -46,23 +83,33 @@ interface ExecutionContext {
   implementerReportPath: string;
   implementerReportRevision: number;
   implementerReportSha256: string;
+  developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
 }
 
 interface SessionRecord extends ExecutionContext {
+  executionKind: CodexImplementerExecutionKind;
+  executionPolicy: CodexImplementerExecutionPolicy;
   state: CodexImplementerExecutionState;
   startedAt: number | null;
   completedAt: number | null;
   eventTail: string[];
   stderrTail: string[];
   finalResponseTail: string[];
+  approvalTail: CodexApprovalTelemetryModel[];
+  runtimeDenialTail: string[];
+  runtimeState: CodexRuntimeStateModel | null;
+  pendingUserInput: CodexPendingUserInputModel | null;
+  pendingMcpElicitation: CodexPendingMcpElicitationModel | null;
   failureReason: string | null;
   reportUpdated: boolean;
   reportSha256After: string | null;
   abortController: AbortController | null;
+  threadAdapter: CodexThreadAdapter | null;
+  appServerAdapter: CodexAppServerExecutionAdapter | null;
+  executionPromise: Promise<void> | null;
   cancellationRequested: boolean;
 }
 
-type CodexSdkModule = typeof import("@openai/codex-sdk");
 type TerminalCodexImplementerExecutionState = Exclude<
   CodexImplementerExecutionState,
   "unavailable" | "ready" | "running"
@@ -82,10 +129,18 @@ interface FinalReportEvidence {
 
 export class CodexImplementerExecutionService {
   private readonly sessionsByWorkspaceRoot = new Map<string, SessionRecord>();
+  private readonly preflightByWorkspaceRoot = new Map<string, DevelopmentEnvironmentPreflightResult>();
+  private shutdownPromise: Promise<void> | null = null;
 
   constructor(
-    private readonly sdkFactory: CodexSdkAdapterFactory = loadCodexSdkAdapter,
+    private readonly appServerFactory: CodexAppServerExecutionAdapterFactory = loadCodexAppServerExecutionAdapter,
     private readonly now: () => number = () => Date.now(),
+    private readonly policyResolver: CodexImplementerExecutionPolicyResolver =
+      resolveDefaultCodexImplementerExecutionPolicy,
+    private readonly preflightService: DevelopmentEnvironmentPreflightService =
+      developmentEnvironmentPreflightService,
+    private readonly parentEnvironmentRefresh: () => Promise<WindowsEnvironmentRefreshResult> =
+      refreshWindowsProcessEnvironment,
   ) {}
 
   async getStatus(workspaceRoot: string): Promise<CodexImplementerExecutionModel> {
@@ -106,9 +161,18 @@ export class CodexImplementerExecutionService {
     if (context instanceof Error) {
       return unavailableFromPreflight(context);
     }
+    context.developmentEnvironmentPreflight = this.preflightByWorkspaceRoot.get(key) ?? null;
+    const cachedPreflight = context.developmentEnvironmentPreflight;
+    if (
+      cachedPreflight &&
+      cachedPreflight.state !== "ready" &&
+      cachedPreflight.state !== "not-required"
+    ) {
+      return unavailableModelFromPreflightResult(context, cachedPreflight);
+    }
 
     try {
-      await this.sdkFactory();
+      await this.appServerFactory();
     } catch (error) {
       return unavailableModelFromContext(context, messageForCodexFailure(error));
     }
@@ -138,9 +202,61 @@ export class CodexImplementerExecutionService {
       return unavailableFromPreflight(context);
     }
 
-    let sdk: CodexSdkAdapter;
+    const checkingPreflight: DevelopmentEnvironmentPreflightResult = {
+      state: "checking",
+      summary: "Preparing development environment...",
+      retryAllowed: false,
+      requirements: [],
+      evidenceMarkdown: "Development environment preflight evidence:\n- Final state: checking",
+    };
+    this.preflightByWorkspaceRoot.set(key, checkingPreflight);
+    let developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult;
     try {
-      sdk = await this.sdkFactory();
+      const provisioningPreflight: DevelopmentEnvironmentPreflightResult = {
+        state: "provisioning",
+        summary: "Installing required development tools...",
+        retryAllowed: false,
+        requirements: [],
+        evidenceMarkdown: "Development environment preflight evidence:\n- Final state: provisioning",
+      };
+      this.preflightByWorkspaceRoot.set(key, provisioningPreflight);
+      developmentEnvironmentPreflight = await this.preflightService.runPreflight({
+        workspaceRoot: context.projectRoot,
+        formalWorkCardPath: context.formalWorkCardPath,
+      });
+      this.preflightByWorkspaceRoot.set(key, developmentEnvironmentPreflight);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const blockedPreflight: DevelopmentEnvironmentPreflightResult = {
+        state: "blocked",
+        summary: message,
+        retryAllowed: false,
+        requirements: [],
+        evidenceMarkdown: [
+          "Development environment preflight evidence:",
+          "- Final state: blocked",
+          `- Summary: ${message}`,
+        ].join("\n"),
+      };
+      this.preflightByWorkspaceRoot.set(key, blockedPreflight);
+      return unavailableModelFromContext(
+        { ...context, developmentEnvironmentPreflight: blockedPreflight },
+        blockedPreflight.summary,
+      );
+    }
+    if (
+      developmentEnvironmentPreflight.state !== "ready" &&
+      developmentEnvironmentPreflight.state !== "not-required"
+    ) {
+      return unavailableModelFromPreflightResult(
+        { ...context, developmentEnvironmentPreflight },
+        developmentEnvironmentPreflight,
+      );
+    }
+
+    let appServer: CodexAppServerExecutionAdapter;
+    try {
+      appServer = await this.appServerFactory();
     } catch (error) {
       const retryBlocker = messageForCodexFailure(error);
       if (active) {
@@ -149,27 +265,200 @@ export class CodexImplementerExecutionService {
           retryBlocker,
         });
       }
-      return unavailableModelFromContext(context, retryBlocker);
+      return unavailableModelFromContext(
+        { ...context, developmentEnvironmentPreflight },
+        retryBlocker,
+      );
     }
 
+    const executionPolicy = this.policyResolver();
     const abortController = new AbortController();
     const session: SessionRecord = {
       ...context,
+      developmentEnvironmentPreflight,
+      executionKind: "work-card-implementation",
+      executionPolicy,
       state: "running",
       startedAt: this.now(),
       completedAt: null,
       eventTail: [],
       stderrTail: [],
       finalResponseTail: [],
+      approvalTail: [],
+      runtimeDenialTail: [],
+      runtimeState: appServer.getRuntimeState?.() ?? null,
+      pendingUserInput: null,
+      pendingMcpElicitation: null,
       failureReason: null,
       reportUpdated: false,
       reportSha256After: null,
       abortController,
+      threadAdapter: null,
+      appServerAdapter: appServer,
+      executionPromise: null,
       cancellationRequested: false,
     };
     this.sessionsByWorkspaceRoot.set(key, session);
-    void this.executeWithSdk(session, sdk);
+    session.executionPromise = this.executeWithAppServer(session, appServer);
+    void session.executionPromise;
     return modelFromSession(session, this.now(), {
+      canRunAgain: false,
+      retryBlocker: "Codex execution is already running for this workspace.",
+    });
+  }
+
+  async startEnvironmentResolution(workspaceRoot: string): Promise<CodexImplementerExecutionModel> {
+    const key = workspaceKey(workspaceRoot);
+    const active = this.sessionsByWorkspaceRoot.get(key);
+    if (active?.state === "running") {
+      active.failureReason = "Codex execution is already running for this workspace.";
+      return modelFromSession(active, this.now(), {
+        canRunAgain: false,
+        retryBlocker: "Codex execution is already running for this workspace.",
+      });
+    }
+
+    const context = this.resolvePreflightContext(workspaceRoot);
+    if (context instanceof Error) {
+      return unavailableFromPreflight(context);
+    }
+
+    let preflight = this.preflightByWorkspaceRoot.get(key) ?? null;
+    if (!preflight || preflight.state !== "resolution-required") {
+      preflight = await this.preflightService.runPreflight({
+        workspaceRoot: context.projectRoot,
+        formalWorkCardPath: context.formalWorkCardPath,
+      });
+      this.preflightByWorkspaceRoot.set(key, preflight);
+    }
+    if (preflight.state !== "resolution-required") {
+      return unavailableModelFromPreflightResult(
+        { ...context, developmentEnvironmentPreflight: preflight },
+        preflight,
+      );
+    }
+
+    let appServer: CodexAppServerExecutionAdapter;
+    try {
+      appServer = await this.appServerFactory();
+    } catch (error) {
+      return unavailableModelFromContext(
+        { ...context, developmentEnvironmentPreflight: preflight },
+        messageForCodexFailure(error),
+      );
+    }
+
+    const executionPolicy = this.policyResolver();
+    const abortController = new AbortController();
+    const session: SessionRecord = {
+      ...context,
+      developmentEnvironmentPreflight: preflight,
+      executionKind: "environment-resolution",
+      executionPolicy,
+      state: "running",
+      startedAt: this.now(),
+      completedAt: null,
+      eventTail: [],
+      stderrTail: [],
+      finalResponseTail: [],
+      approvalTail: [],
+      runtimeDenialTail: [],
+      runtimeState: appServer.getRuntimeState?.() ?? null,
+      pendingUserInput: null,
+      pendingMcpElicitation: null,
+      failureReason: null,
+      reportUpdated: false,
+      reportSha256After: null,
+      abortController,
+      threadAdapter: null,
+      appServerAdapter: appServer,
+      executionPromise: null,
+      cancellationRequested: false,
+    };
+    this.sessionsByWorkspaceRoot.set(key, session);
+    session.executionPromise = this.executeWithAppServer(session, appServer);
+    void session.executionPromise;
+    return modelFromSession(session, this.now(), {
+      canRunAgain: false,
+      retryBlocker: "Environment resolution is already running for this workspace.",
+    });
+  }
+
+  async respondToUserInput(
+    workspaceRoot: string,
+    requestId: string,
+    answers: Record<string, string[]>,
+  ): Promise<CodexImplementerExecutionModel> {
+    const key = workspaceKey(workspaceRoot);
+    const active = this.sessionsByWorkspaceRoot.get(key);
+    if (!active || active.state !== "running") {
+      const status = await this.getStatus(workspaceRoot);
+      return {
+        ...status,
+        failureReason: "No Codex execution is waiting for user input in the selected workspace.",
+      };
+    }
+    if (!active.pendingUserInput || active.pendingUserInput.requestId !== requestId) {
+      return {
+        ...modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: "Codex execution is already running for this workspace.",
+        }),
+        failureReason: "The Codex user input request is no longer pending for this run.",
+      };
+    }
+    const responder = active.threadAdapter?.respondToUserInput;
+    if (!responder) {
+      active.failureReason = "Current Codex runtime does not support responding to request_user_input.";
+      return modelFromSession(active, this.now(), {
+        canRunAgain: false,
+        retryBlocker: "Codex execution is already running for this workspace.",
+      });
+    }
+    await responder.call(active.threadAdapter, requestId, answers);
+    appendTail(active.eventTail, `request_user_input.answered ${requestId}`);
+    active.pendingUserInput = null;
+    return modelFromSession(active, this.now(), {
+      canRunAgain: false,
+      retryBlocker: "Codex execution is already running for this workspace.",
+    });
+  }
+
+  async respondToMcpElicitation(
+    workspaceRoot: string,
+    requestId: string,
+    response: Omit<CodexMcpElicitationResponse, "requestId">,
+  ): Promise<CodexImplementerExecutionModel> {
+    const key = workspaceKey(workspaceRoot);
+    const active = this.sessionsByWorkspaceRoot.get(key);
+    if (!active || active.state !== "running") {
+      const status = await this.getStatus(workspaceRoot);
+      return {
+        ...status,
+        failureReason: "No Codex execution is waiting for MCP elicitation input in the selected workspace.",
+      };
+    }
+    if (!active.pendingMcpElicitation || active.pendingMcpElicitation.requestId !== requestId) {
+      return {
+        ...modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: "Codex execution is already running for this workspace.",
+        }),
+        failureReason: "The Codex MCP elicitation request is no longer pending for this run.",
+      };
+    }
+    const responder = active.threadAdapter?.respondToMcpElicitation;
+    if (!responder) {
+      active.failureReason = "Current Codex runtime does not support responding to MCP elicitation input.";
+      return modelFromSession(active, this.now(), {
+        canRunAgain: false,
+        retryBlocker: "Codex execution is already running for this workspace.",
+      });
+    }
+    await responder.call(active.threadAdapter, requestId, response);
+    appendTail(active.eventTail, `mcp_elicitation.answered ${requestId}`);
+    active.pendingMcpElicitation = null;
+    return modelFromSession(active, this.now(), {
       canRunAgain: false,
       retryBlocker: "Codex execution is already running for this workspace.",
     });
@@ -189,6 +478,7 @@ export class CodexImplementerExecutionService {
     active.cancellationRequested = true;
     active.failureReason = "Codex cancellation requested.";
     active.abortController?.abort();
+    void active.threadAdapter?.interrupt?.().catch(() => undefined);
     appendTail(active.eventTail, "cancel.requested");
     return modelFromSession(active, this.now(), {
       canRunAgain: false,
@@ -196,23 +486,75 @@ export class CodexImplementerExecutionService {
     });
   }
 
-  private async executeWithSdk(session: SessionRecord, sdk: CodexSdkAdapter): Promise<void> {
-    const prompt = buildCodexImplementerPrompt(session);
+  async shutdownActiveExecutions(): Promise<void> {
+    if (this.shutdownPromise) {
+      return this.shutdownPromise;
+    }
+    this.shutdownPromise = this.shutdownActiveExecutionsOnce().finally(() => {
+      this.shutdownPromise = null;
+    });
+    return this.shutdownPromise;
+  }
+
+  private async shutdownActiveExecutionsOnce(): Promise<void> {
+    const runningSessions = [...this.sessionsByWorkspaceRoot.values()]
+      .filter((session) => session.state === "running");
+    await Promise.all(runningSessions.map(async (session) => {
+      session.cancellationRequested = true;
+      session.failureReason = "Codex execution was cancelled by application shutdown.";
+      session.abortController?.abort();
+      appendTail(session.eventTail, "app-server.shutdown requested");
+      await session.threadAdapter?.interrupt?.().catch(() => undefined);
+      await session.appServerAdapter?.dispose?.().catch((error) => {
+        appendTail(session.stderrTail, messageForCodexFailure(error));
+      });
+    }));
+    await Promise.all(runningSessions.map((session) =>
+      waitForSessionCompletion(session.executionPromise, 500),
+    ));
+  }
+
+  private async executeWithAppServer(session: SessionRecord, appServer: CodexAppServerExecutionAdapter): Promise<void> {
+    const prompt = session.executionKind === "environment-resolution"
+      ? buildCodexEnvironmentResolutionPrompt(session)
+      : buildCodexImplementerPrompt(session);
     let terminalState: CodexImplementerExecutionState = "failed";
     let terminalFailureReason: string | null = "Codex execution failed.";
+    let thread: CodexThreadAdapter | null = null;
     try {
-      const thread = sdk.startThread({
+      thread = appServer.startThread({
         workingDirectory: session.projectRoot,
         skipGitRepoCheck: true,
+        ...threadOptionsFromCodexImplementerPolicy(session.executionPolicy),
       });
-      appendTail(session.eventTail, "sdk.thread.start requested");
+      session.threadAdapter = thread;
+      session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
+      appendTail(session.eventTail, "app-server.thread.start requested");
       const streamed = await thread.runStreamed(prompt, {
         signal: session.abortController?.signal,
       });
       for await (const event of streamed.events) {
         appendTail(session.eventTail, summarizeEvent(event));
         if (event.type === "item.completed" && event.item.type === "agent_message") {
-          appendTail(session.finalResponseTail, event.item.text);
+          appendTail(session.finalResponseTail, String(event.item.text));
+        }
+        if (event.type === "approval.completed" || event.type === "approval.requested") {
+          session.approvalTail.push(event.approval);
+          while (session.approvalTail.length > maxTailItems) {
+            session.approvalTail.shift();
+          }
+        }
+        if (event.type === "runtime.denial") {
+          appendTail(session.runtimeDenialTail, event.message);
+        }
+        if (event.type === "runtime.stderr") {
+          appendTail(session.stderrTail, event.message);
+        }
+        if (event.type === "user_input.requested") {
+          session.pendingUserInput = event.request;
+        }
+        if (event.type === "mcp_elicitation.requested") {
+          session.pendingMcpElicitation = event.request;
         }
         if (event.type === "turn.failed") {
           throw new Error(event.error.message);
@@ -240,9 +582,49 @@ export class CodexImplementerExecutionService {
       }
     } finally {
       session.abortController = null;
+      session.pendingUserInput = null;
+      session.pendingMcpElicitation = null;
+      session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
+      session.threadAdapter = null;
+      session.appServerAdapter = null;
+      await thread?.dispose?.();
+      await appServer.dispose?.();
       session.failureReason = terminalFailureReason;
-      await refreshReportEvidence(session, terminalState);
-      if (terminalState === "completed" && !session.reportUpdated) {
+      if (session.executionKind === "environment-resolution" && terminalState === "completed") {
+        try {
+          appendTail(session.eventTail, "environment-resolution.parent-environment-refresh requested");
+          const refresh = await this.parentEnvironmentRefresh();
+          appendTail(
+            session.eventTail,
+            `environment-resolution.parent-environment-refresh.${refresh.refreshed ? "succeeded" : "not-required"} ${refresh.summary}`,
+          );
+          appendTail(session.eventTail, "environment-resolution.preflight.rerun requested");
+          const rerun = await this.preflightService.runPreflight({
+            workspaceRoot: session.projectRoot,
+            formalWorkCardPath: session.formalWorkCardPath,
+          });
+          this.preflightByWorkspaceRoot.set(workspaceKey(session.projectRoot), rerun);
+          session.developmentEnvironmentPreflight = rerun;
+          appendTail(session.eventTail, `environment-resolution.preflight.${rerun.state}`);
+        } catch (error) {
+          const message = `Parent process environment refresh failed before deterministic preflight rerun: ${messageForCodexFailure(error)}`;
+          terminalState = "failed";
+          session.failureReason = message;
+          terminalFailureReason = message;
+          appendTail(session.stderrTail, message);
+          appendTail(session.eventTail, "environment-resolution.parent-environment-refresh.failed");
+          const failedRefreshPreflight = environmentRefreshFailurePreflight(
+            session.developmentEnvironmentPreflight,
+            message,
+          );
+          this.preflightByWorkspaceRoot.set(workspaceKey(session.projectRoot), failedRefreshPreflight);
+          session.developmentEnvironmentPreflight = failedRefreshPreflight;
+        }
+      }
+      if (session.executionKind === "work-card-implementation") {
+        await refreshReportEvidence(session, terminalState);
+      }
+      if (session.executionKind === "work-card-implementation" && terminalState === "completed" && !session.reportUpdated) {
         session.failureReason = "Codex completed, but the Implementer Report was not updated.";
       }
       session.completedAt = this.now();
@@ -311,6 +693,7 @@ export class CodexImplementerExecutionService {
         implementerReportPath: projection.implementerReportPath,
         implementerReportRevision: reportMetadata.artifactRevision,
         implementerReportSha256: sha256ForRelativePath(projectRoot, projection.implementerReportPath),
+        developmentEnvironmentPreflight: null,
       };
     } catch (error) {
       return error instanceof Error ? error : new Error(String(error));
@@ -336,7 +719,7 @@ export class CodexImplementerExecutionService {
       };
     }
     try {
-      await this.sdkFactory();
+      await this.appServerFactory();
     } catch (error) {
       return {
         canRunAgain: false,
@@ -356,12 +739,21 @@ export function buildCodexImplementerPrompt(context: ExecutionContext): string {
   const contractDocumentLabel = context.implementationContractType === "formal-work-card"
     ? "Formal Work Card"
     : "Work Card Contract";
+  const developmentEnvironmentEvidence = context.developmentEnvironmentPreflight &&
+    context.developmentEnvironmentPreflight.state !== "not-required"
+    ? [
+        "",
+        "Application-verified development environment:",
+        context.developmentEnvironmentPreflight.evidenceMarkdown,
+        "- Do not rewrite application-owned capability identity, provisioning state, or verification results.",
+        "- Include this evidence in the Implementer Report when the Approved Work Card requires environment proof.",
+      ].join("\n")
+    : "";
   return `You are the Implementer for ChampCity A/I.
 
 Working directory:
 - The current process working directory is the selected project repository root.
-- Do not modify files outside this repository root.
-- Do not write absolute local machine paths into repository artifacts.
+- Use filesystem and tooling access only as authorized by the Approved Work Card and project-local instructions.
 
 Authority:
 - The ${context.implementationContractLabel} is the sole implementation contract.
@@ -375,8 +767,10 @@ Required report:
 - Implementer Report path: ${context.implementerReportPath}
 - Implementer Report artifact revision before execution: ${context.implementerReportRevision}
 - Implementer Report SHA-256 before execution: ${context.implementerReportSha256}
+- The application owns canonical identity, source revisions, repository authority, and disposition authority in the report metadata. Do not rewrite those authority fields.
 - Do not create an alternate report, sidecar, summary, execution packet, or completion marker.
 - Implementation is incomplete until this exact report contains the complete auditable evidence required by the Approved Work Card and remains Pending for review.
+${developmentEnvironmentEvidence}
 
 Project instructions:
 - Discover and follow project-local instructions, including AGENTS.md, README files, validation documents, package scripts, and repository-specific conventions.
@@ -386,7 +780,11 @@ Execution rules:
 - Implement only the approved Work Card.
 - Preserve all negative constraints in the Work Card.
 - Do not stage, commit, push, tag, reset, clean, stash, or perform Git mutation unless the Work Card explicitly authorizes it.
-- Do not introduce secrets, credentials, provider keys, environment-file contents, production endpoints, screenshots, archives, build outputs, or unrelated generated artifacts.
+- Do not disclose or commit secrets, credentials, authentication tokens, API/provider keys, or private environment-file contents unless the Approved Work Card explicitly requires handling them through an authorized secure mechanism.
+- A missing development capability required by the Approved Work Card is not by itself a blocker when its champcity-development-environment contract marks it managed. Use the application-owned development-environment provisioning path when available, verify the capability, then continue the Work Card. Report a blocker only when provisioning itself fails after the authorized remediation path is attempted or when the requirement is explicitly external.
+- Repository-native dependency installation or restoration is implementation work when required by the Work Card or project-local instructions. Package or dependency absence alone is not a reason to return the task to a nontechnical Operator.
+- Do not install unrelated tools because they might be useful. Provisioning authority is bounded by the Approved Work Card's required capabilities and project-local instructions.
+- A human interaction such as UAC approval, authentication, license acceptance, purchase, or hardware attachment is a resumable interaction boundary. Prepare the required action, request only the necessary human interaction, and resume afterward instead of transferring technical environment setup responsibility to the Operator.
 - Run the validation required by the Approved Work Card when possible.
 - Record exact commands, working directory, exit codes, and result summaries in the Implementer Report.
 - Map each acceptance criterion to evidence in the Implementer Report.
@@ -394,52 +792,124 @@ Execution rules:
 - State any skipped validation, scope expansion, residual risk, or blocker.
 
 Completion:
+- No generic security scan, safety scan, path-sanitization scan, or secret-like-string scan is required for Implementer completion unless the Approved Work Card or project validation instructions require it.
+- A voluntarily run auxiliary scan is supporting evidence only and must not replace or override the Work Card acceptance criteria.
 - When implementation and validation are complete, update only the existing Implementer Report at the required path.
 - Leave the report disposition as Pending.
 - End your final response with the report path and whether implementation is complete, blocked, or incomplete.
 `;
 }
 
-async function loadCodexSdkAdapter(): Promise<CodexSdkAdapter> {
-  const sdk = await importCodexSdkModule();
-  return new sdk.Codex({
-    env: buildCodexRuntimeEnvironment(process.env),
-  });
+export function buildCodexEnvironmentResolutionPrompt(context: ExecutionContext): string {
+  const unresolvedEvidence = environmentResolutionEvidence(context);
+  return `You are running ChampCity A/I Environment Resolution, not normal Work Card implementation.
+
+Use the current working directory as the selected project repository root. Read the current Approved Work Card and project-local instructions before taking action.
+
+Approved Work Card evidence:
+- Approved Work Card path: ${context.formalWorkCardPath}
+- Approved Work Card artifact revision: ${context.formalWorkCardRevision}
+- Approved Work Card SHA-256: ${context.formalWorkCardSha256}
+${unresolvedEvidence}
+
+Authority:
+- Establish only unresolved managed development-environment capabilities required by the Approved Work Card.
+- Do not substitute project architecture, platform, compiler family, target architecture, package ecosystem, or approved capability identity because setup is difficult.
+- Prefer authoritative vendor, Windows Package Manager, WinGet Configuration/DSC, and project-native ecosystem sources.
+- Stop only for a genuine human or external boundary such as UAC approval, restart, account authentication, license/purchase acceptance, host policy, or demonstrable inability to provision.
+
+Output requirements:
+- Label all work as Environment Resolution.
+- Record exact commands, working directory, exit codes, and concise results in your final response.
+- Do not update the Implementer Report as if Work Card implementation ran.
+- After your turn completes, ChampCity A/I will rerun deterministic preflight; do not claim readiness without verification.
+`;
 }
 
-async function importCodexSdkModule(): Promise<CodexSdkModule> {
-  const dynamicImport = new Function("specifier", "return import(specifier)") as
-    (specifier: string) => Promise<CodexSdkModule>;
-  return dynamicImport("@openai/codex-sdk");
-}
-
-function buildCodexRuntimeEnvironment(source: NodeJS.ProcessEnv): Record<string, string> {
-  const allowedKeys = [
-    "PATH",
-    "Path",
-    "PATHEXT",
-    "SystemRoot",
-    "WINDIR",
-    "TEMP",
-    "TMP",
-    "USERPROFILE",
-    "HOME",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "ComSpec",
-    "PROCESSOR_ARCHITECTURE",
-    "ProgramFiles",
-    "ProgramFiles(x86)",
-    "ProgramW6432",
+function environmentResolutionEvidence(context: ExecutionContext): string {
+  const preflight = context.developmentEnvironmentPreflight;
+  if (!preflight) {
+    return [
+      "",
+      "Current development-environment preflight evidence:",
+      "- No preflight evidence is currently attached to this Environment Resolution run.",
+    ].join("\n");
+  }
+  const unresolved = preflight.requirements.filter((requirement) =>
+    requirement.provisioning === "managed" &&
+    (
+      requirement.afterState !== "satisfied" ||
+      Boolean(requirement.blocker) ||
+      Boolean(requirement.humanInteractionKind)
+    )
+  );
+  const lines = [
+    "",
+    "Current development-environment preflight evidence:",
+    `- Preflight state: ${preflight.state}`,
+    `- Summary: ${preflight.summary}`,
+    `- Retry allowed: ${preflight.retryAllowed ? "yes" : "no"}`,
   ];
-  const env: Record<string, string> = {};
-  for (const key of allowedKeys) {
-    const value = source[key];
-    if (typeof value === "string") {
-      env[key] = value;
+  if (unresolved.length === 0) {
+    lines.push("- Unresolved managed requirements: none");
+    return lines.join("\n");
+  }
+  lines.push("- Unresolved managed requirements:");
+  for (const requirement of unresolved) {
+    lines.push(
+      `  - capabilityId: ${requirement.capabilityId}`,
+      `    versionConstraint: ${requirement.requestedVersionConstraint ?? "not declared"}`,
+      `    profile: ${requirement.requestedProfile ?? "not declared"}`,
+      `    state: ${requirement.beforeState} -> ${requirement.afterState}`,
+      `    actionTaken: ${requirement.actionTaken}`,
+      `    blockerKind: ${requirement.blockerKind ?? "none"}`,
+      `    blocker: ${truncatePromptEvidence(requirement.blocker ?? "none")}`,
+    );
+    if (requirement.providerAttempts?.length) {
+      lines.push("    providerAttempts:");
+      for (const attempt of requirement.providerAttempts) {
+        lines.push(
+          `      - provider: ${attempt.provider}`,
+          `        stage: ${attempt.stage}`,
+          `        outcome: ${attempt.outcome}`,
+          `        query: ${attempt.query ?? "not declared"}`,
+          `        summary: ${truncatePromptEvidence(attempt.summary)}`,
+        );
+        if (attempt.candidates?.length) {
+          lines.push("        candidates:");
+          for (const candidate of attempt.candidates) {
+            lines.push(
+              `          - packageId: ${candidate.packageId ?? "not declared"}; ` +
+                `packageName: ${candidate.packageName ?? "not declared"}; ` +
+                `source: ${candidate.source ?? "not declared"}; ` +
+                `version: ${candidate.version ?? "not declared"}`,
+            );
+          }
+        }
+      }
+    }
+    if (requirement.commandSummaries.length) {
+      lines.push("    commandSummaries:");
+      for (const command of requirement.commandSummaries) {
+        lines.push(
+          `      - command: ${truncatePromptEvidence(command.command)}`,
+          `        exitCode: ${command.exitCode ?? "none"}`,
+          `        stdout: ${truncatePromptEvidence(command.stdout || "none")}`,
+          `        stderr/error: ${truncatePromptEvidence(command.stderr || "none")}`,
+        );
+      }
     }
   }
-  return env;
+  return lines.join("\n");
+}
+
+function truncatePromptEvidence(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > 500 ? `${normalized.slice(0, 500)}...` : normalized;
+}
+
+async function loadCodexAppServerExecutionAdapter(): Promise<CodexAppServerExecutionAdapter> {
+  return loadCodexAppServerAdapter();
 }
 
 function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
@@ -456,6 +926,7 @@ function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
     implementerReportPath: context.implementerReportPath,
     implementerReportRevision: context.implementerReportRevision,
     implementerReportSha256: context.implementerReportSha256,
+    developmentEnvironmentPreflight: context.developmentEnvironmentPreflight,
   };
 }
 
@@ -465,6 +936,7 @@ function unavailableFromPreflight(context: Error): CodexImplementerExecutionMode
     state: "unavailable",
     failureReason: context.message,
     retryBlocker: context.message,
+    developmentEnvironmentPreflight: null,
   };
 }
 
@@ -474,6 +946,7 @@ function unavailableModel(workspaceRoot: string, failureReason: string): CodexIm
     state: "unavailable",
     failureReason,
     retryBlocker: failureReason,
+    developmentEnvironmentPreflight: null,
   };
 }
 
@@ -487,16 +960,61 @@ function unavailableModelFromContext(
     canRunAgain: false,
     retryBlocker: failureReason,
     failureReason,
+    developmentEnvironmentPreflight: context.developmentEnvironmentPreflight,
+  };
+}
+
+function unavailableModelFromPreflightResult(
+  context: ExecutionContext,
+  preflight: DevelopmentEnvironmentPreflightResult,
+): CodexImplementerExecutionModel {
+  const retryable = preflight.retryAllowed === true ||
+    (preflight.retryAllowed === undefined && preflight.state === "waiting-for-operator");
+  const canResolveEnvironment = preflight.state === "resolution-required";
+  return {
+    ...readyModel(context),
+    state: "unavailable",
+    canRunAgain: retryable && !canResolveEnvironment,
+    canResolveEnvironment,
+    retryBlocker: retryable || canResolveEnvironment ? null : preflight.summary,
+    failureReason: preflight.summary,
+    developmentEnvironmentPreflight: preflight,
+  };
+}
+
+function environmentRefreshFailurePreflight(
+  previous: DevelopmentEnvironmentPreflightResult | null,
+  message: string,
+): DevelopmentEnvironmentPreflightResult {
+  const requirements = previous?.requirements ?? [];
+  const evidence = [
+    "Development environment preflight evidence:",
+    "- Final state: resolution-required",
+    `- Summary: ${message}`,
+    "- Retry allowed: yes",
+    "- Parent process environment refresh failed before deterministic verification commands were launched.",
+    previous?.evidenceMarkdown ? "" : null,
+    previous?.evidenceMarkdown ? "Previous preflight evidence:" : null,
+    previous?.evidenceMarkdown ?? null,
+  ].filter((line): line is string => line !== null);
+  return {
+    state: "resolution-required",
+    summary: message,
+    retryAllowed: true,
+    requirements,
+    evidenceMarkdown: evidence.join("\n"),
   };
 }
 
 function baseModel(projectRoot: string | null): CodexImplementerExecutionModel {
   return {
     state: "unavailable",
+    executionKind: null,
     lastRunState: null,
     canRunAgain: false,
+    canResolveEnvironment: false,
     retryBlocker: null,
-    integrationMode: "sdk",
+    integrationMode: "app-server-stdio",
     phaseId: null,
     workCardId: null,
     workCardTitle: null,
@@ -514,8 +1032,14 @@ function baseModel(projectRoot: string | null): CodexImplementerExecutionModel {
     stderrTail: [],
     finalResponseTail: [],
     failureReason: null,
+    approvalTail: [],
+    runtimeDenialTail: [],
+    runtimeState: null,
+    pendingUserInput: null,
+    pendingMcpElicitation: null,
     reportUpdated: false,
     reportSha256After: null,
+    developmentEnvironmentPreflight: null,
   };
 }
 
@@ -527,12 +1051,22 @@ function modelFromSession(
   const completedAt = session.completedAt ? new Date(session.completedAt).toISOString() : null;
   const elapsedEnd = session.completedAt ?? now;
   const lastRunState = isTerminalState(session.state) ? session.state : null;
+  const preflight = session.developmentEnvironmentPreflight;
+  const environmentReady = !preflight ||
+    preflight.state === "ready" ||
+    preflight.state === "not-required";
+  const canResolveEnvironment = preflight?.state === "resolution-required" &&
+    session.state !== "running";
   return {
     state: session.state,
+    executionKind: session.executionKind,
     lastRunState,
-    canRunAgain: retryReadiness.canRunAgain,
-    retryBlocker: retryReadiness.retryBlocker,
-    integrationMode: "sdk",
+    canRunAgain: session.executionKind === "work-card-implementation"
+      ? retryReadiness.canRunAgain
+      : retryReadiness.canRunAgain && environmentReady,
+    canResolveEnvironment,
+    retryBlocker: environmentReady ? retryReadiness.retryBlocker : null,
+    integrationMode: "app-server-stdio",
     phaseId: session.phaseId,
     workCardId: session.workCardId,
     workCardTitle: session.workCardTitle,
@@ -549,9 +1083,15 @@ function modelFromSession(
     eventTail: [...session.eventTail],
     stderrTail: [...session.stderrTail],
     finalResponseTail: [...session.finalResponseTail],
+    approvalTail: [...session.approvalTail],
+    runtimeDenialTail: [...session.runtimeDenialTail],
+    runtimeState: session.runtimeState,
+    pendingUserInput: session.pendingUserInput,
+    pendingMcpElicitation: session.pendingMcpElicitation,
     failureReason: session.failureReason,
     reportUpdated: session.reportUpdated,
     reportSha256After: session.reportSha256After,
+    developmentEnvironmentPreflight: session.developmentEnvironmentPreflight,
   };
 }
 
@@ -694,6 +1234,28 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+async function waitForSessionCompletion(
+  executionPromise: Promise<void> | null,
+  timeoutMs: number,
+): Promise<void> {
+  if (!executionPromise) {
+    return;
+  }
+  let timeout: NodeJS.Timeout | null = null;
+  try {
+    await Promise.race([
+      executionPromise.catch(() => undefined),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 function readCanonicalMetadata(workspaceRoot: string, relativePath: string) {
   return parseCanonicalMarkdownDocument(
     fs.readFileSync(path.join(workspaceRoot, relativePath), "utf8"),
@@ -721,7 +1283,7 @@ function appendTail(tail: string[], value: string): void {
   }
 }
 
-function summarizeEvent(event: ThreadEvent): string {
+function summarizeEvent(event: CodexAppServerThreadEvent): string {
   switch (event.type) {
     case "thread.started":
       return `thread.started ${event.thread_id}`;
@@ -733,14 +1295,26 @@ function summarizeEvent(event: ThreadEvent): string {
       return `turn.failed ${event.error.message}`;
     case "error":
       return `error ${event.message}`;
-    case "item.started":
-    case "item.updated":
     case "item.completed":
       return `${event.type} ${summarizeItem(event.item)}`;
+    case "approval.requested":
+      return `approval.${event.approval.type}.${event.approval.decision}.pending ${event.approval.requestId}`;
+    case "approval.completed":
+      return `approval.${event.approval.type}.${event.approval.decision}.${event.approval.completed ? "completed" : "pending"} ${event.approval.requestId}`;
+    case "runtime.denial":
+      return `runtime.denial ${event.message}`;
+    case "runtime.stderr":
+      return `app-server.stderr ${event.message}`;
+    case "user_input.requested":
+      return `request_user_input.pending ${event.request.requestId}`;
+    case "mcp_elicitation.requested":
+      return event.request.responseSupported
+        ? `mcp_elicitation.pending ${event.request.requestId}`
+        : `mcp_elicitation.unsupported ${event.request.requestId} ${event.request.unsupportedReason ?? ""}`;
   }
 }
 
-function summarizeItem(item: ThreadItem): string {
+function summarizeItem(item: CodexAppServerThreadItem): string {
   if (!item || typeof item !== "object" || !("type" in item)) {
     return "unknown";
   }

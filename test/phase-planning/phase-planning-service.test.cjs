@@ -120,6 +120,12 @@ test("phase planning handoff uses one atomic draft bundle and promotes both outp
   assert.doesNotMatch(model.handoffInstruction, /Initial Work Card/);
   assert.match(model.handoffInstruction, /"overwrite": false/);
   assert.equal((model.handoffInstruction.match(/"action": "create_markdown_artifact"/g) ?? []).length, 2);
+  assert.match(model.handoffInstruction, /host environment and repository foundation/);
+  assert.match(model.handoffInstruction, /managed capability means ChampCity provisions and verifies it/i);
+  assert.match(model.handoffInstruction, /external capability means approved evidence establishes outside ownership/i);
+  assert.match(model.handoffInstruction, /human-interaction boundary means ChampCity prepares the action/i);
+  assert.match(model.handoffInstruction, /Do not use phrases like prerequisite problem or Operator must install/i);
+  assert.match(model.handoffInstruction, /establish and verify missing or unverified managed development capabilities before candidates that depend on them/i);
   const draftPaths = draftPathsFromInstruction(model.handoffInstruction);
   assert.equal(draftPaths.length, 2);
 

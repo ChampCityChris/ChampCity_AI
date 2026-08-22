@@ -1,6 +1,4 @@
 import path from "node:path";
-import fs from "node:fs";
-import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type { ArchitectHandoffManifest } from "../../shared/workspaceContracts";
 import { getArchitectInterviewWorkspaceModel, prepareArchitectInterviewHandoff } from "../architectInterview/architectInterviewService";
 import { resolveMcpWorkspaceBindingForPrompt } from "./mcpWorkspacePromptContract";
@@ -23,8 +21,7 @@ export function buildArchitectHandoffManifest(workspaceRoot: string): ArchitectH
       assertRepoRelative(relativePath);
     }
 
-    const workflowData = readCanonicalWorkflowData(workspaceRoot, model.promptDocument.markdownPath);
-    const binding = resolveMcpWorkspaceBindingForPrompt(workspaceRoot, workflowData);
+    const binding = resolveMcpWorkspaceBindingForPrompt(workspaceRoot);
     return {
       state: "handoff-ready",
       promptMarkdownPath: model.promptDocument.markdownPath,
@@ -45,13 +42,6 @@ export function buildArchitectHandoffManifest(workspaceRoot: string): ArchitectH
       reason: error instanceof Error ? error.message : "Architect handoff manifest failed.",
     };
   }
-}
-
-function readCanonicalWorkflowData(workspaceRoot: string, relativePath: string): Record<string, unknown> {
-  assertRepoRelative(relativePath);
-  return parseCanonicalMarkdownDocument(
-    fs.readFileSync(path.join(path.resolve(workspaceRoot), relativePath), "utf8"),
-  ).metadata.workflowData;
 }
 
 function projectIntakePath(paths: string[], extension: ".md"): string | undefined {

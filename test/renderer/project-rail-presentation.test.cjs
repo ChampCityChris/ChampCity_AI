@@ -161,7 +161,7 @@ test("Architect Interview rail status can be derived from repository documents w
     projectIntakeStatus: "Completed",
     architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
   });
-  assert.notEqual(statuses["project-planning-review"], "Not Ready");
+  assert.equal(statuses["project-planning-review"], "Ready");
 });
 
 test("App does not derive Architect Interview rail status from unrelated active Architect-output model", () => {
@@ -294,6 +294,29 @@ test("Architect-output dual-pane preview renders the Figma review workspace pane
   assert.doesNotMatch(source, /<PhaseMapPreviewReview/);
   assert.doesNotMatch(source, /onReview=\{applyDisposition\}[\s\S]{0,120}Apply Phase Map Review/);
   assert.doesNotMatch(source, /Specialized review controls appear when the current outputs exist/);
+});
+
+test("Phase Map workspace preserves special renderer and restores embedded Architect actions", () => {
+  const source = fs.readFileSync(appSourcePath, "utf8");
+  const phaseMapSection = source.slice(
+    source.indexOf("{isPhaseMapFigmaWorkspace ? ("),
+    source.indexOf("{isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace ? ("),
+  );
+
+  assert.match(phaseMapSection, /<FigmaPhaseMapWorkspace/);
+  assert.match(phaseMapSection, /<FigmaArchitectReviewPanel/);
+  assert.match(phaseMapSection, /\{architectBrowserColumn\}/);
+  assert.match(source, /const architectBrowserColumn = isArchitectPaneVisible \? \(/);
+  assert.match(source, /<FigmaBrowserPanel/);
+  assert.match(source, /<FigmaBrowserActionsPanel/);
+  assert.match(source, /onPrepareHandoff=\{prepareArchitectOutputFromAction\}/);
+  assert.match(source, /onCopyHandoff=\{copyArchitectHandoff\}/);
+  assert.match(source, /activeWorkspaceId === "project-phase-map"[\s\S]{0,80}\? "Prepare Phase Map Handoff"/);
+  assert.match(source, /activeWorkspaceId === "project-phase-map"[\s\S]{0,80}\? "Copy Phase Map Handoff"/);
+  assert.doesNotMatch(
+    source,
+    /const architectBrowserWorkspaceAvailable =[\s\S]{0,120}!isPhaseMapFigmaWorkspace/,
+  );
 });
 
 test("project selector uses a stacked full-width action layout", () => {

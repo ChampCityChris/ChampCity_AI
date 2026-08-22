@@ -151,6 +151,69 @@ test("formal Work Card promotion accepts substantive bodies without the former h
   assert.equal(promoted.documentSlots[0].disposition, "Pending");
 });
 
+test("formal Work Card promotion validates champcity-development-environment block", () => {
+  const root = tempWorkspace("champcity-work-card-planning-dev-env-");
+  seedApprovedProjectPlanning(root);
+  seedPhaseMap(root, "phase-01");
+  seedApprovedPhaseInterview(root, "phase-01");
+  seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
+  generateWorkCardIntakeHandoff(root, "phase-01");
+
+  const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
+  writeDraft(
+    root,
+    prepared.submission.draftSlots[0].draftRelativePath,
+    [
+      formalWorkCardBody("WC01"),
+      "```champcity-development-environment",
+      JSON.stringify({
+        schemaVersion: 1,
+        requirements: [{
+          capabilityId: "nodejs",
+          provisioning: "managed",
+        }],
+      }, null, 2),
+      "```",
+    ].join("\n"),
+  );
+
+  const promoted = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  assert.equal(promoted.state, "ready-for-review");
+});
+
+test("formal Work Card promotion rejects malformed champcity-development-environment block", () => {
+  const root = tempWorkspace("champcity-work-card-planning-dev-env-reject-");
+  seedApprovedProjectPlanning(root);
+  seedPhaseMap(root, "phase-01");
+  seedApprovedPhaseInterview(root, "phase-01");
+  seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
+  generateWorkCardIntakeHandoff(root, "phase-01");
+  const finalPath = "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md";
+  const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
+
+  writeDraft(
+    root,
+    prepared.submission.draftSlots[0].draftRelativePath,
+    [
+      formalWorkCardBody("WC01"),
+      "```champcity-development-environment",
+      JSON.stringify({
+        schemaVersion: 1,
+        requirements: [{
+          capabilityId: "",
+          provisioning: "operatorInstalled",
+        }],
+      }, null, 2),
+      "```",
+    ].join("\n"),
+  );
+
+  const failed = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+  assert.equal(failed.state, "promotion-failed");
+  assert.match(failed.promotionError, /non-empty capabilityId|provisioning must be managed or external/);
+  assert.equal(fs.existsSync(path.join(root, finalPath)), false);
+});
+
 test("formal Work Card retained validators reject empty and metadata drafts without final mutation", () => {
   {
     const root = tempWorkspace("champcity-work-card-planning-empty-reject-");
@@ -245,6 +308,10 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.match(instruction, /Implementer Report Requirements must name the exact application-owned Implementer Report target above/);
   assert.match(instruction, /updates that existing canonical report rather than creating an alternate report/);
   assert.match(instruction, /Implementation is incomplete until the report at that exact path contains the complete auditable evidence/);
+  assert.match(instruction, /champcity-development-environment/);
+  assert.match(instruction, /provisioning set only to managed or external/);
+  assert.match(instruction, /Do not place installer commands, package IDs, download URLs/);
+  assert.match(instruction, /managed machine-level setup is authorized implementation work/);
   assert.doesNotMatch(instruction, /ChampCity_AI/);
   assert.doesNotMatch(instruction, /champcity_ai/);
   assert.equal(actionBlocks.length, 1);

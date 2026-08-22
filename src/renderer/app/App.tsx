@@ -252,9 +252,9 @@ export function App(): JSX.Element {
   const shouldPollArchitectOutputWorkspace =
     isVisibleArchitectOutputWorkspace || isWorkCardRepair;
   const architectBrowserWorkspaceAvailable =
-    (isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace) || isWorkCardReportReview;
+    isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
   const shouldAttachEmbeddedArchitectSurface =
-    (architectBrowserWorkspaceAvailable || (isWorkCardRepair && !isPhaseMapFigmaWorkspace)) &&
+    (architectBrowserWorkspaceAvailable || isWorkCardRepair) &&
     isArchitectPaneVisible;
 
   useEffect(() => {
@@ -842,11 +842,44 @@ export function App(): JSX.Element {
     }
   }
 
+  async function preparePhaseInterviewFinalDraftFromAction(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback(null);
+    try {
+      const nextModel = await window.champcity.preparePhaseInterviewFinalDraftHandoff();
+      setArchitectOutputModel(nextModel);
+      setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftPreparedFeedback }, 3500);
+      await refreshDocuments({ useResolver: true });
+      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Final Draft handoff could not be prepared.",
+      });
+    }
+  }
+
   async function copyArchitectInterviewFinalDraftHandoff(): Promise<void> {
     setDocumentError("");
     setArchitectFeedback(null);
     try {
       await window.champcity.copyArchitectInterviewFinalDraftHandoff();
+      setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftCopiedFeedback }, 4500);
+      await refreshArchitectStatus();
+      await refreshArchitectOutputWorkspace({ force: true });
+    } catch (error) {
+      setArchitectFeedback({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Final Draft handoff could not be copied.",
+      });
+    }
+  }
+
+  async function copyPhaseInterviewFinalDraftHandoff(): Promise<void> {
+    setDocumentError("");
+    setArchitectFeedback(null);
+    try {
+      await window.champcity.copyPhaseInterviewFinalDraftHandoff();
       setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftCopiedFeedback }, 4500);
       await refreshArchitectStatus();
       await refreshArchitectOutputWorkspace({ force: true });
@@ -1197,6 +1230,28 @@ export function App(): JSX.Element {
     }
   }
 
+  async function startCodexEnvironmentResolution(): Promise<void> {
+    setIsCodexExecutionActionRunning(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const status = await window.champcity.startCodexEnvironmentResolution();
+      setCodexExecution(status);
+      codexExecutionPreviousStateRef.current = status.state;
+      if (status.state === "running") {
+        setFeedback("Environment Resolution started.");
+      } else if (["completed", "failed", "cancelled"].includes(status.state)) {
+        await refreshBuildReviewAfterCodex(status);
+      } else if (status.failureReason) {
+        setDocumentError(status.failureReason);
+      }
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Environment Resolution could not be started.");
+    } finally {
+      setIsCodexExecutionActionRunning(false);
+    }
+  }
+
   async function cancelCodexImplementerExecution(): Promise<void> {
     setIsCodexExecutionActionRunning(true);
     setDocumentError("");
@@ -1208,6 +1263,40 @@ export function App(): JSX.Element {
       }
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Codex Implementer execution could not be cancelled.");
+    } finally {
+      setIsCodexExecutionActionRunning(false);
+    }
+  }
+
+  async function respondToCodexUserInput(requestId: string, answers: Record<string, string[]>): Promise<void> {
+    setIsCodexExecutionActionRunning(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const status = await window.champcity.respondToCodexUserInput({ requestId, answers });
+      setCodexExecution(status);
+      setFeedback("Codex input submitted.");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Codex input could not be submitted.");
+    } finally {
+      setIsCodexExecutionActionRunning(false);
+    }
+  }
+
+  async function respondToCodexMcpElicitation(
+    requestId: string,
+    action: "accept" | "decline" | "cancel",
+    content: unknown | null,
+  ): Promise<void> {
+    setIsCodexExecutionActionRunning(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const status = await window.champcity.respondToCodexMcpElicitation({ requestId, action, content });
+      setCodexExecution(status);
+      setFeedback("MCP input submitted.");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "MCP input could not be submitted.");
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -1663,7 +1752,7 @@ export function App(): JSX.Element {
     projectRailStatuses[activeWorkspaceId as keyof typeof projectRailStatuses] ??
     "Pending";
   const embeddedBrowserAvailable =
-    architectBrowserWorkspaceAvailable || (isWorkCardRepair && !isPhaseMapFigmaWorkspace);
+    architectBrowserWorkspaceAvailable || isWorkCardRepair;
   const isFigmaActionWorkspace =
     activeWorkspaceId !== "project-intake-capture" &&
     !isWorkCardPlanningPreparation &&
@@ -1719,6 +1808,70 @@ export function App(): JSX.Element {
       setDocumentError("Selected document content could not be copied.");
     }
   }
+
+  const architectOutputPrepareHandoffLabel =
+    activeWorkspaceId === "architect-interview"
+      ? "Prepare ChatGPT Handoff"
+      : activeWorkspaceId === "phase-interview"
+      ? "Prepare Phase Interview Handoff"
+      : activeWorkspaceId === "project-planning-review"
+      ? "Prepare Project Planning Handoff"
+      : activeWorkspaceId === "project-phase-map"
+      ? "Prepare Phase Map Handoff"
+      : "Prepare Handoff";
+  const architectOutputCopyHandoffLabel =
+    activeWorkspaceId === "architect-interview"
+      ? "Copy ChatGPT Handoff"
+      : activeWorkspaceId === "phase-interview"
+      ? "Copy Phase Interview Handoff"
+      : activeWorkspaceId === "project-planning-review"
+      ? "Copy Project Planning Handoff"
+      : activeWorkspaceId === "project-phase-map"
+      ? "Copy Phase Map Handoff"
+      : "Copy Handoff";
+  const architectBrowserColumn = isArchitectPaneVisible ? (
+    <div className="figma-browser-column">
+      <FigmaBrowserPanel
+        hostRef={architectHostRef}
+        onReload={() => void reloadArchitectBrowser()}
+        onRetry={() => void retryArchitectBrowser()}
+        retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+        statusLabel={architectBrowserPresentation(architectStatus).label}
+      />
+      <FigmaBrowserActionsPanel
+        actionFeedback={architectActionFeedback}
+        attachmentError={architectAttachmentError}
+        browserStatus={architectStatus}
+        copyHandoffLabel={architectOutputCopyHandoffLabel}
+        model={architectOutputModel}
+        onCopyHandoff={copyArchitectHandoff}
+        onCopyFinalDraftHandoff={
+          activeWorkspaceId === "architect-interview"
+            ? copyArchitectInterviewFinalDraftHandoff
+            : activeWorkspaceId === "phase-interview"
+            ? copyPhaseInterviewFinalDraftHandoff
+            : undefined
+        }
+        onPrepareFinalDraftHandoff={
+          activeWorkspaceId === "architect-interview"
+            ? prepareArchitectInterviewFinalDraftFromAction
+            : activeWorkspaceId === "phase-interview"
+            ? preparePhaseInterviewFinalDraftFromAction
+            : undefined
+        }
+        onPrepareHandoff={prepareArchitectOutputFromAction}
+        onRegeneratePrompt={regenerateArchitectInterviewPromptFromAction}
+        onRefresh={() => {
+          void refreshArchitectStatus();
+          void refreshArchitectOutputWorkspace({ force: true });
+        }}
+        onReloadBrowser={() => void reloadArchitectBrowser()}
+        onRetryBrowser={() => void retryArchitectBrowser()}
+        pollingError={architectOutputPollingError}
+        prepareHandoffLabel={architectOutputPrepareHandoffLabel}
+      />
+    </div>
+  ) : null;
 
   return (
     <div className={`app-root ${themeMode === "dark" ? "dark" : ""}`}>
@@ -1855,7 +2008,10 @@ export function App(): JSX.Element {
 
           {isPhaseMapFigmaWorkspace ? (
             <section
-              className="figma-phase-map-workspace"
+              className={[
+                "figma-phase-map-workspace",
+                !isArchitectPaneVisible ? "chat-hidden" : "",
+              ].filter(Boolean).join(" ")}
               aria-label="Phase Map Figma workspace"
               ref={documentReviewSurfaceRef}
               tabIndex={-1}
@@ -1884,6 +2040,7 @@ export function App(): JSX.Element {
                   />
                 ) : null}
               </div>
+              {architectBrowserColumn}
             </section>
           ) : null}
 
@@ -1932,53 +2089,7 @@ export function App(): JSX.Element {
                   selectedDocument={selectedDocument}
                 />
               </div>
-              {isArchitectPaneVisible ? (
-                <div className="figma-browser-column">
-                  <FigmaBrowserPanel
-                    hostRef={architectHostRef}
-                    onReload={() => void reloadArchitectBrowser()}
-                    onRetry={() => void retryArchitectBrowser()}
-                    retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                    statusLabel={architectBrowserPresentation(architectStatus).label}
-                  />
-                  <FigmaBrowserActionsPanel
-                    actionFeedback={architectActionFeedback}
-                    attachmentError={architectAttachmentError}
-                    browserStatus={architectStatus}
-                    copyHandoffLabel={
-                      activeWorkspaceId === "architect-interview"
-                        ? "Copy ChatGPT Handoff"
-                        : "Copy Handoff"
-                    }
-                    model={architectOutputModel}
-                    onCopyHandoff={copyArchitectHandoff}
-                    onCopyFinalDraftHandoff={
-                      activeWorkspaceId === "architect-interview"
-                        ? copyArchitectInterviewFinalDraftHandoff
-                        : undefined
-                    }
-                    onPrepareFinalDraftHandoff={
-                      activeWorkspaceId === "architect-interview"
-                        ? prepareArchitectInterviewFinalDraftFromAction
-                        : undefined
-                    }
-                    onPrepareHandoff={prepareArchitectOutputFromAction}
-                    onRegeneratePrompt={regenerateArchitectInterviewPromptFromAction}
-                    onRefresh={() => {
-                      void refreshArchitectStatus();
-                      void refreshArchitectOutputWorkspace({ force: true });
-                    }}
-                    onReloadBrowser={() => void reloadArchitectBrowser()}
-                    onRetryBrowser={() => void retryArchitectBrowser()}
-                    pollingError={architectOutputPollingError}
-                    prepareHandoffLabel={
-                      activeWorkspaceId === "architect-interview"
-                        ? "Prepare ChatGPT Handoff"
-                        : "Prepare Handoff"
-                    }
-                  />
-                </div>
-              ) : null}
+              {architectBrowserColumn}
             </section>
           ) : null}
 
@@ -2068,6 +2179,10 @@ export function App(): JSX.Element {
               model={currentModel}
               onCancelCodex={() => void cancelCodexImplementerExecution()}
               onCreateReport={createImplementerReportFromBuildReview}
+              onRespondToCodexMcpElicitation={(requestId, action, content) =>
+                void respondToCodexMcpElicitation(requestId, action, content)}
+              onRespondToCodexUserInput={(requestId, answers) => void respondToCodexUserInput(requestId, answers)}
+              onResolveEnvironment={() => void startCodexEnvironmentResolution()}
               onRunCodex={() => void startCodexImplementerExecution()}
             />
           ) : null}

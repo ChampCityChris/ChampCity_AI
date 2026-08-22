@@ -19,7 +19,8 @@ function tempWorkspaceWithoutBinding(prefix = "champcity-canonical-unbound-fixtu
 }
 
 function tempWorkspaceWithOptions(prefix, options) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const root = path.join(container, "Alpha");
   fs.mkdirSync(path.join(root, "planning"), { recursive: true });
   if (options.mcpBinding) {
     fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });

@@ -54,6 +54,31 @@ function phaseMapDocument(overrides = {}) {
   };
 }
 
+function phaseMapCssRule(selector) {
+  const css = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "renderer", "styles.css"),
+    "utf8",
+  );
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`));
+  assert.ok(match, `Expected ${selector} CSS rule to exist.`);
+  return { css, rule: match[1] };
+}
+
+function fifteenPhaseFixture() {
+  return Array.from({ length: 15 }, (_, index) => {
+    const phaseId = `phase-${String(index).padStart(2, "0")}`;
+    return {
+      phaseId,
+      title: `Phase ${String(index).padStart(2, "0")} Title`,
+      order: index,
+      purpose: `Purpose for ${phaseId}.`,
+      dependsOn: index === 0 ? [] : [`phase-${String(index - 1).padStart(2, "0")}`],
+      sourceReferences: [`planning/phases/${phaseId}/Phase_Planning.md`],
+    };
+  });
+}
+
 test("Phase Map projection renders ordered operator-readable phases from canonical metadata", () => {
   const markup = renderToStaticMarkup(
     React.createElement(PhaseMapDocumentPreview, { document: phaseMapDocument() }),
@@ -142,6 +167,29 @@ test("Figma Phase Map workspace renders compact active phase list from real meta
   assert.doesNotMatch(markup, /View Source/);
 });
 
+test("Figma Phase Map workspace renders all phases from a 15-phase metadata fixture", () => {
+  const phases = fifteenPhaseFixture();
+  const markup = renderToStaticMarkup(
+    React.createElement(FigmaPhaseMapWorkspace, {
+      currentPhaseId: "phase-14",
+      documentError: "",
+      documents: [],
+      feedback: "",
+      onCopy: () => undefined,
+      selectedDocument: phaseMapDocument({ phases }),
+    }),
+  );
+
+  assert.match(markup, /- 15 phases/);
+  for (const phase of phases) {
+    assert.match(markup, new RegExp(phase.phaseId));
+    assert.match(markup, new RegExp(phase.title));
+  }
+  assert.ok(markup.indexOf("phase-00") < markup.indexOf("phase-14"));
+  assert.match(markup, /Purpose for phase-14\./);
+  assert.match(markup, /planning\/phases\/phase-14\/Phase_Planning\.md/);
+});
+
 test("Figma Phase Map rows are clickable accordion controls", () => {
   const source = fs.readFileSync(
     path.join(__dirname, "..", "..", "src", "renderer", "app", "phaseMapPresentation.tsx"),
@@ -152,6 +200,60 @@ test("Figma Phase Map rows are clickable accordion controls", () => {
   assert.match(source, /aria-expanded=\{isActive\}/);
   assert.match(source, /onClick=\{\(\) => setExpandedPhaseId\(phase\.phaseId\)\}/);
   assert.match(source, /type="button"/);
+});
+
+test("Figma Phase Map workspace uses a bounded internal phase-list scroll region", () => {
+  const column = phaseMapCssRule(".figma-phase-map-column");
+  assert.match(column.rule, /display:\s*flex;/);
+  assert.match(column.rule, /flex-direction:\s*column;/);
+  assert.match(column.rule, /min-width:\s*0;/);
+  assert.match(column.rule, /min-height:\s*0;/);
+  assert.match(column.rule, /overflow:\s*hidden;/);
+  assert.doesNotMatch(column.rule, /overflow:\s*auto;/);
+
+  const card = phaseMapCssRule(".figma-phase-map-card");
+  assert.match(card.rule, /display:\s*flex;/);
+  assert.match(card.rule, /flex-direction:\s*column;/);
+  assert.match(card.rule, /flex:\s*1 1 auto;/);
+  assert.match(card.rule, /min-height:\s*0;/);
+  assert.match(card.rule, /overflow:\s*hidden;/);
+
+  const header = phaseMapCssRule(".figma-phase-map-card-header");
+  assert.match(header.rule, /flex:\s*0 0 auto;/);
+
+  const list = phaseMapCssRule(".figma-phase-map-list");
+  assert.match(list.rule, /display:\s*grid;/);
+  assert.match(list.rule, /flex:\s*1 1 auto;/);
+  assert.match(list.rule, /min-height:\s*0;/);
+  assert.match(list.rule, /overflow-y:\s*auto;/);
+  assert.match(list.rule, /scrollbar-width:\s*thin;/);
+  assert.doesNotMatch(list.rule, /scrollbar-width:\s*none;/);
+  assert.doesNotMatch(
+    list.css,
+    /\.figma-phase-map-list::-webkit-scrollbar[^{]*\{[^}]*display:\s*none;/,
+  );
+});
+
+test("Figma Phase Map preserves metadata mapping and review-panel sibling layout", () => {
+  const phaseMapSource = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "renderer", "app", "phaseMapPresentation.tsx"),
+    "utf8",
+  );
+  const appSource = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx"),
+    "utf8",
+  );
+  const columnIndex = appSource.indexOf('<div className="figma-phase-map-column">');
+  const workspaceIndex = appSource.indexOf("<FigmaPhaseMapWorkspace", columnIndex);
+  const reviewPanelIndex = appSource.indexOf("<FigmaArchitectReviewPanel", workspaceIndex);
+
+  assert.notEqual(columnIndex, -1);
+  assert.ok(workspaceIndex > columnIndex);
+  assert.ok(reviewPanelIndex > workspaceIndex);
+  assert.match(phaseMapSource, /const phases = projection\?\.state === "readable" \? projection\.phases : \[\];/);
+  assert.match(phaseMapSource, /phases\.map\(\(phase\) =>/);
+  assert.doesNotMatch(phaseMapSource, /phases\s*\.\s*slice|projection\.phases\s*\.\s*slice/);
+  assert.doesNotMatch(phaseMapSource, /figma-phase-map-list[\s\S]*FigmaArchitectReviewPanel/);
 });
 
 test("Phase Map work card counts use real formal Work Card identities only", () => {
