@@ -57,7 +57,8 @@ test("phase interview handoff is conversation-only and final draft handoff owns 
   assert.equal(finalizing.canCopyHandoff, true);
   assert.equal(finalizing.canCopyFinalDraftHandoff, true);
   assertInitialPhaseInterviewHandoffIsNoWrite(finalizing.handoffInstruction);
-  assert.match(finalizing.finalDraftHandoffInstruction, /"action": "create_markdown_artifact"/);
+  assert.match(finalizing.finalDraftHandoffInstruction, /"action": "write_markdown_artifact"/);
+  assert.doesNotMatch(finalizing.finalDraftHandoffInstruction, /create_markdown_artifact/);
   assert.match(finalizing.finalDraftHandoffInstruction, /"workspaceId": "alpha"/);
   assert.match(finalizing.finalDraftHandoffInstruction, /Temporary body-only draft path: planning\/Architect_Drafts\//);
   assert.match(finalizing.finalDraftHandoffInstruction, /Clarification Required/);
@@ -67,7 +68,7 @@ test("phase interview handoff is conversation-only and final draft handoff owns 
 
   const invocation = invocationFrom(finalizing.finalDraftHandoffInstruction);
   assert.deepEqual(invocation, {
-    action: "create_markdown_artifact",
+    action: "write_markdown_artifact",
     workspaceId: "alpha",
     params: {
       relativePath: getActivePhaseInterviewDraftSubmission(root).submission.expectedDraftSlots[0].draftRelativePath,
@@ -211,7 +212,7 @@ function assertInitialPhaseInterviewHandoffIsNoWrite(instruction) {
   assert.match(instruction, /ask zero clarification questions/);
   assert.match(instruction, /concise phase-understanding summary/);
   assert.match(instruction, /Stop and wait for Operator confirmation before finalization, draft creation, or write-back/);
-  assert.doesNotMatch(instruction, /artifact_toolbox\.create_markdown_artifact/);
+  assert.doesNotMatch(instruction, /artifact_toolbox\.write_markdown_artifact/);
   assert.doesNotMatch(instruction, /create_markdown_artifact/);
   assert.doesNotMatch(instruction, /planning\/Architect_Drafts/);
   assert.doesNotMatch(instruction, /Temporary draft/i);

@@ -31,7 +31,7 @@ import { getPhaseMapProjection } from "../phaseMap/phaseMapService";
 import { getPhasePlanningCompletion } from "../phasePlanning/phasePlanningService";
 import { resolveActiveWorkCardPlanningHandoff } from "../workCardIntake/workCardIntakeService";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
   resolveMcpWorkspaceBindingForPrompt,
 } from "../integrations/mcpWorkspacePromptContract";
@@ -558,10 +558,10 @@ function buildFormalWorkCardPreparedInstruction(
     "Do not include application metadata delimiters, canonical metadata, source revisions, final-write metadata, route selectors, fallback fields, hidden authority values, or placeholder content in the body.",
     "ChampCity A/I owns validation, canonical metadata, promotion, final writes, review state, and cleanup.",
     "",
-    "When the complete body is ready, call artifact_toolbox.create_markdown_artifact exactly once:",
+    "When the complete body is ready, call artifact_toolbox.write_markdown_artifact exactly once:",
     "",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       draftPath,
       "<complete body-only Formal Work Card Markdown>",

@@ -70,7 +70,7 @@ export function normalizeWorkspaceId(value: string): string {
   return workspaceId;
 }
 
-export function buildCreateMarkdownArtifactJsonBlock(
+export function buildWriteMarkdownArtifactJsonBlock(
   workspaceRoot: string,
   relativePath: string,
   contentPlaceholder: string,
@@ -78,7 +78,7 @@ export function buildCreateMarkdownArtifactJsonBlock(
 ): string[] {
   const binding = requireBoundMcpWorkspace(workspaceRoot);
   return JSON.stringify({
-    action: "create_markdown_artifact",
+    action: "write_markdown_artifact",
     workspaceId: binding.workspaceId,
     params: {
       relativePath,

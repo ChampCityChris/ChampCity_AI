@@ -17,6 +17,9 @@ const {
   deriveProjectLifecycleRailStatuses,
 } = require("../../dist/shared/workspaces/projectLifecycleRailStatus.js");
 const {
+  getProjectPlanningWorkspaceModel,
+} = require("../../dist/main/projectPlanning/projectPlanningService.js");
+const {
   listPlanningDocuments,
   seedApprovedProjectIntake,
   seedPhaseMap,
@@ -26,6 +29,10 @@ const {
 
 const railSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "NestedWorkflowRail.tsx");
 const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
+const projectLifecycleRailSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaces", "projectLifecycleRailStatus.ts");
+const mainSourcePath = path.join(__dirname, "..", "..", "src", "main", "main.ts");
+const preloadSourcePath = path.join(__dirname, "..", "..", "src", "preload", "index.ts");
+const workspaceContractsSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaceContracts.ts");
 const stylesSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "styles.css");
 
 test("top rail separates viewed workspace from current required workspace", () => {
@@ -157,9 +164,11 @@ test("Architect Interview rail status can be derived from repository documents w
   documents = listPlanningDocuments(root);
   assert.equal(deriveArchitectInterviewRailStatusFromDocuments(documents), "Completed");
 
+  const projectPlanning = getProjectPlanningWorkspaceModel(root);
   const statuses = deriveProjectLifecycleRailStatuses(documents, {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
+    projectPlanningStatus: projectPlanning.railStatus,
   });
   assert.equal(statuses["project-planning-review"], "Ready");
 });
@@ -171,12 +180,39 @@ test("App does not derive Architect Interview rail status from unrelated active 
   assert.match(appSource, /architectOutputModel\?\.workspaceId === "architect-interview"/);
 });
 
-test("App preserves completed Project Planning rail status over transient Architect-output state", () => {
+test("App uses the direct Project Planning model for Project Planning rail authority", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const activeWorkspaceSwitch = appSource.slice(
+    appSource.indexOf("switch (architectOutputModel.workspaceId)"),
+    appSource.indexOf("return statuses;", appSource.indexOf("switch (architectOutputModel.workspaceId)")),
+  );
 
-  assert.match(appSource, /architectOutputModel\.workspaceId === "project-planning-review"/);
-  assert.match(appSource, /statuses\["project-planning-review"\] === "Completed"/);
-  assert.match(appSource, /break;/);
+  assert.match(appSource, /getProjectPlanningWorkspaceModel\(\)/);
+  assert.match(appSource, /projectPlanningStatus:\s*projectPlanningModel\?\.railStatus \?\? "Not Ready"/);
+  assert.doesNotMatch(activeWorkspaceSwitch, /project-planning-review/);
+  assert.doesNotMatch(activeWorkspaceSwitch, /statuses\["project-planning-review"\]/);
+});
+
+test("Project Planning rail service has no duplicate Project Planning lifecycle authority", () => {
+  const source = fs.readFileSync(projectLifecycleRailSourcePath, "utf8");
+
+  assert.match(source, /projectPlanningStatus:\s*ProjectLifecycleRailStatus/);
+  assert.doesNotMatch(
+    source,
+    /deriveProjectPlanningRailStatus|projectPlanningContextFromSummaries|projectPlanningTargets|function bundleState|function hasSourceRevision|function defaultInterviewTarget|function projectSlugFromInterview|analyzeProjectIntakeCorpus/,
+  );
+});
+
+test("Project Planning workspace model is exposed through a direct read-only IPC path", () => {
+  const mainSource = fs.readFileSync(mainSourcePath, "utf8");
+  const preloadSource = fs.readFileSync(preloadSourcePath, "utf8");
+  const contractsSource = fs.readFileSync(workspaceContractsSourcePath, "utf8");
+
+  assert.match(mainSource, /projectPlanning:getWorkspaceModel/);
+  assert.match(mainSource, /getAuthoritativeProjectPlanningWorkspaceModel\(getRequiredWorkspaceRoot\(\)\)/);
+  assert.match(preloadSource, /getProjectPlanningWorkspaceModel:\s*\(\) =>/);
+  assert.match(preloadSource, /projectPlanning:getWorkspaceModel/);
+  assert.match(contractsSource, /getProjectPlanningWorkspaceModel:\s*\(\) => Promise<ProjectPlanningWorkspaceModel>/);
 });
 
 test("native select and option rows have explicit theme-readable colors", () => {
@@ -333,6 +369,7 @@ test("all top project rail cards receive one title-cased lifecycle status", () =
   const statuses = deriveProjectLifecycleRailStatuses([], {
     projectIntakeStatus: "Open",
     architectInterviewStatus: "Open",
+    projectPlanningStatus: "Not Ready",
   });
 
   assert.deepEqual(Object.keys(statuses).sort(), [
@@ -389,24 +426,15 @@ test("Work Card Architect workspaces reuse the shared dual-pane layout", () => {
   assert.doesNotMatch(stylesSource, /work-card-architect-workspace/);
 });
 
-test("project rail reports duplicate current Project Planning handoffs as Needs Attention", () => {
-  const root = tempWorkspace("champcity-rail-project-planning-conflict-");
-  seedCompletedProjectPlanning(root);
-  writeDoc(root, "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo_DUPLICATE.md", "generated-handoff", "Approved", {
-    participationRole: "nonReviewHandoff",
-    workflowData: {
-      handoffKind: "project-planning",
-      projectProfileTarget: "planning/project/PROJECT_PROFILE.md",
-      projectRoadmapTarget: "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
-    },
-  });
-
-  const statuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
+test("project rail consumes Project Planning blocker state from the authoritative model input", () => {
+  const statuses = deriveProjectLifecycleRailStatuses([], {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: "Completed",
+    projectPlanningStatus: "Needs Attention",
   });
 
   assert.equal(statuses["project-planning-review"], "Needs Attention");
+  assert.equal(statuses["project-phase-map"], "Needs Attention");
   assert.equal(statuses["project-intake-capture"], "Completed");
   assert.equal(statuses["architect-interview"], "Completed");
 });
@@ -425,6 +453,7 @@ test("project rail reports duplicate current Phase Maps as Needs Attention", () 
   const statuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: "Completed",
+    projectPlanningStatus: "Completed",
   });
 
   assert.equal(statuses["project-phase-map"], "Needs Attention");
@@ -455,6 +484,7 @@ test("project rail rejects duplicate closeouts for one phase but accepts distinc
   const distinctStatuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: "Completed",
+    projectPlanningStatus: "Completed",
   });
   assert.equal(distinctStatuses["phase-interview"], "Completed");
 
@@ -466,6 +496,7 @@ test("project rail rejects duplicate closeouts for one phase but accepts distinc
   const duplicateStatuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: "Completed",
+    projectPlanningStatus: "Completed",
   });
   assert.equal(duplicateStatuses["phase-interview"], "Needs Attention");
 });
@@ -491,6 +522,7 @@ test("project rail reports duplicate current Project Closeouts as Needs Attentio
   const statuses = deriveProjectLifecycleRailStatuses(listPlanningDocuments(root), {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: "Completed",
+    projectPlanningStatus: "Completed",
   });
 
   assert.equal(statuses["project-validation"], "Needs Attention");

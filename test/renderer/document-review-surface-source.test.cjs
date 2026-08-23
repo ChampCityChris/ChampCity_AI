@@ -67,8 +67,21 @@ test("application shell routes workflow navigation through one transition helper
   assert.match(appSource, /onWorkspaceChange=\{transitionToWorkflowStep\}/);
   assert.match(appSource, /function documentIdForWorkflowStep\(/);
   assert.match(appSource, /classifyPlanningDocument\(document\)\.workspaceId === destinationWorkspaceId/);
+  assert.match(appSource, /isWorkflowReviewDocument\(document, destinationWorkspaceId\)/);
   assert.doesNotMatch(appSource, /onWorkspaceChange=\{setActiveWorkspaceId\}/);
   assert.doesNotMatch(appSource, /onClick=\{\(\) => setActiveWorkspaceId/);
+});
+
+test("renderer imports the shared strict workflow review predicate", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const helperSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "workflowReviewDocuments.ts"), "utf8");
+
+  assert.match(appSource, /from "\.\/workflowReviewDocuments"/);
+  assert.doesNotMatch(appSource, /function isWorkflowReviewDocument\(document: PlanningDocumentSummary\)/);
+  assert.match(helperSource, /participationRole === "gatingReview"/);
+  assert.match(helperSource, /participationRole === "compoundGatingReview"/);
+  assert.match(helperSource, /classification\.workspaceId === workspaceId/);
+  assert.doesNotMatch(helperSource, /participationRole !== "nonReviewHandoff"/);
 });
 
 test("left sidebar owns project selection and does not duplicate workflow-step lists", () => {

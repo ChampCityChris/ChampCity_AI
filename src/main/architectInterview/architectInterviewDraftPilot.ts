@@ -15,7 +15,7 @@ import {
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
 import { resolveCanonicalArchitectInterviewContext, type CanonicalArchitectInterviewReadyContext } from "./architectInterviewContextResolver";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -329,9 +329,9 @@ function buildProjectArchitectInterviewFinalizationInstruction(
     `# ${projectArchitectInterviewTitle}`,
     ...projectArchitectInterviewSections.map((heading) => `## ${heading}`),
     "",
-    "When the complete Project Architect Interview body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Project Architect Interview body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       draftPath,
       "<complete body-only Interview Markdown>",

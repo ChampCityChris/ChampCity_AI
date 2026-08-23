@@ -1,6 +1,6 @@
 import type { PlanningDocumentSummary } from "../documents/planningDocument";
 import { evaluateFreshnessFromSummaries } from "../documents/sourceFreshness";
-import { analyzeProjectIntakeCorpus, type ProjectIntakeRailStatus } from "../projectIntake/projectIntakeCorpus";
+import { type ProjectIntakeRailStatus } from "../projectIntake/projectIntakeCorpus";
 import type {
   ArchitectInterviewRailStatus,
   ProjectLifecycleRailStatus,
@@ -23,9 +23,10 @@ export function deriveProjectLifecycleRailStatuses(
   inputs: {
     projectIntakeStatus: ProjectIntakeRailStatus;
     architectInterviewStatus: ArchitectInterviewRailStatus;
+    projectPlanningStatus: ProjectLifecycleRailStatus;
   },
 ): ProjectTopRailStatusMap {
-  const projectPlanning = deriveProjectPlanningRailStatus(documents, inputs.architectInterviewStatus);
+  const projectPlanning = inputs.projectPlanningStatus;
   const phaseMap = derivePhaseMapRailStatus(documents, projectPlanning);
   const phases = derivePhasesAggregateRailStatus(documents, phaseMap);
   const projectValidation = deriveProjectValidationRailStatus(documents, phases);
@@ -71,24 +72,6 @@ export function projectRailStatusForWorkspace(
 ): ProjectLifecycleRailStatus | undefined {
   if (workspaceId === "phase-interview") return statuses["phase-interview"];
   return statuses[workspaceId as keyof ProjectTopRailStatusMap];
-}
-
-export function deriveProjectPlanningRailStatus(
-  documents: PlanningDocumentSummary[],
-  architectInterviewStatus: ArchitectInterviewRailStatus,
-): ProjectLifecycleRailStatus {
-  if (architectInterviewStatus !== "Completed") {
-    return architectInterviewStatus === "Needs Attention" ? "Needs Attention" : "Not Ready";
-  }
-  const context = projectPlanningContextFromSummaries(documents);
-  if (context.state === "invalid") return "Needs Attention";
-  if (!context.handoff) return "Ready";
-  if (!context.profile && !context.roadmap) return "Waiting for Output";
-  if (!context.profile || !context.roadmap) return "Awaiting Approval";
-  const bundle = bundleState(documents, context.profile, context.roadmap);
-  if (bundle === "invalid") return "Needs Attention";
-  if (bundle === "completed") return "Completed";
-  return "Awaiting Approval";
 }
 
 export function derivePhaseMapRailStatus(
@@ -171,79 +154,6 @@ export function deriveProjectCloseRailStatus(
   return closeout.document.metadata.closureDecision === "Close" ? "Completed" : "Needs Attention";
 }
 
-function projectPlanningContextFromSummaries(documents: PlanningDocumentSummary[]): {
-  state: "valid" | "invalid";
-  handoff?: PlanningDocumentSummary;
-  profile?: PlanningDocumentSummary;
-  roadmap?: PlanningDocumentSummary;
-} {
-  const intakeCorpus = analyzeProjectIntakeCorpus(documents);
-  if (intakeCorpus.state !== "single") return { state: intakeCorpus.state === "open" ? "valid" : "invalid" };
-  const intake = intakeCorpus.documents[0];
-  const promptResolution = uniqueDocuments(activeDocuments(documents).filter((document) =>
-    document.metadata.artifactType === "project-architect-interview-prompt" &&
-    document.effectiveDisposition === "Approved" &&
-    hasSourceRevision(document, intake),
-  ));
-  if (promptResolution.state !== "one") return { state: "invalid" };
-  const prompt = promptResolution.document;
-  const target = prompt.metadata.architectOutputTargets?.markdown ?? defaultInterviewTarget(prompt);
-  const interviewResolution = uniqueDocuments(activeDocuments(documents).filter((document) =>
-    document.markdownPath === target &&
-    document.metadata.artifactType === "project-architect-interview" &&
-    document.effectiveDisposition === "Approved" &&
-    hasSourceRevision(document, intake) &&
-    hasSourceRevision(document, prompt),
-  ));
-  const interview = interviewResolution.state === "one" ? interviewResolution.document : undefined;
-  if (!interview || !isReviewable(documents, interview)) return { state: "invalid" };
-  const handoff = uniqueCurrentHandoff(documents, "project-planning");
-  if (handoff.state === "conflict") return { state: "invalid" };
-  const currentHandoff = handoff.state === "one" ? handoff.document : undefined;
-  const targets = projectPlanningTargets(interview, currentHandoff);
-  const profile = uniqueDocuments(activeDocuments(documents).filter((document) => document.markdownPath === targets.profile));
-  const roadmap = uniqueDocuments(activeDocuments(documents).filter((document) => document.markdownPath === targets.roadmap));
-  if (profile.state === "conflict" || roadmap.state === "conflict") return { state: "invalid" };
-  return {
-    state: "valid",
-    handoff: currentHandoff,
-    profile: profile.state === "one" ? profile.document : undefined,
-    roadmap: roadmap.state === "one" ? roadmap.document : undefined,
-  };
-}
-
-function projectPlanningTargets(
-  interview: PlanningDocumentSummary,
-  handoff: PlanningDocumentSummary | undefined,
-): { profile: string; roadmap: string } {
-  const workflowData = handoff?.metadata.canonical?.workflowData ?? {};
-  const profile = typeof workflowData.projectProfileTarget === "string"
-    ? workflowData.projectProfileTarget
-    : "planning/project/PROJECT_PROFILE.md";
-  const roadmap = typeof workflowData.projectRoadmapTarget === "string"
-    ? workflowData.projectRoadmapTarget
-    : `planning/project/Project_Roadmap/PROJECT_ROADMAP_${projectSlugFromInterview(interview)}.md`;
-  return { profile, roadmap };
-}
-
-function bundleState(
-  documents: PlanningDocumentSummary[],
-  profile: PlanningDocumentSummary,
-  roadmap: PlanningDocumentSummary,
-): "completed" | "review" | "invalid" {
-  if (!isReviewable(documents, profile) || !isReviewable(documents, roadmap)) return "invalid";
-  if (
-    profile.metadata.artifactType !== "project-profile" ||
-    roadmap.metadata.artifactType !== "project-roadmap" ||
-    profile.metadata.participationRole !== "compoundGatingReview" ||
-    roadmap.metadata.participationRole !== "compoundGatingReview"
-  ) {
-    return "invalid";
-  }
-  if (profile.effectiveDisposition !== roadmap.effectiveDisposition) return "invalid";
-  return profile.effectiveDisposition === "Approved" ? "completed" : "review";
-}
-
 function isReviewable(documents: PlanningDocumentSummary[], document: PlanningDocumentSummary): boolean {
   return (
     document.documentReadState === "readable" &&
@@ -288,23 +198,6 @@ function activeDocuments(documents: PlanningDocumentSummary[]): PlanningDocument
     document.metadata.participationRole !== "historical" &&
     !document.markdownPath.replace(/\\/g, "/").toLowerCase().startsWith("planning/archive/"),
   );
-}
-
-function hasSourceRevision(document: PlanningDocumentSummary, source: PlanningDocumentSummary): boolean {
-  return (document.metadata.sourceRevisions ?? []).some(
-    (entry) => entry.path === source.markdownPath && entry.revision === (source.metadata.artifactRevision ?? 1),
-  );
-}
-
-function defaultInterviewTarget(prompt: PlanningDocumentSummary): string {
-  const slug = prompt.markdownPath.match(/PROJECT_ARCHITECT_INTERVIEW_PROMPT_(.+)\.md$/)?.[1] ?? "project";
-  return `planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_${slug}.md`;
-}
-
-function projectSlugFromInterview(interview: PlanningDocumentSummary): string {
-  const identity = interview.metadata.canonical?.identity ?? {};
-  const value = identity.projectSlug ?? identity["Project.ArtifactKey"] ?? interview.displayFilename.replace(/^PROJECT_ARCHITECT_INTERVIEW_/, "");
-  return typeof value === "string" && value.trim() ? value.trim() : "project";
 }
 
 function phasesFromPhaseMap(phaseMap: PlanningDocumentSummary | undefined): Array<{ phaseId: string }> | null {

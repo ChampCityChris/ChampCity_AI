@@ -22,7 +22,7 @@ import {
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -504,9 +504,9 @@ function buildPhaseMapPreparedInstruction(
     "sourceReferences must contain normalized repository-relative paths.",
     "Do not persist completion state.",
     "",
-    "When the complete Phase Map body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Phase Map body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       draftPath,
       "<complete body-only Phase Map Markdown>",

@@ -171,7 +171,6 @@ export function preflightProjectPlanningRepository(
     : "";
 
   const evidencePaths = uniqueSorted([
-    ...sourceEvidencePaths,
     ...legacyPlanningPaths,
     ...malformedPlanningPaths,
     ...targetCollisions,
@@ -197,15 +196,6 @@ export function preflightProjectPlanningRepository(
   }
 
   const hasRepositoryEvidence = sourceEvidencePaths.length > 0 || legacyPlanningPaths.length > 0;
-  if (!intakeDeclaresExisting && hasRepositoryEvidence) {
-    return needsAttention(
-      "Project Intake declares a greenfield repository, but bounded repository preflight found substantive source or prior planning evidence.",
-      repositoryReviewContext,
-      legacyPlanningPaths,
-      sourceEvidencePaths,
-      evidencePaths,
-    );
-  }
 
   const reconciliationMode: ProjectPlanningReconciliationMode =
     intakeDeclaresExisting || hasRepositoryEvidence

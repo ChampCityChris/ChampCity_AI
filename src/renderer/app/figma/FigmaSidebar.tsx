@@ -1,4 +1,4 @@
-import { FolderOpen, X } from "lucide-react";
+import { FolderOpen, Settings, X } from "lucide-react";
 import type React from "react";
 
 import type {
@@ -10,18 +10,22 @@ export type FigmaThemeMode = "dark" | "light";
 
 export function FigmaSidebar({
   currentModel,
+  activeWorkspaceId,
   isChoosing,
   onChooseProject,
   onClearProject,
+  onOpenSettings,
   onThemeChange,
   projectName,
   themeMode,
   workspace,
 }: {
+  activeWorkspaceId: string;
   currentModel: CurrentWorkspaceModel | null;
   isChoosing: boolean;
   onChooseProject: () => void;
   onClearProject: () => void;
+  onOpenSettings: () => void;
   onThemeChange: (themeMode: FigmaThemeMode) => void;
   projectName: string;
   themeMode: FigmaThemeMode;
@@ -119,6 +123,23 @@ export function FigmaSidebar({
           )}
         </section>
       </div>
+
+      <section className="figma-sidebar-section figma-settings-section" aria-label="Settings">
+        <button
+          aria-current={activeWorkspaceId === "settings" ? "page" : undefined}
+          className={[
+            "figma-sidebar-action",
+            "figma-settings-action",
+            activeWorkspaceId === "settings" ? "active" : "",
+          ].filter(Boolean).join(" ")}
+          onClick={onOpenSettings}
+          title="Open Settings"
+          type="button"
+        >
+          <Settings aria-hidden="true" size={14} />
+          Settings
+        </button>
+      </section>
 
       <section className="figma-sidebar-section figma-theme-section" aria-label="Theme">
         <p className="figma-sidebar-label">Theme</p>

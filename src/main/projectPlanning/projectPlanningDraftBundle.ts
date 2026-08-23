@@ -22,7 +22,7 @@ import {
   type ProjectPlanningReadyContext,
 } from "./projectPlanningContext";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -366,9 +366,9 @@ function buildProjectPlanningPreparedInstruction(
     "Current source revisions:",
     ...sourceRevisionsFor(context).map((source) => `- path: ${source.path} revision: ${source.revision}`),
     "",
-    "When the complete Project Profile body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Project Profile body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       profileDraftPath,
       "<complete body-only Project Profile Markdown>",
@@ -376,9 +376,9 @@ function buildProjectPlanningPreparedInstruction(
     ),
     "```",
     "",
-    "When the complete Project Roadmap body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Project Roadmap body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       roadmapDraftPath,
       "<complete body-only Project Roadmap Markdown>",

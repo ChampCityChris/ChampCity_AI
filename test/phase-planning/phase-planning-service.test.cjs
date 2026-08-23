@@ -119,7 +119,8 @@ test("phase planning handoff uses one atomic draft bundle and promotes both outp
   assert.equal(model.draftSubmissionState, "waiting-for-drafts");
   assert.doesNotMatch(model.handoffInstruction, /Initial Work Card/);
   assert.match(model.handoffInstruction, /"overwrite": false/);
-  assert.equal((model.handoffInstruction.match(/"action": "create_markdown_artifact"/g) ?? []).length, 2);
+  assert.equal((model.handoffInstruction.match(/"action": "write_markdown_artifact"/g) ?? []).length, 2);
+  assert.doesNotMatch(model.handoffInstruction, /create_markdown_artifact/);
   assert.match(model.handoffInstruction, /host environment and repository foundation/);
   assert.match(model.handoffInstruction, /managed capability means ChampCity provisions and verifies it/i);
   assert.match(model.handoffInstruction, /external capability means approved evidence establishes outside ownership/i);

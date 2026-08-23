@@ -8,6 +8,9 @@ const {
   createArchitectDraftSubmission,
 } = require("../../dist/main/architectOutputs/architectDraftSubmissionService.js");
 const {
+  createAgentHarnessToolRegistry,
+} = require("../../dist/main/agentHarness/tools/toolRegistry.js");
+const {
   activeProductionArchitectOutputDefinitions,
   productionArchitectOutputCatalog,
 } = require("../../dist/main/architectOutputs/productionArchitectOutputCatalog.js");
@@ -302,7 +305,7 @@ function boundPromptWorkspaceRootForRepository(workspaceId, repositoryName) {
 function jsonActionBlocks(instruction) {
   return [...instruction.matchAll(/```json\n([\s\S]*?)\n```/g)]
     .map((match) => JSON.parse(match[1]))
-    .filter((block) => block.action === "create_markdown_artifact");
+    .filter((block) => block.action === "write_markdown_artifact");
 }
 
 function countLine(instruction, line) {
@@ -323,6 +326,52 @@ test("production catalog requires definition-owned prepared-instruction builders
   assert.equal(definitions.length, 7);
   for (const definition of definitions) {
     assert.equal(typeof definition.buildPreparedInstruction, "function", `${definition.outputKind} owns a builder`);
+  }
+});
+
+test("production Architect-output prompt toolbox references match live Agent Harness registry", () => {
+  const registry = createAgentHarnessToolRegistry({
+    authority: {
+      resolveWorkspaceContext: () => {
+        throw new Error("parity test should not call tools");
+      },
+    },
+    userDataRoot: os.tmpdir(),
+  });
+  const inventory = new Map(
+    registry.listTools("files.read files.write")
+      .map((tool) => [tool.name, new Set(tool.actions)]),
+  );
+
+  for (const definition of activeProductionArchitectOutputDefinitions()) {
+    const { instruction } = promptFor(definition);
+    const toolboxReferences = [...instruction.matchAll(/\b([a-z_]+_toolbox)\.([a-z0-9_]+)\b/g)]
+      .map((match) => ({ toolbox: match[1], action: match[2] }));
+    assert.ok(toolboxReferences.length > 0, `${definition.outputKind} includes explicit toolbox references`);
+    for (const reference of toolboxReferences) {
+      assert.ok(inventory.has(reference.toolbox), `${definition.outputKind} references known toolbox ${reference.toolbox}`);
+      assert.ok(
+        inventory.get(reference.toolbox).has(reference.action),
+        `${definition.outputKind} references known action ${reference.toolbox}.${reference.action}`,
+      );
+    }
+
+    const actionBlocks = jsonActionBlocks(instruction);
+    assert.equal(actionBlocks.length, definition.slots.length, `${definition.outputKind} Markdown write call count`);
+    for (const block of actionBlocks) {
+      assert.equal(block.action, "write_markdown_artifact");
+      assert.equal(block.workspaceId, "alpha");
+      assert.equal(typeof block.params.relativePath, "string");
+      assert.equal(typeof block.params.content, "string");
+      assert.equal(block.params.overwrite, false);
+    }
+    assert.equal(
+      (instruction.match(/artifact_toolbox\.write_markdown_artifact/g) ?? []).length,
+      definition.slots.length,
+      `${definition.outputKind} uses artifact toolbox write action`,
+    );
+    assert.doesNotMatch(instruction, /artifact_toolbox\.create_markdown_artifact/);
+    assert.doesNotMatch(instruction, /create_markdown_artifact/);
   }
 });
 
@@ -373,7 +422,8 @@ test("production prompt matrix states all nine slot contracts before draft write
     assert.doesNotMatch(instruction, /final canonical output paths.*"relativePath"/s);
     const actionBlocks = jsonActionBlocks(instruction);
     assert.equal(actionBlocks.length, definition.slots.length, `${definition.outputKind} call count`);
-    assert.equal((instruction.match(/"action": "create_markdown_artifact"/g) ?? []).length, definition.slots.length);
+    assert.equal((instruction.match(/"action": "write_markdown_artifact"/g) ?? []).length, definition.slots.length);
+    assert.doesNotMatch(instruction, /create_markdown_artifact/);
     for (const slot of submission.expectedDraftSlots) {
       const block = actionBlocks.find((candidate) => candidate.params.relativePath === slot.draftRelativePath);
       assert.ok(block, `${definition.outputKind} writes temporary path for ${slot.slotId}`);
@@ -446,7 +496,7 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(formalPrompt, /Acceptance Criteria prove the actual production path/);
   assert.match(formalPrompt, /Require positive and negative proof, state before and after the action, final repository bytes or rendered projection, failure handling, retry behavior when relevant, and downstream readiness/);
   assert.match(formalPrompt, /Manual Validation contains only visual, interactive, timing-sensitive, or embedded-browser checks that require the running product/);
-  assert.match(formalPrompt, /call artifact_toolbox\.create_markdown_artifact exactly once/);
+  assert.match(formalPrompt, /call artifact_toolbox\.write_markdown_artifact exactly once/);
   assert.equal(formalActionBlocks.length, 1);
   assert.equal(formalActionBlocks[0].params.overwrite, false);
   assert.match(formalActionBlocks[0].params.relativePath, /formal-work-card\.md$/);

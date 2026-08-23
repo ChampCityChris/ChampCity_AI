@@ -14,7 +14,7 @@ const {
   tempWorkspaceWithoutBinding,
 } = require("../support/canonical-markdown-fixtures.cjs");
 const {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   workspaceIdFromProjectRepository,
 } = require("../../dist/main/integrations/mcpWorkspacePromptContract.js");
 
@@ -131,7 +131,7 @@ function expectedArchitectPrompt(projectName, intakeMarkdownPath) {
     "",
     "Open ChampCity A/I Architect Interview and copy its fresh handoff before writing the body.",
     "",
-    "That handoff provides the exact temporary draft path and the required `artifact_toolbox.create_markdown_artifact` invocation.",
+    "That handoff provides the exact temporary draft path and the required `artifact_toolbox.write_markdown_artifact` invocation.",
     "",
     "Do not write canonical metadata or a final Interview path. ChampCity A/I promotes the temporary draft into the Pending canonical Interview.",
   ].join("\n");
@@ -179,7 +179,8 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
     `${expectedArchitectPrompt("Markdown Only", result.projectIntakeMarkdownPath)}\n`,
   );
   assert.match(prompt.bodyMarkdown, /copy its fresh handoff before writing the body/);
-  assert.match(prompt.bodyMarkdown, /artifact_toolbox\.create_markdown_artifact/);
+  assert.match(prompt.bodyMarkdown, /artifact_toolbox\.write_markdown_artifact/);
+  assert.doesNotMatch(prompt.bodyMarkdown, /create_markdown_artifact/);
   assert.match(prompt.bodyMarkdown, /complete substantive Project Architect Interview Markdown document body, not a snippet/);
   assert.doesNotMatch(prompt.bodyMarkdown, /submit_handoff_outputs/);
   assert.doesNotMatch(prompt.bodyMarkdown, /save_architect_interview_output/);
@@ -192,7 +193,7 @@ test("projectRepository folder basename constructs the MCP workspace route", () 
   const root = tempWorkspaceWithoutBinding("champcity-project-repository-not-mcp-");
   const pdlRepository = path.join(root, "ChampCity_PDL");
   fs.mkdirSync(pdlRepository, { recursive: true });
-  const lines = buildCreateMarkdownArtifactJsonBlock(
+  const lines = buildWriteMarkdownArtifactJsonBlock(
     pdlRepository,
     "planning/Architect_Drafts/demo.md",
     "<body>",
@@ -210,7 +211,7 @@ test("projectRepository folder basename constructs the MCP workspace route", () 
   assert.equal(workspaceIdFromProjectRepository(path.join(root, "ChampCity_RP_Desktop")), "champcity_rp_desktop");
   assert.equal(workspaceIdFromProjectRepository(path.join(root, "Revisionary")), "revisionary");
   assert.equal(block.workspaceId, "champcity_pdl");
-  assert.equal(block.action, "create_markdown_artifact");
+  assert.equal(block.action, "write_markdown_artifact");
   assert.equal(fs.existsSync(path.join(root, ".champcity", "mcp-workspace-binding.json")), false);
 });
 

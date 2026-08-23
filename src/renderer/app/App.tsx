@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Clipboard, FileText, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Bot, Clipboard, FileText, FolderOpen, Play, RefreshCw, RotateCcw, Settings as SettingsIcon, Square } from "lucide-react";
 import {
   type ClosureDecision,
   type CodexImplementerExecutionModel,
   type CurrentWorkspaceModel,
+  type AgentHarnessAuthenticationMode,
+  type AgentHarnessSettingsInput,
+  type AgentHarnessStatus,
   type ArchitectOutputWorkspaceModel,
   projectTypeOptions,
+  type ProjectPlanningWorkspaceModel,
   type RuntimeActionResult,
   type WorkCardRepairProjection,
   type WorkCardMapCandidateProjection,
@@ -81,6 +85,7 @@ import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
+import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 
 const neutralMessage = "Document workflow not yet implemented";
 const handoffWorkspaceIds = new Set<WorkspaceId>([
@@ -124,6 +129,7 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
   "work-card-repair",
   "work-card-close",
 ]);
+export const settingsWorkspaceId = "settings" as WorkspaceId;
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -147,6 +153,29 @@ type ArchitectActionFeedback = {
   message: string;
 } | null;
 
+export interface SettingsNavigationState {
+  activeWorkspaceId: WorkspaceId;
+  priorWorkflowWorkspaceId: WorkspaceId;
+}
+
+export function openSettingsNavigationState(
+  activeWorkspaceId: WorkspaceId,
+  priorWorkflowWorkspaceId: WorkspaceId,
+): SettingsNavigationState {
+  return {
+    activeWorkspaceId: settingsWorkspaceId,
+    priorWorkflowWorkspaceId: activeWorkspaceId === settingsWorkspaceId
+      ? priorWorkflowWorkspaceId
+      : activeWorkspaceId,
+  };
+}
+
+export function returnFromSettingsNavigationState(
+  priorWorkflowWorkspaceId: WorkspaceId,
+): WorkspaceId {
+  return priorWorkflowWorkspaceId;
+}
+
 export function App(): JSX.Element {
   const [themeMode, setThemeMode] = useState<FigmaThemeMode>(() => {
     if (typeof window === "undefined") {
@@ -162,7 +191,18 @@ export function App(): JSX.Element {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(
     workspaceDefinitions[0].id,
   );
+  const [priorWorkflowWorkspaceId, setPriorWorkflowWorkspaceId] = useState<WorkspaceId>(
+    workspaceDefinitions[0].id,
+  );
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
+  const [agentHarnessStatus, setAgentHarnessStatus] =
+    useState<AgentHarnessStatus | null>(null);
+  const [agentHarnessActionPending, setAgentHarnessActionPending] = useState<
+    "start" | "stop" | "restart" | "importLegacyOAuthClients" | null
+  >(null);
+  const [agentHarnessSettingsPending, setAgentHarnessSettingsPending] = useState(false);
+  const [agentHarnessActionFeedback, setAgentHarnessActionFeedback] = useState("");
+  const [agentHarnessActionError, setAgentHarnessActionError] = useState("");
   const [documents, setDocuments] = useState<PlanningDocumentSummary[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<PlanningDocumentDetail | null>(null);
@@ -184,6 +224,8 @@ export function App(): JSX.Element {
     useState<ArchitectBrowserFoundationStatus | null>(null);
   const [architectOutputModel, setArchitectOutputModel] =
     useState<ArchitectOutputWorkspaceModel | null>(null);
+  const [projectPlanningModel, setProjectPlanningModel] =
+    useState<ProjectPlanningWorkspaceModel | null>(null);
   const [selectedArchitectOutputSlotId, setSelectedArchitectOutputSlotId] =
     useState<string | null>(null);
   const [architectOutputReviewStatus, setArchitectOutputReviewStatus] =
@@ -256,6 +298,7 @@ export function App(): JSX.Element {
   const shouldAttachEmbeddedArchitectSurface =
     (architectBrowserWorkspaceAvailable || isWorkCardRepair) &&
     isArchitectPaneVisible;
+  const isSettingsWorkspace = activeWorkspaceId === settingsWorkspaceId;
 
   useEffect(() => {
     const isDark = themeMode === "dark";
@@ -278,6 +321,30 @@ export function App(): JSX.Element {
         void refreshDocuments({ useResolver: true });
       }
     });
+  }, []);
+
+  useEffect(() => {
+    let isDisposed = false;
+    const refresh = async (): Promise<void> => {
+      try {
+        const status = await window.champcity.getAgentHarnessStatus();
+        if (!isDisposed) {
+          setAgentHarnessStatus(status);
+        }
+      } catch {
+        if (!isDisposed) {
+          setAgentHarnessStatus(null);
+        }
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => {
+      void refresh();
+    }, 5000);
+    return () => {
+      isDisposed = true;
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -559,19 +626,13 @@ export function App(): JSX.Element {
     const statuses = deriveProjectLifecycleRailStatuses(documents, {
       projectIntakeStatus: projectIntakeRailStatus,
       architectInterviewStatus: architectInterviewRailStatus,
+      projectPlanningStatus: projectPlanningModel?.railStatus ?? "Not Ready",
     });
     if (architectOutputModel) {
       switch (architectOutputModel.workspaceId) {
         case "architect-interview":
-        case "project-planning-review":
         case "project-phase-map":
         case "phase-interview":
-          if (
-            architectOutputModel.workspaceId === "project-planning-review" &&
-            statuses["project-planning-review"] === "Completed"
-          ) {
-            break;
-          }
           statuses[architectOutputModel.workspaceId] = architectOutputModel.railStatus;
           break;
         default:
@@ -579,7 +640,13 @@ export function App(): JSX.Element {
       }
     }
     return statuses;
-  }, [architectInterviewRailStatus, architectOutputModel, documents, projectIntakeRailStatus]);
+  }, [
+    architectInterviewRailStatus,
+    architectOutputModel,
+    documents,
+    projectIntakeRailStatus,
+    projectPlanningModel?.railStatus,
+  ]);
   const currentResolvedWorkspace =
     resolverResult?.status === "current" &&
     resolverResult.document.owningWorkspaceId === activeWorkspaceId
@@ -662,6 +729,7 @@ export function App(): JSX.Element {
       setProjectIntake((current) => ({ ...current, projectRepository: result.projectRoot }));
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       const nextPostSubmitState = applySuccessfulProjectIntakeSubmission(
         {
@@ -766,6 +834,7 @@ export function App(): JSX.Element {
           return;
         }
         applyDocumentInventory(nextDocuments);
+        await refreshProjectPlanningWorkspaceModel();
         const nextResolverResult = await window.champcity.resolveCurrentDocument();
         if (requestId !== architectOutputPollRequestRef.current) {
           return;
@@ -999,6 +1068,17 @@ export function App(): JSX.Element {
     }
   }
 
+  async function refreshProjectPlanningWorkspaceModel(): Promise<ProjectPlanningWorkspaceModel | null> {
+    try {
+      const nextModel = await window.champcity.getProjectPlanningWorkspaceModel();
+      setProjectPlanningModel(nextModel);
+      return nextModel;
+    } catch {
+      setProjectPlanningModel(null);
+      return null;
+    }
+  }
+
   async function runWorkspaceAction(action: () => Promise<RuntimeActionResult>): Promise<void> {
     setDocumentError("");
     setFeedback("");
@@ -1006,7 +1086,6 @@ export function App(): JSX.Element {
       const result = await action();
       setFeedback(result.message);
       await refreshDocuments();
-      await refreshCurrentModel();
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Workspace action failed.");
     }
@@ -1049,6 +1128,7 @@ export function App(): JSX.Element {
       setFeedback(result.message);
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextModel = await refreshCurrentModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
@@ -1083,6 +1163,7 @@ export function App(): JSX.Element {
       }
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       await refreshCurrentModel();
@@ -1150,6 +1231,7 @@ export function App(): JSX.Element {
 
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       await refreshCurrentModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
@@ -1177,6 +1259,7 @@ export function App(): JSX.Element {
       setFeedback(result.message);
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextModel = await refreshCurrentModel();
       const reportId = nextModel?.workCardBuildingReview?.report?.logicalDocumentId;
       if (reportId) {
@@ -1193,6 +1276,7 @@ export function App(): JSX.Element {
   async function refreshBuildReviewAfterCodex(status: CodexImplementerExecutionModel): Promise<void> {
     const nextDocuments = await window.champcity.listDocuments();
     applyDocumentInventory(nextDocuments);
+    await refreshProjectPlanningWorkspaceModel();
     const nextModel = await refreshCurrentModel();
     const reportId = nextModel?.workCardBuildingReview?.report?.logicalDocumentId;
     if (reportId) {
@@ -1334,6 +1418,7 @@ export function App(): JSX.Element {
       setRepairDefectText("");
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       await refreshCurrentModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
@@ -1361,6 +1446,7 @@ export function App(): JSX.Element {
       const result = await window.champcity.generateCurrentHandoff();
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextModel = await refreshCurrentModel();
       if (nextModel?.activeWorkspaceId !== "work-card-planning" || nextModel.workCardIntake) {
         const resolvedWorkspace = nextModel?.activeWorkspaceId ?? "unresolved";
@@ -1414,6 +1500,7 @@ export function App(): JSX.Element {
       });
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextModel = await refreshCurrentModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
@@ -1470,6 +1557,7 @@ export function App(): JSX.Element {
     try {
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextCurrentModel = await refreshCurrentModel();
       if (
         selectedDocumentId &&
@@ -1538,6 +1626,7 @@ export function App(): JSX.Element {
     setResolverResult(null);
     setProjectIntakeConfirmation(clearedPostSubmitState.confirmation);
     setCurrentModel(null);
+    setProjectPlanningModel(null);
     setArchitectStatus(null);
     setArchitectOutputModel(null);
     setSelectedArchitectOutputSlotId(null);
@@ -1585,6 +1674,9 @@ export function App(): JSX.Element {
     } = {},
   ): void {
     setActiveWorkspaceId(destinationWorkspaceId);
+    if (destinationWorkspaceId !== settingsWorkspaceId) {
+      setPriorWorkflowWorkspaceId(destinationWorkspaceId);
+    }
     const nextDocuments = options.documents ?? documents;
     const nextDocumentId = documentIdForWorkflowStep({
       destinationWorkspaceId,
@@ -1602,6 +1694,88 @@ export function App(): JSX.Element {
     setSelectedDocumentId(null);
     setSelectedDocument(null);
     setSelectedStatus("");
+  }
+
+  function openSettingsWorkspace(): void {
+    const next = openSettingsNavigationState(activeWorkspaceId, priorWorkflowWorkspaceId);
+    setPriorWorkflowWorkspaceId(next.priorWorkflowWorkspaceId);
+    setActiveWorkspaceId(next.activeWorkspaceId);
+  }
+
+  function returnFromSettingsWorkspace(): void {
+    transitionToWorkflowStep(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
+  }
+
+  async function refreshAgentHarnessStatus(): Promise<AgentHarnessStatus | null> {
+    try {
+      const status = await window.champcity.getAgentHarnessStatus();
+      setAgentHarnessStatus(status);
+      return status;
+    } catch (error) {
+      setAgentHarnessStatus(null);
+      setAgentHarnessActionError(error instanceof Error ? error.message : "Agent Harness status could not be loaded.");
+      return null;
+    }
+  }
+
+  async function runAgentHarnessLifecycleAction(
+    action: "start" | "stop" | "restart",
+  ): Promise<void> {
+    setAgentHarnessActionPending(action);
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const status = action === "start"
+        ? await window.champcity.startAgentHarness()
+        : action === "stop"
+        ? await window.champcity.stopAgentHarness()
+        : await window.champcity.restartAgentHarness();
+      setAgentHarnessStatus(status);
+      setAgentHarnessActionFeedback(`Agent Harness ${action} completed: ${status.state}.`);
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : `Agent Harness ${action} failed.`);
+      await refreshAgentHarnessStatus();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
+  }
+
+  async function saveAgentHarnessSettings(settings: AgentHarnessSettingsInput): Promise<void> {
+    setAgentHarnessSettingsPending(true);
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const status = await window.champcity.saveAgentHarnessSettings(settings);
+      setAgentHarnessStatus(status);
+      setAgentHarnessActionFeedback(`Agent Harness settings saved: ${status.state}.`);
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : "Agent Harness settings could not be saved.");
+      await refreshAgentHarnessStatus();
+    } finally {
+      setAgentHarnessSettingsPending(false);
+    }
+  }
+
+  async function importLegacyOAuthClients(): Promise<void> {
+    setAgentHarnessActionPending("importLegacyOAuthClients");
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const result = await window.champcity.importLegacyOAuthClients();
+      if (result.canceled) {
+        setAgentHarnessActionFeedback("Legacy OAuth client import canceled.");
+        return;
+      }
+      setAgentHarnessActionFeedback(
+        `Legacy OAuth clients imported: ${result.importedCount} new, ${result.alreadyPresentCount} already present.`,
+      );
+      await refreshAgentHarnessStatus();
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : "Legacy OAuth client import failed.");
+      await refreshAgentHarnessStatus();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
   }
 
   function selectResolverResult(
@@ -1674,6 +1848,7 @@ export function App(): JSX.Element {
       await window.champcity.setDocumentDisposition(selectedDocumentId, selectedStatus);
       const nextDocuments = await window.champcity.listDocuments();
       applyDocumentInventory(nextDocuments);
+      await refreshProjectPlanningWorkspaceModel();
       const nextResolverResult = await window.champcity.resolveCurrentDocument();
       setResolverResult(nextResolverResult);
       const nextCurrentModel = await refreshCurrentModel();
@@ -1755,6 +1930,7 @@ export function App(): JSX.Element {
     architectBrowserWorkspaceAvailable || isWorkCardRepair;
   const isFigmaActionWorkspace =
     activeWorkspaceId !== "project-intake-capture" &&
+    !isSettingsWorkspace &&
     !isWorkCardPlanningPreparation &&
     !isWorkCardBuildingReview &&
     !isWorkCardReportReview &&
@@ -1770,6 +1946,7 @@ export function App(): JSX.Element {
     isWorkCardRepair ||
     isWorkCardClose ||
     isWorkCardMap ||
+    isSettingsWorkspace ||
     isFigmaActionWorkspace;
   const currentArchitectRevisionKeys = architectOutputModel?.documentSlots
     .map((slot) => revisionKeyForArchitectOutputSlot(slot))
@@ -1783,7 +1960,9 @@ export function App(): JSX.Element {
     allCurrentArchitectRevisionsViewed &&
     (architectOutputReviewStatus !== "RevisionRequested" || Boolean(architectOutputReviewNotes.trim()));
   const workspaceHeadingLabel =
-    activeWorkspaceId === "project-intake-capture"
+    isSettingsWorkspace
+      ? "Settings"
+      : activeWorkspaceId === "project-intake-capture"
       ? "Project Intake Questionnaire"
       : activeWorkspace.label;
   const workCardRepairProjection = workCardRepairProjectionFromResult(workCardRepairProjectionResult);
@@ -1889,10 +2068,12 @@ export function App(): JSX.Element {
 
       <div className="app-body">
         <FigmaSidebar
+          activeWorkspaceId={activeWorkspaceId}
           currentModel={currentModel}
           isChoosing={isChoosing}
           onChooseProject={chooseWorkspace}
           onClearProject={clearWorkspace}
+          onOpenSettings={openSettingsWorkspace}
           onThemeChange={setThemeMode}
           projectName={projectDisplayName(workspace)}
           themeMode={themeMode}
@@ -1903,6 +2084,7 @@ export function App(): JSX.Element {
           className={[
             "workspace-surface",
             usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
+            isSettingsWorkspace ? "settings-workspace-surface" : "",
             isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
             isWorkCardReportReview ? "review-validation-surface" : "",
           ].filter(Boolean).join(" ")}
@@ -1923,6 +2105,13 @@ export function App(): JSX.Element {
                 <FigmaHeaderStatus
                   label="Effective Disposition"
                   value={selectedDocument?.effectiveDisposition ?? "Pending"}
+                />
+                <FigmaHeaderStatus
+                  label="Harness"
+                  value={agentHarnessStatus
+                    ? `${agentHarnessStatus.state}${agentHarnessStatus.activeWorkspaceId ? ` / ${agentHarnessStatus.activeWorkspaceId}` : ""}`
+                    : "Unavailable"}
+                  mono
                 />
                 {selectedDocument ? (
                   <FigmaHeaderStatus label="Current Document" value={selectedDocument.displayFilename} mono />
@@ -1967,6 +2156,11 @@ export function App(): JSX.Element {
             />
           ) : null}
 
+          <ProjectPlanningBlockerBanner
+            activeWorkspaceId={activeWorkspaceId}
+            projectPlanningModel={projectPlanningModel}
+          />
+
           {activeWorkspaceId === "project-intake-capture" ? (
             <section className="figma-intake-workspace" aria-label="Project Intake Questionnaire">
               <div className="figma-intake-form-column">
@@ -2004,6 +2198,24 @@ export function App(): JSX.Element {
                 selectedDocument={selectedDocument}
               />
             </section>
+          ) : null}
+
+          {isSettingsWorkspace ? (
+            <AgentHarnessSettingsWorkspace
+              actionError={agentHarnessActionError}
+              actionFeedback={agentHarnessActionFeedback}
+              actionPending={agentHarnessActionPending}
+              onRefresh={() => void refreshAgentHarnessStatus()}
+              onImportLegacyOAuthClients={() => void importLegacyOAuthClients()}
+              onRestart={() => void runAgentHarnessLifecycleAction("restart")}
+              onReturn={returnFromSettingsWorkspace}
+              onSaveConfiguration={(settings) => void saveAgentHarnessSettings(settings)}
+              onStart={() => void runAgentHarnessLifecycleAction("start")}
+              onStop={() => void runAgentHarnessLifecycleAction("stop")}
+              savePending={agentHarnessSettingsPending}
+              selectedProjectName={projectDisplayName(workspace)}
+              status={agentHarnessStatus}
+            />
           ) : null}
 
           {isPhaseMapFigmaWorkspace ? (
@@ -2279,7 +2491,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {!isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && activeWorkspaceId !== "project-intake-capture" ? (
+          {!isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && !isSettingsWorkspace && activeWorkspaceId !== "project-intake-capture" ? (
           <section
             className={[
               isArchitectInterviewDualPaneWorkspace(activeWorkspaceId) || activeWorkspaceId === "phase-planning-bundle"
@@ -2580,6 +2792,66 @@ function FigmaProjectIntakeDispositionPanel({
   );
 }
 
+export function ProjectPlanningBlockerBanner({
+  activeWorkspaceId,
+  projectPlanningModel,
+}: {
+  activeWorkspaceId: WorkspaceId;
+  projectPlanningModel: ProjectPlanningWorkspaceModel | null;
+}): JSX.Element | null {
+  const [evidenceExpanded, setEvidenceExpanded] = useState(false);
+  const isProjectPlanningBlocked =
+    activeWorkspaceId === "project-planning-review" &&
+    (projectPlanningModel?.state === "not-ready" ||
+      projectPlanningModel?.state === "needs-attention");
+  if (!isProjectPlanningBlocked || !projectPlanningModel) {
+    return null;
+  }
+
+  const reason = projectPlanningModel.reason;
+  const requiredAction = projectPlanningModel.requiredAction;
+  const shouldRenderRequiredAction =
+    requiredAction.trim() !== "" && requiredAction.trim() !== reason.trim();
+  const evidencePaths = projectPlanningModel.evidencePaths
+    .map((evidencePath) => evidencePath.trim())
+    .filter(Boolean);
+  const visibleEvidencePaths = evidenceExpanded ? evidencePaths : evidencePaths.slice(0, 3);
+  const hiddenEvidencePathCount = evidencePaths.length - visibleEvidencePaths.length;
+
+  return (
+    <section className="project-planning-blocker-banner" role="status" aria-live="polite">
+      <div className="project-planning-blocker-copy">
+        <h2>Project Planning Needs Attention</h2>
+        <p>{reason}</p>
+        {shouldRenderRequiredAction ? (
+          <p>
+            <strong>Required action:</strong> {requiredAction}
+          </p>
+        ) : null}
+      </div>
+      {evidencePaths.length > 0 ? (
+        <div className="project-planning-blocker-evidence">
+          <span>Evidence</span>
+          <ul>
+            {visibleEvidencePaths.map((evidencePath) => (
+              <li key={evidencePath}>{evidencePath}</li>
+            ))}
+          </ul>
+          {evidencePaths.length > 3 ? (
+            <button
+              className="project-planning-blocker-disclosure"
+              onClick={() => setEvidenceExpanded((current) => !current)}
+              type="button"
+            >
+              {evidenceExpanded ? "Show less" : `Show ${hiddenEvidencePathCount} more`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function FigmaBrowserActionsPanel({
   actionFeedback,
   attachmentError,
@@ -2692,6 +2964,333 @@ function FigmaBrowserActionsPanel({
       ) : null}
     </section>
   );
+}
+
+export interface AgentHarnessSettingsForm {
+  enabled: boolean;
+  host: string;
+  port: string;
+  publicBaseUrl: string;
+  localAuthenticationMode: AgentHarnessAuthenticationMode;
+}
+
+export function agentHarnessSettingsFormFromStatus(
+  status: AgentHarnessStatus | null,
+): AgentHarnessSettingsForm {
+  return {
+    enabled: status?.enabled ?? true,
+    host: status?.host ?? "127.0.0.1",
+    port: status?.configuredPort.toString() ?? "0",
+    publicBaseUrl: status?.publicBaseUrl ?? "",
+    localAuthenticationMode: status?.localAuthenticationMode ?? "oauth-required",
+  };
+}
+
+export function buildAgentHarnessSettingsInput(
+  form: AgentHarnessSettingsForm,
+): AgentHarnessSettingsInput {
+  return {
+    enabled: form.enabled,
+    host: form.host.trim(),
+    port: form.port.trim() === "" ? "0" : form.port.trim(),
+    publicBaseUrl: form.publicBaseUrl.trim() || null,
+    localAuthenticationMode: form.localAuthenticationMode,
+  };
+}
+
+export function AgentHarnessSettingsWorkspace({
+  actionError,
+  actionFeedback,
+  actionPending,
+  onImportLegacyOAuthClients,
+  onRefresh,
+  onRestart,
+  onReturn,
+  onSaveConfiguration,
+  onStart,
+  onStop,
+  savePending,
+  selectedProjectName,
+  status,
+}: {
+  actionError: string;
+  actionFeedback: string;
+  actionPending: "start" | "stop" | "restart" | "importLegacyOAuthClients" | null;
+  onImportLegacyOAuthClients: () => void;
+  onRefresh: () => void;
+  onRestart: () => void;
+  onReturn: () => void;
+  onSaveConfiguration: (settings: AgentHarnessSettingsInput) => void;
+  onStart: () => void;
+  onStop: () => void;
+  savePending: boolean;
+  selectedProjectName: string;
+  status: AgentHarnessStatus | null;
+}): JSX.Element {
+  const [settingsForm, setSettingsForm] = useState<AgentHarnessSettingsForm>(() =>
+    agentHarnessSettingsFormFromStatus(status),
+  );
+  const [settingsFormDirty, setSettingsFormDirty] = useState(false);
+  const routeTone = status?.routingState === "matched"
+    ? "matched"
+    : status?.routingState === "mismatched"
+    ? "mismatched"
+    : "unavailable";
+  const configuredPort = status?.configuredPort === 0
+    ? "Auto"
+    : status?.configuredPort?.toString() ?? "Unavailable";
+  const isBusy = Boolean(actionPending) || savePending;
+
+  useEffect(() => {
+    if (!settingsFormDirty) {
+      setSettingsForm(agentHarnessSettingsFormFromStatus(status));
+    }
+  }, [
+    settingsFormDirty,
+    status?.configuredPort,
+    status?.enabled,
+    status?.host,
+    status?.localAuthenticationMode,
+    status?.publicBaseUrl,
+  ]);
+
+  function updateSettingsForm<K extends keyof AgentHarnessSettingsForm>(
+    key: K,
+    value: AgentHarnessSettingsForm[K],
+  ): void {
+    setSettingsFormDirty(true);
+    setSettingsForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function submitSettings(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    setSettingsFormDirty(false);
+    onSaveConfiguration(buildAgentHarnessSettingsInput(settingsForm));
+  }
+
+  return (
+    <section className="settings-workspace" aria-label="Settings workspace">
+      <header className="settings-workspace-header">
+        <div>
+          <span>Settings</span>
+          <h2>Agent Harness</h2>
+        </div>
+        <div className="settings-workspace-actions">
+          <button onClick={onReturn} type="button">
+            <RotateCcw aria-hidden="true" size={14} />
+            Return
+          </button>
+          <button onClick={onRefresh} type="button">
+            <RefreshCw aria-hidden="true" size={14} />
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      <div className="agent-harness-control-strip" aria-label="Agent Harness controls">
+        <div className={`agent-harness-state ${status?.state ?? "unavailable"}`}>
+          <span>Service Status</span>
+          <strong>{status?.state ?? "unavailable"}</strong>
+        </div>
+        <button disabled={isBusy} onClick={onStart} type="button">
+          <Play aria-hidden="true" size={14} />
+          Start
+        </button>
+        <button disabled={isBusy} onClick={onStop} type="button">
+          <Square aria-hidden="true" size={13} />
+          Stop
+        </button>
+        <button disabled={isBusy} onClick={onRestart} type="button">
+          <RotateCcw aria-hidden="true" size={14} />
+          Restart
+        </button>
+      </div>
+
+      {actionFeedback ? (
+        <div className="agent-harness-message success" role="status">{actionFeedback}</div>
+      ) : null}
+      {actionError || status?.lastError ? (
+        <div className="agent-harness-message error" role="status">
+          {actionError || status?.lastError}
+        </div>
+      ) : null}
+
+      <form className="agent-harness-settings-form" aria-label="Agent Harness configuration" onSubmit={submitSettings}>
+        <label className="agent-harness-checkbox-row">
+          <input
+            checked={settingsForm.enabled}
+            disabled={isBusy}
+            onChange={(event) => updateSettingsForm("enabled", event.currentTarget.checked)}
+            type="checkbox"
+          />
+          <span>Start Agent Harness automatically</span>
+        </label>
+        <label>
+          <span>Host</span>
+          <input
+            disabled={isBusy}
+            onChange={(event) => updateSettingsForm("host", event.currentTarget.value)}
+            value={settingsForm.host}
+          />
+        </label>
+        <label>
+          <span>Port</span>
+          <input
+            disabled={isBusy}
+            inputMode="numeric"
+            min="0"
+            max="65535"
+            onChange={(event) => updateSettingsForm("port", event.currentTarget.value)}
+            type="number"
+            value={settingsForm.port}
+          />
+        </label>
+        <label>
+          <span>Public Base URL</span>
+          <input
+            disabled={isBusy}
+            onChange={(event) => updateSettingsForm("publicBaseUrl", event.currentTarget.value)}
+            placeholder="https://connector.example.test/champcity"
+            value={settingsForm.publicBaseUrl}
+          />
+        </label>
+        <label>
+          <span>Authentication</span>
+          <select
+            disabled={isBusy}
+            onChange={(event) =>
+              updateSettingsForm(
+                "localAuthenticationMode",
+                event.currentTarget.value as AgentHarnessAuthenticationMode,
+              )}
+            value={settingsForm.localAuthenticationMode}
+          >
+            <option value="oauth-required">OAuth required</option>
+            <option value="local-unauthenticated">Local unauthenticated</option>
+          </select>
+        </label>
+        <button disabled={isBusy} type="submit">
+          Save Settings
+        </button>
+      </form>
+
+      <div className="settings-grid">
+        <section className="settings-panel" aria-label="Active project routing">
+          <header>
+            <span>Active Project Routing</span>
+            <strong className={routeTone}>{status?.routingState ?? "unavailable"}</strong>
+          </header>
+          <SettingsFacts
+            facts={[
+              ["Selected Project", selectedProjectName],
+              ["Expected workspaceId", status?.expectedWorkspaceId ?? "Unavailable"],
+              ["Harness workspaceId", status?.activeWorkspaceId ?? "Unavailable"],
+              ["Routing", status?.routingState ?? "unavailable"],
+            ]}
+          />
+        </section>
+
+        <section className="settings-panel" aria-label="Local service">
+          <header>
+            <span>Local Service</span>
+          </header>
+          <SettingsFacts
+            facts={[
+              ["MCP Endpoint", status?.mcpEndpoint ?? "Not running"],
+              ["Health Endpoint", status?.healthEndpoint ?? "Not running"],
+              ["Host", status?.host ?? "Unavailable"],
+              ["Configured Port", configuredPort],
+              ["Active Port", status?.port?.toString() ?? "Not running"],
+            ]}
+          />
+        </section>
+
+        <section className="settings-panel" aria-label="Public connector">
+          <header>
+            <span>Public Connector</span>
+          </header>
+          <button
+            className="settings-inline-action"
+            disabled={isBusy}
+            onClick={onImportLegacyOAuthClients}
+            type="button"
+          >
+            <FileText aria-hidden="true" size={14} />
+            Import Legacy OAuth Clients
+          </button>
+          <SettingsFacts
+            facts={[
+              ["Public Base URL", status?.publicBaseUrl ?? "Not configured"],
+              ["Public URL Configured", yesNo(status?.publicBaseUrlConfigured)],
+              ["OAuth", status?.oauthConfigured ? "Configured" : "Not configured"],
+              ["Auth Mode", status?.localAuthenticationMode ?? "Unavailable"],
+              ["files.read Transport", authorizedLabel(status?.filesReadTransportAuthorized)],
+              ["files.write Transport", authorizedLabel(status?.filesWriteTransportAuthorized)],
+              ["Registered Clients", status?.registeredClientCount.toString() ?? "Unavailable"],
+              ["Active Tokens", status?.activeOAuthTokenCount.toString() ?? "Unavailable"],
+              ["Active files.read Grants", status?.activeFilesReadAuthorizationCount.toString() ?? "Unavailable"],
+              ["Active files.write Grants", status?.activeFilesWriteAuthorizationCount.toString() ?? "Unavailable"],
+            ]}
+          />
+        </section>
+
+        <section className="settings-panel" aria-label="Tool exposure">
+          <header>
+            <span>Tool Exposure</span>
+            <strong>{status?.publicToolCount ?? 0} tools</strong>
+          </header>
+          <ul className="settings-tool-list">
+            {(status?.publicToolNames ?? []).map((toolName) => (
+              <li key={toolName}>{toolName}</li>
+            ))}
+            {status && status.publicToolNames.length === 0 ? <li>No public tools exposed</li> : null}
+            {!status ? <li>Unavailable</li> : null}
+          </ul>
+        </section>
+
+        <section className="settings-panel settings-panel-wide" aria-label="Diagnostics">
+          <header>
+            <span>Diagnostics</span>
+          </header>
+          <ol className="settings-activity-list">
+            {(status?.recentActivity ?? []).map((entry) => (
+              <li key={entry}>{entry}</li>
+            ))}
+            {status && status.recentActivity.length === 0 ? <li>No lifecycle activity recorded</li> : null}
+            {!status ? <li>Status unavailable</li> : null}
+          </ol>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function SettingsFacts({
+  facts,
+}: {
+  facts: Array<[string, string]>;
+}): JSX.Element {
+  return (
+    <dl className="settings-facts">
+      {facts.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function yesNo(value: boolean | undefined): string {
+  return value ? "Yes" : "No";
+}
+
+function authorizedLabel(value: boolean | undefined): string {
+  return value ? "Authorized" : "Not authorized";
 }
 
 function FigmaActionWorkspace({
@@ -3608,7 +4207,8 @@ function documentIdForWorkflowStep({
   const resolverPreferredDocument = documents.find(
     (document) =>
       document.logicalDocumentId === resolverPreferredId &&
-      classifyPlanningDocument(document).workspaceId === destinationWorkspaceId,
+      classifyPlanningDocument(document).workspaceId === destinationWorkspaceId &&
+      isWorkflowReviewDocument(document, destinationWorkspaceId),
   );
   if (resolverPreferredDocument) {
     return resolverPreferredDocument.logicalDocumentId;
@@ -3617,7 +4217,7 @@ function documentIdForWorkflowStep({
   const currentReviewDocument = documents.find(
     (document) =>
       classifyPlanningDocument(document).workspaceId === destinationWorkspaceId &&
-      isWorkflowReviewDocument(document) &&
+      isWorkflowReviewDocument(document, destinationWorkspaceId) &&
       document.effectiveDisposition !== "Approved",
   );
   if (currentReviewDocument) {
@@ -3627,7 +4227,8 @@ function documentIdForWorkflowStep({
   const selectedDocumentStillOwned = documents.find(
     (document) =>
       document.logicalDocumentId === selectedDocumentId &&
-      classifyPlanningDocument(document).workspaceId === destinationWorkspaceId,
+      classifyPlanningDocument(document).workspaceId === destinationWorkspaceId &&
+      isWorkflowReviewDocument(document, destinationWorkspaceId),
   );
   if (selectedDocumentStillOwned) {
     return selectedDocumentStillOwned.logicalDocumentId;
@@ -3636,14 +4237,10 @@ function documentIdForWorkflowStep({
   const reviewDocument = documents.find(
     (document) =>
       classifyPlanningDocument(document).workspaceId === destinationWorkspaceId &&
-      isWorkflowReviewDocument(document),
+      isWorkflowReviewDocument(document, destinationWorkspaceId),
   );
 
   return reviewDocument?.logicalDocumentId ?? null;
-}
-
-function isWorkflowReviewDocument(document: PlanningDocumentSummary): boolean {
-  return document.metadata.participationRole !== "nonReviewHandoff";
 }
 
 function FigmaHeaderStatus({

@@ -24,7 +24,7 @@ import {
 } from "../documents/planningDocumentService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -640,9 +640,9 @@ function buildPhaseInterviewPreparedInstruction(
     "Current source revisions:",
     ...context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
     "",
-    "When the complete Phase Interview body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Phase Interview body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       draftPath,
       "<complete body-only Phase Interview Markdown>",

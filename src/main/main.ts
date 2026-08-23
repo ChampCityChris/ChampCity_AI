@@ -1,10 +1,12 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } from "electron";
+import fs from "node:fs";
 import path from "node:path";
 import {
   clearSelectedWorkspace,
   readSelectedWorkspace,
   saveSelectedWorkspace,
 } from "./workspaceSettings";
+import { AgentHarnessService } from "./agentHarness/runtime/agentHarnessService";
 import {
   applyDispositionInitialization,
   assertGenericDocumentDispositionRouteAllowed,
@@ -34,6 +36,9 @@ import {
   resolvePhaseInterviewCopyFinalDraftHandoff,
   reviewArchitectOutput,
 } from "./architectOutputs/architectOutputWorkspaceService";
+import {
+  getProjectPlanningWorkspaceModel as getAuthoritativeProjectPlanningWorkspaceModel,
+} from "./projectPlanning/projectPlanningService";
 import {
   applyCurrentDisposition,
   applyOperatorValidationDecisionForCurrentWorkCard,
@@ -73,12 +78,15 @@ import type {
   CodexUserInputResponse,
   CurrentWorkspaceModel,
   OperatorValidationDecisionInput,
+  ProjectPlanningWorkspaceModel,
   RuntimeActionResult,
   WorkCardMapProjectionOptions,
   WorkspaceId,
   WorkspaceMigrationPreview,
   WorkspaceMigrationResult,
   WorkspaceSelection,
+  AgentHarnessSettingsInput,
+  LegacyOAuthClientImportResult,
 } from "../shared/workspaceContracts";
 
 const userDataRootOverride = process.env.CHAMPCITY_USER_DATA_ROOT;
@@ -92,6 +100,7 @@ const appInfo: AppInfo = {
 };
 let mainWindow: BrowserWindow | null = null;
 let quitAfterCodexCleanup = false;
+let agentHarnessService: AgentHarnessService | null = null;
 
 function getUserDataRoot(): string {
   return app.getPath("userData");
@@ -185,6 +194,39 @@ ipcMain.handle("app:info", (): AppInfo => {
   return appInfo;
 });
 
+ipcMain.handle("agentHarness:status", () => {
+  return getAgentHarnessService().status();
+});
+
+ipcMain.handle("agentHarness:saveSettings", (_event, settings: AgentHarnessSettingsInput) => {
+  return getAgentHarnessService().saveConfiguration(settings);
+});
+
+ipcMain.handle("agentHarness:importLegacyOAuthClients", async (): Promise<LegacyOAuthClientImportResult> => {
+  const result = await dialog.showOpenDialog({
+    title: "Import Legacy OAuth Client Registry",
+    properties: ["openFile"],
+    filters: [{ name: "OAuth client registry", extensions: ["json"] }],
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { canceled: true };
+  }
+  const source = JSON.parse(await fs.promises.readFile(result.filePaths[0], "utf8")) as unknown;
+  return getAgentHarnessService().importLegacyOAuthClientRegistry(source);
+});
+
+ipcMain.handle("agentHarness:start", () => {
+  return getAgentHarnessService().start();
+});
+
+ipcMain.handle("agentHarness:stop", () => {
+  return getAgentHarnessService().stop();
+});
+
+ipcMain.handle("agentHarness:restart", () => {
+  return getAgentHarnessService().restart();
+});
+
 ipcMain.handle("documents:list", () => {
   return listPlanningDocuments(getRequiredWorkspaceRoot());
 });
@@ -255,6 +297,13 @@ ipcMain.handle("architectBrowser:confirmSignedIn", (): ArchitectBrowserFoundatio
 ipcMain.handle("architectBrowser:reload", (): ArchitectBrowserFoundationStatus => {
   return reloadArchitectBrowserSurface(getRequiredWorkspaceRoot());
 });
+
+ipcMain.handle(
+  "projectPlanning:getWorkspaceModel",
+  (): ProjectPlanningWorkspaceModel => {
+    return getAuthoritativeProjectPlanningWorkspaceModel(getRequiredWorkspaceRoot());
+  },
+);
 
 ipcMain.handle(
   "architectOutput:getWorkspaceModel",
@@ -461,6 +510,7 @@ ipcMain.handle("currentWorkflow:generateCloseReturnNextIntakeHandoff", (): Runti
 });
 
 app.whenReady().then(() => {
+  void getAgentHarnessService().start();
   createMainWindow();
 
   app.on("activate", () => {
@@ -481,7 +531,10 @@ app.on("before-quit", (event) => {
     return;
   }
   event.preventDefault();
-  void codexImplementerExecutionService.shutdownActiveExecutions()
+  void Promise.all([
+    codexImplementerExecutionService.shutdownActiveExecutions(),
+    getAgentHarnessService().stop(),
+  ])
     .catch((error) => {
       console.error("Codex App Server shutdown cleanup failed.", error);
     })
@@ -490,3 +543,37 @@ app.on("before-quit", (event) => {
       app.quit();
     });
 });
+
+function getAgentHarnessService(): AgentHarnessService {
+  if (!agentHarnessService) {
+    agentHarnessService = new AgentHarnessService({
+      userDataRoot: getUserDataRoot(),
+      getSelectedProjectRoot: getRequiredWorkspaceRoot,
+      gitMutationAuthorized: () => false,
+      ...agentHarnessEnvironmentOverrides(),
+    });
+  }
+  return agentHarnessService;
+}
+
+function agentHarnessEnvironmentOverrides(): Partial<ConstructorParameters<typeof AgentHarnessService>[0]> {
+  const overrides: Partial<ConstructorParameters<typeof AgentHarnessService>[0]> = {};
+  if (process.env.CHAMPCITY_AGENT_HARNESS_ENABLED !== undefined) {
+    overrides.enabled = process.env.CHAMPCITY_AGENT_HARNESS_ENABLED !== "false";
+  }
+  if (process.env.CHAMPCITY_AGENT_HARNESS_HOST !== undefined) {
+    overrides.host = process.env.CHAMPCITY_AGENT_HARNESS_HOST;
+  }
+  if (process.env.CHAMPCITY_AGENT_HARNESS_PORT !== undefined) {
+    overrides.port = Number.parseInt(process.env.CHAMPCITY_AGENT_HARNESS_PORT, 10);
+  }
+  if (process.env.CHAMPCITY_AGENT_HARNESS_PUBLIC_BASE_URL !== undefined) {
+    overrides.publicBaseUrl = process.env.CHAMPCITY_AGENT_HARNESS_PUBLIC_BASE_URL;
+  }
+  if (process.env.CHAMPCITY_AGENT_HARNESS_LOCAL_AUTH !== undefined) {
+    overrides.allowUnauthenticatedLocal =
+      process.env.CHAMPCITY_AGENT_HARNESS_LOCAL_AUTH === "development-unauthenticated" &&
+      !process.env.CHAMPCITY_AGENT_HARNESS_PUBLIC_BASE_URL;
+  }
+  return overrides;
+}

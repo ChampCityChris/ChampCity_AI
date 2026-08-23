@@ -21,7 +21,7 @@ import {
   type PhaseMapPhase,
 } from "./phaseMapDraftOutput";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -196,9 +196,9 @@ export function getPhaseMapHandoffInstruction(workspaceRoot: string): string {
     "The fenced JSON root must be an object, never an array.",
     "Do not include application metadata delimiters in the body.",
     "",
-    "When the complete body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       phaseMapDraftPath,
       "<complete body-only Phase Map Markdown>",

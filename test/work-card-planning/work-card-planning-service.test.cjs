@@ -289,7 +289,7 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   const instruction = prepared.preparedInstruction;
   const actionBlocks = [...instruction.matchAll(/```json\n([\s\S]*?)\n```/g)]
     .map((match) => JSON.parse(match[1]))
-    .filter((block) => block.action === "create_markdown_artifact");
+    .filter((block) => block.action === "write_markdown_artifact");
 
   assert.match(instruction, new RegExp(revisionNotes.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(instruction, /Current Operator revision instructions:/);

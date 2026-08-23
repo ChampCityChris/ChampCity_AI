@@ -45,6 +45,64 @@ export interface AppInfo {
   version: string;
 }
 
+export type AgentHarnessAuthenticationMode = "local-unauthenticated" | "oauth-required";
+
+export interface AgentHarnessSettings {
+  enabled: boolean;
+  host: string;
+  port: number;
+  publicBaseUrl: string | null;
+  localAuthenticationMode: AgentHarnessAuthenticationMode;
+}
+
+export interface AgentHarnessSettingsInput {
+  enabled?: boolean | string;
+  host?: string;
+  port?: number | string;
+  publicBaseUrl?: string | null;
+  localAuthenticationMode?: AgentHarnessAuthenticationMode;
+}
+
+export interface AgentHarnessStatus {
+  state: "stopped" | "starting" | "running" | "stopping" | "failed";
+  enabled: boolean;
+  host: string;
+  configuredPort: number;
+  port: number | null;
+  healthEndpoint: string | null;
+  mcpEndpoint: string | null;
+  publicBaseUrl: string | null;
+  publicBaseUrlConfigured: boolean;
+  oauthConfigured: boolean;
+  localAuthenticationMode: "local-unauthenticated" | "oauth-required";
+  filesReadTransportAuthorized: boolean;
+  filesWriteTransportAuthorized: boolean;
+  registeredClientCount: number;
+  activeOAuthTokenCount: number;
+  activeFilesReadAuthorizationCount: number;
+  activeFilesWriteAuthorizationCount: number;
+  publicToolCount: number;
+  publicToolNames: string[];
+  activeWorkspaceId: string | null;
+  expectedWorkspaceId: string | null;
+  selectedProjectRootSummary: string | null;
+  routingState: "matched" | "mismatched" | "unavailable";
+  lastError: string | null;
+  recentActivity: string[];
+}
+
+export type LegacyOAuthClientImportResult =
+  | {
+      canceled: true;
+    }
+  | {
+      canceled: false;
+      importedCount: number;
+      alreadyPresentCount: number;
+      totalAcceptedCount: number;
+      registeredClientCount: number;
+    };
+
 export const projectTypeOptions = [
   "Desktop application",
   "Web application",
@@ -954,6 +1012,14 @@ export interface ChampCityApi {
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;
+  getAgentHarnessStatus: () => Promise<AgentHarnessStatus>;
+  saveAgentHarnessSettings: (
+    settings: AgentHarnessSettingsInput,
+  ) => Promise<AgentHarnessStatus>;
+  importLegacyOAuthClients: () => Promise<LegacyOAuthClientImportResult>;
+  startAgentHarness: () => Promise<AgentHarnessStatus>;
+  stopAgentHarness: () => Promise<AgentHarnessStatus>;
+  restartAgentHarness: () => Promise<AgentHarnessStatus>;
   listDocuments: () => Promise<PlanningDocumentSummary[]>;
   readDocument: (logicalDocumentId: string) => Promise<PlanningDocumentDetail>;
   setDocumentDisposition: (
@@ -980,6 +1046,7 @@ export interface ChampCityApi {
   ) => Promise<ArchitectBrowserFoundationStatus>;
   confirmArchitectSignedIn: () => Promise<ArchitectBrowserFoundationStatus>;
   reloadArchitectBrowser: () => Promise<ArchitectBrowserFoundationStatus>;
+  getProjectPlanningWorkspaceModel: () => Promise<ProjectPlanningWorkspaceModel>;
   getArchitectOutputWorkspaceModel: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
   prepareArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
   regenerateArchitectInterviewPrompt: () => Promise<ArchitectOutputWorkspaceModel>;

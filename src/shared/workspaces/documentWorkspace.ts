@@ -1,5 +1,9 @@
 import type { PlanningDocumentSummary } from "../documents/planningDocument";
 import {
+  classifyLifecycleArtifact,
+  type LifecycleArtifactClassification,
+} from "../documents/lifecycleArtifact";
+import {
   workspaceDefinitions,
   type WorkspaceId,
   type WorkspaceLabel,
@@ -29,8 +33,13 @@ function workspace(id: WorkspaceId): Pick<WorkspaceDocument, "workspaceId" | "wo
 export function classifyPlanningDocument(
   document: PlanningDocumentSummary,
 ): Pick<WorkspaceDocument, "workspaceId" | "workspace" | "group"> {
+  const semantic = classifyFromLifecycleMetadata(document);
+  if (semantic) {
+    return semantic;
+  }
+
   if (isLegacyUnmanaged(document)) {
-    return { ...workspace("project-planning-review"), group: "Historical and unmanaged documents" };
+    return { ...workspace("project-planning-review"), group: "Reference and history" };
   }
 
   const searchable = [
@@ -191,9 +200,61 @@ function isPhasePlanning(value: string): boolean {
   return (
     value.includes("phase_planning") ||
     value.includes("work_card_plan") ||
-    value.includes("phase_intake") ||
-    value.includes("design_documents")
+    value.includes("phase_intake")
   );
+}
+
+function classifyFromLifecycleMetadata(
+  document: PlanningDocumentSummary,
+): Pick<WorkspaceDocument, "workspaceId" | "workspace" | "group"> | null {
+  const classification = classifyLifecycleArtifact(document);
+  if (classification.participationRole === "historical") {
+    return { ...workspace(classification.workspaceId), group: "Reference and history" };
+  }
+  if (classification.participationRole === "contextOnly") {
+    return { ...workspace(classification.workspaceId), group: "Context documents" };
+  }
+  if (classification.participationRole === "nonReviewHandoff") {
+    return { ...workspace(classification.workspaceId), group: "Handoffs" };
+  }
+  if (
+    classification.participationRole === "gatingReview" ||
+    classification.participationRole === "compoundGatingReview"
+  ) {
+    return { ...workspace(classification.workspaceId), group: groupForLifecycleClassification(classification) };
+  }
+  return null;
+}
+
+function groupForLifecycleClassification(classification: LifecycleArtifactClassification): string {
+  switch (classification.artifactType) {
+    case "project-intake":
+      return "Project Intake";
+    case "project-architect-interview":
+      return "Architect Interview";
+    case "project-planning-bundle-member":
+      return "Project planning records";
+    case "phase-map":
+      return "Phase Map records";
+    case "phase-interview":
+      return "Phase interview records";
+    case "phase-planning-bundle-member":
+      return "Phase planning records";
+    case "formal-work-card":
+      return "Work Cards";
+    case "repair-work-card":
+      return "Repair Work Cards";
+    case "implementer-report":
+      return "Implementer reports";
+    case "validation-record":
+      return "Validation and review evidence";
+    case "project-closeout":
+      return "Project closeout records";
+    case "phase-closeout":
+      return "Closeout records";
+    default:
+      return "Lifecycle review records";
+  }
 }
 
 function isPhaseInterview(value: string): boolean {

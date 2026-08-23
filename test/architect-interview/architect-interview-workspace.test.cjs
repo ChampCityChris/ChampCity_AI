@@ -56,7 +56,7 @@ function assertInitialInterviewHandoffIsNoWrite(instruction) {
   assert.match(instruction, /Ask one primary question at a time/);
   assert.match(instruction, /confirmation summary/);
   assert.match(instruction, /Stop and wait for Operator confirmation before any draft creation or write-back/);
-  assert.doesNotMatch(instruction, /artifact_toolbox\.create_markdown_artifact/);
+  assert.doesNotMatch(instruction, /artifact_toolbox\.write_markdown_artifact/);
   assert.doesNotMatch(instruction, /create_markdown_artifact/);
   assert.doesNotMatch(instruction, /planning\/Architect_Drafts/);
   assert.doesNotMatch(instruction, /Temporary draft/i);
@@ -113,7 +113,8 @@ test("Architect Interview workspace promotes an application-owned temporary draf
   assert.equal(finalizing.canCopyHandoff, true);
   assert.equal(finalizing.canCopyFinalDraftHandoff, true);
   assertInitialInterviewHandoffIsNoWrite(finalizing.handoffInstruction);
-  assert.match(finalizing.finalDraftHandoffInstruction, /artifact_toolbox\.create_markdown_artifact/);
+  assert.match(finalizing.finalDraftHandoffInstruction, /artifact_toolbox\.write_markdown_artifact/);
+  assert.doesNotMatch(finalizing.finalDraftHandoffInstruction, /create_markdown_artifact/);
   assert.match(finalizing.finalDraftHandoffInstruction, /Temporary draft Markdown: planning\/Architect_Drafts\//);
   assert.match(finalizing.finalDraftHandoffInstruction, /remains incomplete until this temporary draft is created and ChampCity A\/I promotes it/);
   assert.doesNotMatch(finalizing.finalDraftHandoffInstruction, /diagnostics_toolbox\.list_workspaces/);
@@ -121,7 +122,7 @@ test("Architect Interview workspace promotes an application-owned temporary draf
   const invocation = invocationFrom(finalizing.finalDraftHandoffInstruction);
   const expectedId = expectedSubmissionId(targets);
   assert.deepEqual(invocation, {
-    action: "create_markdown_artifact",
+    action: "write_markdown_artifact",
     workspaceId: "alpha",
     params: {
       relativePath: `planning/Architect_Drafts/${expectedId}/interview.md`,
@@ -192,7 +193,8 @@ test("Architect Interview revision handoff uses a fresh draft and promotes as a 
 
   const finalized = prepareArchitectInterviewFinalDraftHandoff(root);
   assert.equal(finalized.canCopyFinalDraftHandoff, true);
-  assert.match(finalized.finalDraftHandoffInstruction, /create_markdown_artifact/);
+  assert.match(finalized.finalDraftHandoffInstruction, /write_markdown_artifact/);
+  assert.doesNotMatch(finalized.finalDraftHandoffInstruction, /create_markdown_artifact/);
   assert.match(finalized.finalDraftHandoffInstruction, /Clarify project risks/);
   const draftPath = invocationFrom(finalized.finalDraftHandoffInstruction).params.relativePath;
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });

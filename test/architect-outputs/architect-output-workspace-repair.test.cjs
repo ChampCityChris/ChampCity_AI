@@ -412,7 +412,7 @@ test("formal work card readiness uses the exact current candidate handoff and pr
   assert.match(prepared.preparedInstruction, /Selected Work Card:\n- ID: WC01/);
   assert.match(prepared.preparedInstruction, /Application-owned outputs:[\s\S]*- temporary body-only draft path:/);
   assert.match(prepared.preparedInstruction, /Inspect the complete production path relevant to this candidate/);
-  assert.match(prepared.preparedInstruction, /call artifact_toolbox\.create_markdown_artifact exactly once/);
+  assert.match(prepared.preparedInstruction, /call artifact_toolbox\.write_markdown_artifact exactly once/);
   for (const heading of formalHeadings()) {
     assert.match(prepared.preparedInstruction, new RegExp(`## ${heading}`));
   }

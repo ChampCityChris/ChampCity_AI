@@ -1,11 +1,26 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AppInfo, ChampCityApi, WorkspaceSelection } from "../shared/workspaceContracts";
+import type {
+  AgentHarnessSettingsInput,
+  AgentHarnessStatus,
+  AppInfo,
+  ChampCityApi,
+  LegacyOAuthClientImportResult,
+  WorkspaceSelection,
+} from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
   getSelectedWorkspace: () => ipcRenderer.invoke("workspace:get") as Promise<WorkspaceSelection>,
   chooseWorkspaceFolder: () => ipcRenderer.invoke("workspace:choose") as Promise<WorkspaceSelection>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
   getAppInfo: () => ipcRenderer.invoke("app:info") as Promise<AppInfo>,
+  getAgentHarnessStatus: () => ipcRenderer.invoke("agentHarness:status") as Promise<AgentHarnessStatus>,
+  saveAgentHarnessSettings: (settings: AgentHarnessSettingsInput) =>
+    ipcRenderer.invoke("agentHarness:saveSettings", settings) as Promise<AgentHarnessStatus>,
+  importLegacyOAuthClients: () =>
+    ipcRenderer.invoke("agentHarness:importLegacyOAuthClients") as Promise<LegacyOAuthClientImportResult>,
+  startAgentHarness: () => ipcRenderer.invoke("agentHarness:start") as Promise<AgentHarnessStatus>,
+  stopAgentHarness: () => ipcRenderer.invoke("agentHarness:stop") as Promise<AgentHarnessStatus>,
+  restartAgentHarness: () => ipcRenderer.invoke("agentHarness:restart") as Promise<AgentHarnessStatus>,
   listDocuments: () => ipcRenderer.invoke("documents:list") as ReturnType<ChampCityApi["listDocuments"]>,
   readDocument: (logicalDocumentId) =>
     ipcRenderer.invoke("documents:read", logicalDocumentId) as ReturnType<ChampCityApi["readDocument"]>,
@@ -67,6 +82,10 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "architectBrowser:reload",
     ) as ReturnType<ChampCityApi["reloadArchitectBrowser"]>,
+  getProjectPlanningWorkspaceModel: () =>
+    ipcRenderer.invoke(
+      "projectPlanning:getWorkspaceModel",
+    ) as ReturnType<ChampCityApi["getProjectPlanningWorkspaceModel"]>,
   getArchitectOutputWorkspaceModel: (workspaceId) =>
     ipcRenderer.invoke(
       "architectOutput:getWorkspaceModel",

@@ -208,7 +208,7 @@ test("project planning existing-source fixture resolves reconciliation-required 
   assert.deepEqual(model.sourceEvidencePaths, ["src/index.ts"]);
 });
 
-test("project planning intake and source mismatch resolves needs-attention and blocks handoff creation", () => {
+test("project planning intake and source mismatch resolves reconciliation-required without blocking handoff", () => {
   const root = tempWorkspace("champcity-project-planning-mismatch-source-");
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(path.join(root, "src", "index.ts"), "export const existing = true;\n");
@@ -221,10 +221,50 @@ test("project planning intake and source mismatch resolves needs-attention and b
   });
 
   const model = getProjectPlanningWorkspaceModel(root);
+  assert.equal(model.state, "ready-for-handoff");
+  assert.equal(model.railStatus, "Ready");
+  assert.equal(model.canPrepareHandoff, true);
+  assert.equal(model.reconciliationMode, "reconciliation-required");
+  assert.equal(model.repositoryReviewRequired, true);
+  assert.deepEqual(model.sourceEvidencePaths, ["src/index.ts"]);
+  assert.equal(model.evidencePaths.includes("src/index.ts"), false);
+
+  const result = generateProjectPlanningHandoff(root);
+  assert.equal(fs.existsSync(path.join(root, result.handoffMarkdownPath)), true);
+});
+
+test("project planning malformed planning evidence blocks with planning-only evidence", () => {
+  const root = tempWorkspace("champcity-project-planning-malformed-planning-");
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(path.join(root, "src", "index.ts"), "export const existing = true;\n");
+  fs.writeFileSync(path.join(root, "package.json"), "{\"scripts\":{\"build\":\"tsc\"}}\n", "utf8");
+  const seeded = seedApprovedProjectIntake(root);
+  writeDoc(root, seeded.interview, "project-architect-interview", "Approved", {
+    sourceRevisions: [
+      { path: seeded.intake, revision: 1 },
+      { path: seeded.prompt, revision: 1 },
+    ],
+  });
+  const malformedPath = "planning/project/Design_Documents/MALFORMED_CONTEXT.md";
+  fs.mkdirSync(path.dirname(path.join(root, malformedPath)), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, malformedPath),
+    "<!-- CHAMPCITY-METADATA\n{ broken\nCHAMPCITY-METADATA -->\n\n# Broken\n",
+    "utf8",
+  );
+
+  const model = getProjectPlanningWorkspaceModel(root);
   assert.equal(model.state, "needs-attention");
-  assert.match(model.reason, /greenfield repository.*substantive source/i);
-  assert.ok(model.evidencePaths.includes("src/index.ts"));
-  assert.throws(() => generateProjectPlanningHandoff(root), /greenfield repository.*substantive source/i);
+  assert.equal(model.railStatus, "Needs Attention");
+  assert.equal(model.canPrepareHandoff, false);
+  assert.match(model.reason, /Malformed canonical planning evidence/);
+  assert.match(model.reason, new RegExp(malformedPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(model.evidencePaths.includes(malformedPath));
+  assert.equal(model.evidencePaths.every((evidencePath) => evidencePath.startsWith("planning/")), true);
+  assert.equal(model.evidencePaths.includes("src/index.ts"), false);
+  assert.equal(model.evidencePaths.includes("package.json"), false);
+  assert.deepEqual(model.sourceEvidencePaths, undefined);
+  assert.throws(() => generateProjectPlanningHandoff(root), /Malformed canonical planning evidence/);
 });
 
 test("project planning legacy evidence is exposed in handoff and preserved byte-for-byte", () => {
@@ -254,7 +294,8 @@ test("project planning legacy evidence is exposed in handoff and preserved byte-
 
   assert.equal(after, before);
   assert.deepEqual(handoff.metadata.workflowData.legacyPlanningPaths, [legacyPath]);
-  assert.match(getProjectPlanningHandoffInstruction(root), /artifact_toolbox\.create_markdown_artifact/);
+  assert.match(getProjectPlanningHandoffInstruction(root), /artifact_toolbox\.write_markdown_artifact/);
+  assert.doesNotMatch(getProjectPlanningHandoffInstruction(root), /create_markdown_artifact/);
   assert.doesNotMatch(getProjectPlanningHandoffInstruction(root), /submit_handoff_outputs/);
 });
 
@@ -482,7 +523,8 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.match(instruction, /unverified development capabilities/);
   assert.match(instruction, /greenfield repository.*separately classify local development machine readiness/);
   assert.match(instruction, /Missing development capabilities required by planned implementation must be sequenced as project work before dependent work/);
-  assert.match(instruction, /"action": "create_markdown_artifact"/);
+  assert.match(instruction, /"action": "write_markdown_artifact"/);
+  assert.doesNotMatch(instruction, /create_markdown_artifact/);
   assert.match(instruction, /"relativePath": "planning\/Architect_Drafts\//);
   assert.match(instruction, /"content": "<complete body-only Project Profile Markdown>"/);
   assert.match(instruction, /"content": "<complete body-only Project Roadmap Markdown>"/);
@@ -503,7 +545,7 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.equal(invocations.length, 2);
   assert.deepEqual(invocations, [
     {
-      action: "create_markdown_artifact",
+      action: "write_markdown_artifact",
       workspaceId: "alpha",
       params: {
         relativePath: `planning/Architect_Drafts/${expectedSubmissionId(prepared.handoffMarkdownPath)}/project-profile.md`,
@@ -512,7 +554,7 @@ test("project planning handoff instruction includes exact targets and MCP constr
       },
     },
     {
-      action: "create_markdown_artifact",
+      action: "write_markdown_artifact",
       workspaceId: "alpha",
       params: {
         relativePath: `planning/Architect_Drafts/${expectedSubmissionId(prepared.handoffMarkdownPath)}/project-roadmap.md`,

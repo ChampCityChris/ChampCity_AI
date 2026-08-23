@@ -32,7 +32,7 @@ import {
   projectPlanningRequiredRoadmapSections,
 } from "./projectPlanningPreflight";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -548,9 +548,9 @@ function buildProjectPlanningHandoffInstruction(
     ...context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
     ...(context.handoff ? [`- path: ${context.handoff.markdownPath} revision: ${context.handoff.artifactRevision}`] : []),
     "",
-    "When the complete Project Profile body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Project Profile body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       profileDraftPath,
       "<complete body-only Project Profile Markdown>",
@@ -558,9 +558,9 @@ function buildProjectPlanningHandoffInstruction(
     ),
     "```",
     "",
-    "When the complete Project Roadmap body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Project Roadmap body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       roadmapDraftPath,
       "<complete body-only Project Roadmap Markdown>",

@@ -30,8 +30,8 @@ function invocationFrom(instruction) {
   const blocks = [...instruction.matchAll(/```json\n([\s\S]*?)\n```/g)];
   const block = blocks
     .map((candidate) => candidate[1])
-    .find((candidate) => candidate.includes('"action": "create_markdown_artifact"'));
-  assert.ok(block, "expected a create_markdown_artifact invocation block");
+    .find((candidate) => candidate.includes('"action": "write_markdown_artifact"'));
+  assert.ok(block, "expected a write_markdown_artifact invocation block");
   return JSON.parse(block);
 }
 
@@ -75,7 +75,7 @@ test("phase map service generates Markdown-only handoff and derives completion f
   assert.match(instruction, new RegExp(`Generated Phase Map handoff: ${result.handoffMarkdownPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   assert.match(instruction, new RegExp(`Exact Phase Map output target: ${result.phaseMapMarkdownPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   assert.match(instruction, /phase-map-output-submission-v1/);
-  assert.match(instruction, /"action": "create_markdown_artifact"/);
+  assert.match(instruction, /"action": "write_markdown_artifact"/);
   assert.match(instruction, /"overwrite": false/);
   assert.match(instruction, /Temporary draft Markdown: planning\/Architect_Drafts\//);
   assert.doesNotMatch(instruction, /diagnostics_toolbox\.list_workspaces/);
@@ -86,9 +86,9 @@ test("phase map service generates Markdown-only handoff and derives completion f
   assert.match(instruction, /Derive the substantive phase list from the approved full Project Roadmap and Project Profile/);
   assert.doesNotMatch(instruction, /Foundation/);
   assert.doesNotMatch(instruction, /top-level JSON value is an array/);
-  assert.doesNotMatch(instruction, /save_project_planning_outputs|save_architect_interview_output|write_markdown_artifact/);
+  assert.doesNotMatch(instruction, /save_project_planning_outputs|save_architect_interview_output|create_markdown_artifact/);
   const invocation = invocationFrom(instruction);
-  assert.equal(invocation.action, "create_markdown_artifact");
+  assert.equal(invocation.action, "write_markdown_artifact");
   assert.equal(invocation.params.overwrite, false);
   assert.match(invocation.params.relativePath, /^planning\/Architect_Drafts\/.+\/phase-map\.md$/);
   writeDoc(root, result.phaseMapMarkdownPath, "phase-map", "Pending", {

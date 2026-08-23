@@ -35,7 +35,7 @@ import {
   type WorkCardCandidate,
 } from "./phasePlanningDraftBundle";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -470,9 +470,9 @@ function buildPhasePlanningHandoffInstruction(
     "Current source revisions:",
     ...context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
     "",
-    "When the complete Phase Planning body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Phase Planning body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       phasePlanningDraftPath,
       "<complete body-only Phase Planning Markdown>",
@@ -480,9 +480,9 @@ function buildPhasePlanningHandoffInstruction(
     ),
     "```",
     "",
-    "When the complete Work Card Plan body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the complete Work Card Plan body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       workCardPlanDraftPath,
       "<complete body-only Work Card Plan Markdown>",

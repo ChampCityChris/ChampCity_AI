@@ -199,7 +199,7 @@ function architectPromptBody(
     "",
     "Open ChampCity A/I Architect Interview and copy its fresh handoff before writing the body.",
     "",
-    "That handoff provides the exact temporary draft path and the required `artifact_toolbox.create_markdown_artifact` invocation.",
+    "That handoff provides the exact temporary draft path and the required `artifact_toolbox.write_markdown_artifact` invocation.",
     "",
     "Do not write canonical metadata or a final Interview path. ChampCity A/I promotes the temporary draft into the Pending canonical Interview.",
   ].join("\n");

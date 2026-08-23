@@ -20,7 +20,7 @@ import {
 } from "../architectOutputs/architectOutputRuntimeService";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
 import {
-  buildCreateMarkdownArtifactJsonBlock,
+  buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
@@ -1168,9 +1168,9 @@ function buildRepairWorkCardPreparedInstruction(
     "Do not include application metadata delimiters, canonical metadata, source revisions, final write metadata, fallback fields, or hidden authority values.",
     "ChampCity A/I owns validation, canonical metadata, promotion, final writes, review state, and cleanup.",
     "",
-    "When the body is ready, call artifact_toolbox.create_markdown_artifact with this invocation shape:",
+    "When the body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
     "```json",
-    ...buildCreateMarkdownArtifactJsonBlock(
+    ...buildWriteMarkdownArtifactJsonBlock(
       workspaceRoot,
       draftPath,
       "<complete body-only Repair Work Card Markdown>",
