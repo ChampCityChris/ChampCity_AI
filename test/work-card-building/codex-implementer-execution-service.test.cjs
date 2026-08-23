@@ -79,6 +79,106 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.equal(captured.turnOptions.signal instanceof AbortSignal, true);
 });
 
+test("Codex Implementer idle status polling is side-effect free and does not provision environment", async () => {
+  const root = seedBuildReviewWorkspace();
+  let appServerFactoryCalled = 0;
+  let preflightCalls = 0;
+  const service = new CodexImplementerExecutionService(
+    async () => {
+      appServerFactoryCalled += 1;
+      return {
+        startThread() {
+          throw new Error("Status polling must not start an App Server thread.");
+        },
+      };
+    },
+    () => Date.now(),
+    defaultExecutionPolicy,
+    {
+      async runPreflight() {
+        preflightCalls += 1;
+        return notRequiredPreflight();
+      },
+    },
+  );
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const status = await service.getStatus(root);
+
+    assert.equal(status.state, "ready");
+    assert.equal(status.canRunAgain, true);
+    assert.equal(status.implementerReportPath, reportPath());
+  }
+
+  assert.equal(appServerFactoryCalled, 0);
+  assert.equal(preflightCalls, 0);
+});
+
+test("Codex Implementer explicit start owns one App Server adapter across status reads and terminal cleanup", async () => {
+  const root = seedBuildReviewWorkspace();
+  let appServerFactoryCalled = 0;
+  let startThreadCalled = 0;
+  let appServerDisposeCount = 0;
+  let threadDisposeCount = 0;
+  let releaseExecution;
+  const executionMayComplete = new Promise((resolve) => {
+    releaseExecution = resolve;
+  });
+  const service = new CodexImplementerExecutionService(async () => {
+    appServerFactoryCalled += 1;
+    return {
+      startThread() {
+        startThreadCalled += 1;
+        return {
+          id: "thread-single-adapter",
+          async runStreamed() {
+            return { events: controlledSuccessfulEvents(root, executionMayComplete) };
+          },
+          async dispose() {
+            threadDisposeCount += 1;
+          },
+        };
+      },
+      getRuntimeState: fakeRuntimeState,
+      async dispose() {
+        appServerDisposeCount += 1;
+      },
+    };
+  });
+
+  const started = await service.start(root);
+  assert.equal(started.state, "running");
+  assert.equal(appServerFactoryCalled, 1);
+  assert.equal(startThreadCalled, 1);
+
+  const secondStart = await service.start(root);
+  assert.equal(secondStart.state, "running");
+  assert.equal(secondStart.failureReason, "Codex execution is already running for this workspace.");
+  assert.equal(secondStart.canRunAgain, false);
+  assert.equal(appServerFactoryCalled, 1);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const runningStatus = await service.getStatus(root);
+    assert.equal(runningStatus.state, "running");
+    assert.equal(appServerFactoryCalled, 1);
+  }
+
+  releaseExecution();
+  const completed = await waitForState(service, root, "completed");
+  assert.equal(completed.reportUpdated, true);
+  assert.equal(completed.canRunAgain, true);
+  assert.equal(appServerFactoryCalled, 1);
+  assert.equal(startThreadCalled, 1);
+  assert.equal(threadDisposeCount, 1);
+  assert.equal(appServerDisposeCount, 1);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const terminalStatus = await service.getStatus(root);
+    assert.equal(terminalStatus.state, "completed");
+    assert.equal(appServerFactoryCalled, 1);
+  }
+});
+
 test("Codex Implementer service injects ready development environment evidence into prompt", async () => {
   const root = seedBuildReviewWorkspace();
   const captured = {};
@@ -677,13 +777,13 @@ test("Codex Implementer service shutdown cancels and disposes the active App Ser
   assert.equal(cancelled.eventTail.some((event) => event.includes("app-server.shutdown requested")), true);
 });
 
-test("Codex Implementer status maps missing App Server/runtime to targeted unavailable message", async () => {
+test("Codex Implementer start maps missing App Server/runtime to targeted unavailable message", async () => {
   const root = seedBuildReviewWorkspace();
   const service = new CodexImplementerExecutionService(async () => {
     throw new Error("Unable to locate Codex CLI binaries for x86_64-pc-windows-msvc.");
   });
 
-  const status = await service.getStatus(root);
+  const status = await service.start(root);
 
   assert.equal(status.state, "unavailable");
   assert.equal(status.integrationMode, "app-server-stdio");
@@ -925,6 +1025,21 @@ async function* successfulEvents(root) {
       reasoning_output_tokens: 0,
     },
   };
+}
+
+async function* controlledSuccessfulEvents(root, release) {
+  yield { type: "thread.started", thread_id: "thread-single-adapter" };
+  yield { type: "turn.started" };
+  await release;
+  writeSubstantiveImplementerReport(root, {
+    implementationSummary: "Implemented the requested side-effect-free status repair.",
+    acceptanceEvidence: ["explicit start owns the only App Server adapter"],
+  });
+  yield {
+    type: "item.completed",
+    item: { id: "agent-controlled", type: "agent_message", text: "Controlled execution completed." },
+  };
+  yield { type: "turn.completed" };
 }
 
 async function* approvalAndDenialEvents() {

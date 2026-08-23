@@ -171,12 +171,6 @@ export class CodexImplementerExecutionService {
       return unavailableModelFromPreflightResult(context, cachedPreflight);
     }
 
-    try {
-      await this.appServerFactory();
-    } catch (error) {
-      return unavailableModelFromContext(context, messageForCodexFailure(error));
-    }
-
     return readyModel(context);
   }
 
@@ -716,14 +710,6 @@ export class CodexImplementerExecutionService {
       return {
         canRunAgain: false,
         retryBlocker: "Workspace context changed; refresh Codex execution status for the current Work Card.",
-      };
-    }
-    try {
-      await this.appServerFactory();
-    } catch (error) {
-      return {
-        canRunAgain: false,
-        retryBlocker: messageForCodexFailure(error),
       };
     }
     return {

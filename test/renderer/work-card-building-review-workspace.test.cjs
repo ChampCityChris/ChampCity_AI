@@ -117,3 +117,17 @@ test("App does not pass renderer permission options into Codex execution", () =>
   assert.doesNotMatch(appSource, /sandboxMode:/);
   assert.doesNotMatch(appSource, /approvalPolicy:/);
 });
+
+test("App Implement workspace navigation effect polls status without auto-starting Codex", () => {
+  const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const statusEffect = appSource.match(
+    /useEffect\(\(\) => \{[\s\S]*?window\.champcity\.getCodexImplementerExecutionStatus\(\)[\s\S]*?\}, \[activeWorkspaceId, workspace\.ok, codexExecution\?\.state\]\);/,
+  );
+
+  assert.ok(statusEffect);
+  assert.match(statusEffect[0], /activeWorkspaceId !== "work-card-building-review"/);
+  assert.match(statusEffect[0], /void refreshStatus\(\)/);
+  assert.match(statusEffect[0], /window\.setInterval/);
+  assert.doesNotMatch(statusEffect[0], /startCodexImplementerExecution/);
+  assert.doesNotMatch(statusEffect[0], /startCodexEnvironmentResolution/);
+});
