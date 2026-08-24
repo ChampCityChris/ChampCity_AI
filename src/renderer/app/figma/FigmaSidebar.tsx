@@ -1,4 +1,4 @@
-import { FolderOpen, Settings, X } from "lucide-react";
+import { FolderOpen, LayoutGrid, Settings, X } from "lucide-react";
 import type React from "react";
 
 import type {
@@ -7,14 +7,17 @@ import type {
 } from "../../../shared/workspaceContracts";
 
 export type FigmaThemeMode = "dark" | "light";
+export type FigmaSidebarMode = "hub" | "development";
 
 export function FigmaSidebar({
   currentModel,
   activeWorkspaceId,
   isChoosing,
+  mode = "development",
   onChooseProject,
   onClearProject,
   onOpenSettings,
+  onReturnToWorkflowHub,
   onThemeChange,
   projectName,
   themeMode,
@@ -23,9 +26,11 @@ export function FigmaSidebar({
   activeWorkspaceId: string;
   currentModel: CurrentWorkspaceModel | null;
   isChoosing: boolean;
+  mode?: FigmaSidebarMode;
   onChooseProject: () => void;
   onClearProject: () => void;
   onOpenSettings: () => void;
+  onReturnToWorkflowHub?: () => void;
   onThemeChange: (themeMode: FigmaThemeMode) => void;
   projectName: string;
   themeMode: FigmaThemeMode;
@@ -34,11 +39,29 @@ export function FigmaSidebar({
   const phase = currentModel?.executionContext.phase;
   const workCard = currentModel?.executionContext.workCard;
   const isDark = themeMode === "dark";
+  const isHubMode = mode === "hub";
 
   return (
     <aside className="sidebar figma-sidebar" aria-label="Project navigation">
-      <section className="figma-sidebar-section project-selector" aria-label="Select Project">
-        <p className="figma-sidebar-label">Select Project</p>
+      {isHubMode ? null : (
+        <section className="figma-sidebar-section workflow-return-section" aria-label="Workflow navigation">
+          <button
+            className="figma-sidebar-action figma-workflows-action"
+            onClick={onReturnToWorkflowHub}
+            title="Return to Workflows"
+            type="button"
+          >
+            <LayoutGrid aria-hidden="true" size={14} />
+            Workflows
+          </button>
+        </section>
+      )}
+
+      <section className="figma-sidebar-section project-selector" aria-label={isHubMode ? "Project" : "Select Project"}>
+        <p className="figma-sidebar-label">{isHubMode ? "Project" : "Select Project"}</p>
+        {isHubMode ? (
+          <strong className="figma-sidebar-primary">{projectName}</strong>
+        ) : null}
         <div className="project-selector-actions">
           <button
             className="figma-sidebar-action icon-button text-button"
@@ -48,26 +71,34 @@ export function FigmaSidebar({
             type="button"
           >
             <FolderOpen aria-hidden="true" size={14} />
-            {isChoosing ? "Choosing..." : "Choose Project"}
+            {isChoosing
+              ? "Choosing..."
+              : isHubMode
+              ? workspace.ok ? "Change Project" : "Open Project"
+              : "Choose Project"}
           </button>
-          <button
-            className="figma-sidebar-action icon-button text-button"
-            disabled={!workspace.ok}
-            onClick={onClearProject}
-            title="Clear selected project"
-            type="button"
-          >
-            <X aria-hidden="true" size={14} />
-            Clear Project
-          </button>
+          {workspace.ok ? (
+            <button
+              className="figma-sidebar-action icon-button text-button"
+              onClick={onClearProject}
+              title="Clear selected project"
+              type="button"
+            >
+              <X aria-hidden="true" size={14} />
+              Clear Project
+            </button>
+          ) : null}
         </div>
       </section>
 
-      <section className="figma-sidebar-section" aria-label="Current Project">
-        <p className="figma-sidebar-label">Current Project</p>
-        <strong className="figma-sidebar-primary">{projectName}</strong>
-      </section>
+      {isHubMode ? null : (
+        <section className="figma-sidebar-section" aria-label="Current Project">
+          <p className="figma-sidebar-label">Current Project</p>
+          <strong className="figma-sidebar-primary">{projectName}</strong>
+        </section>
+      )}
 
+      {isHubMode ? null : (
       <div className="figma-sidebar-scroll">
         <section className="figma-sidebar-section" aria-label="Current Phase">
           <p className="figma-sidebar-label">Current Phase</p>
@@ -123,6 +154,7 @@ export function FigmaSidebar({
           )}
         </section>
       </div>
+      )}
 
       <section className="figma-sidebar-section figma-settings-section" aria-label="Settings">
         <button

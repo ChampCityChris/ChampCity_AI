@@ -3,6 +3,7 @@ import type {
   AgentHarnessSettingsInput,
   AgentHarnessStatus,
   AppInfo,
+  CodexApprovalResponse,
   ChampCityApi,
   LegacyOAuthClientImportResult,
   WorkspaceSelection,
@@ -150,6 +151,11 @@ const api: ChampCityApi = {
       "codexImplementer:respondToUserInput",
       response,
     ) as ReturnType<ChampCityApi["respondToCodexUserInput"]>,
+  respondToCodexApproval: (response: CodexApprovalResponse) =>
+    ipcRenderer.invoke(
+      "codexImplementer:respondToApproval",
+      response,
+    ) as ReturnType<ChampCityApi["respondToCodexApproval"]>,
   respondToCodexMcpElicitation: (response) =>
     ipcRenderer.invoke(
       "codexImplementer:respondToMcpElicitation",

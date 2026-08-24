@@ -48,7 +48,8 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.equal(started.integrationMode, "app-server-stdio");
   assert.equal(captured.threadOptions.workingDirectory, path.resolve(root));
   assert.equal(captured.threadOptions.skipGitRepoCheck, true);
-  assert.equal(captured.threadOptions.sandboxMode, "danger-full-access");
+  assert.equal(captured.threadOptions.sandboxMode, "workspace-write");
+  assert.deepEqual(captured.threadOptions.writableRoots, [path.resolve(root)]);
   assert.equal(captured.threadOptions.approvalPolicy, "on-request");
   assert.equal(captured.threadOptions.approvalsReviewer, "user");
   assert.equal(captured.threadOptions.networkAccessEnabled, true);
@@ -398,6 +399,7 @@ test("Codex Implementer service runs bounded environment resolution and reruns p
   assert.equal(resolving.state, "running");
   assert.equal(resolving.executionKind, "environment-resolution");
   assert.equal(captured.threadOptions.workingDirectory, path.resolve(root));
+  assert.equal(captured.threadOptions.sandboxMode, "danger-full-access");
   assert.match(captured.prompt, /Environment Resolution/);
   assert.match(captured.prompt, /not normal Work Card implementation/);
   assert.match(captured.prompt, /Approved Work Card path: planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md/);
@@ -602,7 +604,8 @@ test("Codex Implementer service uses full local development policy without rende
   assert.equal(started.state, "running");
   assert.equal(captured.threadOptions.workingDirectory, path.resolve(root));
   assert.equal(captured.threadOptions.skipGitRepoCheck, true);
-  assert.equal(captured.threadOptions.sandboxMode, "danger-full-access");
+  assert.equal(captured.threadOptions.sandboxMode, "workspace-write");
+  assert.deepEqual(captured.threadOptions.writableRoots, [path.resolve(root)]);
   assert.equal(captured.threadOptions.approvalPolicy, "on-request");
   assert.equal(captured.threadOptions.approvalsReviewer, "user");
   assert.equal(captured.threadOptions.networkAccessEnabled, true);
@@ -823,7 +826,7 @@ test("Codex Implementer service resolves thread policy through injectable seam",
   const root = seedBuildReviewWorkspace();
   const captured = {};
   let resolverCalled = false;
-  let resolverArgumentCount = null;
+  let resolverArgument = null;
   const service = new CodexImplementerExecutionService(
     async () => ({
       startThread(options) {
@@ -837,11 +840,11 @@ test("Codex Implementer service resolves thread policy through injectable seam",
       },
     }),
     () => Date.now(),
-    (...args) => {
+    (input) => {
       resolverCalled = true;
-      resolverArgumentCount = args.length;
+      resolverArgument = input;
       return {
-        sandboxMode: "danger-full-access",
+        sandboxMode: input.executionKind === "environment-resolution" ? "danger-full-access" : "workspace-write",
         approvalPolicy: "on-request",
         approvalsReviewer: "user",
         networkAccessEnabled: true,
@@ -852,10 +855,14 @@ test("Codex Implementer service resolves thread policy through injectable seam",
   await service.start(root);
 
   assert.equal(resolverCalled, true);
-  assert.equal(resolverArgumentCount, 0);
+  assert.deepEqual(resolverArgument, {
+    executionKind: "work-card-implementation",
+    workspaceRoot: path.resolve(root),
+  });
   assert.equal(captured.threadOptions.workingDirectory, path.resolve(root));
   assert.equal(captured.threadOptions.skipGitRepoCheck, true);
-  assert.equal(captured.threadOptions.sandboxMode, "danger-full-access");
+  assert.equal(captured.threadOptions.sandboxMode, "workspace-write");
+  assert.deepEqual(captured.threadOptions.writableRoots, [path.resolve(root)]);
   assert.equal(captured.threadOptions.approvalPolicy, "on-request");
   assert.equal(captured.threadOptions.approvalsReviewer, "user");
   assert.equal(captured.threadOptions.networkAccessEnabled, true);
@@ -902,6 +909,52 @@ test("Codex Implementer service exposes App Server runtime diagnostics, approval
   assert.equal(completed.eventTail.some((event) => event.includes("approval.command.accept.completed")), true);
   assert.equal(completed.eventTail.some((event) => event.includes("runtime.denial Unsupported App Server request was denied.")), true);
   assert.equal(completed.eventTail.some((event) => event.includes("app-server.stderr Benign App Server warning.")), true);
+});
+
+test("Codex Implementer service holds and answers App Server approval requests", async () => {
+  const root = seedBuildReviewWorkspace();
+  let capturedResponse = null;
+  let releaseApproval;
+  const approvalAnswered = new Promise((resolve) => {
+    releaseApproval = resolve;
+  });
+  const service = new CodexImplementerExecutionService(async () => ({
+    startThread() {
+      return {
+        id: "thread-approval",
+        async runStreamed() {
+          return { events: pendingApprovalEvents(approvalAnswered) };
+        },
+        async respondToApproval(requestId, response) {
+          capturedResponse = { requestId, response };
+          releaseApproval();
+        },
+      };
+    },
+  }));
+
+  await service.start(root);
+  const pending = await waitForPendingApproval(service, root);
+
+  assert.equal(pending.pendingApproval.requestId, "approval-command-1");
+  assert.equal(pending.pendingApproval.type, "command");
+  assert.equal(pending.pendingApproval.commandDisplay, "npm test");
+  assert.match(pending.pendingApproval.impactSummary, /Review the exact command below/);
+  assert.equal(pending.approvalTail.length, 0);
+
+  const answered = await service.respondToApproval(root, "approval-command-1", "deny");
+
+  assert.equal(answered.pendingApproval, null);
+  assert.deepEqual(capturedResponse, {
+    requestId: "approval-command-1",
+    response: { decision: "deny" },
+  });
+
+  const completed = await waitForState(service, root, "completed");
+  assert.equal(completed.pendingApproval, null);
+  assert.equal(completed.eventTail.some((event) => event.includes("approval.command.pending approval-command-1")), true);
+  assert.equal(completed.eventTail.some((event) => event.includes("approval.deny.answered approval-command-1")), true);
+  assert.equal(completed.finalResponseTail.at(-1), "Continuing after approval response.");
 });
 
 test("Codex Implementer service holds and answers App Server request_user_input prompts", async () => {
@@ -1127,6 +1180,31 @@ async function* mcpElicitationEvents(inputAnswered) {
   yield { type: "turn.completed" };
 }
 
+async function* pendingApprovalEvents(approvalAnswered) {
+  yield { type: "thread.started", thread_id: "thread-approval" };
+  yield { type: "turn.started" };
+  yield {
+    type: "approval.requested",
+    approval: {
+      requestId: "approval-command-1",
+      type: "command",
+      threadId: "thread-approval",
+      turnId: "turn-approval",
+      itemId: "command-1",
+      commandDisplay: "npm test",
+      fileChangeSummary: null,
+      permissionSummary: null,
+      impactSummary: "Codex wants permission to run a command in the selected project workspace. Review the exact command below before deciding.",
+    },
+  };
+  await approvalAnswered;
+  yield {
+    type: "item.completed",
+    item: { id: "agent-1", type: "agent_message", text: "Continuing after approval response." },
+  };
+  yield { type: "turn.completed" };
+}
+
 async function* noMutationEvents() {
   yield { type: "thread.started", thread_id: "thread-test" };
   yield { type: "turn.started" };
@@ -1247,9 +1325,9 @@ async function* authFailureEvents() {
   };
 }
 
-function defaultExecutionPolicy() {
+function defaultExecutionPolicy(input) {
   return {
-    sandboxMode: "danger-full-access",
+    sandboxMode: input.executionKind === "environment-resolution" ? "danger-full-access" : "workspace-write",
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
     networkAccessEnabled: true,
@@ -1378,6 +1456,19 @@ async function waitForPendingMcpElicitation(service, root) {
   }
   const status = await service.getStatus(root);
   assert.ok(status.pendingMcpElicitation);
+  return status;
+}
+
+async function waitForPendingApproval(service, root) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const status = await service.getStatus(root);
+    if (status.pendingApproval) {
+      return status;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  const status = await service.getStatus(root);
+  assert.ok(status.pendingApproval);
   return status;
 }
 

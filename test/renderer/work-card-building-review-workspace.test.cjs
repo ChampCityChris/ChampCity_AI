@@ -30,6 +30,11 @@ test("Build workspace presents report target, run controls, and terminal retry s
   assert.match(source, /Codex execution console/);
   assert.match(source, /CodexUserInputPanel/);
   assert.match(source, /CodexMcpElicitationPanel/);
+  assert.match(source, /CodexApprovalPanel/);
+  assert.match(source, /Codex Approval Required/);
+  assert.match(source, /Approve Once/);
+  assert.match(source, /Deny/);
+  assert.match(source, /pendingApproval/);
   assert.match(source, /MCP Input/);
   assert.match(source, /RuntimeDiagnostics/);
   assert.match(source, /capability\.details\.join/);
@@ -103,6 +108,7 @@ test("App routes Implementer Build through dedicated Codex workspace without gen
   assert.match(appSource, /window\.champcity\.startCodexEnvironmentResolution\(\)/);
   assert.match(appSource, /window\.champcity\.cancelCodexImplementerExecution\(\)/);
   assert.match(appSource, /window\.champcity\.respondToCodexUserInput\(/);
+  assert.match(appSource, /window\.champcity\.respondToCodexApproval\(/);
   assert.match(appSource, /window\.champcity\.respondToCodexMcpElicitation\(/);
 });
 

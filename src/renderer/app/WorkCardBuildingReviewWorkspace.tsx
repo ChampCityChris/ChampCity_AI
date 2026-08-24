@@ -17,6 +17,7 @@ export function WorkCardBuildingReviewWorkspace({
   model,
   onCancelCodex,
   onCreateReport,
+  onRespondToCodexApproval,
   onRespondToCodexMcpElicitation,
   onRespondToCodexUserInput,
   onResolveEnvironment,
@@ -29,6 +30,7 @@ export function WorkCardBuildingReviewWorkspace({
   model: CurrentWorkspaceModel | null;
   onCancelCodex: () => void;
   onCreateReport: () => Promise<RuntimeActionResult | void>;
+  onRespondToCodexApproval: (requestId: string, decision: "approve" | "deny") => void;
   onRespondToCodexMcpElicitation: (
     requestId: string,
     action: "accept" | "decline" | "cancel",
@@ -115,6 +117,7 @@ export function WorkCardBuildingReviewWorkspace({
       <CodexExecutionConsole
         execution={codexExecution}
         isActionRunning={isCodexActionRunning}
+        onRespondToCodexApproval={onRespondToCodexApproval}
         onRespondToCodexMcpElicitation={onRespondToCodexMcpElicitation}
         onRespondToCodexUserInput={onRespondToCodexUserInput}
         projection={projection}
@@ -347,6 +350,7 @@ function CodexExecutionConsole({
   execution,
   isActionRunning,
   onRespondToCodexMcpElicitation,
+  onRespondToCodexApproval,
   onRespondToCodexUserInput,
   projection,
 }: {
@@ -357,6 +361,7 @@ function CodexExecutionConsole({
     action: "accept" | "decline" | "cancel",
     content: unknown | null,
   ) => void;
+  onRespondToCodexApproval: (requestId: string, decision: "approve" | "deny") => void;
   onRespondToCodexUserInput: (requestId: string, answers: Record<string, string[]>) => void;
   projection: CurrentWorkspaceModel["workCardBuildingReview"] | undefined;
 }): JSX.Element {
@@ -411,6 +416,13 @@ function CodexExecutionConsole({
       {postRunMessage ? (
         <div className="codex-execution-message" role="status">{postRunMessage}</div>
       ) : null}
+      {execution?.pendingApproval ? (
+        <CodexApprovalPanel
+          disabled={isActionRunning}
+          onSubmit={onRespondToCodexApproval}
+          pending={execution.pendingApproval}
+        />
+      ) : null}
       {execution?.pendingUserInput ? (
         <CodexUserInputPanel
           disabled={isActionRunning}
@@ -450,6 +462,83 @@ function CodexExecutionConsole({
       ) : null}
     </section>
   );
+}
+
+function CodexApprovalPanel({
+  disabled,
+  onSubmit,
+  pending,
+}: {
+  disabled: boolean;
+  onSubmit: (requestId: string, decision: "approve" | "deny") => void;
+  pending: NonNullable<CodexImplementerExecutionModel["pendingApproval"]>;
+}): JSX.Element {
+  return (
+    <section className="codex-user-input-panel codex-approval-panel" aria-label="Codex approval request">
+      <header>
+        <span>Codex Approval Required</span>
+        <strong>{approvalTypeLabel(pending.type)}</strong>
+      </header>
+      <p>{pending.impactSummary}</p>
+      <dl>
+        <div>
+          <dt>Request</dt>
+          <dd>{pending.requestId}</dd>
+        </div>
+        <div>
+          <dt>Turn</dt>
+          <dd>{pending.turnId ?? "Uncorrelated"}</dd>
+        </div>
+      </dl>
+      {pending.commandDisplay ? (
+        <div className="codex-approval-detail">
+          <span>Proposed Command</span>
+          <code>{pending.commandDisplay}</code>
+        </div>
+      ) : null}
+      {pending.fileChangeSummary ? (
+        <div className="codex-approval-detail">
+          <span>Affected Files</span>
+          <code>{pending.fileChangeSummary}</code>
+        </div>
+      ) : null}
+      {pending.permissionSummary ? (
+        <div className="codex-approval-detail">
+          <span>Requested Permission</span>
+          <code>{pending.permissionSummary}</code>
+        </div>
+      ) : null}
+      <div className="codex-approval-actions">
+        <button
+          className="apply-button codex-command"
+          disabled={disabled}
+          onClick={() => onSubmit(pending.requestId, "approve")}
+          type="button"
+        >
+          Approve Once
+        </button>
+        <button
+          className="apply-button codex-command secondary"
+          disabled={disabled}
+          onClick={() => onSubmit(pending.requestId, "deny")}
+          type="button"
+        >
+          Deny
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function approvalTypeLabel(type: NonNullable<CodexImplementerExecutionModel["pendingApproval"]>["type"]): string {
+  switch (type) {
+    case "command":
+      return "Command";
+    case "file-change":
+      return "File Change";
+    case "permission":
+      return "Permission";
+  }
 }
 
 function CodexUserInputPanel({

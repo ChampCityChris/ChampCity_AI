@@ -2,7 +2,7 @@
 {
   "schemaVersion": 1,
   "artifactType": "formal-work-card",
-  "artifactRevision": 1,
+  "artifactRevision": 2,
   "participationRole": "gatingReview",
   "identity": {
     "phaseId": "phase-00-baseline-ground-zero",
@@ -52,7 +52,7 @@
   "documentDisposition": {
     "status": "Approved",
     "notes": "",
-    "reviewedAt": "2026-08-23T19:15:56.909Z"
+    "reviewedAt": "2026-08-23T22:45:47.526Z"
   }
 }
 CHAMPCITY-METADATA -->
@@ -85,7 +85,7 @@ Confirmed repository behavior is therefore sufficient to make the Architect-owne
 
 ## Objective
 
-Convert current-build development readiness from assumption into auditable evidence by using the existing ChampCity development-environment production path to verify or establish managed Git and Node.js LTS readiness, then establish the repository's local dependency tree from the existing `package-lock.json` through `npm ci`, with semantic post-checks and safe failure handling. Do not broaden this Work Card into baseline reconciliation, guidance cleanup, full baseline validation, or Git baseline creation.
+Verify repository dependency readiness against the current package.json/package-lock.json authority, restore with npm ci only when semantic verification demonstrates restoration is required, and then prove the resulting dependency/build readiness. Do not broaden this Work Card into baseline reconciliation, guidance cleanup, full baseline validation, or Git baseline creation.
 
 A production source change is not required merely to create a diff. If the existing production path satisfies this contract, the implementation may consist of environment/dependency establishment, focused proof, and the canonical Implementer Report. A source correction is authorized only when execution evidence proves a narrowly adjacent defect in the existing development-readiness path prevents this objective.
 
@@ -97,11 +97,18 @@ A production source change is not required merely to create a diff. If the exist
 4. `DevelopmentEnvironmentPreflightService` reads the current Formal Work Card body, parses exactly the managed `git` and `nodejs-lts` requirements, and delegates them to `WindowsDevelopmentEnvironmentProvisioner`.
 5. The existing provisioner probes the capabilities. A satisfied capability is recorded with before/after state and detected version. A managed missing or incompatible capability follows the existing provider-resolution/provisioning path. If elevation is genuinely required, ChampCity prepares the managed action and stops only at the Windows UAC boundary. After installation or configuration, the existing process-environment refresh and semantic re-probe must complete before the requirement can become satisfied.
 6. If preflight yields `waiting-for-operator`, `resolution-required`, or `blocked`, Codex implementation does not start. The existing execution model and Work Card Building UI surface the reason and retry/resolution state. The Implementer must not replace this behavior with manual installation instructions or a second installer path.
-7. Only after preflight is `ready` does Codex implementation proceed. The Implementer verifies that the refreshed execution environment can invoke npm, records `npm --version`, and establishes repository dependencies from the repository root using the existing lockfile authority.
-8. Because Phase 0 explicitly begins with repository dependency installation state unverified and no durable same-lockfile readiness marker exists, the first successful execution of this Work Card must run `npm ci` once against the current `package-lock.json`. Existing `node_modules` presence is not sufficient evidence and is not a reason to substitute `npm install`.
-9. After `npm ci`, the Implementer runs a semantic top-level dependency check with `npm ls --depth=0`, verifies `package.json` and `package-lock.json` bytes/hashes were not changed by bootstrap, and records a read-only `git status --short` comparison so pre-existing repository state is distinguishable from Work Card effects.
-10. With host and repository dependency readiness established, the Implementer may run the focused build/tests required by this Work Card. These checks prove this readiness path only; they do not constitute the full baseline validation owned by Work Card 04.
-11. The final durable result is the canonical Implementer Report at the exact application-owned target, containing the preflight evidence, dependency-bootstrap evidence, focused test results, changed-file accounting, any blocked state, and remaining manual validation. The report remains Pending for Architect review.
+7. Only after preflight is `ready` does Codex implementation proceed.
+8. After application-owned machine preflight is `ready`, record `git --version`, `node --version`, and `npm --version`.
+9. Record pre-readiness hashes of `package.json` and `package-lock.json`.
+10. Run `npm ls --depth=0` as the first repository dependency readiness check.
+11. If `npm ls --depth=0` exits 0, classify the dependency tree as already ready and **do not run `npm ci`** merely because dependency state had previously been unverified.
+12. If `npm ls --depth=0` proves missing/inconsistent repository dependencies, use `npm ci` as the lockfile-authoritative restore command.
+13. If restoration encounters or would require process termination, do not terminate processes autonomously. Use the REPAIR06A execution approval/control boundary. If the conflict is the active ChampCity control plane, leave the Work Card incomplete/blocked for that execution mode rather than terminating ChampCity.
+14. After any required `npm ci`, rerun `npm ls --depth=0` and require exit 0.
+15. Record post-readiness `package.json` / `package-lock.json` hashes and require byte identity with the pre-readiness hashes.
+16. Record `git status --short` and distinguish pre-existing state from Work Card effects.
+17. Continue with the existing focused build/test validation only after dependency readiness is proven.
+18. The final durable result is the canonical Implementer Report at the exact application-owned target, containing the preflight evidence, dependency-readiness evidence, focused test results, changed-file accounting, any blocked state, and remaining manual validation. The report remains Pending for Architect review.
 
 ## Required Changes
 
@@ -125,14 +132,18 @@ The Formal Work Card must contain exactly this one machine-level requirement blo
 
 Do not add a version constraint or profile to either requirement. Current repository authority does not declare one. `nodejs-lts` is the existing registry identity for the Node capability and must not be replaced with an invented `node`, `nodejs`, or `npm` machine-capability schema.
 
-After application-owned preflight is `ready`, perform the repository bootstrap in this exact order from the selected repository root:
+After application-owned preflight is `ready`, perform the repository readiness sequence in this exact order from the selected repository root:
 
 1. Record `git --version`, `node --version`, and `npm --version` results after the preflight/refresh path has completed.
-2. Record the pre-bootstrap hashes of `package.json` and `package-lock.json`.
-3. Run `npm ci` exactly as the lockfile-authoritative dependency restore. Do not substitute `npm install`, change dependency ranges, update packages, regenerate the lockfile, or add a package manager.
-4. Run `npm ls --depth=0` and require a successful result for dependency readiness.
-5. Record the post-bootstrap hashes of `package.json` and `package-lock.json` and require them to match their pre-bootstrap hashes.
-6. Record `git status --short` after bootstrap and distinguish all pre-existing entries from any Work Card-created entry. Ignored `node_modules/` and build outputs are local execution state, not baseline source changes.
+2. Record the pre-readiness hashes of `package.json` and `package-lock.json`.
+3. Run `npm ls --depth=0` as the first repository dependency readiness check.
+4. If `npm ls --depth=0` exits 0, classify the dependency tree as already ready and **do not run `npm ci`** merely because dependency state had previously been unverified.
+5. If `npm ls --depth=0` proves missing/inconsistent repository dependencies, use `npm ci` as the lockfile-authoritative restore command. Do not substitute `npm install`, change dependency ranges, update packages, regenerate the lockfile, or add a package manager.
+6. If restoration encounters or would require process termination, do not terminate processes autonomously. Use the REPAIR06A execution approval/control boundary. If the conflict is the active ChampCity control plane, leave the Work Card incomplete/blocked for that execution mode rather than terminating ChampCity.
+7. After any required `npm ci`, rerun `npm ls --depth=0` and require exit 0.
+8. Record the post-readiness hashes of `package.json` and `package-lock.json` and require them to match their pre-readiness hashes.
+9. Record `git status --short` after readiness verification and distinguish all pre-existing entries from any Work Card-created entry. Ignored `node_modules/` and build outputs are local execution state, not baseline source changes.
+10. Continue with the existing focused build/test validation only after dependency readiness is proven.
 
 After readiness is established, run `npm run build` so the focused tests execute against current compiled production output, then run the directly relevant Node tests:
 
@@ -194,7 +205,7 @@ No other production, planning, migration, documentation, package-manifest, or li
 
 - Host state is deliberately unverified at drafting time. The Work Card must let the production preflight determine whether Git and Node.js LTS are already satisfied, need managed provisioning, require UAC/restart, or are genuinely blocked.
 - Node.js LTS provisioning may change the parent process environment. Capability success is not established until the existing refresh/re-probe path verifies the refreshed environment.
-- npm dependency restore may require network/package-registry access. A registry/network failure is evidence of an execution blocker or retryable failure, not authorization to change package versions, use another package manager, or return routine setup to the Operator.
+- A repository dependency restore may conflict with a running application that is using the same dependency tree. The Implementer must not resolve that conflict by silently terminating processes. Process-control decisions are governed by the application execution authority and Operator approval boundary.
 - A `package.json`/`package-lock.json` inconsistency is a repository defect, not permission to run `npm install` and accept an altered lockfile. Record the exact failure and remain blocked for disposition unless an already-authorized narrow correction clearly covers it.
 - A new native-build/toolchain requirement discovered during `npm ci` is material scope evidence. Do not bypass the Formal Work Card environment contract with ad hoc Python/MSVC/CMake/Ninja installation.
 - The current worktree is not a clean baseline. Read-only before/after status evidence must distinguish Work Card effects from pre-existing Phase 0 artifacts. This card does not classify, delete, restore, stage, or commit existing repository state.
@@ -214,9 +225,9 @@ No other production, planning, migration, documentation, package-manifest, or li
 
 5. **npm is usable only after machine preflight is ready.** The Implementer records successful post-preflight `node --version` and `npm --version` results from the refreshed execution environment before repository dependency restoration begins. No dependent bootstrap/build/test command is counted as valid proof if it was attempted before the required managed machine capabilities were verified.
 
-6. **Repository dependency readiness is established from the current lockfile without authority drift.** The Work Card's first successful baseline execution runs `npm ci` from the repository root against the current `package-lock.json` and then `npm ls --depth=0`, both with exit code 0. Pre/post hashes prove `package.json` and `package-lock.json` are byte-identical. No `npm install`, package upgrade, dependency-range change, lockfile regeneration, alternate package manager, or manual package import is used.
+6. **Repository dependency readiness is established from the current lockfile without authority drift.** Repository dependency readiness is semantically established from the current lockfile authority. `npm ls --depth=0` is run first. If it succeeds, no restore is performed. If it fails because repository dependencies are missing/inconsistent, `npm ci` is used once as the authorized restore and `npm ls --depth=0` then succeeds. `package.json` and `package-lock.json` remain byte-identical in either path. No `npm install`, package upgrade, dependency-range change, lockfile regeneration, alternate package manager, or manual package import is used.
 
-7. **Failure and retry behavior is safe and auditable.** Focused automated tests prove at least: already-satisfied managed requirements do not provision unnecessarily; managed missing requirements follow the retained provider/provisioning path; UAC/restart states remain resumable human boundaries; failed or ambiguous provider resolution produces the existing non-ready state and does not start Codex; retryable failures remain retryable; and an environment-free Work Card remains `not-required`. If `npm ci` fails, the exact command, exit result, stdout/stderr summary, package-file hashes, and classification are reported, and no fallback command that changes dependency authority is attempted.
+7. **Failure and retry behavior is safe and auditable.** Focused automated tests prove at least: already-satisfied managed requirements do not provision unnecessarily; managed missing requirements follow the retained provider/provisioning path; UAC/restart states remain resumable human boundaries; failed or ambiguous provider resolution produces the existing non-ready state and does not start Codex; retryable failures remain retryable; and an environment-free Work Card remains `not-required`. If `npm ci` fails, the exact command, exit result, stdout/stderr summary, package-file hashes, and classification are reported, and no fallback command that changes dependency authority is attempted. A dependency restore must not silently terminate a running process and must obey the REPAIR06A execution approval/protected-process boundary.
 
 8. **The focused readiness build/test lane passes after readiness is established.** `npm run build` succeeds only after Criteria 3-6 are satisfied, and the directly relevant development-environment, execution-service, renderer-status, and runtime-wiring tests listed in Required Changes pass. If an additional focused preflight-service integration test is required to close a proof gap, it is added and passes. These results are explicitly described as Work Card 01 readiness proof, not the Phase 0 full-baseline validation gate.
 
@@ -262,7 +273,11 @@ The report must:
 - record whether managed provisioning occurred, whether UAC or restart was required, what the application did before the human boundary, and what verification resumed afterward;
 - record exact post-preflight `git --version`, `node --version`, and `npm --version` results used as host/tool evidence;
 - record pre/post SHA-256 values for `package.json` and `package-lock.json`;
-- record the exact `npm ci` and `npm ls --depth=0` commands, execution lane, exit results, and concise stdout/stderr evidence; if either fails, classify the failure and document that no authority-changing fallback was used;
+- record the initial `npm ls --depth=0` result;
+- state whether restore was required and why;
+- if restore was not required, explicitly record `npm ci: not run — existing dependency tree verified ready`;
+- if restore was required, record the exact `npm ci` command/result and post-restore `npm ls --depth=0` result;
+- record any runtime/process conflict and resulting Operator approval/denial/blocker evidence;
 - record the exact `npm run build` and focused test command(s), execution lane, exit results, test counts where applicable, failures, corrections, and reruns;
 - identify which evidence is actual runtime/service proof and which evidence is only supporting source-wiring proof;
 - include before/after `git status --short` evidence and explicitly distinguish pre-existing entries from Work Card-created changes;

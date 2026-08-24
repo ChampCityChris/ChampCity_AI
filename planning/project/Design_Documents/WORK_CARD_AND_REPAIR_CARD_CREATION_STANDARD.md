@@ -36,7 +36,8 @@ A proper Work Card must:
    Acceptance criteria must be observable and testable. They should prove the runtime behavior, not merely file existence.
 9. **Require tests and validation**
 
-   The card must name the focused test suites and general validation lanes the Implementer must run, with exact command/result reporting.
+    The card must name the focused test suites and general validation lanes the Implementer must run, with exact command/result reporting.
+    Validation scope must map to the card's owned behavior. When a shared test file or suite contains unrelated domains, do not make the entire shared surface an all-or-nothing acceptance gate unless the card owns those domains. Unrelated or pre-existing failures discovered by broader validation must be recorded and routed to the proper owner rather than automatically attributed to the current card.
 10. **Require an Implementer Report**
 
     The report path must be specified. The report must include repository verification, files changed, implementation summary, proof, command results, deviations, blockers, and remaining Operator validation.

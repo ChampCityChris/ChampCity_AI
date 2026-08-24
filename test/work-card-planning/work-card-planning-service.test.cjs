@@ -312,6 +312,13 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.match(instruction, /provisioning set only to managed or external/);
   assert.match(instruction, /Do not place installer commands, package IDs, download URLs/);
   assert.match(instruction, /managed machine-level setup is authorized implementation work/);
+  assert.match(instruction, /Tests are evidence of the Work Card objective, not independent product authority/);
+  assert.match(instruction, /smallest practical boundary relevant to the behavior owned by this Work Card/);
+  assert.match(instruction, /Do not make an entire multi-domain test file or broad suite an all-or-nothing acceptance gate/);
+  assert.match(instruction, /prefer dedicated focused tests, relevant named test cases, or a focused lane/);
+  assert.match(instruction, /Full-suite or broad integration cleanliness belongs only to a Work Card that explicitly owns integration or baseline validation/);
+  assert.match(instruction, /demonstrated unrelated or pre-existing failure/);
+  assert.match(instruction, /Unexplained failures that may affect this Work Card objective still require classification/);
   assert.doesNotMatch(instruction, /ChampCity_AI/);
   assert.doesNotMatch(instruction, /champcity_ai/);
   assert.equal(actionBlocks.length, 1);
@@ -319,6 +326,18 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.equal(actionBlocks[0].params.relativePath, prepared.submission.draftSlots[0].draftRelativePath);
   assert.equal(actionBlocks[0].params.overwrite, false);
   assert.doesNotMatch(instruction, /"relativePath":\s*"planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md"/);
+});
+
+test("retained Work Card standard maps validation scope to owned behavior", () => {
+  const standard = fs.readFileSync(
+    path.join(__dirname, "..", "..", "planning", "project", "Design_Documents", "WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md"),
+    "utf8",
+  );
+
+  assert.match(standard, /Validation scope must map to the card's owned behavior/);
+  assert.match(standard, /shared test file or suite contains unrelated domains/);
+  assert.match(standard, /all-or-nothing acceptance gate unless the card owns those domains/);
+  assert.match(standard, /Unrelated or pre-existing failures discovered by broader validation must be recorded and routed/);
 });
 
 test("formal Work Card promotion context rejects mismatched active target evidence", () => {

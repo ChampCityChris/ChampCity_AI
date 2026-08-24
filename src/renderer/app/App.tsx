@@ -85,7 +85,9 @@ import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
+import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
+import type { WorkflowId } from "../../shared/workflowHubContracts";
 
 const neutralMessage = "Document workflow not yet implemented";
 const handoffWorkspaceIds = new Set<WorkspaceId>([
@@ -130,6 +132,9 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
   "work-card-close",
 ]);
 export const settingsWorkspaceId = "settings" as WorkspaceId;
+
+type ShellView = "workflow-hub" | "workflow" | "settings";
+type SettingsReturnShellView = Exclude<ShellView, "settings">;
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -194,6 +199,10 @@ export function App(): JSX.Element {
   const [priorWorkflowWorkspaceId, setPriorWorkflowWorkspaceId] = useState<WorkspaceId>(
     workspaceDefinitions[0].id,
   );
+  const [shellView, setShellView] = useState<ShellView>("workflow-hub");
+  const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
+  const [settingsReturnShellView, setSettingsReturnShellView] =
+    useState<SettingsReturnShellView>("workflow-hub");
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
   const [agentHarnessStatus, setAgentHarnessStatus] =
     useState<AgentHarnessStatus | null>(null);
@@ -295,10 +304,14 @@ export function App(): JSX.Element {
     isVisibleArchitectOutputWorkspace || isWorkCardRepair;
   const architectBrowserWorkspaceAvailable =
     isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
+  const isDevelopmentForeground =
+    shellView === "workflow" && activeWorkflowId === "development";
+  const isWorkflowHubForeground = shellView === "workflow-hub";
   const shouldAttachEmbeddedArchitectSurface =
+    isDevelopmentForeground &&
     (architectBrowserWorkspaceAvailable || isWorkCardRepair) &&
     isArchitectPaneVisible;
-  const isSettingsWorkspace = activeWorkspaceId === settingsWorkspaceId;
+  const isSettingsWorkspace = shellView === "settings";
 
   useEffect(() => {
     const isDark = themeMode === "dark";
@@ -318,7 +331,8 @@ export function App(): JSX.Element {
           ...current,
           projectRepository: selection.workspaceRoot,
         }));
-        void refreshDocuments({ useResolver: true });
+        setShellView("workflow-hub");
+        setActiveWorkflowId(null);
       }
     });
   }, []);
@@ -366,6 +380,9 @@ export function App(): JSX.Element {
   }, [selectedDocumentId]);
 
   useEffect(() => {
+    if (!isDevelopmentForeground) {
+      return;
+    }
     if (activeWorkspaceId === "work-card-intake") {
       transitionToWorkflowStep("work-card-planning");
       return;
@@ -392,10 +409,10 @@ export function App(): JSX.Element {
     if (activeWorkspaceId !== "work-card-repair") {
       setWorkCardRepairProjectionResult(null);
     }
-  }, [activeWorkspaceId, currentModel?.workCardBuildingReview, currentModel?.workCardIntake, documents, selectedDocumentId]);
+  }, [activeWorkspaceId, currentModel?.workCardBuildingReview, currentModel?.workCardIntake, documents, isDevelopmentForeground, selectedDocumentId]);
 
   useEffect(() => {
-    if (!workspace.ok || activeWorkspaceId !== "work-card-building-review") {
+    if (!isDevelopmentForeground || !workspace.ok || activeWorkspaceId !== "work-card-building-review") {
       setCodexExecution(null);
       codexExecutionPreviousStateRef.current = null;
       return;
@@ -433,27 +450,30 @@ export function App(): JSX.Element {
       isDisposed = true;
       window.clearInterval(interval);
     };
-  }, [activeWorkspaceId, workspace.ok, codexExecution?.state]);
+  }, [activeWorkspaceId, isDevelopmentForeground, workspace.ok, codexExecution?.state]);
 
   useEffect(() => {
-    if (!workspace.ok || activeWorkspaceId !== "work-card-close") {
+    if (!isDevelopmentForeground || !workspace.ok || activeWorkspaceId !== "work-card-close") {
       setWorkCardCloseProjectionResult(null);
       return;
     }
     void refreshWorkCardCloseProjection();
-  }, [activeWorkspaceId, workspace.ok]);
+  }, [activeWorkspaceId, isDevelopmentForeground, workspace.ok]);
 
   useEffect(() => {
+    if (!isDevelopmentForeground) {
+      return;
+    }
     if (activeWorkspaceId !== "phase-work-card-selection") {
       setWorkCardMapResult(null);
       if (activeWorkspaceId !== "work-card-close") {
         setWorkCardCloseReturnCompleted(false);
       }
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, isDevelopmentForeground]);
 
   useEffect(() => {
-    if (!workspace.ok || activeWorkspaceId !== "phase-work-card-selection") {
+    if (!isDevelopmentForeground || !workspace.ok || activeWorkspaceId !== "phase-work-card-selection") {
       return;
     }
     const phaseId = currentModel?.currentPhaseId;
@@ -464,7 +484,7 @@ export function App(): JSX.Element {
     void refreshWorkCardMapProjection(phaseId, {
       closeReturnCompleted: workCardCloseReturnCompleted,
     });
-  }, [activeWorkspaceId, currentModel?.currentPhaseId, workCardCloseReturnCompleted, workspace.ok]);
+  }, [activeWorkspaceId, currentModel?.currentPhaseId, isDevelopmentForeground, workCardCloseReturnCompleted, workspace.ok]);
 
   useEffect(() => {
     if (!workspace.ok) {
@@ -705,7 +725,9 @@ export function App(): JSX.Element {
     setWorkspace(await window.champcity.clearSelectedWorkspace());
     clearRepositoryDerivedState();
     setProjectIntake((current) => ({ ...current, projectRepository: "" }));
-    transitionToWorkflowStep("project-intake-capture", { documents: [] });
+    setShellView("workflow-hub");
+    setActiveWorkflowId(null);
+    setActiveWorkspaceId(workspaceDefinitions[0].id);
   }
 
   async function chooseProjectRepository(): Promise<void> {
@@ -1367,6 +1389,21 @@ export function App(): JSX.Element {
     }
   }
 
+  async function respondToCodexApproval(requestId: string, decision: "approve" | "deny"): Promise<void> {
+    setIsCodexExecutionActionRunning(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const status = await window.champcity.respondToCodexApproval({ requestId, decision });
+      setCodexExecution(status);
+      setFeedback(decision === "approve" ? "Codex approval granted once." : "Codex approval denied.");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Codex approval response could not be submitted.");
+    } finally {
+      setIsCodexExecutionActionRunning(false);
+    }
+  }
+
   async function respondToCodexMcpElicitation(
     requestId: string,
     action: "accept" | "decline" | "cancel",
@@ -1603,11 +1640,13 @@ export function App(): JSX.Element {
 
     clearRepositoryDerivedState();
     setWorkspace(selection);
+    setShellView("workflow-hub");
+    setActiveWorkflowId(null);
+    setActiveWorkspaceId(workspaceDefinitions[0].id);
     setProjectIntake((current) => ({
       ...current,
       projectRepository: selection.workspaceRoot,
     }));
-    await refreshDocuments({ useResolver: true });
   }
 
   function clearRepositoryDerivedState(): void {
@@ -1673,6 +1712,10 @@ export function App(): JSX.Element {
       resolverResult?: FirstNonApprovedResult | null;
     } = {},
   ): void {
+    if (destinationWorkspaceId !== settingsWorkspaceId) {
+      setShellView("workflow");
+      setActiveWorkflowId("development");
+    }
     setActiveWorkspaceId(destinationWorkspaceId);
     if (destinationWorkspaceId !== settingsWorkspaceId) {
       setPriorWorkflowWorkspaceId(destinationWorkspaceId);
@@ -1697,13 +1740,39 @@ export function App(): JSX.Element {
   }
 
   function openSettingsWorkspace(): void {
+    setSettingsReturnShellView(isDevelopmentForeground ? "workflow" : "workflow-hub");
     const next = openSettingsNavigationState(activeWorkspaceId, priorWorkflowWorkspaceId);
     setPriorWorkflowWorkspaceId(next.priorWorkflowWorkspaceId);
     setActiveWorkspaceId(next.activeWorkspaceId);
+    setShellView("settings");
   }
 
   function returnFromSettingsWorkspace(): void {
+    if (settingsReturnShellView === "workflow-hub") {
+      setShellView("workflow-hub");
+      setActiveWorkflowId(null);
+      setActiveWorkspaceId(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
+      return;
+    }
     transitionToWorkflowStep(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
+  }
+
+  async function openWorkflow(workflowId: WorkflowId): Promise<void> {
+    if (workflowId !== "development") {
+      return;
+    }
+    if (!workspace.ok) {
+      setDocumentError("Select a project before opening Development.");
+      return;
+    }
+    setShellView("workflow");
+    setActiveWorkflowId("development");
+    await refreshDocuments({ useResolver: true });
+  }
+
+  function returnToWorkflowHub(): void {
+    setShellView("workflow-hub");
+    setActiveWorkflowId(null);
   }
 
   async function refreshAgentHarnessStatus(): Promise<AgentHarnessStatus | null> {
@@ -1939,6 +2008,7 @@ export function App(): JSX.Element {
     !isWorkCardClose &&
     !isWorkCardMap;
   const usesFigmaWorkspaceBody =
+    isWorkflowHubForeground ||
     activeWorkspaceId === "project-intake-capture" ||
     isVisibleArchitectOutputWorkspace ||
     isWorkCardBuildingReview ||
@@ -2055,25 +2125,29 @@ export function App(): JSX.Element {
   return (
     <div className={`app-root ${themeMode === "dark" ? "dark" : ""}`}>
       <FigmaAppStrip />
-      <NestedWorkflowRail
-        activeWorkspaceId={activeWorkspaceId}
-        architectInterviewStatus={architectInterviewRailStatus}
-        executionContext={currentModel?.executionContext}
-        onWorkspaceChange={transitionToWorkflowStep}
-        projectRailStatuses={projectRailStatuses}
-        projectIntakeStatus={projectIntakeRailStatus}
-        requiredWorkspaceId={currentModel?.activeWorkspaceId ?? null}
-        workspaceCounts={workspaceCounts}
-      />
+      {isDevelopmentForeground ? (
+        <NestedWorkflowRail
+          activeWorkspaceId={activeWorkspaceId}
+          architectInterviewStatus={architectInterviewRailStatus}
+          executionContext={currentModel?.executionContext}
+          onWorkspaceChange={transitionToWorkflowStep}
+          projectRailStatuses={projectRailStatuses}
+          projectIntakeStatus={projectIntakeRailStatus}
+          requiredWorkspaceId={currentModel?.activeWorkspaceId ?? null}
+          workspaceCounts={workspaceCounts}
+        />
+      ) : null}
 
       <div className="app-body">
         <FigmaSidebar
           activeWorkspaceId={activeWorkspaceId}
           currentModel={currentModel}
           isChoosing={isChoosing}
+          mode={isDevelopmentForeground ? "development" : "hub"}
           onChooseProject={chooseWorkspace}
           onClearProject={clearWorkspace}
           onOpenSettings={openSettingsWorkspace}
+          onReturnToWorkflowHub={returnToWorkflowHub}
           onThemeChange={setThemeMode}
           projectName={projectDisplayName(workspace)}
           themeMode={themeMode}
@@ -2084,6 +2158,7 @@ export function App(): JSX.Element {
           className={[
             "workspace-surface",
             usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
+            isWorkflowHubForeground ? "workflow-hub-surface" : "",
             isSettingsWorkspace ? "settings-workspace-surface" : "",
             isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
             isWorkCardReportReview ? "review-validation-surface" : "",
@@ -2091,6 +2166,15 @@ export function App(): JSX.Element {
           aria-labelledby="workspace-heading"
           ref={workspaceSurfaceRef}
         >
+          {isWorkflowHubForeground ? (
+            <WorkflowHubWorkspace
+              isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
+              onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
+              projectName={projectDisplayName(workspace)}
+              workspace={workspace}
+            />
+          ) : (
+          <>
           {!isWorkCardMap ? (
           <header className="workspace-header">
             <div className="workspace-heading-copy">
@@ -2393,6 +2477,7 @@ export function App(): JSX.Element {
               onCreateReport={createImplementerReportFromBuildReview}
               onRespondToCodexMcpElicitation={(requestId, action, content) =>
                 void respondToCodexMcpElicitation(requestId, action, content)}
+              onRespondToCodexApproval={(requestId, decision) => void respondToCodexApproval(requestId, decision)}
               onRespondToCodexUserInput={(requestId, answers) => void respondToCodexUserInput(requestId, answers)}
               onResolveEnvironment={() => void startCodexEnvironmentResolution()}
               onRunCodex={() => void startCodexImplementerExecution()}
@@ -2625,6 +2710,8 @@ export function App(): JSX.Element {
             </article>
           </section>
           ) : null}
+          </>
+          )}
         </section>
       </div>
     </div>

@@ -8,6 +8,7 @@ const {
 } = require("../../dist/shared/documents/canonicalMarkdown.js");
 const {
   classifyExpectedImplementerReportReadiness,
+  approveFormalWorkCardAndRegisterReport,
   createImplementerReportForApprovedWorkCard,
   getWorkCardBuildingReviewProjection,
   getOperatorValidationEligibility,
@@ -123,6 +124,36 @@ test("missing report projection identifies exact target and recovery is idempote
   assert.equal(after, before);
   assert.equal(parseCanonicalMarkdownDocument(after).metadata.artifactRevision, 1);
   assert.equal(getWorkCardBuildingReviewProjection(root, "phase-01", "WC01").reportReadiness, "reserved-skeleton");
+});
+
+test("approving a revised Pending Formal Work Card registers a fresh report sourced to current revision", () => {
+  const root = tempWorkspace("champcity-work-card-building-revised-");
+  const formalPath = "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md";
+  writeDoc(root, formalPath, "formal-work-card", "Pending", {
+    artifactRevision: 2,
+    identity: { phaseId: "phase-01", workCardId: "WC01", candidateId: "WC01" },
+    workflowData: {},
+    bodyMarkdown: "# WC01 — First Work Card\n\nSubstantive revision 2 body.\n",
+  });
+
+  approveFormalWorkCardAndRegisterReport({
+    workspaceRoot: root,
+    formalWorkCardPath: formalPath,
+    reviewedAt: "2026-08-23T00:00:00.000Z",
+  });
+
+  const formal = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, formalPath), "utf8"));
+  const reportPath = "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
+  const report = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, reportPath), "utf8"));
+  const projection = getWorkCardBuildingReviewProjection(root, "phase-01", "WC01");
+
+  assert.equal(formal.metadata.artifactRevision, 2);
+  assert.equal(formal.metadata.documentDisposition.status, "Approved");
+  assert.equal(report.metadata.artifactType, "implementer-report");
+  assert.deepEqual(report.metadata.sourceRevisions, [{ path: formalPath, revision: 2 }]);
+  assert.match(report.bodyMarkdown, /Approved Formal Work Card: planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md revision 2/);
+  assert.equal(projection.reportReadiness, "reserved-skeleton");
+  assert.equal(projection.reportFreshnessState, "fresh");
 });
 
 test("Implementer Report readiness classifier distinguishes ready, invalid, and conflict states", () => {

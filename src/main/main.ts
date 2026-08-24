@@ -73,6 +73,7 @@ import type {
   ArchitectBrowserFoundationStatus,
   ArchitectOutputPresentedSlotRevision,
   ArchitectOutputWorkspaceModel,
+  CodexApprovalResponse,
   CodexImplementerExecutionModel,
   CodexMcpElicitationResponse,
   CodexUserInputResponse,
@@ -412,6 +413,17 @@ ipcMain.handle(
       getRequiredWorkspaceRoot(),
       response.requestId,
       response.answers,
+    );
+  },
+);
+
+ipcMain.handle(
+  "codexImplementer:respondToApproval",
+  (_event, response: CodexApprovalResponse): Promise<CodexImplementerExecutionModel> => {
+    return codexImplementerExecutionService.respondToApproval(
+      getRequiredWorkspaceRoot(),
+      response.requestId,
+      response.decision,
     );
   },
 );

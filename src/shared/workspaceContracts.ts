@@ -816,6 +816,18 @@ export interface CodexApprovalTelemetryModel {
   completed: boolean;
 }
 
+export interface CodexPendingApprovalModel {
+  requestId: string;
+  type: "command" | "file-change" | "permission";
+  threadId: string | null;
+  turnId: string | null;
+  itemId: string | null;
+  commandDisplay: string | null;
+  fileChangeSummary: string | null;
+  permissionSummary: string | null;
+  impactSummary: string;
+}
+
 export interface CodexPendingUserInputModel {
   requestId: string;
   threadId: string;
@@ -870,6 +882,11 @@ export interface CodexMcpElicitationResponse {
   content: unknown | null;
 }
 
+export interface CodexApprovalResponse {
+  requestId: string;
+  decision: "approve" | "deny";
+}
+
 export interface CodexImplementerExecutionModel {
   state: CodexImplementerExecutionState;
   executionKind: CodexImplementerExecutionKind | null;
@@ -897,6 +914,7 @@ export interface CodexImplementerExecutionModel {
   approvalTail: CodexApprovalTelemetryModel[];
   runtimeDenialTail: string[];
   runtimeState: CodexRuntimeStateModel | null;
+  pendingApproval: CodexPendingApprovalModel | null;
   pendingUserInput: CodexPendingUserInputModel | null;
   pendingMcpElicitation: CodexPendingMcpElicitationModel | null;
   failureReason: string | null;
@@ -1065,6 +1083,7 @@ export interface ChampCityApi {
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
   startCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
   startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
+  respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexMcpElicitation: (response: CodexMcpElicitationResponse) => Promise<CodexImplementerExecutionModel>;
   cancelCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;

@@ -11,6 +11,7 @@ import {
   type CodexAppServerMcpElicitationAction,
   type CodexAppServerMcpElicitationRequestResponse,
   type CodexAppServerPermissionsApprovalResponse,
+  type CodexAppServerSandboxPolicy,
   type CodexAppServerThreadStartParams,
   type CodexAppServerThreadStartResponse,
   type CodexAppServerToolRequestUserInputResponse,
@@ -26,7 +27,7 @@ export type CodexAppServerThreadEvent =
   | { type: "turn.failed"; error: { message: string } }
   | { type: "error"; message: string }
   | { type: "item.completed"; item: CodexAppServerThreadItem }
-  | { type: "approval.requested"; approval: CodexAppServerApprovalTelemetry }
+  | { type: "approval.requested"; approval: CodexAppServerPendingApproval }
   | { type: "approval.completed"; approval: CodexAppServerApprovalTelemetry }
   | { type: "user_input.requested"; request: CodexAppServerPendingUserInput }
   | { type: "mcp_elicitation.requested"; request: CodexAppServerPendingMcpElicitation }
@@ -43,10 +44,11 @@ export type CodexAppServerThreadItem =
 export interface CodexAppServerThreadOptions {
   workingDirectory: string;
   skipGitRepoCheck?: boolean;
-  sandboxMode?: "danger-full-access";
+  sandboxMode?: "danger-full-access" | "workspace-write";
   approvalPolicy?: "on-request";
   approvalsReviewer?: "user";
   networkAccessEnabled?: boolean;
+  writableRoots?: string[];
 }
 
 export interface CodexAppServerTurnOptions {
@@ -60,6 +62,7 @@ export interface CodexAppServerThreadAdapter {
     options?: CodexAppServerTurnOptions,
   ): Promise<{ events: AsyncIterable<CodexAppServerThreadEvent> }>;
   respondToUserInput?(requestId: string, answers: Record<string, string[]>): Promise<void>;
+  respondToApproval?(requestId: string, decision: CodexAppServerApprovalDecision): Promise<void>;
   respondToMcpElicitation?(requestId: string, response: CodexAppServerMcpElicitationResponse): Promise<void>;
   interrupt?(): Promise<void>;
   dispose?(): Promise<void>;
@@ -108,6 +111,22 @@ export interface CodexAppServerApprovalTelemetry {
   itemId: string | null;
   decision: string;
   completed: boolean;
+}
+
+export interface CodexAppServerPendingApproval {
+  requestId: string;
+  type: "command" | "file-change" | "permission";
+  threadId: string | null;
+  turnId: string | null;
+  itemId: string | null;
+  commandDisplay: string | null;
+  fileChangeSummary: string | null;
+  permissionSummary: string | null;
+  impactSummary: string;
+}
+
+export interface CodexAppServerApprovalDecision {
+  decision: "approve" | "deny";
 }
 
 export interface CodexAppServerPendingUserInput {
@@ -183,11 +202,32 @@ interface PendingMcpElicitationRequest {
   request: CodexAppServerPendingMcpElicitation;
 }
 
+interface PendingApprovalRequest {
+  rpcId: JsonRpcId;
+  method: string;
+  params: Record<string, unknown>;
+  pending: CodexAppServerPendingApproval;
+}
+
 type CodexAppServerApprovalResponse =
   | CodexAppServerCommandApprovalResponse
   | CodexAppServerFileChangeApprovalResponse
   | CodexAppServerLegacyApprovalResponse
   | CodexAppServerPermissionsApprovalResponse;
+
+type CatastrophicCommandDenial =
+  | "protected-process"
+  | "machine-session"
+  | "windows-service";
+
+interface ProtectedProcessIdentity {
+  pid: number;
+  execPath: string;
+}
+
+interface JsonlCodexAppServerTransportOptions {
+  protectedProcess?: ProtectedProcessIdentity;
+}
 
 export async function loadCodexAppServerAdapter(
   spawnRuntime?: () => ChildProcessWithoutNullStreams,
@@ -214,6 +254,7 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
 
   constructor(
     private readonly spawnRuntime: () => ChildProcessWithoutNullStreams = spawnPackagedCodexAppServer,
+    private readonly options: JsonlCodexAppServerTransportOptions = {},
   ) {}
 
   async initialize(): Promise<void> {
@@ -258,9 +299,9 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
   async startAppThread(thread: JsonlCodexAppServerThread): Promise<string> {
     const params: CodexAppServerThreadStartParams = {
       cwd: thread.options.workingDirectory,
-      approvalPolicy: "on-request",
-      approvalsReviewer: "user",
-      sandbox: "danger-full-access",
+      approvalPolicy: thread.options.approvalPolicy ?? "on-request",
+      approvalsReviewer: thread.options.approvalsReviewer ?? "user",
+      sandbox: thread.options.sandboxMode ?? "danger-full-access",
       serviceName: "ChampCity A/I",
       ephemeral: true,
     };
@@ -307,9 +348,9 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
         threadId,
         input: [{ type: "text", text: input, text_elements: [] }],
         cwd: thread.options.workingDirectory,
-        approvalPolicy: "on-request",
-        approvalsReviewer: "user",
-        sandboxPolicy: { type: "dangerFullAccess" },
+        approvalPolicy: thread.options.approvalPolicy ?? "on-request",
+        approvalsReviewer: thread.options.approvalsReviewer ?? "user",
+        sandboxPolicy: sandboxPolicyFromThreadOptions(thread.options),
       };
       const result = asRecord(
         await this.request(codexAppServerMethods.turnStart, params),
@@ -359,6 +400,31 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     };
     this.respond(pending.rpcId, payload);
     thread.pendingMcpElicitations.delete(requestId);
+    this.markServerRequestResolved(thread, pending.rpcId);
+  }
+
+  async respondToApproval(
+    thread: JsonlCodexAppServerThread,
+    requestId: string,
+    decision: CodexAppServerApprovalDecision,
+  ): Promise<void> {
+    const pending = thread.pendingApprovals.get(requestId);
+    if (!pending) {
+      throw new Error("No matching Codex approval request is pending.");
+    }
+    const response = approvalResponseForMethod(pending.method, pending.params, decision.decision);
+    const completed: CodexAppServerApprovalTelemetry = {
+      requestId: pending.pending.requestId,
+      type: pending.pending.type,
+      threadId: pending.pending.threadId,
+      turnId: pending.pending.turnId,
+      itemId: pending.pending.itemId,
+      decision: approvalDecisionLabel(response),
+      completed: true,
+    };
+    thread.activeTurn?.queue.push({ type: "approval.completed", approval: completed });
+    this.respond(pending.rpcId, response);
+    thread.pendingApprovals.delete(requestId);
     this.markServerRequestResolved(thread, pending.rpcId);
   }
 
@@ -563,16 +629,16 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
 
     if (request.method === codexAppServerMethods.commandApprovalRequest ||
       request.method === codexAppServerMethods.legacyExecCommandApproval) {
-      this.approveServerRequest(request, thread, ownership, "command", approvalResponseForMethod(request.method));
+      this.queueApprovalRequest(request, thread, ownership, "command");
       return;
     }
     if (request.method === codexAppServerMethods.fileChangeApprovalRequest ||
       request.method === codexAppServerMethods.legacyApplyPatchApproval) {
-      this.approveServerRequest(request, thread, ownership, "file-change", approvalResponseForMethod(request.method));
+      this.queueApprovalRequest(request, thread, ownership, "file-change");
       return;
     }
     if (request.method === codexAppServerMethods.permissionsApprovalRequest) {
-      this.approveServerRequest(request, thread, ownership, "permission", permissionApprovalResponse(params));
+      this.queueApprovalRequest(request, thread, ownership, "permission");
       return;
     }
     if (request.method === codexAppServerMethods.mcpElicitationRequest) {
@@ -613,27 +679,69 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     return candidates.length === 1 ? candidates[0] : null;
   }
 
-  private approveServerRequest(
+  private queueApprovalRequest(
     request: JsonRpcRequest,
     thread: JsonlCodexAppServerThread,
     ownership: NormalizedServerRequestOwnership,
     type: CodexAppServerApprovalTelemetry["type"],
-    response: CodexAppServerApprovalResponse,
   ): void {
     const params = asRecord(request.params);
     const active = thread.activeTurn;
-    const approval: CodexAppServerApprovalTelemetry = {
-      requestId: ownership.requestId,
+    const pending = normalizeApprovalRequest(
+      String(request.id),
+      params,
+      ownership,
+      thread,
       type,
-      threadId: ownership.threadId ?? thread.id ?? active?.threadId ?? null,
-      turnId: ownership.turnId ?? active?.turnId ?? null,
-      itemId: stringOrNull(params.itemId) ?? stringOrNull(params.callId) ?? stringOrNull(params.approvalId),
-      decision: approvalDecisionLabel(response),
-      completed: true,
-    };
-    thread.activeTurn?.queue.push({ type: "approval.completed", approval });
+    );
+    const catastrophicDenial = type === "command"
+      ? catastrophicCommandDenial(params, this.protectedProcess())
+      : null;
+    const response = approvalResponseForMethod(
+      request.method,
+      params,
+      catastrophicDenial ? "deny" : "approve",
+    );
+    if (catastrophicDenial) {
+      const denial = catastrophicCommandDenialMessage(catastrophicDenial);
+      active?.queue.push({ type: "runtime.denial", message: denial });
+      active?.queue.push({
+        type: "approval.completed",
+        approval: {
+          requestId: pending.requestId,
+          type,
+          threadId: pending.threadId,
+          turnId: pending.turnId,
+          itemId: pending.itemId,
+          decision: approvalDecisionLabel(response),
+          completed: true,
+        },
+      });
+      this.markServerRequestResolved(thread, request.id);
+      this.respond(request.id, response);
+      return;
+    }
+    active?.queue.push({
+      type: "approval.completed",
+      approval: {
+        requestId: pending.requestId,
+        type,
+        threadId: pending.threadId,
+        turnId: pending.turnId,
+        itemId: pending.itemId,
+        decision: approvalDecisionLabel(response),
+        completed: true,
+      },
+    });
     this.markServerRequestResolved(thread, request.id);
     this.respond(request.id, response);
+  }
+
+  private protectedProcess(): ProtectedProcessIdentity {
+    return this.options.protectedProcess ?? {
+      pid: process.pid,
+      execPath: process.execPath,
+    };
   }
 
   private markServerRequestResolved(thread: JsonlCodexAppServerThread | null | undefined, requestId: JsonRpcId): void {
@@ -692,6 +800,7 @@ class JsonlCodexAppServerThread implements CodexAppServerThreadAdapter {
   } | null = null;
   readonly pendingUserInputs = new Map<string, CodexAppServerPendingUserInput>();
   readonly pendingMcpElicitations = new Map<string, PendingMcpElicitationRequest>();
+  readonly pendingApprovals = new Map<string, PendingApprovalRequest>();
   readonly resolvedServerRequestIds = new Set<string>();
 
   constructor(
@@ -709,6 +818,10 @@ class JsonlCodexAppServerThread implements CodexAppServerThreadAdapter {
 
   respondToMcpElicitation(requestId: string, response: CodexAppServerMcpElicitationResponse): Promise<void> {
     return this.transport.respondToMcpElicitation(this, requestId, response);
+  }
+
+  respondToApproval(requestId: string, decision: CodexAppServerApprovalDecision): Promise<void> {
+    return this.transport.respondToApproval(this, requestId, decision);
   }
 
   interrupt(): Promise<void> {
@@ -961,14 +1074,36 @@ function normalizeMcpElicitationAction(action: CodexAppServerMcpElicitationActio
   return action === "decline" || action === "cancel" ? action : "accept";
 }
 
-function approvalResponseForMethod(method: string): CodexAppServerApprovalResponse {
+function sandboxPolicyFromThreadOptions(options: CodexAppServerThreadOptions): CodexAppServerSandboxPolicy {
+  if (options.sandboxMode === "workspace-write") {
+    return {
+      type: "workspaceWrite",
+      writableRoots: options.writableRoots?.length ? options.writableRoots : [options.workingDirectory],
+      networkAccess: options.networkAccessEnabled ?? true,
+      excludeTmpdirEnvVar: false,
+      excludeSlashTmp: false,
+    };
+  }
+  return { type: "dangerFullAccess" };
+}
+
+function approvalResponseForMethod(
+  method: string,
+  params: Record<string, unknown>,
+  decision: CodexAppServerApprovalDecision["decision"],
+): CodexAppServerApprovalResponse {
   if (
     method === codexAppServerMethods.legacyExecCommandApproval ||
     method === codexAppServerMethods.legacyApplyPatchApproval
   ) {
-    return { decision: "approved" };
+    return { decision: decision === "approve" ? "approved" : "denied" };
   }
-  return { decision: "accept" };
+  if (method === codexAppServerMethods.permissionsApprovalRequest) {
+    return decision === "approve"
+      ? permissionApprovalResponse(params)
+      : { permissions: {}, scope: "turn" };
+  }
+  return { decision: decision === "approve" ? "accept" : "reject" };
 }
 
 function permissionApprovalResponse(params: Record<string, unknown>): CodexAppServerPermissionsApprovalResponse {
@@ -983,11 +1118,507 @@ function permissionApprovalResponse(params: Record<string, unknown>): CodexAppSe
   return { permissions, scope: "turn" };
 }
 
+function normalizeApprovalRequest(
+  requestId: string,
+  params: Record<string, unknown>,
+  ownership: NormalizedServerRequestOwnership,
+  thread: JsonlCodexAppServerThread,
+  type: CodexAppServerPendingApproval["type"],
+): CodexAppServerPendingApproval {
+  const active = thread.activeTurn;
+  const commandDisplay = type === "command" ? commandDisplayFromParams(params) : null;
+  const fileChangeSummary = type === "file-change" ? fileChangeSummaryFromParams(params) : null;
+  const permissionSummary = type === "permission" ? permissionSummaryFromParams(params) : null;
+  return {
+    requestId,
+    type,
+    threadId: ownership.threadId ?? thread.id ?? active?.threadId ?? null,
+    turnId: ownership.turnId ?? active?.turnId ?? null,
+    itemId: stringOrNull(params.itemId) ?? stringOrNull(params.callId) ?? stringOrNull(params.approvalId),
+    commandDisplay,
+    fileChangeSummary,
+    permissionSummary,
+    impactSummary: impactSummaryForApproval(type, params, commandDisplay, fileChangeSummary, permissionSummary),
+  };
+}
+
+function impactSummaryForApproval(
+  type: CodexAppServerPendingApproval["type"],
+  params: Record<string, unknown>,
+  commandDisplay: string | null,
+  fileChangeSummary: string | null,
+  permissionSummary: string | null,
+): string {
+  if (type === "command") {
+    return commandImpactSummaryFromParams(params, commandDisplay);
+  }
+  if (type === "file-change") {
+    return fileChangeImpactSummaryFromParams(params, fileChangeSummary);
+  }
+  return permissionImpactSummaryFromParams(params, permissionSummary);
+}
+
+function commandImpactSummaryFromParams(params: Record<string, unknown>, commandDisplay: string | null): string {
+  const tokens = commandTokens(params);
+  const terminationSummary = processTerminationImpactSummary(tokens, commandDisplay);
+  if (terminationSummary) {
+    return terminationSummary;
+  }
+  const dependencySummary = dependencyCommandImpactSummary(tokens);
+  if (dependencySummary) {
+    return dependencySummary;
+  }
+  return "Codex wants permission to run a command in the selected project workspace. Review the exact command below before deciding.";
+}
+
+function processTerminationImpactSummary(tokens: string[], commandDisplay: string | null): string | null {
+  const lowerTokens = tokens.map((token) => token.toLowerCase());
+  const commandText = commandDisplay ?? tokens.join(" ");
+  if (lowerTokens.includes("taskkill") || /(\b|\\)taskkill(\.exe)?\b/i.test(commandText)) {
+    const pid = optionValue(tokens, ["/pid", "-pid"]);
+    if (pid) {
+      return `Codex wants to stop a running process. This may close an application that is currently running. Target process ID: ${pid}.`;
+    }
+    const image = optionValue(tokens, ["/im", "-im"]);
+    if (image) {
+      return `Codex wants to stop a running application or process named ${image}. If it is currently open, it will be closed.`;
+    }
+    return "Codex wants to stop one or more running processes. This may close applications that are currently open.";
+  }
+  if (lowerTokens.includes("stop-process") || /\bstop-process\b/i.test(commandText)) {
+    const pid = optionValue(tokens, ["-id", "id"]);
+    if (pid) {
+      return `Codex wants to stop a running process. This may close an application that is currently running. Target process ID: ${pid}.`;
+    }
+    const name = optionValue(tokens, ["-name", "name"]);
+    if (name) {
+      return `Codex wants to stop a running application or process named ${name}. If it is currently open, it will be closed.`;
+    }
+    return "Codex wants to stop one or more running processes. This may close applications that are currently open.";
+  }
+  return null;
+}
+
+function dependencyCommandImpactSummary(tokens: string[]): string | null {
+  const command = normalizedCommandName(tokens[0] ?? "");
+  const subcommand = (tokens[1] ?? "").toLowerCase();
+  if (command === "npm" && (subcommand === "ci" || subcommand === "install")) {
+    return "Codex wants to install or replace dependencies for the selected project. This may change the project's dependency tree and files used by a running project.";
+  }
+  if ((command === "pnpm" || command === "yarn") && subcommand === "install") {
+    return "Codex wants to install or replace dependencies for the selected project. This may change the project's dependency tree and files used by a running project.";
+  }
+  if (command === "winget" && (subcommand === "install" || subcommand === "configure")) {
+    return "Codex wants to install or configure software on Windows. This may change machine-level applications or development tools, not just project files.";
+  }
+  return null;
+}
+
+function fileChangeImpactSummaryFromParams(
+  params: Record<string, unknown>,
+  fileChangeSummary: string | null,
+): string {
+  const paths = fileChangePathsFromParams(params);
+  if (paths.length) {
+    return `Codex wants to modify project files. Targets: ${compactList(paths, 5)}.`;
+  }
+  const count = fileChangeCountFromParams(params);
+  if (count !== null) {
+    return `Codex wants to modify ${count} project ${count === 1 ? "file" : "files"}.`;
+  }
+  return fileChangeSummary
+    ? `Codex wants permission to modify project files. Details: ${fileChangeSummary}`
+    : "Codex wants permission to modify project files.";
+}
+
+function permissionImpactSummaryFromParams(
+  params: Record<string, unknown>,
+  permissionSummary: string | null,
+): string {
+  const permissions = asRecord(params.permissions);
+  const parts: string[] = [];
+  if (permissions.network !== null && permissions.network !== undefined) {
+    const targets = permissionTargets(permissions.network, ["targets", "target", "hosts", "host", "domains", "domain", "urls", "url", "origins", "origin"]);
+    parts.push(targets.length
+      ? `Codex wants temporary network access for this turn. Requested targets: ${compactList(targets, 5)}.`
+      : "Codex wants temporary network access for this turn.");
+  }
+  if (permissions.fileSystem !== null && permissions.fileSystem !== undefined) {
+    const entries = permissionTargets(permissions.fileSystem, ["entries", "entry", "paths", "path", "roots", "root", "writableRoots", "read", "write"]);
+    parts.push(entries.length
+      ? `Codex wants temporary filesystem access for this turn. Requested entries: ${compactList(entries, 5)}.`
+      : "Codex wants temporary filesystem access for this turn.");
+  }
+  if (parts.length) {
+    return parts.join(" ");
+  }
+  return permissionSummary
+    ? "Codex wants a temporary permission grant for this turn. Review the requested permission detail below before deciding."
+    : "Codex wants a temporary permission grant for this turn.";
+}
+
+function commandDisplayFromParams(params: Record<string, unknown>): string | null {
+  const command = params.command;
+  if (Array.isArray(command)) {
+    return command.map(String).join(" ");
+  }
+  if (typeof command === "string") {
+    return command;
+  }
+  return firstString(params, ["cmd", "commandLine", "displayCommand"]);
+}
+
+function fileChangeSummaryFromParams(params: Record<string, unknown>): string {
+  const changes = Array.isArray(params.changes) ? params.changes : null;
+  if (changes) {
+    const paths = fileChangePathsFromChanges(changes);
+    return paths.length
+      ? `${changes.length} file change(s) requested: ${compactList(paths, 6)}`
+      : `${changes.length} file change(s) requested.`;
+  }
+  const fileChanges = asNullableRecord(params.fileChanges);
+  if (fileChanges) {
+    const paths = Object.keys(fileChanges).slice(0, 6);
+    return paths.length
+      ? `${paths.length} file change target(s): ${paths.join(", ")}`
+      : "File changes requested.";
+  }
+  return "File changes requested.";
+}
+
+function permissionSummaryFromParams(params: Record<string, unknown>): string {
+  const permissions = asRecord(params.permissions);
+  const parts: string[] = [];
+  if (permissions.network !== null && permissions.network !== undefined) {
+    parts.push(`network ${compactJsonSummary(permissions.network)}`);
+  }
+  if (permissions.fileSystem !== null && permissions.fileSystem !== undefined) {
+    parts.push(`file system ${compactJsonSummary(permissions.fileSystem)}`);
+  }
+  return parts.length ? parts.join("; ") : "Permission details were not provided.";
+}
+
+function compactJsonSummary(value: unknown): string {
+  try {
+    const text = JSON.stringify(redactSensitiveFields(value));
+    return text.length > 180 ? `${text.slice(0, 180)}...` : text;
+  } catch {
+    return String(value);
+  }
+}
+
+function fileChangePathsFromParams(params: Record<string, unknown>): string[] {
+  const changes = Array.isArray(params.changes) ? params.changes : null;
+  if (changes) {
+    return fileChangePathsFromChanges(changes);
+  }
+  const fileChanges = asNullableRecord(params.fileChanges);
+  if (fileChanges) {
+    return Object.keys(fileChanges);
+  }
+  return [];
+}
+
+function fileChangePathsFromChanges(changes: unknown[]): string[] {
+  return uniqueStrings(changes.flatMap((change) => {
+    if (typeof change === "string") {
+      return [change];
+    }
+    const record = asNullableRecord(change);
+    if (!record) {
+      return [];
+    }
+    const path = firstString(record, ["path", "filePath", "targetPath", "target", "relativePath", "destinationPath"]);
+    return path ? [path] : [];
+  }));
+}
+
+function fileChangeCountFromParams(params: Record<string, unknown>): number | null {
+  if (Array.isArray(params.changes)) {
+    return params.changes.length;
+  }
+  const fileChanges = asNullableRecord(params.fileChanges);
+  if (fileChanges) {
+    return Object.keys(fileChanges).length;
+  }
+  return null;
+}
+
+function permissionTargets(value: unknown, keys: string[]): string[] {
+  const collected: string[] = [];
+  collectPermissionTargets(value, new Set(keys.map((key) => key.toLowerCase())), collected);
+  return uniqueStrings(collected);
+}
+
+function collectPermissionTargets(value: unknown, keys: Set<string>, collected: string[]): void {
+  if (typeof value === "string") {
+    collected.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectPermissionTargets(item, keys, collected);
+    }
+    return;
+  }
+  const record = asNullableRecord(value);
+  if (!record) {
+    return;
+  }
+  for (const [key, entry] of Object.entries(record)) {
+    if (!keys.has(key.toLowerCase())) {
+      continue;
+    }
+    collectPermissionTargets(entry, keys, collected);
+  }
+}
+
+function compactList(values: string[], limit: number): string {
+  const visible = values.slice(0, limit);
+  const remaining = values.length - visible.length;
+  return remaining > 0 ? `${visible.join(", ")} (+${remaining} more)` : visible.join(", ");
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.trim()).map((value) => value.trim()))];
+}
+
+function optionValue(tokens: string[], optionNames: string[]): string | null {
+  const options = new Set(optionNames.map((option) => option.toLowerCase()));
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    const lower = token.toLowerCase();
+    if (options.has(lower)) {
+      return tokens[index + 1] ?? null;
+    }
+    for (const option of options) {
+      if (lower.startsWith(`${option}:`) || lower.startsWith(`${option}=`)) {
+        return token.slice(option.length + 1);
+      }
+    }
+  }
+  return null;
+}
+
+function normalizedCommandName(value: string): string {
+  return pathBasenameLower(value).replace(/\.(cmd|exe|ps1|bat)$/i, "");
+}
+
+function redactSensitiveFields(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(redactSensitiveFields);
+  }
+  const record = asNullableRecord(value);
+  if (!record) {
+    return value;
+  }
+  return Object.fromEntries(Object.entries(record).map(([key, entry]) => [
+    key,
+    /token|secret|password|authorization|credential|api[-_]?key/i.test(key)
+      ? "[redacted]"
+      : redactSensitiveFields(entry),
+  ]));
+}
+
 function approvalDecisionLabel(response: CodexAppServerApprovalResponse): string {
   if ("scope" in response) {
-    return response.scope === "turn" ? "grant-turn" : String(response.scope);
+    const granted = Object.keys(response.permissions).length > 0;
+    return granted
+      ? response.scope === "turn" ? "grant-turn" : String(response.scope)
+      : "deny";
   }
   return response.decision;
+}
+
+function catastrophicCommandDenial(
+  params: Record<string, unknown>,
+  protectedProcess: ProtectedProcessIdentity,
+): CatastrophicCommandDenial | null {
+  const commandText = commandDisplayFromParams(params);
+  if (!commandText) {
+    return null;
+  }
+  const tokenCandidates = commandTokenCandidates(params);
+  if (tokenCandidates.some((tokens) => targetsProtectedProcess(tokens, protectedProcess))) {
+    return "protected-process";
+  }
+  if (tokenCandidates.some(targetsMachineSessionTermination)) {
+    return "machine-session";
+  }
+  if (tokenCandidates.some(targetsWindowsServiceControl)) {
+    return "windows-service";
+  }
+  return null;
+}
+
+function catastrophicCommandDenialMessage(denial: CatastrophicCommandDenial): string {
+  if (denial === "protected-process") {
+    return "ChampCity denied a command that would terminate the active ChampCity A/I application.";
+  }
+  if (denial === "machine-session") {
+    return "ChampCity denied a command that would restart, shut down, or log off the local machine.";
+  }
+  return "ChampCity denied a command that would stop, restart, or disable a Windows service.";
+}
+
+function targetsProtectedProcess(
+  tokens: string[],
+  protectedProcess: ProtectedProcessIdentity,
+): boolean {
+  const commandText = tokens.join(" ");
+  return targetsProtectedTaskkill(tokens, commandText, protectedProcess) ||
+    targetsProtectedStopProcess(tokens, commandText, protectedProcess);
+}
+
+function targetsMachineSessionTermination(tokens: string[]): boolean {
+  const command = normalizedCommandName(tokens[0] ?? "");
+  const lowerTokens = tokens.map((token) => token.toLowerCase());
+  if (command === "restart-computer" || command === "stop-computer" || command === "logoff") {
+    return true;
+  }
+  if (command !== "shutdown") {
+    return false;
+  }
+  return lowerTokens.some((token) => token === "/s" || token === "-s" ||
+    token === "/r" || token === "-r" ||
+    token === "/g" || token === "-g" ||
+    token === "/l" || token === "-l" ||
+    token === "/p" || token === "-p");
+}
+
+function targetsWindowsServiceControl(tokens: string[]): boolean {
+  const command = normalizedCommandName(tokens[0] ?? "");
+  const lowerTokens = tokens.map((token) => token.toLowerCase());
+  if (command === "stop-service" || command === "restart-service") {
+    return true;
+  }
+  if (command === "set-service") {
+    const startupType = optionValue(tokens, ["-startuptype", "startuptype"]);
+    const status = optionValue(tokens, ["-status", "status"]);
+    return startupType?.toLowerCase() === "disabled" ||
+      status?.toLowerCase() === "stopped";
+  }
+  if (command === "sc") {
+    const subcommand = lowerTokens[1] ?? "";
+    if (subcommand === "stop") {
+      return true;
+    }
+    if (subcommand === "config") {
+      return lowerTokens.some((token, index) => {
+        if (token === "start=") {
+          return lowerTokens[index + 1] === "disabled";
+        }
+        return token === "start=disabled";
+      });
+    }
+  }
+  return command === "net" && lowerTokens[1] === "stop";
+}
+
+function commandTokenCandidates(params: Record<string, unknown>): string[][] {
+  const tokens = commandTokens(params);
+  const candidates = [tokens];
+  const unwrapped = unwrapSimpleShellCommand(tokens);
+  if (unwrapped.length) {
+    candidates.push(unwrapped);
+  }
+  return candidates;
+}
+
+function unwrapSimpleShellCommand(tokens: string[]): string[] {
+  const command = normalizedCommandName(tokens[0] ?? "");
+  if (command === "powershell" || command === "pwsh") {
+    const index = tokens.findIndex((token) => {
+      const lower = token.toLowerCase();
+      return lower === "-command" || lower === "-commandstring" || lower === "-c";
+    });
+    if (index >= 0 && tokens[index + 1]) {
+      return tokenizeCommandText(tokens.slice(index + 1).join(" "));
+    }
+  }
+  if (command === "cmd") {
+    const index = tokens.findIndex((token) => token.toLowerCase() === "/c");
+    if (index >= 0 && tokens[index + 1]) {
+      return tokenizeCommandText(tokens.slice(index + 1).join(" "));
+    }
+  }
+  return [];
+}
+
+function tokenizeCommandText(text: string): string[] {
+  return text.match(/"[^"]+"|'[^']+'|\S+/g)?.map((token) => token.replace(/^['"]|['"]$/g, "")) ?? [];
+}
+
+function commandTokens(params: Record<string, unknown>): string[] {
+  const command = params.command;
+  if (Array.isArray(command)) {
+    return command.map(String);
+  }
+  const text = commandDisplayFromParams(params) ?? "";
+  return tokenizeCommandText(text);
+}
+
+function targetsProtectedTaskkill(
+  tokens: string[],
+  commandText: string,
+  protectedProcess: ProtectedProcessIdentity,
+): boolean {
+  const lowerTokens = tokens.map((token) => token.toLowerCase());
+  if (!lowerTokens.includes("taskkill") && !/(\b|\\)taskkill(\.exe)?\b/i.test(commandText)) {
+    return false;
+  }
+  const protectedPid = String(protectedProcess.pid);
+  const protectedImage = pathBasenameLower(protectedProcess.execPath);
+  for (let index = 0; index < lowerTokens.length; index += 1) {
+    const token = lowerTokens[index];
+    const next = lowerTokens[index + 1] ?? "";
+    if ((token === "/pid" || token === "-pid") && next === protectedPid) {
+      return true;
+    }
+    if ((token === "/im" || token === "-im") && normalizeProcessName(next) === normalizeProcessName(protectedImage)) {
+      return true;
+    }
+  }
+  return new RegExp(`(?:/pid|-pid)\\s+${escapeRegExp(protectedPid)}\\b`, "i").test(commandText) ||
+    new RegExp(`(?:/im|-im)\\s+["']?${escapeRegExp(protectedImage)}["']?\\b`, "i").test(commandText);
+}
+
+function targetsProtectedStopProcess(
+  tokens: string[],
+  commandText: string,
+  protectedProcess: ProtectedProcessIdentity,
+): boolean {
+  const lowerTokens = tokens.map((token) => token.toLowerCase());
+  if (!lowerTokens.includes("stop-process") && !/\bstop-process\b/i.test(commandText)) {
+    return false;
+  }
+  const protectedPid = String(protectedProcess.pid);
+  const protectedImage = pathBasenameLower(protectedProcess.execPath);
+  const protectedName = normalizeProcessName(protectedImage);
+  for (let index = 0; index < lowerTokens.length; index += 1) {
+    const token = lowerTokens[index];
+    const next = lowerTokens[index + 1] ?? "";
+    if ((token === "-id" || token === "id") && next === protectedPid) {
+      return true;
+    }
+    if ((token === "-name" || token === "name") && normalizeProcessName(next) === protectedName) {
+      return true;
+    }
+  }
+  return new RegExp(`(?:-id|\\bid\\b)\\s+${escapeRegExp(protectedPid)}\\b`, "i").test(commandText) ||
+    new RegExp(`(?:-name|\\bname\\b)\\s+["']?${escapeRegExp(protectedName)}(?:\\.exe)?["']?\\b`, "i").test(commandText);
+}
+
+function pathBasenameLower(value: string): string {
+  return value.split(/[\\/]/).pop()?.toLowerCase() ?? value.toLowerCase();
+}
+
+function normalizeProcessName(value: string): string {
+  return value.toLowerCase().replace(/\.exe$/i, "");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 interface NormalizedServerRequestOwnership {

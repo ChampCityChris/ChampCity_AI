@@ -6,7 +6,9 @@ import type {
   CodexImplementerExecutionKind,
   CodexImplementerExecutionState,
   CodexApprovalTelemetryModel,
+  CodexApprovalResponse,
   CodexMcpElicitationResponse,
+  CodexPendingApprovalModel,
   CodexPendingUserInputModel,
   CodexPendingMcpElicitationModel,
   CodexRuntimeStateModel,
@@ -56,6 +58,7 @@ const finalReportReadDelayMs = 25;
 export interface CodexThreadAdapter {
   readonly id: string | null;
   runStreamed(input: string, options?: CodexAppServerTurnOptions): Promise<{ events: AsyncIterable<CodexAppServerThreadEvent> }>;
+  respondToApproval?(requestId: string, decision: Omit<CodexApprovalResponse, "requestId">): Promise<void>;
   respondToUserInput?(requestId: string, answers: Record<string, string[]>): Promise<void>;
   respondToMcpElicitation?(requestId: string, response: Omit<CodexMcpElicitationResponse, "requestId">): Promise<void>;
   interrupt?(): Promise<void>;
@@ -98,6 +101,7 @@ interface SessionRecord extends ExecutionContext {
   approvalTail: CodexApprovalTelemetryModel[];
   runtimeDenialTail: string[];
   runtimeState: CodexRuntimeStateModel | null;
+  pendingApproval: CodexPendingApprovalModel | null;
   pendingUserInput: CodexPendingUserInputModel | null;
   pendingMcpElicitation: CodexPendingMcpElicitationModel | null;
   failureReason: string | null;
@@ -265,7 +269,10 @@ export class CodexImplementerExecutionService {
       );
     }
 
-    const executionPolicy = this.policyResolver();
+    const executionPolicy = this.policyResolver({
+      executionKind: "work-card-implementation",
+      workspaceRoot: context.projectRoot,
+    });
     const abortController = new AbortController();
     const session: SessionRecord = {
       ...context,
@@ -281,6 +288,7 @@ export class CodexImplementerExecutionService {
       approvalTail: [],
       runtimeDenialTail: [],
       runtimeState: appServer.getRuntimeState?.() ?? null,
+      pendingApproval: null,
       pendingUserInput: null,
       pendingMcpElicitation: null,
       failureReason: null,
@@ -342,7 +350,10 @@ export class CodexImplementerExecutionService {
       );
     }
 
-    const executionPolicy = this.policyResolver();
+    const executionPolicy = this.policyResolver({
+      executionKind: "environment-resolution",
+      workspaceRoot: context.projectRoot,
+    });
     const abortController = new AbortController();
     const session: SessionRecord = {
       ...context,
@@ -358,6 +369,7 @@ export class CodexImplementerExecutionService {
       approvalTail: [],
       runtimeDenialTail: [],
       runtimeState: appServer.getRuntimeState?.() ?? null,
+      pendingApproval: null,
       pendingUserInput: null,
       pendingMcpElicitation: null,
       failureReason: null,
@@ -412,6 +424,46 @@ export class CodexImplementerExecutionService {
     await responder.call(active.threadAdapter, requestId, answers);
     appendTail(active.eventTail, `request_user_input.answered ${requestId}`);
     active.pendingUserInput = null;
+    return modelFromSession(active, this.now(), {
+      canRunAgain: false,
+      retryBlocker: "Codex execution is already running for this workspace.",
+    });
+  }
+
+  async respondToApproval(
+    workspaceRoot: string,
+    requestId: string,
+    decision: CodexApprovalResponse["decision"],
+  ): Promise<CodexImplementerExecutionModel> {
+    const key = workspaceKey(workspaceRoot);
+    const active = this.sessionsByWorkspaceRoot.get(key);
+    if (!active || active.state !== "running") {
+      const status = await this.getStatus(workspaceRoot);
+      return {
+        ...status,
+        failureReason: "No Codex execution is waiting for approval in the selected workspace.",
+      };
+    }
+    if (!active.pendingApproval || active.pendingApproval.requestId !== requestId) {
+      return {
+        ...modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: "Codex execution is already running for this workspace.",
+        }),
+        failureReason: "The Codex approval request is no longer pending for this run.",
+      };
+    }
+    const responder = active.threadAdapter?.respondToApproval;
+    if (!responder) {
+      active.failureReason = "Current Codex runtime does not support responding to approval requests.";
+      return modelFromSession(active, this.now(), {
+        canRunAgain: false,
+        retryBlocker: "Codex execution is already running for this workspace.",
+      });
+    }
+    await responder.call(active.threadAdapter, requestId, { decision });
+    appendTail(active.eventTail, `approval.${decision}.answered ${requestId}`);
+    active.pendingApproval = null;
     return modelFromSession(active, this.now(), {
       canRunAgain: false,
       retryBlocker: "Codex execution is already running for this workspace.",
@@ -520,6 +572,9 @@ export class CodexImplementerExecutionService {
         workingDirectory: session.projectRoot,
         skipGitRepoCheck: true,
         ...threadOptionsFromCodexImplementerPolicy(session.executionPolicy),
+        writableRoots: session.executionPolicy.sandboxMode === "workspace-write"
+          ? [session.projectRoot]
+          : undefined,
       });
       session.threadAdapter = thread;
       session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
@@ -533,9 +588,16 @@ export class CodexImplementerExecutionService {
           appendTail(session.finalResponseTail, String(event.item.text));
         }
         if (event.type === "approval.completed" || event.type === "approval.requested") {
-          session.approvalTail.push(event.approval);
-          while (session.approvalTail.length > maxTailItems) {
-            session.approvalTail.shift();
+          if (event.type === "approval.completed") {
+            session.approvalTail.push(event.approval);
+            while (session.approvalTail.length > maxTailItems) {
+              session.approvalTail.shift();
+            }
+            if (session.pendingApproval?.requestId === event.approval.requestId) {
+              session.pendingApproval = null;
+            }
+          } else {
+            session.pendingApproval = event.approval;
           }
         }
         if (event.type === "runtime.denial") {
@@ -576,6 +638,7 @@ export class CodexImplementerExecutionService {
       }
     } finally {
       session.abortController = null;
+      session.pendingApproval = null;
       session.pendingUserInput = null;
       session.pendingMcpElicitation = null;
       session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
@@ -1023,6 +1086,7 @@ function baseModel(projectRoot: string | null): CodexImplementerExecutionModel {
     runtimeState: null,
     pendingUserInput: null,
     pendingMcpElicitation: null,
+    pendingApproval: null,
     reportUpdated: false,
     reportSha256After: null,
     developmentEnvironmentPreflight: null,
@@ -1072,6 +1136,7 @@ function modelFromSession(
     approvalTail: [...session.approvalTail],
     runtimeDenialTail: [...session.runtimeDenialTail],
     runtimeState: session.runtimeState,
+    pendingApproval: session.pendingApproval,
     pendingUserInput: session.pendingUserInput,
     pendingMcpElicitation: session.pendingMcpElicitation,
     failureReason: session.failureReason,
@@ -1284,7 +1349,7 @@ function summarizeEvent(event: CodexAppServerThreadEvent): string {
     case "item.completed":
       return `${event.type} ${summarizeItem(event.item)}`;
     case "approval.requested":
-      return `approval.${event.approval.type}.${event.approval.decision}.pending ${event.approval.requestId}`;
+      return `approval.${event.approval.type}.pending ${event.approval.requestId}`;
     case "approval.completed":
       return `approval.${event.approval.type}.${event.approval.decision}.${event.approval.completed ? "completed" : "pending"} ${event.approval.requestId}`;
     case "runtime.denial":

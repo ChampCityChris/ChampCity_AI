@@ -495,6 +495,10 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(formalPrompt, /existing authoritative evidence\n→ authorized application action\n→ required state transition\n→ persistence or rendering result\n→ Operator-visible outcome/);
   assert.match(formalPrompt, /Acceptance Criteria prove the actual production path/);
   assert.match(formalPrompt, /Require positive and negative proof, state before and after the action, final repository bytes or rendered projection, failure handling, retry behavior when relevant, and downstream readiness/);
+  assert.match(formalPrompt, /Tests are evidence of the Work Card objective, not independent product authority/);
+  assert.match(formalPrompt, /smallest practical boundary relevant to the behavior owned by this Work Card/);
+  assert.match(formalPrompt, /Do not make an entire multi-domain test file or broad suite an all-or-nothing acceptance gate/);
+  assert.match(formalPrompt, /demonstrated unrelated or pre-existing failure/);
   assert.match(formalPrompt, /Manual Validation contains only visual, interactive, timing-sensitive, or embedded-browser checks that require the running product/);
   assert.match(formalPrompt, /call artifact_toolbox\.write_markdown_artifact exactly once/);
   assert.equal(formalActionBlocks.length, 1);

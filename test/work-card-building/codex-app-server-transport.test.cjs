@@ -17,10 +17,11 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
   const thread = transport.startThread({
     workingDirectory: "<PROJECT_REPO>",
     skipGitRepoCheck: true,
-    sandboxMode: "danger-full-access",
+    sandboxMode: "workspace-write",
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
     networkAccessEnabled: true,
+    writableRoots: ["<PROJECT_REPO>"],
   });
   const streamed = await thread.runStreamed("Implement the approved Work Card.");
   const iterator = streamed.events[Symbol.asyncIterator]();
@@ -28,9 +29,12 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
   assert.deepEqual((await iterator.next()).value, { type: "turn.started" });
   assert.equal(fake.lastRequest("thread/start").params.approvalPolicy, "on-request");
   assert.equal(fake.lastRequest("thread/start").params.approvalsReviewer, "user");
+  assert.equal(fake.lastRequest("thread/start").params.sandbox, "workspace-write");
   assert.equal(fake.lastRequest("thread/start").params.cwd, "<PROJECT_REPO>");
   assert.equal(fake.lastRequest("thread/start").params.serviceName, "ChampCity A/I");
-  assert.equal(fake.lastRequest("turn/start").params.sandboxPolicy.type, "dangerFullAccess");
+  assert.equal(fake.lastRequest("turn/start").params.sandboxPolicy.type, "workspaceWrite");
+  assert.deepEqual(fake.lastRequest("turn/start").params.sandboxPolicy.writableRoots, ["<PROJECT_REPO>"]);
+  assert.equal(fake.lastRequest("turn/start").params.sandboxPolicy.networkAccess, true);
   assert.equal(fake.lastRequest("turn/start").params.threadId, "thread-1");
   assert.deepEqual(fake.lastRequest("turn/start").params.input, [{
     type: "text",
@@ -48,14 +52,12 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
     },
     "server-approval-1",
   );
-  const approvalEvent = (await iterator.next()).value;
-  const approvalResponse = await approvalResponsePromise;
-
-  assert.equal(approvalEvent.type, "approval.completed");
-  assert.equal(approvalEvent.approval.type, "command");
-  assert.equal(approvalEvent.approval.decision, "accept");
-  assert.equal(approvalEvent.approval.completed, true);
-  assert.deepEqual(approvalResponse.result, { decision: "accept" });
+  await assertAutoApproval(iterator, approvalResponsePromise, {
+    requestId: "server-approval-1",
+    type: "command",
+    decision: "accept",
+    result: { decision: "accept" },
+  });
 
   const fileApprovalResponsePromise = fake.requestClient(
     "item/fileChange/requestApproval",
@@ -67,14 +69,12 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
     },
     "server-file-approval-1",
   );
-  const fileApprovalEvent = (await iterator.next()).value;
-  const fileApprovalResponse = await fileApprovalResponsePromise;
-
-  assert.equal(fileApprovalEvent.type, "approval.completed");
-  assert.equal(fileApprovalEvent.approval.type, "file-change");
-  assert.equal(fileApprovalEvent.approval.decision, "accept");
-  assert.equal(fileApprovalEvent.approval.completed, true);
-  assert.deepEqual(fileApprovalResponse.result, { decision: "accept" });
+  await assertAutoApproval(iterator, fileApprovalResponsePromise, {
+    requestId: "server-file-approval-1",
+    type: "file-change",
+    decision: "accept",
+    result: { decision: "accept" },
+  });
 
   const legacyApprovalResponsePromise = fake.requestClient(
     "applyPatchApproval",
@@ -85,17 +85,12 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
     },
     "server-legacy-approval-1",
   );
-  const legacyApprovalEvent = (await iterator.next()).value;
-  const legacyApprovalResponse = await legacyApprovalResponsePromise;
-
-  assert.equal(legacyApprovalEvent.type, "approval.completed");
-  assert.equal(legacyApprovalEvent.approval.type, "file-change");
-  assert.equal(legacyApprovalEvent.approval.threadId, "thread-1");
-  assert.equal(legacyApprovalEvent.approval.turnId, "turn-1");
-  assert.equal(legacyApprovalEvent.approval.itemId, "legacy-patch-1");
-  assert.equal(legacyApprovalEvent.approval.decision, "approved");
-  assert.equal(legacyApprovalEvent.approval.completed, true);
-  assert.deepEqual(legacyApprovalResponse.result, { decision: "approved" });
+  await assertAutoApproval(iterator, legacyApprovalResponsePromise, {
+    requestId: "server-legacy-approval-1",
+    type: "file-change",
+    decision: "approved",
+    result: { decision: "approved" },
+  });
 
   const legacyExecApprovalResponsePromise = fake.requestClient(
     "execCommandApproval",
@@ -107,16 +102,12 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
     },
     "server-legacy-command-approval-1",
   );
-  const legacyExecApprovalEvent = (await iterator.next()).value;
-  const legacyExecApprovalResponse = await legacyExecApprovalResponsePromise;
-
-  assert.equal(legacyExecApprovalEvent.type, "approval.completed");
-  assert.equal(legacyExecApprovalEvent.approval.type, "command");
-  assert.equal(legacyExecApprovalEvent.approval.threadId, "thread-1");
-  assert.equal(legacyExecApprovalEvent.approval.turnId, "turn-1");
-  assert.equal(legacyExecApprovalEvent.approval.itemId, "legacy-command-1");
-  assert.equal(legacyExecApprovalEvent.approval.decision, "approved");
-  assert.deepEqual(legacyExecApprovalResponse.result, { decision: "approved" });
+  await assertAutoApproval(iterator, legacyExecApprovalResponsePromise, {
+    requestId: "server-legacy-command-approval-1",
+    type: "command",
+    decision: "approved",
+    result: { decision: "approved" },
+  });
 
   const permissionApprovalResponsePromise = fake.requestClient(
     "item/permissions/requestApproval",
@@ -131,19 +122,17 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
     },
     "server-permission-approval-1",
   );
-  const permissionApprovalEvent = (await iterator.next()).value;
-  const permissionApprovalResponse = await permissionApprovalResponsePromise;
-
-  assert.equal(permissionApprovalEvent.type, "approval.completed");
-  assert.equal(permissionApprovalEvent.approval.type, "permission");
-  assert.equal(permissionApprovalEvent.approval.decision, "grant-turn");
-  assert.equal(permissionApprovalEvent.approval.completed, true);
-  assert.deepEqual(permissionApprovalResponse.result, {
+  await assertAutoApproval(iterator, permissionApprovalResponsePromise, {
+    requestId: "server-permission-approval-1",
+    type: "permission",
+    decision: "grant-turn",
+    result: {
     permissions: {
       network: { targets: ["https://example.test"] },
       fileSystem: { entries: [] },
     },
     scope: "turn",
+    },
   });
 
   const foreignApprovalResponse = await fake.requestClient(
@@ -336,6 +325,253 @@ test("App Server transport preserves bounded capability identities and web tool 
   await transport.dispose();
 });
 
+test("App Server transport hard-denies protected ChampCity termination commands", async () => {
+  const cases = [
+    {
+      name: "taskkill protected pid",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "kill-pid", command: ["taskkill", "/PID", "4321", "/F"] },
+    },
+    {
+      name: "taskkill protected image",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "kill-image", command: ["taskkill", "/IM", "ChampCity.exe", "/F"] },
+    },
+    {
+      name: "Stop-Process protected pid",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "stop-pid", command: ["Stop-Process", "-Id", "4321"] },
+    },
+    {
+      name: "Stop-Process protected name",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "stop-name", command: ["Stop-Process", "-Name", "ChampCity"] },
+    },
+  ];
+
+  for (const current of cases) {
+    const fake = createFakeAppServerProcess();
+    const transport = new JsonlCodexAppServerTransport(() => fake.child, {
+      protectedProcess: { pid: 4321, execPath: "ChampCity.exe" },
+    });
+
+    await transport.initialize();
+    const thread = transport.startThread({ workingDirectory: "<PROJECT_REPO>" });
+    const streamed = await thread.runStreamed(`Protected command: ${current.name}`);
+    const iterator = streamed.events[Symbol.asyncIterator]();
+
+    assert.deepEqual((await iterator.next()).value, { type: "turn.started" });
+    const responsePromise = fake.requestClient(current.method, current.params, `server-${current.name}`);
+    const denialEvent = (await iterator.next()).value;
+    const approvalEvent = (await iterator.next()).value;
+    const response = await responsePromise;
+
+    assert.equal(denialEvent.type, "runtime.denial");
+    assert.match(denialEvent.message, /terminate the active ChampCity A\/I application/);
+    assert.equal(approvalEvent.type, "approval.completed");
+    assert.equal(approvalEvent.approval.type, "command");
+    assert.equal(approvalEvent.approval.decision, "reject");
+    assert.deepEqual(response.result, { decision: "reject" });
+
+    fake.notify("turn/completed", { threadId: "thread-1" });
+    assert.deepEqual((await iterator.next()).value, { type: "turn.completed" });
+    await transport.dispose();
+  }
+});
+
+test("App Server transport auto-resolves representative routine implementation approvals", async () => {
+  const cases = [
+    {
+      name: "live wrapped npm build string",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "live-build", command: "powershell.exe -Command 'npm run build'" },
+      expectedType: "command",
+      expectedDecision: "accept",
+      expectedResult: { decision: "accept" },
+    },
+    {
+      name: "wrapped npm build",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "build", command: ["powershell.exe", "-Command", "npm run build"] },
+      expectedType: "command",
+      expectedDecision: "accept",
+      expectedResult: { decision: "accept" },
+    },
+    {
+      name: "npm test",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "test", command: ["npm", "test"] },
+      expectedType: "command",
+      expectedDecision: "accept",
+      expectedResult: { decision: "accept" },
+    },
+    {
+      name: "npm ci",
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "ci", command: ["npm", "ci"] },
+      expectedType: "command",
+      expectedDecision: "accept",
+      expectedResult: { decision: "accept" },
+    },
+    {
+      name: "ordinary file change",
+      method: "item/fileChange/requestApproval",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "file", changes: [{ path: "src/main/example.ts" }] },
+      expectedType: "file-change",
+      expectedDecision: "accept",
+      expectedResult: { decision: "accept" },
+    },
+    {
+      name: "ordinary permission",
+      method: "item/permissions/requestApproval",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        itemId: "permission",
+        permissions: {
+          network: { targets: ["https://registry.npmjs.org"] },
+          fileSystem: { entries: [{ path: "<PROJECT_REPO>/dist" }] },
+        },
+      },
+      expectedType: "permission",
+      expectedDecision: "grant-turn",
+      expectedResult: {
+        permissions: {
+          network: { targets: ["https://registry.npmjs.org"] },
+          fileSystem: { entries: [{ path: "<PROJECT_REPO>/dist" }] },
+        },
+        scope: "turn",
+      },
+    },
+  ];
+
+  for (const current of cases) {
+    const { transport, iterator, responsePromise } = await captureServerRequest({
+      method: current.method,
+      params: current.params,
+      requestId: `server-${current.name}`,
+    });
+
+    await assertAutoApproval(iterator, responsePromise, {
+      requestId: `server-${current.name}`,
+      type: current.expectedType,
+      decision: current.expectedDecision,
+      result: current.expectedResult,
+    });
+    await transport.dispose();
+  }
+});
+
+test("App Server transport auto-resolves non-protected process termination", async () => {
+  const cases = [
+    {
+      name: "taskkill other pid",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "kill-other", command: ["taskkill", "/PID", "9876", "/F"] },
+    },
+    {
+      name: "Stop-Process other name",
+      params: { threadId: "thread-1", turnId: "turn-1", itemId: "stop-other", command: ["Stop-Process", "-Name", "ExampleApp"] },
+    },
+  ];
+
+  for (const current of cases) {
+    const { transport, iterator, responsePromise } = await captureServerRequest({
+      protectedProcess: { pid: 4321, execPath: "ChampCity.exe" },
+      params: current.params,
+      requestId: `server-${current.name}`,
+    });
+
+    await assertAutoApproval(iterator, responsePromise, {
+      requestId: `server-${current.name}`,
+      type: "command",
+      decision: "accept",
+      result: { decision: "accept" },
+    });
+    await transport.dispose();
+  }
+});
+
+test("App Server transport hard-denies machine shutdown restart and logoff commands", async () => {
+  const cases = [
+    { name: "shutdown restart", command: ["shutdown", "/r", "/t", "0"] },
+    { name: "shutdown power off", command: ["shutdown", "/p"] },
+    { name: "shutdown power off wrapped", command: ["cmd.exe", "/c", "shutdown /p"] },
+    { name: "shutdown abort allowed", command: ["shutdown", "/a"], allowed: true },
+    { name: "Restart-Computer", command: ["Restart-Computer"] },
+    { name: "Stop-Computer wrapped", command: ["powershell.exe", "-Command", "Stop-Computer"] },
+    { name: "logoff wrapped", command: ["cmd.exe", "/c", "logoff"] },
+  ];
+
+  for (const current of cases) {
+    const { transport, iterator, responsePromise } = await captureServerRequest({
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        itemId: current.name,
+        command: current.command,
+      },
+      requestId: `server-${current.name}`,
+    });
+
+    if (current.allowed) {
+      await assertAutoApproval(iterator, responsePromise, {
+        requestId: `server-${current.name}`,
+        type: "command",
+        decision: "accept",
+        result: { decision: "accept" },
+      });
+    } else {
+      await assertHardDenial(iterator, responsePromise, {
+        requestId: `server-${current.name}`,
+        reason: /restart, shut down, or log off/,
+      });
+    }
+    await transport.dispose();
+  }
+});
+
+test("App Server transport hard-denies Windows service stop restart and disable commands", async () => {
+  const cases = [
+    { name: "Stop-Service", command: ["Stop-Service", "Spooler"] },
+    { name: "Restart-Service", command: ["Restart-Service", "Spooler"] },
+    { name: "Set-Service disabled", command: ["Set-Service", "Spooler", "-StartupType", "Disabled"] },
+    { name: "Set-Service stopped", command: ["Set-Service", "Spooler", "-Status", "Stopped"] },
+    { name: "Set-Service stopped wrapped", command: ["powershell.exe", "-Command", "Set-Service Spooler -Status Stopped"] },
+    { name: "sc stop", command: ["sc.exe", "stop", "Spooler"] },
+    { name: "sc config disabled", command: ["sc.exe", "config", "Spooler", "start=", "disabled"] },
+    { name: "net stop wrapped", command: ["cmd.exe", "/c", "net stop Spooler"] },
+    { name: "Get-Service allowed", command: ["Get-Service", "Spooler"], allowed: true },
+    { name: "sc query allowed", command: ["sc.exe", "query", "Spooler"], allowed: true },
+  ];
+
+  for (const current of cases) {
+    const { transport, iterator, responsePromise } = await captureServerRequest({
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        itemId: current.name,
+        command: current.command,
+      },
+      requestId: `server-${current.name}`,
+    });
+
+    if (current.allowed) {
+      await assertAutoApproval(iterator, responsePromise, {
+        requestId: `server-${current.name}`,
+        type: "command",
+        decision: "accept",
+        result: { decision: "accept" },
+      });
+    } else {
+      await assertHardDenial(iterator, responsePromise, {
+        requestId: `server-${current.name}`,
+        reason: /stop, restart, or disable a Windows service/,
+      });
+    }
+    await transport.dispose();
+  }
+});
+
 test("App Server transport reports benign stderr without runtime denial telemetry", async () => {
   const fake = createFakeAppServerProcess();
   const transport = new JsonlCodexAppServerTransport(() => fake.child);
@@ -431,6 +667,57 @@ test("App Server runtime environment inherits non-allowlisted variables and Code
   assert.equal(env.CHAMPCITY_NON_ALLOWLISTED_MARKER, "kept");
 });
 
+async function captureServerRequest({
+  method = "item/commandExecution/requestApproval",
+  params,
+  protectedProcess,
+  requestId,
+}) {
+  const fake = createFakeAppServerProcess();
+  const transport = new JsonlCodexAppServerTransport(() => fake.child, protectedProcess ? { protectedProcess } : undefined);
+
+  await transport.initialize();
+  const thread = transport.startThread({ workingDirectory: "<PROJECT_REPO>" });
+  const streamed = await thread.runStreamed("Capture approval.");
+  const iterator = streamed.events[Symbol.asyncIterator]();
+
+  assert.deepEqual((await iterator.next()).value, { type: "turn.started" });
+  const responsePromise = fake.requestClient(method, params, requestId);
+  return {
+    iterator,
+    responsePromise,
+    thread,
+    transport,
+  };
+}
+
+async function assertAutoApproval(iterator, responsePromise, expected) {
+  const event = (await iterator.next()).value;
+  const response = await responsePromise;
+
+  assert.equal(event.type, "approval.completed");
+  assert.equal(event.approval.requestId, expected.requestId);
+  assert.equal(event.approval.type, expected.type);
+  assert.equal(event.approval.decision, expected.decision);
+  assert.equal(event.approval.completed, true);
+  assert.deepEqual(response.result, expected.result);
+}
+
+async function assertHardDenial(iterator, responsePromise, expected) {
+  const denialEvent = (await iterator.next()).value;
+  const completedEvent = (await iterator.next()).value;
+  const response = await responsePromise;
+
+  assert.equal(denialEvent.type, "runtime.denial");
+  assert.match(denialEvent.message, expected.reason);
+  assert.equal(completedEvent.type, "approval.completed");
+  assert.equal(completedEvent.approval.requestId, expected.requestId);
+  assert.equal(completedEvent.approval.type, "command");
+  assert.equal(completedEvent.approval.decision, "reject");
+  assert.equal(completedEvent.approval.completed, true);
+  assert.deepEqual(response.result, { decision: "reject" });
+}
+
 function createFakeAppServerProcess(options = {}) {
   const stdin = new PassThrough();
   const stdout = new PassThrough();
@@ -498,7 +785,7 @@ function createFakeAppServerProcess(options = {}) {
           reasoningEffort: "high",
           approvalPolicy: "on-request",
           approvalsReviewer: "user",
-          sandbox: "danger-full-access",
+          sandbox: message.params.sandbox,
         });
         return;
       case "turn/start":

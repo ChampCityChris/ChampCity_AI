@@ -1,4 +1,6 @@
-export type CodexImplementerSandboxMode = "danger-full-access";
+import type { CodexImplementerExecutionKind } from "../../shared/workspaceContracts";
+
+export type CodexImplementerSandboxMode = "danger-full-access" | "workspace-write";
 export type CodexImplementerApprovalPolicy = "on-request";
 export type CodexImplementerApprovalsReviewer = "user";
 
@@ -9,11 +11,19 @@ export interface CodexImplementerExecutionPolicy {
   networkAccessEnabled: boolean;
 }
 
-export type CodexImplementerExecutionPolicyResolver = () => CodexImplementerExecutionPolicy;
+export type CodexImplementerExecutionPolicyResolver = (input: {
+  executionKind: CodexImplementerExecutionKind;
+  workspaceRoot: string;
+}) => CodexImplementerExecutionPolicy;
 
-export function resolveDefaultCodexImplementerExecutionPolicy(): CodexImplementerExecutionPolicy {
+export function resolveDefaultCodexImplementerExecutionPolicy(input: {
+  executionKind: CodexImplementerExecutionKind;
+  workspaceRoot: string;
+}): CodexImplementerExecutionPolicy {
   return {
-    sandboxMode: "danger-full-access",
+    sandboxMode: input.executionKind === "environment-resolution"
+      ? "danger-full-access"
+      : "workspace-write",
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
     networkAccessEnabled: true,

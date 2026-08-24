@@ -49,7 +49,7 @@ export interface CodexAppServerThreadStartParams {
   cwd?: string | null;
   approvalPolicy?: "on-request" | null;
   approvalsReviewer?: "user" | null;
-  sandbox?: "danger-full-access" | null;
+  sandbox?: "danger-full-access" | "workspace-write" | null;
   serviceName?: string | null;
   ephemeral?: boolean | null;
 }
@@ -112,15 +112,15 @@ export interface CodexAppServerMcpElicitationRequestResponse {
 }
 
 export type CodexAppServerLegacyApprovalResponse = {
-  decision: "approved";
+  decision: "approved" | "denied";
 };
 
 export type CodexAppServerCommandApprovalResponse = {
-  decision: "accept";
+  decision: "accept" | "reject";
 };
 
 export type CodexAppServerFileChangeApprovalResponse = {
-  decision: "accept";
+  decision: "accept" | "reject";
 };
 
 export type CodexAppServerPermissionsApprovalResponse = {
