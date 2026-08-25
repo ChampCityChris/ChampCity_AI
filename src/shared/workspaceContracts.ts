@@ -11,6 +11,14 @@ import type { DocumentDispositionStatus } from "./documents/documentDisposition"
 import type {
   DevelopmentEnvironmentPreflightResult,
 } from "./developmentEnvironmentContracts";
+import type {
+  CreateIssueResult,
+  IssueArchitectPlanningActionResult,
+  IssueArchitectPlanningProjection,
+  IssueArchitectReviewInput,
+  IssueInventoryProjection,
+  NewIssueInput,
+} from "./issueResolutionContracts";
 import {
   createWorkspaceRegistry,
   type WorkspaceDefinition,
@@ -1049,6 +1057,13 @@ export interface ChampCityApi {
   previewWorkspaceMigration: () => Promise<WorkspaceMigrationPreview>;
   applyWorkspaceMigration: () => Promise<WorkspaceMigrationResult>;
   resolveCurrentDocument: () => Promise<FirstNonApprovedResult>;
+  discoverIssueInventory: () => Promise<IssueInventoryProjection>;
+  createLightweightIssueRecord: (input: NewIssueInput) => Promise<CreateIssueResult>;
+  getIssueArchitectPlanningProjection: (issueId: string | null) => Promise<IssueArchitectPlanningProjection>;
+  prepareIssueArchitectPlanningHandoff: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
+  copyIssueArchitectPlanningHandoff: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
+  promoteIssueArchitectPlanningDraft: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
+  applyIssueArchitectReview: (issueId: string, input: IssueArchitectReviewInput) => Promise<IssueArchitectPlanningActionResult>;
   submitProjectIntake: (
     submission: ProjectIntakeSubmission,
   ) => Promise<ProjectIntakeSubmissionResult>;

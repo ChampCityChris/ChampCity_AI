@@ -6,7 +6,7 @@ This plan decomposes `ISSUE_001` into bounded implementation units beneath the s
 
 The cards are ordered by natural implementation sequence. This is not a new multi-phase hierarchy and must not introduce artificial approval gates between cards. Each card preserves completed prior behavior and returns to the Issue workflow.
 
-Operator approved this seven-card decomposition on 2026-08-24.
+The initial seven-card decomposition was approved on 2026-08-24. It was subsequently corrected during design review to make Fix Card Validation, Repair, and Close/Next explicit rather than collapsing them into Issue-level Validation/Close.
 
 ## Fix Card 01 — Workflow Hub Shell and Development Entry
 
@@ -45,6 +45,8 @@ Required outcome:
 - Issue Intake can create or present an `ISSUE_RECORD.md` under the selected Issue directory;
 - discovery context may reference Development but does not create Phase/Work Card parentage;
 - Issue workflow navigation is distinct from the Development `NestedWorkflowRail`;
+- the Issue rail represents the parent lifecycle `Intake → Architect Planning → Issue Planning → Fix Cards → Issue Validation → Issue Close`;
+- the navigation architecture reserves a nested Fix Card loop beneath `Fix Cards` with distinct `Fix Card Validation`, `Repair`, and `Close / Next` steps rather than collapsing them into Issue Validation;
 - returning to Hub or Development preserves both workflow states.
 
 Keep the initial Issue surface small. Do not build ticket queues, assignment, severity matrices, or generic issue-management features.
@@ -60,9 +62,12 @@ Required outcome:
 - current Issue Record is the Architect Planning source;
 - Browser GPT Architect handoff/prompt is generated from the selected project and Issue evidence;
 - Architect inspects the relevant repository/runtime path through the existing MCP workspace authority;
-- output records confirmation/rejection, root cause, affected architecture, preservation requirements, and correction direction;
+- output records whether the project problem is supported, root cause, affected architecture, preservation requirements, correction direction, and an explicit recommendation to proceed in Issue Resolution, reframe because the work is genuinely broader/new planned product work, or stop because the problem is unsupported;
+- Issue Resolution remains valid for bounded UX/design deficiencies, configuration/environment problems, documentation problems, code defects, and missing bounded capabilities; absence of a software defect alone does not force reframe to Development;
 - application owns the final Issue Architect Planning artifact under the current Issue directory;
-- material Operator choices may be handled conversationally, but ordinary architectural judgment does not create unnecessary approval gates;
+- the final Architect Investigation receives the normal Operator disposition/review needed to advance or request revision; this is the workflow authority point, not an extra Architect question/approval layer;
+- the selected Issue exposes a clear current stage/state projection so the Operator can see its progress independently of other open Issues;
+- material Operator choices may be handled conversationally, but ordinary architectural judgment does not create unnecessary question gates;
 - no Phase or current Development Work Card is required to complete Architect Planning.
 
 For the bootstrap run, `ARCHITECT_INVESTIGATION.md` represents the intended output shape.
@@ -85,28 +90,65 @@ Required outcome:
 
 For the bootstrap run, `ISSUE_RESOLUTION_PLAN.md` and this `FIX_CARD_PLAN.md` represent the intended output shape.
 
-## Fix Card 05 — Fix Card Build / Review / Validation Loop Reuse
+## Fix Card 05 — Fix Card Planning, Implement, and Architect Review Reuse
 
 **ID:** `ISSUE_001-FC05`
 
-**Purpose:** Reuse the existing Development implementation machinery for Issue-domain Fix Cards without creating a second coding pipeline.
+**Purpose:** Reuse the existing Development implementation machinery for Issue-domain Fix Cards through planning, implementation, Implementer Report production, and advisory Architect review without creating a second coding pipeline.
 
 Required outcome:
 
+- a Fix Card Map candidate can enter a bounded Fix Card Planning workspace and produce an approved `fix-card` implementation contract;
 - implementation contract identity can represent `fix-card` in addition to existing `formal-work-card` and `repair-work-card` semantics where appropriate;
 - Fix Card paths and report paths resolve under the owning `issues/ISSUE_xxx` directory rather than requiring `planning/phases/...`;
 - Fix Cards can use the existing Codex App Server implementation path and future Browser Implementer path;
-- Implementer Report creation/review is reused with Issue/Fix Card identity instead of requiring a Development `phaseId` parent;
-- advisory Architect review and Operator validation work for a current Fix Card;
-- a defective Fix Card implementation can create a Repair Card subordinate to that Fix Card;
+- Implementer Report creation/presentation is reused with Issue/Fix Card identity instead of requiring a Development `phaseId` parent;
+- advisory Architect review works for a current Fix Card and produces evidence for the later Fix Card Validation workspace;
 - unrelated problems discovered during Fix Card work become separate Issues rather than child repairs;
 - existing Development Formal Work Card and Repair Work Card behavior remains unchanged.
 
-This card should generalize only the seams that currently assume Development contract identity. Do not rewrite the entire Work Card subsystem into a generic workflow engine.
+This card does not own Fix Card Operator Validation, Fix Card Repair, or Fix Card Close/Next. Those are separated below to keep the implementation bounded.
 
-## Fix Card 06 — Issue Validation Workspace and Lifecycle
+## Fix Card 06 — Fix Card Validation and Repair Lifecycle
 
 **ID:** `ISSUE_001-FC06`
+
+**Purpose:** Add the individual Fix Card Operator validation point and the Repair branch for a failed/defective Fix Card implementation.
+
+Required outcome:
+
+- Issue Resolution has a distinct `Fix Card Validation` workspace separate from Issue Validation;
+- Fix Card Validation consumes the current Fix Card, Implementer Report, and Architect review evidence;
+- Operator can validate the Fix Card implementation as passed or request Repair with bounded defect evidence;
+- a failed Fix Card implementation creates a Repair Card subordinate to that Fix Card rather than a new Issue unless the observed problem is unrelated to the Fix Card implementation;
+- the Issue-specific nested Fix Card rail exposes `Repair` as a conditional workflow step;
+- Repair implementation/review/validation reuses existing machinery where semantics match and returns to the same Fix Card lifecycle;
+- successful Fix Card Validation does not itself close the Fix Card or advance to Issue Validation;
+- Development Work Card validation and Repair semantics remain unchanged.
+
+Do not build Fix Card Close/Next or Issue Validation in this card.
+
+## Fix Card 07 — Fix Card Close / Next Lifecycle
+
+**ID:** `ISSUE_001-FC07`
+
+**Purpose:** Complete the nested Fix Card loop after successful Fix Card Validation and return to the Fix Card Map for remaining planned cards.
+
+Required outcome:
+
+- Fix Card Close is reachable only from successful current Fix Card Validation evidence;
+- close records the individual Fix Card as completed without closing the parent Issue;
+- `Close / Next` returns to the Issue's Fix Card Map when planned Fix Cards remain;
+- the next planned Fix Card can then enter Fix Card Planning without creating a new Issue phase;
+- when all planned Fix Cards are closed, the parent Issue becomes eligible for Issue Validation;
+- Fix Card close does not modify Development lifecycle state;
+- Repair remains available only when the current Fix Card requires it, not as a substitute for Close.
+
+Do not build aggregate Issue Validation or Issue Close in this card.
+
+## Fix Card 08 — Issue Validation Workspace and Lifecycle
+
+**ID:** `ISSUE_001-FC08`
 
 **Purpose:** Build the Issue-level validation step above completed Fix Cards without also owning Issue closure.
 
@@ -121,9 +163,9 @@ Required outcome:
 
 Do not build Issue Close in this card.
 
-## Fix Card 07 — Issue Close Workspace and Lifecycle
+## Fix Card 09 — Issue Close Workspace and Lifecycle
 
-**ID:** `ISSUE_001-FC07`
+**ID:** `ISSUE_001-FC09`
 
 **Purpose:** Build the final Issue Close workspace and lifecycle transition after successful Issue Validation.
 
@@ -150,18 +192,22 @@ ISSUE_001-FC03  Architect Planning
         ↓
 ISSUE_001-FC04  Resolution Planning + Fix Card Map
         ↓
-ISSUE_001-FC05  Shared Fix Card implementation loop
+ISSUE_001-FC05  Fix Card Planning + Implement + Architect Review
         ↓
-ISSUE_001-FC06  Issue Validation
+ISSUE_001-FC06  Fix Card Validation + Repair
         ↓
-ISSUE_001-FC07  Issue Close
+ISSUE_001-FC07  Fix Card Close / Next
+        ↓
+ISSUE_001-FC08  Issue Validation
+        ↓
+ISSUE_001-FC09  Issue Close
 ```
 
 The order reflects implementation dependency, but prior-card completion must be established through ordinary review/validation rather than separate prerequisite-gate artifacts.
 
 ## Aggregate Issue Acceptance / Dogfood Proof
 
-The end-to-end proof is **not** another Fix Card. Once FC07 has passed its own Fix Card review and validation, `ISSUE_001` itself is completed through the newly built Issue workflow:
+The end-to-end proof is **not** another Fix Card. Once FC09 has passed its own Fix Card review and validation, `ISSUE_001` itself is completed through the newly built Issue workflow:
 
 ```text
 ISSUE_001
@@ -193,4 +239,4 @@ Across all Fix Cards, preserve:
 
 The first cards are expected to be managed manually from `issues/ISSUE_001` because the Issue Resolution workflow does not yet exist.
 
-After `ISSUE_001-FC05` establishes the shared Fix Card loop, continued ISSUE_001 work should be routed through the new application workflow whenever the application can safely do so. FC06 and FC07 should therefore be the first cards considered for execution through the newly available Issue Resolution machinery rather than through the manual bootstrap path.
+After `ISSUE_001-FC07` establishes the complete nested Fix Card loop, continued ISSUE_001 work should be routed through the new application workflow whenever the application can safely do so. FC08 and FC09 should therefore be the first cards considered for execution through the newly available Issue Resolution machinery rather than through the manual bootstrap path.

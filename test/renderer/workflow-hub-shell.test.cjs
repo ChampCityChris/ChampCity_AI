@@ -15,7 +15,7 @@ const {
 
 const repoRoot = path.join(__dirname, "..", "..");
 
-test("Workflow Hub registry exposes only the functional Development workflow", () => {
+test("Workflow Hub registry exposes only the functional peer workflows", () => {
   assert.deepEqual(
     workflowDefinitions.map(({ workflowId, label, description, tags }) => ({
       workflowId,
@@ -29,6 +29,12 @@ test("Workflow Hub registry exposes only the functional Development workflow", (
         label: "Development",
         description: "Plan, implement, review, and validate planned software development.",
         tags: ["Plan", "Build", "Prove"],
+      },
+      {
+        workflowId: "issue-resolution",
+        label: "Issue Resolution",
+        description: "Investigate and resolve problems in the current project baseline.",
+        tags: ["Investigate", "Fix", "Verify"],
       },
     ],
   );
@@ -66,7 +72,7 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub renders exactly one large Development workflow card", () => {
+test("Selected-project Hub renders exactly Development and Issue Resolution workflow cards", () => {
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenWorkflow: () => undefined,
     projectName: "ChampCity_AI",
@@ -82,7 +88,13 @@ test("Selected-project Hub renders exactly one large Development workflow card",
   assert.match(markup, /Build/);
   assert.match(markup, /Prove/);
   assert.match(markup, /Continue Development/);
-  assert.doesNotMatch(markup, /Issue Resolution|Feature|Graphic|Brainstorm/);
+  assert.match(markup, /Issue Resolution/);
+  assert.match(markup, /Investigate and resolve problems in the current project baseline\./);
+  assert.match(markup, /Investigate/);
+  assert.match(markup, /Fix/);
+  assert.match(markup, /Verify/);
+  assert.match(markup, /Open Issue Resolution/);
+  assert.doesNotMatch(markup, /Feature|Graphic|Brainstorm/);
 });
 
 test("Hub sidebar omits Development lifecycle fields while Development sidebar owns them", () => {
@@ -153,7 +165,8 @@ test("Project selection routes to Hub, while Development entry delegates to the 
   assert.doesNotMatch(activateSelectionSource, /refreshDocuments\(\{ useResolver: true \}\)/);
   assert.doesNotMatch(activateSelectionSource, /resolveCurrentDocument/);
 
-  assert.match(openWorkflowSource, /workflowId !== "development"/);
+  assert.match(openWorkflowSource, /workflowId === "issue-resolution"/);
+  assert.match(openWorkflowSource, /refreshIssueInventory\(\)/);
   assert.match(openWorkflowSource, /setShellView\("workflow"\)/);
   assert.match(openWorkflowSource, /setActiveWorkflowId\("development"\)/);
   assert.match(openWorkflowSource, /refreshDocuments\(\{ useResolver: true \}\)/);

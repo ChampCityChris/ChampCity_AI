@@ -61,6 +61,15 @@ import {
   migrateWorkspaceToCanonicalMarkdownV1,
   previewWorkspaceMigrationToCanonicalMarkdownV1,
 } from "./migrations/pairedArtifactsToCanonicalMarkdownV1";
+import {
+  applyIssueArchitectReview,
+  createLightweightIssueRecord,
+  discoverIssueInventory,
+  getIssueArchitectPlanningProjection,
+  prepareIssueArchitectPlanningHandoff,
+  promoteIssueArchitectPlanningDraft,
+  resolveIssueArchitectPlanningCopyHandoff,
+} from "./issueResolution/issueResolutionService";
 import { buildLocalRendererContextMenuTemplate } from "./contextMenu/localRendererContextMenu";
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
 import type {
@@ -89,6 +98,8 @@ import type {
   AgentHarnessSettingsInput,
   LegacyOAuthClientImportResult,
 } from "../shared/workspaceContracts";
+import type { NewIssueInput } from "../shared/issueResolutionContracts";
+import type { IssueArchitectReviewInput } from "../shared/issueResolutionContracts";
 
 const userDataRootOverride = process.env.CHAMPCITY_USER_DATA_ROOT;
 if (userDataRootOverride) {
@@ -264,6 +275,55 @@ ipcMain.handle("workspaceMigration:apply", (): WorkspaceMigrationResult => {
 ipcMain.handle("documents:resolveCurrent", () => {
   return resolveFirstNonApprovedDocument(getRequiredWorkspaceRoot());
 });
+
+ipcMain.handle("issueResolution:discoverIssues", () => {
+  return discoverIssueInventory(getRequiredWorkspaceRoot());
+});
+
+ipcMain.handle(
+  "issueResolution:createIssue",
+  (_event, input: NewIssueInput) => {
+    return createLightweightIssueRecord(getRequiredWorkspaceRoot(), input);
+  },
+);
+
+ipcMain.handle(
+  "issueResolution:getArchitectPlanning",
+  (_event, issueId: string | null) => {
+    return getIssueArchitectPlanningProjection(getRequiredWorkspaceRoot(), issueId);
+  },
+);
+
+ipcMain.handle(
+  "issueResolution:prepareArchitectHandoff",
+  (_event, issueId: string) => {
+    return prepareIssueArchitectPlanningHandoff(getRequiredWorkspaceRoot(), issueId);
+  },
+);
+
+ipcMain.handle(
+  "issueResolution:copyArchitectHandoff",
+  (_event, issueId: string) => {
+    const workspaceRoot = getRequiredWorkspaceRoot();
+    const { instruction, result } = resolveIssueArchitectPlanningCopyHandoff(workspaceRoot, issueId);
+    clipboard.writeText(instruction);
+    return result;
+  },
+);
+
+ipcMain.handle(
+  "issueResolution:promoteArchitectDraft",
+  (_event, issueId: string) => {
+    return promoteIssueArchitectPlanningDraft(getRequiredWorkspaceRoot(), issueId);
+  },
+);
+
+ipcMain.handle(
+  "issueResolution:applyArchitectReview",
+  (_event, issueId: string, input: IssueArchitectReviewInput) => {
+    return applyIssueArchitectReview(getRequiredWorkspaceRoot(), issueId, input);
+  },
+);
 
 ipcMain.handle(
   "projectIntake:submit",

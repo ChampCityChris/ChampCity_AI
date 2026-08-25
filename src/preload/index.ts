@@ -51,6 +51,41 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "documents:resolveCurrent",
     ) as ReturnType<ChampCityApi["resolveCurrentDocument"]>,
+  discoverIssueInventory: () =>
+    ipcRenderer.invoke(
+      "issueResolution:discoverIssues",
+    ) as ReturnType<ChampCityApi["discoverIssueInventory"]>,
+  createLightweightIssueRecord: (input) =>
+    ipcRenderer.invoke(
+      "issueResolution:createIssue",
+      input,
+    ) as ReturnType<ChampCityApi["createLightweightIssueRecord"]>,
+  getIssueArchitectPlanningProjection: (issueId) =>
+    ipcRenderer.invoke(
+      "issueResolution:getArchitectPlanning",
+      issueId,
+    ) as ReturnType<ChampCityApi["getIssueArchitectPlanningProjection"]>,
+  prepareIssueArchitectPlanningHandoff: (issueId) =>
+    ipcRenderer.invoke(
+      "issueResolution:prepareArchitectHandoff",
+      issueId,
+    ) as ReturnType<ChampCityApi["prepareIssueArchitectPlanningHandoff"]>,
+  copyIssueArchitectPlanningHandoff: (issueId) =>
+    ipcRenderer.invoke(
+      "issueResolution:copyArchitectHandoff",
+      issueId,
+    ) as ReturnType<ChampCityApi["copyIssueArchitectPlanningHandoff"]>,
+  promoteIssueArchitectPlanningDraft: (issueId) =>
+    ipcRenderer.invoke(
+      "issueResolution:promoteArchitectDraft",
+      issueId,
+    ) as ReturnType<ChampCityApi["promoteIssueArchitectPlanningDraft"]>,
+  applyIssueArchitectReview: (issueId, input) =>
+    ipcRenderer.invoke(
+      "issueResolution:applyArchitectReview",
+      issueId,
+      input,
+    ) as ReturnType<ChampCityApi["applyIssueArchitectReview"]>,
   submitProjectIntake: (submission) =>
     ipcRenderer.invoke(
       "projectIntake:submit",

@@ -41,14 +41,16 @@ Issue Intake
     ↓
 Architect Planning
     ↓
-Issue Planning / Fix Card Map
+Issue Planning
     ↓
-Fix Card Loop
+Fix Cards
     ↓
 Issue Validation
     ↓
 Issue Close
 ```
+
+`Fix Cards` is a parent stage with its own nested implementation loop. The Issue rail and Fix Card rail represent different levels of authority rather than compressing all corrective work into one flat sequence.
 
 ### Issue Intake
 
@@ -68,17 +70,24 @@ Primary artifact:
 Purpose:
 
 - inspect the actual repository/runtime path;
-- confirm or reject the reported issue;
+- determine whether the reported project problem is supported by evidence;
 - establish root cause;
 - identify the existing architecture to preserve;
 - decide the required correction architecture;
-- determine whether the Issue is appropriate for Issue Resolution rather than Feature/Development work.
+- recommend whether the bounded correction should proceed in Issue Resolution, be reframed to another workflow because it is genuinely broader/new planned product work, or stop because the reported problem is unsupported;
+- obtain the Operator's disposition of the Architect Investigation before Issue Planning becomes eligible.
+
+Issue Resolution is not synonymous with software-defect repair. A supported Issue may be a code defect, UX/design deficiency, configuration/environment problem, documentation problem, or a missing bounded capability that corrects an observed project problem. The absence of a pre-existing defective code path is **not** by itself a reason to reframe the Issue into Development or Feature work.
+
+Reframe to Development/Feature only when the evidence shows that the requested work is primarily new planned product expansion or is too broad/multi-phase for the bounded Issue workflow.
 
 Primary artifact for the bootstrap model:
 
 `ARCHITECT_INVESTIGATION.md`
 
-This stage replaces the need for a separate long-form issue interview when evidence and normal architectural judgment are sufficient. The application may later support conversational Architect questions when a material Operator choice remains.
+The Architect Investigation is an advisory Architect output and must receive an Operator disposition before the selected Issue advances. `Approved` makes Issue Planning eligible only when the accepted recommendation is to proceed in Issue Resolution. `RevisionRequested` keeps the Issue in Architect Planning and returns the current review notes to the Architect. A supported reframe recommendation may be approved without falsely treating the Issue as an implementation defect.
+
+This stage replaces the need for a separate long-form issue interview when evidence and normal architectural judgment are sufficient. Conversational Architect questions are appropriate only when a material Operator choice remains.
 
 ### Issue Planning / Fix Card Map
 
@@ -101,23 +110,47 @@ Each Fix Card is one bounded implementation contract beneath the Issue.
 Target loop:
 
 ```text
-Fix Card
+Fix Card Map
+→ Fix Card Planning
 → Implement
 → Architect Review
-→ Operator Validation
-→ Close
+→ Fix Card Validation
+→ Close / Next
 ```
 
-If the implementation of a Fix Card is defective:
+`Fix Card Validation` is the Operator validation point for the individual Fix Card implementation. It is distinct from later `Issue Validation`, which evaluates the aggregate correction after all planned Fix Cards close.
+
+If Fix Card Validation or earlier review proves the implementation defective, the nested loop exposes a Repair workspace:
 
 ```text
 Fix Card
 → Repair Card
-→ Implement / Review / Validate
+→ Implement / Review / Fix Card Validation
 → return to Fix Card
 ```
 
 Repair therefore retains its current causal meaning. An unrelated problem discovered during Issue Resolution becomes a separate `ISSUE_xxx`, not an artificial child repair of the current Issue or Fix Card.
+
+The intended navigation shape is:
+
+```text
+Issue Resolution rail
+  Intake
+  Architect Planning
+  Issue Planning
+  Fix Cards
+  Issue Validation
+  Issue Close
+
+When Fix Cards is active:
+  Fix Card Map
+  Planning
+  Implement
+  Architect Review
+  Fix Card Validation
+  Repair
+  Close / Next
+```
 
 ### Issue Validation
 
@@ -188,7 +221,8 @@ The resolution must establish bounded Issue-domain equivalents for:
 3. Issue workflow navigation/state;
 4. Issue planning and Fix Card selection;
 5. implementation contract identity that can represent a `fix-card` without requiring `phaseId`/Development parentage;
-6. Issue-level validation and close.
+6. Fix Card-level validation, Repair, and close/next behavior beneath the Issue;
+7. Issue-level validation and close.
 
 These should be introduced at the smallest existing seams rather than by rewriting `currentWorkflowService.ts` into a universal workflow engine.
 
@@ -254,7 +288,7 @@ Select ChampCity_AI
 → open/create a project-owned Issue
 → complete Architect Planning and Issue Planning
 → create and execute one or more Fix Cards through the shared implementation loop
-→ review/validate/repair Fix Card implementation when required
+→ review / Fix Card Validate / Repair / Close each Fix Card when required
 → validate and close the Issue
 → return to the Hub or Development with Development state intact
 ```

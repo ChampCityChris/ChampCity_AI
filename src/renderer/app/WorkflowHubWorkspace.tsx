@@ -1,4 +1,4 @@
-import { ArrowRight, Code2 } from "lucide-react";
+import { ArrowRight, Bug, Code2 } from "lucide-react";
 
 import {
   workflowDefinitions,
@@ -8,6 +8,7 @@ import {
 import type { WorkspaceSelection } from "../../shared/workspaceContracts";
 
 const iconByKey = {
+  bug: Bug,
   code: Code2,
 } satisfies Record<WorkflowDefinition["iconKey"], typeof Code2>;
 

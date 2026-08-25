@@ -5075,6 +5075,298 @@ body {
   font-weight: 720;
 }
 
+.issue-resolution-navigation .figma-pipeline-nav {
+  background: var(--nav-pipeline);
+}
+
+.issue-resolution-navigation .figma-pipeline-step.unavailable {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.issue-resolution-navigation .figma-pipeline-step.unavailable:hover {
+  color: #64748b;
+  background: transparent;
+  border-color: transparent;
+}
+
+.issue-resolution-workspace {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-height: 0;
+  padding: 24px;
+  overflow: auto;
+}
+
+.issue-architect-workspace {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+
+.issue-resolution-header,
+.issue-inventory-panel,
+.issue-record-panel,
+.new-issue-form {
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.issue-resolution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.issue-resolution-header div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.issue-resolution-header span,
+.new-issue-form header span {
+  color: var(--figma-shell-primary);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.issue-resolution-header h1,
+.new-issue-form h2,
+.issue-inventory-panel h2 {
+  margin: 0;
+}
+
+.issue-resolution-header p {
+  margin: 0;
+  color: var(--figma-shell-muted);
+}
+
+.issue-resolution-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr) minmax(280px, 360px);
+  gap: 16px;
+  min-height: 0;
+}
+
+.issue-inventory-panel,
+.issue-record-panel,
+.new-issue-form {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.issue-inventory-panel,
+.new-issue-form {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.issue-inventory-panel header,
+.issue-record-panel header,
+.new-issue-form header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.issue-inventory-panel header span,
+.issue-record-panel header span {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.issue-list button {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  color: var(--foreground);
+  text-align: left;
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.issue-list button:hover,
+.issue-list button.active {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+}
+
+.issue-list button strong {
+  color: var(--figma-shell-primary);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.issue-list button span,
+.issue-list button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-list button small {
+  color: var(--muted-foreground);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
+.secondary-action-button {
+  min-height: 34px;
+  color: var(--foreground);
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.issue-record-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 520px;
+}
+
+.issue-record-panel header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-record-body {
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+}
+
+.new-issue-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.new-issue-form input,
+.new-issue-form textarea {
+  width: 100%;
+  min-width: 0;
+  color: var(--foreground);
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.new-issue-form input {
+  min-height: 36px;
+  padding: 7px 9px;
+}
+
+.new-issue-form textarea {
+  padding: 9px;
+  resize: vertical;
+}
+
+.issue-architect-doc-chat-workspace {
+  grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
+}
+
+.issue-architect-review-column {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.issue-architect-compact-status {
+  display: grid;
+  gap: 3px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 72%, var(--muted));
+}
+
+.issue-architect-compact-status strong,
+.issue-architect-compact-status span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.issue-architect-compact-status strong {
+  color: var(--foreground);
+  font-size: 0.86rem;
+}
+
+.issue-architect-compact-status span {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.issue-architect-disposition-panel .figma-disposition-row {
+  flex-wrap: wrap;
+}
+
+.issue-architect-disposition-panel .figma-review-notes {
+  flex: 1 1 220px;
+  min-width: 180px;
+  margin-left: 0;
+}
+
+.issue-architect-disposition-panel .figma-review-notes input {
+  width: 100%;
+}
+
+.issue-architect-disposition-panel .apply-button {
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+@media (max-width: 1180px) {
+  .issue-resolution-grid {
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  }
+
+  .new-issue-form {
+    grid-column: 1 / -1;
+  }
+
+  .issue-architect-doc-chat-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 820px) {
+  .issue-resolution-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .issue-resolution-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+}
+
 .workspace-surface,
 .document-list,
 .document-preview,
@@ -6239,6 +6531,19 @@ body {
   min-height: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.issue-architect-browser-column.figma-browser-column {
+  min-height: 640px;
+}
+
+.issue-architect-browser-column.figma-browser-column .figma-browser-panel {
+  flex: 1 1 auto;
+  min-height: 640px;
+}
+
+.issue-architect-browser-column.figma-browser-column .architect-browser-host {
+  min-height: 540px;
 }
 
 .figma-browser-column .figma-browser-status {

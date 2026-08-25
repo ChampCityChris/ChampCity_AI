@@ -8,9 +8,9 @@ The Workflow Hub is the application-level answer to a simple Operator question:
 
 > What kind of work are we doing to the selected project?
 
-The Hub must not become another Development lifecycle step. It sits above Development, Defect, and future workflow types. Project selection establishes **which project** ChampCity is operating against; workflow selection establishes **what kind of work** ChampCity is doing to that project.
+The Hub must not become another Development lifecycle step. It sits above Development, Issue Resolution, and future workflow types. Project selection establishes **which project** ChampCity is operating against; workflow selection establishes **what kind of work** ChampCity is doing to that project.
 
-This design is intentionally limited to the Workflow Hub and shell boundary. It does not design the internal Defect Workflow.
+This design is intentionally limited to the Workflow Hub and shell boundary. It does not design the internal Issue Resolution Workflow.
 
 Governing related design:
 
@@ -67,8 +67,8 @@ Application Shell
     ├── Development Workflow
     │   └── existing WorkspaceId / lifecycle system
     │
-    ├── Defect Workflow
-    │   └── future Defect workflow workspace system
+    ├── Issue Resolution Workflow
+    │   └── Issue-specific workflow workspace system
     │
     └── future workflow types
 ```
@@ -102,7 +102,7 @@ Initial workflow identities:
 development
 ```
 
-`defect` is added when the Defect Workflow is implemented. Do not create a nonfunctional Defect placeholder solely to make the initial Hub look populated.
+`issue-resolution` is added when the Issue Resolution Workflow is implemented. Do not create a nonfunctional Issue Resolution placeholder solely to make the initial Hub look populated.
 
 Future identities may include:
 
@@ -204,7 +204,7 @@ The Hub sidebar must not show:
 - Current Work Card;
 - Development loop step;
 - workflow-specific validation state;
-- Defect IDs;
+- Issue IDs;
 - Harness diagnostics;
 - Git state;
 - agent-session state.
@@ -274,10 +274,10 @@ On normal desktop widths:
 ┌──────────────────────────────┐  ┌──────────────────────────────┐
 │                              │  │                              │
 │  [icon]                      │  │  [icon]                      │
-│  Development                 │  │  Defect                      │
+│  Development                 │  │  Issue Resolution            │
 │                              │  │                              │
-│  Plan, implement, review,    │  │  Investigate and correct    │
-│  and validate planned work.  │  │  project baseline defects.  │
+│  Plan, implement, review,    │  │  Investigate and resolve    │
+│  and validate planned work.  │  │  project baseline issues.   │
 │                              │  │                              │
 │  [workflow tags / context]   │  │  [workflow tags / context]   │
 │                              │  │                              │
@@ -286,7 +286,7 @@ On normal desktop widths:
 └──────────────────────────────┘  └──────────────────────────────┘
 ```
 
-The initial Hub implementation renders only registered functional workflows. Before Defect is implemented, only Development is rendered.
+The initial Hub implementation renders only registered functional workflows. Before Issue Resolution is implemented, only Development is rendered.
 
 ### Card dimensions and interaction
 
@@ -337,17 +337,17 @@ suggested tags:
 - Prove
 ```
 
-When Defect is implemented:
+When Issue Resolution is implemented:
 
 ```text
-workflowId: defect
-label: Defect
-description: Investigate and correct defects in the current project baseline.
+workflowId: issue-resolution
+label: Issue Resolution
+description: Investigate and resolve problems in the current project baseline.
 icon: Bug
 suggested tags:
 - Investigate
 - Fix
-- Verify
+
 ```
 
 Future workflow presentation can use the same contract without modifying Hub layout.
@@ -364,8 +364,8 @@ Examples:
 Development
 In Progress · Phase 00 · WC01 · Review & Validation
 
-Defect
-2 open defects
+Issue Resolution
+2 open issues
 ```
 
 The Hub consumes those summaries; it does not derive them.
@@ -480,7 +480,7 @@ Conceptually:
 ```text
 WorkflowRegistry
 ├── development
-└── defect       [added with Defect implementation]
+└── issue-resolution       [added with Issue Resolution implementation]
 ```
 
 Each registered workflow provides:
@@ -494,9 +494,9 @@ entry behavior
 
 Development entry behavior delegates to the existing Development current-workflow resolver.
 
-Defect entry behavior will delegate to the future Defect workflow resolver.
+Issue Resolution entry behavior delegates to the Issue Resolution workflow's own resolver/projection rather than the Development resolver.
 
-The shell does not know Phase, Work Card, Defect, Feature, Figma, or other domain rules beyond what the workflow adapter returns.
+The shell does not know Phase, Work Card, Issue, Feature, Figma, or other domain rules beyond what the workflow adapter returns.
 
 This is the extensibility boundary for future workflow types.
 
@@ -529,7 +529,7 @@ The Hub owns only:
 It does **not** own:
 
 - Development lifecycle decisions;
-- Defect lifecycle decisions;
+- Issue Resolution lifecycle decisions;
 - Phase or Work Card state;
 - workflow artifact dispositions;
 - workflow-specific validation;
@@ -571,9 +571,9 @@ Open Settings from Hub:
 → return to Hub
 ```
 
-Do not implement Defect workflow internals in this pass.
+Do not implement Issue Resolution workflow internals in the initial Hub-only pass.
 
-When Defect is implemented later, registering its card and workflow-specific navigation should be a bounded extension rather than a Hub redesign.
+When Issue Resolution is implemented, registering its card and workflow-specific navigation should be a bounded extension rather than a Hub redesign.
 
 ## Likely Production Surfaces
 
@@ -593,7 +593,7 @@ Do not rewrite `currentWorkflowService.ts` into a generic workflow engine in ord
 
 The Workflow Hub first pass must not:
 
-- implement the Defect Workflow;
+- implement the Issue Resolution Workflow as part of the initial Hub-only pass;
 - redesign the current Development lifecycle;
 - rewrite Development workspace identity;
 - migrate existing planning artifacts;

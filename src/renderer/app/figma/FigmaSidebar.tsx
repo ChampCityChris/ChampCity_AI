@@ -5,12 +5,18 @@ import type {
   CurrentWorkspaceModel,
   WorkspaceSelection,
 } from "../../../shared/workspaceContracts";
+import type {
+  IssueRecordProjection,
+  IssueWorkflowStatusProjection,
+} from "../../../shared/issueResolutionContracts";
 
 export type FigmaThemeMode = "dark" | "light";
-export type FigmaSidebarMode = "hub" | "development";
+export type FigmaSidebarMode = "hub" | "development" | "issue-resolution";
 
 export function FigmaSidebar({
   currentModel,
+  currentIssue,
+  issueWorkflowStatus,
   activeWorkspaceId,
   isChoosing,
   mode = "development",
@@ -25,6 +31,8 @@ export function FigmaSidebar({
 }: {
   activeWorkspaceId: string;
   currentModel: CurrentWorkspaceModel | null;
+  currentIssue?: IssueRecordProjection | null;
+  issueWorkflowStatus?: IssueWorkflowStatusProjection | null;
   isChoosing: boolean;
   mode?: FigmaSidebarMode;
   onChooseProject: () => void;
@@ -40,6 +48,8 @@ export function FigmaSidebar({
   const workCard = currentModel?.executionContext.workCard;
   const isDark = themeMode === "dark";
   const isHubMode = mode === "hub";
+  const isIssueMode = mode === "issue-resolution";
+  const isDevelopmentMode = mode === "development";
 
   return (
     <aside className="sidebar figma-sidebar" aria-label="Project navigation">
@@ -57,9 +67,9 @@ export function FigmaSidebar({
         </section>
       )}
 
-      <section className="figma-sidebar-section project-selector" aria-label={isHubMode ? "Project" : "Select Project"}>
-        <p className="figma-sidebar-label">{isHubMode ? "Project" : "Select Project"}</p>
-        {isHubMode ? (
+      <section className="figma-sidebar-section project-selector" aria-label="Select Project">
+        <p className="figma-sidebar-label">{isHubMode || isIssueMode ? "Project" : "Select Project"}</p>
+        {isHubMode || isIssueMode ? (
           <strong className="figma-sidebar-primary">{projectName}</strong>
         ) : null}
         <div className="project-selector-actions">
@@ -91,14 +101,38 @@ export function FigmaSidebar({
         </div>
       </section>
 
-      {isHubMode ? null : (
+      {isDevelopmentMode ? (
         <section className="figma-sidebar-section" aria-label="Current Project">
           <p className="figma-sidebar-label">Current Project</p>
           <strong className="figma-sidebar-primary">{projectName}</strong>
         </section>
-      )}
+      ) : null}
 
-      {isHubMode ? null : (
+      {isIssueMode ? (
+        <section className="figma-sidebar-section" aria-label="Current Issue">
+          <p className="figma-sidebar-label">Current Issue</p>
+          {currentIssue ? (
+            <>
+              <SidebarField>
+                <span className="figma-sidebar-id">{currentIssue.issueId}</span>
+                <span className="figma-sidebar-muted">{currentIssue.title}</span>
+              </SidebarField>
+              <SidebarField label="Stage">
+                <span className="figma-sidebar-muted">{issueWorkflowStatus?.stageLabel ?? "Architect Planning"}</span>
+              </SidebarField>
+              <SidebarField label="State">
+                <span className="figma-sidebar-muted">{issueWorkflowStatus?.stateLabel ?? "Refresh required"}</span>
+              </SidebarField>
+            </>
+          ) : (
+            <SidebarField>
+              <span className="figma-sidebar-muted">No issue selected</span>
+            </SidebarField>
+          )}
+        </section>
+      ) : null}
+
+      {isDevelopmentMode ? (
       <div className="figma-sidebar-scroll">
         <section className="figma-sidebar-section" aria-label="Current Phase">
           <p className="figma-sidebar-label">Current Phase</p>
@@ -154,7 +188,7 @@ export function FigmaSidebar({
           )}
         </section>
       </div>
-      )}
+      ) : null}
 
       <section className="figma-sidebar-section figma-settings-section" aria-label="Settings">
         <button

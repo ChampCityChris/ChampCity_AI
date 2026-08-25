@@ -178,6 +178,10 @@ Therefore the first Fix Cards may be executed manually from this `issues/ISSUE_0
 
 Once the Issue Resolution shell and Fix Card loop are functional, remaining ISSUE_001 work should be routed through the new application workflow. That transition is the primary dogfood validation of the architecture.
 
+## Architect Recommendation
+
+Proceed in Issue Resolution
+
 ## Architect Conclusion
 
 ISSUE_001 is confirmed as a genuine top-level orchestration gap.

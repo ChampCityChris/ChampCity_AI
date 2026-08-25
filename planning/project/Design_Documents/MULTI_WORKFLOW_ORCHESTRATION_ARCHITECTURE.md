@@ -4,7 +4,7 @@
 
 ChampCity A/I should not treat planned software development as the only valid project workflow. The application should treat the selected project as durable context and allow the Operator to choose among multiple first-class workflows appropriate to the work being performed.
 
-The immediate need is a first-class **Defect Workflow** that sits outside the current Development Workflow. The broader architectural purpose is to establish a reusable top layer that can later support additional peer workflows and specialist sub-workflows without forcing every activity into the phase / Work Card / validation loop.
+The immediate need is a first-class **Issue Resolution Workflow** that sits outside the current Development Workflow. The broader architectural purpose is to establish a reusable top layer that can later support additional peer workflows and specialist sub-workflows without forcing every activity into the phase / Work Card / validation loop.
 
 This design note defines that top layer and the shared orchestration model beneath it. It does not authorize implementation by itself.
 
@@ -23,7 +23,7 @@ WORKFLOW CONTEXT
 What kind of work are we doing to it?
 
 Development
-Defect
+Issue Resolution
 Feature
 Brainstorm / Design
 UI
@@ -46,7 +46,7 @@ Select Project
    ↓
 Workflow Hub
    ├── Development Workflow
-   ├── Defect Workflow
+   ├── Issue Resolution Workflow
    ├── Feature Workflow              [future]
    ├── Brainstorm / Design Workflow  [future]
    ├── UI Workflow                   [future / callable]
@@ -87,16 +87,16 @@ Repair therefore remains **causally subordinate** to the implementation contract
 
 The new workflow architecture must not redefine unrelated baseline defects as Work Card repairs merely because they were discovered during a Development Workflow run.
 
-## Defect Workflow as a Peer Workflow
+## Issue Resolution Workflow as a Peer Workflow
 
-The Defect Workflow is not inserted into the Work Card Plan and is not a child of whichever Work Card happened to expose the problem.
+The Issue Resolution Workflow is not inserted into the Work Card Plan and is not a child of whichever Work Card happened to expose the problem.
 
 Its ownership is:
 
 ```text
 Project
   ↓
-Defect Workflow
+Issue Resolution Workflow
 ```
 
 not:
@@ -125,40 +125,48 @@ Attributed to WC01 implementation:
   No
 
 Correct owner:
-  Project Defect Workflow
+  Project Issue Resolution Workflow
 ```
 
 This prevents unrelated defects from contaminating Work Card validation evidence and prevents false Repair genealogies.
 
-## Initial Defect Workflow Shape
+## Initial Issue Resolution Workflow Shape
 
-The initial Defect Workflow should remain small:
+The initial Issue Resolution Workflow should remain small:
 
 ```text
-Defect Intake
+Issue Intake
    ↓
-Architect Investigation / Root Cause
+Architect Planning / Root Cause
    ↓
-Defect Fix Contract
+Issue Resolution Planning / Fix Card Map
    ↓
-Implement
+Fix Card Loop
    ↓
-Architect Review
+Issue Validation
    ↓
-Operator Validation
-   ↓
-Close
+Issue Close
 ```
 
 A likely artifact model is:
 
 ```text
-defect-record
+issue-record
   evidence and problem definition
 
       ↓
 
-defect-fix-card
+architect-investigation
+  confirmed issue, root cause, preservation, correction direction
+
+      ↓
+
+issue-resolution-plan / fix-card-plan
+  one issue-level planning layer and bounded implementation decomposition
+
+      ↓
+
+fix-card
   bounded corrective implementation contract
 
       ↓
@@ -170,12 +178,12 @@ implementer-report
 validation / close evidence
 ```
 
-If a Defect Fix implementation itself is defective, the existing Repair concept can still apply:
+If a Fix Card implementation itself is defective, the existing Repair concept can still apply:
 
 ```text
-DEFECT-004-FIX01
+ISSUE_004-FC01
    ↓
-DEFECT-004-FIX01-REPAIR01
+ISSUE_004-FC01-REPAIR01
 ```
 
 This preserves a universal semantic:
@@ -191,7 +199,7 @@ Conceptually:
 ```text
 WorkflowRegistry
 ├── development
-├── defect
+├── issue-resolution
 ├── feature
 ├── brainstorm-design
 ├── ui
@@ -228,7 +236,7 @@ Likely examples:
 
 ```text
 Development
-Defect
+Issue Resolution
 Feature
 Brainstorm / Design
 ```
@@ -302,7 +310,7 @@ The architecture is therefore:
                                │
         ┌──────────────────────┼──────────────────────┐
         │                      │                      │
-   Development              Defect               Feature
+   Development        Issue Resolution           Feature
     Workflow               Workflow              Workflow
         │                      │                      │
         └───────────────┬──────┴──────┬───────────────┘
@@ -423,7 +431,7 @@ Development Workflow
 ```
 
 ```text
-Defect Workflow
+Issue Resolution Workflow
 → validated baseline fix
 → close
 → Operator returns to whatever workflow they choose
@@ -441,14 +449,14 @@ Example:
 Development
   phase-00 / WC03 / Implement
 
-Defect
-  DEFECT-007 / Architect Investigation
+Issue Resolution
+  ISSUE_007 / Architect Planning
 
 UI
   no active item
 ```
 
-If the Operator moves from Development to Defect and later returns to Development, Development should still be at:
+If the Operator moves from Development to Issue Resolution and later returns to Development, Development should still be at:
 
 ```text
 phase-00 / WC03 / Implement
@@ -469,10 +477,10 @@ Project Context
   selected project / workspace
 
 Workflow Context
-  defect / development / UI / etc.
+  issue-resolution / development / UI / etc.
 
 Item Context
-  Work Card / Defect / Feature / design task
+  Work Card / Issue / Feature / design task
 
 Resource Context
   registered workspaceIds
@@ -529,12 +537,12 @@ Initial available workflows:
 
 ```text
 Development
-Defect
+Issue Resolution
 ```
 
 Development routes into the current application lifecycle without behavioral redesign.
 
-Defect routes into the new Defect Workflow.
+Issue Resolution routes into the new Issue Resolution Workflow.
 
 The architecture should permit later registry expansion, but this first implementation should not build placeholder workflows for Feature, UI, Graphics, or Brainstorm/Design.
 
@@ -544,13 +552,13 @@ Introducing the Workflow Hub must not reset, recompute, or reinterpret current D
 
 Development should remain the existing workflow beneath the new selector.
 
-### Step 3 — Implement first-class Defect Workflow
+### Step 3 — Implement first-class Issue Resolution Workflow
 
-Use the new top-level workflow boundary to create project-owned defect intake, investigation, fix-contract, implementation, review, validation, and close behavior without requiring a Phase or current Work Card parent.
+Use the new top-level workflow boundary to create project-owned Issue intake, Architect Planning, Issue Resolution Planning, Fix Card implementation/review/validation, Issue Validation, and Issue Close behavior without requiring a Phase or current Work Card parent.
 
-### Step 4 — Dogfood the Defect Workflow
+### Step 4 — Dogfood the Issue Resolution Workflow
 
-Once available, further ChampCity baseline defects discovered during ongoing development should be routed through the new Defect Workflow instead of top-level `repair/` artifacts or unrelated Work Card validation evidence.
+Once available, further ChampCity baseline issues discovered during ongoing development should be routed through the new Issue Resolution Workflow instead of top-level `repair/` artifacts or unrelated Work Card validation evidence.
 
 This is the first proof that ChampCity can support multiple workflow types against the same project.
 
@@ -571,7 +579,7 @@ Do not use the initial Workflow Hub implementation to:
 - create hidden cross-workflow authority;
 - create a second repository, execution, Git, evidence, or agent-session subsystem.
 
-The first objective is simply to establish the correct top-level architectural boundary and use it for Development plus Defect.
+The first objective is simply to establish the correct top-level architectural boundary and use it for Development plus Issue Resolution.
 
 ## Future Acceptance Direction
 

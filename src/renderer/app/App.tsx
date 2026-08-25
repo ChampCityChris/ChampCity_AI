@@ -56,6 +56,9 @@ import {
   type ArchitectHostMeasurement,
 } from "../../shared/architectInterview/architectBrowserAttachmentCoordinator";
 import { NestedWorkflowRail } from "./NestedWorkflowRail";
+import { IssueResolutionRail } from "./IssueResolutionRail";
+import { IssueResolutionWorkspace } from "./IssueResolutionWorkspace";
+import { IssueArchitectPlanningWorkspace } from "./IssueArchitectPlanningWorkspace";
 import {
   FigmaPhaseMapWorkspace,
   PhaseMapDocumentPreview,
@@ -88,6 +91,14 @@ import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { WorkflowId } from "../../shared/workflowHubContracts";
+import type {
+  IssueArchitectPlanningProjection,
+  IssueArchitectReviewInput,
+  IssueInventoryProjection,
+  IssueRecordProjection,
+  IssueResolutionStageId,
+  NewIssueInput,
+} from "../../shared/issueResolutionContracts";
 
 const neutralMessage = "Document workflow not yet implemented";
 const handoffWorkspaceIds = new Set<WorkspaceId>([
@@ -203,6 +214,8 @@ export function App(): JSX.Element {
   const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
+  const [settingsReturnWorkflowId, setSettingsReturnWorkflowId] =
+    useState<WorkflowId | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
   const [agentHarnessStatus, setAgentHarnessStatus] =
     useState<AgentHarnessStatus | null>(null);
@@ -259,10 +272,25 @@ export function App(): JSX.Element {
     useState<RuntimeActionResult | null>(null);
   const [workCardMapResult, setWorkCardMapResult] =
     useState<RuntimeActionResult | null>(null);
+  const [issueInventory, setIssueInventory] =
+    useState<IssueInventoryProjection | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [activeIssueStageId, setActiveIssueStageId] =
+    useState<IssueResolutionStageId>("intake");
+  const [issueArchitectProjection, setIssueArchitectProjection] =
+    useState<IssueArchitectPlanningProjection | null>(null);
+  const [issueInventoryError, setIssueInventoryError] = useState("");
+  const [isIssueInventoryLoading, setIsIssueInventoryLoading] = useState(false);
+  const [isIssueCreating, setIsIssueCreating] = useState(false);
+  const [isIssueArchitectActionPending, setIsIssueArchitectActionPending] = useState(false);
+  const [issueArchitectActionFeedback, setIssueArchitectActionFeedback] = useState("");
+  const [issueArchitectActionError, setIssueArchitectActionError] = useState("");
   const [workCardCloseReturnCompleted, setWorkCardCloseReturnCompleted] = useState(false);
   const architectOutputFingerprintRef = useRef<string | null>(null);
   const architectOutputPollInFlightRef = useRef<number | null>(null);
   const architectOutputPollRequestRef = useRef(0);
+  const issueArchitectProjectionRefreshInFlightRef = useRef<number | null>(null);
+  const issueArchitectProjectionRefreshRequestRef = useRef(0);
   const codexExecutionPreviousStateRef = useRef<CodexImplementerExecutionModel["state"] | null>(null);
   const architectBoundsSequenceRef = useRef(0);
   const architectAttachmentGenerationRef = useRef(0);
@@ -306,12 +334,19 @@ export function App(): JSX.Element {
     isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
   const isDevelopmentForeground =
     shellView === "workflow" && activeWorkflowId === "development";
+  const isIssueResolutionForeground =
+    shellView === "workflow" && activeWorkflowId === "issue-resolution";
   const isWorkflowHubForeground = shellView === "workflow-hub";
   const shouldAttachEmbeddedArchitectSurface =
-    isDevelopmentForeground &&
-    (architectBrowserWorkspaceAvailable || isWorkCardRepair) &&
+    ((isDevelopmentForeground &&
+      (architectBrowserWorkspaceAvailable || isWorkCardRepair)) ||
+      (isIssueResolutionForeground && activeIssueStageId === "architect-planning")) &&
     isArchitectPaneVisible;
   const isSettingsWorkspace = shellView === "settings";
+  const currentIssue = useMemo(
+    () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
+    [issueInventory, selectedIssueId],
+  );
 
   useEffect(() => {
     const isDark = themeMode === "dark";
@@ -410,6 +445,68 @@ export function App(): JSX.Element {
       setWorkCardRepairProjectionResult(null);
     }
   }, [activeWorkspaceId, currentModel?.workCardBuildingReview, currentModel?.workCardIntake, documents, isDevelopmentForeground, selectedDocumentId]);
+
+  useEffect(() => {
+    if (!isIssueResolutionForeground || issueInventory || isIssueInventoryLoading) {
+      return;
+    }
+    void refreshIssueInventory();
+  }, [isIssueResolutionForeground, issueInventory, isIssueInventoryLoading]);
+
+  useEffect(() => {
+    if (
+      activeIssueStageId === "architect-planning" &&
+      (!currentIssue || currentIssue.recordState !== "readable")
+    ) {
+      setActiveIssueStageId("intake");
+    }
+  }, [activeIssueStageId, currentIssue]);
+
+  useEffect(() => {
+    if (
+      !isIssueResolutionForeground ||
+      activeIssueStageId !== "architect-planning" ||
+      !currentIssue
+    ) {
+      setIssueArchitectProjection(null);
+      setIssueArchitectActionError("");
+      setIssueArchitectActionFeedback("");
+      issueArchitectProjectionRefreshRequestRef.current += 1;
+      issueArchitectProjectionRefreshInFlightRef.current = null;
+      return;
+    }
+    void refreshIssueArchitectPlanningProjection(currentIssue.issueId);
+  }, [activeIssueStageId, currentIssue?.issueId, isIssueResolutionForeground]);
+
+  useEffect(() => {
+    if (
+      !isIssueResolutionForeground ||
+      activeIssueStageId !== "architect-planning" ||
+      currentIssue?.recordState !== "readable"
+    ) {
+      return;
+    }
+
+    let isDisposed = false;
+    const refreshSelectedIssueArchitectProjection = async (): Promise<void> => {
+      if (isDisposed) {
+        return;
+      }
+      await refreshIssueArchitectPlanningProjection(currentIssue.issueId, { quiet: true });
+    };
+
+    void refreshSelectedIssueArchitectProjection();
+    const interval = window.setInterval(() => {
+      void refreshSelectedIssueArchitectProjection();
+    }, 2500);
+
+    return () => {
+      isDisposed = true;
+      window.clearInterval(interval);
+      issueArchitectProjectionRefreshRequestRef.current += 1;
+      issueArchitectProjectionRefreshInFlightRef.current = null;
+    };
+  }, [activeIssueStageId, currentIssue?.issueId, currentIssue?.recordState, isIssueResolutionForeground]);
 
   useEffect(() => {
     if (!isDevelopmentForeground || !workspace.ok || activeWorkspaceId !== "work-card-building-review") {
@@ -1680,6 +1777,16 @@ export function App(): JSX.Element {
     architectOutputPollRequestRef.current += 1;
     architectOutputPollInFlightRef.current = null;
     codexExecutionPreviousStateRef.current = null;
+    setIssueInventory(null);
+    setSelectedIssueId(null);
+    setActiveIssueStageId("intake");
+    setIssueArchitectProjection(null);
+    setIssueInventoryError("");
+    setIsIssueInventoryLoading(false);
+    setIsIssueCreating(false);
+    setIsIssueArchitectActionPending(false);
+    setIssueArchitectActionFeedback("");
+    setIssueArchitectActionError("");
   }
 
   function applyDocumentInventory(nextDocuments: PlanningDocumentSummary[]): void {
@@ -1740,7 +1847,9 @@ export function App(): JSX.Element {
   }
 
   function openSettingsWorkspace(): void {
-    setSettingsReturnShellView(isDevelopmentForeground ? "workflow" : "workflow-hub");
+    const returnShellView = shellView === "workflow" ? "workflow" : "workflow-hub";
+    setSettingsReturnShellView(returnShellView);
+    setSettingsReturnWorkflowId(returnShellView === "workflow" ? activeWorkflowId : null);
     const next = openSettingsNavigationState(activeWorkspaceId, priorWorkflowWorkspaceId);
     setPriorWorkflowWorkspaceId(next.priorWorkflowWorkspaceId);
     setActiveWorkspaceId(next.activeWorkspaceId);
@@ -1754,15 +1863,25 @@ export function App(): JSX.Element {
       setActiveWorkspaceId(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
       return;
     }
+    if (settingsReturnWorkflowId === "issue-resolution") {
+      setShellView("workflow");
+      setActiveWorkflowId("issue-resolution");
+      setActiveWorkspaceId(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
+      return;
+    }
     transitionToWorkflowStep(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
   }
 
   async function openWorkflow(workflowId: WorkflowId): Promise<void> {
-    if (workflowId !== "development") {
+    if (!workspace.ok) {
+      setDocumentError("Select a project before opening a workflow.");
       return;
     }
-    if (!workspace.ok) {
-      setDocumentError("Select a project before opening Development.");
+    if (workflowId === "issue-resolution") {
+      setShellView("workflow");
+      setActiveWorkflowId("issue-resolution");
+      setActiveWorkspaceId(workspaceDefinitions[0].id);
+      await refreshIssueInventory();
       return;
     }
     setShellView("workflow");
@@ -1773,6 +1892,129 @@ export function App(): JSX.Element {
   function returnToWorkflowHub(): void {
     setShellView("workflow-hub");
     setActiveWorkflowId(null);
+  }
+
+  async function refreshIssueInventory(preferredIssueId = selectedIssueId): Promise<void> {
+    if (!workspace.ok) {
+      setIssueInventory(null);
+      setSelectedIssueId(null);
+      setIssueInventoryError("Select a project before opening Issue Resolution.");
+      return;
+    }
+    setIsIssueInventoryLoading(true);
+    setIssueInventoryError("");
+    try {
+      const nextInventory = await window.champcity.discoverIssueInventory();
+      setIssueInventory(nextInventory);
+      const nextIssueId = resolveSelectedIssueId(nextInventory.issues, preferredIssueId);
+      setSelectedIssueId(nextIssueId);
+      if (activeIssueStageId === "architect-planning") {
+        const nextIssue = nextInventory.issues.find((issue) => issue.issueId === nextIssueId) ?? null;
+        if (nextIssue?.recordState !== "readable") {
+          setActiveIssueStageId("intake");
+        }
+      }
+    } catch (error) {
+      setIssueInventory(null);
+      setSelectedIssueId(null);
+      setIssueInventoryError(error instanceof Error ? error.message : "Issue inventory could not be loaded.");
+    } finally {
+      setIsIssueInventoryLoading(false);
+    }
+  }
+
+  async function createIssue(input: NewIssueInput): Promise<void> {
+    setIsIssueCreating(true);
+    setIssueInventoryError("");
+    try {
+      const result = await window.champcity.createLightweightIssueRecord(input);
+      setIssueInventory(result.inventory);
+      setSelectedIssueId(result.createdIssueId);
+      setActiveIssueStageId("intake");
+    } catch (error) {
+      setIssueInventoryError(error instanceof Error ? error.message : "Issue Record could not be created.");
+    } finally {
+      setIsIssueCreating(false);
+    }
+  }
+
+  async function refreshIssueArchitectPlanningProjection(
+    issueId = currentIssue?.issueId,
+    options: { quiet?: boolean } = {},
+  ): Promise<void> {
+    if (!issueId) {
+      setIssueArchitectProjection(null);
+      return;
+    }
+    if (options.quiet && issueArchitectProjectionRefreshInFlightRef.current !== null) {
+      return;
+    }
+    const requestId = issueArchitectProjectionRefreshRequestRef.current + 1;
+    issueArchitectProjectionRefreshRequestRef.current = requestId;
+    issueArchitectProjectionRefreshInFlightRef.current = requestId;
+    setIssueArchitectActionError("");
+    try {
+      const projection = await window.champcity.getIssueArchitectPlanningProjection(issueId);
+      if (requestId !== issueArchitectProjectionRefreshRequestRef.current) {
+        return;
+      }
+      setIssueArchitectProjection(projection);
+    } catch (error) {
+      if (requestId !== issueArchitectProjectionRefreshRequestRef.current) {
+        return;
+      }
+      setIssueArchitectProjection(null);
+      setIssueArchitectActionError(error instanceof Error ? error.message : "Architect Planning could not be loaded.");
+    } finally {
+      if (issueArchitectProjectionRefreshInFlightRef.current === requestId) {
+        issueArchitectProjectionRefreshInFlightRef.current = null;
+      }
+    }
+  }
+
+  async function runIssueArchitectAction(
+    action: (issueId: string) => Promise<{ message: string; projection: IssueArchitectPlanningProjection }>,
+  ): Promise<void> {
+    if (!currentIssue) {
+      setIssueArchitectActionError("Select a readable Issue before using Architect Planning.");
+      return;
+    }
+    setIsIssueArchitectActionPending(true);
+    setIssueArchitectActionError("");
+    setIssueArchitectActionFeedback("");
+    try {
+      const result = await action(currentIssue.issueId);
+      setIssueArchitectProjection(result.projection);
+      setIssueArchitectActionFeedback(result.message);
+      if (result.projection.finalInvestigationState === "readable") {
+        await refreshIssueInventory(currentIssue.issueId);
+      }
+    } catch (error) {
+      setIssueArchitectActionError(error instanceof Error ? error.message : "Issue Architect action failed.");
+      await refreshIssueArchitectPlanningProjection(currentIssue.issueId);
+    } finally {
+      setIsIssueArchitectActionPending(false);
+    }
+  }
+
+  async function runIssueArchitectReview(input: IssueArchitectReviewInput): Promise<void> {
+    if (!currentIssue) {
+      setIssueArchitectActionError("Select a readable Issue before applying Architect review.");
+      return;
+    }
+    setIsIssueArchitectActionPending(true);
+    setIssueArchitectActionError("");
+    setIssueArchitectActionFeedback("");
+    try {
+      const result = await window.champcity.applyIssueArchitectReview(currentIssue.issueId, input);
+      setIssueArchitectProjection(result.projection);
+      setIssueArchitectActionFeedback(result.message);
+    } catch (error) {
+      setIssueArchitectActionError(error instanceof Error ? error.message : "Issue Architect review failed.");
+      await refreshIssueArchitectPlanningProjection(currentIssue.issueId);
+    } finally {
+      setIsIssueArchitectActionPending(false);
+    }
   }
 
   async function refreshAgentHarnessStatus(): Promise<AgentHarnessStatus | null> {
@@ -2137,13 +2379,28 @@ export function App(): JSX.Element {
           workspaceCounts={workspaceCounts}
         />
       ) : null}
+      {isIssueResolutionForeground ? (
+        <IssueResolutionRail
+          activeStageId={activeIssueStageId}
+          currentIssue={currentIssue}
+          onStageChange={setActiveIssueStageId}
+        />
+      ) : null}
 
       <div className="app-body">
         <FigmaSidebar
           activeWorkspaceId={activeWorkspaceId}
           currentModel={currentModel}
+          currentIssue={currentIssue}
+          issueWorkflowStatus={issueArchitectProjection?.workflowStatus ?? null}
           isChoosing={isChoosing}
-          mode={isDevelopmentForeground ? "development" : "hub"}
+          mode={
+            isDevelopmentForeground
+              ? "development"
+              : isIssueResolutionForeground
+              ? "issue-resolution"
+              : "hub"
+          }
           onChooseProject={chooseWorkspace}
           onClearProject={clearWorkspace}
           onOpenSettings={openSettingsWorkspace}
@@ -2159,6 +2416,7 @@ export function App(): JSX.Element {
             "workspace-surface",
             usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
             isWorkflowHubForeground ? "workflow-hub-surface" : "",
+            isIssueResolutionForeground ? "issue-resolution-surface" : "",
             isSettingsWorkspace ? "settings-workspace-surface" : "",
             isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
             isWorkCardReportReview ? "review-validation-surface" : "",
@@ -2172,6 +2430,45 @@ export function App(): JSX.Element {
               onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
               projectName={projectDisplayName(workspace)}
               workspace={workspace}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "intake" ? (
+            <IssueResolutionWorkspace
+              currentIssue={currentIssue}
+              error={issueInventoryError}
+              inventory={issueInventory}
+              isCreating={isIssueCreating}
+              isLoading={isIssueInventoryLoading}
+              onCreateIssue={createIssue}
+              onRefresh={() => void refreshIssueInventory()}
+              onSelectIssue={setSelectedIssueId}
+              projectName={projectDisplayName(workspace)}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "architect-planning" ? (
+            <IssueArchitectPlanningWorkspace
+              actionError={issueArchitectActionError}
+              actionFeedback={issueArchitectActionFeedback}
+              browserPanel={
+                <FigmaBrowserPanel
+                  hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()}
+                  onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label}
+                />
+              }
+              currentIssue={currentIssue}
+              isActionPending={isIssueArchitectActionPending}
+              onApplyReview={runIssueArchitectReview}
+              onCopyHandoff={() => void runIssueArchitectAction(window.champcity.copyIssueArchitectPlanningHandoff)}
+              onPrepareHandoff={() => void runIssueArchitectAction(window.champcity.prepareIssueArchitectPlanningHandoff)}
+              onRefresh={() => {
+                void refreshIssueInventory();
+                void refreshIssueArchitectPlanningProjection(currentIssue?.issueId);
+                void refreshArchitectStatus();
+              }}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+              projection={issueArchitectProjection}
+              projectName={projectDisplayName(workspace)}
             />
           ) : (
           <>
@@ -4207,6 +4504,16 @@ function isWorkCardMapCandidateProjection(value: unknown): value is WorkCardMapC
 
 function stringOrUndefined(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function resolveSelectedIssueId(
+  issues: IssueRecordProjection[],
+  preferredIssueId: string | null,
+): string | null {
+  if (preferredIssueId && issues.some((issue) => issue.issueId === preferredIssueId)) {
+    return preferredIssueId;
+  }
+  return issues.at(-1)?.issueId ?? null;
 }
 
 function currentModelMatchesCandidate(model: CurrentWorkspaceModel, candidateId: string): boolean {
