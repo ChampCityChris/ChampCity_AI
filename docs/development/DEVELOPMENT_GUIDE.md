@@ -121,7 +121,7 @@ The main process compares build identities. Rebuilding while a Service Host is r
 
 - Read [AGENTS.md](../../AGENTS.md) and the active Operator-approved card before editing.
 - Verify the repository root, current branch, remote, and dirty state.
-- Operator direction and explicit task constraints define branch changes and Git mutation scope. A Work Card or Repair Card may record that scope but does not itself grant Git authority. Do not infer a default branch workflow.
+- Operator direction and explicit task constraints define branch changes and Git mutation scope. A Work Card or Repair Card may record that scope but does not itself permit Git mutation. Do not infer a default branch workflow.
 - Preserve unrelated user changes and generated evidence; do not use blanket reset, clean, restore, or stash operations.
 - Keep production behavior in `src/`, tests in `test/`, and temporary/historical material out of runtime imports.
 - Use curated temporary project roots for tests. Do not make current tests depend on the repository's archived workflow corpus.

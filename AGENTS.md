@@ -43,10 +43,10 @@ Before changing production code, tests, scripts, migrations, fixtures, packaging
 
 ## Git safety
 
-The Operator is the authority over Git and release work. Current Operator direction and explicit task constraints define the scope of every branch, stage, commit, push, merge, rebase, tag, release, reset, clean, restore, and stash action. A Work Card or Repair Card may record those constraints, but it is not a permission principal and does not grant machine authority.
+The Operator is the only authority over Git and release work. Current Operator direction and explicit task constraints define the scope of every branch, stage, commit, push, merge, rebase, tag, release, reset, clean, restore, and stash action. A Work Card or Repair Card may record those constraints, but it is not a permission source and does not permit Git mutation.
 
 - Obey any explicit prohibition such as `no Git this turn`.
-- When the Operator directs Git work, treat the bounded Git operations as ordinary task scope; no card heading, token, metadata field, contract, or MCP state is an additional authorization requirement.
+- When the Operator directs Git work, treat the bounded Git operations as ordinary task scope; no card heading, token, metadata field, contract, or MCP state is an additional approval requirement.
 - When Git mutation is outside the current task scope, limit Git use to read-only inspection.
 - Preserve unrelated working-tree changes. Never use destructive blanket cleanup to make a dirty worktree appear clean.
 - Before an Operator-directed commit, inspect the exact staged diff and run a bounded secret, local-path, and generated-artifact safety scan.
