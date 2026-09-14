@@ -18,6 +18,20 @@ const compatibilityLines = new Map([
   ])],
 ]);
 
+const governanceVocabularyDefinitionPaths = new Set([
+  "docs/governance/CHAMPCITY_GOVERNANCE_VOCABULARY.md",
+  "docs/governance/CHAMPCITY_AUTHORITY_AND_DELEGATION_GOVERNANCE.md",
+  "docs/governance/CHAMPCITY_GOVERNANCE_WITHOUT_BUREAUCRACY_STANDARD.md",
+]);
+
+const historicalDocumentationPrefixes = [
+  "docs/design-notes/history/",
+];
+
+const legacyVocabularyTranslationPaths = new Set([
+  "docs/migration/legacy/CHAMPCITY_DESKTOP_PROJECT_STATE_MIGRATION_DESIGN.md",
+]);
+
 const operatorAuthorityPatterns = [
   /\b(?:the )?(?:human )?Operator is the (?:only|final) authority\b/i,
   /\bOperator's acceptance authority\b/i,
@@ -27,6 +41,8 @@ const operatorAuthorityPatterns = [
   /\bauthority(?:, which)? remains with the human Operator\b/i,
   /^(?:#+\s*)?Operator authority(?: and task scope|, task scope, and MCP)?(?::)?$/i,
   /^Operator authority and task scope:$/i,
+  /CHAMPCITY_AUTHORITY_AND_DELEGATION_GOVERNANCE\.md/i,
+  /\bAuthority and Delegation Governance Standard\b/i,
 ];
 
 const accessAuthorizationPatterns = [
@@ -70,15 +86,53 @@ test("active product source and current docs reserve authority and permission vo
 
   for (const absolutePath of files) {
     const relativePath = normalize(path.relative(repositoryRoot, absolutePath));
-    assert.doesNotMatch(relativePath, /authorit/i, `active product path uses false-authority vocabulary: ${relativePath}`);
+    const isHistoricalDocumentation = historicalDocumentationPrefixes.some((prefix) => relativePath.startsWith(prefix));
+    const isLegacyVocabularyTranslation = legacyVocabularyTranslationPaths.has(relativePath);
+    if (isHistoricalDocumentation || isLegacyVocabularyTranslation) {
+      const content = fs.readFileSync(absolutePath, "utf8");
+      if (isHistoricalDocumentation) {
+        assert.match(
+          content,
+          /historical|superseded|reconciliation evidence/i,
+          `${relativePath} must explicitly identify its historical/superseded status`,
+        );
+      } else {
+        assert.match(
+          content,
+          /Vocabulary reconciliation[^\n]*2026-09-14/i,
+          `${relativePath} must carry the September 14 legacy-vocabulary translation notice`,
+        );
+      }
+      continue;
+    }
+    const isVocabularyDefinition = governanceVocabularyDefinitionPaths.has(relativePath);
+    if (!isVocabularyDefinition) {
+      assert.doesNotMatch(relativePath, /authorit/i, `active product path uses false-authority vocabulary: ${relativePath}`);
+    }
     const lines = fs.readFileSync(absolutePath, "utf8").split(/\r?\n/);
     lines.forEach((line, index) => {
+      if (isVocabularyDefinition) return;
       if (isAllowedVocabularyLine(relativePath, line)) return;
       findings.push(`${relativePath}:${index + 1}: ${line.trim()}`);
     });
   }
 
   assert.deepEqual(findings, [], `false product authority/authorization vocabulary found:\n${findings.join("\n")}`);
+});
+
+test("published governance vocabulary definition documents reserve product authority to the Operator", () => {
+  for (const relativePath of governanceVocabularyDefinitionPaths) {
+    const absolutePath = path.join(repositoryRoot, relativePath);
+    if (!fs.existsSync(absolutePath)) continue;
+    const content = fs.readFileSync(absolutePath, "utf8");
+    assert.match(content, /Operator/i, `${relativePath} must identify the Operator`);
+    assert.match(content, /authority/i, `${relativePath} must define or discuss authority`);
+    assert.match(
+      content,
+      /Operator[^\n]{0,160}(?:only|sole|authority)|authority[^\n]{0,160}(?:human Operator|Operator)/i,
+      `${relativePath} must reserve product authority to the Operator`,
+    );
+  }
 });
 
 test("vocabulary classifier rejects nonhuman permission principals", () => {

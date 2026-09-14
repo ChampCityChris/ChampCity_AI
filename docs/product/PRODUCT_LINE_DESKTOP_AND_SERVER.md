@@ -4,7 +4,7 @@
 
 The current application is the continuing standalone workstation product and should be named **ChampCity A/I Desktop**.
 
-The architecture previously discussed as “V2” is not a replacement generation of Desktop. It is a second deployment model whose defining characteristic is that substantial services are supplied by a ChampCity server. The working technical name is **ChampCity A/I Server**. “ChampCity A/I Enterprise” may later be used as a commercial/packaging name, but `Server` is the clearer architecture term and should be used in engineering documents until a commercial edition decision is made.
+Earlier discussion used “V2” imprecisely for the server-backed direction. That equivalence is retired. **V2 is now an internal architecture-generation designation for the shared-product reconstruction/extraction work; it is not a product or deployment name.** The server-backed deployment remains **ChampCity A/I Server**. “ChampCity A/I Enterprise” may later be used as a commercial/packaging name, but `Server` is the clearer deployment-architecture term until a commercial edition decision is made.
 
 ## ChampCity A/I Desktop
 
@@ -69,4 +69,4 @@ Use these names in new engineering documentation:
 - `ChampCity A/I Server` — working architecture name for server-backed deployment.
 - `ChampCity A/I Enterprise` — reserved for a future commercial/edition decision and not used as a substitute for an undefined architecture.
 
-The old shorthand `V2` should be treated as historical discussion terminology rather than the canonical product name.
+`V2` may be used in engineering documentation only as an **architecture-generation label**. It must never be used as a synonym for ChampCity A/I Server. The canonical deployment/product names remain ChampCity A/I Desktop and ChampCity A/I Server.

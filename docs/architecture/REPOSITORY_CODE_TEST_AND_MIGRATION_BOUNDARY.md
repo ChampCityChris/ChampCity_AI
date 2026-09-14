@@ -8,12 +8,15 @@ This document separates product runtime source from tests, temporary workflow re
 
 ## Source Precedence
 
-For implementation work, use this order:
+For implementation work, first identify which architecture generation/scope the active Work Item is changing. Then use this order:
 
 1. the active approved Work Card and any explicit handoff;
-2. current product and development documentation under `docs/`;
-3. current production source under `src/`;
-4. current capability-oriented tests and curated fixtures under `test/`.
+2. applicable adopted architecture/governance for that generation and scope under `docs/`;
+3. other applicable current product/development documentation under `docs/`;
+4. current production source under `src/` as implementation evidence;
+5. current capability-oriented tests and curated fixtures under `test/` as behavior/evidence constraints.
+
+A V2 target architecture document is not proof that V2 behavior is already implemented. Conversely, a frozen V1 implementation detail or characterization test does not overrule an explicit adopted V2 architecture change. Characterization tests must distinguish behavior intentionally preserved from V1 from behavior deliberately replaced in V2.
 
 When present locally, ignored material under `archive/` is historical evidence only. It is not part of the published source baseline and is not current runtime, schema, migration, test-fixture, or implementation source.
 
