@@ -43,7 +43,7 @@ test("advisory Architect prompt is generated from repository evidence", () => {
   assert.match(result.instruction, /BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH/);
   assert.doesNotMatch(result.instruction, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
   assert.doesNotMatch(result.instruction, /Resolve the configured workspace ID/);
-  assert.match(result.instruction, /You are not the disposition authority\./);
+  assert.match(result.instruction, /You do not make the disposition decision\./);
   assert.match(result.instruction, /The Operator is the final authority/);
   assert.match(result.instruction, /# Advisory Architect Review — WC01/);
   assert.match(result.instruction, /## Suggested Operator Decision/);
@@ -51,18 +51,18 @@ test("advisory Architect prompt is generated from repository evidence", () => {
   assert.match(result.instruction, /- Request Repair/);
   assert.match(result.instruction, /- Inconclusive/);
   assert.match(result.instruction, /- src\/main\/workCardValidation\/workCardValidationService\.ts/);
-  assert.match(result.instruction, /Passing and failing tests are evidence, not independent authority/);
+  assert.match(result.instruction, /Passing and failing tests are evidence, not an independent decision/);
   assert.match(result.instruction, /Failed-test classification rule:/);
   assert.match(result.instruction, /in-scope implementation defect/);
   assert.match(result.instruction, /implementation-caused regression/);
   assert.match(result.instruction, /essential proof gap/);
-  assert.match(result.instruction, /unrelated failure outside the Work Card objective or authorized surface/);
+  assert.match(result.instruction, /unrelated failure outside the Work Card objective or in-scope surface/);
   assert.match(result.instruction, /pre-existing failure not caused by the implementation/);
   assert.match(result.instruction, /stale or contradictory test invariant/);
   assert.match(result.instruction, /validation infrastructure or environment failure/);
   assert.match(result.instruction, /insufficient evidence to classify/);
   assert.match(result.instruction, /not blocking solely because it appears in a command, file, or suite named by the Work Card/);
-  assert.match(result.instruction, /verified production architecture and approved repository authority outrank a stale source-string assertion/);
+  assert.match(result.instruction, /verified production architecture and the approved repository state outrank a stale source-string assertion/);
   assert.match(result.instruction, /Do not recommend changing correct production behavior merely to satisfy an obsolete test/);
   assert.match(result.instruction, /Validate Passed means the Work Card objective and preserved behavior are materially proven/);
   assert.match(result.instruction, /Request Repair means a material in-scope defect, implementation-caused regression, or essential proof gap/);
@@ -88,22 +88,22 @@ test("advisory Architect prompt routes from selected root despite report project
   assert.doesNotMatch(result.instruction, /repository_root/);
 });
 
-test("report readiness rejects mutated nested repository authority", () => {
-  const root = tempWorkspace("champcity-work-card-advisory-authority-mismatch-");
+test("report readiness rejects mutated nested repository binding", () => {
+  const root = tempWorkspace("champcity-work-card-advisory-binding-mismatch-");
   seedApprovedFormalWorkCard(root, "phase-01", "WC01");
   writeReadyImplementerReport(root, "phase-01", "WC01", "Pending", {
-    repositoryAuthority: {
+    repositoryBinding: {
       projectRepository: "repository root",
     },
   });
 
   assert.throws(
     () => buildAdvisoryArchitectReviewPrompt(root, "phase-01", "WC01"),
-    /repository authority does not match/,
+    /repository binding does not match/,
   );
 });
 
-test("Operator Validate Passed writes validation authority without mutating Implementer Report disposition", () => {
+test("Operator Validate Passed writes validation basis without mutating Implementer Report disposition", () => {
   const root = tempWorkspace("champcity-operator-validate-passed-");
   seedApprovedFormalWorkCard(root, "phase-01", "WC01");
   const reportPath = writeReadyImplementerReport(root, "phase-01", "WC01", "Pending");
@@ -120,7 +120,7 @@ test("Operator Validate Passed writes validation authority without mutating Impl
   const report = listPlanningDocuments(root).find((document) => document.markdownPath === reportPath);
   assert.equal(report.effectiveDisposition, "Pending");
   const validation = fs.readFileSync(path.join(root, result.markdownPath), "utf8");
-  assert.match(validation, /operatorDecisionCreatesAuthority/);
+  assert.match(validation, /operatorDecisionCreatesValidationRecord/);
   assert.match(validation, /Manual smoke passed\./);
 });
 
@@ -142,7 +142,7 @@ test("Operator Request Repair requires defect text, writes one RevisionRequested
     decision: "RequestRepair",
     operatorNotes: "Found defect.",
     advisorySummary: "Architect suggested Request Repair.",
-    repairDefectText: "Fix the missing authority path.",
+    repairDefectText: "Fix the missing evidence path.",
   });
   assert.equal(result.status, "RevisionRequested");
   assert.equal(result.attemptNumber, 1);

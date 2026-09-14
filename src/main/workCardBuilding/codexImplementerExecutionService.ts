@@ -1,3 +1,5 @@
+import { codexRuntimeManager, type CodexRuntimeManager } from "./codexRuntimeManager";
+import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,7 +19,6 @@ import type {
   DevelopmentEnvironmentPreflightResult,
 } from "../../shared/developmentEnvironmentContracts";
 import {
-  loadCodexAppServerAdapter,
   type CodexAppServerAdapterFactory,
   type CodexAppServerThreadAdapter,
   type CodexAppServerThreadEvent,
@@ -30,6 +31,10 @@ import {
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateDocumentFreshness, listPlanningDocuments } from "../documents/planningDocumentService";
 import { getCurrentWorkspaceModel } from "../currentWorkflow/currentWorkflowService";
+import {
+  issueFixCardReportReadinessBlocker,
+  resolveIssueFixCardCodexExecutionContext,
+} from "../issueResolution/issueResolutionService";
 import {
   type CodexImplementerExecutionPolicy,
   type CodexImplementerExecutionPolicyResolver,
@@ -74,14 +79,19 @@ export interface CodexAppServerExecutionAdapter {
 export type CodexAppServerExecutionAdapterFactory = CodexAppServerAdapterFactory;
 
 interface ExecutionContext {
-  phaseId: string;
+  ownerKind?: "development" | "issue";
+  issueId?: string;
+  rootFixCardId?: string;
+  currentImplementationId?: string;
+  repairId?: string;
+  phaseId: string | null;
   workCardId: string;
   workCardTitle: string;
   projectRoot: string;
   formalWorkCardPath: string;
   formalWorkCardRevision: number;
   formalWorkCardSha256: string;
-  implementationContractType: "formal-work-card" | "repair-work-card";
+  implementationContractType: "formal-work-card" | "repair-work-card" | "fix-card";
   implementationContractLabel: string;
   implementerReportPath: string;
   implementerReportRevision: number;
@@ -89,7 +99,15 @@ interface ExecutionContext {
   developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
 }
 
+interface IssueExecutionSelector {
+  ownerKind: "issue";
+  issueId: string;
+  fixCardId: string;
+  currentImplementationId?: string;
+}
+
 interface SessionRecord extends ExecutionContext {
+  selection?: CodexModelSelection;
   executionKind: CodexImplementerExecutionKind;
   executionPolicy: CodexImplementerExecutionPolicy;
   state: CodexImplementerExecutionState;
@@ -145,12 +163,33 @@ export class CodexImplementerExecutionService {
       developmentEnvironmentPreflightService,
     private readonly parentEnvironmentRefresh: () => Promise<WindowsEnvironmentRefreshResult> =
       refreshWindowsProcessEnvironment,
+    private readonly runtimeManager: CodexRuntimeManager = codexRuntimeManager,
   ) {}
 
-  async getStatus(workspaceRoot: string): Promise<CodexImplementerExecutionModel> {
+  async getStatus(workspaceRoot: string, selector?: IssueExecutionSelector): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const runningOrCompleted = this.sessionsByWorkspaceRoot.get(key);
     if (runningOrCompleted) {
+      if (selector) {
+        const requestedContext = this.resolvePreflightContext(workspaceRoot, selector);
+        if (requestedContext instanceof Error) {
+          return unavailableFromPreflight(requestedContext);
+        }
+        if (!sameExecutionContext(runningOrCompleted, requestedContext)) {
+          if (runningOrCompleted.state === "running") {
+            return busyModelForDifferentContext(requestedContext, runningOrCompleted);
+          }
+        } else {
+          if (runningOrCompleted.state === "running") {
+            return modelFromSession(runningOrCompleted, this.now(), {
+              canRunAgain: false,
+              retryBlocker: "Codex execution is already running for this workspace.",
+            });
+          }
+          const readiness = await this.resolveRetryReadiness(workspaceRoot, runningOrCompleted);
+          return modelFromSession(runningOrCompleted, this.now(), readiness);
+        }
+      } else {
       if (runningOrCompleted.state === "running") {
         return modelFromSession(runningOrCompleted, this.now(), {
           canRunAgain: false,
@@ -159,13 +198,14 @@ export class CodexImplementerExecutionService {
       }
       const readiness = await this.resolveRetryReadiness(workspaceRoot, runningOrCompleted);
       return modelFromSession(runningOrCompleted, this.now(), readiness);
+      }
     }
 
-    const context = this.resolvePreflightContext(workspaceRoot);
+    const context = this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       return unavailableFromPreflight(context);
     }
-    context.developmentEnvironmentPreflight = this.preflightByWorkspaceRoot.get(key) ?? null;
+    context.developmentEnvironmentPreflight = this.preflightByWorkspaceRoot.get(preflightKey(context)) ?? null;
     const cachedPreflight = context.developmentEnvironmentPreflight;
     if (
       cachedPreflight &&
@@ -178,18 +218,36 @@ export class CodexImplementerExecutionService {
     return readyModel(context);
   }
 
-  async start(workspaceRoot: string): Promise<CodexImplementerExecutionModel> {
+  async start(workspaceRoot: string, selector?: IssueExecutionSelector, selection?: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
+    return this.startWithSelection(workspaceRoot, selector, selection, false);
+  }
+
+  private async startWithSelection(workspaceRoot: string, selector: IssueExecutionSelector | undefined, selection: CodexModelSelection | undefined, environment: boolean): Promise<CodexImplementerExecutionModel> {
+    const active = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+    if (active?.state === "running") {
+      const context = this.resolvePreflightContext(workspaceRoot, selector);
+      if (!(context instanceof Error) && !sameExecutionContext(active, context)) return busyModelForDifferentContext(context, active);
+      return { ...await this.getStatus(workspaceRoot, selector), failureReason: "Codex execution is already running for this workspace.", canRunAgain: false, retryBlocker: "Codex execution is already running for this workspace." };
+    }
+    let lease;
+    try { lease = this.runtimeManager.acquire(selection); }
+    catch (error) { return unavailableFromPreflight(error instanceof Error ? error : new Error(String(error))); }
+    try {
+      const result = environment
+        ? await this.startEnvironmentSelected(workspaceRoot, selector, lease.selection)
+        : await this.startSelected(workspaceRoot, selector, lease.selection);
+      const session = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+      if (session?.state === "running" && session.executionPromise) {
+        void session.executionPromise.then(lease.release, lease.release);
+      } else lease.release();
+      return result;
+    } catch (error) { lease.release(); throw error; }
+  }
+
+  private async startSelected(workspaceRoot: string, selector: IssueExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const active = this.sessionsByWorkspaceRoot.get(key);
-    if (active?.state === "running") {
-      active.failureReason = "Codex execution is already running for this workspace.";
-      return modelFromSession(active, this.now(), {
-        canRunAgain: false,
-        retryBlocker: "Codex execution is already running for this workspace.",
-      });
-    }
-
-    const context = this.resolvePreflightContext(workspaceRoot);
+    const context = this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       if (active) {
         return modelFromSession(active, this.now(), {
@@ -199,7 +257,18 @@ export class CodexImplementerExecutionService {
       }
       return unavailableFromPreflight(context);
     }
+    if (active?.state === "running") {
+      if (sameExecutionContext(active, context)) {
+        active.failureReason = "Codex execution is already running for this workspace.";
+        return modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: "Codex execution is already running for this workspace.",
+        });
+      }
+      return busyModelForDifferentContext(context, active);
+    }
 
+    const preflightCacheKey = preflightKey(context);
     const checkingPreflight: DevelopmentEnvironmentPreflightResult = {
       state: "checking",
       summary: "Preparing development environment...",
@@ -207,7 +276,7 @@ export class CodexImplementerExecutionService {
       requirements: [],
       evidenceMarkdown: "Development environment preflight evidence:\n- Final state: checking",
     };
-    this.preflightByWorkspaceRoot.set(key, checkingPreflight);
+    this.preflightByWorkspaceRoot.set(preflightCacheKey, checkingPreflight);
     let developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult;
     try {
       const provisioningPreflight: DevelopmentEnvironmentPreflightResult = {
@@ -217,12 +286,12 @@ export class CodexImplementerExecutionService {
         requirements: [],
         evidenceMarkdown: "Development environment preflight evidence:\n- Final state: provisioning",
       };
-      this.preflightByWorkspaceRoot.set(key, provisioningPreflight);
+      this.preflightByWorkspaceRoot.set(preflightCacheKey, provisioningPreflight);
       developmentEnvironmentPreflight = await this.preflightService.runPreflight({
         workspaceRoot: context.projectRoot,
         formalWorkCardPath: context.formalWorkCardPath,
       });
-      this.preflightByWorkspaceRoot.set(key, developmentEnvironmentPreflight);
+      this.preflightByWorkspaceRoot.set(preflightCacheKey, developmentEnvironmentPreflight);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const blockedPreflight: DevelopmentEnvironmentPreflightResult = {
@@ -236,7 +305,7 @@ export class CodexImplementerExecutionService {
           `- Summary: ${message}`,
         ].join("\n"),
       };
-      this.preflightByWorkspaceRoot.set(key, blockedPreflight);
+      this.preflightByWorkspaceRoot.set(preflightCacheKey, blockedPreflight);
       return unavailableModelFromContext(
         { ...context, developmentEnvironmentPreflight: blockedPreflight },
         blockedPreflight.summary,
@@ -276,6 +345,7 @@ export class CodexImplementerExecutionService {
     const abortController = new AbortController();
     const session: SessionRecord = {
       ...context,
+      selection,
       developmentEnvironmentPreflight,
       executionKind: "work-card-implementation",
       executionPolicy,
@@ -309,29 +379,36 @@ export class CodexImplementerExecutionService {
     });
   }
 
-  async startEnvironmentResolution(workspaceRoot: string): Promise<CodexImplementerExecutionModel> {
+  async startEnvironmentResolution(workspaceRoot: string, selector?: IssueExecutionSelector): Promise<CodexImplementerExecutionModel> {
+    return this.startWithSelection(workspaceRoot, selector, this.runtimeManager.getStatus().selection ?? undefined, true);
+  }
+
+  private async startEnvironmentSelected(workspaceRoot: string, selector: IssueExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const active = this.sessionsByWorkspaceRoot.get(key);
-    if (active?.state === "running") {
-      active.failureReason = "Codex execution is already running for this workspace.";
-      return modelFromSession(active, this.now(), {
-        canRunAgain: false,
-        retryBlocker: "Codex execution is already running for this workspace.",
-      });
-    }
-
-    const context = this.resolvePreflightContext(workspaceRoot);
+    const context = this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       return unavailableFromPreflight(context);
     }
+    if (active?.state === "running") {
+      if (sameExecutionContext(active, context)) {
+        active.failureReason = "Codex execution is already running for this workspace.";
+        return modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: "Codex execution is already running for this workspace.",
+        });
+      }
+      return busyModelForDifferentContext(context, active);
+    }
 
-    let preflight = this.preflightByWorkspaceRoot.get(key) ?? null;
+    const preflightCacheKey = preflightKey(context);
+    let preflight = this.preflightByWorkspaceRoot.get(preflightCacheKey) ?? null;
     if (!preflight || preflight.state !== "resolution-required") {
       preflight = await this.preflightService.runPreflight({
         workspaceRoot: context.projectRoot,
         formalWorkCardPath: context.formalWorkCardPath,
       });
-      this.preflightByWorkspaceRoot.set(key, preflight);
+      this.preflightByWorkspaceRoot.set(preflightCacheKey, preflight);
     }
     if (preflight.state !== "resolution-required") {
       return unavailableModelFromPreflightResult(
@@ -357,6 +434,7 @@ export class CodexImplementerExecutionService {
     const abortController = new AbortController();
     const session: SessionRecord = {
       ...context,
+      selection,
       developmentEnvironmentPreflight: preflight,
       executionKind: "environment-resolution",
       executionPolicy,
@@ -570,6 +648,8 @@ export class CodexImplementerExecutionService {
     try {
       thread = appServer.startThread({
         workingDirectory: session.projectRoot,
+        model: session.selection?.model,
+        reasoningEffort: session.selection?.reasoningEffort,
         skipGitRepoCheck: true,
         ...threadOptionsFromCodexImplementerPolicy(session.executionPolicy),
         writableRoots: session.executionPolicy.sandboxMode === "workspace-write"
@@ -582,6 +662,7 @@ export class CodexImplementerExecutionService {
       const streamed = await thread.runStreamed(prompt, {
         signal: session.abortController?.signal,
       });
+      session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
       for await (const event of streamed.events) {
         appendTail(session.eventTail, summarizeEvent(event));
         if (event.type === "item.completed" && event.item.type === "agent_message") {
@@ -660,7 +741,7 @@ export class CodexImplementerExecutionService {
             workspaceRoot: session.projectRoot,
             formalWorkCardPath: session.formalWorkCardPath,
           });
-          this.preflightByWorkspaceRoot.set(workspaceKey(session.projectRoot), rerun);
+          this.preflightByWorkspaceRoot.set(preflightKey(session), rerun);
           session.developmentEnvironmentPreflight = rerun;
           appendTail(session.eventTail, `environment-resolution.preflight.${rerun.state}`);
         } catch (error) {
@@ -674,7 +755,7 @@ export class CodexImplementerExecutionService {
             session.developmentEnvironmentPreflight,
             message,
           );
-          this.preflightByWorkspaceRoot.set(workspaceKey(session.projectRoot), failedRefreshPreflight);
+          this.preflightByWorkspaceRoot.set(preflightKey(session), failedRefreshPreflight);
           session.developmentEnvironmentPreflight = failedRefreshPreflight;
         }
       }
@@ -690,11 +771,28 @@ export class CodexImplementerExecutionService {
     }
   }
 
-  private resolvePreflightContext(workspaceRoot: string): ExecutionContext | Error {
+  private resolvePreflightContext(workspaceRoot: string, selector?: IssueExecutionSelector): ExecutionContext | Error {
     try {
       const projectRoot = path.resolve(workspaceRoot);
       if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
         throw new Error("Selected workspace root is not a readable directory.");
+      }
+      if (selector?.ownerKind === "issue") {
+        const issueContext = resolveIssueFixCardCodexExecutionContext(
+          projectRoot,
+          selector.issueId,
+          selector.fixCardId,
+          selector.currentImplementationId,
+        );
+        return {
+          ...issueContext,
+          rootFixCardId: issueContext.fixCardId,
+          currentImplementationId: issueContext.currentImplementationId,
+          phaseId: null,
+          workCardId: issueContext.currentImplementationId,
+          ownerKind: "issue",
+          developmentEnvironmentPreflight: null,
+        };
       }
 
       const current = getCurrentWorkspaceModel(projectRoot);
@@ -738,6 +836,7 @@ export class CodexImplementerExecutionService {
       const formalMetadata = readCanonicalMetadata(projectRoot, projection.formalWorkCardPath);
       const reportMetadata = readCanonicalMetadata(projectRoot, projection.implementerReportPath);
       return {
+        ownerKind: "development",
         phaseId: projection.phaseId,
         workCardId: projection.workCardId,
         workCardTitle: projection.workCardTitle,
@@ -761,7 +860,22 @@ export class CodexImplementerExecutionService {
     workspaceRoot: string,
     session: SessionRecord,
   ): Promise<RetryReadiness> {
-    const context = this.resolvePreflightContext(workspaceRoot);
+    let selector: IssueExecutionSelector | undefined;
+    if (session.ownerKind === "issue" && session.issueId) {
+      if (!session.rootFixCardId || !session.currentImplementationId) {
+        return {
+          canRunAgain: false,
+          retryBlocker: "Issue Codex execution identity is incomplete; refresh the current Fix Card implementation.",
+        };
+      }
+      selector = {
+        ownerKind: "issue",
+        issueId: session.issueId,
+        fixCardId: session.rootFixCardId,
+        currentImplementationId: session.currentImplementationId,
+      };
+    }
+    const context = this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       return {
         canRunAgain: false,
@@ -787,7 +901,14 @@ export const codexImplementerExecutionService = new CodexImplementerExecutionSer
 export function buildCodexImplementerPrompt(context: ExecutionContext): string {
   const contractDocumentLabel = context.implementationContractType === "formal-work-card"
     ? "Formal Work Card"
-    : "Work Card Contract";
+    : context.implementationContractType === "fix-card"
+    ? "Fix Card"
+    : "Repair Contract";
+  const approvedContractLabel = context.implementationContractType === "fix-card"
+    ? "Approved Fix Card Contract"
+    : context.implementationContractType === "repair-work-card"
+    ? "Approved Repair Contract"
+    : "Approved Work Card";
   const developmentEnvironmentEvidence = context.developmentEnvironmentPreflight &&
     context.developmentEnvironmentPreflight.state !== "not-required"
     ? [
@@ -802,10 +923,11 @@ export function buildCodexImplementerPrompt(context: ExecutionContext): string {
 
 Working directory:
 - The current process working directory is the selected project repository root.
-- Use filesystem and tooling access only as authorized by the Approved Work Card and project-local instructions.
+- Use filesystem and tooling access only within the Operator's current direction, the ${approvedContractLabel}'s bounded scope, and project-local instructions.
 
-Authority:
-- The ${context.implementationContractLabel} is the sole implementation contract.
+Operator authority and task scope:
+- The human Operator is the only authority.
+- The ${context.implementationContractLabel} is the sole bounded implementation contract for this run. It defines task scope and instructions; it does not grant authority, which remains with the human Operator.
 - Read it before changing files.
 - ${contractDocumentLabel} path: ${context.formalWorkCardPath}
 - ${contractDocumentLabel} artifact revision: ${context.formalWorkCardRevision}
@@ -816,25 +938,25 @@ Required report:
 - Implementer Report path: ${context.implementerReportPath}
 - Implementer Report artifact revision before execution: ${context.implementerReportRevision}
 - Implementer Report SHA-256 before execution: ${context.implementerReportSha256}
-- The application owns canonical identity, source revisions, repository authority, and disposition authority in the report metadata. Do not rewrite those authority fields.
+- The application owns canonical identity, source revisions, repository binding evidence, and disposition metadata in the report. Do not rewrite those fields.
 - Do not create an alternate report, sidecar, summary, execution packet, or completion marker.
-- Implementation is incomplete until this exact report contains the complete auditable evidence required by the Approved Work Card and remains Pending for review.
+- Implementation is incomplete until this exact report contains the complete auditable evidence required by the ${approvedContractLabel} and remains Pending for review.
 ${developmentEnvironmentEvidence}
 
 Project instructions:
 - Discover and follow project-local instructions, including AGENTS.md, README files, validation documents, package scripts, and repository-specific conventions.
-- If project instructions conflict with the Approved Work Card, follow the Approved Work Card and document the conflict in the report.
+- If project instructions conflict with the ${approvedContractLabel}, follow the ${approvedContractLabel} and document the conflict in the report.
 
 Execution rules:
-- Implement only the approved Work Card.
-- Preserve all negative constraints in the Work Card.
-- Do not stage, commit, push, tag, reset, clean, stash, or perform Git mutation unless the Work Card explicitly authorizes it.
-- Do not disclose or commit secrets, credentials, authentication tokens, API/provider keys, or private environment-file contents unless the Approved Work Card explicitly requires handling them through an authorized secure mechanism.
-- A missing development capability required by the Approved Work Card is not by itself a blocker when its champcity-development-environment contract marks it managed. Use the application-owned development-environment provisioning path when available, verify the capability, then continue the Work Card. Report a blocker only when provisioning itself fails after the authorized remediation path is attempted or when the requirement is explicitly external.
-- Repository-native dependency installation or restoration is implementation work when required by the Work Card or project-local instructions. Package or dependency absence alone is not a reason to return the task to a nontechnical Operator.
-- Do not install unrelated tools because they might be useful. Provisioning authority is bounded by the Approved Work Card's required capabilities and project-local instructions.
+- Implement only the approved implementation contract.
+- Preserve all negative constraints in the implementation contract.
+- Do not perform Git mutation when the Operator or the current task or implementation contract prohibits it. Follow every explicit Git constraint supplied for this turn.
+- Do not disclose or commit secrets, credentials, authentication tokens, API/provider keys, or private environment-file contents unless the ${approvedContractLabel} explicitly requires handling them through an established secure mechanism.
+- A missing development capability required by the ${approvedContractLabel} is not by itself a blocker when its champcity-development-environment contract marks it managed. Use the application-owned development-environment provisioning path when available, verify the capability, then continue the implementation contract. Report a blocker only when provisioning itself fails after the application-owned remediation path is attempted or when the requirement is explicitly external.
+- Repository-native dependency installation or restoration is implementation work when required by the implementation contract or project-local instructions. Package or dependency absence alone is not a reason to return the task to a nontechnical Operator.
+- Do not install unrelated tools because they might be useful. Provisioning scope is bounded by the Approved Work Card's required capabilities and project-local instructions.
 - A human interaction such as UAC approval, authentication, license acceptance, purchase, or hardware attachment is a resumable interaction boundary. Prepare the required action, request only the necessary human interaction, and resume afterward instead of transferring technical environment setup responsibility to the Operator.
-- Run the validation required by the Approved Work Card when possible.
+- Run the validation required by the ${approvedContractLabel} when possible.
 - Record exact commands, working directory, exit codes, and result summaries in the Implementer Report.
 - Map each acceptance criterion to evidence in the Implementer Report.
 - Distinguish automated validation completed from Operator validation remaining.
@@ -851,20 +973,30 @@ Completion:
 
 export function buildCodexEnvironmentResolutionPrompt(context: ExecutionContext): string {
   const unresolvedEvidence = environmentResolutionEvidence(context);
+  const approvedContractLabel = context.implementationContractType === "fix-card"
+    ? "Approved Fix Card"
+    : context.implementationContractType === "repair-work-card"
+    ? "Approved Repair"
+    : "Approved Work Card";
+  const contractDocumentLabel = context.implementationContractType === "fix-card"
+    ? "Fix Card"
+    : context.implementationContractType === "repair-work-card"
+    ? "Repair Contract"
+    : "Approved Work Card";
   return `You are running ChampCity A/I Environment Resolution, not normal Work Card implementation.
 
-Use the current working directory as the selected project repository root. Read the current Approved Work Card and project-local instructions before taking action.
+Use the current working directory as the selected project repository root. Read the current ${approvedContractLabel} and project-local instructions before taking action.
 
-Approved Work Card evidence:
-- Approved Work Card path: ${context.formalWorkCardPath}
-- Approved Work Card artifact revision: ${context.formalWorkCardRevision}
-- Approved Work Card SHA-256: ${context.formalWorkCardSha256}
+${approvedContractLabel} evidence:
+- ${contractDocumentLabel} path: ${context.formalWorkCardPath}
+- ${contractDocumentLabel} artifact revision: ${context.formalWorkCardRevision}
+- ${contractDocumentLabel} SHA-256: ${context.formalWorkCardSha256}
 ${unresolvedEvidence}
 
-Authority:
-- Establish only unresolved managed development-environment capabilities required by the Approved Work Card.
+Scope:
+- Establish only unresolved managed development-environment capabilities required by the ${approvedContractLabel}.
 - Do not substitute project architecture, platform, compiler family, target architecture, package ecosystem, or approved capability identity because setup is difficult.
-- Prefer authoritative vendor, Windows Package Manager, WinGet Configuration/DSC, and project-native ecosystem sources.
+- Prefer official vendor, Windows Package Manager, WinGet Configuration/DSC, and project-native ecosystem sources.
 - Stop only for a genuine human or external boundary such as UAC approval, restart, account authentication, license/purchase acceptance, host policy, or demonstrable inability to provision.
 
 Output requirements:
@@ -958,7 +1090,7 @@ function truncatePromptEvidence(value: string): string {
 }
 
 async function loadCodexAppServerExecutionAdapter(): Promise<CodexAppServerExecutionAdapter> {
-  return loadCodexAppServerAdapter();
+  return codexRuntimeManager.launch();
 }
 
 function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
@@ -1154,11 +1286,53 @@ function isTerminalState(
 
 function sameExecutionContext(left: SessionRecord, right: ExecutionContext): boolean {
   return (
+    left.ownerKind === right.ownerKind &&
+    left.issueId === right.issueId &&
+    left.rootFixCardId === right.rootFixCardId &&
+    left.currentImplementationId === right.currentImplementationId &&
+    left.repairId === right.repairId &&
     left.phaseId === right.phaseId &&
     left.workCardId === right.workCardId &&
     left.formalWorkCardPath === right.formalWorkCardPath &&
+    left.formalWorkCardRevision === right.formalWorkCardRevision &&
+    left.formalWorkCardSha256 === right.formalWorkCardSha256 &&
     left.implementerReportPath === right.implementerReportPath
   );
+}
+
+function preflightKey(context: ExecutionContext): string {
+  return [
+    workspaceKey(context.projectRoot),
+    context.ownerKind ?? "development",
+    context.issueId ?? "",
+    context.rootFixCardId ?? "",
+    context.currentImplementationId ?? "",
+    context.repairId ?? "",
+    context.phaseId ?? "",
+    context.workCardId,
+    context.formalWorkCardPath,
+    context.formalWorkCardRevision,
+    context.formalWorkCardSha256,
+  ].join("::");
+}
+
+function busyModelForDifferentContext(
+  requestedContext: ExecutionContext,
+  active: SessionRecord,
+): CodexImplementerExecutionModel {
+  const activeLabel = executionContextLabel(active);
+  const requestedLabel = executionContextLabel(requestedContext);
+  return unavailableModelFromContext(
+    requestedContext,
+    `Codex execution is already running for ${activeLabel}; ${requestedLabel} is blocked until that run finishes.`,
+  );
+}
+
+function executionContextLabel(context: ExecutionContext): string {
+  if (context.ownerKind === "issue" && context.issueId) {
+    return `${context.issueId} ${context.workCardId}`;
+  }
+  return context.phaseId ? `${context.phaseId} ${context.workCardId}` : context.workCardId;
 }
 
 async function refreshReportEvidence(
@@ -1263,6 +1437,17 @@ function sameFinalReportEvidence(left: FinalReportEvidence, right: FinalReportEv
 }
 
 function finalReportReadinessBlocker(session: SessionRecord): string | null {
+  if (session.ownerKind === "issue" && session.issueId) {
+    if (!session.rootFixCardId || !session.currentImplementationId) {
+      return "Issue Codex execution identity is incomplete; final report readiness cannot be resolved.";
+    }
+    return issueFixCardReportReadinessBlocker(
+      session.projectRoot,
+      session.issueId,
+      session.rootFixCardId,
+      session.currentImplementationId,
+    );
+  }
   try {
     const projection = getCurrentWorkspaceModel(session.projectRoot).workCardBuildingReview;
     if (

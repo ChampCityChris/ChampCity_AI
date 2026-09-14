@@ -41,6 +41,10 @@ export function buildMcpWorkspaceBindingPromptBlock(
     ...(options.includeDiagnosticsToolboxHint === false
       ? []
       : ["- diagnostics_toolbox.list_workspaces may be used only to confirm that this workspaceId exists."]),
+    "- A truncated or incomplete repository result never establishes that an artifact is absent.",
+    "- Prefer an exact known artifact path over broad repository enumeration whenever that path is available.",
+    "- Use registered workspace IDs exactly as returned by registered-workspace diagnostics; do not invent, normalize, or infer an alternate workspaceId from an incomplete repository result.",
+    "- An unknown workspaceId fails closed with WORKSPACE_ACCESS_DENIED.",
     "- If the bound workspaceId is absent, inaccessible, or does not contain the exact required artifact path, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH.",
   ];
 }
@@ -84,6 +88,30 @@ export function buildWriteMarkdownArtifactJsonBlock(
       relativePath,
       content: contentPlaceholder,
       overwrite: false,
+    },
+  }, null, 2).split("\n");
+}
+
+export function buildReplaceMarkdownBodyJsonBlock(
+  workspaceRoot: string,
+  input: {
+    relativePath: string;
+    submissionId: string;
+    expectedMetadataSha256: string;
+    expectedBodySha256: string;
+    bodyPlaceholder: string;
+  },
+): string[] {
+  const binding = requireBoundMcpWorkspace(workspaceRoot);
+  return JSON.stringify({
+    action: "replace_markdown_body",
+    workspaceId: binding.workspaceId,
+    params: {
+      relativePath: input.relativePath,
+      submissionId: input.submissionId,
+      expectedMetadataSha256: input.expectedMetadataSha256,
+      expectedBodySha256: input.expectedBodySha256,
+      bodyMarkdown: input.bodyPlaceholder,
     },
   }, null, 2).split("\n");
 }

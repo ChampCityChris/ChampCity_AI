@@ -13,15 +13,19 @@ import {
   savePlanningDocumentRevision,
 } from "../documents/planningDocumentService";
 import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
+import {
   updateCanonicalMarkdownDisposition,
   writeCanonicalMarkdownDocument,
   writeCanonicalMarkdownDocuments,
 } from "../documents/canonicalMarkdownDocumentWriter";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-  repositoryAuthorityFromWorkflowData,
-} from "../documents/repositoryAuthority";
+  explicitRepositoryBindingFromWorkflowData,
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 
 export interface ImplementerReportResult {
   markdownPath: string;
@@ -92,8 +96,9 @@ export interface ResolveWorkCardReportContextInput {
 export function resolveWorkCardImplementerReportContext(
   workspaceRoot: string,
   input: ResolveWorkCardReportContextInput,
+  planningContext?: PlanningProjectionContext,
 ): WorkCardImplementerReportContext {
-  const documents = listPlanningDocuments(workspaceRoot);
+  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
   const implementationContractType =
     input.implementationContractType ??
     (/-REPAIR\d+$/i.test(input.workCardId) ? "repair-work-card" : "formal-work-card");
@@ -182,7 +187,7 @@ export function buildApprovedFormalWorkCardAndReportDocuments(input: {
   const documents: Array<Parameters<typeof writeCanonicalMarkdownDocuments>[0][number]> = [{
     workspaceRoot: input.workspaceRoot,
     relativePath: input.formalWorkCardPath,
-    metadata: metadataWithDisposition(
+    metadata: approvedContractMetadata(
       existingFormal.metadata,
       input.approvedStatus,
       input.notes,
@@ -230,7 +235,7 @@ export function buildApprovedRepairWorkCardAndReportDocuments(input: {
   const documents: Array<Parameters<typeof writeCanonicalMarkdownDocuments>[0][number]> = [{
     workspaceRoot: input.workspaceRoot,
     relativePath: input.repairWorkCardPath,
-    metadata: metadataWithDisposition(
+    metadata: approvedContractMetadata(
       existingRepair.metadata,
       input.approvedStatus,
       input.notes,
@@ -262,16 +267,27 @@ export function approveFormalWorkCardAndRegisterReport(input: {
   }));
 }
 
+function approvedContractMetadata(
+  metadata: CanonicalDocumentMetadata,
+  status: DocumentDispositionStatus,
+  notes: string,
+  reviewedAt: string,
+): CanonicalDocumentMetadata {
+  return metadataWithDisposition(metadata, status, notes, reviewedAt);
+}
+
 export function getWorkCardBuildingReviewProjection(
   workspaceRoot: string,
   phaseId: string,
   workCardId: string,
+  planningContext?: PlanningProjectionContext,
 ): WorkCardImplementerReportProjection {
-  const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
+  planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId, planningContext);
   const report = context.existingReport;
-  const readiness = classifyExpectedImplementerReportReadiness(workspaceRoot, context);
+  const readiness = classifyExpectedImplementerReportReadiness(workspaceRoot, context, planningContext);
   const freshness = report?.documentReadState === "readable"
-    ? evaluateDocumentFreshness(workspaceRoot, report.logicalDocumentId).state
+    ? evaluateDocumentFreshness(planningContext ?? workspaceRoot, report.logicalDocumentId).state
     : undefined;
   return {
     phaseId: context.phaseId,
@@ -350,8 +366,9 @@ export function getOperatorValidationEligibility(
 export function classifyExpectedImplementerReportReadiness(
   workspaceRoot: string,
   context: WorkCardImplementerReportContext,
+  planningContext?: PlanningProjectionContext,
 ): ImplementerReportReadinessClassification {
-  const conflicts = findConflictingReports(workspaceRoot, context);
+  const conflicts = findConflictingReports(workspaceRoot, context, planningContext);
   if (conflicts.length > 0) {
     return {
       reportReadiness: "conflict",
@@ -415,15 +432,15 @@ export function classifyExpectedImplementerReportReadiness(
       report,
     };
   }
-  const authorityMismatch = reportRepositoryAuthorityMismatch(workspaceRoot, metadata);
-  if (authorityMismatch) {
+  const bindingMismatch = reportRepositoryBindingMismatch(workspaceRoot, metadata);
+  if (bindingMismatch) {
     return {
       reportReadiness: "invalid",
-      reportReadinessReason: authorityMismatch,
+      reportReadinessReason: bindingMismatch,
       report,
     };
   }
-  const freshness = evaluateDocumentFreshness(workspaceRoot, report.logicalDocumentId);
+  const freshness = evaluateDocumentFreshness(planningContext ?? workspaceRoot, report.logicalDocumentId);
   if (freshness.state !== "fresh") {
     return {
       reportReadiness: "invalid",
@@ -462,29 +479,25 @@ export function classifyExpectedImplementerReportReadiness(
   };
 }
 
-function reportRepositoryAuthorityMismatch(
+function reportRepositoryBindingMismatch(
   workspaceRoot: string,
   metadata: CanonicalDocumentMetadata,
 ): string | null {
-  const nestedAuthority = metadata.workflowData.repositoryAuthority;
-  if (!nestedAuthority || typeof nestedAuthority !== "object" || Array.isArray(nestedAuthority)) {
+  const reportBinding = explicitRepositoryBindingFromWorkflowData(metadata.workflowData);
+  if (!reportBinding) {
     return null;
   }
-  const reportAuthority = repositoryAuthorityFromWorkflowData({ repositoryAuthority: nestedAuthority });
-  if (!reportAuthority) {
-    return null;
-  }
-  const expectedAuthority = inheritRepositoryAuthorityFromSourceRevisions(
+  const expectedState = inheritRepositoryBindingFromSourceRevisions(
     workspaceRoot,
     metadata.sourceRevisions ?? [],
   );
-  if (!expectedAuthority) {
+  if (!expectedState) {
     return null;
   }
-  if (JSON.stringify(reportAuthority) === JSON.stringify(expectedAuthority)) {
+  if (JSON.stringify(reportBinding) === JSON.stringify(expectedState)) {
     return null;
   }
-  return "Expected Implementer Report repository authority does not match the application-owned Work Card authority.";
+  return "Expected Implementer Report repository binding does not match the application-owned Work Card state.";
 }
 
 export function requireReadyImplementerReportForReview(
@@ -512,16 +525,17 @@ function resolveApprovedReportContext(
   workspaceRoot: string,
   phaseId: string,
   workCardId: string,
+  planningContext?: PlanningProjectionContext,
 ): WorkCardImplementerReportContext {
   const implementationContractType = /-REPAIR\d+$/i.test(workCardId) ? "repair-work-card" : "formal-work-card";
-  const formal = requiredApprovedImplementationContract(workspaceRoot, phaseId, workCardId, implementationContractType);
+  const formal = requiredApprovedImplementationContract(workspaceRoot, phaseId, workCardId, implementationContractType, planningContext);
   return resolveWorkCardImplementerReportContext(workspaceRoot, {
     phaseId,
     workCardId,
     formalWorkCardPath: formal.markdownPath,
     formalWorkCardRevision: formal.metadata.artifactRevision ?? 1,
     implementationContractType,
-  });
+  }, planningContext);
 }
 
 function buildImplementerReportDocument(
@@ -532,7 +546,7 @@ function buildImplementerReportDocument(
     path: context.formalWorkCardPath,
     revision: context.formalWorkCardRevision,
   }];
-  const workflowData = mergeRepositoryAuthorityIntoWorkflowData({
+  const workflowData = mergeRepositoryBindingIntoWorkflowData({
     repositoryVerification: "Pending Implementer verification.",
     filesChanged: [],
     implementationSummary: "",
@@ -541,7 +555,7 @@ function buildImplementerReportDocument(
     deviations: [],
     blockers: [],
     remainingOperatorValidation: [],
-  }, inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions));
+  }, inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions));
   return {
     workspaceRoot,
     relativePath: context.implementerReportPath,
@@ -642,8 +656,9 @@ function ensureNoConflictingReport(
 function findConflictingReports(
   workspaceRoot: string,
   context: WorkCardImplementerReportContext,
+  planningContext?: PlanningProjectionContext,
 ): PlanningDocumentSummary[] {
-  return listPlanningDocuments(workspaceRoot)
+  return listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((document) => document.markdownPath !== context.implementerReportPath)
     .filter((document) =>
       document.markdownPath.startsWith(`planning/phases/${context.phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${context.workCardId}`) ||
@@ -732,8 +747,9 @@ function requiredApprovedImplementationContract(
   phaseId: string,
   workCardId: string,
   implementationContractType: "formal-work-card" | "repair-work-card",
+  planningContext?: PlanningProjectionContext,
 ): PlanningDocumentSummary {
-  const formal = findImplementationContract(listPlanningDocuments(workspaceRoot), {
+  const formal = findImplementationContract(listPlanningDocuments(planningContext ?? workspaceRoot), {
     phaseId,
     workCardId,
     implementationContractType,
@@ -747,7 +763,7 @@ function requiredApprovedImplementationContract(
   if (formal.effectiveDisposition !== "Approved") {
     throw new Error("Current Approved Work Card Contract is required for Implementer Report registration.");
   }
-  if (evaluateDocumentFreshness(workspaceRoot, formal.logicalDocumentId).state === "stale") {
+  if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, formal.logicalDocumentId).state === "stale") {
     throw new Error("Current Work Card Contract is stale.");
   }
   return formal;

@@ -35,6 +35,18 @@ function expectedArchitectPrompt(projectName, intakeMarkdownPath) {
     "",
     "Use the Project Intake and available evidence before asking the Operator for information. Do not ask questions whose answers can be derived from the supplied documents, repository evidence, or normal architectural judgment.",
     "",
+    "## Repository Evidence and Established Architecture",
+    "",
+    "Project Intake declares existing source or planning: No.",
+    "Repository review context: none provided",
+    "",
+    "When Project Intake declares existing source or planning, or supplies repository review context, inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions.",
+    "Distinguish verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions.",
+    "When Intake or repository evidence identifies architecture as governing, approved, adopted, canonical, or otherwise established by the Operator, treat it as a controlling constraint and source of truth for planning unless the Operator explicitly revises it.",
+    "Assess established architecture for internal consistency, implementation applicability, gaps, stale assumptions, and direct conflicts. Do not redesign, summarize away, or silently supersede it merely to complete this generic interview structure.",
+    "Do not treat all repository Markdown as controlling planning direction; require evidence that architecture or planning direction is governing or Operator-established.",
+    "Ask the Operator only about genuinely unresolved material product or scope decisions, or concrete architecture conflicts that cannot be resolved through normal Architect judgment.",
+    "",
     "Distinguish between:",
     "",
     "- Operator-owned decisions about purpose, users, priorities, constraints, acceptable risk, cost, timing, and desired behavior;",
@@ -57,22 +69,19 @@ function expectedArchitectPrompt(projectName, intakeMarkdownPath) {
     "",
     "## Interview Length and Pace",
     "",
-    "Aim to complete the interview in approximately 8–12 substantive questions.",
+    "Evidence review controls interview length. Do not use a target, minimum, or expected question count.",
     "",
-    "This is a soft operating range, not a hard stop.",
+    "Inspect the required Project Intake and materially relevant repository evidence before deciding whether clarification is needed.",
     "",
-    "After approximately five substantive questions, summarize:",
+    "Ask only material Operator-owned questions that remain unresolved after evidence review and normal Architect judgment.",
     "",
-    "- decisions made;",
-    "- assumptions recorded;",
-    "- unresolved material issues;",
-    "- remaining interview areas.",
+    "When the Project Intake and materially relevant repository evidence resolve the project context and required coverage, ask zero clarification questions and proceed directly to the concise confirmation summary.",
     "",
-    "At approximately ten substantive questions, continue only when unresolved matters could materially affect scope, architecture, risk, dependencies, acceptance, cost, or delivery.",
-    "",
-    "Do not compress multiple major decisions into one overwhelming question merely to stay within the suggested range.",
+    "Do not compress unresolved material decisions merely to shorten the interview.",
     "",
     "## Required Coverage",
+    "",
+    "Treat the following as coverage obligations to resolve through evidence, normal Architect judgment, or Operator answers. They are not a questionnaire and do not imply one question per section.",
     "",
     "Continue until the following are materially resolved:",
     "",
@@ -141,7 +150,7 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
   const root = tempWorkspace("champcity-project-intake-");
   const result = submitProjectIntake({
     projectName: "Markdown Only",
-    projectPurpose: "Delete paired JSON workflow authority.",
+    projectPurpose: "Delete paired JSON workflow state.",
     desiredOutcome: "One canonical Markdown artifact per governed document.",
     projectType: "Desktop application",
     projectRepository: root,
@@ -165,14 +174,16 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
 
   assert.equal(result.projectRoot, path.resolve(root));
   assert.equal(intake.metadata.workflowData.projectRepository, result.projectRoot);
-  assert.equal(intake.metadata.workflowData.repositoryAuthority.projectRepository, result.projectRoot);
-  assert.equal(intake.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
-  assert.equal(intake.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding.repositoryName, "Test/Alpha");
+  assert.equal(intake.metadata.workflowData.repositoryBinding.projectRepository, result.projectRoot);
+  assert.equal(intake.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(intake.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding.repositoryName, "Test/Alpha");
+  assert.equal("repositoryAuthority" in intake.metadata.workflowData, false);
   assert.match(intake.bodyMarkdown, new RegExp(`^Project Repository: ${escapeRegex(result.projectRoot)}$`, "m"));
   assert.equal((intake.bodyMarkdown.match(/^Project Repository:/gm) ?? []).length, 1);
   assert.equal(prompt.metadata.workflowData.projectRepository, result.projectRoot);
   assert.equal(prompt.metadata.workflowData.projectRepository, intake.metadata.workflowData.projectRepository);
-  assert.deepEqual(prompt.metadata.workflowData.repositoryAuthority, intake.metadata.workflowData.repositoryAuthority);
+  assert.deepEqual(prompt.metadata.workflowData.repositoryBinding, intake.metadata.workflowData.repositoryBinding);
+  assert.equal("repositoryAuthority" in prompt.metadata.workflowData, false);
 
   assert.equal(
     prompt.bodyMarkdown,
@@ -182,6 +193,12 @@ test("project intake submission writes Project Intake and Architect Prompt Markd
   assert.match(prompt.bodyMarkdown, /artifact_toolbox\.write_markdown_artifact/);
   assert.doesNotMatch(prompt.bodyMarkdown, /create_markdown_artifact/);
   assert.match(prompt.bodyMarkdown, /complete substantive Project Architect Interview Markdown document body, not a snippet/);
+  assert.match(prompt.bodyMarkdown, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
+  assert.match(prompt.bodyMarkdown, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
+  assert.match(prompt.bodyMarkdown, /coverage obligations.*not a questionnaire.*do not imply one question per section/i);
+  assert.doesNotMatch(prompt.bodyMarkdown, /8[–-]12 substantive questions/i);
+  assert.doesNotMatch(prompt.bodyMarkdown, /After approximately five substantive questions/i);
+  assert.doesNotMatch(prompt.bodyMarkdown, /At approximately ten substantive questions/i);
   assert.doesNotMatch(prompt.bodyMarkdown, /submit_handoff_outputs/);
   assert.doesNotMatch(prompt.bodyMarkdown, /save_architect_interview_output/);
   assert.doesNotMatch(prompt.bodyMarkdown, /paste .*Architect Output import surface/i);
@@ -198,7 +215,7 @@ test("projectRepository folder basename constructs the MCP workspace route", () 
     "planning/Architect_Drafts/demo.md",
     "<body>",
     {
-      repositoryAuthority: {
+      repositoryBinding: {
         projectRepository: pdlRepository,
       },
     },
@@ -215,11 +232,11 @@ test("projectRepository folder basename constructs the MCP workspace route", () 
   assert.equal(fs.existsSync(path.join(root, ".champcity", "mcp-workspace-binding.json")), false);
 });
 
-test("project intake without explicit MCP binding still persists repository authority", () => {
+test("project intake without explicit MCP binding still persists repository binding", () => {
   const root = tempWorkspaceWithoutBinding("champcity-project-intake-unbound-");
   const result = submitProjectIntake({
     projectName: "Unbound Project",
-    projectPurpose: "Prove repository authority without MCP routing.",
+    projectPurpose: "Prove repository binding without MCP routing.",
     desiredOutcome: "Project documents remain usable before MCP binding setup.",
     projectType: "Desktop application",
     projectRepository: root,
@@ -235,11 +252,11 @@ test("project intake without explicit MCP binding still persists repository auth
     fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
   );
 
-  assert.equal(intake.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
-  assert.equal(intake.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding, undefined);
-  assert.deepEqual(prompt.metadata.workflowData.repositoryAuthority, intake.metadata.workflowData.repositoryAuthority);
-  assert.equal(prompt.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
-  assert.equal(prompt.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding, undefined);
+  assert.equal(intake.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
+  assert.equal(intake.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding, undefined);
+  assert.deepEqual(prompt.metadata.workflowData.repositoryBinding, intake.metadata.workflowData.repositoryBinding);
+  assert.equal(prompt.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
+  assert.equal(prompt.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding, undefined);
 });
 
 function escapeRegex(value) {

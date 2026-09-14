@@ -8,6 +8,7 @@ const {
   getPhaseMapDraftSubmissionStatus,
   getPhaseMapHandoffInstruction,
   getPhaseMapProjection,
+  selectNextPhaseByDependencies,
   setPhaseMapDisposition,
 } = require("../../dist/main/phaseMap/phaseMapService.js");
 const {
@@ -84,7 +85,9 @@ test("phase map service generates Markdown-only handoff and derives completion f
   assert.doesNotMatch(instruction, /"phaseMapMarkdown"/);
   assert.match(instruction, /"phases"/);
   assert.match(instruction, /Derive the substantive phase list from the approved full Project Roadmap and Project Profile/);
-  assert.doesNotMatch(instruction, /Foundation/);
+  assert.match(instruction, /Preserve the approved Project Roadmap's outcome grouping when defining phase boundaries/);
+  assert.match(instruction, /Do not re-expand one Roadmap outcome into separate subsystem, tooling, or foundation phases unless the approved Roadmap requires those as independent milestones/);
+  assert.match(instruction, /Keep fine-grained prerequisite sequencing inside Phase Planning and Work Card dependencies/);
   assert.doesNotMatch(instruction, /top-level JSON value is an array/);
   assert.doesNotMatch(instruction, /save_project_planning_outputs|save_architect_interview_output|create_markdown_artifact/);
   const invocation = invocationFrom(instruction);
@@ -107,7 +110,7 @@ test("phase map service generates Markdown-only handoff and derives completion f
   assert.equal(getPhaseMapProjection(root).state, "first-incomplete");
 });
 
-test("phase map handoff contains contract authority without fabricated default phases", () => {
+test("phase map handoff contains contract source without fabricated default phases", () => {
   const root = tempWorkspace("champcity-phase-map-contract-");
   seedApprovedProjectPlanning(root);
 
@@ -118,9 +121,9 @@ test("phase map handoff contains contract authority without fabricated default p
 
   assert.equal(parsed.metadata.workflowData.handoffKind, "phase-map");
   assert.equal(parsed.metadata.workflowData.contractId, "phase-map-output-submission-v1");
-  const { repositoryAuthority, ...workflowData } = parsed.metadata.workflowData;
-  assert.equal(repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
-  assert.equal(repositoryAuthority.projectRepository, require("node:path").resolve(root));
+  const { repositoryBinding, ...workflowData } = parsed.metadata.workflowData;
+  assert.equal(repositoryBinding.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(repositoryBinding.projectRepository, require("node:path").resolve(root));
   assert.deepEqual(workflowData, {
     handoffKind: "phase-map",
     contractId: "phase-map-output-submission-v1",
@@ -136,7 +139,8 @@ test("phase map handoff contains contract authority without fabricated default p
     "requiredTitle",
     "requiredDomainBlocks",
   ]);
-  assert.doesNotMatch(parsed.bodyMarkdown, /phase-01|Initial project building phase|Work Card|repair|manual fallback/i);
+  assert.doesNotMatch(parsed.bodyMarkdown, /phase-01|Initial project building phase|repair|manual fallback/i);
+  assert.match(parsed.bodyMarkdown, /Phase boundaries must preserve the approved Project Roadmap's outcome grouping/);
   assert.doesNotMatch(parsed.bodyMarkdown, /submit_handoff_outputs/);
 });
 
@@ -391,4 +395,109 @@ test("phase map projection enforces metadata phase domain rules", () => {
   const projection = getPhaseMapProjection(root);
   assert.equal(projection.state, "first-incomplete");
   assert.equal(projection.phase.phaseId, "phase-foundation");
+});
+
+test("phase map projection skips a lower-order blocked phase and selects the lowest-order dependency-eligible phase", () => {
+  const root = tempWorkspace("champcity-phase-map-dependency-eligible-");
+  const seeded = seedApprovedProjectIntake(root);
+  writeDoc(root, seeded.interview, "project-architect-interview", "Approved", {
+    identity: { "Project.ArtifactKey": "demo" },
+    sourceRevisions: [
+      { path: seeded.intake, revision: 1 },
+      { path: seeded.prompt, revision: 1 },
+    ],
+  });
+  seedApprovedProjectPlanning(root);
+  writeDoc(root, "planning/project/Phase_Map/PHASE_MAP_demo.md", "phase-map", "Approved", {
+    workflowData: {
+      phases: [
+        {
+          phaseId: "phase-outcome",
+          title: "Outcome",
+          order: 1,
+          purpose: "Deliver the outcome after its prerequisite.",
+          dependsOn: ["phase-enabler"],
+          sourceReferences: ["planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md"],
+        },
+        {
+          phaseId: "phase-enabler",
+          title: "Required Enabler",
+          order: 2,
+          purpose: "Complete the declared prerequisite.",
+          dependsOn: [],
+          sourceReferences: ["planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md"],
+        },
+      ],
+    },
+  });
+
+  const projection = getPhaseMapProjection(root);
+  assert.equal(projection.state, "first-incomplete");
+  assert.equal(projection.phase.phaseId, "phase-enabler");
+  assert.deepEqual(projection.completedPhaseIds, []);
+  assert.equal(getCurrentWorkspaceModel(root).activeWorkspaceId, "phase-interview");
+  assert.equal(getCurrentWorkspaceModel(root).currentPhaseId, "phase-enabler");
+});
+
+test("phase dependency selector reports explicit evidence when no incomplete phase is eligible", () => {
+  const phases = [
+    {
+      phaseId: "phase-a",
+      title: "Phase A",
+      order: 1,
+      purpose: "Wait for B.",
+      dependsOn: ["phase-b"],
+      sourceReferences: ["planning/project/PROJECT_PROFILE.md"],
+    },
+    {
+      phaseId: "phase-b",
+      title: "Phase B",
+      order: 2,
+      purpose: "Wait for A.",
+      dependsOn: ["phase-a"],
+      sourceReferences: ["planning/project/PROJECT_PROFILE.md"],
+    },
+  ];
+
+  const selection = selectNextPhaseByDependencies(phases, []);
+  assert.equal(selection.state, "dependency-blocked");
+  assert.deepEqual(selection.incompletePhaseIds, ["phase-a", "phase-b"]);
+  assert.deepEqual(selection.blockedPhases, [
+    { phaseId: "phase-a", waitingOnPhaseIds: ["phase-b"] },
+    { phaseId: "phase-b", waitingOnPhaseIds: ["phase-a"] },
+  ]);
+  assert.match(selection.reason, /none has all declared dependencies complete/);
+  assert.match(selection.reason, /phase-a waits on phase-b/);
+  assert.match(selection.reason, /phase-b waits on phase-a/);
+});
+
+test("phase map projection continues rejecting dependency cycles before phase selection", () => {
+  const root = tempWorkspace("champcity-phase-map-cycle-rejected-");
+  seedApprovedProjectPlanning(root);
+  writeDoc(root, "planning/project/Phase_Map/PHASE_MAP_demo.md", "phase-map", "Approved", {
+    workflowData: {
+      phases: [
+        {
+          phaseId: "phase-a",
+          title: "Phase A",
+          order: 1,
+          purpose: "Invalid cyclic phase.",
+          dependsOn: ["phase-b"],
+          sourceReferences: ["planning/project/PROJECT_PROFILE.md"],
+        },
+        {
+          phaseId: "phase-b",
+          title: "Phase B",
+          order: 2,
+          purpose: "Invalid cyclic phase.",
+          dependsOn: ["phase-a"],
+          sourceReferences: ["planning/project/PROJECT_PROFILE.md"],
+        },
+      ],
+    },
+  });
+
+  const projection = getPhaseMapProjection(root);
+  assert.equal(projection.state, "malformed");
+  assert.match(projection.reason, /dependency cycles are prohibited/);
 });

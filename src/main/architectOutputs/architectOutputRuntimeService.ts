@@ -26,6 +26,7 @@ export interface ActiveArchitectOutputRuntimeSubmission<
 
 const activeSubmissionByRuntimeKey = new Map<string, ActiveArchitectOutputRuntimeSubmission>();
 const requestOrdinalByRuntimeKey = new Map<string, number>();
+const promotionEpochByWorkspaceRoot = new Map<string, number>();
 
 export function prepareArchitectOutputRuntimeSubmission<
   TSlotId extends string,
@@ -97,7 +98,18 @@ export function getArchitectOutputRuntimeStatus<
   active.promotionError = result.error;
   active.cleanupStatus = result.cleanupStatus;
   active.cleanupError = result.cleanupError;
+  if (result.status === "promoted" && !result.alreadyPromoted) {
+    advanceArchitectOutputRuntimePromotionEpoch(resolvedWorkspaceRoot);
+  }
   return active as ActiveArchitectOutputRuntimeSubmission<TSlotId, TSelection>;
+}
+
+export function getArchitectOutputRuntimePromotionEpoch(workspaceRoot: string): number {
+  return promotionEpochByWorkspaceRoot.get(pathKey(workspaceRoot)) ?? 0;
+}
+
+export function __advanceArchitectOutputRuntimePromotionEpochForTest(workspaceRoot: string): void {
+  advanceArchitectOutputRuntimePromotionEpoch(workspaceRoot);
 }
 
 export function getActiveArchitectOutputRuntimeSubmission<
@@ -137,6 +149,16 @@ function resolveDefinition<TSlotId extends string, TSelection, TDomainContext>(
 
 function productionRegistry(): ArchitectOutputRegistry {
   return require("./productionArchitectOutputCatalog").productionArchitectOutputRegistry;
+}
+
+function pathKey(value: string): string {
+  const resolved = path.resolve(value);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function advanceArchitectOutputRuntimePromotionEpoch(workspaceRoot: string): void {
+  const key = pathKey(workspaceRoot);
+  promotionEpochByWorkspaceRoot.set(key, (promotionEpochByWorkspaceRoot.get(key) ?? 0) + 1);
 }
 
 function canReuseActiveSubmission(

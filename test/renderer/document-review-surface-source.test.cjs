@@ -62,9 +62,16 @@ test("Phase Map uses its compact Figma phase-list workspace with shared browser 
 
 test("application shell routes workflow navigation through one transition helper", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
+  const railStart = appSource.indexOf("<NestedWorkflowRail");
+  const railEnd = appSource.indexOf("/>", railStart);
+  assert.ok(railStart >= 0 && railEnd > railStart, "Nested workflow rail binding must be present");
+  const railBinding = appSource.slice(railStart, railEnd);
 
   assert.match(appSource, /function transitionToWorkflowStep\(/);
-  assert.match(appSource, /onWorkspaceChange=\{transitionToWorkflowStep\}/);
+  assert.match(railBinding, /onWorkspaceChange=\{\(workspaceId\) => \{/);
+  assert.match(railBinding, /workspaceId === "phase-validation"/);
+  assert.match(railBinding, /void openPhaseValidation\(\)/);
+  assert.match(railBinding, /transitionToWorkflowStep\(workspaceId\)/);
   assert.match(appSource, /function documentIdForWorkflowStep\(/);
   assert.match(appSource, /classifyPlanningDocument\(document\)\.workspaceId === destinationWorkspaceId/);
   assert.match(appSource, /isWorkflowReviewDocument\(document, destinationWorkspaceId\)/);

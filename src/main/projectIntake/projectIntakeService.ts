@@ -19,7 +19,7 @@ import {
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
-import { buildRepositoryAuthorityFromProjectIntake } from "../documents/repositoryAuthority";
+import { buildRepositoryBindingFromProjectIntake } from "../documents/repositoryBinding";
 import { readExplicitMcpWorkspaceBinding } from "../integrations/mcpWorkspacePromptContract";
 import { writeProjectArchitectInterviewPrompt } from "../architectInterview/projectArchitectInterviewPromptWriter";
 
@@ -87,7 +87,7 @@ function writeProjectIntake(
     : null;
   const artifactRevision = revisionResult?.revisedDocument.metadata.artifactRevision ?? 1;
   const explicitMcpBinding = readExplicitMcpWorkspaceBinding(projectRoot);
-  const repositoryAuthority = buildRepositoryAuthorityFromProjectIntake({
+  const repositoryBinding = buildRepositoryBindingFromProjectIntake({
     projectRepository: submission.projectRepository,
     mcpWorkspaceBinding: explicitMcpBinding
       ? {
@@ -101,7 +101,7 @@ function writeProjectIntake(
   });
   const intakeContent = {
     ...intakeSubstantiveContent(submission),
-    repositoryAuthority,
+    repositoryBinding,
   };
   const projectIntakeMarkdownPath = `planning/project/Project_Intake/PROJECT_INTAKE_${projectSlug}.md`;
   writeCanonicalMarkdownDocument({

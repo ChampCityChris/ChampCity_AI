@@ -8,39 +8,40 @@ import type {
   InitializationPreview,
   InitializationResult,
   PlanningDocumentDetail,
-  PlanningDocumentMetadata,
   PlanningDocumentSummary,
 } from "../../shared/documents/planningDocument";
 import {
-  metadataOpenDelimiter,
   metadataWithDisposition,
   metadataWithSubstantiveRevision,
-  parseCanonicalMarkdownDocument,
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateFreshnessFromSummaries, type FreshnessEvaluation } from "../../shared/documents/sourceFreshness";
 import { classifyLifecycleArtifact } from "../../shared/documents/lifecycleArtifact";
-import { isArchitectDraftRelativePath } from "../architectOutputs/architectDraftPaths";
 import {
   writeCanonicalMarkdownDocument,
   writeCanonicalMarkdownDocuments,
 } from "./canonicalMarkdownDocumentWriter";
+import {
+  __setPlanningRepositorySnapshotTestHooks,
+  acquirePlanningRepositorySnapshot,
+  findPlanningRecordByLogicalDocumentIdFromSnapshot,
+  listPlanningRecordsFromSnapshot,
+  type PlanningRepositoryRecord,
+  type PlanningRepositorySnapshot,
+} from "./planningRepositorySnapshot";
+import {
+  createPlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "./planningProjectionContext";
 
-interface FileEntry {
-  absolutePath: string;
-  relativePath: string;
-  readError?: string;
-}
-
-interface ReadRecord {
-  entry: FileEntry;
-  summary: PlanningDocumentSummary;
-  content?: string;
-  bodyMarkdown?: string;
-}
+export type PlanningReadContext = string | PlanningProjectionContext;
 
 interface PlanningDocumentServiceTestHooks {
   failLstat?: (relativePath: string) => Error | string | undefined;
   failRead?: (relativePath: string) => Error | string | undefined;
+  onContentRead?: (relativePath: string) => void;
+  onRecordParse?: (relativePath: string) => void;
+  onSnapshotAcquisition?: (workspaceRoot: string) => void;
+  onInventoryScan?: (workspaceRoot: string) => void;
 }
 
 export interface RollbackWriteOptions {
@@ -48,12 +49,10 @@ export interface RollbackWriteOptions {
   failFinalVerification?: boolean;
 }
 
-let testHooks: PlanningDocumentServiceTestHooks = {};
-
 export function __setPlanningDocumentServiceTestHooks(
   hooks: PlanningDocumentServiceTestHooks = {},
 ): void {
-  testHooks = hooks;
+  __setPlanningRepositorySnapshotTestHooks(hooks);
 }
 
 export function assertPlanningWorkspace(workspaceRoot: string): string {
@@ -66,15 +65,39 @@ export function assertPlanningWorkspace(workspaceRoot: string): string {
   return resolvedRoot;
 }
 
-export function listPlanningDocuments(workspaceRoot: string): PlanningDocumentSummary[] {
-  return buildReadRecords(workspaceRoot).map((entry) => entry.summary);
+export function listPlanningDocuments(source: PlanningReadContext): PlanningDocumentSummary[] {
+  return typeof source === "string"
+    ? listPlanningDocumentsFromSnapshot(acquirePlanningRepositorySnapshot(source))
+    : listPlanningDocumentsFromContext(source);
+}
+
+export function listPlanningDocumentsFromSnapshot(
+  snapshot: PlanningRepositorySnapshot,
+): PlanningDocumentSummary[] {
+  return listPlanningRecordsFromSnapshot(snapshot).map((entry) => entry.summary);
+}
+
+export function listPlanningDocumentsFromContext(
+  context: import("./planningProjectionContext").PlanningProjectionContext,
+): PlanningDocumentSummary[] {
+  return [...context.documents];
 }
 
 export function readPlanningDocument(
   workspaceRoot: string,
   logicalDocumentId: string,
 ): PlanningDocumentDetail {
-  const record = findReadRecord(workspaceRoot, logicalDocumentId);
+  return readPlanningDocumentFromSnapshot(
+    acquirePlanningRepositorySnapshot(workspaceRoot),
+    logicalDocumentId,
+  );
+}
+
+export function readPlanningDocumentFromSnapshot(
+  snapshot: PlanningRepositorySnapshot,
+  logicalDocumentId: string,
+): PlanningDocumentDetail {
+  const record = findReadRecordFromSnapshot(snapshot, logicalDocumentId);
   const bodyMarkdown = record.bodyMarkdown ?? record.content ?? "";
   return {
     ...record.summary,
@@ -84,16 +107,74 @@ export function readPlanningDocument(
   };
 }
 
+export function readPlanningDocumentFromContext(
+  context: import("./planningProjectionContext").PlanningProjectionContext,
+  logicalDocumentId: string,
+): PlanningDocumentDetail {
+  return readPlanningDocumentFromSnapshot(context.snapshot, logicalDocumentId);
+}
+
 export function setDocumentDisposition(
   workspaceRoot: string,
   logicalDocumentId: string,
   status: DocumentDispositionStatus,
   _options: RollbackWriteOptions = {},
 ): PlanningDocumentSummary {
+  return setDocumentDispositionWithPlanningContext(
+    workspaceRoot,
+    logicalDocumentId,
+    status,
+    _options,
+  ).document;
+}
+
+export function setDocumentDispositionWithPlanningContext(
+  workspaceRoot: string,
+  logicalDocumentId: string,
+  status: DocumentDispositionStatus,
+  _options: RollbackWriteOptions = {},
+  postWriteContextFactory?: () => PlanningProjectionContext,
+): { document: PlanningDocumentSummary; planningContext: PlanningProjectionContext } {
+  return setDocumentDispositionTransaction(
+    workspaceRoot,
+    logicalDocumentId,
+    status,
+    postWriteContextFactory,
+    false,
+  );
+}
+
+export function setGenericDocumentDispositionWithPlanningContext(
+  workspaceRoot: string,
+  logicalDocumentId: string,
+  status: DocumentDispositionStatus,
+  _options: RollbackWriteOptions = {},
+  postWriteContextFactory?: () => PlanningProjectionContext,
+): { document: PlanningDocumentSummary; planningContext: PlanningProjectionContext } {
+  return setDocumentDispositionTransaction(
+    workspaceRoot,
+    logicalDocumentId,
+    status,
+    postWriteContextFactory,
+    true,
+  );
+}
+
+function setDocumentDispositionTransaction(
+  workspaceRoot: string,
+  logicalDocumentId: string,
+  status: DocumentDispositionStatus,
+  postWriteContextFactory: (() => PlanningProjectionContext) | undefined,
+  enforceGenericRoute: boolean,
+): { document: PlanningDocumentSummary; planningContext: PlanningProjectionContext } {
   if (!isDocumentDispositionStatus(status)) {
     throw new Error("Unsupported document disposition status.");
   }
-  const record = findReadableRecord(workspaceRoot, logicalDocumentId);
+  const snapshot = acquirePlanningRepositorySnapshot(workspaceRoot);
+  const record = findReadableRecordFromSnapshot(snapshot, logicalDocumentId);
+  if (enforceGenericRoute) {
+    assertGenericDocumentDispositionRecordAllowed(record.summary);
+  }
   const metadata = metadataWithDisposition(
     record.summary.metadata.canonical!,
     status,
@@ -106,7 +187,14 @@ export function setDocumentDisposition(
     metadata,
     bodyMarkdown: record.bodyMarkdown ?? "",
   });
-  return findReadRecord(workspaceRoot, logicalDocumentId).summary;
+  const planningContext = postWriteContextFactory?.() ?? createPlanningProjectionContext(workspaceRoot);
+  return {
+    document: findReadRecordFromSnapshot(
+      planningContext.snapshot,
+      logicalDocumentId,
+    ).summary,
+    planningContext,
+  };
 }
 
 export function setDocumentDispositions(
@@ -118,7 +206,10 @@ export function setDocumentDispositions(
   if (!isDocumentDispositionStatus(status)) {
     throw new Error("Unsupported document disposition status.");
   }
-  const records = logicalDocumentIds.map((logicalDocumentId) => findReadableRecord(workspaceRoot, logicalDocumentId));
+  const snapshot = acquirePlanningRepositorySnapshot(workspaceRoot);
+  const records = logicalDocumentIds.map((logicalDocumentId) =>
+    findReadableRecordFromSnapshot(snapshot, logicalDocumentId),
+  );
   writeCanonicalMarkdownDocuments(
     records.map((record) => ({
       workspaceRoot,
@@ -132,15 +223,25 @@ export function setDocumentDispositions(
       bodyMarkdown: record.bodyMarkdown ?? "",
     })),
   );
-  return records.map((record) => findReadRecord(workspaceRoot, record.summary.logicalDocumentId).summary);
+  const updatedSnapshot = acquirePlanningRepositorySnapshot(workspaceRoot);
+  return records.map((record) =>
+    findReadRecordFromSnapshot(updatedSnapshot, record.summary.logicalDocumentId).summary,
+  );
 }
 
 export function assertGenericDocumentDispositionRouteAllowed(
   workspaceRoot: string,
   logicalDocumentId: string,
 ): void {
-  const record = findReadableRecord(workspaceRoot, logicalDocumentId);
-  if (isCatalogOwnedArchitectOutput(record.summary)) {
+  const record = findReadableRecordFromSnapshot(
+    acquirePlanningRepositorySnapshot(workspaceRoot),
+    logicalDocumentId,
+  );
+  assertGenericDocumentDispositionRecordAllowed(record.summary);
+}
+
+function assertGenericDocumentDispositionRecordAllowed(document: PlanningDocumentSummary): void {
+  if (isCatalogOwnedArchitectOutput(document)) {
     throw new Error("Catalog-owned Architect outputs must be reviewed through architectOutput:review.");
   }
 }
@@ -155,9 +256,10 @@ export function savePlanningDocumentRevision(
   logicalDocumentId: string,
   _options: RollbackWriteOptions = {},
 ): RevisionSaveResult {
-  const record = findReadableRecord(workspaceRoot, logicalDocumentId);
+  const snapshot = acquirePlanningRepositorySnapshot(workspaceRoot);
+  const record = findReadableRecordFromSnapshot(snapshot, logicalDocumentId);
   const nextMetadata = metadataWithSubstantiveRevision(record.summary.metadata.canonical!);
-  const allRecords = buildReadRecords(workspaceRoot);
+  const allRecords = [...listPlanningRecordsFromSnapshot(snapshot)];
   const downstreamRecords = downstreamDependencyRecords(record, allRecords);
 
   const entries = [{
@@ -184,22 +286,42 @@ export function savePlanningDocumentRevision(
     ...entry,
   })));
 
-  const revisedDocument = findReadRecord(workspaceRoot, logicalDocumentId).summary;
-  const updatedDocuments = listPlanningDocuments(workspaceRoot);
+  const updatedSnapshot = acquirePlanningRepositorySnapshot(workspaceRoot);
+  const revisedDocument = findReadRecordFromSnapshot(updatedSnapshot, logicalDocumentId).summary;
   const invalidatedDocuments = downstreamRecords
-    .map((downstream) =>
-      updatedDocuments.find((candidate) => candidate.logicalDocumentId === downstream.summary.logicalDocumentId),
-    )
+    .map((downstream) => findPlanningRecordByLogicalDocumentIdFromSnapshot(
+      updatedSnapshot,
+      downstream.summary.logicalDocumentId,
+    )?.summary)
     .filter((candidate): candidate is PlanningDocumentSummary => Boolean(candidate));
   return { revisedDocument, invalidatedDocuments };
 }
 
 export function evaluateDocumentFreshness(
-  workspaceRoot: string,
+  source: PlanningReadContext,
   logicalDocumentId: string,
 ): FreshnessEvaluation {
-  const documents = listPlanningDocuments(workspaceRoot);
-  const document = documents.find((candidate) => candidate.logicalDocumentId === logicalDocumentId);
+  return typeof source === "string"
+    ? evaluateDocumentFreshnessFromSnapshot(acquirePlanningRepositorySnapshot(source), logicalDocumentId)
+    : evaluateDocumentFreshnessFromContext(source, logicalDocumentId);
+}
+
+export function evaluateDocumentFreshnessFromContext(
+  context: import("./planningProjectionContext").PlanningProjectionContext,
+  logicalDocumentId: string,
+): FreshnessEvaluation {
+  return evaluateDocumentFreshnessFromSnapshot(context.snapshot, logicalDocumentId);
+}
+
+export function evaluateDocumentFreshnessFromSnapshot(
+  snapshot: PlanningRepositorySnapshot,
+  logicalDocumentId: string,
+): FreshnessEvaluation {
+  const documents = listPlanningDocumentsFromSnapshot(snapshot);
+  const document = findPlanningRecordByLogicalDocumentIdFromSnapshot(
+    snapshot,
+    logicalDocumentId,
+  )?.summary;
   if (!document) {
     throw new Error("Unknown logical document ID.");
   }
@@ -233,132 +355,35 @@ export function applyDispositionInitialization(
   };
 }
 
-function buildReadRecords(workspaceRoot: string): ReadRecord[] {
-  const resolvedRoot = path.resolve(workspaceRoot);
-  const planningRoot = path.join(resolvedRoot, "planning");
-  if (!fs.existsSync(planningRoot)) return [];
-  if (!fs.statSync(planningRoot).isDirectory()) {
-    throw new Error("Workspace does not contain planning/.");
-  }
-  return discoverMarkdownFiles(resolvedRoot).map((entry) => readRecord(resolvedRoot, entry));
-}
-
-function findReadRecord(workspaceRoot: string, logicalDocumentId: string): ReadRecord {
+function findReadRecordFromSnapshot(
+  snapshot: PlanningRepositorySnapshot,
+  logicalDocumentId: string,
+): PlanningRepositoryRecord {
   if (logicalDocumentId.includes("..") || logicalDocumentId.includes("/") || logicalDocumentId.includes("\\")) {
     throw new Error("Unknown logical document ID.");
   }
-  const record = buildReadRecords(workspaceRoot).find(
-    (candidate) => candidate.summary.logicalDocumentId === logicalDocumentId,
-  );
+  const record = findPlanningRecordByLogicalDocumentIdFromSnapshot(snapshot, logicalDocumentId);
   if (!record) {
     throw new Error("Unknown logical document ID.");
   }
   return record;
 }
 
-function findReadableRecord(workspaceRoot: string, logicalDocumentId: string): ReadRecord {
-  const record = findReadRecord(workspaceRoot, logicalDocumentId);
+function findReadableRecordFromSnapshot(
+  snapshot: PlanningRepositorySnapshot,
+  logicalDocumentId: string,
+): PlanningRepositoryRecord {
+  const record = findReadRecordFromSnapshot(snapshot, logicalDocumentId);
   if (record.summary.readError || !record.summary.metadata.canonical) {
     throw new Error("Cannot update a document while canonical metadata could not be read.");
   }
   return record;
 }
 
-function discoverMarkdownFiles(workspaceRoot: string): FileEntry[] {
-  const entries: FileEntry[] = [];
-  const planningRoot = path.join(workspaceRoot, "planning");
-  function visit(directory: string): void {
-    for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolutePath = path.join(directory, child.name);
-      const relativePath = normalizeRelativePath(path.relative(workspaceRoot, absolutePath));
-      if (isArchitectDraftRelativePath(relativePath)) {
-        continue;
-      }
-      const extension = path.extname(child.name).toLowerCase();
-      let stats: fs.Stats;
-      try {
-        const injectedError = testHooks.failLstat?.(relativePath);
-        if (injectedError) throw injectedError instanceof Error ? injectedError : new Error(injectedError);
-        stats = fs.lstatSync(absolutePath);
-      } catch (error) {
-        if (extension === ".md") {
-          entries.push({ absolutePath, relativePath, readError: errorMessage(error) });
-        }
-        continue;
-      }
-      if (stats.isSymbolicLink()) continue;
-      if (stats.isDirectory()) {
-        visit(absolutePath);
-        continue;
-      }
-      if (stats.isFile() && extension === ".md") {
-        entries.push({ absolutePath, relativePath });
-      }
-    }
-  }
-  visit(planningRoot);
-  return entries.sort((left, right) => comparePaths(left.relativePath, right.relativePath));
-}
-
-function readRecord(workspaceRoot: string, entry: FileEntry): ReadRecord {
-  let content: string | undefined;
-  let bodyMarkdown: string | undefined;
-  let metadata: PlanningDocumentMetadata = { sourceRevisions: [] };
-  let disposition: DocumentDispositionStatus = "Pending";
-  let readError = entry.readError;
-
-  if (!readError) {
-    try {
-      content = readContainedFile(workspaceRoot, entry);
-      if (content.startsWith(metadataOpenDelimiter)) {
-        const parsed = parseCanonicalMarkdownDocument(content);
-        bodyMarkdown = parsed.bodyMarkdown;
-        disposition = parsed.metadata.documentDisposition.status;
-        metadata = metadataFromCanonical(parsed.metadata);
-      } else {
-        bodyMarkdown = content;
-        metadata = {
-          artifactType: "legacy-unmanaged",
-          participationRole: "historical",
-          sourceRevisions: [],
-        };
-      }
-    } catch (error) {
-      readError = errorMessage(error);
-    }
-  }
-
-  const summary: PlanningDocumentSummary = {
-    logicalDocumentId: stableLogicalDocumentId(entry.relativePath),
-    markdownPath: entry.relativePath,
-    displayFilename: path.basename(entry.relativePath, ".md"),
-    metadata,
-    effectiveDisposition: disposition,
-    documentReadState: readError ? "read-error" : "readable",
-    initializationNeeded: Boolean(readError),
-    readError,
-  };
-  return { entry, summary, content, bodyMarkdown };
-}
-
-function metadataFromCanonical(canonical: PlanningDocumentMetadata["canonical"]): PlanningDocumentMetadata {
-  if (!canonical) return { sourceRevisions: [] };
-  const workflow = canonical.workflowData;
-  return {
-    artifactType: canonical.artifactType,
-    participationRole: canonical.participationRole,
-    artifactRevision: canonical.artifactRevision,
-    sourceRevisions: canonical.sourceRevisions,
-    architectOutputTargets: architectOutputTargetsValue(workflow.architectOutputTargets),
-    closureDecision: stringValue(workflow.closureDecision),
-    phaseId: stringValue(canonical.identity.phaseId ?? workflow.phaseId),
-    workCardId: stringValue(canonical.identity.workCardId ?? workflow.workCardId),
-    candidateId: stringValue(canonical.identity.candidateId ?? workflow.candidateId),
-    canonical,
-  };
-}
-
-function downstreamDependencyRecords(sourceRecord: ReadRecord, records: ReadRecord[]): ReadRecord[] {
+function downstreamDependencyRecords(
+  sourceRecord: PlanningRepositoryRecord,
+  records: PlanningRepositoryRecord[],
+): PlanningRepositoryRecord[] {
   const invalidationIds = new Set<string>();
   for (const record of records) {
     if (record.summary.logicalDocumentId === sourceRecord.summary.logicalDocumentId) continue;
@@ -377,7 +402,10 @@ function downstreamDependencyRecords(sourceRecord: ReadRecord, records: ReadReco
   return records.filter((record) => invalidationIds.has(record.summary.logicalDocumentId));
 }
 
-function coordinatedBundleRecords(record: ReadRecord, records: ReadRecord[]): ReadRecord[] {
+function coordinatedBundleRecords(
+  record: PlanningRepositoryRecord,
+  records: PlanningRepositoryRecord[],
+): PlanningRepositoryRecord[] {
   const value = `${record.summary.markdownPath}/${record.summary.displayFilename}`.toLowerCase();
   if (value.includes("project_profile") || value.includes("project_roadmap")) {
     return records.filter((candidate) => {
@@ -394,47 +422,8 @@ function coordinatedBundleRecords(record: ReadRecord, records: ReadRecord[]): Re
   return [record];
 }
 
-function readContainedFile(workspaceRoot: string, entry: FileEntry): string {
-  const resolvedPath = path.resolve(entry.absolutePath);
-  if (!isInside(workspaceRoot, resolvedPath)) {
-    throw new Error("Document path escapes selected workspace.");
-  }
-  const injectedError = testHooks.failRead?.(entry.relativePath);
-  if (injectedError) {
-    throw injectedError instanceof Error ? injectedError : new Error(injectedError);
-  }
-  return fs.readFileSync(resolvedPath, "utf8");
-}
-
-function architectOutputTargetsValue(value: unknown): PlanningDocumentMetadata["architectOutputTargets"] {
-  if (!value || typeof value !== "object") return undefined;
-  const markdown = (value as { markdown?: unknown }).markdown;
-  return typeof markdown === "string" ? { markdown } : undefined;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function stableLogicalDocumentId(relativePath: string): string {
-  return Buffer.from(relativePath, "utf8").toString("base64url");
-}
-
-function normalizeRelativePath(relativePath: string): string {
-  return relativePath.split(path.sep).join("/");
-}
-
 function comparePaths(left: string, right: string): number {
   return left.localeCompare(right, "en", { sensitivity: "base" });
-}
-
-function isInside(root: string, target: string): boolean {
-  const relativePath = path.relative(root, target);
-  return relativePath.length === 0 || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
 function isCatalogOwnedArchitectOutput(document: PlanningDocumentSummary): boolean {

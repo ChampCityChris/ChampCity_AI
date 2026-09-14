@@ -19,7 +19,9 @@ test("Figma application strip renders the bundle titlebar without project or win
   );
 
   assert.match(markup, /figma-app-strip/);
-  assert.match(markup, /ChampCity AI/);
+  assert.match(markup, />ChampCity A\/I</);
+  assert.match(markup, /src="\.\.\/branding\/champcity-mark\.svg"/);
+  assert.doesNotMatch(markup, /Zap/);
   assert.doesNotMatch(markup, /OperatorProject/);
   assert.doesNotMatch(markup, /figma-window-lights/);
   assert.doesNotMatch(markup, /Revisionary/);
@@ -136,7 +138,7 @@ test("top Phases rail stays In Progress while phase execution remains active", (
   assert.doesNotMatch(markup, /05 Phases: Completed\. Current required step\. Open workflow step\./);
 });
 
-test("loop selected pill follows the viewed workspace rather than required authority", () => {
+test("loop selected pill follows the viewed workspace rather than required state", () => {
   const markup = renderToStaticMarkup(
     React.createElement(NestedWorkflowRail, {
       activeWorkspaceId: "work-card-close",
@@ -295,7 +297,9 @@ test("production App binds the Figma shell to existing document, browser, Codex,
   assert.match(appSource, /window\.localStorage\.setItem\(figmaThemePreferenceKey, themeMode\)/);
   assert.match(appSource, /window\.champcity\.listDocuments\(\)/);
   assert.match(appSource, /window\.champcity\.readDocument\(logicalDocumentId\)/);
-  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(\)/);
+  assert.match(appSource, /async function startCodexImplementerExecution\(selection: CodexModelSelection\)/);
+  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(selection\)/);
+  assert.match(appSource, /onRunCodex=\{\(selection\) => void startCodexImplementerExecution\(selection\)\}/);
   assert.match(appSource, /window\.champcity\.cancelCodexImplementerExecution\(\)/);
   assert.match(appSource, /applyOperatorValidationDecision/);
   assert.match(appSource, /window\.champcity\.showArchitectBrowser/);
@@ -359,6 +363,7 @@ test("production App binds the Figma shell to existing document, browser, Codex,
   assert.match(stylesSource, /\.figma-phase-map-workspace\s*\{[\s\S]*padding:\s*16px/);
   assert.match(stylesSource, /\.figma-phase-map-item\.active\s*\{[\s\S]*border-color:\s*color-mix\(in srgb, var\(--primary\) 52%, var\(--border\)\)/);
   assert.match(stylesSource, /\.figma-phase-map-work-card-count/);
+  assert.doesNotMatch(appSource, /(?:from|require\()\s*["'](?:node:)?fs["']/);
 });
 
 test("updated Figma design does not add unused bundle dependencies or assets to production", () => {

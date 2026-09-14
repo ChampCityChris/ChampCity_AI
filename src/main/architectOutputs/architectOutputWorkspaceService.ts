@@ -21,6 +21,15 @@ import {
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
 import {
+  assertPlanningProjectionContextRoot,
+  createPlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
+import {
+  buildStableDevelopmentPostMutationResult,
+  createFinalDevelopmentPlanningContext,
+} from "../documents/developmentPostMutationProjection";
+import {
   getPreparedArchitectInterviewFinalDraftInstruction,
   getPreparedArchitectInterviewHandoffInstruction,
   getArchitectInterviewWorkspaceModel,
@@ -55,7 +64,10 @@ import {
   productionArchitectOutputCatalog,
   resolveProductionArchitectOutputDefinition,
 } from "./productionArchitectOutputCatalog";
-import { prepareFormalWorkCardDraftSubmission } from "../workCardPlanning/workCardPlanningService";
+import {
+  prepareFormalWorkCardDraftSubmission,
+  resolveFormalWorkCardPreparation,
+} from "../workCardPlanning/workCardPlanningService";
 import { resolveActiveWorkCardPlanningHandoff } from "../workCardIntake/workCardIntakeService";
 import {
   buildApprovedFormalWorkCardAndReportDocuments,
@@ -69,14 +81,25 @@ import {
 export function getArchitectOutputWorkspaceModel(
   workspaceRoot: string,
   workspaceId: WorkspaceId,
+  suppliedPlanningContext?: PlanningProjectionContext,
 ): ArchitectOutputWorkspaceModel {
   const definition = resolveDefinitionByWorkspace(workspaceId);
-  getArchitectOutputRuntimeStatus(workspaceRoot, definition.outputKind, definition.owningWorkspaceId);
-  const documents = listPlanningDocuments(workspaceRoot);
-  const slots = documentSlotsForDefinition(workspaceRoot, documents, definition.outputKind, workspaceId);
-  const submission = getActiveArchitectOutputRuntimeSubmission(workspaceRoot, workspaceId);
+  const priorSubmissionState = getActiveArchitectOutputRuntimeSubmission(workspaceRoot, workspaceId)
+    ?.submission.state;
+  const submission = getArchitectOutputRuntimeStatus(
+    workspaceRoot,
+    definition.outputKind,
+    definition.owningWorkspaceId,
+  );
+  const promotedDuringThisCall = priorSubmissionState !== "promoted" &&
+    submission?.submission.state === "promoted";
+  const planningContext = suppliedPlanningContext && !promotedDuringThisCall
+    ? assertPlanningProjectionContextRoot(suppliedPlanningContext, workspaceRoot)
+    : createPlanningProjectionContext(workspaceRoot);
+  const documents = listPlanningDocuments(planningContext);
+  const slots = documentSlotsForDefinition(workspaceRoot, documents, definition.outputKind, workspaceId, planningContext);
   const classifiedState = deriveState(slots, submission?.submission.state);
-  const model = domainOverlay(workspaceRoot, workspaceId, classifiedState);
+  const model = domainOverlay(workspaceRoot, workspaceId, classifiedState, planningContext);
   const interviewDomainModel = workspaceId === "architect-interview"
     ? model.domain as ReturnType<typeof getArchitectInterviewWorkspaceModel> | undefined
     : undefined;
@@ -85,7 +108,7 @@ export function getArchitectOutputWorkspaceModel(
     : undefined;
   const state = model.state ?? classifiedState;
   const handoff = sourceHandoffFromSubmission(submission?.submission.sourceHandoff) ??
-    exactHandoffForWorkspace(workspaceRoot, documents, workspaceId);
+    exactHandoffForWorkspace(workspaceRoot, documents, workspaceId, planningContext);
   const preparedInstruction = interviewDomainModel || phaseInterviewDomainModel
     ? interviewDomainModel?.handoffInstruction ?? phaseInterviewDomainModel?.handoffInstruction
     : submission && canCopySubmission(submission.submission.state)
@@ -142,14 +165,15 @@ function exactHandoffForWorkspace(
   workspaceRoot: string,
   documents: PlanningDocumentSummary[],
   workspaceId: WorkspaceId,
+  planningContext: PlanningProjectionContext,
 ): { path: string; revision: number } | undefined {
   if (workspaceId === "work-card-planning") {
-    return exactWorkCardPlanningHandoff(workspaceRoot, documents);
+    return exactWorkCardPlanningHandoff(workspaceRoot, documents, planningContext);
   }
   if (workspaceId !== "work-card-repair") {
     return handoffForWorkspace(documents, workspaceId);
   }
-  const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot);
+  const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot, planningContext);
   const handoff = resolved.context?.handoff;
   return handoff
     ? { path: handoff.markdownPath, revision: handoff.metadata.artifactRevision ?? 1 }
@@ -303,6 +327,50 @@ export function reviewArchitectOutput(
   operatorReviewNotes = "",
   presentedRevisions: ArchitectOutputPresentedSlotRevision[] = [],
 ): ArchitectOutputWorkspaceModel {
+  return reviewArchitectOutputWithPlanningContext(
+    workspaceRoot,
+    workspaceId,
+    status,
+    operatorReviewNotes,
+    presentedRevisions,
+  ).architectOutput;
+}
+
+export function reviewArchitectOutputWithPlanningContext(
+  workspaceRoot: string,
+  workspaceId: WorkspaceId,
+  status: DocumentDispositionStatus,
+  operatorReviewNotes = "",
+  presentedRevisions: ArchitectOutputPresentedSlotRevision[] = [],
+): { architectOutput: ArchitectOutputWorkspaceModel; planningContext: PlanningProjectionContext } {
+  const planningContext = mutateArchitectOutputReviewWithPlanningContext(
+    workspaceRoot,
+    workspaceId,
+    status,
+    operatorReviewNotes,
+    presentedRevisions,
+  );
+  return buildStableDevelopmentPostMutationResult(
+    workspaceRoot,
+    planningContext,
+    (stablePlanningContext) => ({
+      architectOutput: getArchitectOutputWorkspaceModel(
+        workspaceRoot,
+        workspaceId,
+        stablePlanningContext,
+      ),
+      planningContext: stablePlanningContext,
+    }),
+  );
+}
+
+export function mutateArchitectOutputReviewWithPlanningContext(
+  workspaceRoot: string,
+  workspaceId: WorkspaceId,
+  status: DocumentDispositionStatus,
+  operatorReviewNotes = "",
+  presentedRevisions: ArchitectOutputPresentedSlotRevision[] = [],
+): PlanningProjectionContext {
   const model = getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId);
   const notes = operatorReviewNotes.trim();
   if (status === "RevisionRequested" && !notes) {
@@ -356,7 +424,7 @@ export function reviewArchitectOutput(
       };
     }));
   }
-  return getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId);
+  return createFinalDevelopmentPlanningContext(workspaceRoot);
 }
 
 function resolveDefinitionByWorkspace(workspaceId: WorkspaceId) {
@@ -374,8 +442,9 @@ function documentSlotsForDefinition(
   documents: PlanningDocumentSummary[],
   outputKind: string,
   workspaceId: WorkspaceId,
+  planningContext: PlanningProjectionContext,
 ): ArchitectOutputDocumentSlotModel[] {
-  const targets = targetPathsForWorkspace(workspaceRoot, documents, outputKind, workspaceId);
+  const targets = targetPathsForWorkspace(workspaceRoot, documents, outputKind, workspaceId, planningContext);
   const definition = resolveProductionArchitectOutputDefinition(outputKind, workspaceId);
   return definition.slots.map((slot) => {
     const targetPath = targets.get(slot.slotId) ?? "";
@@ -383,7 +452,7 @@ function documentSlotsForDefinition(
       ? documents.find((candidate) => candidate.markdownPath === targetPath)
       : undefined;
     const freshness = document?.documentReadState === "readable"
-      ? evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state
+      ? evaluateDocumentFreshness(planningContext, document.logicalDocumentId).state
       : undefined;
     return {
       slotId: slot.slotId,
@@ -404,6 +473,7 @@ function targetPathsForWorkspace(
   documents: PlanningDocumentSummary[],
   outputKind: string,
   workspaceId: WorkspaceId,
+  planningContext: PlanningProjectionContext,
 ): Map<string, string> {
   const targets = new Map<string, string>();
   if (workspaceId === "architect-interview") {
@@ -431,11 +501,11 @@ function targetPathsForWorkspace(
     targets.set("phase-planning", stringValue(handoffDocument?.metadata.canonical?.workflowData.phasePlanningTarget) ?? latestPath(documents, "phase-planning"));
     targets.set("work-card-plan", stringValue(handoffDocument?.metadata.canonical?.workflowData.workCardPlanTarget) ?? latestPath(documents, "work-card-plan"));
   } else if (workspaceId === "work-card-planning") {
-    const handoff = exactWorkCardPlanningHandoff(workspaceRoot, documents);
+    const handoff = exactWorkCardPlanningHandoff(workspaceRoot, documents, planningContext);
     const handoffDocument = handoff ? documents.find((document) => document.markdownPath === handoff.path) : undefined;
     targets.set("formal-work-card", stringValue(handoffDocument?.metadata.canonical?.workflowData.formalWorkCardTarget) ?? latestPath(documents, "formal-work-card"));
   } else if (workspaceId === "work-card-repair") {
-    const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot);
+    const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot, planningContext);
     targets.set("repair-work-card", resolved.context?.targetPath ?? latestPath(documents, "repair-work-card"));
   }
   return targets;
@@ -472,8 +542,9 @@ function handoffForWorkspace(
 function exactWorkCardPlanningHandoff(
   workspaceRoot: string,
   documents: PlanningDocumentSummary[],
+  planningContext: PlanningProjectionContext,
 ): { path: string; revision: number } | undefined {
-  const activeHandoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot);
+  const activeHandoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot, undefined, planningContext);
   if (activeHandoff) {
     return {
       path: activeHandoff.handoff.markdownPath,
@@ -487,6 +558,7 @@ function domainOverlay(
   workspaceRoot: string,
   workspaceId: WorkspaceId,
   classifiedState: ArchitectOutputWorkspaceState,
+  planningContext: PlanningProjectionContext,
 ): {
   state?: ArchitectOutputWorkspaceState;
   requiredAction?: string;
@@ -500,7 +572,7 @@ function domainOverlay(
     const definition = resolveDefinitionByWorkspace(workspaceId);
     switch (workspaceId) {
       case "architect-interview": {
-        const model = getArchitectInterviewWorkspaceModel(workspaceRoot);
+        const model = getArchitectInterviewWorkspaceModel(workspaceRoot, planningContext);
         return {
           state: model.state === "prerequisites-unavailable" || model.state === "prompt-missing"
             ? "not-ready"
@@ -516,7 +588,7 @@ function domainOverlay(
         };
       }
       case "project-planning-review": {
-        const model = getProjectPlanningWorkspaceModel(workspaceRoot);
+        const model = getProjectPlanningWorkspaceModel(workspaceRoot, planningContext);
         return {
           state: architectStateFromDomainState(model.state),
           requiredAction: model.requiredAction,
@@ -527,9 +599,9 @@ function domainOverlay(
         };
       }
       case "project-phase-map":
-        return phaseMapDomainOverlay(workspaceRoot, classifiedState);
+        return phaseMapDomainOverlay(workspaceRoot, classifiedState, planningContext);
       case "phase-interview": {
-        const model = getPhaseInterviewWorkspaceModel(workspaceRoot);
+        const model = getPhaseInterviewWorkspaceModel(workspaceRoot, planningContext);
         return {
           state: architectStateFromDomainState(model.state),
           requiredAction: model.requiredAction,
@@ -540,7 +612,7 @@ function domainOverlay(
         };
       }
       case "phase-planning-bundle": {
-        const model = getPhasePlanningWorkspaceModel(workspaceRoot);
+        const model = getPhasePlanningWorkspaceModel(workspaceRoot, planningContext);
         return {
           state: architectStateFromDomainState(model.state),
           requiredAction: model.requiredAction,
@@ -557,7 +629,7 @@ function domainOverlay(
           classifiedState !== "promotion-failed"
         ) {
           if (workspaceId === "work-card-repair") {
-            const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot);
+            const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot, planningContext);
             if (resolved.status === "needs-attention") {
               return {
                 state: "needs-attention",
@@ -588,7 +660,7 @@ function domainOverlay(
           return { canPrepareHandoff: false };
         }
         if (workspaceId === "work-card-repair") {
-          const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot);
+          const resolved = resolveExactActiveRepairWorkCardContext(workspaceRoot, planningContext);
           if (resolved.status !== "ready") {
             return {
               state: resolved.status === "not-ready" ? "not-ready" : "needs-attention",
@@ -599,7 +671,11 @@ function domainOverlay(
             };
           }
         }
-        definition.resolvePreparation(workspaceRoot);
+        if (workspaceId === "work-card-planning") {
+          resolveFormalWorkCardPreparation(workspaceRoot, planningContext);
+        } else {
+          definition.resolvePreparation(workspaceRoot);
+        }
         return { canPrepareHandoff: true };
     }
   } catch (error) {
@@ -629,14 +705,14 @@ function missingPrerequisiteReason(reason: string): boolean {
   return /required|missing|unavailable|No eligible|No current|must be Approved before/i.test(reason);
 }
 
-function phaseMapDomainOverlay(workspaceRoot: string, classifiedState: ArchitectOutputWorkspaceState): {
+function phaseMapDomainOverlay(workspaceRoot: string, classifiedState: ArchitectOutputWorkspaceState, planningContext: PlanningProjectionContext): {
   state?: ArchitectOutputWorkspaceState;
   requiredAction?: string;
   reason?: string;
   evidencePaths?: string[];
   canPrepareHandoff?: boolean;
 } {
-  const documents = listPlanningDocuments(workspaceRoot);
+  const documents = listPlanningDocuments(planningContext);
   const profile = documents
     .filter((document) => document.metadata.artifactType === "project-profile")
     .filter((document) => document.markdownPath === "planning/project/PROJECT_PROFILE.md")
@@ -657,9 +733,9 @@ function phaseMapDomainOverlay(workspaceRoot: string, classifiedState: Architect
     };
   }
   const profileFresh = profile.documentReadState === "readable" &&
-    evaluateDocumentFreshness(workspaceRoot, profile.logicalDocumentId).state === "fresh";
+    evaluateDocumentFreshness(planningContext, profile.logicalDocumentId).state === "fresh";
   const roadmapFresh = roadmap.documentReadState === "readable" &&
-    evaluateDocumentFreshness(workspaceRoot, roadmap.logicalDocumentId).state === "fresh";
+    evaluateDocumentFreshness(planningContext, roadmap.logicalDocumentId).state === "fresh";
   if (
     profile.effectiveDisposition !== "Approved" ||
     roadmap.effectiveDisposition !== "Approved" ||

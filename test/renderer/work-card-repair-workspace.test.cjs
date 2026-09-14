@@ -46,7 +46,9 @@ test("work-card-repair renders a dedicated workspace instead of the generic docu
   assert.match(repairWorkspaceSource, /Copy Handoff/);
   assert.match(repairWorkspaceSource, /Reload ChatGPT/);
   assert.match(repairWorkspaceSource, /repairReviewPanel/);
-  assert.match(repairWorkspaceSource, /selectedIsRepairWorkCard && repairReviewPanel/);
+  assert.match(repairWorkspaceSource, /showRepairReviewPanel=\{selectedIsRepairWorkCard\}/);
+  assert.match(repairWorkspaceSource, /showRepairReviewPanel && repairReviewPanel/);
+  assert.match(repairWorkspaceSource, /export function WorkCardRepairPresentation/);
   assert.match(appSource, /reviewArchitectOutput/);
   assert.match(appSource, /FigmaArchitectReviewPanel/);
   assert.match(appSource, /onSelectRepairWorkCard/);
@@ -65,7 +67,7 @@ test("work-card-repair renders a dedicated workspace instead of the generic docu
   assert.doesNotMatch(repairWorkspaceSource, /repair-evidence-preview/);
   assert.doesNotMatch(repairWorkspaceSource, /repair-evidence-tabs/);
   assert.doesNotMatch(repairWorkspaceSource, /RepairField/);
-  assert.doesNotMatch(repairWorkspaceSource, /repair-authority-panel/);
+  assert.doesNotMatch(repairWorkspaceSource, /repair-state-panel/);
   assert.doesNotMatch(repairWorkspaceSource, /work-card-repair-review-panel/);
   assert.doesNotMatch(stylesSource, /\.work-card-repair-review-panel/);
   assert.doesNotMatch(stylesSource, /\.repair-evidence-tabs/);

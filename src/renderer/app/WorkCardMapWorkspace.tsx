@@ -10,6 +10,7 @@ import type {
 export function WorkCardMapWorkspace({
   actionError,
   actionFeedback,
+  candidateActionEnabled = true,
   isBeginningPlanning,
   model,
   onBeginPlanning,
@@ -18,6 +19,7 @@ export function WorkCardMapWorkspace({
 }: {
   actionError: string;
   actionFeedback: string;
+  candidateActionEnabled?: boolean;
   isBeginningPlanning: boolean;
   model: CurrentWorkspaceModel | null;
   onBeginPlanning: (candidateId: string) => void;
@@ -35,6 +37,8 @@ export function WorkCardMapWorkspace({
   const activeCandidate = candidates.find((candidate) => candidate.isActive);
   const selectedIsActive = Boolean(selectedCandidate?.isActive);
   const canBeginSelected =
+    candidateActionEnabled &&
+    projection?.state === "ready" &&
     selectedCandidate?.status === "Eligible" &&
     (!activeCandidate || selectedIsActive);
   const primaryActionLabel = selectedIsActive ? "Continue Work Card" : "Begin Planning";

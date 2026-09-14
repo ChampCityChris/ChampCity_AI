@@ -1,0 +1,30 @@
+{
+  "issueId": "ISSUE_001",
+  "bodyOnlyContractIds": [
+    "ISSUE_001-FC01",
+    "ISSUE_001-FC02",
+    "ISSUE_001-FC03",
+    "ISSUE_001-FC04",
+    "ISSUE_001-FC05"
+  ],
+  "closedFixCardIds": [
+    "ISSUE_001-FC01",
+    "ISSUE_001-FC02",
+    "ISSUE_001-FC03",
+    "ISSUE_001-FC04",
+    "ISSUE_001-FC05",
+    "ISSUE_001-FC06",
+    "ISSUE_001-FC07"
+  ],
+  "candidates": [
+    { "fixCardId": "ISSUE_001-FC01", "order": 1, "title": "Workflow Hub Shell", "dependsOn": [] },
+    { "fixCardId": "ISSUE_001-FC02", "order": 2, "title": "Issue Resolution Shell", "dependsOn": ["ISSUE_001-FC01"] },
+    { "fixCardId": "ISSUE_001-FC03", "order": 3, "title": "Issue Architect Planning", "dependsOn": ["ISSUE_001-FC02"] },
+    { "fixCardId": "ISSUE_001-FC04", "order": 4, "title": "Issue Planning and Fix Card Map", "dependsOn": ["ISSUE_001-FC03"] },
+    { "fixCardId": "ISSUE_001-FC05", "order": 5, "title": "Fix Card Implementation Reuse", "dependsOn": ["ISSUE_001-FC04"] },
+    { "fixCardId": "ISSUE_001-FC06", "order": 6, "title": "Fix Card Validation and Repair", "dependsOn": ["ISSUE_001-FC05"] },
+    { "fixCardId": "ISSUE_001-FC07", "order": 7, "title": "Fix Card Close and Next", "dependsOn": ["ISSUE_001-FC06"] },
+    { "fixCardId": "ISSUE_001-FC08", "order": 8, "title": "Issue Validation Workspace", "dependsOn": ["ISSUE_001-FC07"] },
+    { "fixCardId": "ISSUE_001-FC09", "order": 9, "title": "Issue Close Workspace", "dependsOn": ["ISSUE_001-FC08"] }
+  ]
+}

@@ -6,12 +6,16 @@ import {
 } from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
-import { isSemanticallyComplete } from "../../shared/documents/lifecycleArtifact";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
   setDocumentDisposition,
 } from "../documents/planningDocumentService";
+import {
+  assertPlanningProjectionContextRoot,
+  createPlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import {
   getActivePhaseMapDraftSubmission,
@@ -25,9 +29,10 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+import { getPhaseCloseProjection } from "../phaseClose/phaseCloseService";
 
 export type { PhaseMapPhase };
 
@@ -43,6 +48,13 @@ export type PhaseMapProjection =
   | { state: "stale"; reason: string; staleSources: Array<{ path: string; expectedRevision: number; currentRevision?: number; state: "missing" | "stale" }> }
   | { state: "malformed"; reason: string }
   | { state: "first-incomplete"; phase: PhaseMapPhase; completedPhaseIds: string[] }
+  | {
+      state: "dependency-blocked";
+      reason: string;
+      completedPhaseIds: string[];
+      incompletePhaseIds: string[];
+      blockedPhases: Array<{ phaseId: string; waitingOnPhaseIds: string[] }>;
+    }
   | { state: "all-complete"; completedPhaseIds: string[] };
 
 const phaseMapSubmissionContractId = "phase-map-output-submission-v1";
@@ -71,7 +83,7 @@ export function generatePhaseMapHandoff(workspaceRoot: string): PhaseMapHandoffR
     participationRole: "nonReviewHandoff",
     identity: { handoffKind: "phase-map", projectSlug },
     sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       {
         handoffKind: "phase-map",
         contractId: phaseMapSubmissionContractId,
@@ -79,7 +91,7 @@ export function generatePhaseMapHandoff(workspaceRoot: string): PhaseMapHandoffR
         requiredTitle: phaseMapRequiredTitle,
         requiredDomainBlocks: [phaseMapDomainBlock],
       },
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
     ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
@@ -96,6 +108,9 @@ export function generatePhaseMapHandoff(workspaceRoot: string): PhaseMapHandoffR
     `Project Identity: ${projectSlug}`,
     "",
     "The Architect must derive the substantive phase list from the approved full Project Roadmap and Project Profile.",
+    "Phase boundaries must preserve the approved Project Roadmap's outcome grouping.",
+    "Do not re-expand one Roadmap outcome into separate subsystem, tooling, or foundation phases unless the approved Roadmap requires those as independent milestones.",
+    "Keep fine-grained prerequisite sequencing inside Phase Planning and Work Card dependencies when the Roadmap keeps that work within one outcome.",
     "The application does not pre-author any phase entries.",
     "The Phase Map Markdown body must include exactly one champcity-phase-map fenced JSON block.",
     "The champcity-phase-map JSON block must be an object with one phases array.",
@@ -105,7 +120,7 @@ export function generatePhaseMapHandoff(workspaceRoot: string): PhaseMapHandoffR
     "sourceReferences must contain normalized repository-relative paths.",
     "Do not persist completion state in the Phase Map.",
     "Keep the output limited to project-level phase sequencing and repository evidence references.",
-    "Browser chat is not durable authority. The Architect must create one temporary body-only Markdown draft through the generic artifact toolbox Markdown writer.",
+    "Browser chat is not a durable record. The Architect must create one temporary body-only Markdown draft through the generic artifact toolbox Markdown writer.",
     "",
   ].join("\n");
   if (existing && handoffMatchesCurrentEvidence(existing, metadata, bodyMarkdown)) {
@@ -172,8 +187,11 @@ export function getPhaseMapHandoffInstruction(workspaceRoot: string): string {
     "Derive the substantive phase list from the approved full Project Roadmap and Project Profile.",
     "Do not use, retain, or submit placeholder phase text.",
     "All substantive phases must be derived from the Approved Project Profile and Approved Project Roadmap.",
+    "Preserve the approved Project Roadmap's outcome grouping when defining phase boundaries.",
+    "Do not re-expand one Roadmap outcome into separate subsystem, tooling, or foundation phases unless the approved Roadmap requires those as independent milestones.",
+    "Keep fine-grained prerequisite sequencing inside Phase Planning and Work Card dependencies when the Roadmap keeps that work within one outcome.",
     "The Phase Map Markdown body must include exactly one champcity-phase-map fenced JSON block.",
-    "The champcity-phase-map JSON block must be an object with this non-authoritative structural shape:",
+    "The champcity-phase-map JSON block must be an object with this non-normative structural shape:",
     "```json",
     "{",
     '  "phases": [',
@@ -205,7 +223,7 @@ export function getPhaseMapHandoffInstruction(workspaceRoot: string): string {
       promptWorkflowData,
     ),
     "```",
-    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
+    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden application-control values, or any other application-owned fields as params.",
     "Do not call retired Phase Map submission actions, retired save actions, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",
     "After the draft is created, respond with a concise draft-created confirmation.",
     "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",
@@ -227,8 +245,14 @@ export function getPhaseMapDraftSubmissionStatus(workspaceRoot: string) {
   return getPhaseMapDraftStatus(workspaceRoot);
 }
 
-export function getPhaseMapProjection(workspaceRoot: string): PhaseMapProjection {
-  const documents = listPlanningDocuments(workspaceRoot);
+export function getPhaseMapProjection(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): PhaseMapProjection {
+  const context = planningContext
+    ? assertPlanningProjectionContextRoot(planningContext, workspaceRoot)
+    : createPlanningProjectionContext(workspaceRoot);
+  const documents = listPlanningDocuments(context);
   const phaseMap = documents
     .filter((document) => document.markdownPath.startsWith("planning/project/Phase_Map/PHASE_MAP"))
     .at(-1);
@@ -238,7 +262,7 @@ export function getPhaseMapProjection(workspaceRoot: string): PhaseMapProjection
   if (phaseMap.effectiveDisposition !== "Approved") {
     return { state: "not-approved", reason: "Phase Map must be Approved before phase selection." };
   }
-  const freshness = evaluateDocumentFreshness(workspaceRoot, phaseMap.logicalDocumentId);
+  const freshness = evaluateDocumentFreshness(context, phaseMap.logicalDocumentId);
   if (freshness.state === "stale") {
     return {
       state: "stale",
@@ -249,26 +273,52 @@ export function getPhaseMapProjection(workspaceRoot: string): PhaseMapProjection
 
   let parsed: PhaseMapFile;
   try {
-    parsed = readPhaseMap(workspaceRoot, phaseMap);
+    parsed = readPhaseMap(phaseMap);
   } catch (error) {
     return { state: "malformed", reason: error instanceof Error ? error.message : String(error) };
   }
 
-  const completedPhaseIds = completedPhaseIdsFromCloseouts(documents);
-  const firstIncomplete = parsed.phases
-    .slice()
-    .sort((left, right) => left.order - right.order)
-    .find((phase) => !completedPhaseIds.includes(phase.phaseId));
-
-  return firstIncomplete
-    ? { state: "first-incomplete", phase: firstIncomplete, completedPhaseIds }
-    : { state: "all-complete", completedPhaseIds };
+  const completedPhaseIds = completedPhaseIdsFromCloseouts(workspaceRoot, parsed.phases, context);
+  return selectNextPhaseByDependencies(parsed.phases, completedPhaseIds);
 }
 
-function readPhaseMap(workspaceRoot: string, phaseMap: PlanningDocumentSummary): PhaseMapFile {
-  const absolutePath = path.join(workspaceRoot, phaseMap.markdownPath);
-  const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
-  const metadataPhases = parsed.metadata.workflowData.phases;
+export function selectNextPhaseByDependencies(
+  phases: PhaseMapPhase[],
+  completedPhaseIds: string[],
+): Extract<PhaseMapProjection, { state: "first-incomplete" | "dependency-blocked" | "all-complete" }> {
+  const completed = new Set(completedPhaseIds);
+  const incomplete = phases
+    .filter((phase) => !completed.has(phase.phaseId))
+    .sort((left, right) => left.order - right.order);
+  if (incomplete.length === 0) {
+    return { state: "all-complete", completedPhaseIds };
+  }
+
+  const dependencyEligible = incomplete.find((phase) =>
+    phase.dependsOn.every((dependency) => completed.has(dependency))
+  );
+  if (dependencyEligible) {
+    return { state: "first-incomplete", phase: dependencyEligible, completedPhaseIds };
+  }
+
+  const blockedPhases = incomplete.map((phase) => ({
+    phaseId: phase.phaseId,
+    waitingOnPhaseIds: phase.dependsOn.filter((dependency) => !completed.has(dependency)),
+  }));
+  const reasoning = blockedPhases
+    .map((phase) => `${phase.phaseId} waits on ${phase.waitingOnPhaseIds.join(", ") || "unknown dependency evidence"}`)
+    .join("; ");
+  return {
+    state: "dependency-blocked",
+    reason: `Incomplete Phase Map phases remain, but none has all declared dependencies complete: ${reasoning}.`,
+    completedPhaseIds,
+    incompletePhaseIds: incomplete.map((phase) => phase.phaseId),
+    blockedPhases,
+  };
+}
+
+function readPhaseMap(phaseMap: PlanningDocumentSummary): PhaseMapFile {
+  const metadataPhases = phaseMap.metadata.canonical?.workflowData.phases;
   if (!Array.isArray(metadataPhases)) {
     throw new Error("Phase Map metadata.workflowData.phases is required.");
   }
@@ -343,15 +393,14 @@ function requiredString(value: unknown, field: string): string {
   return value;
 }
 
-function completedPhaseIdsFromCloseouts(documents: PlanningDocumentSummary[]): string[] {
-  return documents
-    .filter((document) => {
-      const filename = document.displayFilename.toLowerCase();
-      return filename.includes("phase_closeout") || /^phase_\d+_closeout/.test(filename);
-    })
-    .filter(isSemanticallyComplete)
-    .map((document) => document.metadata.phaseId)
-    .filter((phaseId): phaseId is string => Boolean(phaseId))
+function completedPhaseIdsFromCloseouts(
+  workspaceRoot: string,
+  phases: PhaseMapPhase[],
+  planningContext: PlanningProjectionContext,
+): string[] {
+  return phases
+    .filter((phase) => getPhaseCloseProjection(workspaceRoot, phase.phaseId, planningContext).complete)
+    .map((phase) => phase.phaseId)
     .sort((left, right) => left.localeCompare(right, "en", { sensitivity: "base" }));
 }
 

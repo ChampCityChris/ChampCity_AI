@@ -1,4 +1,5 @@
 import type {
+  ArchitectBrowserBoundsAck,
   ArchitectBrowserFoundationStatus,
   BrowserViewBounds,
 } from "../workspaceContracts";
@@ -15,7 +16,7 @@ export interface ArchitectAttachmentCoordinatorRuntime {
   nextSequence: () => number;
   onError: (message: string) => void;
   onStatus: (status: ArchitectBrowserFoundationStatus) => void;
-  setBounds: (bounds: BrowserViewBounds) => Promise<ArchitectBrowserFoundationStatus>;
+  setBounds: (bounds: BrowserViewBounds) => Promise<ArchitectBrowserBoundsAck>;
   showBrowser: (attachmentGeneration: number) => Promise<ArchitectBrowserFoundationStatus>;
   hideBrowser: (attachmentGeneration: number) => Promise<ArchitectBrowserFoundationStatus>;
   waitForNextFrame: () => Promise<void>;
@@ -89,18 +90,31 @@ export function createArchitectAttachmentCoordinator(
       }
       runtime.onStatus(showStatus);
 
-      const boundsStatus = await runtime.setBounds({
+      const boundsSequence = runtime.nextSequence();
+      const boundsAck = await runtime.setBounds({
         ...measurement,
-        sequence: runtime.nextSequence(),
+        sequence: boundsSequence,
         attachmentGeneration: attemptGeneration,
       });
       if (!isCurrentGeneration(attemptGeneration)) {
         return { generation: attemptGeneration, status: "stale" };
       }
-      runtime.onStatus(boundsStatus);
+      if (
+        boundsAck.attachmentGeneration !== attemptGeneration ||
+        boundsAck.boundsSequence !== boundsSequence ||
+        boundsAck.disposition === "stale-generation" ||
+        boundsAck.disposition === "stale-sequence"
+      ) {
+        return { generation: attemptGeneration, status: "stale" };
+      }
+      if (boundsAck.disposition === "failed") {
+        const message = boundsAck.lastError ?? "Embedded browser bounds could not be applied.";
+        runtime.onError(message);
+        return { generation: attemptGeneration, status: "failed", message };
+      }
 
-      if (boundsStatus.attachment.state !== "attached-visible") {
-        const message = `Embedded browser attachment did not become visible (${boundsStatus.attachment.state}).`;
+      if (boundsAck.attachmentState !== "attached-visible") {
+        const message = `Embedded browser attachment did not become visible (${boundsAck.attachmentState}).`;
         runtime.onError(message);
         return { generation: attemptGeneration, status: "failed", message };
       }
@@ -122,7 +136,7 @@ export function createArchitectAttachmentCoordinator(
     retry: runAttempt,
     detach: async () => {
       const detachGeneration = claimGeneration();
-      const boundsStatus = await runtime.setBounds({
+      await runtime.setBounds({
         x: 0,
         y: 0,
         width: 0,
@@ -130,9 +144,6 @@ export function createArchitectAttachmentCoordinator(
         sequence: runtime.nextSequence(),
         attachmentGeneration: detachGeneration,
       });
-      if (isCurrentGeneration(detachGeneration)) {
-        runtime.onStatus(boundsStatus);
-      }
       const detachStatus = await runtime.hideBrowser(detachGeneration);
       if (isCurrentGeneration(detachGeneration)) {
         runtime.onStatus(detachStatus);

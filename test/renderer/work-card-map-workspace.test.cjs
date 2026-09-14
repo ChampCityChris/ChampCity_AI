@@ -189,7 +189,29 @@ test("Work Card Map all-complete state routes toward Phase Validation", () => {
   assert.doesNotMatch(markup, /Phase Intake/);
 });
 
-test("App wires Work Card Map to candidate-scoped planning", () => {
+test("Work Card Map needs-attention presentation cannot start a successor intake", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(WorkCardMapWorkspace, {
+      actionError: "",
+      actionFeedback: "",
+      candidateActionEnabled: false,
+      isBeginningPlanning: false,
+      model: null,
+      onBeginPlanning: () => undefined,
+      onOpenPhaseValidation: () => undefined,
+      projection: mapProjection({
+        state: "needs-attention",
+        reason: "Current dependency state requires attention.",
+      }),
+    }),
+  );
+
+  assert.match(markup, /Current dependency state requires attention\./);
+  assert.match(markup, /<button[^>]*disabled=""[^>]*>[\s\S]*Begin Planning/);
+  assert.doesNotMatch(markup, />Phase Validation</);
+});
+
+test("App keeps normal map planning separate from close-return candidate intake", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
   const transitionSource = appSource.slice(
     appSource.indexOf("async function beginMappedWorkCardPlanningAndTransition"),
@@ -199,12 +221,14 @@ test("App wires Work Card Map to candidate-scoped planning", () => {
   assert.match(appSource, /const isWorkCardMap =\s*activeWorkspaceId === "phase-work-card-selection"/);
   assert.match(appSource, /<WorkCardMapWorkspace/);
   assert.match(appSource, /window\.champcity\.getWorkCardMapProjection\(phaseId/);
-  assert.match(transitionSource, /window\.champcity\.beginWorkCardPlanning\(phaseId, candidateId, \{/);
+  assert.match(transitionSource, /isCloseReturnCandidateAction/);
+  assert.match(transitionSource, /executeCloseReturnCandidateIntake\(/);
+  assert.match(transitionSource, /window\.champcity\.beginWorkCardPlanning\(phaseId, candidateId\)/);
   assert.match(appSource, /activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>/);
   assert.match(transitionSource, /activeWorkCardResumeWorkspaceIds\.has\(nextModel\.activeWorkspaceId\)/);
   assert.match(transitionSource, /currentModelMatchesCandidate\(nextModel, candidateId\)/);
   assert.match(transitionSource, /const destinationWorkspaceId = nextModel\.activeWorkspaceId/);
   assert.match(transitionSource, /transitionToWorkflowStep\(destinationWorkspaceId/);
   assert.doesNotMatch(transitionSource, /window\.champcity\.generateCurrentHandoff\(\)/);
-  assert.doesNotMatch(transitionSource, /generateCloseReturnNextIntakeHandoff/);
+  assert.doesNotMatch(transitionSource, /closeReturnCompleted/);
 });

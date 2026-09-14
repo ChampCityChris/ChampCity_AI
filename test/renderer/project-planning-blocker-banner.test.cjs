@@ -67,7 +67,7 @@ test("Project Planning blocker banner is placed between header and document Chat
   assert.ok(bodyIndex > bannerIndex, "blocker banner must render before the two-column workspace body");
 });
 
-test("Project Planning blocker banner consumes direct authoritative model fields and blocked states", () => {
+test("Project Planning blocker banner consumes direct current model fields and blocked states", () => {
   const source = fs.readFileSync(appSourcePath, "utf8");
   const componentSource = source.slice(
     source.indexOf("export function ProjectPlanningBlockerBanner"),
@@ -85,7 +85,7 @@ test("Project Planning blocker banner consumes direct authoritative model fields
 });
 
 test("Project Planning blocker banner renders exact reason and distinct required action", () => {
-  const reason = "Exact authoritative blocker reason from Project Planning.";
+  const reason = "Exact current blocker reason from Project Planning.";
   const requiredAction = "Regenerate the Project Planning draft bundle from the approved interview.";
   const markup = renderBanner({
     projectPlanningModel: blockedModel({
@@ -165,7 +165,7 @@ test("Project Planning blocker reason is not implemented in forbidden lower plac
   assert.doesNotMatch(figmaWorkspaceSource, /ProjectPlanningBlockerBanner/);
 });
 
-test("Project Planning blocker banner has compact warning styling and rail source keeps single authority", () => {
+test("Project Planning blocker banner has compact warning styling and rail source keeps single state owner", () => {
   const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
   const railSource = fs.readFileSync(projectLifecycleRailSourcePath, "utf8");
 

@@ -17,6 +17,26 @@ const {
   generateWorkCardIntakeHandoff,
 } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
 const {
+  applyIssueArchitectReview,
+  applyIssueFixCardContractReview,
+  applyIssueFixCardValidationDecision,
+  applyIssuePlanningReview,
+  getIssueFixCardProjection,
+  prepareIssueFixCardPlanningHandoff,
+  prepareIssueFixCardRepairHandoff,
+  prepareIssuePlanningHandoff,
+  promoteIssueFixCardRepairDraft,
+  promoteIssuePlanningDraftBundle,
+  selectIssueFixCardCandidate,
+} = require("../../dist/main/issueResolution/issueResolutionService.js");
+const {
+  replaceControlledMarkdownBody,
+} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+const {
+  parseCanonicalMarkdownDocument,
+  serializeCanonicalMarkdownDocument,
+} = require("../../dist/shared/documents/canonicalMarkdown.js");
+const {
   seedApprovedPhaseInterview,
   seedApprovedPhasePlanningBundle,
   seedApprovedProjectIntake,
@@ -29,7 +49,7 @@ const {
 test("Codex Implementer service starts App Server thread from current Implement context and exact prompt", async () => {
   const root = seedBuildReviewWorkspace();
   const captured = {};
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread(options) {
       captured.threadOptions = options;
       return {
@@ -63,13 +83,24 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.match(captured.prompt, /^You are the Implementer for ChampCity A\/I\./);
   assert.match(captured.prompt, /Formal Work Card path: planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md/);
   assert.match(captured.prompt, /Implementer Report path: planning\/phases\/phase-01\/Implementer_Reports\/IMPLEMENTER_REPORT_WC01_first_work_card\.md/);
-  assert.match(captured.prompt, /Do not stage, commit, push, tag, reset, clean, stash, or perform Git mutation/);
+  assert.match(captured.prompt, /The human Operator is the only authority/);
+  assert.match(captured.prompt, /The Approved Formal Work Card is the sole bounded implementation contract/);
+  assert.match(captured.prompt, /defines task scope and instructions; it does not grant authority/);
+  assert.match(captured.prompt, /If project instructions conflict with the Approved Work Card, follow the Approved Work Card/);
+  assert.match(captured.prompt, /Run the validation required by the Approved Work Card when possible/);
+  assert.doesNotMatch(captured.prompt, /npm test/);
+  assert.doesNotMatch(captured.prompt, /test:full/);
+  assert.doesNotMatch(captured.prompt, /full-suite cleanliness/i);
+  assert.doesNotMatch(captured.prompt, /complete-corpus/i);
+  assert.match(captured.prompt, /Do not perform Git mutation when the Operator or the current task or implementation contract prohibits it/);
+  assert.match(captured.prompt, /Follow every explicit Git constraint supplied for this turn/);
+  assert.doesNotMatch(captured.prompt, /implementation contract explicitly authorizes/);
   assert.doesNotMatch(captured.prompt, /Do not modify files outside this repository root\./);
   assert.doesNotMatch(captured.prompt, /Do not write absolute local machine paths into repository artifacts\./);
   assert.doesNotMatch(captured.prompt, /production endpoints, screenshots, archives, build outputs/);
   assert.match(captured.prompt, /Do not disclose or commit secrets, credentials, authentication tokens, API\/provider keys, or private environment-file contents/);
   assert.match(captured.prompt, /No generic security scan, safety scan, path-sanitization scan, or secret-like-string scan is required/);
-  assert.match(captured.prompt, /The application owns canonical identity, source revisions, repository authority, and disposition authority/);
+  assert.match(captured.prompt, /The application owns canonical identity, source revisions, repository binding evidence, and disposition metadata/);
   assert.match(captured.prompt, /missing development capability required by the Approved Work Card is not by itself a blocker/);
   assert.match(captured.prompt, /champcity-development-environment contract marks it managed/);
   assert.match(captured.prompt, /Repository-native dependency installation or restoration is implementation work/);
@@ -84,7 +115,7 @@ test("Codex Implementer idle status polling is side-effect free and does not pro
   const root = seedBuildReviewWorkspace();
   let appServerFactoryCalled = 0;
   let preflightCalls = 0;
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => {
       appServerFactoryCalled += 1;
       return {
@@ -125,7 +156,7 @@ test("Codex Implementer explicit start owns one App Server adapter across status
   const executionMayComplete = new Promise((resolve) => {
     releaseExecution = resolve;
   });
-  const service = new CodexImplementerExecutionService(async () => {
+  const service = createService(async () => {
     appServerFactoryCalled += 1;
     return {
       startThread() {
@@ -183,7 +214,7 @@ test("Codex Implementer explicit start owns one App Server adapter across status
 test("Codex Implementer service injects ready development environment evidence into prompt", async () => {
   const root = seedBuildReviewWorkspace();
   const captured = {};
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => ({
       startThread(options) {
         captured.threadOptions = options;
@@ -240,7 +271,7 @@ test("Codex Implementer service constructs App Server transport only after succe
   delete process.env[markerKey];
   const observedMarkers = [];
   const eventOrder = [];
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => {
       eventOrder.push("appServerFactory");
       observedMarkers.push(process.env[markerKey]);
@@ -286,7 +317,7 @@ test("Codex Implementer service blocks App Server start when development environ
   const root = seedBuildReviewWorkspace();
   let appServerFactoryCalled = false;
   let startThreadCalled = false;
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => {
       appServerFactoryCalled = true;
       return {
@@ -342,7 +373,7 @@ test("Codex Implementer service runs bounded environment resolution and reruns p
   let preflightCalls = 0;
   let refreshCalls = 0;
   const eventOrder = [];
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => ({
       startThread(options) {
         captured.threadOptions = options;
@@ -432,7 +463,7 @@ test("Codex Implementer service runs bounded environment resolution and reruns p
 test("Codex Implementer service surfaces parent environment refresh failure before post-resolution preflight", async () => {
   const root = seedBuildReviewWorkspace();
   let preflightCalls = 0;
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => ({
       startThread() {
         return {
@@ -470,12 +501,166 @@ test("Codex Implementer service surfaces parent environment refresh failure befo
   assert.equal(failed.stderrTail.some((entry) => /parent PATH refresh failed/.test(entry)), true);
 });
 
+test("Issue Fix Card Codex status isolates running and terminal sessions by exact context", async () => {
+  const root = seedIssueFixCardCodexWorkspace("ISSUE_120");
+  let releaseExecution;
+  const executionMayComplete = new Promise((resolve) => {
+    releaseExecution = resolve;
+  });
+  const service = createService(
+    async () => ({
+      startThread() {
+        return {
+          id: "thread-issue-fc01",
+          async runStreamed() {
+            return { events: controlledIssueFixCardEvents(root, "ISSUE_120", "ISSUE_120-FC01", executionMayComplete) };
+          },
+        };
+      },
+    }),
+    () => Date.now(),
+    defaultExecutionPolicy,
+    { async runPreflight() { return notRequiredPreflight(); } },
+  );
+
+  const fc01 = { ownerKind: "issue", issueId: "ISSUE_120", fixCardId: "ISSUE_120-FC01" };
+  const fc02 = { ownerKind: "issue", issueId: "ISSUE_120", fixCardId: "ISSUE_120-FC02" };
+  const started = await service.start(root, fc01);
+  assert.equal(started.state, "running");
+
+  const blockedOtherCard = await service.getStatus(root, fc02);
+  assert.equal(blockedOtherCard.state, "unavailable");
+  assert.match(blockedOtherCard.failureReason, /ISSUE_120 ISSUE_120-FC01/);
+  assert.match(blockedOtherCard.failureReason, /ISSUE_120 ISSUE_120-FC02 is blocked/);
+
+  releaseExecution();
+  const completed = await waitForIssueState(service, root, fc01, "completed");
+  assert.equal(completed.workCardId, "ISSUE_120-FC01");
+  const fc02Status = await service.getStatus(root, fc02);
+  assert.equal(fc02Status.state, "ready");
+  assert.equal(fc02Status.workCardId, "ISSUE_120-FC02");
+  assert.notEqual(fc02Status.lastRunState, "completed");
+});
+
+test("Issue Repair Codex completion and retry preserve root Fix Card and exact Repair identities", async () => {
+  const issueId = "ISSUE_122";
+  const rootFixCardId = `${issueId}-FC01`;
+  const repairId = `${rootFixCardId}-REPAIR01`;
+  const prepared = seedApprovedIssueRepairCodexWorkspace(issueId);
+  const root = prepared.root;
+  const selector = {
+    ownerKind: "issue",
+    issueId,
+    fixCardId: rootFixCardId,
+    currentImplementationId: repairId,
+  };
+  let releaseExecution;
+  const executionMayComplete = new Promise((resolve) => {
+    releaseExecution = resolve;
+  });
+  const service = createService(
+    async () => ({
+      startThread() {
+        return {
+          id: "thread-issue-repair01",
+          async runStreamed() {
+            return {
+              events: controlledIssueRepairEvents(root, prepared.implementerReportPath, repairId, executionMayComplete),
+            };
+          },
+        };
+      },
+    }),
+    () => Date.now(),
+    defaultExecutionPolicy,
+    { async runPreflight() { return notRequiredPreflight(); } },
+  );
+
+  const started = await service.start(root, selector);
+  assert.equal(started.state, "running");
+  assert.equal(started.workCardId, repairId);
+  assert.equal(started.implementerReportPath, prepared.implementerReportPath);
+
+  releaseExecution();
+  const completed = await waitForIssueState(service, root, selector, "completed");
+  assert.equal(completed.workCardId, repairId);
+  assert.equal(completed.reportUpdated, true);
+  assert.equal(completed.failureReason, null);
+  assert.equal(completed.canRunAgain, true);
+  assert.equal(completed.retryBlocker, null);
+
+  const nextRepair = advanceIssueRepair(root, issueId, repairId);
+  assert.equal(nextRepair.currentImplementationId, `${rootFixCardId}-REPAIR02`);
+
+  const staleStatus = await service.getStatus(root, selector);
+  assert.equal(staleStatus.state, "unavailable");
+  assert.match(staleStatus.failureReason, /Issue Codex execution context changed/);
+
+  const currentStatus = await service.getStatus(root, {
+    ownerKind: "issue",
+    issueId,
+    fixCardId: rootFixCardId,
+    currentImplementationId: nextRepair.currentImplementationId,
+  });
+  assert.equal(currentStatus.state, "ready");
+  assert.equal(currentStatus.workCardId, nextRepair.currentImplementationId);
+  assert.equal(currentStatus.implementerReportPath, nextRepair.implementerReportPath);
+});
+
+test("Issue Fix Card preflight and Environment Resolution cache are keyed by contract context", async () => {
+  const root = seedIssueFixCardCodexWorkspace("ISSUE_121");
+  let preflightCalls = 0;
+  const captured = {};
+  const service = createService(
+    async () => ({
+      startThread(options) {
+        captured.threadOptions = options;
+        return {
+          id: "thread-issue-env",
+          async runStreamed(prompt) {
+            captured.prompt = prompt;
+            return { events: environmentResolutionEvents() };
+          },
+        };
+      },
+    }),
+    () => Date.now(),
+    defaultExecutionPolicy,
+    {
+      async runPreflight({ formalWorkCardPath }) {
+        preflightCalls += 1;
+        if (/ISSUE_121-FC01/.test(formalWorkCardPath)) {
+          return resolutionRequiredPreflight();
+        }
+        return notRequiredPreflight();
+      },
+    },
+    async () => ({ refreshed: false, summary: "parent environment unchanged", env: {} }),
+  );
+
+  const fc01 = { ownerKind: "issue", issueId: "ISSUE_121", fixCardId: "ISSUE_121-FC01" };
+  const fc02 = { ownerKind: "issue", issueId: "ISSUE_121", fixCardId: "ISSUE_121-FC02" };
+  const fc01Unavailable = await service.start(root, fc01);
+  assert.equal(fc01Unavailable.state, "unavailable");
+  assert.equal(fc01Unavailable.canResolveEnvironment, true);
+
+  const fc02Status = await service.getStatus(root, fc02);
+  assert.equal(fc02Status.state, "ready");
+  assert.equal(fc02Status.developmentEnvironmentPreflight, null);
+
+  const resolving = await service.startEnvironmentResolution(root, fc01);
+  assert.equal(resolving.state, "running");
+  assert.equal(resolving.executionKind, "environment-resolution");
+  assert.match(captured.prompt, /Fix Card path: issues\/ISSUE_121\/Fix_Cards\/ISSUE_121-FC01_/);
+  assert.equal(preflightCalls, 1);
+});
+
 test("Codex Implementer service allows retryable blocked preflight to rerun without using cached evidence as ready", async () => {
   const root = seedBuildReviewWorkspace();
   let appServerFactoryCalled = 0;
   let startThreadCalled = 0;
   let preflightCalls = 0;
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => {
       appServerFactoryCalled += 1;
       return {
@@ -538,7 +723,7 @@ test("Codex Implementer service allows retryable blocked preflight to rerun with
 test("Codex Implementer status keeps cached waiting preflight unavailable but retryable", async () => {
   const root = seedBuildReviewWorkspace();
   let appServerFactoryCalled = false;
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => {
       appServerFactoryCalled = true;
       return {
@@ -587,7 +772,7 @@ test("Codex Implementer status keeps cached waiting preflight unavailable but re
 test("Codex Implementer service uses full local development policy without renderer options", async () => {
   const root = seedBuildReviewWorkspace();
   const captured = {};
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread(options) {
       captured.threadOptions = options;
       return {
@@ -613,7 +798,7 @@ test("Codex Implementer service uses full local development policy without rende
 
 test("Codex Implementer service reports App Server success without report changes as incomplete for review", async () => {
   const root = seedBuildReviewWorkspace();
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: null,
@@ -635,7 +820,7 @@ test("Codex Implementer service reports App Server success without report change
 
 test("Codex Implementer service clears transient duplicate metadata after final canonical report refresh", async () => {
   const root = seedBuildReviewWorkspace();
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: null,
@@ -660,7 +845,7 @@ test("Codex Implementer service clears transient duplicate metadata after final 
 
 test("Codex Implementer service blocks final duplicate metadata report from Review & Validation", async () => {
   const root = seedBuildReviewWorkspace();
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: null,
@@ -685,7 +870,7 @@ test("Codex Implementer service blocks final duplicate metadata report from Revi
 
 test("Codex Implementer service treats canonical blocked report as reviewable evidence", async () => {
   const root = seedBuildReviewWorkspace();
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: null,
@@ -709,7 +894,7 @@ test("Codex Implementer service treats canonical blocked report as reviewable ev
 test("Codex Implementer service rejects a second in-flight launch and cancels only the tracked App Server run", async () => {
   const root = seedBuildReviewWorkspace();
   let observedSignal;
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: null,
@@ -744,7 +929,7 @@ test("Codex Implementer service shutdown cancels and disposes the active App Ser
   let interruptCount = 0;
   let disposeCount = 0;
   let disposed = false;
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: "thread-shutdown",
@@ -782,7 +967,7 @@ test("Codex Implementer service shutdown cancels and disposes the active App Ser
 
 test("Codex Implementer start maps missing App Server/runtime to targeted unavailable message", async () => {
   const root = seedBuildReviewWorkspace();
-  const service = new CodexImplementerExecutionService(async () => {
+  const service = createService(async () => {
     throw new Error("Unable to locate Codex CLI binaries for x86_64-pc-windows-msvc.");
   });
 
@@ -798,7 +983,7 @@ test("Codex Implementer start maps missing App Server/runtime to targeted unavai
 
 test("Codex Implementer service maps auth-like App Server failure and preserves retry evidence", async () => {
   const root = seedBuildReviewWorkspace();
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: null,
@@ -827,7 +1012,7 @@ test("Codex Implementer service resolves thread policy through injectable seam",
   const captured = {};
   let resolverCalled = false;
   let resolverArgument = null;
-  const service = new CodexImplementerExecutionService(
+  const service = createService(
     async () => ({
       startThread(options) {
         captured.threadOptions = options;
@@ -871,7 +1056,7 @@ test("Codex Implementer service resolves thread policy through injectable seam",
 test("Codex Implementer service exposes App Server runtime diagnostics, approvals, and runtime denials", async () => {
   const root = seedBuildReviewWorkspace();
   const runtimeState = fakeRuntimeState();
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     getRuntimeState() {
       return runtimeState;
     },
@@ -918,7 +1103,7 @@ test("Codex Implementer service holds and answers App Server approval requests",
   const approvalAnswered = new Promise((resolve) => {
     releaseApproval = resolve;
   });
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: "thread-approval",
@@ -964,7 +1149,7 @@ test("Codex Implementer service holds and answers App Server request_user_input 
   const inputAnswered = new Promise((resolve) => {
     releaseInput = resolve;
   });
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: "thread-input",
@@ -1009,7 +1194,7 @@ test("Codex Implementer service holds and answers App Server MCP elicitation pro
   const mcpInputAnswered = new Promise((resolve) => {
     releaseMcpInput = resolve;
   });
-  const service = new CodexImplementerExecutionService(async () => ({
+  const service = createService(async () => ({
     startThread() {
       return {
         id: "thread-mcp-input",
@@ -1433,6 +1618,19 @@ async function waitForState(service, root, expectedState) {
   return status;
 }
 
+async function waitForIssueState(service, root, selector, expectedState) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const status = await service.getStatus(root, selector);
+    if (status.state === expectedState) {
+      return status;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  const status = await service.getStatus(root, selector);
+  assert.equal(status.state, expectedState);
+  return status;
+}
+
 async function waitForPendingUserInput(service, root) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const status = await service.getStatus(root);
@@ -1511,12 +1709,323 @@ function seedBuildReviewWorkspace() {
   return root;
 }
 
+function seedIssueFixCardCodexWorkspace(issueId) {
+  const root = tempWorkspace("champcity-issue-codex-");
+  const issueRoot = path.join(root, "issues", issueId);
+  fs.mkdirSync(issueRoot, { recursive: true });
+  fs.writeFileSync(path.join(issueRoot, "ISSUE_RECORD.md"), `# ${issueId} - Codex Issue\n\n## Issue\nNeeds Issue Fix Card Codex execution.`, "utf8");
+  fs.writeFileSync(path.join(issueRoot, "ARCHITECT_INVESTIGATION.md"), validIssueInvestigation(issueId), "utf8");
+  applyIssueArchitectReview(root, issueId, { disposition: "Approved", operatorNotes: "Proceed." });
+  const prepared = prepareIssuePlanningHandoff(root, issueId);
+  const issuePlanDraft = path.join(root, prepared.projection.activeSubmission.issueResolutionPlanDraftPath);
+  const fixPlanDraft = path.join(root, prepared.projection.activeSubmission.fixCardPlanDraftPath);
+  fs.mkdirSync(path.dirname(issuePlanDraft), { recursive: true });
+  fs.writeFileSync(issuePlanDraft, validIssueResolutionPlan(issueId), "utf8");
+  fs.writeFileSync(fixPlanDraft, validIssueFixCardPlan(issueId), "utf8");
+  promoteIssuePlanningDraftBundle(root, issueId);
+  applyIssuePlanningReview(root, issueId, { disposition: "Approved", operatorNotes: "Approved." });
+  approveIssueFixCard(root, issueId, `${issueId}-FC01`);
+  approveIssueFixCard(root, issueId, `${issueId}-FC02`);
+  return root;
+}
+
+function approveIssueFixCard(root, issueId, fixCardId) {
+  selectIssueFixCardCandidate(root, issueId, fixCardId, "fix-card-map");
+  const prepared = prepareIssueFixCardPlanningHandoff(root, issueId, "planning");
+  const submission = prepared.projection.activePlanningSubmission;
+  replaceControlledMarkdownBody(root, {
+    relativePath: submission.temporaryDraftPath,
+    submissionId: submission.submissionId,
+    expectedMetadataSha256: submission.metadataSha256,
+    expectedBodySha256: submission.bodySha256,
+    bodyMarkdown: validIssueFixCardContract(fixCardId),
+  });
+  applyIssueFixCardContractReview(root, issueId, {
+    disposition: "Approved",
+    operatorNotes: "Approved.",
+    expectedReviewedBodySha256: getIssueFixCardProjection(root, issueId, "planning").controlledDraftBodySha256,
+  }, "implement");
+}
+
+function seedApprovedIssueRepairCodexWorkspace(issueId) {
+  const root = seedIssueFixCardCodexWorkspace(issueId);
+  const rootFixCardId = `${issueId}-FC01`;
+  selectIssueFixCardCandidate(root, issueId, rootFixCardId, "implement");
+  writeSubstantiveIssueFixCardReport(root, issueId, rootFixCardId);
+  const boundedDefect = "The shared executor loses the canonical root Fix Card identity for the current Repair.";
+  applyIssueFixCardValidationDecision(root, issueId, {
+    decision: "RequestRepair",
+    operatorNotes: "Observed in the exact root Fix Card execution evidence.",
+    boundedDefect,
+  }, "repair");
+  const prepared = prepareIssueFixCardRepairHandoff(root, issueId, "repair").projection;
+  const repairId = `${rootFixCardId}-REPAIR01`;
+  const submission = prepared.activeRepairSubmission;
+  replaceControlledMarkdownBody(root, {
+    relativePath: submission.temporaryDraftPath,
+    submissionId: submission.submissionId,
+    expectedMetadataSha256: submission.metadataSha256,
+    expectedBodySha256: submission.bodySha256,
+    bodyMarkdown: validIssueRepairContract(repairId, rootFixCardId, boundedDefect),
+  });
+  promoteIssueFixCardRepairDraft(root, issueId, "repair");
+  return {
+    root,
+    ...applyIssueFixCardContractReview(root, issueId, {
+      disposition: "Approved",
+      operatorNotes: "Bounded Repair approved.",
+    }, "implement").projection,
+  };
+}
+
+function advanceIssueRepair(root, issueId, currentRepairId) {
+  const boundedDefect = "The first Repair leaves one exact current-implementation context transition unverified.";
+  applyIssueFixCardValidationDecision(root, issueId, {
+    decision: "RequestRepair",
+    operatorNotes: "Observed after the exact Repair execution.",
+    boundedDefect,
+  }, "repair");
+  const prepared = prepareIssueFixCardRepairHandoff(root, issueId, "repair").projection;
+  const repairId = `${issueId}-FC01-REPAIR02`;
+  const submission = prepared.activeRepairSubmission;
+  replaceControlledMarkdownBody(root, {
+    relativePath: submission.temporaryDraftPath,
+    submissionId: submission.submissionId,
+    expectedMetadataSha256: submission.metadataSha256,
+    expectedBodySha256: submission.bodySha256,
+    bodyMarkdown: validIssueRepairContract(repairId, currentRepairId, boundedDefect),
+  });
+  promoteIssueFixCardRepairDraft(root, issueId, "repair");
+  return applyIssueFixCardContractReview(root, issueId, {
+    disposition: "Approved",
+    operatorNotes: "Second bounded Repair approved.",
+  }, "implement").projection;
+}
+
 function reportPath() {
   return "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
 }
 
 function workCardPath() {
   return "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md";
+}
+
+async function* controlledIssueFixCardEvents(root, issueId, fixCardId, release) {
+  yield { type: "thread.started", thread_id: `thread-${fixCardId}` };
+  yield { type: "turn.started" };
+  await release;
+  writeSubstantiveIssueFixCardReport(root, issueId, fixCardId);
+  yield {
+    type: "item.completed",
+    item: { id: "agent-issue", type: "agent_message", text: "Issue Fix Card execution completed." },
+  };
+  yield { type: "turn.completed" };
+}
+
+async function* controlledIssueRepairEvents(root, reportRelativePath, repairId, release) {
+  yield { type: "thread.started", thread_id: `thread-${repairId}` };
+  yield { type: "turn.started" };
+  await release;
+  writeSubstantiveIssueRepairReport(root, reportRelativePath);
+  yield {
+    type: "item.completed",
+    item: { id: "agent-issue-repair", type: "agent_message", text: "Issue Repair execution completed." },
+  };
+  yield { type: "turn.completed" };
+}
+
+function writeSubstantiveIssueFixCardReport(root, issueId, fixCardId) {
+  const slug = fixCardId.endsWith("FC01") ? "codex_fixture_one" : "codex_fixture_two";
+  const reportRelativePath = `issues/${issueId}/Implementer_Reports/IMPLEMENTER_REPORT_${fixCardId}_${slug}.md`;
+  const contractRelativePath = `issues/${issueId}/Fix_Cards/${fixCardId}_${slug}.md`;
+  return writeDoc(root, reportRelativePath, "implementer-report", "Pending", {
+    identity: { issueId, fixCardId },
+    sourceRevisions: [{ path: contractRelativePath, revision: 1 }],
+    workflowData: {
+      ownerKind: "issue",
+      repositoryVerification: "Verified approved repo root.",
+      filesChanged: ["src/main/workCardBuilding/codexImplementerExecutionService.ts"],
+      implementationSummary: "Implemented the selected Issue Fix Card.",
+      validationResults: ["Issue Codex execution test passed"],
+    },
+    bodyMarkdown: [
+      "# Issue Fix Card Implementer Report",
+      "",
+      "Verified approved repo root.",
+      "",
+      "## Implementation Summary",
+      "Implemented the selected Issue Fix Card.",
+      "",
+    ].join("\n"),
+  });
+}
+
+function writeSubstantiveIssueRepairReport(root, reportRelativePath) {
+  const absolutePath = path.join(root, reportRelativePath);
+  const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+  const metadata = {
+    ...parsed.metadata,
+    artifactRevision: parsed.metadata.artifactRevision + 1,
+    workflowData: {
+      ...parsed.metadata.workflowData,
+      repositoryVerification: "Verified approved repo root.",
+      filesChanged: ["src/main/workCardBuilding/codexImplementerExecutionService.ts"],
+      implementationSummary: "Preserved the root Fix Card and exact Repair execution identities.",
+      validationResults: ["Issue Repair shared-executor regression test passed"],
+    },
+  };
+  fs.writeFileSync(absolutePath, serializeCanonicalMarkdownDocument(metadata, [
+    `# Implementer Report - ${metadata.identity.currentImplementationId}`,
+    "",
+    "Verified approved repo root.",
+    "",
+    "## Implementation Summary",
+    "Preserved the root Fix Card and exact Repair execution identities.",
+    "",
+    "## Files Modified",
+    "src/main/workCardBuilding/codexImplementerExecutionService.ts",
+    "",
+  ].join("\n")), "utf8");
+}
+
+function validIssueRepairContract(repairId, parentImplementationId, boundedDefect) {
+  const sections = [
+    ["Confirmed Defect", boundedDefect],
+    ["Source Evidence", `The exact RevisionRequested validation record for ${parentImplementationId} is the sole validation basis.`],
+    ["Objective", `Correct only ${boundedDefect} while retaining the root Fix Card objective.`],
+    ["Runtime Sequence", `${parentImplementationId} -> ${repairId} -> shared Implementer -> combined review-validation.`],
+    ["Required Changes", `Make the narrow identity correction for ${repairId}; route unrelated observations to separate Issues.`],
+    ["Preserved Behavior", "Preserve all already-passed behavior, Issue switching, durable history, shared execution, and Development state."],
+    ["In-Scope Surface", "Touch only the Issue lifecycle service and shared Codex executor paths required by the defect."],
+    ["Acceptance Criteria", `Prove ${boundedDefect} is corrected with immediate parent ${parentImplementationId} preserved.`],
+    ["Negative Constraints", "Do not add Development parentage, overwrite evidence, broaden the Repair, or mutate Git."],
+    ["Return Target", "review-validation"],
+    ["Implementer Report Requirements", `Reserve and update only the exact Issue-owned Implementer Report for ${repairId}.`],
+    ["Manual Validation", "Operator confirms the exact evidence and retains final validation basis."],
+  ];
+  return [
+    `# ${repairId} - Bounded Issue Repair`,
+    "",
+    `Immediate parent implementation: ${parentImplementationId}`,
+    "",
+    ...sections.flatMap(([heading, body]) => [
+      `## ${heading}`,
+      body,
+      "",
+      `${body} This section remains intentionally bounded and preserves causally prior evidence.`,
+      "",
+    ]),
+  ].join("\n");
+}
+
+function validIssueInvestigation(issueId) {
+  return [
+    `# ${issueId} - Architect Investigation`,
+    "## Purpose",
+    "Establish evidence for Issue Resolution.",
+    "## Issue Assessment",
+    "The issue should proceed through Issue Resolution.",
+    "## Repository Evidence Inspected",
+    "Reviewed repository evidence.",
+    "## Confirmed Current Architecture",
+    "Issue Resolution is separate from Development.",
+    "## Root Cause",
+    "The issue needs bounded Fix Card work.",
+    "## Required Architecture",
+    "Use Issue-owned Fix Cards.",
+    "## Preservation Rules",
+    "Preserve Development state.",
+    "## Risks and Constraints",
+    "Avoid FC06 and FC07 scope.",
+    "## Architect Recommendation",
+    "Proceed in Issue Resolution",
+    "## Architect Conclusion",
+    "Proceed to Issue Planning.",
+    "",
+  ].join("\n");
+}
+
+function validIssueResolutionPlan(issueId) {
+  return [
+    `# ${issueId} \u2014 Issue Resolution Plan`,
+    "## Accepted Correction Objective",
+    "Create bounded Issue Fix Cards.",
+    "## Bounded Scope",
+    "Use Issue-owned contracts and reports.",
+    "## Non-Scope",
+    "Do not add validation, repair, or close.",
+    "## Architecture Direction",
+    "Reuse existing services.",
+    "## Preservation Requirements",
+    "Preserve Development behavior.",
+    "## Dependencies and Sequencing",
+    "Planning precedes implementation.",
+    "## Risks",
+    "Context leakage must be prevented.",
+    "## Validation Strategy",
+    "Use focused service tests.",
+    "## Completion Criteria",
+    "Two Fix Cards can be selected independently.",
+    "",
+  ].join("\n");
+}
+
+function validIssueFixCardPlan(issueId) {
+  return [
+    `# ${issueId} \u2014 Fix Card Plan`,
+    "## Planning Basis",
+    "Issue Resolution requires two bounded Codex fixture cards.",
+    "## Fix Card Decomposition",
+    "The cards provide separate contract contexts.",
+    "## Fix Card Map",
+    "```champcity-fix-card-plan",
+    JSON.stringify([{
+      fixCardId: `${issueId}-FC01`,
+      order: 1,
+      title: "Codex fixture one",
+      purpose: "Provide the first Issue Fix Card execution context for isolation testing.",
+      dependsOn: [],
+      evidencePaths: [`issues/${issueId}/ARCHITECT_INVESTIGATION.md`],
+    }, {
+      fixCardId: `${issueId}-FC02`,
+      order: 2,
+      title: "Codex fixture two",
+      purpose: "Provide the second Issue Fix Card execution context for isolation testing.",
+      dependsOn: [],
+      evidencePaths: [`issues/${issueId}/ARCHITECT_REVIEW.md`],
+    }], null, 2),
+    "```",
+    "",
+  ].join("\n");
+}
+
+function validIssueFixCardContract(fixCardId) {
+  return [
+    `# ${fixCardId} - Fix Card Contract`,
+    "## Verified Repository Evidence",
+    "The selected candidate belongs to the current Issue Fix Card Map.",
+    "## Objective",
+    "Implement the selected Issue Fix Card.",
+    "## Runtime Sequence",
+    "Plan, approve, reserve report, and run Codex.",
+    "## Required Changes",
+    "Update the Issue-owned Implementer Report.",
+    "## Preserved Behavior",
+    "Preserve Development behavior.",
+    "## In-Scope Surface",
+    "Use only Issue Resolution and Codex execution services.",
+    "## Risks and Constraints",
+    "Do not add validation, repair, close, or Git mutation.",
+    "## Acceptance Criteria",
+    "The exact Issue/Fix Card context is used.",
+    "## Negative Constraints",
+    "No cross-card session or preflight reuse.",
+    "## Implementer Report Requirements",
+    "Record files changed and checks run.",
+    "## Manual Validation",
+    "Operator validates live workflow later.",
+    "",
+  ].join("\n");
 }
 
 function sha256(root, relativePath) {
@@ -1568,5 +2077,79 @@ function writeSubstantiveImplementerReport(root, {
       ...(blockers.length ? ["## Blockers", ...blockers] : []),
       "",
     ].join("\n"),
+  });
+}
+
+
+// Existing lifecycle tests explicitly supply the new runtime identity through a per-test fixture.
+function createService(...args) {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const fixture = runtimeFixture();
+  while (args.length < 5) args.push(undefined);
+  const service = new CodexImplementerExecutionService(...args, fixture.manager);
+  const start = service.start.bind(service);
+  service.start = async (root, selector, chosen = selection) => { await fixture.ready; return start(root, selector, chosen); };
+  const resolve = service.startEnvironmentResolution.bind(service);
+  service.startEnvironmentResolution = async (...input) => { await fixture.ready; return resolve(...input); };
+  return service;
+}
+
+
+for (const workflow of ["development", "issue"]) {
+  test(`${workflow} renderer-facing preload/main start reaches the real transport with exact model and effort`, async () => {
+    const { EventEmitter } = require("node:events");
+    const { PassThrough } = require("node:stream");
+    const { runtimeFixture, catalog } = require("../support/codex-runtime.cjs");
+    const { codexIpcHarness } = require("../support/codex-ipc-harness.cjs");
+    const { loadCodexAppServerAdapter } = require("../../dist/main/workCardBuilding/codexAppServerTransport.js");
+    const chosen = { model: "precise-execution-id", reasoningEffort: "future-effort" };
+    const fixture = runtimeFixture({probe: async () => [{...catalog[0], model: chosen.model, supportedReasoningEfforts:[chosen.reasoningEffort]}]});
+    await fixture.ready;
+    const root = workflow === "issue" ? seedIssueFixCardCodexWorkspace("ISSUE_125") : seedBuildReviewWorkspace();
+    const requests = [];
+    let factories = 0;
+    const factory = async () => {
+      factories++;
+      const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.stdin = new PassThrough();
+      child.kill = () => { child.killed = true; queueMicrotask(() => child.emit("exit", 0)); return true; };
+      child.stdin.on("data", (data) => {
+        for (const line of data.toString().trim().split("\n")) {
+          const req = JSON.parse(line); if (!req.id) continue; requests.push(req);
+          let result = {};
+          if (req.method === "initialize") result = {userAgent:"fixture",codexHome:"<CODEX_HOME>"};
+          if (req.method === "thread/start") result = {thread:{id:"thread-selection"},model:req.params.model};
+          if (req.method === "turn/start") result = {turn:{id:"turn-selection",status:"completed"}};
+          child.stdout.write(JSON.stringify({id:req.id,result}) + "\n");
+        }
+      });
+      return loadCodexAppServerAdapter(() => child);
+    };
+    const service = new CodexImplementerExecutionService(factory, undefined, undefined, undefined, undefined, fixture.manager);
+    const api = codexIpcHarness(service, fixture.manager, root);
+    await api.setCodexModelSelection(chosen);
+    const maliciousExtraFields = {...chosen, sandboxMode:"danger-full-access", approvalsReviewer:"auto_review", networkAccessEnabled:false};
+    const start = (value) => workflow === "issue"
+      ? api.startIssueCodexImplementerExecution("ISSUE_125", "ISSUE_125-FC01", "ISSUE_125-FC01", value)
+      : api.startCodexImplementerExecution(value);
+    for (const invalid of [undefined, {model:"removed",reasoningEffort:"high"}, {...chosen,reasoningEffort:"removed"}]) {
+      const rejected = await start(invalid);
+      assert.equal(rejected.state, "unavailable");
+      assert.match(rejected.failureReason, /Choose|unavailable/);
+    }
+    assert.equal(factories, 0);
+    const result = await start(maliciousExtraFields);
+    assert.equal(result.state, "running");
+    for (let i=0; i<100 && !requests.some(req=>req.method==="turn/start"); i++) await new Promise(resolve=>setTimeout(resolve,5));
+    const thread = requests.find(req=>req.method==="thread/start").params;
+    const turn = requests.find(req=>req.method==="turn/start").params;
+    assert.equal(thread.model, chosen.model);
+    assert.equal(turn.model, chosen.model);
+    assert.equal(turn.effort, chosen.reasoningEffort);
+    assert.equal(thread.sandbox, "workspace-write");
+    assert.equal(thread.approvalsReviewer, "user");
+    assert.equal(turn.sandboxPolicy.type, "workspaceWrite");
+    assert.equal(turn.sandboxPolicy.networkAccess, true);
+    assert.equal(factories, 1);
+    await service.shutdownActiveExecutions();
   });
 }

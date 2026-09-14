@@ -33,13 +33,13 @@ export function buildProjectArchitectInterviewPrompt(
   input: ProjectArchitectInterviewPromptInput,
 ): ProjectArchitectInterviewPromptWrite {
   const projectRepository = stringValue(input.projectIntakeWorkflowData.projectRepository);
-  const repositoryAuthority = recordValue(input.projectIntakeWorkflowData.repositoryAuthority);
-  const repositoryAuthorityProjectRepository = stringValue(repositoryAuthority?.projectRepository);
+  const repositoryBinding = recordValue(input.projectIntakeWorkflowData.repositoryBinding);
+  const repositoryBindingProjectRepository = stringValue(repositoryBinding?.projectRepository);
   if (!projectRepository) {
     throw new Error("Approved Project Intake is missing workflowData.projectRepository.");
   }
-  if (!repositoryAuthority || !repositoryAuthorityProjectRepository) {
-    throw new Error("Approved Project Intake is missing workflowData.repositoryAuthority.projectRepository.");
+  if (!repositoryBinding || !repositoryBindingProjectRepository) {
+    throw new Error("Approved Project Intake is missing workflowData.repositoryBinding.projectRepository.");
   }
 
   const relativePath = projectArchitectInterviewPromptPath(input.projectSlug);
@@ -66,7 +66,11 @@ export function buildProjectArchitectInterviewPrompt(
     relativePath,
     architectInterviewTargetMarkdownPath,
     metadata,
-    bodyMarkdown: architectPromptBody(input.projectName, input.projectIntakeMarkdownPath),
+    bodyMarkdown: architectPromptBody(
+      input.projectName,
+      input.projectIntakeMarkdownPath,
+      input.projectIntakeWorkflowData,
+    ),
   };
 }
 
@@ -86,7 +90,10 @@ export function writeProjectArchitectInterviewPrompt(
 function architectPromptBody(
   projectName: string,
   intakeMarkdownPath: string,
+  intakeWorkflowData: Record<string, unknown>,
 ): string {
+  const hasExistingSourceOrPlanning = intakeWorkflowData.hasExistingSourceOrPlanning === true;
+  const repositoryReviewContext = stringValue(intakeWorkflowData.repositoryReviewContext) ?? "none provided";
   return [
     `# Project Architect Interview Prompt: ${projectName}`,
     "",
@@ -102,6 +109,18 @@ function architectPromptBody(
     "Ask one primary question at a time. Do not present long questionnaires or large batches of unrelated questions.",
     "",
     "Use the Project Intake and available evidence before asking the Operator for information. Do not ask questions whose answers can be derived from the supplied documents, repository evidence, or normal architectural judgment.",
+    "",
+    "## Repository Evidence and Established Architecture",
+    "",
+    `Project Intake declares existing source or planning: ${hasExistingSourceOrPlanning ? "Yes" : "No"}.`,
+    `Repository review context: ${repositoryReviewContext}`,
+    "",
+    "When Project Intake declares existing source or planning, or supplies repository review context, inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions.",
+    "Distinguish verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions.",
+    "When Intake or repository evidence identifies architecture as governing, approved, adopted, canonical, or otherwise established by the Operator, treat it as a controlling constraint and source of truth for planning unless the Operator explicitly revises it.",
+    "Assess established architecture for internal consistency, implementation applicability, gaps, stale assumptions, and direct conflicts. Do not redesign, summarize away, or silently supersede it merely to complete this generic interview structure.",
+    "Do not treat all repository Markdown as controlling planning direction; require evidence that architecture or planning direction is governing or Operator-established.",
+    "Ask the Operator only about genuinely unresolved material product or scope decisions, or concrete architecture conflicts that cannot be resolved through normal Architect judgment.",
     "",
     "Distinguish between:",
     "",
@@ -125,22 +144,19 @@ function architectPromptBody(
     "",
     "## Interview Length and Pace",
     "",
-    "Aim to complete the interview in approximately 8–12 substantive questions.",
+    "Evidence review controls interview length. Do not use a target, minimum, or expected question count.",
     "",
-    "This is a soft operating range, not a hard stop.",
+    "Inspect the required Project Intake and materially relevant repository evidence before deciding whether clarification is needed.",
     "",
-    "After approximately five substantive questions, summarize:",
+    "Ask only material Operator-owned questions that remain unresolved after evidence review and normal Architect judgment.",
     "",
-    "- decisions made;",
-    "- assumptions recorded;",
-    "- unresolved material issues;",
-    "- remaining interview areas.",
+    "When the Project Intake and materially relevant repository evidence resolve the project context and required coverage, ask zero clarification questions and proceed directly to the concise confirmation summary.",
     "",
-    "At approximately ten substantive questions, continue only when unresolved matters could materially affect scope, architecture, risk, dependencies, acceptance, cost, or delivery.",
-    "",
-    "Do not compress multiple major decisions into one overwhelming question merely to stay within the suggested range.",
+    "Do not compress unresolved material decisions merely to shorten the interview.",
     "",
     "## Required Coverage",
+    "",
+    "Treat the following as coverage obligations to resolve through evidence, normal Architect judgment, or Operator answers. They are not a questionnaire and do not imply one question per section.",
     "",
     "Continue until the following are materially resolved:",
     "",

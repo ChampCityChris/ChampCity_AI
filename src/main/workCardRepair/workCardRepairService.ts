@@ -11,6 +11,10 @@ import type { ArchitectDraftSubmission, ArchitectOutputDefinition } from "../../
 import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import type { WorkCardRepairEvidenceDocument, WorkCardRepairProjection } from "../../shared/workspaceContracts";
 import { evaluateDocumentFreshness, listPlanningDocuments, readPlanningDocument } from "../documents/planningDocumentService";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import {
   getActiveArchitectOutputRuntimeSubmission,
@@ -24,10 +28,10 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSources,
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSources,
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 
 export type RepairOrigin = "preValidationReportReview" | "postValidationRecord";
 
@@ -116,9 +120,9 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
               repairId: context.repairId,
               parentWorkCardId: context.parentWorkCardId,
             },
-            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+            workflowData: mergeRepositoryBindingIntoWorkflowData(
               repairWorkflowData(context),
-              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+              inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
             ),
           }
         : outputMetadata({
@@ -201,8 +205,10 @@ export function getActiveRepairWorkCardDraftSubmission(
 
 export function resolveExactActiveRepairWorkCardContext(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): ExactActiveRepairWorkCardContextResolution {
-  const documents = listPlanningDocuments(workspaceRoot);
+  planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
   const handoffs = approvedRepairHandoffs(documents);
   const activeRepairOutputs = documents
     .filter((document) => document.metadata.artifactType === "repair-work-card")
@@ -234,7 +240,7 @@ export function resolveExactActiveRepairWorkCardContext(
         evidencePaths: [],
       };
     }
-    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, handoff);
+    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, handoff, planningContext);
     return {
       status: "ready",
       reason: "Exact active Repair Architect handoff resolved.",
@@ -245,17 +251,19 @@ export function resolveExactActiveRepairWorkCardContext(
     return {
       status: "needs-attention",
       reason: error instanceof Error ? error.message : String(error),
-      evidencePaths: repairAuthorityEvidencePaths(handoffs, activeRepairOutputs),
+      evidencePaths: repairStateEvidencePaths(handoffs, activeRepairOutputs),
     };
   }
 }
 
 export function resolveApprovedRepairImplementationContext(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): ApprovedRepairImplementationContextResolution {
+  planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   let evidence: CurrentRepairEvidence;
   try {
-    evidence = resolveCurrentRepairEvidence(workspaceRoot);
+    evidence = resolveCurrentRepairEvidence(workspaceRoot, planningContext);
   } catch (error) {
     return {
       status: "not-ready",
@@ -263,7 +271,7 @@ export function resolveApprovedRepairImplementationContext(
       evidencePaths: [],
     };
   }
-  const documents = listPlanningDocuments(workspaceRoot);
+  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
   const handoffs = approvedRepairHandoffs(documents).filter((handoff) => {
     const workflowData = handoff.metadata.canonical?.workflowData ?? {};
     const identity = handoff.metadata.canonical?.identity ?? {};
@@ -293,21 +301,21 @@ export function resolveApprovedRepairImplementationContext(
     return {
       status: "not-ready",
       reason: "No Approved Repair Work Card is ready for implementation.",
-      evidencePaths: repairAuthorityEvidencePaths(handoffs, []),
+      evidencePaths: repairStateEvidencePaths(handoffs, []),
     };
   }
   if (approved.length > 1) {
     return {
       status: "needs-attention",
       reason: "Multiple Approved Repair Work Cards match the current repair evidence.",
-      evidencePaths: repairAuthorityEvidencePaths(
+      evidencePaths: repairStateEvidencePaths(
         approved.map((entry) => entry.handoff),
         approved.map((entry) => entry.output),
       ),
     };
   }
   try {
-    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, approved[0].handoff);
+    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, approved[0].handoff, planningContext);
     return {
       status: "ready",
       reason: "Approved Repair Work Card is ready for implementation.",
@@ -319,7 +327,94 @@ export function resolveApprovedRepairImplementationContext(
     return {
       status: "needs-attention",
       reason: error instanceof Error ? error.message : String(error),
-      evidencePaths: repairAuthorityEvidencePaths(handoffs, approved.map((entry) => entry.output)),
+      evidencePaths: repairStateEvidencePaths(handoffs, approved.map((entry) => entry.output)),
+    };
+  }
+}
+
+export function resolveTerminalApprovedRepairImplementationContext(
+  workspaceRoot: string,
+  phaseId: string,
+  parentWorkCardId: string,
+  planningContext?: PlanningProjectionContext,
+): ApprovedRepairImplementationContextResolution {
+  planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
+  const candidates = approvedRepairHandoffs(documents)
+    .map((handoff) => {
+      const identity = handoff.metadata.canonical?.identity ?? {};
+      const workflowData = handoff.metadata.canonical?.workflowData ?? {};
+      const repairId = stringValue(workflowData.repairId);
+      const generation = repairId
+        ? repairGenerationForParent(repairId, parentWorkCardId)
+        : undefined;
+      return identity.phaseId === phaseId &&
+        workflowData.originalParentWorkCardId === parentWorkCardId &&
+        repairId && generation !== undefined
+        ? { handoff, repairId, generation }
+        : null;
+    })
+    .filter((entry): entry is { handoff: PlanningDocumentSummary; repairId: string; generation: number } => Boolean(entry));
+  if (candidates.length === 0) {
+    return {
+      status: "not-ready",
+      reason: `No Approved Repair Work Card chain exists for ${parentWorkCardId}.`,
+      evidencePaths: [],
+    };
+  }
+
+  const highestGeneration = candidates.reduce(
+    (highest, candidate) => Math.max(highest, candidate.generation),
+    0,
+  );
+  const terminalCandidates = candidates.filter((candidate) => candidate.generation === highestGeneration);
+  if (terminalCandidates.length !== 1) {
+    return {
+      status: "needs-attention",
+      reason: `Multiple terminal Repair Architect handoffs conflict for ${parentWorkCardId}.`,
+      evidencePaths: terminalCandidates.map((candidate) => candidate.handoff.markdownPath),
+    };
+  }
+
+  const terminal = terminalCandidates[0];
+  const targetPath = safeRepairWorkCardTargetFromHandoff(terminal.handoff);
+  const evidencePaths = [
+    terminal.handoff.markdownPath,
+    ...(targetPath ? [targetPath] : []),
+    ...(terminal.handoff.metadata.sourceRevisions ?? []).map((source) => source.path),
+  ].filter((value, index, values) => values.indexOf(value) === index);
+  if (!targetPath) {
+    return {
+      status: "needs-attention",
+      reason: `Terminal Repair Architect handoff for ${terminal.repairId} has no valid Work Card target.`,
+      evidencePaths,
+    };
+  }
+  const output = documents.find((document) => document.markdownPath === targetPath);
+  if (!output || output.metadata.artifactType !== "repair-work-card" || output.effectiveDisposition !== "Approved") {
+    return {
+      status: "not-ready",
+      reason: `Terminal Repair Work Card ${terminal.repairId} is not Approved.`,
+      evidencePaths,
+    };
+  }
+
+  try {
+    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, terminal.handoff, planningContext);
+    return {
+      status: "ready",
+      reason: `Terminal Approved Repair Work Card ${terminal.repairId} resolved for ${parentWorkCardId}.`,
+      evidencePaths: [
+        ...evidencePaths,
+        ...context.sourceRevisions.map((source) => source.path),
+      ].filter((value, index, values) => values.indexOf(value) === index),
+      context,
+    };
+  } catch (error) {
+    return {
+      status: "needs-attention",
+      reason: error instanceof Error ? error.message : String(error),
+      evidencePaths,
     };
   }
 }
@@ -502,7 +597,7 @@ function documentEvidenceProjection(input: {
       label: input.label,
       markdownPath: unresolvedEvidencePath(input.label),
       documentReadState: "missing",
-      readError: input.optional ? undefined : `${input.label} path is missing from the repair evidence authority.`,
+      readError: input.optional ? undefined : `${input.label} path is missing from the repair evidence set.`,
     };
   }
   const document = input.documents.find((candidate) => candidate.markdownPath === markdownPath);
@@ -570,7 +665,7 @@ function unresolvedEvidencePath(label: string): string {
   return `<unresolved ${label} path>`;
 }
 
-function repairAuthorityEvidencePaths(
+function repairStateEvidencePaths(
   handoffs: PlanningDocumentSummary[],
   outputs: PlanningDocumentSummary[],
 ): string[] {
@@ -612,7 +707,7 @@ export function createRepairWorkCard(
   if (existing) {
     return existing;
   }
-  assertNoConflictingActiveRepairAuthority(documents);
+  assertNoConflictingActiveRepairState(documents);
   const repairId = nextRepairId(workspaceRoot, phaseId, originalParentId);
   const handoffMarkdownPath = `planning/phases/${phaseId}/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_${repairId}.md`;
   const repairMarkdownPath = deterministicRepairWorkCardTargetPath(phaseId, repairId);
@@ -637,9 +732,9 @@ export function createRepairWorkCard(
       participationRole: "nonReviewHandoff",
       identity: { handoffKind: "repair", phaseId, repairId },
       sourceRevisions,
-      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      workflowData: mergeRepositoryBindingIntoWorkflowData(
         { ...content, repairWorkCardTarget: repairMarkdownPath },
-        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+        inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
       ),
       documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
     },
@@ -648,8 +743,12 @@ export function createRepairWorkCard(
   return { repairId, handoffMarkdownPath, repairMarkdownPath };
 }
 
-export function resolveCurrentRepairEvidence(workspaceRoot: string): CurrentRepairEvidence {
-  const candidates = listPlanningDocuments(workspaceRoot)
+export function resolveCurrentRepairEvidence(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): CurrentRepairEvidence {
+  planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const candidates = listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((document) => document.effectiveDisposition === "RevisionRequested")
     .map(currentRepairEvidenceFromDocument)
     .filter((value): value is CurrentRepairEvidence => Boolean(value));
@@ -817,9 +916,9 @@ function normalizeDefectSlugHandoffIfSafe(
       ...parsed.metadata,
       artifactRevision: parsed.metadata.artifactRevision + 1,
       workflowData: {
-        ...mergeRepositoryAuthorityIntoWorkflowData(
+        ...mergeRepositoryBindingIntoWorkflowData(
           parsed.metadata.workflowData,
-          inheritRepositoryAuthorityFromSources(parsed.metadata.workflowData),
+          inheritRepositoryBindingFromSources(parsed.metadata.workflowData),
         ),
         repairWorkCardTarget: deterministicTarget,
       },
@@ -833,7 +932,7 @@ function repairHandoffBodyMarkdown(repairMarkdownPath: string): string {
   return `# Repair Architect Handoff\n\nRepair Work Card Markdown: ${repairMarkdownPath}\n`;
 }
 
-function assertNoConflictingActiveRepairAuthority(documents: PlanningDocumentSummary[]): void {
+function assertNoConflictingActiveRepairState(documents: PlanningDocumentSummary[]): void {
   const handoffs = approvedRepairHandoffs(documents);
   const activeOutputs = documents
     .filter((document) => document.metadata.artifactType === "repair-work-card")
@@ -922,8 +1021,9 @@ function repairWorkCardContextFromHandoff(
   workspaceRoot: string,
   documents: PlanningDocumentSummary[],
   handoff: PlanningDocumentSummary,
+  planningContext?: PlanningProjectionContext,
 ): RepairWorkCardContext {
-  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+  if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, handoff.logicalDocumentId).state === "stale") {
     throw new Error("Current Repair Architect handoff is stale.");
   }
   const workflowData = handoff.metadata.canonical?.workflowData ?? {};
@@ -949,7 +1049,7 @@ function repairWorkCardContextFromHandoff(
   const expectedEvidenceType = origin === "preValidationReportReview" ? "implementer-report" : "validation-record";
   const expectedReturnTarget = origin === "preValidationReportReview" ? "work-card-building-review" : "work-card-validation";
   if (evidence.metadata.artifactType !== expectedEvidenceType || returnTarget !== expectedReturnTarget) {
-    throw new Error("Repair Architect handoff origin, evidence, and return target do not match the required authority mapping.");
+    throw new Error("Repair Architect handoff origin, evidence, and return target do not match the required evidence mapping.");
   }
   const source = (handoff.metadata.sourceRevisions ?? []).find((candidate) => candidate.path === evidencePath);
   if (!source || source.revision !== (evidence.metadata.artifactRevision ?? 1)) {
@@ -1044,7 +1144,7 @@ function assertExistingRepairOutputMatchesContext(
     workflowData.returnTarget !== expected.workflowData.returnTarget ||
     !sourceRevisionsEqual(existing.metadata.sourceRevisions ?? [], expected.sourceRevisions)
   ) {
-    throw new Error("Active Repair Work Card output does not match the exact Repair Architect handoff authority.");
+    throw new Error("Active Repair Work Card output does not match the exact Repair Architect handoff evidence.");
   }
 }
 
@@ -1076,9 +1176,9 @@ function outputMetadata(input: {
       parentWorkCardId: input.parentWorkCardId,
     },
     sourceRevisions: input.sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       repairWorkflowData(input),
-      inheritRepositoryAuthorityFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
     ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
@@ -1135,7 +1235,7 @@ function buildRepairWorkCardPreparedInstruction(
     "This is the Repair Work Card Architect session.",
     "This is the prepared Repair Work Card Architect output handoff.",
     "Do not inspect or write any other repository or workspace.",
-    "Treat the Validation Record as the repair authority. Do not invent or request a separate advisory-review document.",
+    "Treat the Validation Record as the repair basis. Do not invent or request a separate advisory-review document.",
     "Read the Validation Record first when this is a post-validation repair.",
     `- Validation Record path: ${validationRecordPath}`,
     `- Implementer Report path: ${implementerReportPath}`,
@@ -1165,7 +1265,7 @@ function buildRepairWorkCardPreparedInstruction(
     "",
     "The Return Target section must include the exact return target above.",
     "Every heading must appear exactly once and contain substantive content.",
-    "Do not include application metadata delimiters, canonical metadata, source revisions, final write metadata, fallback fields, or hidden authority values.",
+    "Do not include application metadata delimiters, canonical metadata, source revisions, final write metadata, fallback fields, or hidden application-owned values.",
     "ChampCity A/I owns validation, canonical metadata, promotion, final writes, review state, and cleanup.",
     "",
     "When the body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
@@ -1210,7 +1310,7 @@ const repairWorkCardHeadings = [
   "Runtime Sequence",
   "Required Changes",
   "Preserved Behavior",
-  "Authorized Surface",
+  "In-Scope Surface",
   "Acceptance Criteria",
   "Negative Constraints",
   "Return Target",
@@ -1276,4 +1376,14 @@ function nextRepairId(workspaceRoot: string, phaseId: string, parentId: string):
     .filter((value): value is string => Boolean(value))
     .reduce((highest, value) => Math.max(highest, Number(value)), 0);
   return `${parentId}-REPAIR${String(max + 1).padStart(2, "0")}`;
+}
+
+function repairGenerationForParent(repairId: string, parentWorkCardId: string): number | undefined {
+  const escapedParent = parentWorkCardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = repairId.match(new RegExp(`^${escapedParent}-REPAIR(\\d+)$`, "i"));
+  if (!match) {
+    return undefined;
+  }
+  const generation = Number(match[1]);
+  return Number.isInteger(generation) && generation > 0 ? generation : undefined;
 }

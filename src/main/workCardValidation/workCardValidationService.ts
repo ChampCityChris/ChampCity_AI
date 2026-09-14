@@ -5,13 +5,18 @@ import type { CanonicalDocumentMetadata } from "../../shared/documents/canonical
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import { requireReadyImplementerReportForReview } from "../workCardBuilding/workCardBuildingReviewService";
 import { buildMcpWorkspaceBindingPromptBlock } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+import { resolveEffectiveWorkCardCompletion } from "../workCardLoop/effectiveWorkCardCompletion";
 
 export interface ValidationAttemptResult {
   attemptNumber: number;
@@ -44,6 +49,21 @@ export interface AdvisoryPromptResult {
   implementerReportSha256: string;
 }
 
+export interface OperatorValidationAdvisoryPromptInput {
+  subjectId: string;
+  subjectLabel: string;
+  contractSourceLabel: string;
+  contractDocumentLabel: string;
+  contractPath: string;
+  contractRevision: number;
+  contractSha256: string;
+  implementerReportPath: string;
+  implementerReportRevision: number;
+  implementerReportSha256: string;
+  identityLines?: string[];
+  changedFiles?: unknown;
+}
+
 export function createValidationAttempt(workspaceRoot: string, phaseId: string, workCardId: string): ValidationAttemptResult {
   const workCard = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
   const report = latestApprovedReport(workspaceRoot, phaseId, workCardId);
@@ -72,9 +92,9 @@ export function createValidationAttempt(workspaceRoot: string, phaseId: string, 
       participationRole: "gatingReview",
       identity: { phaseId, workCardId, candidateId: workCardId, attemptNumber },
       sourceRevisions,
-      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      workflowData: mergeRepositoryBindingIntoWorkflowData(
         content,
-        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+        inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
       ),
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },
@@ -99,58 +119,87 @@ export function buildAdvisoryArchitectReviewPrompt(
   }
   const formalRevision = formal.metadata.artifactRevision ?? 1;
   const reportRevision = report.metadata.artifactRevision ?? 1;
-  const changedFiles = changedFilesList(report.metadata.canonical?.workflowData.filesChanged);
   const formalSha256 = sha256RelativeFile(workspaceRoot, formal.markdownPath);
   const reportSha256 = sha256RelativeFile(workspaceRoot, report.markdownPath);
-  const instruction = [
+  const instruction = buildOperatorValidationAdvisoryPrompt(workspaceRoot, {
+    subjectId: workCardId,
+    subjectLabel: "Work Card",
+    contractSourceLabel: "Approved Formal Work Card",
+    contractDocumentLabel: "Approved Work Card",
+    contractPath: formal.markdownPath,
+    contractRevision: formalRevision,
+    contractSha256: formalSha256,
+    implementerReportPath: report.markdownPath,
+    implementerReportRevision: reportRevision,
+    implementerReportSha256: reportSha256,
+    identityLines: [`- Phase ID: ${phaseId}`, `- Work Card ID: ${workCardId}`],
+    changedFiles: report.metadata.canonical?.workflowData.filesChanged,
+  });
+  return {
+    instruction,
+    formalWorkCardPath: formal.markdownPath,
+    formalWorkCardRevision: formalRevision,
+    formalWorkCardSha256: formalSha256,
+    implementerReportPath: report.markdownPath,
+    implementerReportRevision: reportRevision,
+    implementerReportSha256: reportSha256,
+  };
+}
+
+export function buildOperatorValidationAdvisoryPrompt(
+  workspaceRoot: string,
+  input: OperatorValidationAdvisoryPromptInput,
+): string {
+  return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot),
     "",
     "This is an advisory Architect review for Operator decision support.",
-    "You are not the disposition authority. Do not approve, reject, validate, or create repair artifacts.",
+    "You do not make the disposition decision. Do not approve, reject, validate, or create repair artifacts.",
     "The Operator is the final authority and will choose Validate Passed or Request Repair.",
+    ...(input.identityLines?.length ? ["", "Bound implementation identity:", ...input.identityLines] : []),
     "",
-    "Read the exact Approved Formal Work Card:",
-    `- path: ${formal.markdownPath}`,
-    `- revision: ${formalRevision}`,
-    `- sha256: ${formalSha256}`,
+    `Read the exact ${input.contractDocumentLabel}:`,
+    `- path: ${input.contractPath}`,
+    `- revision: ${input.contractRevision}`,
+    `- sha256: ${input.contractSha256}`,
     "- read only from the bound workspaceId above",
     "",
     "Read the current Implementer Report:",
-    `- path: ${report.markdownPath}`,
-    `- revision: ${reportRevision}`,
-    `- sha256: ${reportSha256}`,
+    `- path: ${input.implementerReportPath}`,
+    `- revision: ${input.implementerReportRevision}`,
+    `- sha256: ${input.implementerReportSha256}`,
     "- read only from the bound workspaceId above",
     "",
     "If either exact artifact path, revision, or sha256 fails verification in the bound workspace, stop with BLOCKED_WORKSPACE_OR_ARTIFACT_MISMATCH.",
     "Do not search other workspaces, switch workspace IDs, or treat a missing exact path in the bound workspace as proof of implementation absence.",
     "",
-    "Inspect the implementation evidence named by the report, including changed files, tests, validation output, and any production path necessary to verify the Work Card.",
+    `Inspect the implementation evidence named by the report, including changed files, tests, validation output, and any production path necessary to verify the ${input.subjectLabel}.`,
     "Changed files reported by the Implementer:",
-    changedFiles,
+    changedFilesList(input.changedFiles),
     "",
     "Review standard:",
-    "- The Approved Work Card defines the implementation contract.",
-    "- The Implementer Report is evidence, not authority.",
-    "- Passing and failing tests are evidence, not independent authority.",
-    "- Verify production behavior, preserved behavior, failure paths, and absence of unauthorized parallel mechanisms.",
+    `- The ${input.contractSourceLabel} defines the implementation contract.`,
+    "- The Implementer Report is evidence, not a canonical source.",
+    "- Passing and failing tests are evidence, not an independent decision.",
+    "- Verify production behavior, preserved behavior, failure paths, and absence of prohibited parallel mechanisms.",
     "- Distinguish verified repository evidence from Implementer claims and assumptions.",
     "",
     "Failed-test classification rule:",
     "- Before treating any failed command, test case, or assertion as blocking, classify what it proves.",
-    "- Classify whether it demonstrates an in-scope implementation defect, an implementation-caused regression, an essential proof gap where required Work Card behavior remains materially unproven, an unrelated failure outside the Work Card objective or authorized surface, a pre-existing failure not caused by the implementation, a stale or contradictory test invariant, validation infrastructure or environment failure, or insufficient evidence to classify.",
-    "- A failed test is not blocking solely because it appears in a command, file, or suite named by the Work Card.",
-    "- A demonstrated unrelated, pre-existing, or stale/contradictory failure is normally a non-blocking repository or test-baseline concern when the Work Card objective and preserved behavior are independently proven.",
-    "- Current verified production architecture and approved repository authority outrank a stale source-string assertion. Do not recommend changing correct production behavior merely to satisfy an obsolete test.",
-    "- An unexplained failure that could materially affect the Work Card remains blocking or Inconclusive until classified.",
+    `- Classify whether it demonstrates an in-scope implementation defect, an implementation-caused regression, an essential proof gap where required ${input.subjectLabel} behavior remains materially unproven, an unrelated failure outside the ${input.subjectLabel} objective or in-scope surface, a pre-existing failure not caused by the implementation, a stale or contradictory test invariant, validation infrastructure or environment failure, or insufficient evidence to classify.`,
+    `- A failed test is not blocking solely because it appears in a command, file, or suite named by the ${input.subjectLabel}.`,
+    `- A demonstrated unrelated, pre-existing, or stale/contradictory failure is normally a non-blocking repository or test-baseline concern when the ${input.subjectLabel} objective and preserved behavior are independently proven.`,
+    "- Current verified production architecture and the approved repository state outrank a stale source-string assertion. Do not recommend changing correct production behavior merely to satisfy an obsolete test.",
+    `- An unexplained failure that could materially affect the ${input.subjectLabel} remains blocking or Inconclusive until classified.`,
     "",
     "Advisory recommendation semantics:",
-    "- Validate Passed means the Work Card objective and preserved behavior are materially proven; remaining findings are non-blocking concerns such as demonstrated unrelated, pre-existing, stale-test, or maintenance issues.",
-    "- Request Repair means a material in-scope defect, implementation-caused regression, or essential proof gap prevents reasonable confidence in the Work Card objective.",
+    `- Validate Passed means the ${input.subjectLabel} objective and preserved behavior are materially proven; remaining findings are non-blocking concerns such as demonstrated unrelated, pre-existing, stale-test, or maintenance issues.`,
+    `- Request Repair means a material in-scope defect, implementation-caused regression, or essential proof gap prevents reasonable confidence in the ${input.subjectLabel} objective.`,
     "- Inconclusive means available evidence is insufficient to determine whether a material defect or proof gap exists.",
     "- The ## Blocking Findings section may state None when no material blocker is established. The required section does not require manufacturing a blocker.",
     "",
     "Return an advisory review with exactly these sections:",
-    `# Advisory Architect Review — ${workCardId}`,
+    `# Advisory Architect Review — ${input.subjectId}`,
     "## Evidence Inspected",
     "## Contract Alignment",
     "## Blocking Findings",
@@ -164,17 +213,8 @@ export function buildAdvisoryArchitectReviewPrompt(
     "- Request Repair",
     "- Inconclusive",
     "",
-    "Do not write repository files. Do not change dispositions. Do not create repair artifacts. End by reminding the Operator that final authority remains with the Operator.",
+    "Do not write repository files. Do not change dispositions. Do not create validation records or repair artifacts. End by reminding the Operator that final authority remains with the Operator.",
   ].join("\n");
-  return {
-    instruction,
-    formalWorkCardPath: formal.markdownPath,
-    formalWorkCardRevision: formalRevision,
-    formalWorkCardSha256: formalSha256,
-    implementerReportPath: report.markdownPath,
-    implementerReportRevision: reportRevision,
-    implementerReportSha256: reportSha256,
-  };
 }
 
 export function applyOperatorValidationDecision(
@@ -219,9 +259,9 @@ export function applyOperatorValidationDecision(
     implementerReportPath: report.markdownPath,
     implementerReportRevision: reportSource.revision,
   });
-  const workflowDataWithAuthority = mergeRepositoryAuthorityIntoWorkflowData(
+  const workflowDataWithBinding = mergeRepositoryBindingIntoWorkflowData(
     workflowData,
-    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+    inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
   );
   writeCanonicalMarkdownDocument({
     workspaceRoot,
@@ -233,7 +273,7 @@ export function applyOperatorValidationDecision(
       attemptNumber,
       sourceRevisions,
       status,
-      workflowData: workflowDataWithAuthority,
+      workflowData: workflowDataWithBinding,
       dispositionNotes: dispositionNotesForValidation(input, repairDefectText),
     }),
     bodyMarkdown: validationBodyMarkdown({
@@ -259,17 +299,23 @@ export function setValidationRecordDisposition(workspaceRoot: string, phaseId: s
   return setDocumentDisposition(workspaceRoot, record.logicalDocumentId, status);
 }
 
-export function getWorkCardCloseProjection(workspaceRoot: string, phaseId: string, workCardId: string) {
-  const record = latestValidationRecord(workspaceRoot, phaseId, workCardId);
-  if (!record) return { closed: false, returnTarget: "work-card-validation", reason: "Approved current Validation Record is required." };
-  const freshness = evaluateDocumentFreshness(workspaceRoot, record.logicalDocumentId);
-  const closed = record.effectiveDisposition === "Approved" && record.documentReadState === "readable" && freshness.state === "fresh";
+export function getWorkCardCloseProjection(
+  workspaceRoot: string,
+  phaseId: string,
+  workCardId: string,
+  planningContext?: PlanningProjectionContext,
+) {
+  planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const completion = resolveEffectiveWorkCardCompletion(workspaceRoot, phaseId, workCardId, planningContext);
+  const closed = completion.complete;
   return {
     closed,
     returnTarget: closed ? "phase-work-card-selection" : "work-card-validation",
     reason: closed
-      ? "Current Approved Validation Record closes the Work Card."
-      : "Work Card close requires a current, readable, Approved Validation Record.",
+      ? completion.repairId
+        ? `Current Approved Repair validation closes the original parent Work Card ${workCardId}.`
+        : "Current Approved Validation Record closes the Work Card."
+      : completion.reason,
   };
 }
 
@@ -388,8 +434,8 @@ function validationWorkflowData(
     formalWorkCardPath: context.formalWorkCardPath,
     implementerReportPath: context.implementerReportPath,
     implementerReportRevision: context.implementerReportRevision,
-    architectReviewAuthority: "advisory-only",
-    operatorDecisionCreatesAuthority: true,
+    architectReviewRole: "advisory-only",
+    operatorDecisionCreatesValidationRecord: true,
   };
 }
 
@@ -406,7 +452,7 @@ function validationBodyMarkdown(input: {
     "",
     `Status: ${input.status}`,
     "",
-    "Architect review is advisory. Operator decision creates the validation authority.",
+    "Architect review is advisory. Operator decision creates the validation basis.",
     "",
     "## Operator Validation Notes",
     input.operatorNotes.trim() || "No Operator notes provided.",

@@ -39,9 +39,13 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 
 export {
   candidateResolutionStatuses,
@@ -105,9 +109,11 @@ export function generatePhasePlanningHandoff(workspaceRoot: string): PhasePlanni
 
 export function getPhasePlanningWorkspaceModel(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): PhasePlanningWorkspaceModel {
   const draftStatus = getPhasePlanningDraftBundleStatus(workspaceRoot);
-  const context = resolvePhasePlanningDraftContext(workspaceRoot);
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolvePhasePlanningDraftContext(workspaceRoot, contextSnapshot);
   if (context.status !== "ready") {
     return {
       state: context.status === "not-ready" ? "not-ready" : "needs-attention",
@@ -263,8 +269,10 @@ export function reviewPhasePlanningBundle(
 export function getPhasePlanningCompletion(
   workspaceRoot: string,
   phaseId?: string,
+  planningContext?: PlanningProjectionContext,
 ): PhasePlanningCompletion {
-  const context = resolvePhasePlanningDraftContext(workspaceRoot);
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolvePhasePlanningDraftContext(workspaceRoot, contextSnapshot);
   const selectedPhaseId = phaseId ?? (context.status === "ready" ? context.selectedPhase.phaseId : undefined);
   if (context.status !== "ready" || !selectedPhaseId || selectedPhaseId !== context.selectedPhase.phaseId) {
     return {
@@ -276,8 +284,8 @@ export function getPhasePlanningCompletion(
   if (!context.phasePlanning || !context.workCardPlan) {
     return { complete: false, phaseId: selectedPhaseId, reason: "Phase Planning and Work Card Plan are both required." };
   }
-  const phasePlanningFreshness = evaluateDocumentFreshness(workspaceRoot, context.phasePlanning.logicalDocumentId);
-  const workCardPlanFreshness = evaluateDocumentFreshness(workspaceRoot, context.workCardPlan.logicalDocumentId);
+  const phasePlanningFreshness = evaluateDocumentFreshness(contextSnapshot, context.phasePlanning.logicalDocumentId);
+  const workCardPlanFreshness = evaluateDocumentFreshness(contextSnapshot, context.workCardPlan.logicalDocumentId);
   const complete =
     context.phasePlanning.disposition === "Approved" &&
     context.workCardPlan.disposition === "Approved" &&
@@ -286,7 +294,7 @@ export function getPhasePlanningCompletion(
     phasePlanningFreshness.state === "fresh" &&
     workCardPlanFreshness.state === "fresh" &&
     deriveBundleSynchronizationState(context) === "synchronized" &&
-    readCandidatesFromCanonical(workspaceRoot, context.workCardPlan.markdownPath).ok;
+    validateCandidatesFromSnapshot(contextSnapshot, context.workCardPlan.markdownPath);
 
   return {
     complete,
@@ -322,7 +330,7 @@ function phasePlanningHandoffMetadata(workspaceRoot: string, context: PhasePlann
       phaseId: context.selectedPhase.phaseId,
     },
     sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       {
         handoffKind: "phase-planning",
         contractId: phasePlanningSubmissionContractId,
@@ -343,7 +351,7 @@ function phasePlanningHandoffMetadata(workspaceRoot: string, context: PhasePlann
         ],
         allowedResolutionStatuses: candidateResolutionStatuses,
       },
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
     ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
@@ -395,10 +403,10 @@ function buildPhasePlanningHandoffBody(context: PhasePlanningReadyContext): stri
     "",
     `Allowed resolution statuses: ${candidateResolutionStatuses.join(", ")}`,
     "Do not persist completion state.",
-    "Before the Work Card Plan exists, the application provides schema and validation rules only. It does not authorize any substantive candidate ID, title, purpose, dependency, or status.",
+    "Before the Work Card Plan exists, the application provides schema and validation rules only. It does not establish any substantive candidate ID, title, purpose, dependency, or status.",
     "Use bracketed placeholder text only in examples, such as <candidate-id> and <candidate-title>.",
     "",
-    "Browser chat is not durable authority. The Architect must create two temporary body-only Markdown drafts through the generic artifact toolbox Markdown writer.",
+    "Browser chat is not a durable record. The Architect must create two temporary body-only Markdown drafts through the generic artifact toolbox Markdown writer.",
   ].join("\n");
 }
 
@@ -412,9 +420,9 @@ function buildPhasePlanningHandoffInstruction(
   const phasePlanningDraftPath = draftPathForPhasePlanningSlot(submission, "phase-planning");
   const workCardPlanDraftPath = draftPathForPhasePlanningSlot(submission, "work-card-plan");
   const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ??
-    mergeRepositoryAuthorityIntoWorkflowData(
+    mergeRepositoryBindingIntoWorkflowData(
       {},
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
     );
   return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
@@ -428,7 +436,7 @@ function buildPhasePlanningHandoffInstruction(
     `- Approved current Phase Interview: ${context.phaseInterview.markdownPath}`,
     `- Approved current Phase Planning handoff: ${context.handoff?.markdownPath ?? context.handoffMarkdownPath}`,
     "",
-    "Use the Approved Phase Planning handoff as authority for phase identity, exact final targets, source revisions, required headings, candidate fields, allowed resolution statuses, and validation rules.",
+    "Use the Approved Phase Planning handoff as the canonical source for phase identity, exact final targets, source revisions, required headings, candidate fields, allowed resolution statuses, and validation rules.",
     "Treat phase foundation as both host environment and repository foundation when applicable. Do not silently assume required development tooling is Operator-provided.",
     "When required development capabilities are unverified or missing, create Work Card candidates that establish and verify them before dependent implementation work. Place environment/toolchain establishment at or before the first candidate that needs those capabilities, and combine it with repository baseline work only when that remains one coherent bounded outcome.",
     "Classify capability ownership explicitly: managed capability means ChampCity provisions and verifies it; external capability means approved evidence establishes outside ownership and absence blocks; human-interaction boundary means ChampCity prepares the action, requests only the necessary human interaction, then resumes.",
@@ -489,7 +497,7 @@ function buildPhasePlanningHandoffInstruction(
       promptWorkflowData,
     ),
     "```",
-    "Do not supply caller metadata, canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, domain save actions, manual imports, file-copy fallbacks, or any other authority fields as params.",
+    "Do not supply caller metadata, canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, domain save actions, manual imports, file-copy fallbacks, or any other application-owned fields as params.",
     "After both drafts are created, respond with a concise draft-created confirmation.",
     "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",
     ...(includeRevisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
@@ -617,6 +625,19 @@ function readCandidatesFromCanonical(
     return { ok: true, candidates: validateCandidates(parsed.metadata.workflowData.candidates) };
   } catch {
     return { ok: false, candidates: [] };
+  }
+}
+
+function validateCandidatesFromSnapshot(
+  planningContext: PlanningProjectionContext,
+  relativePath: string,
+): boolean {
+  const document = planningContext.documents.find((candidate) => candidate.markdownPath === relativePath);
+  try {
+    validateCandidates(document?.metadata.canonical?.workflowData.candidates);
+    return true;
+  } catch {
+    return false;
   }
 }
 

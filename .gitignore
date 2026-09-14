@@ -5,7 +5,7 @@ node_modules/
 dist/
 build/
 out/
-release/
+/release/
 coverage/
 
 # Logs
@@ -18,9 +18,14 @@ pnpm-debug.log*
 # Environment and secrets
 .env
 .env.*
-!.env.example
 
-# Local handoff archives and bulky design packages
+
+# Local ChampCity governance/history state and bulky handoff packages
+/archive/
+/planning/
+/issues/
+/repair/
+/work_cards/
 Generic Docs/*.zip
 *.zip
 
@@ -29,6 +34,7 @@ Generic Docs/*.zip
 Thumbs.db
 .vscode/
 .idea/
+.obsidian/
 
 # Temporary files
 tmp/

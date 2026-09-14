@@ -55,7 +55,7 @@ function metadata(artifactType, status = "Approved", overrides = {}) {
   };
 }
 
-function repositoryAuthority(root) {
+function repositoryBinding(root) {
   return {
     projectRepository: path.resolve(root),
     mcpWorkspaceBinding: {
@@ -90,7 +90,7 @@ function seedApprovedProjectIntake(root, slug = "demo") {
     identity: { "Project.ArtifactKey": slug },
     workflowData: {
       projectRepository: path.resolve(root),
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
   const prompt = writeDoc(root, `planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_${slug}.md`, "project-architect-interview-prompt", "Approved", {
@@ -98,7 +98,7 @@ function seedApprovedProjectIntake(root, slug = "demo") {
     sourceRevisions: [{ path: intake, revision: 1 }],
     workflowData: {
       projectRepository: path.resolve(root),
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
       architectOutputTargets: {
         markdown: `planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_${slug}.md`,
       },
@@ -115,13 +115,13 @@ function seedApprovedProjectPlanning(root, slug = "demo") {
   const profile = writeDoc(root, "planning/project/PROJECT_PROFILE.md", "project-profile", "Approved", {
     participationRole: "compoundGatingReview",
     workflowData: {
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
   const roadmap = writeDoc(root, `planning/project/Project_Roadmap/PROJECT_ROADMAP_${slug}.md`, "project-roadmap", "Approved", {
     participationRole: "compoundGatingReview",
     workflowData: {
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
   return { profile, roadmap };
@@ -140,7 +140,7 @@ function seedPhaseMap(root, phaseId = "phase-01") {
   writeDoc(root, path, "phase-map", "Approved", {
     workflowData: {
       phases: [phase],
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
   return { path, phase };
@@ -150,7 +150,7 @@ function seedApprovedPhaseInterview(root, phaseId = "phase-01") {
   return writeDoc(root, `planning/phases/${phaseId}/Phase_Interview.md`, "phase-interview", "Approved", {
     identity: { phaseId },
     workflowData: {
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
 }
@@ -183,7 +183,7 @@ function seedApprovedPhasePlanningBundle(root, phaseId = "phase-01", candidateId
     identity: { phaseId },
     sourceRevisions,
     workflowData: {
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
   const plan = writeDoc(root, `planning/phases/${phaseId}/Work_Card_Plan.md`, "work-card-plan", "Approved", {
@@ -192,7 +192,7 @@ function seedApprovedPhasePlanningBundle(root, phaseId = "phase-01", candidateId
     sourceRevisions,
     workflowData: {
       candidates: [candidate],
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
     bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify([candidate], null, 2)}\n\`\`\`\n`,
   });
@@ -203,7 +203,7 @@ function seedApprovedFormalWorkCard(root, phaseId = "phase-01", workCardId = "WC
   return writeDoc(root, `planning/phases/${phaseId}/Work_Cards/${workCardId}_first_work_card.md`, "formal-work-card", "Approved", {
     identity: { phaseId, workCardId, candidateId: workCardId },
     workflowData: {
-      repositoryAuthority: repositoryAuthority(root),
+      repositoryBinding: repositoryBinding(root),
     },
   });
 }

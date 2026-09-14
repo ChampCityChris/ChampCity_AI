@@ -1,5 +1,3 @@
-import { Check } from "lucide-react";
-
 import type {
   ArchitectInterviewRailStatus,
   ExecutionContextProjection,
@@ -11,6 +9,13 @@ import {
   deriveProjectRailPresentation,
   type ProjectRailPresentation,
 } from "../../shared/workspaces/projectRailPresentation";
+import {
+  ContextLoopBar,
+  StageIcon,
+  type ContextLoopItem,
+  type ContextLoopSelectionState,
+  type ContextLoopStageTone,
+} from "./ContextLoopBar";
 
 interface NestedWorkflowRailProps {
   activeWorkspaceId: WorkspaceId;
@@ -23,8 +28,8 @@ interface NestedWorkflowRailProps {
   workspaceCounts?: Partial<Record<WorkspaceId, number>>;
 }
 
-type SelectionState = "exact" | "parent" | "available";
-type StageTone = "completed" | "in-progress" | "not-ready" | "pending";
+type SelectionState = ContextLoopSelectionState;
+type StageTone = ContextLoopStageTone;
 
 interface ProjectRailItem {
   id: string;
@@ -32,13 +37,7 @@ interface ProjectRailItem {
   destination: WorkspaceId;
 }
 
-interface LoopRailItem {
-  id: string;
-  label: string;
-  fullLabel: string;
-  destination: WorkspaceId;
-  stateFor: (workspaceId: WorkspaceId) => SelectionState;
-}
+type LoopRailItem = ContextLoopItem<WorkspaceId>;
 
 const workCardWorkspaceIds = new Set<WorkspaceId>([
   "work-card-intake",
@@ -248,25 +247,25 @@ export function NestedWorkflowRail({
 
       {showPhaseLoop ? (
         <ContextLoopBar
-          activeWorkspaceId={activeWorkspaceId}
+          activeDestinationId={activeWorkspaceId}
           activeStepId={activePhaseStepId}
           ariaLabel="Phase loop"
           context={phaseContext(executionContext)}
           items={phaseLoopItems}
           label="Phase Loop"
-          onWorkspaceChange={onWorkspaceChange}
+          onDestinationChange={onWorkspaceChange}
         />
       ) : null}
 
       {showWorkCardLoop ? (
         <ContextLoopBar
-          activeWorkspaceId={activeWorkspaceId}
+          activeDestinationId={activeWorkspaceId}
           activeStepId={activeWorkCardStepId}
           ariaLabel="Work Card loop"
           context={workCardContext(executionContext)}
           items={workCardLoopItems}
           label="Work Card Map"
-          onWorkspaceChange={onWorkspaceChange}
+          onDestinationChange={onWorkspaceChange}
           workCard
         />
       ) : null}
@@ -386,104 +385,6 @@ function PipelineStep({
         <span className={`figma-stage-connector ${connectorComplete ? "completed" : ""}`} aria-hidden="true" />
       ) : null}
     </div>
-  );
-}
-
-function ContextLoopBar({
-  activeWorkspaceId,
-  activeStepId,
-  ariaLabel,
-  context,
-  items,
-  label,
-  onWorkspaceChange,
-  workCard = false,
-}: {
-  activeWorkspaceId: WorkspaceId;
-  activeStepId: string;
-  ariaLabel: string;
-  context: { id: string; position: string };
-  items: readonly LoopRailItem[];
-  label: string;
-  onWorkspaceChange: (workspaceId: WorkspaceId) => void;
-  workCard?: boolean;
-}): JSX.Element {
-  const currentIndex = Math.max(0, items.findIndex((item) => item.id === activeStepId));
-  return (
-    <div
-      aria-label={ariaLabel}
-      className={`figma-context-loop-bar ${workCard ? "figma-work-card-loop-bar" : "figma-phase-loop-bar"}`}
-    >
-      <div className="figma-loop-context">
-        <span>{label}</span>
-        <strong>{context.id}</strong>
-        <small>{context.position}</small>
-      </div>
-      <div className="figma-context-loop-items">
-        {items.map((item, index) => {
-          const state = item.stateFor(activeWorkspaceId);
-          const selected = state === "exact" || state === "parent";
-          const tone: StageTone = index < currentIndex
-            ? "completed"
-            : index === currentIndex
-              ? "in-progress"
-              : "pending";
-          const isRepair = item.id === "work-card-repair";
-          return (
-            <div className="figma-sub-stage" key={item.id}>
-              {index > 0 ? (
-                <span className={`figma-sub-connector ${index <= currentIndex ? "completed" : ""}`} aria-hidden="true" />
-              ) : null}
-              <button
-                aria-current={selected ? "step" : undefined}
-                aria-label={`${item.fullLabel}: ${tone}. Open workflow step.`}
-                className={[
-                  "figma-sub-pill",
-                  selected ? "active" : "",
-                  state === "parent" ? "parent" : "",
-                  isRepair ? "repair" : "",
-                  tone,
-                ].filter(Boolean).join(" ")}
-                data-status={tone}
-                onClick={() => onWorkspaceChange(item.destination)}
-                title={`Open ${item.fullLabel}`}
-                type="button"
-              >
-                <StageIcon active={selected} small tone={tone} />
-                <span>{item.label}</span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function StageIcon({
-  active,
-  small = false,
-  tone,
-}: {
-  active: boolean;
-  small?: boolean;
-  tone: StageTone;
-}): JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      className={[
-        "figma-stage-icon",
-        small ? "small" : "",
-        active ? "active" : "",
-        tone,
-      ].filter(Boolean).join(" ")}
-    >
-      {tone === "completed" ? <Check size={small ? 8 : 10} strokeWidth={3} /> : null}
-      {tone === "in-progress" ? <i /> : null}
-      {tone === "not-ready" ? <b>!</b> : null}
-      {tone === "pending" ? <i /> : null}
-    </span>
   );
 }
 

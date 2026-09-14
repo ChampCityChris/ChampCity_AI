@@ -26,9 +26,9 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 
 export interface PhaseMapPhase {
   phaseId: string;
@@ -101,9 +101,9 @@ export const phaseMapArchitectOutputDefinition: ArchitectOutputDefinition<
       const metadata: CanonicalDocumentMetadata = existing
         ? {
             ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
-            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+            workflowData: mergeRepositoryBindingIntoWorkflowData(
               { phases },
-              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+              inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
             ),
           }
         : {
@@ -113,9 +113,9 @@ export const phaseMapArchitectOutputDefinition: ArchitectOutputDefinition<
             participationRole: "gatingReview",
             identity: context.expectedProjectIdentity,
             sourceRevisions: context.sourceRevisions,
-            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+            workflowData: mergeRepositoryBindingIntoWorkflowData(
               { phases },
-              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+              inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
             ),
             documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
           };
@@ -468,9 +468,9 @@ function buildPhaseMapPreparedInstruction(
     ? context.phaseMap.metadata.canonical?.documentDisposition.notes?.trim()
     : undefined;
   const promptWorkflowData = context.handoff?.metadata?.canonical?.workflowData ??
-    mergeRepositoryAuthorityIntoWorkflowData(
+    mergeRepositoryBindingIntoWorkflowData(
       {},
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
     );
   return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
@@ -496,6 +496,9 @@ function buildPhaseMapPreparedInstruction(
     "",
     `Require exactly one ${phaseMapDomainBlock} fenced JSON block.`,
     "Derive the substantive phase list from the approved full Project Roadmap and Project Profile.",
+    "Preserve the approved Project Roadmap's outcome grouping when defining phase boundaries.",
+    "Do not re-expand one Roadmap outcome into separate subsystem, tooling, or foundation phases unless the approved Roadmap requires those as independent milestones.",
+    "Keep fine-grained prerequisite sequencing inside Phase Planning and Work Card dependencies when the Roadmap keeps that work within one outcome.",
     "The fenced JSON root must be an object with one non-empty phases array.",
     'The phases array property must be named "phases".',
     "Each phase entry must contain only phaseId, title, order, purpose, dependsOn, and sourceReferences.",
@@ -513,7 +516,7 @@ function buildPhaseMapPreparedInstruction(
       promptWorkflowData,
     ),
     "```",
-    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
+    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden application-control values, or any other application-owned fields as params.",
     "After the draft is created, respond with a concise draft-created confirmation.",
     ...(revisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
   ].join("\n");

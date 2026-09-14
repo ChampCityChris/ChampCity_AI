@@ -147,9 +147,9 @@ test("project planning greenfield preflight emits the approved submission contra
   const handoff = parseCanonicalMarkdownDocument(
     fs.readFileSync(path.join(root, result.handoffMarkdownPath), "utf8"),
   );
-  const { repositoryAuthority, ...handoffWorkflowData } = handoff.metadata.workflowData;
-  assert.equal(repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
-  assert.equal(repositoryAuthority.projectRepository, path.resolve(root));
+  const { repositoryBinding, ...handoffWorkflowData } = handoff.metadata.workflowData;
+  assert.equal(repositoryBinding.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(repositoryBinding.projectRepository, path.resolve(root));
   assert.deepEqual(handoffWorkflowData, {
     handoffKind: "project-planning",
     contractId: "project-planning-output-submission-v2",
@@ -206,6 +206,13 @@ test("project planning existing-source fixture resolves reconciliation-required 
   assert.equal(model.repositoryReviewRequired, true);
   assert.equal(model.repositoryReviewContext, "Inspect the existing TypeScript entry point.");
   assert.deepEqual(model.sourceEvidencePaths, ["src/index.ts"]);
+
+  const prepared = prepareProjectPlanningHandoff(root);
+  assert.match(prepared.handoffInstruction, /Repository review context: Inspect the existing TypeScript entry point\./);
+  assert.match(prepared.handoffInstruction, /use it to identify and inspect the materially relevant evidence before drafting/);
+  assert.match(prepared.handoffInstruction, /verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions/);
+  assert.match(prepared.handoffInstruction, /controlling constraint on both the Project Profile and Project Roadmap unless the Operator explicitly revises it/);
+  assert.match(prepared.handoffInstruction, /Do not invent a second architecture or reinterpret established architecture into incompatible subsystem ownership/);
 });
 
 test("project planning intake and source mismatch resolves reconciliation-required without blocking handoff", () => {
@@ -455,7 +462,7 @@ test("project planning prepares the first handoff and exposes a copyable draft i
     identity: { "Project.ArtifactKey": "demo" },
     workflowData: {
       projectRepository: "ChampCity_PDL",
-      repositoryAuthority: {
+      repositoryBinding: {
         projectRepository: "ChampCity_PDL",
       },
     },
@@ -487,7 +494,7 @@ test("project planning prepares the first handoff and exposes a copyable draft i
   assert.equal(handoff.metadata.documentDisposition.status, "Approved");
   assert.equal(handoff.metadata.workflowData.handoffKind, "project-planning");
   assert.equal(handoff.metadata.workflowData.contractId, "project-planning-output-submission-v2");
-  assert.equal(handoff.metadata.workflowData.repositoryAuthority.projectRepository, "ChampCity_PDL");
+  assert.equal(handoff.metadata.workflowData.repositoryBinding.projectRepository, "ChampCity_PDL");
   assert.deepEqual(handoff.metadata.sourceRevisions, [
     { path: seeded.intake, revision: 1 },
     { path: seeded.prompt, revision: 1 },
@@ -523,6 +530,14 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.match(instruction, /unverified development capabilities/);
   assert.match(instruction, /greenfield repository.*separately classify local development machine readiness/);
   assert.match(instruction, /Missing development capabilities required by planned implementation must be sequenced as project work before dependent work/);
+  assert.match(instruction, /shortest dependency-complete path to the next coherent usable or productive milestone/);
+  assert.match(instruction, /Organize phases around independently meaningful outcomes, not around architectural components/);
+  assert.match(instruction, /at or immediately before the first outcome that consumes it/);
+  assert.match(instruction, /Avoid standalone horizontal foundation phases/);
+  assert.match(instruction, /Create a separate foundation phase only when the prerequisite is independently substantial/);
+  assert.match(instruction, /Avoid speculative prework for future capabilities that are not required by the current milestone/);
+  assert.match(instruction, /Preserve explicit architecture-defined dependency or extraction order/);
+  assert.match(instruction, /Use Phase Planning and Work Card dependencies for fine-grained sequencing/);
   assert.match(instruction, /"action": "write_markdown_artifact"/);
   assert.doesNotMatch(instruction, /create_markdown_artifact/);
   assert.match(instruction, /"relativePath": "planning\/Architect_Drafts\//);
@@ -699,7 +714,7 @@ test("project planning ineligible existing output state blocks promotion and pre
     identity: { projectSlug: "demo" },
     participationRole: "compoundGatingReview",
     sourceRevisions: sourceRevisionsFor(seeded, prepared.handoffMarkdownPath),
-    bodyMarkdown: profileBody("Unauthorized partial existing profile."),
+    bodyMarkdown: profileBody("Out-of-scope partial existing profile."),
   });
   const beforeProfile = fs.readFileSync(path.join(root, prepared.projectProfileTarget), "utf8");
   writeDraft(root, active.expectedDraftSlots[0].draftRelativePath, profileBody("New profile draft."));

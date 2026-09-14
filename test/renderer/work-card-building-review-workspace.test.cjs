@@ -104,7 +104,7 @@ test("App routes Implementer Build through dedicated Codex workspace without gen
   assert.match(appSource, /<FigmaActionWorkspace/);
   assert.match(appSource, /!isWorkCardPlanningPreparation &&\s*!isWorkCardBuildingReview &&\s*!isWorkCardReportReview &&\s*!isFigmaActionWorkspace/);
   assert.match(appSource, /window\.champcity\.generateCurrentHandoff\(\)/);
-  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(\)/);
+  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(selection\)/);
   assert.match(appSource, /window\.champcity\.startCodexEnvironmentResolution\(\)/);
   assert.match(appSource, /window\.champcity\.cancelCodexImplementerExecution\(\)/);
   assert.match(appSource, /window\.champcity\.respondToCodexUserInput\(/);
@@ -117,7 +117,7 @@ test("App does not pass renderer permission options into Codex execution", () =>
 
   assert.doesNotMatch(appSource, /allowNetworkForCodexRun/);
   assert.doesNotMatch(appSource, /networkAccessEnabled:/);
-  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(\)/);
+  assert.match(appSource, /window\.champcity\.startCodexImplementerExecution\(selection\)/);
   assert.match(appSource, /window\.champcity\.startCodexEnvironmentResolution\(\)/);
   assert.doesNotMatch(appSource, /workspace-settings\.json/);
   assert.doesNotMatch(appSource, /sandboxMode:/);
@@ -127,13 +127,69 @@ test("App does not pass renderer permission options into Codex execution", () =>
 test("App Implement workspace navigation effect polls status without auto-starting Codex", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
   const statusEffect = appSource.match(
-    /useEffect\(\(\) => \{[\s\S]*?window\.champcity\.getCodexImplementerExecutionStatus\(\)[\s\S]*?\}, \[activeWorkspaceId, workspace\.ok, codexExecution\?\.state\]\);/,
+    /useEffect\(\(\) => \{[\s\S]*?window\.champcity\.getCodexImplementerExecutionStatus\(\)[\s\S]*?\}, \[activeWorkspaceId, isDevelopmentForeground, workspace\.ok, codexExecution\?\.state\]\);/,
   );
 
   assert.ok(statusEffect);
-  assert.match(statusEffect[0], /activeWorkspaceId !== "work-card-building-review"/);
+  assert.match(statusEffect[0], /shouldPollDevelopmentCodexExecution/);
+  assert.match(statusEffect[0], /workspaceAvailable: workspace.ok/);
   assert.match(statusEffect[0], /void refreshStatus\(\)/);
   assert.match(statusEffect[0], /window\.setInterval/);
   assert.doesNotMatch(statusEffect[0], /startCodexImplementerExecution/);
   assert.doesNotMatch(statusEffect[0], /startCodexEnvironmentResolution/);
+});
+
+
+test("shared controls load Sol High, preserve arbitrary catalog effort order, and send the click snapshot", async () => {
+  const React = require("react");
+  const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
+  const { CodexExecutionActions } = loadRendererSourceModule("src/renderer/app/WorkCardBuildingReviewWorkspace.tsx");
+  const { runtimeFixture, selection, catalog } = require("../support/codex-runtime.cjs");
+  const f = runtimeFixture({probe: async () => [...catalog, {...catalog[0],id:"future-picker",model:"future-id",displayName:"Future model",supportedReasoningEfforts:["omega","alpha"]}]});
+  await f.ready;
+  let starts = [];
+  let poll;
+  const oldWindow = global.window;
+  global.window = {champcity: {getCodexManagedRuntimeStatus: async () => f.manager.getStatus(), setCodexModelSelection: (value) => f.manager.setSelection(value)},
+    setInterval: (fn) => {poll=fn;return 1;}, clearInterval:()=>{}};
+  const values = []; let cursor=0; let first=true; const effects=[];
+  function render(extra={}) {
+    const originalState=React.useState, originalEffect=React.useEffect;
+    cursor=0;
+    React.useState=(initial)=> {const i=cursor++; if (!(i in values)) values[i]=initial;return [values[i],value=>{values[i]=value;}];};
+    React.useEffect=(fn)=>{if(first)effects.push(fn);};
+    try {return CodexExecutionActions({execution:{state:"ready",canRunAgain:true},isActionRunning:false,onCancel:()=>{},onRun:value=>starts.push(value),...extra});}
+    finally {React.useState=originalState;React.useEffect=originalEffect;first=false;}
+  }
+  function find(node, predicate) {
+    if (!node || typeof node!=="object") return null;
+    if (predicate(node)) return node;
+    for (const child of React.Children.toArray(node.props?.children)) {const found=find(child,predicate);if(found)return found;}
+    return null;
+  }
+  const field = (tree,label)=>find(tree,node=>node.type==="select" && node.props["aria-label"]===label);
+  const run = tree=>find(tree,node=>node.type==="button" && node.props.className==="apply-button codex-command");
+  try {
+    assert.equal(run(render()).props.disabled,true);
+    effects.forEach(fn=>fn()); await Promise.resolve();
+    let tree=render();
+    assert.equal(field(tree,"Model").props.value,selection.model);
+    assert.equal(field(tree,"Reasoning").props.value,"high");
+    assert.equal(run(tree).props.disabled,false);
+    assert.deepEqual(starts,[]);
+    field(tree,"Reasoning").props.onChange({target:{value:""}});
+    tree=render();assert.equal(run(tree).props.disabled,true);
+    field(tree,"Model").props.onChange({target:{value:"future-id"}});
+    tree=render();assert.equal(run(tree).props.disabled,true);
+    const efforts=React.Children.toArray(field(tree,"Reasoning").props.children).map(node=>node.props.value);
+    assert.deepEqual(efforts,["","omega","alpha"]);
+    field(tree,"Reasoning").props.onChange({target:{value:"alpha"}});
+    await new Promise(resolve=>setImmediate(resolve));
+    tree=render();run(tree).props.onClick();
+    assert.deepEqual(starts,[{model:"future-id",reasoningEffort:"alpha"}]);
+    assert.deepEqual(f.manager.getStatus().selection,starts[0]);
+    const lease=f.manager.acquire(starts[0]); poll();await Promise.resolve();
+    tree=render();assert.equal(field(tree,"Model").props.disabled,true);assert.equal(field(tree,"Reasoning").props.disabled,true);assert.equal(run(tree).props.disabled,true);
+    lease.release();
+  } finally {global.window=oldWindow;}
 });

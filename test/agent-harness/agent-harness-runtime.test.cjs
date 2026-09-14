@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
@@ -9,8 +10,61 @@ const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
 const {
-  AgentHarnessService,
+  AgentHarnessService: BaseAgentHarnessService,
 } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
+
+class AgentHarnessService extends BaseAgentHarnessService {
+  constructor(options) {
+    const root = options.getSelectedProjectRoot?.();
+    const { getSelectedProjectRoot: _legacyTestRoot, ...serviceOptions } = options;
+    super(serviceOptions);
+    if (root) {
+      this.registerWorkspaceRoot(root);
+    }
+  }
+}
+const {
+  startAgentHarnessHttpRuntime,
+} = require("../../dist/main/agentHarness/runtime/httpRuntime.js");
+const {
+  fingerprintAgentHarnessPublicToolDefinitions,
+} = require("../../dist/main/agentHarness/runtime/mcpServer.js");
+const {
+  createAgentHarnessToolRegistry,
+} = require("../../dist/main/agentHarness/tools/toolRegistry.js");
+const {
+  inspectControlledMarkdownDraft,
+} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+const {
+  createRegisteredWorkspaceAccessProvider,
+  resolveWorkspaceRootContext,
+} = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
+const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+
+function createSelectedProjectAccessProvider(options) {
+  return createRegisteredWorkspaceAccessProvider({
+    resolveWorkspaceContext: (workspaceId) => {
+      const context = resolveWorkspaceRootContext(options.getSelectedProjectRoot());
+      if (workspaceId !== context.workspaceId) {
+        throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Tool call workspaceId is not registered.");
+      }
+      return context;
+    },
+    listWorkspaceSummaries: () => {
+      const context = resolveWorkspaceRootContext(options.getSelectedProjectRoot());
+      return [{
+        workspaceId: context.workspaceId,
+        repositoryName: context.repositoryName,
+        gitBacked: context.gitBacked,
+        availability: "available",
+      }];
+    },
+  });
+}
+const {
+  parseCanonicalMarkdownDocument,
+  serializeCanonicalMarkdownDocument,
+} = require("../../dist/shared/documents/canonicalMarkdown.js");
 const {
   pkceChallenge,
 } = require("../../dist/main/agentHarness/runtime/oauthStore.js");
@@ -18,7 +72,7 @@ const {
   getAgentHarnessSettingsPath,
 } = require("../../dist/main/agentHarness/runtime/agentHarnessSettings.js");
 
-test("Agent Harness HTTP runtime serves selected workspace tool discovery, read, write, diagnostics, and shutdown", async () => {
+test("Agent Harness HTTP runtime serves registered workspace tool discovery, read, write, diagnostics, and shutdown", async () => {
   const { root, userDataRoot } = createWorkspace("FO76_Collector");
   const beforeEnv = process.env.CHAMPCITY_WC60_SENTINEL;
   process.env.CHAMPCITY_WC60_SENTINEL = "unchanged";
@@ -32,7 +86,7 @@ test("Agent Harness HTTP runtime serves selected workspace tool discovery, read,
   try {
     status = await service.start();
     assert.equal(status.state, "running");
-    assert.equal(status.activeWorkspaceId, "fo76_collector");
+    assert.deepEqual(status.registeredWorkspaceIds, ["fo76_collector"]);
     assert.ok(status.mcpEndpoint);
     assert.ok(status.publicToolNames.includes("repo_toolbox"));
 
@@ -53,6 +107,9 @@ test("Agent Harness HTTP runtime serves selected workspace tool discovery, read,
     });
     assert.equal(list.structuredContent.ok, true);
     assert.ok(list.structuredContent.payload.files.includes("README.md"));
+    assert.equal(Object.hasOwn(list.structuredContent.payload, "root"), false);
+    assert.equal(list.structuredContent.payload.completion.status, "complete");
+    assert.equal(list.structuredContent.payload.completion.reason, null);
 
     const read = await callTool(client, "repo_toolbox", {
       workspaceId: "fo76_collector",
@@ -67,6 +124,21 @@ test("Agent Harness HTTP runtime serves selected workspace tool discovery, read,
       params: { query: "runtime" },
     });
     assert.equal(search.structuredContent.payload.matches[0].relativePath, "README.md");
+    assert.equal(search.structuredContent.payload.completion.status, "complete");
+    assert.equal(search.structuredContent.payload.completion.reason, null);
+
+    fs.writeFileSync(path.join(root, "oversized-search-candidate.txt"), "x".repeat(500_001), "utf8");
+    const degradedSearch = await callTool(client, "repo_toolbox", {
+      workspaceId: "fo76_collector",
+      action: "search_files",
+      params: { query: "not-present-in-enumerated-text" },
+    });
+    assert.equal(degradedSearch.isError, true);
+    assert.equal(degradedSearch.structuredContent.ok, false);
+    assert.equal(degradedSearch.structuredContent.error.code, "REPOSITORY_TRAVERSAL_INCOMPLETE");
+    assert.equal(degradedSearch.structuredContent.error.details.operation, "search");
+    assert.equal(degradedSearch.structuredContent.error.details.completion.status, "incomplete");
+    assert.equal(degradedSearch.structuredContent.error.details.completion.reason, "file-size-limit");
 
     const write = await callTool(client, "repo_toolbox", {
       workspaceId: "fo76_collector",
@@ -102,7 +174,7 @@ test("Agent Harness HTTP runtime serves selected workspace tool discovery, read,
       action: "status",
     });
     assert.equal(foreign.structuredContent.ok, false);
-    assert.equal(foreign.structuredContent.error.code, "AUTHORITY_DENIED");
+    assert.equal(foreign.structuredContent.error.code, "WORKSPACE_ACCESS_DENIED");
 
     await client.close();
   } finally {
@@ -116,6 +188,272 @@ test("Agent Harness HTTP runtime serves selected workspace tool discovery, read,
     }
   }
   await assert.rejects(() => fetch(status.healthEndpoint), /fetch failed/);
+});
+
+test("MCP runtime follows Issue Record screenshot references and returns exact image content without base64 duplication", async () => {
+  const { root, userDataRoot } = createWorkspace("Issue_Evidence_Mcp_Project");
+  const screenshots = [
+    ["issues/ISSUE_010/evidence/screenshot-001.png", onePixelPng(), "image/png", 1, 1],
+    ["issues/ISSUE_010/evidence/screenshot-002.jpg", jpegWithDimensions(2, 3), "image/jpeg", 2, 3],
+    ["issues/ISSUE_010/evidence/screenshot-003.webp", webpWithDimensions(4, 5), "image/webp", 4, 5],
+  ];
+  for (const [relativePath, bytes] of screenshots) {
+    writeWorkspaceFile(root, relativePath, bytes);
+  }
+  const issueRecordPath = "issues/ISSUE_010/ISSUE_RECORD.md";
+  writeWorkspaceFile(root, issueRecordPath, [
+    "# Issue ISSUE_010",
+    "",
+    "## Screenshot Evidence",
+    ...screenshots.map(([relativePath]) => `- \`${relativePath}\``),
+    "",
+    "## Status",
+    "Open",
+    "",
+  ].join("\n"));
+  writeWorkspaceFile(root, "images/otherwise-valid.png", onePixelPng());
+  writeWorkspaceFile(root, "issues/ISSUE_010/evidence/screenshot-004.jpg", onePixelPng());
+
+  const service = new AgentHarnessService({
+    userDataRoot,
+    getSelectedProjectRoot: () => root,
+    port: 0,
+    allowUnauthenticatedLocal: true,
+  });
+  let mcpClient;
+  try {
+    const started = await service.start();
+    mcpClient = await connectMcpClient(started.mcpEndpoint);
+    const listed = await mcpClient.client.listTools();
+    const repoTool = listed.tools.find((tool) => tool.name === "repo_toolbox");
+    assert.ok(repoTool);
+    assert.equal(schemaHasEnumValue(repoTool.inputSchema.properties.action, "read_issue_screenshot"), true);
+    assert.equal(repoTool.annotations.readOnlyHint, false);
+
+    const recordRead = await callTool(mcpClient.client, "repo_toolbox", {
+      workspaceId: "issue_evidence_mcp_project",
+      action: "read_file",
+      params: { relativePath: issueRecordPath },
+    });
+    assert.equal(recordRead.structuredContent.ok, true);
+    assert.deepEqual(recordRead.content.map((entry) => entry.type), ["text"]);
+    const referencedPaths = [...recordRead.structuredContent.payload.content.matchAll(/`(issues\/[^`]+)`/g)]
+      .map((match) => match[1]);
+    assert.deepEqual(referencedPaths, screenshots.map(([relativePath]) => relativePath));
+
+    for (const [index, referencedPath] of referencedPaths.entries()) {
+      const [relativePath, bytes, mimeType, width, height] = screenshots[index];
+      const result = await callTool(mcpClient.client, "repo_toolbox", {
+        workspaceId: "issue_evidence_mcp_project",
+        action: "read_issue_screenshot",
+        params: { relativePath: referencedPath },
+      });
+      assert.equal(result.isError, false);
+      assert.equal(result.structuredContent.ok, true);
+      assert.equal(result.structuredContent.payload.relativePath, relativePath);
+      assert.equal(result.structuredContent.payload.mimeType, mimeType);
+      assert.equal(result.structuredContent.payload.bytes, bytes.length);
+      assert.equal(result.structuredContent.payload.sha256, createHash("sha256").update(bytes).digest("hex"));
+      assert.equal(result.structuredContent.payload.width, width);
+      assert.equal(result.structuredContent.payload.height, height);
+      assert.equal(result.structuredContent.payload.pixels, width * height);
+      assert.equal(Object.hasOwn(result.structuredContent.payload, "imageBase64"), false);
+      assert.equal(JSON.stringify(result.structuredContent).includes(root), false);
+
+      const imageBlock = result.content.find((entry) => entry.type === "image");
+      const textBlock = result.content.find((entry) => entry.type === "text");
+      assert.ok(imageBlock);
+      assert.ok(textBlock);
+      assert.equal(imageBlock.mimeType, mimeType);
+      assert.deepEqual(Buffer.from(imageBlock.data, "base64"), bytes);
+      assert.equal(textBlock.text.includes(imageBlock.data), false);
+      assert.equal(JSON.stringify(result.structuredContent).includes(imageBlock.data), false);
+    }
+
+    for (const [label, relativePath] of [
+      ["outside Issue evidence layout", "images/otherwise-valid.png"],
+      ["traversal", "issues/ISSUE_010/evidence/../ISSUE_RECORD.md"],
+      ["format mismatch", "issues/ISSUE_010/evidence/screenshot-004.jpg"],
+    ]) {
+      const denied = await callTool(mcpClient.client, "repo_toolbox", {
+        workspaceId: "issue_evidence_mcp_project",
+        action: "read_issue_screenshot",
+        params: { relativePath },
+      });
+      assert.equal(denied.isError, true, label);
+      assert.ok(["FILE_DENIED", "PATH_DENIED"].includes(denied.structuredContent.error.code), label);
+      assert.deepEqual(denied.content.map((entry) => entry.type), ["text"], label);
+    }
+
+    const genericBinaryRead = await callTool(mcpClient.client, "repo_toolbox", {
+      workspaceId: "issue_evidence_mcp_project",
+      action: "read_file",
+      params: { relativePath: screenshots[0][0] },
+    });
+    assert.equal(genericBinaryRead.isError, true);
+    assert.equal(genericBinaryRead.structuredContent.error.code, "FILE_DENIED");
+    assert.deepEqual(genericBinaryRead.content.map((entry) => entry.type), ["text"]);
+  } finally {
+    await mcpClient?.client.close();
+    await service.stop();
+  }
+});
+
+test("Streamable HTTP publishes and executes the controlled Markdown body-write contract", async () => {
+  const { root, userDataRoot } = createWorkspace("Controlled_Mcp_Project");
+  const relativePath = "issues/Architect_Drafts/submission-mcp/fix-card-contract.md";
+  const absolutePath = path.join(root, relativePath);
+  const metadata = controlledFixCardDraftMetadata(relativePath, "submission-mcp");
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, serializeCanonicalMarkdownDocument(metadata, ""), "utf8");
+  const before = inspectControlledMarkdownDraft(root, relativePath);
+  const service = new AgentHarnessService({
+    userDataRoot,
+    getSelectedProjectRoot: () => root,
+    port: 0,
+    allowUnauthenticatedLocal: true,
+  });
+  let mcpClient;
+  try {
+    const started = await service.start();
+    mcpClient = await connectMcpClient(started.mcpEndpoint);
+    const listed = await mcpClient.client.listTools();
+    const artifactTool = listed.tools.find((tool) => tool.name === "artifact_toolbox");
+    assert.ok(artifactTool);
+    assert.equal(schemaHasEnumValue(artifactTool.inputSchema.properties.action, "replace_markdown_body"), true);
+    const invocation = {
+      workspaceId: "controlled_mcp_project",
+      action: "replace_markdown_body",
+      params: {
+        relativePath,
+        submissionId: "submission-mcp",
+        expectedMetadataSha256: before.metadataSha256,
+        expectedBodySha256: before.bodySha256,
+        bodyMarkdown: "# Controlled MCP body\n\nWritten through the public Streamable HTTP contract.\n",
+      },
+    };
+    assert.equal(schemaAccepts(artifactTool.inputSchema, invocation), true);
+    for (const requiredName of [
+      "relativePath",
+      "submissionId",
+      "expectedMetadataSha256",
+      "expectedBodySha256",
+      "bodyMarkdown",
+    ]) {
+      const missingRequired = structuredClone(invocation);
+      delete missingRequired.params[requiredName];
+      assert.equal(schemaAccepts(artifactTool.inputSchema, missingRequired), false, requiredName);
+    }
+
+    const inventory = await callTool(mcpClient.client, "diagnostics_toolbox", {
+      workspaceId: "controlled_mcp_project",
+      action: "tool_inventory",
+    });
+    assert.equal(inventory.structuredContent.ok, true);
+    const diagnostics = inventory.structuredContent.payload;
+    assert.equal(diagnostics.published.state, "all-current");
+    assert.equal(diagnostics.published.activeSessionCount, 1);
+    assert.equal(diagnostics.published.staleSessionCount, 0);
+    assert.equal(diagnostics.published.contracts[0].fingerprint, diagnostics.registry.fingerprint);
+    assert.equal(
+      diagnostics.published.contracts[0].fingerprint,
+      fingerprintAgentHarnessPublicToolDefinitions("files.read files.write", listed.tools),
+    );
+    assert.ok(diagnostics.registry.tools.find((tool) => tool.name === "artifact_toolbox").actions.includes("replace_markdown_body"));
+    assert.ok(diagnostics.published.contracts[0].tools.find((tool) => tool.name === "artifact_toolbox").actions.includes("replace_markdown_body"));
+
+    const result = await callTool(mcpClient.client, "artifact_toolbox", invocation);
+    assert.equal(result.structuredContent.ok, true);
+    const after = inspectControlledMarkdownDraft(root, relativePath);
+    assert.equal(after.metadataSha256, before.metadataSha256);
+    assert.deepEqual(after.metadata, metadata);
+    assert.equal(parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8")).bodyMarkdown, invocation.params.bodyMarkdown);
+  } finally {
+    await mcpClient?.client.close();
+    await service.stop();
+  }
+});
+
+test("controlled HTTP runtime restart publishes one new immutable tool-contract generation", async () => {
+  const { root, userDataRoot } = createWorkspace("Contract_Refresh_Project");
+  const workspaceAccess = createSelectedProjectAccessProvider({
+    getSelectedProjectRoot: () => root,
+  });
+  const currentRegistry = createAgentHarnessToolRegistry({ workspaceAccess, userDataRoot });
+  let generation = "A";
+  let captureCount = 0;
+  const mutableRegistry = {
+    listTools(scope) {
+      captureCount += 1;
+      const definitions = currentRegistry.listTools(scope);
+      return generation === "B" ? definitions : definitions.map(withoutControlledBodyWriteAction);
+    },
+    callTool(call) {
+      return currentRegistry.callTool(call);
+    },
+  };
+  const runtimeA = await startAgentHarnessHttpRuntime({
+    host: "127.0.0.1",
+    port: 0,
+    userDataRoot,
+    registry: mutableRegistry,
+    allowUnauthenticatedLocal: true,
+  });
+  let clientA;
+  let runtimeB;
+  let clientB;
+  try {
+    clientA = await connectMcpClient(runtimeA.url);
+    const diagnosticsA = runtimeA.publishedToolContractDiagnostics();
+    assert.equal(diagnosticsA.contractCaptureCount, 1);
+    assert.equal(diagnosticsA.periodicContractTimerCount, 0);
+    const generationA = await clientA.client.listTools();
+    const artifactA = generationA.tools.find((tool) => tool.name === "artifact_toolbox");
+    assert.ok(artifactA);
+    assert.equal(schemaHasEnumValue(artifactA.inputSchema.properties.action, "replace_markdown_body"), false);
+    assert.equal(captureCount, 1);
+
+    generation = "B";
+    const unchangedGenerationA = await clientA.client.listTools();
+    assert.equal(
+      schemaHasEnumValue(
+        unchangedGenerationA.tools.find((tool) => tool.name === "artifact_toolbox").inputSchema.properties.action,
+        "replace_markdown_body",
+      ),
+      false,
+    );
+    assert.equal(captureCount, 1);
+    assert.equal(runtimeA.publishedToolContractDiagnostics().contractCaptureCount, 1);
+
+    await runtimeA.close();
+    assert.equal(runtimeA.sessionDiagnostics().totalDisposed.runtimeClose, 1);
+    runtimeB = await startAgentHarnessHttpRuntime({
+      host: "127.0.0.1",
+      port: 0,
+      userDataRoot,
+      registry: mutableRegistry,
+      allowUnauthenticatedLocal: true,
+    });
+    clientB = await connectMcpClient(runtimeB.url);
+    const generationB = await clientB.client.listTools();
+    const artifactB = generationB.tools.find((tool) => tool.name === "artifact_toolbox");
+    assert.ok(artifactB);
+    assert.equal(schemaHasEnumValue(artifactB.inputSchema.properties.action, "replace_markdown_body"), true);
+    const diagnosticsB = runtimeB.publishedToolContractDiagnostics();
+    assert.equal(diagnosticsB.contractCaptureCount, 1);
+    assert.equal(diagnosticsB.explicitGenerationChangeCount, 0);
+    assert.notEqual(diagnosticsA.runtimeGeneration, diagnosticsB.runtimeGeneration);
+    assert.equal(captureCount, 2);
+    assert.notEqual(
+      fingerprintAgentHarnessPublicToolDefinitions("files.read files.write", generationA.tools),
+      fingerprintAgentHarnessPublicToolDefinitions("files.read files.write", generationB.tools),
+    );
+  } finally {
+    await clientA?.client.close().catch(() => undefined);
+    await clientB?.client.close().catch(() => undefined);
+    await runtimeA.close();
+    await runtimeB?.close();
+  }
 });
 
 test("Agent Harness HTTP runtime rejects oversized MCP bodies before SDK handling", async () => {
@@ -163,13 +501,14 @@ test("Agent Harness status exposes bounded Settings diagnostics and restart life
     port: 0,
     allowUnauthenticatedLocal: true,
   });
+  let generationAClient;
   try {
     const started = await service.start();
     assert.equal(started.state, "running");
-    assert.equal(started.selectedProjectRootSummary, "Settings_Project");
-    assert.equal(started.expectedWorkspaceId, "settings_project");
-    assert.equal(started.activeWorkspaceId, "settings_project");
-    assert.equal(started.routingState, "matched");
+    assert.equal(started.selectedProjectRootSummary, null);
+    assert.equal(started.expectedWorkspaceId, null);
+    assert.equal(started.activeWorkspaceId, null);
+    assert.equal(started.registeredWorkspaceCount, 1);
     assert.equal(started.configuredPort, 0);
     assert.equal(started.publicBaseUrlConfigured, false);
     assert.equal(started.publicBaseUrl, null);
@@ -180,12 +519,24 @@ test("Agent Harness status exposes bounded Settings diagnostics and restart life
     assert.ok(started.healthEndpoint);
     assert.ok(started.mcpEndpoint);
     assert.ok(started.recentActivity.some((entry) => entry.includes("Agent Harness running")));
+    assert.equal(started.toolContractDiagnostics.published.contractCaptureCount, 1);
+    assert.equal(started.toolContractDiagnostics.published.periodicContractTimerCount, 0);
+    generationAClient = await connectMcpClient(started.mcpEndpoint);
+    assert.equal(service.status().toolContractDiagnostics.published.activeSessionCount, 1);
 
     const restarted = await service.restart();
     assert.equal(restarted.state, "running");
-    assert.equal(restarted.routingState, "matched");
+    assert.notEqual(
+      restarted.toolContractDiagnostics.published.runtimeGeneration,
+      started.toolContractDiagnostics.published.runtimeGeneration,
+    );
+    assert.equal(restarted.toolContractDiagnostics.published.contractCaptureCount, 1);
+    assert.equal(restarted.toolContractDiagnostics.published.activeSessionCount, 0);
+    assert.equal(restarted.toolContractDiagnostics.published.periodicContractTimerCount, 0);
+    assert.deepEqual(restarted.registeredWorkspaceIds, ["settings_project"]);
     assert.ok(restarted.recentActivity.some((entry) => entry.includes("Restart requested")));
   } finally {
+    await generationAClient?.client.close().catch(() => undefined);
     await service.stop();
   }
 });
@@ -882,6 +1233,55 @@ test("Agent Harness source has no donor runtime dependency or future role orches
   }
 });
 
+function withoutControlledBodyWriteAction(definition) {
+  if (definition.name !== "artifact_toolbox") {
+    return definition;
+  }
+  const inputSchema = structuredClone(definition.inputSchema);
+  inputSchema.properties.action.enum = inputSchema.properties.action.enum.filter((action) => action !== "replace_markdown_body");
+  inputSchema.oneOf = inputSchema.oneOf.filter((entry) => entry.properties.action.const !== "replace_markdown_body");
+  return {
+    ...definition,
+    actions: definition.actions.filter((action) => action !== "replace_markdown_body"),
+    inputSchema,
+    inputZodSchema: definition.inputZodSchema.refine(
+      (value) => value.action !== "replace_markdown_body",
+      "replace_markdown_body is not part of contract generation A",
+    ),
+  };
+}
+
+function controlledFixCardDraftMetadata(relativePath, submissionId) {
+  return {
+    schemaVersion: 1,
+    artifactType: "fix-card-draft",
+    artifactRevision: 1,
+    participationRole: "gatingReview",
+    identity: {
+      issueId: "ISSUE_200",
+      fixCardId: "ISSUE_200-FC01",
+      candidateId: "ISSUE_200-FC01",
+      submissionId,
+      currentImplementationId: "ISSUE_200-FC01",
+    },
+    sourceRevisions: [
+      { path: "issues/ISSUE_200/ISSUE_RESOLUTION_PLAN.md", revision: 1 },
+      { path: "issues/ISSUE_200/FIX_CARD_PLAN.md", revision: 1 },
+    ],
+    workflowData: {
+      ownerKind: "issue",
+      issueId: "ISSUE_200",
+      fixCardId: "ISSUE_200-FC01",
+      draftPath: relativePath,
+      finalFixCardTarget: "issues/ISSUE_200/Fix_Cards/ISSUE_200-FC01_test.md",
+      implementerReportTarget: "issues/ISSUE_200/Implementer_Reports/IMPLEMENTER_REPORT_ISSUE_200-FC01_test.md",
+      draftRevision: 1,
+      returnTarget: "planning",
+    },
+    documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+  };
+}
+
 function createWorkspace(name) {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-agent-harness-runtime-"));
   const root = path.join(container, name);
@@ -890,6 +1290,53 @@ function createWorkspace(name) {
   execFileSync("git", ["init"], { cwd: root, stdio: "ignore" });
   fs.writeFileSync(path.join(root, "README.md"), "needle runtime\n", "utf8");
   return { root, userDataRoot };
+}
+
+function writeWorkspaceFile(root, relativePath, content) {
+  const target = path.join(root, relativePath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+}
+
+function onePixelPng() {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64",
+  );
+}
+
+function jpegWithDimensions(width, height) {
+  return Buffer.from([
+    0xff, 0xd8,
+    0xff, 0xc0,
+    0x00, 0x11,
+    0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x03,
+    0x01, 0x11, 0x00,
+    0x02, 0x11, 0x00,
+    0x03, 0x11, 0x00,
+    0xff, 0xd9,
+  ]);
+}
+
+function webpWithDimensions(width, height) {
+  const buffer = Buffer.alloc(30);
+  buffer.write("RIFF", 0, "ascii");
+  buffer.writeUInt32LE(22, 4);
+  buffer.write("WEBP", 8, "ascii");
+  buffer.write("VP8X", 12, "ascii");
+  buffer.writeUInt32LE(10, 16);
+  writeUInt24LE(buffer, 24, width - 1);
+  writeUInt24LE(buffer, 27, height - 1);
+  return buffer;
+}
+
+function writeUInt24LE(buffer, offset, value) {
+  buffer[offset] = value & 0xff;
+  buffer[offset + 1] = (value >> 8) & 0xff;
+  buffer[offset + 2] = (value >> 16) & 0xff;
 }
 
 async function listenOnLoopbackPort() {

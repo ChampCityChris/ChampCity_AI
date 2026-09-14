@@ -166,7 +166,7 @@ test("repair projection enables Architect preparation and copy after handoff cre
   const refreshed = getArchitectOutputWorkspaceModel(root, "work-card-repair");
   assert.match(refreshed.preparedInstruction, /Bound workspaceId: alpha/);
   assert.match(refreshed.preparedInstruction, /Use ChampCity MCP workspaceId "alpha" only\./);
-  assert.match(refreshed.preparedInstruction, /Treat the Validation Record as the repair authority/);
+  assert.match(refreshed.preparedInstruction, /Treat the Validation Record as the repair basis/);
   assert.match(refreshed.preparedInstruction, /Read the Validation Record first/);
   assert.match(refreshed.preparedInstruction, new RegExp(`Validation Record path: ${evidencePath}`));
   assert.match(refreshed.preparedInstruction, new RegExp(`Implementer Report path: ${reportPath}`));
@@ -176,7 +176,7 @@ test("repair projection enables Architect preparation and copy after handoff cre
   assert.doesNotMatch(refreshed.preparedInstruction, /separate Advisory Architect Review document/);
 });
 
-test("repair projection surfaces conflicting active repair authority", () => {
+test("repair projection surfaces conflicting active repair basis", () => {
   const root = tempWorkspace("champcity-work-card-repair-conflict-");
   const { evidencePath } = seedPostValidationRepairEvidence(root);
   createRepairWorkCard(root, "MVP-01", "WC02", evidencePath, "postValidationRecord", "Repair the workspace handoff flow.");

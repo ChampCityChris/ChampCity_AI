@@ -24,12 +24,18 @@ import {
   prepareArchitectInterviewChatHandoff,
   prepareArchitectInterviewDraftSubmission,
 } from "./architectInterviewDraftPilot";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 
 export function getArchitectInterviewWorkspaceModel(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): ArchitectInterviewWorkspaceModel {
   const draftStatus = getArchitectInterviewDraftStatus(workspaceRoot);
-  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot, contextSnapshot);
   if (context.status === "prompt-missing-recoverable") {
     return {
       state: "prompt-missing",

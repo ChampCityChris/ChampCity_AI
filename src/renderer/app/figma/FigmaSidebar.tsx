@@ -6,6 +6,7 @@ import type {
   WorkspaceSelection,
 } from "../../../shared/workspaceContracts";
 import type {
+  IssueInventoryProjection,
   IssueRecordProjection,
   IssueWorkflowStatusProjection,
 } from "../../../shared/issueResolutionContracts";
@@ -16,13 +17,16 @@ export type FigmaSidebarMode = "hub" | "development" | "issue-resolution";
 export function FigmaSidebar({
   currentModel,
   currentIssue,
+  issueInventory,
   issueWorkflowStatus,
   activeWorkspaceId,
   isChoosing,
   mode = "development",
   onChooseProject,
   onClearProject,
+  onBrowseIssues,
   onOpenSettings,
+  onIssueSelect,
   onReturnToWorkflowHub,
   onThemeChange,
   projectName,
@@ -32,12 +36,15 @@ export function FigmaSidebar({
   activeWorkspaceId: string;
   currentModel: CurrentWorkspaceModel | null;
   currentIssue?: IssueRecordProjection | null;
+  issueInventory?: IssueInventoryProjection | null;
   issueWorkflowStatus?: IssueWorkflowStatusProjection | null;
   isChoosing: boolean;
   mode?: FigmaSidebarMode;
   onChooseProject: () => void;
   onClearProject: () => void;
+  onBrowseIssues?: () => void;
   onOpenSettings: () => void;
+  onIssueSelect?: (issueId: string) => void;
   onReturnToWorkflowHub?: () => void;
   onThemeChange: (themeMode: FigmaThemeMode) => void;
   projectName: string;
@@ -50,6 +57,7 @@ export function FigmaSidebar({
   const isHubMode = mode === "hub";
   const isIssueMode = mode === "issue-resolution";
   const isDevelopmentMode = mode === "development";
+  const issueSelectorIssues = issueInventory?.issues ?? [];
 
   return (
     <aside className="sidebar figma-sidebar" aria-label="Project navigation">
@@ -114,7 +122,22 @@ export function FigmaSidebar({
           {currentIssue ? (
             <>
               <SidebarField>
-                <span className="figma-sidebar-id">{currentIssue.issueId}</span>
+                {issueSelectorIssues.length > 0 && onIssueSelect ? (
+                  <select
+                    aria-label="Current Issue"
+                    className="figma-sidebar-issue-select"
+                    onChange={(event) => onIssueSelect(event.target.value)}
+                    value={currentIssue.issueId}
+                  >
+                    {issueSelectorIssues.map((issue) => (
+                      <option key={issue.issueId} value={issue.issueId}>
+                        {issue.issueId}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="figma-sidebar-id">{currentIssue.issueId}</span>
+                )}
                 <span className="figma-sidebar-muted">{currentIssue.title}</span>
               </SidebarField>
               <SidebarField label="Stage">
@@ -123,6 +146,12 @@ export function FigmaSidebar({
               <SidebarField label="State">
                 <span className="figma-sidebar-muted">{issueWorkflowStatus?.stateLabel ?? "Refresh required"}</span>
               </SidebarField>
+              {onBrowseIssues ? (
+                <button className="figma-sidebar-action icon-button text-button" onClick={onBrowseIssues} type="button">
+                  <FolderOpen aria-hidden="true" size={14} />
+                  Browse / New Issue
+                </button>
+              ) : null}
             </>
           ) : (
             <SidebarField>

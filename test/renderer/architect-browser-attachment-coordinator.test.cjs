@@ -8,6 +8,12 @@ const {
   resetArchitectAttachmentGenerationForTest,
   shouldShowArchitectBrowserRetry,
 } = require("../../dist/shared/architectInterview/architectBrowserAttachmentCoordinator.js");
+const {
+  loadRendererSourceModule,
+} = require("./renderer-source-loader.cjs");
+const {
+  reconcileArchitectBrowserBoundsAck,
+} = loadRendererSourceModule("src/renderer/app/architectBrowserBoundsOrchestration.ts");
 
 test.beforeEach(() => {
   resetArchitectAttachmentGenerationForTest();
@@ -19,6 +25,7 @@ function visibleStatus(sequence = 1) {
     sessionPartition: "persist:champcity-architect",
     browserState: "loaded-auth-state-unknown",
     boundsSequence: sequence,
+    attachmentGeneration: 1,
     attachment: {
       state: "attached-visible",
       isViewCreated: true,
@@ -63,6 +70,36 @@ function zeroStatus(sequence = 1) {
   };
 }
 
+function boundsAck(sequence = 1, attachmentState = "attached-visible", disposition = "accepted", generation = 1) {
+  return {
+    attachmentGeneration: generation,
+    boundsSequence: sequence,
+    attachmentState,
+    disposition,
+  };
+}
+
+test("renderer applies only the current Architect bounds ACK and preserves explicit failure state", () => {
+  const expectation = { attachmentGeneration: 7, latestRequestedSequence: 12 };
+
+  assert.deepEqual(reconcileArchitectBrowserBoundsAck(
+    boundsAck(11, "attached-visible", "stale-sequence", 7),
+    expectation,
+  ), { applied: false });
+  assert.deepEqual(reconcileArchitectBrowserBoundsAck(
+    boundsAck(12, "attached-visible", "stale-generation", 6),
+    expectation,
+  ), { applied: false });
+  assert.deepEqual(reconcileArchitectBrowserBoundsAck({
+    ...boundsAck(12, "attach-failed", "failed", 7),
+    lastError: "deterministic bounds failure",
+  }, expectation), { applied: true, error: "deterministic bounds failure" });
+  assert.deepEqual(reconcileArchitectBrowserBoundsAck(
+    boundsAck(12, "attached-visible", "accepted", 7),
+    expectation,
+  ), { applied: true, error: "" });
+});
+
 test("zero-size Architect host does not invoke visible-success attachment", async () => {
   const calls = [];
   const errors = [];
@@ -71,7 +108,7 @@ test("zero-size Architect host does not invoke visible-success attachment", asyn
     nextSequence: () => 1,
     onError: (message) => errors.push(message),
     onStatus: (status) => calls.push(status.attachment.state),
-    setBounds: async () => visibleStatus(),
+    setBounds: async () => boundsAck(),
     hideBrowser: async () => zeroStatus(),
     showBrowser: async () => {
       calls.push("show");
@@ -98,7 +135,7 @@ test("positive Architect host measurement calls show before sequenced bounds", a
     setBounds: async (bounds) => {
       order.push(`bounds:${bounds.sequence}:${bounds.width}x${bounds.height}`);
       assert.equal(bounds.attachmentGeneration, 1);
-      return visibleStatus(bounds.sequence);
+      return boundsAck(bounds.sequence);
     },
     hideBrowser: async () => zeroStatus(),
     showBrowser: async (generation) => {
@@ -115,7 +152,6 @@ test("positive Architect host measurement calls show before sequenced bounds", a
     "show:1",
     "status:attached-zero-bounds",
     "bounds:7:640x400",
-    "status:attached-visible",
   ]);
 });
 
@@ -127,7 +163,7 @@ test("stale Architect attachment completion is ignored", async () => {
     nextSequence: () => 1,
     onError: () => undefined,
     onStatus: (status) => statuses.push(status.attachment.state),
-    setBounds: async () => visibleStatus(),
+    setBounds: async () => boundsAck(),
     hideBrowser: async () => zeroStatus(),
     showBrowser: () => new Promise((resolve) => {
       resolveShow = resolve;
@@ -153,7 +189,7 @@ test("Strict Mode replay cannot let the first completion override the second att
     nextSequence: () => showCall,
     onError: () => undefined,
     onStatus: (status) => statuses.push(status.attachment.bounds.sequence),
-    setBounds: async (bounds) => visibleStatus(bounds.sequence),
+    setBounds: async (bounds) => boundsAck(bounds.sequence, "attached-visible", "accepted", bounds.attachmentGeneration),
     hideBrowser: async () => zeroStatus(),
     showBrowser: () => {
       showCall += 1;
@@ -175,7 +211,7 @@ test("Strict Mode replay cannot let the first completion override the second att
 
   assert.equal((await first).status, "stale");
   assert.equal((await second).status, "attached-visible");
-  assert.deepEqual(statuses, [2, 2]);
+  assert.deepEqual(statuses, [2]);
 });
 
 test("Retry uses a new generation and current Architect host measurement", async () => {
@@ -193,7 +229,7 @@ test("Retry uses a new generation and current Architect host measurement", async
     onStatus: () => undefined,
     setBounds: async (nextBounds) => {
       bounds.push(nextBounds);
-      return visibleStatus(nextBounds.sequence);
+      return boundsAck(nextBounds.sequence, "attached-visible", "accepted", 2);
     },
     hideBrowser: async () => zeroStatus(),
     showBrowser: async () => zeroStatus(sequence),
@@ -220,7 +256,7 @@ test("Retry failure preserves a visible error until later success clears it", as
       visibleError = message;
     },
     onStatus: () => undefined,
-    setBounds: async (bounds) => visibleStatus(bounds.sequence),
+    setBounds: async (bounds) => boundsAck(bounds.sequence, "attached-visible", "accepted", 2),
     hideBrowser: async () => zeroStatus(),
     showBrowser: async () => zeroStatus(),
     waitForNextFrame: async () => undefined,
@@ -243,7 +279,7 @@ test("leaving Architect Interview invalidates pending attachment work", async ()
     nextSequence: () => 1,
     onError: () => undefined,
     onStatus: (status) => statuses.push(status.attachment.state),
-    setBounds: async () => visibleStatus(),
+    setBounds: async () => boundsAck(),
     hideBrowser: async () => zeroStatus(),
     showBrowser: () => new Promise((resolve) => {
       resolveShow = resolve;
@@ -273,7 +309,12 @@ test("detach carries the current generation through zero bounds and hide", async
     onStatus: (status) => calls.push(`status:${status.attachment.state}`),
     setBounds: async (bounds) => {
       calls.push(`bounds:${bounds.attachmentGeneration}:${bounds.width}x${bounds.height}`);
-      return bounds.width === 0 ? zeroStatus(bounds.sequence) : visibleStatus(bounds.sequence);
+      return boundsAck(
+        bounds.sequence,
+        bounds.width === 0 ? "attached-zero-bounds" : "attached-visible",
+        "accepted",
+        bounds.attachmentGeneration,
+      );
     },
     hideBrowser: async (generation) => {
       calls.push(`hide:${generation}`);
@@ -293,9 +334,7 @@ test("detach carries the current generation through zero bounds and hide", async
     "show:1",
     "status:attached-zero-bounds",
     "bounds:1:500x300",
-    "status:attached-visible",
     "bounds:2:0x0",
-    "status:attached-zero-bounds",
     "hide:2",
     "status:attached-zero-bounds",
   ]);
@@ -310,7 +349,12 @@ test("stale detach and hide completions cannot override a newer browser attachme
     nextSequence: () => 1,
     onError: () => undefined,
     onStatus: (status) => firstCalls.push(status.attachment.state),
-    setBounds: async (bounds) => bounds.width === 0 ? zeroStatus(bounds.sequence) : visibleStatus(bounds.sequence),
+    setBounds: async (bounds) => boundsAck(
+      bounds.sequence,
+      bounds.width === 0 ? "attached-zero-bounds" : "attached-visible",
+      "accepted",
+      bounds.attachmentGeneration,
+    ),
     hideBrowser: () => new Promise((resolve) => {
       resolveHide = resolve;
     }),
@@ -322,7 +366,7 @@ test("stale detach and hide completions cannot override a newer browser attachme
     nextSequence: () => 2,
     onError: () => undefined,
     onStatus: (status) => secondCalls.push(status.attachment.state),
-    setBounds: async (bounds) => visibleStatus(bounds.sequence),
+    setBounds: async (bounds) => boundsAck(bounds.sequence, "attached-visible", "accepted", bounds.attachmentGeneration),
     hideBrowser: async () => zeroStatus(),
     showBrowser: async () => zeroStatus(),
     waitForNextFrame: async () => undefined,
@@ -337,12 +381,9 @@ test("stale detach and hide completions cannot override a newer browser attachme
 
   assert.deepEqual(firstCalls, [
     "attached-zero-bounds",
-    "attached-visible",
-    "attached-zero-bounds",
   ]);
   assert.deepEqual(secondCalls, [
     "attached-zero-bounds",
-    "attached-visible",
   ]);
 });
 

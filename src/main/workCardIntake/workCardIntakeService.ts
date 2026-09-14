@@ -16,18 +16,19 @@ import type {
   WorkCardMapProjection,
 } from "../../shared/workspaceContracts";
 import {
-  getWorkCardMapProjectionFromAuthority,
+  getWorkCardMapProjectionFromState,
   readPlannedWorkCardCandidates,
-  resolveActiveWorkCardAuthorityFromLoop,
+  resolveActiveWorkCardStateFromLoop,
   resolveActiveWorkCardPlanningHandoffFromLoop,
-  resolveWorkCardLoopAuthority,
-  selectNextWorkCardCandidateFromAuthority,
-  workCardIntakeTargets as authorityWorkCardIntakeTargets,
-} from "../workCardLoop/workCardLoopAuthorityService";
+  resolveWorkCardLoopState,
+  selectNextWorkCardCandidateFromState,
+  workCardIntakeTargets as loopStateWorkCardIntakeTargets,
+} from "../workCardLoop/workCardLoopStateService";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+import type { PlanningProjectionContext } from "../documents/planningProjectionContext";
 
 export type CandidateSelectionState =
   | "eligible"
@@ -75,7 +76,7 @@ export interface ActiveWorkCardPlanningHandoff {
   closePendingEvidencePaths?: string[];
 }
 
-export type ActiveWorkCardAuthority =
+export type ActiveWorkCardState =
   | {
       status: "none";
       phaseId?: string;
@@ -99,10 +100,6 @@ export type ActiveWorkCardAuthority =
       evidencePaths: string[];
     };
 
-interface ActiveWorkCardAuthorityOptions {
-  treatClosePendingAsActive?: boolean;
-}
-
 interface WorkCardIntakeContext extends WorkCardIntakeProjection {
   sourcePhasePlanningPath: string;
   sourcePhasePlanningRevision: number;
@@ -113,7 +110,7 @@ export function selectNextWorkCardCandidate(
   workspaceRoot: string,
   phaseId: string,
 ): CandidateSelectionResult {
-  return selectNextWorkCardCandidateFromAuthority(workspaceRoot, phaseId);
+  return selectNextWorkCardCandidateFromState(workspaceRoot, phaseId);
 }
 
 export function generateWorkCardIntakeHandoff(
@@ -156,12 +153,12 @@ export function generateWorkCardIntakeHandoff(
       participationRole: "nonReviewHandoff",
       identity: { phaseId, workCardId: candidate.candidateId },
       sourceRevisions,
-      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      workflowData: mergeRepositoryBindingIntoWorkflowData(
         {
           ...content,
           formalWorkCardTarget: context.formalWorkCardMarkdownPath,
         },
-        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+        inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
       ),
       documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
     },
@@ -197,8 +194,9 @@ export function getWorkCardMapProjection(
   workspaceRoot: string,
   phaseId: string,
   options: WorkCardMapProjectionOptions = {},
+  planningContext?: PlanningProjectionContext,
 ): WorkCardMapProjection {
-  return getWorkCardMapProjectionFromAuthority(workspaceRoot, phaseId, options);
+  return getWorkCardMapProjectionFromState(workspaceRoot, phaseId, options, planningContext);
 }
 
 export function beginWorkCardPlanningForCandidate(
@@ -207,23 +205,21 @@ export function beginWorkCardPlanningForCandidate(
   candidateId: string,
   options: BeginWorkCardPlanningOptions = {},
 ): WorkCardIntakeHandoffResult {
-  const activeAuthority = resolveActiveWorkCardAuthority(workspaceRoot, phaseId, {
-    treatClosePendingAsActive: !options.closeReturnCompleted,
-  });
-  if (activeAuthority.status === "conflict") {
-    throw new Error(`${activeAuthority.reason} Evidence: ${activeAuthority.evidencePaths.join("; ")}`);
+  const activeState = resolveActiveWorkCardState(workspaceRoot, phaseId);
+  if (activeState.status === "conflict") {
+    throw new Error(`${activeState.reason} Evidence: ${activeState.evidencePaths.join("; ")}`);
   }
-  if (activeAuthority.status === "active") {
-    if (activeAuthority.workCardId !== candidateId) {
+  if (activeState.status === "active") {
+    if (activeState.workCardId !== candidateId) {
       throw new Error(
-        `Cannot begin ${candidateId} because ${activeAuthority.workCardId} is the active Work Card. Evidence: ${activeAuthority.evidencePaths.join("; ")}`,
+        `Cannot begin ${candidateId} because ${activeState.workCardId} is the active Work Card. Evidence: ${activeState.evidencePaths.join("; ")}`,
       );
     }
     return {
-      phaseId: activeAuthority.phaseId,
-      candidateId: activeAuthority.workCardId,
-      handoffMarkdownPath: activeAuthority.handoff.markdownPath,
-      formalWorkCardMarkdownPath: activeAuthority.formalWorkCardMarkdownPath,
+      phaseId: activeState.phaseId,
+      candidateId: activeState.workCardId,
+      handoffMarkdownPath: activeState.handoff.markdownPath,
+      formalWorkCardMarkdownPath: activeState.formalWorkCardMarkdownPath,
       reusedExisting: true,
     };
   }
@@ -243,19 +239,20 @@ export function beginWorkCardPlanningForCandidate(
   return generateWorkCardIntakeHandoff(workspaceRoot, phaseId, candidateId, options);
 }
 
-export function resolveActiveWorkCardAuthority(
+export function resolveActiveWorkCardState(
   workspaceRoot: string,
   phaseId?: string,
-  options: ActiveWorkCardAuthorityOptions = {},
-): ActiveWorkCardAuthority {
-  return resolveActiveWorkCardAuthorityFromLoop(workspaceRoot, phaseId, options);
+  planningContext?: PlanningProjectionContext,
+): ActiveWorkCardState {
+  return resolveActiveWorkCardStateFromLoop(workspaceRoot, phaseId, planningContext);
 }
 
 export function resolveActiveWorkCardPlanningHandoff(
   workspaceRoot: string,
   phaseId?: string,
+  planningContext?: PlanningProjectionContext,
 ): ActiveWorkCardPlanningHandoff | undefined {
-  return resolveActiveWorkCardPlanningHandoffFromLoop(workspaceRoot, phaseId);
+  return resolveActiveWorkCardPlanningHandoffFromLoop(workspaceRoot, phaseId, planningContext);
 }
 
 function resolveWorkCardIntakeContext(
@@ -285,31 +282,31 @@ function resolveRequestedWorkCardIntakeContext(
   candidateId: string,
   options: WorkCardMapProjectionOptions,
 ): WorkCardIntakeContext {
-  const authority = resolveWorkCardLoopAuthority(workspaceRoot, phaseId, options);
-  const candidateProjection = authority.candidates.find((candidate) => candidate.candidateId === candidateId);
+  const loopState = resolveWorkCardLoopState(workspaceRoot, phaseId, options);
+  const candidateProjection = loopState.candidates.find((candidate) => candidate.candidateId === candidateId);
   if (!candidateProjection) {
     throw new Error(`Requested Work Card candidate does not exist in the current Work Card Plan: ${candidateId}`);
   }
-  if (authority.status === "conflict") {
-    throw new Error(`${authority.reason} Evidence: ${authority.sourceEvidence.join("; ")}`);
+  if (loopState.status === "conflict") {
+    throw new Error(`${loopState.reason} Evidence: ${loopState.sourceEvidence.join("; ")}`);
   }
-  if (authority.status === "no-plan" || authority.status === "not-applicable") {
-    throw new Error(authority.reason);
+  if (loopState.status === "no-plan" || loopState.status === "not-applicable") {
+    throw new Error(loopState.reason);
   }
-  if (authority.status === "all-complete") {
-    throw new Error(`Begin Planning requires an Eligible Work Card candidate: ${candidateId}. ${authority.reason}`);
+  if (loopState.status === "all-complete") {
+    throw new Error(`Begin Planning requires an Eligible Work Card candidate: ${candidateId}. ${loopState.reason}`);
   }
-  if (authority.status === "active") {
-    if (authority.workCardId !== candidateId || !candidateProjection.isActive) {
+  if (loopState.status === "active") {
+    if (loopState.workCardId !== candidateId || !candidateProjection.isActive) {
       throw new Error(
-        `Cannot begin ${candidateId} because ${authority.workCardId ?? "another Work Card"} is the active Work Card. Evidence: ${authority.sourceEvidence.join("; ")}`,
+        `Cannot begin ${candidateId} because ${loopState.workCardId ?? "another Work Card"} is the active Work Card. Evidence: ${loopState.sourceEvidence.join("; ")}`,
       );
     }
     return buildWorkCardIntakeContext(
       workspaceRoot,
       phaseId,
       requirePlannedCandidate(workspaceRoot, phaseId, candidateId),
-      candidateProjection.reason || authority.reason,
+      candidateProjection.reason || loopState.reason,
     );
   }
   if (candidateProjection.status !== "Eligible") {
@@ -372,7 +369,7 @@ function workCardIntakeTargets(
   phaseId: string,
   candidate: Pick<WorkCardCandidate, "candidateId" | "title">,
 ): Pick<WorkCardIntakeProjection, "handoffMarkdownPath" | "formalWorkCardMarkdownPath"> {
-  return authorityWorkCardIntakeTargets(phaseId, candidate);
+  return loopStateWorkCardIntakeTargets(phaseId, candidate);
 }
 
 function currentApprovedHandoffForCandidate(

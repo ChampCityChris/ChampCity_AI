@@ -10,6 +10,7 @@ import {
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { SourceRevision } from "../../shared/documents/planningDocument";
 import { writeArtifactTransaction } from "./artifactTransaction";
+import { invalidatePlanningRepositorySnapshotPaths } from "./planningRepositorySnapshot";
 
 interface CanonicalMarkdownWriterTestHooks {
   failInstalledVerification?: (relativePath: string) => Error | string | undefined;
@@ -86,6 +87,81 @@ export function writeCanonicalMarkdownDocuments(
       }
     },
   );
+  invalidatePlanningRepositorySnapshotPaths(
+    workspaceRoot,
+    documents.map((document) => document.relativePath),
+  );
+}
+
+export function writeCanonicalMarkdownDocumentOnce(
+  input: WriteCanonicalMarkdownDocumentInput,
+): void {
+  const workspaceRoot = path.resolve(input.workspaceRoot);
+  const relativePath = validateMarkdownRelativePath(input.relativePath);
+  const absolutePath = path.resolve(workspaceRoot, relativePath);
+  const content = serializeCanonicalMarkdownDocument(input.metadata, input.bodyMarkdown);
+  const expected = parseCanonicalMarkdownDocument(content);
+  let descriptor: number | undefined;
+  let created = false;
+
+  try {
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    descriptor = fs.openSync(absolutePath, "wx");
+    created = true;
+    fs.writeFileSync(descriptor, content, "utf8");
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = undefined;
+
+    const injectedError = testHooks.failInstalledVerification?.(relativePath);
+    if (injectedError) {
+      throw injectedError instanceof Error ? injectedError : new Error(injectedError);
+    }
+    const installed = parseCanonicalMarkdownDocument(fs.readFileSync(absolutePath, "utf8"));
+    if (JSON.stringify(installed.metadata) !== JSON.stringify(input.metadata)) {
+      throw new Error("Installed write-once canonical metadata verification failed.");
+    }
+    if (installed.bodyMarkdown !== expected.bodyMarkdown) {
+      throw new Error("Installed write-once canonical body verification failed.");
+    }
+  } catch (error) {
+    if (descriptor !== undefined) {
+      fs.closeSync(descriptor);
+    }
+    if (created && fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
+    throw error;
+  }
+  invalidatePlanningRepositorySnapshotPaths(workspaceRoot, [relativePath]);
+}
+
+export function replaceCanonicalMarkdownBodyPreservingMetadata(input: {
+  workspaceRoot: string;
+  relativePath: string;
+  metadataEnvelope: string;
+  expectedMetadata: CanonicalDocumentMetadata;
+  bodyMarkdown: string;
+}): void {
+  const relativePath = validateMarkdownRelativePath(input.relativePath);
+  const bodyMarkdown = `${input.bodyMarkdown.replace(/\r\n?/g, "\n").replace(/\n*$/, "")}\n`;
+  const content = `${input.metadataEnvelope}\n\n${bodyMarkdown}`;
+  const expected = parseCanonicalMarkdownDocument(content);
+  if (JSON.stringify(expected.metadata) !== JSON.stringify(input.expectedMetadata)) {
+    throw new Error("Controlled canonical metadata envelope does not match expected application metadata.");
+  }
+  writeArtifactTransaction(input.workspaceRoot, [{ relativePath, content }], () => {
+    const installed = parseCanonicalMarkdownDocument(
+      fs.readFileSync(path.join(path.resolve(input.workspaceRoot), relativePath), "utf8"),
+    );
+    if (JSON.stringify(installed.metadata) !== JSON.stringify(input.expectedMetadata)) {
+      throw new Error("Installed controlled canonical metadata verification failed.");
+    }
+    if (installed.bodyMarkdown !== expected.bodyMarkdown) {
+      throw new Error("Installed controlled canonical body verification failed.");
+    }
+  });
+  invalidatePlanningRepositorySnapshotPaths(input.workspaceRoot, [relativePath]);
 }
 
 export function updateCanonicalMarkdownDisposition(input: {

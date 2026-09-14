@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../core/errors";
+import { assertGenericMarkdownMutationAllowed } from "./controlledMarkdownDrafts";
 import { resolveRepositoryPath } from "./pathPolicy";
 
 export interface PendingPatchProposal {
@@ -123,6 +124,9 @@ function applySimplePatch(root: string, patch: string): void {
     }
     if (updateMatch) {
       const target = resolveRepositoryPath(root, updateMatch[1]);
+      if (path.extname(target.relativePath).toLowerCase() === ".md") {
+        assertGenericMarkdownMutationAllowed(root, target.relativePath);
+      }
       let content = fs.readFileSync(target.resolvedPath, "utf8");
       index += 1;
       while (index < lines.length && !lines[index].startsWith("*** ")) {

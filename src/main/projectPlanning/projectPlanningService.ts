@@ -36,9 +36,13 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 
 const projectPlanningSubmissionContractId = "project-planning-output-submission-v2";
 
@@ -89,9 +93,11 @@ export function generateProjectPlanningHandoff(workspaceRoot: string): ProjectPl
 
 export function getProjectPlanningWorkspaceModel(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): ProjectPlanningWorkspaceModel {
   const draftStatus = getProjectPlanningDraftBundleStatus(workspaceRoot);
-  const context = resolveProjectPlanningContext(workspaceRoot);
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolveProjectPlanningContext(workspaceRoot, contextSnapshot);
   if (context.status !== "ready") {
     return {
       state: context.status === "not-ready" ? "not-ready" : "needs-attention",
@@ -228,13 +234,17 @@ export function reviewProjectPlanningBundle(
   return getProjectPlanningWorkspaceModel(workspaceRoot);
 }
 
-export function getProjectPlanningCompletion(workspaceRoot: string): ProjectPlanningCompletion {
-  const context = resolveProjectPlanningContext(workspaceRoot);
+export function getProjectPlanningCompletion(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): ProjectPlanningCompletion {
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolveProjectPlanningContext(workspaceRoot, contextSnapshot);
   if (context.status !== "ready" || !context.profile || !context.roadmap) {
     return { complete: false, reason: "Project Profile and Project Roadmap are both required." };
   }
-  const profileFreshness = evaluateDocumentFreshness(workspaceRoot, context.profile.logicalDocumentId);
-  const roadmapFreshness = evaluateDocumentFreshness(workspaceRoot, context.roadmap.logicalDocumentId);
+  const profileFreshness = evaluateDocumentFreshness(contextSnapshot, context.profile.logicalDocumentId);
+  const roadmapFreshness = evaluateDocumentFreshness(contextSnapshot, context.roadmap.logicalDocumentId);
   const complete =
     context.profile.disposition === "Approved" &&
     context.roadmap.disposition === "Approved" &&
@@ -283,7 +293,7 @@ function projectPlanningHandoffMetadata(
     participationRole: "nonReviewHandoff",
     identity: { handoffKind: "project-planning" },
     sourceRevisions: context.sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       {
         handoffKind: "project-planning",
         contractId: projectPlanningSubmissionContractId,
@@ -297,7 +307,7 @@ function projectPlanningHandoffMetadata(
         requiredProfileSections: projectPlanningRequiredProfileSections(),
         requiredRoadmapSections: projectPlanningRequiredRoadmapSections(),
       },
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
     ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
@@ -311,6 +321,12 @@ function buildProjectPlanningHandoffBody(context: ReturnType<typeof requireReady
     `Reconciliation Mode: ${context.reconciliationMode}`,
     `Repository Review Required: ${context.repositoryReviewRequired ? "true" : "false"}`,
     `Repository Review Context: ${context.repositoryReviewContext}`,
+    "",
+    "Repository evidence and architecture-preservation rules:",
+    "- When repository review context is present, use it to identify and inspect materially relevant evidence before drafting.",
+    "- Distinguish verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions.",
+    "- Governing, approved, adopted, canonical, or otherwise Operator-established architecture constrains the Project Profile and Project Roadmap unless the Operator explicitly revises it.",
+    "- Do not invent a second architecture or reinterpret established architecture into incompatible subsystem ownership merely to fill the planning template.",
     "",
     `Project Intake Markdown: ${context.projectIntake.markdownPath}`,
     `Architect Interview Prompt Markdown: ${context.prompt.markdownPath}`,
@@ -340,11 +356,16 @@ function buildProjectPlanningHandoffBody(context: ReturnType<typeof requireReady
     ...projectPlanningRequiredRoadmapSections().map((heading) => `- ${heading}`),
     "",
     "Roadmap sequencing rule:",
+    "- Prioritize the shortest dependency-complete path to the next coherent usable or productive milestone.",
+    "- Organize phases around independently meaningful outcomes rather than architectural components merely because those components exist.",
+    "- Place enabling, tooling, and foundation work at or immediately before its first consuming outcome when it can remain one coherent bounded phase.",
+    "- Avoid standalone horizontal foundation phases without an independent outcome; create one only when the prerequisite is independently substantial, serves multiple later outcomes, or cannot remain bounded inside the first consuming outcome.",
+    "- Avoid speculative prework not required by the current milestone, preserve semantically required architecture dependency or extraction order, and use Phase Planning or Work Card dependencies for fine-grained sequencing.",
     "- Missing development capabilities required by planned implementation must be sequenced as project work before dependent work.",
     "- Engineering or foundation stages must establish both machine readiness and repository readiness when applicable.",
     "- Required capabilities must derive from approved architecture and intended implementation work; do not invent tools merely to fill a foundation.",
     "",
-    "Browser chat is not durable authority. The Architect must create both temporary body-only Markdown drafts through the generic artifact toolbox Markdown writer.",
+    "Browser chat is not a durable record. The Architect must create both temporary body-only Markdown drafts through the generic artifact toolbox Markdown writer.",
     "",
   ].join("\n");
 }
@@ -484,9 +505,9 @@ function buildProjectPlanningHandoffInstruction(
       ? [{ path: context.handoff.markdownPath, revision: context.handoff.artifactRevision }]
       : []),
   ];
-  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+  const promptWorkflowData = mergeRepositoryBindingIntoWorkflowData(
     {},
-    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, promptSourceRevisions),
+    inheritRepositoryBindingFromSourceRevisions(workspaceRoot, promptSourceRevisions),
   );
   return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
@@ -498,7 +519,7 @@ function buildProjectPlanningHandoffInstruction(
     `- Approved Architect Interview Markdown: ${context.interview.markdownPath}`,
     `- Approved Project Planning handoff Markdown: ${context.handoffMarkdownPath}`,
     "",
-    "The Approved Project Planning handoff is the authority for this contract:",
+    "The Approved Project Planning handoff is the canonical source for this contract:",
     `- contractId: ${projectPlanningSubmissionContractId}`,
     `- reconciliationMode: ${context.reconciliationMode}`,
     `- repositoryReviewRequired: ${context.repositoryReviewRequired ? "true" : "false"}`,
@@ -507,8 +528,10 @@ function buildProjectPlanningHandoffInstruction(
     `- sourceEvidencePaths: ${JSON.stringify(context.sourceEvidencePaths)}`,
     "",
     "Inspect required repository evidence through ChampCity MCP before drafting outputs.",
-    "Distinguish verified implementation from declared intent.",
-    "Reconcile materially relevant legacy planning as evidence, not authority.",
+    "When repositoryReviewContext is present, use it to identify and inspect the materially relevant evidence before drafting; do not treat it as decorative context.",
+    "Distinguish verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions.",
+    "Treat architecture identified by Intake or repository evidence as governing, approved, adopted, canonical, or otherwise Operator-established as a controlling constraint on both the Project Profile and Project Roadmap unless the Operator explicitly revises it.",
+    "Do not invent a second architecture or reinterpret established architecture into incompatible subsystem ownership merely to fill the planning template. Do not treat legacy evidence as canonical unless evidence establishes it as governing.",
     "Treat project ground zero as the selected project repository plus the local development machine. Do not assume a greenfield repository means the host development environment is ready.",
     "",
     "Produce both complete Markdown document bodies for these exact repository-relative targets:",
@@ -536,6 +559,14 @@ function buildProjectPlanningHandoffInstruction(
     "",
     "The Roadmap must begin from the Profile baseline and distinguish, as applicable: Already implemented, Partially implemented, Planned but not implemented, Superseded, Deferred, and New work.",
     "The Roadmap must cover the complete currently intended development lifecycle, not only the MVP boundary.",
+    "Prioritize the shortest dependency-complete path to the next coherent usable or productive milestone.",
+    "Organize phases around independently meaningful outcomes, not around architectural components merely because those components exist.",
+    "Place enabling, tooling, and foundation work at or immediately before the first outcome that consumes it whenever the work can remain one coherent bounded phase.",
+    "Avoid standalone horizontal foundation phases when enabling work has no independent outcome and can be safely delivered as Work Cards inside the consuming phase.",
+    "Create a separate foundation phase only when the prerequisite is independently substantial, must complete before multiple later outcomes, or cannot remain bounded inside the first consuming outcome.",
+    "Avoid speculative prework for future capabilities that are not required by the current milestone.",
+    "Preserve explicit architecture-defined dependency or extraction order where that order is semantically required.",
+    "Use Phase Planning and Work Card dependencies for fine-grained sequencing instead of expanding every prerequisite into a Project phase.",
     "Missing development capabilities required by planned implementation must be sequenced as project work before dependent work. Engineering or foundation stages must establish both machine readiness and repository readiness when applicable.",
     "Do not invent unnecessary tools to populate a foundation; required capabilities must derive from approved architecture and intended implementation work.",
     "MVP phases must remain clearly identified.",
@@ -567,7 +598,7 @@ function buildProjectPlanningHandoffInstruction(
       promptWorkflowData,
     ),
     "```",
-    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, reconciliation fields, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
+    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, reconciliation fields, route selectors, fallback fields, hidden application-control values, or any other application-owned fields as params.",
     "Do not write placeholders. Do not call retired Project Planning submission actions, retired save actions, domain-specific write routes, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",
     "After both drafts are created, respond with a concise draft-created confirmation.",
     "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",

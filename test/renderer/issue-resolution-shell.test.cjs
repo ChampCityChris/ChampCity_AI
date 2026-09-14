@@ -50,8 +50,7 @@ test("Issue Resolution rail exposes parent lifecycle and gates Architect Plannin
     "Fix Card Map",
     "Planning",
     "Implement",
-    "Architect Review",
-    "Fix Card Validation",
+    "Review & Validation",
     "Repair",
     "Close / Next",
   ]);
@@ -68,6 +67,23 @@ test("Issue sidebar shows workflow return, project, current Issue, Settings, and
       recordState: "readable",
       bodyMarkdown: "# ISSUE_001",
     },
+    issueInventory: {
+      issues: [{
+        issueId: "ISSUE_001",
+        numericId: 1,
+        title: "No Independent Issue Resolution Workflow",
+        recordPath: "issues/ISSUE_001/ISSUE_RECORD.md",
+        recordState: "readable",
+        bodyMarkdown: "# ISSUE_001",
+      }, {
+        issueId: "ISSUE_002",
+        numericId: 2,
+        title: "Open Application Landing Page",
+        recordPath: "issues/ISSUE_002/ISSUE_RECORD.md",
+        recordState: "readable",
+        bodyMarkdown: "# ISSUE_002",
+      }],
+    },
     issueWorkflowStatus: {
       issueId: "ISSUE_001",
       stageId: "architect-planning",
@@ -82,6 +98,8 @@ test("Issue sidebar shows workflow return, project, current Issue, Settings, and
     mode: "issue-resolution",
     onChooseProject: () => undefined,
     onClearProject: () => undefined,
+    onBrowseIssues: () => undefined,
+    onIssueSelect: () => undefined,
     onOpenSettings: () => undefined,
     onReturnToWorkflowHub: () => undefined,
     onThemeChange: () => undefined,
@@ -93,8 +111,11 @@ test("Issue sidebar shows workflow return, project, current Issue, Settings, and
   assert.match(markup, /Workflows/);
   assert.match(markup, /ChampCity_AI/);
   assert.match(markup, /Current Issue/);
+  assert.match(markup, /aria-label="Current Issue"/);
   assert.match(markup, /ISSUE_001/);
+  assert.match(markup, /ISSUE_002/);
   assert.match(markup, /No Independent Issue Resolution Workflow/);
+  assert.match(markup, /Browse \/ New Issue/);
   assert.match(markup, /Stage/);
   assert.match(markup, /Architect Planning/);
   assert.match(markup, /Awaiting Operator Review/);
@@ -136,7 +157,7 @@ test("Issue Intake renders selected record read-only and bounded New Issue field
   assert.doesNotMatch(markup, /Root Cause|Severity|Assignee|Sprint|SLA|Phase Position|Work Card/);
 });
 
-test("Issue entry branch does not invoke Development resolver authority", () => {
+test("Issue entry branch does not invoke Development resolver state", () => {
   const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
   const openWorkflowSource = extractFunctionSource(appSource, "async function openWorkflow", "function returnToWorkflowHub");
   const issueBranch = openWorkflowSource.slice(
@@ -145,10 +166,71 @@ test("Issue entry branch does not invoke Development resolver authority", () => 
   );
 
   assert.match(issueBranch, /setActiveWorkflowId\("issue-resolution"\)/);
-  assert.match(issueBranch, /refreshIssueInventory\(\)/);
+  assert.match(issueBranch, /refreshIssueInventory\(undefined, true\)/);
   assert.doesNotMatch(issueBranch, /refreshDocuments|resolveCurrentDocument|getCurrentWorkspaceModel/);
   assert.match(appSource, /<IssueResolutionRail[\s\S]*?activeStageId=\{activeIssueStageId\}/);
+  assert.match(appSource, /onIssueSelect=\{isIssueResolutionForeground \? \(issueId\) => void selectIssueFromSidebar\(issueId\) : undefined\}/);
+  assert.match(appSource, /setActiveIssueFixCardStepId\("fix-card-map"\)[\s\S]*?getIssueResolutionNavigationProjection\(issueId\)/);
+  assert.match(appSource, /const nextStage: IssueResolutionStageId = navigation\.currentStageId/);
+  assert.match(appSource, /nextStage === "issue-close"[\s\S]*?getIssueCloseProjection\(issueId\)/);
+  assert.match(appSource, /nextStage === "issue-validation"[\s\S]*?getIssueValidationProjection\(issueId\)/);
+  assert.match(appSource, /window\.champcity\.closeIssue\(currentIssue\.issueId, input\)[\s\S]*?returnToWorkflowHub\(\)/);
+  assert.match(openWorkflowSource, /setActiveWorkflowId\("development"\)[\s\S]*?refreshDocuments\(\{ useResolver: true \}\)/);
+  assert.doesNotMatch(appSource, /developmentStateBeforeIssue|isIssueClosed|restoreDevelopment|snapshotDevelopment/);
   assert.doesNotMatch(appSource, /isIssueResolutionForeground[\s\S]{0,180}<NestedWorkflowRail/);
+});
+
+test("Approved validation action, refresh, selection, and re-entry adopt repository-derived Issue Close", () => {
+  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
+  const decisionSource = extractFunctionSource(
+    appSource,
+    "async function runIssueValidationDecision",
+    "async function refreshIssueCloseProjection",
+  );
+  assertOrdered(decisionSource, [
+    "applyIssueValidationDecision(currentIssue.issueId, input)",
+    "setIssueValidationProjection(result.projection)",
+    "applyIssuePostMutationProjection(result.postMutation, { synchronizeStage: true })",
+  ]);
+  assert.doesNotMatch(decisionSource, /getIssueResolutionNavigationProjection|getIssueCloseProjection|getIssuePlanningProjection/);
+
+  const refreshSource = extractFunctionSource(
+    appSource,
+    "async function refreshIssueValidationProjection",
+    "async function runIssueValidationDecision",
+  );
+  assertOrdered(refreshSource, [
+    "getIssueValidationProjection(issueId)",
+    "options.synchronizeStage",
+    "getIssueResolutionNavigationProjection(issueId)",
+    "setActiveIssueStageId(navigation.currentStageId)",
+    'navigation.currentStageId === "issue-close"',
+    "getIssueCloseProjection(issueId)",
+  ]);
+
+  const selectionSource = extractFunctionSource(
+    appSource,
+    "async function selectIssueFromSidebar",
+    "function browseIssuesFromSidebar",
+  );
+  assertOrdered(selectionSource, [
+    "getIssueResolutionNavigationProjection(issueId)",
+    "navigation.currentStageId",
+    'nextStage === "issue-close"',
+    "getIssueCloseProjection(issueId)",
+  ]);
+
+  const openWorkflowSource = extractFunctionSource(appSource, "async function openWorkflow", "function returnToWorkflowHub");
+  assertOrdered(openWorkflowSource, [
+    'workflowId === "issue-resolution"',
+    'setActiveWorkflowId("issue-resolution")',
+    "refreshIssueInventory(undefined, true)",
+  ]);
+  assert.match(
+    appSource,
+    /activeIssueStageId !== "issue-close"[\s\S]*?refreshIssueCloseProjection\(currentIssue\.issueId\)/,
+  );
+  assert.match(appSource, /activeIssueStageId === "issue-close"[\s\S]*?<IssueCloseWorkspace/);
 });
 
 function extractFunctionSource(source, startNeedle, endNeedle) {
@@ -157,6 +239,16 @@ function extractFunctionSource(source, startNeedle, endNeedle) {
   const end = source.indexOf(endNeedle, start);
   assert.notEqual(end, -1, `${endNeedle} not found after ${startNeedle}`);
   return source.slice(start, end);
+}
+
+function assertOrdered(source, needles) {
+  let previous = -1;
+  for (const needle of needles) {
+    const next = source.indexOf(needle, previous + 1);
+    assert.notEqual(next, -1, `${needle} not found in expected sequence`);
+    assert.ok(next > previous, `${needle} is out of order`);
+    previous = next;
+  }
 }
 
 function sampleCurrentModel() {

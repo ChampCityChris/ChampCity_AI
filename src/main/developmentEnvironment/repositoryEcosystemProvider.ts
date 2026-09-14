@@ -78,7 +78,7 @@ export function repositoryEcosystemProviderAttempt(
     stage: "discovery",
     outcome: providers.length > 0 ? "available" : "not-applicable",
     summary: providers.length > 0
-      ? `Repository-native dependency authority detected: ${providers.map((provider) => provider.ecosystem).join(", ")}.`
+      ? `Repository-native dependency source detected: ${providers.map((provider) => provider.ecosystem).join(", ")}.`
       : "No repository-native dependency manifests were detected for this managed requirement.",
     candidates: providers.map((provider) => ({
       packageName: provider.ecosystem,

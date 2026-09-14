@@ -241,6 +241,8 @@ test("Operator review persists dispositions and only Approved Proceed enables Is
     assert.equal(reviewed.projection.workflowStatus.issuePlanningEligible, expectedEligible);
     assert.equal(reviewed.projection.operatorDisposition, "Approved");
     assert.equal(reviewed.projection.operatorReviewNotes, "Accepted.");
+    assert.equal(reviewed.postMutation.navigation.issueId, issueId);
+    assert.equal(reviewed.postMutation.navigation.issuePlanningAvailable, expectedEligible);
     const reviewBody = fs.readFileSync(path.join(root, "issues", issueId, "ARCHITECT_REVIEW.md"), "utf8");
     assert.match(reviewBody, new RegExp(`## Issue ID\\n${issueId}`));
     assert.match(reviewBody, new RegExp(`## Architect Recommendation\\n${escapeRegex(recommendation)}`));
@@ -335,7 +337,7 @@ function validInvestigation(issueId, recommendation = "Proceed in Issue Resoluti
     "Reviewed the Issue Record, runtime shell contracts, renderer workflow routing, main-process services, and focused tests.",
     "",
     "## Confirmed Current Architecture",
-    "Issue Resolution is a peer workflow beneath the selected project and must stay separate from Development lifecycle authority.",
+    "Issue Resolution is a peer workflow beneath the selected project and must stay separate from Development lifecycle state.",
     "",
     "## Root Cause",
     "The missing stage behavior is caused by Architect Planning not yet having an Issue-owned service and projection.",

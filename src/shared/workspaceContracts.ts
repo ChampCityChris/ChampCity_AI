@@ -1,3 +1,4 @@
+import type { CodexManagedRuntimeStatus, CodexModelSelection } from "./codexRuntimeContracts";
 import type {
   FirstNonApprovedResult,
 } from "./documents/documentOrder";
@@ -14,9 +15,26 @@ import type {
 import type {
   CreateIssueResult,
   IssueArchitectPlanningActionResult,
+  IssueArchitectPlanningMutationResult,
   IssueArchitectPlanningProjection,
   IssueArchitectReviewInput,
+  IssueFixCardActionResult,
+  IssueFixCardMutationResult,
+  IssueFixCardLoopStepId,
+  IssueFixCardProjection,
+  IssueFixCardValidationDecisionInput,
   IssueInventoryProjection,
+  IssueCloseActionInput,
+  IssueCloseActionResult,
+  IssueCloseProjection,
+  IssuePlanningActionResult,
+  IssuePlanningMutationResult,
+  IssuePlanningProjection,
+  IssueValidationActionResult,
+  IssueValidationMutationResult,
+  IssueValidationDecisionInput,
+  IssueValidationProjection,
+  IssueResolutionNavigationProjection,
   NewIssueInput,
 } from "./issueResolutionContracts";
 import {
@@ -32,7 +50,9 @@ export type WorkspaceSelection =
   | {
       ok: true;
       workspaceRoot: string;
+      evidenceGeneration?: number;
       mcpWorkspaceBinding?: McpWorkspaceBinding;
+      mcpRegistrationError?: string;
     }
   | {
       ok: false;
@@ -71,6 +91,236 @@ export interface AgentHarnessSettingsInput {
   localAuthenticationMode?: AgentHarnessAuthenticationMode;
 }
 
+export interface AgentHarnessServiceHostLifecycleSettings {
+  launchAtLogin: boolean;
+}
+
+export interface AgentHarnessServiceHostLifecycleSettingsInput {
+  launchAtLogin: boolean;
+}
+
+export type AgentHarnessServiceLifecycleState =
+  | "starting"
+  | "ready"
+  | "suspending"
+  | "suspended"
+  | "resuming"
+  | "recovering"
+  | "degraded"
+  | "stopping";
+
+export type AgentHarnessServiceRecoveryReason =
+  | "startup"
+  | "power-suspend"
+  | "resume-reset"
+  | "resume-liveness-timeout"
+  | "resume-readiness-failed"
+  | "heartbeat-timeout"
+  | "heartbeat-miss-threshold"
+  | "worker-exited"
+  | "worker-restart-backoff"
+  | "worker-recovery-exhausted"
+  | "build-generation-mismatch"
+  | "controlled-restart"
+  | "controlled-restart-drain-timeout"
+  | "host-stopping";
+
+export interface AgentHarnessControlledRestartDisposition {
+  outcome: "drained" | "deadline-exceeded" | "no-runtime";
+  activeRequestsAtStart: number;
+  activeRequestsAtEnd: number;
+  requestedAt: string;
+  completedAt: string;
+}
+
+export interface AgentHarnessServiceHostLifecycleStatus {
+  state: AgentHarnessServiceLifecycleState | "unavailable" | "restart-required" | "stopped-by-user";
+  reason: AgentHarnessServiceRecoveryReason | null;
+  stateChangedAt: string | null;
+  powerEpoch: number;
+  serviceHostProcessId: number | null;
+  workerProcessId: number | null;
+  workerRecoveryState: "idle" | "recovering" | "circuit-open";
+  consecutiveHeartbeatMisses: number;
+  runtimeBuildIdentity: string | null;
+  expectedBuildIdentity: string | null;
+  restartRequired: boolean;
+  lastControlledRestart: AgentHarnessControlledRestartDisposition | null;
+  launchAtLogin: boolean;
+  loginItemRegistered: boolean;
+  executableWillLaunchAtLogin: boolean;
+  startupRegistrationSupported: boolean;
+  startupRegistrationScope: "user" | "machine" | null;
+  trayPresent: boolean;
+  explicitlyStopped: boolean;
+  explicitStopState: "none" | "requested" | "invalid";
+  lastError: string | null;
+}
+
+export interface AgentHarnessToolContractToolSummary {
+  name: string;
+  actions: string[];
+}
+
+export interface AgentHarnessToolContractSnapshot {
+  scope: string;
+  fingerprint: string;
+  toolCount: number;
+  tools: AgentHarnessToolContractToolSummary[];
+}
+
+export interface AgentHarnessPublishedToolContractSnapshot extends AgentHarnessToolContractSnapshot {
+  current: boolean;
+  sessionCount: number;
+}
+
+export interface AgentHarnessMcpSessionDiagnostics {
+  retainedSessionCount: number;
+  busySessionCount: number;
+  idleSessionCount: number;
+  streamingSessionCount: number;
+  inFlightSessionCount: number;
+  currentInFlightRequestCount: number;
+  liveStreamCount: number;
+  totalCreated: number;
+  totalDisposed: {
+    cleanClose: number;
+    idleTtl: number;
+    capEviction: number;
+    runtimeClose: number;
+    resumeReset: number;
+    initializationFailure: number;
+  };
+  rejectedInitializationCount: number;
+  reaperTimerCount: number;
+  reaperRunCount: number;
+  lastSuccessfulReaperAt: string | null;
+  limits: {
+    globalCap: number;
+    perPrincipalCap: number;
+    idleTtlMs: number;
+  };
+}
+
+export type AgentHarnessRequestOutcome =
+  | "in-flight"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "timed-out";
+
+export type AgentHarnessReadinessReasonCode =
+  | "ready"
+  | "suspend-admission-paused"
+  | "resume-reconciliation"
+  | "controlled-restart-draining"
+  | "runtime-closing"
+  | "runtime-not-running"
+  | "workspace-registry-unavailable"
+  | "service-failed";
+
+export interface AgentHarnessRecentRequestSummary {
+  attemptId: string;
+  toolbox: string;
+  action: string;
+  workspaceId: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  outcome: AgentHarnessRequestOutcome;
+  reasonCode: string | null;
+}
+
+export interface AgentHarnessOperationalDiagnostics {
+  schemaVersion: 1;
+  workerGeneration: string;
+  capturedAt: string;
+  readiness: {
+    state: "ready" | "degraded";
+    reasonCode: AgentHarnessReadinessReasonCode;
+  };
+  sessions: AgentHarnessMcpSessionDiagnostics;
+  requests: {
+    currentInFlight: number;
+    totalBegun: number;
+    totalCompleted: number;
+    totalFailed: number;
+    totalCancelled: number;
+    totalTimedOut: number;
+    latencyMs: {
+      sampleCount: number;
+      p50: number;
+      p95: number;
+      maximum: number;
+      histogram: Array<{ upperBoundMs: number | null; count: number }>;
+    };
+  };
+  toolContract: {
+    currentGeneration: string;
+    captureCount: number;
+    publicationGenerationCount: number;
+    periodicRecaptureTimerCount: number;
+  };
+  eventLoopLagMs: {
+    p95: number;
+    maximum: number;
+  };
+  lifecycle: {
+    lastSuspendAt: string | null;
+    lastResumeAt: string | null;
+    lastRecoveryStartedAt: string | null;
+    lastReadyAt: string | null;
+    workerRestartCount: number;
+    lastWorkerRestartReason: string | null;
+  };
+  repositoryIncompleteByReason: Record<string, number>;
+  recentRequests: AgentHarnessRecentRequestSummary[];
+  limits: {
+    recentRequestCapacity: number;
+    latencySampleCapacity: number;
+  };
+}
+
+export interface AgentHarnessToolContractDiagnostics {
+  registry: AgentHarnessToolContractSnapshot;
+  published: {
+    state: "none" | "all-current" | "stale";
+    runtimeGeneration: string | null;
+    capturedScopeCount: number;
+    contractCaptureCount: number;
+    explicitGenerationChangeCount: number;
+    lastControlledPublicationAt: string | null;
+    periodicContractTimerCount: number;
+    activeSessionCount: number;
+    staleSessionCount: number;
+    contracts: AgentHarnessPublishedToolContractSnapshot[];
+    sessionLifecycle: AgentHarnessMcpSessionDiagnostics;
+  };
+}
+
+export interface AgentHarnessRegisteredWorkspaceSummary {
+  workspaceId: string;
+  repositoryName: string;
+  gitBacked: boolean;
+  availability: "available" | "unavailable";
+  validationError: string | null;
+}
+
+export interface AgentHarnessWorkspaceRegistrySnapshot {
+  schemaVersion: 1;
+  state: "ready" | "failed";
+  workspaces: AgentHarnessRegisteredWorkspaceSummary[];
+  error: string | null;
+}
+
+export type AgentHarnessWorkspaceRegistrationResult =
+  | { canceled: true; registry: AgentHarnessWorkspaceRegistrySnapshot }
+  | {
+      canceled: false;
+      workspace: AgentHarnessRegisteredWorkspaceSummary;
+      registry: AgentHarnessWorkspaceRegistrySnapshot;
+    };
+
 export interface AgentHarnessStatus {
   state: "stopped" | "starting" | "running" | "stopping" | "failed";
   enabled: boolean;
@@ -78,6 +328,7 @@ export interface AgentHarnessStatus {
   configuredPort: number;
   port: number | null;
   healthEndpoint: string | null;
+  readinessEndpoint: string | null;
   mcpEndpoint: string | null;
   publicBaseUrl: string | null;
   publicBaseUrlConfigured: boolean;
@@ -91,6 +342,12 @@ export interface AgentHarnessStatus {
   activeFilesWriteAuthorizationCount: number;
   publicToolCount: number;
   publicToolNames: string[];
+  toolContractDiagnostics: AgentHarnessToolContractDiagnostics;
+  operationalDiagnostics: AgentHarnessOperationalDiagnostics;
+  workspaceRegistryState: "ready" | "failed";
+  workspaceRegistryError: string | null;
+  registeredWorkspaceCount: number;
+  registeredWorkspaceIds: string[];
   activeWorkspaceId: string | null;
   expectedWorkspaceId: string | null;
   selectedProjectRootSummary: string | null;
@@ -296,9 +553,9 @@ export interface ArchitectBrowserFoundationStatus {
   sessionPartition: "persist:champcity-architect";
   browserState: ArchitectBrowserLoadState;
   boundsSequence?: number;
+  attachmentGeneration: number;
   attachment: ArchitectBrowserAttachmentStatus;
   navigationDiagnostics: ArchitectBrowserNavigationDiagnostic[];
-  handoff: ArchitectHandoffManifest;
   security: {
     nodeIntegration: false;
     contextIsolation: true;
@@ -307,7 +564,48 @@ export interface ArchitectBrowserFoundationStatus {
   };
 }
 
+export type ArchitectBrowserBoundsDisposition =
+  | "accepted"
+  | "stale-generation"
+  | "stale-sequence"
+  | "failed";
+
+export interface ArchitectBrowserBoundsAck {
+  attachmentGeneration: number;
+  boundsSequence: number;
+  attachmentState: ArchitectBrowserAttachmentState;
+  disposition: ArchitectBrowserBoundsDisposition;
+  lastError?: string;
+}
+
+export type WorkspaceEvidenceDomain = "planning" | "issues";
+
+export interface WorkspaceEvidenceChangeNotification {
+  domains: WorkspaceEvidenceDomain[];
+  sequence: number;
+  generation: number;
+}
+
 export type ClosureDecision = "Close" | "DoNotClose";
+
+export interface PhaseValidationCloseoutProjection {
+  logicalDocumentId: string;
+  markdownPath: string;
+  artifactRevision: number;
+  effectiveDisposition: DocumentDispositionStatus;
+  closureDecision?: string;
+  freshnessState: "fresh" | "stale";
+}
+
+export interface PhaseValidationActionProjection {
+  eligible: true;
+  phaseId: string;
+  workspaceId: "phase-validation" | "phase-close";
+  requiredAction: "create-closeout" | "dispose-closeout" | "phase-close-complete";
+  sourceEvidence: string[];
+  reason: string;
+  closeout?: PhaseValidationCloseoutProjection;
+}
 
 export interface BrowserViewBounds {
   x: number;
@@ -323,6 +621,29 @@ export interface RuntimeActionResult {
   action: string;
   message: string;
   payload?: unknown;
+}
+
+export interface DevelopmentPostMutationProjection {
+  planningGeneration: number;
+  documents: PlanningDocumentSummary[];
+  resolverResult: FirstNonApprovedResult;
+  currentModel: CurrentWorkspaceModel;
+  projectPlanningModel: ProjectPlanningWorkspaceModel;
+  selectedDocument: PlanningDocumentDetail | null;
+}
+
+export interface DocumentDispositionTransactionResult {
+  document: PlanningDocumentSummary;
+  development: DevelopmentPostMutationProjection;
+}
+
+export interface ArchitectOutputReviewResult {
+  architectOutput: ArchitectOutputWorkspaceModel;
+  development: DevelopmentPostMutationProjection;
+}
+
+export interface CurrentWorkflowMutationResult extends RuntimeActionResult {
+  development: DevelopmentPostMutationProjection;
 }
 
 export type OperatorValidationDecision = "ValidatePassed" | "RequestRepair";
@@ -757,19 +1078,41 @@ export interface WorkCardCandidateSelectionExplanation {
 
 export type CloseReturnSelectionProjection =
   | {
-      state: "selected";
+      state: "selection-required";
       phaseId: string;
       closedWorkCardId: string;
       close: WorkCardCloseProjection;
-      selectionReason: string;
-      workCardIntake: WorkCardIntakeProjection;
+      closeReturnRecordPath: string;
+      closeReturnRecordRevision: number;
+      closeReturnRecordReused: boolean;
+      sourceWorkCardPlanPath: string;
+      candidates: WorkCardMapCandidateProjection[];
+      eligibleCandidates: WorkCardMapCandidateProjection[];
       explanations: WorkCardCandidateSelectionExplanation[];
     }
   | {
-      state: "invalid-plan" | "all-complete" | "dependency-blocked" | "explicitly-resolved";
-      phaseId?: string;
+      state: "all-complete";
+      phaseId: string;
       closedWorkCardId: string;
       close: WorkCardCloseProjection;
+      closeReturnRecordPath: string;
+      closeReturnRecordRevision: number;
+      closeReturnRecordReused: boolean;
+      continuationTarget: "phase-validation";
+      candidates: WorkCardMapCandidateProjection[];
+      reason: string;
+      explanations: WorkCardCandidateSelectionExplanation[];
+    }
+  | {
+      state: "needs-attention";
+      blockerState: "invalid-plan" | "dependency-blocked" | "explicitly-resolved" | "workflow-state-conflict";
+      phaseId: string;
+      closedWorkCardId: string;
+      close: WorkCardCloseProjection;
+      closeReturnRecordPath: string;
+      closeReturnRecordRevision: number;
+      closeReturnRecordReused: boolean;
+      candidates: WorkCardMapCandidateProjection[];
       reason: string;
       explanations: WorkCardCandidateSelectionExplanation[];
     };
@@ -1039,19 +1382,29 @@ export interface ChampCityApi {
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;
   getAgentHarnessStatus: () => Promise<AgentHarnessStatus>;
+  getAgentHarnessServiceHostLifecycleStatus: () => Promise<AgentHarnessServiceHostLifecycleStatus>;
+  startBackgroundAgent: () => Promise<AgentHarnessServiceHostLifecycleStatus>;
+  exitBackgroundAgent: () => Promise<AgentHarnessServiceHostLifecycleStatus>;
+  restartAgentHarnessServiceHost: () => Promise<AgentHarnessServiceHostLifecycleStatus>;
   saveAgentHarnessSettings: (
     settings: AgentHarnessSettingsInput,
   ) => Promise<AgentHarnessStatus>;
+  saveAgentHarnessServiceHostLifecycleSettings: (
+    settings: AgentHarnessServiceHostLifecycleSettingsInput,
+  ) => Promise<AgentHarnessServiceHostLifecycleStatus>;
   importLegacyOAuthClients: () => Promise<LegacyOAuthClientImportResult>;
   startAgentHarness: () => Promise<AgentHarnessStatus>;
   stopAgentHarness: () => Promise<AgentHarnessStatus>;
   restartAgentHarness: () => Promise<AgentHarnessStatus>;
+  listAgentHarnessRegisteredWorkspaces: () => Promise<AgentHarnessWorkspaceRegistrySnapshot>;
+  chooseAndRegisterAgentHarnessWorkspace: () => Promise<AgentHarnessWorkspaceRegistrationResult>;
+  unregisterAgentHarnessWorkspace: (workspaceId: string) => Promise<AgentHarnessWorkspaceRegistrySnapshot>;
   listDocuments: () => Promise<PlanningDocumentSummary[]>;
   readDocument: (logicalDocumentId: string) => Promise<PlanningDocumentDetail>;
   setDocumentDisposition: (
     logicalDocumentId: string,
     status: DocumentDispositionStatus,
-  ) => Promise<PlanningDocumentSummary>;
+  ) => Promise<DocumentDispositionTransactionResult>;
   previewDispositionInitialization: () => Promise<InitializationPreview>;
   applyDispositionInitialization: () => Promise<InitializationResult>;
   previewWorkspaceMigration: () => Promise<WorkspaceMigrationPreview>;
@@ -1063,14 +1416,98 @@ export interface ChampCityApi {
   prepareIssueArchitectPlanningHandoff: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
   copyIssueArchitectPlanningHandoff: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
   promoteIssueArchitectPlanningDraft: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
-  applyIssueArchitectReview: (issueId: string, input: IssueArchitectReviewInput) => Promise<IssueArchitectPlanningActionResult>;
+  applyIssueArchitectReview: (issueId: string, input: IssueArchitectReviewInput) => Promise<IssueArchitectPlanningMutationResult>;
+  getIssuePlanningProjection: (issueId: string | null) => Promise<IssuePlanningProjection>;
+  getIssueResolutionNavigationProjection: (issueId: string | null) => Promise<IssueResolutionNavigationProjection>;
+  getIssueValidationProjection: (issueId: string | null) => Promise<IssueValidationProjection>;
+  applyIssueValidationDecision: (
+    issueId: string,
+    input: IssueValidationDecisionInput,
+  ) => Promise<IssueValidationMutationResult>;
+  getIssueCloseProjection: (issueId: string | null) => Promise<IssueCloseProjection>;
+  closeIssue: (
+    issueId: string,
+    input: IssueCloseActionInput,
+  ) => Promise<IssueCloseActionResult>;
+  prepareIssuePlanningHandoff: (issueId: string) => Promise<IssuePlanningActionResult>;
+  copyIssuePlanningHandoff: (issueId: string) => Promise<IssuePlanningActionResult>;
+  applyIssuePlanningReview: (issueId: string, input: IssueArchitectReviewInput) => Promise<IssuePlanningMutationResult>;
+  getIssueFixCardProjection: (
+    issueId: string | null,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardProjection>;
+  selectIssueFixCardCandidate: (
+    issueId: string,
+    fixCardId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  prepareIssueFixCardPlanningHandoff: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  copyIssueFixCardPlanningHandoff: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  applyIssueFixCardContractReview: (
+    issueId: string,
+    input: IssueArchitectReviewInput,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardMutationResult>;
+  reserveIssueFixCardImplementerReport: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  copyIssueFixCardAdvisoryReviewPrompt: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  applyIssueFixCardValidationDecision: (
+    issueId: string,
+    input: IssueFixCardValidationDecisionInput,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardMutationResult>;
+  prepareIssueFixCardRepairHandoff: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  copyIssueFixCardRepairHandoff: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardActionResult>;
+  closeIssueFixCard: (
+    issueId: string,
+    currentStep?: IssueFixCardLoopStepId,
+  ) => Promise<IssueFixCardMutationResult>;
+  getIssueCodexImplementerExecutionStatus: (
+    issueId: string,
+    fixCardId: string,
+    currentImplementationId?: string,
+  ) => Promise<CodexImplementerExecutionModel>;
+  startIssueCodexImplementerExecution: (
+    issueId: string,
+    fixCardId: string,
+    currentImplementationId: string | undefined,
+    selection: CodexModelSelection,
+  ) => Promise<CodexImplementerExecutionModel>;
+  startIssueCodexEnvironmentResolution: (
+    issueId: string,
+    fixCardId: string,
+    currentImplementationId?: string,
+  ) => Promise<CodexImplementerExecutionModel>;
   submitProjectIntake: (
     submission: ProjectIntakeSubmission,
   ) => Promise<ProjectIntakeSubmissionResult>;
   getArchitectBrowserFoundationStatus: () => Promise<ArchitectBrowserFoundationStatus>;
+  onArchitectBrowserFoundationStatus: (
+    listener: (status: ArchitectBrowserFoundationStatus) => void,
+  ) => () => void;
+  onWorkspaceEvidenceChanged: (
+    listener: (notification: WorkspaceEvidenceChangeNotification) => void,
+  ) => () => void;
   setArchitectBrowserBounds: (
     bounds: BrowserViewBounds,
-  ) => Promise<ArchitectBrowserFoundationStatus>;
+  ) => Promise<ArchitectBrowserBoundsAck>;
   showArchitectBrowser: (
     attachmentGeneration?: number,
   ) => Promise<ArchitectBrowserFoundationStatus>;
@@ -1093,10 +1530,14 @@ export interface ChampCityApi {
     status: DocumentDispositionStatus,
     operatorReviewNotes: string,
     presentedRevisions: ArchitectOutputPresentedSlotRevision[],
-  ) => Promise<ArchitectOutputWorkspaceModel>;
+    selectedDocumentId?: string | null,
+  ) => Promise<ArchitectOutputReviewResult>;
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
+  getPhaseValidationActionProjection: () => Promise<PhaseValidationActionProjection>;
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
-  startCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
+  getCodexManagedRuntimeStatus: () => Promise<CodexManagedRuntimeStatus>;
+  setCodexModelSelection: (selection: CodexModelSelection) => Promise<CodexManagedRuntimeStatus>;
+  startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
   startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
@@ -1115,11 +1556,12 @@ export interface ChampCityApi {
   getCurrentCloseProjection: () => Promise<RuntimeActionResult>;
   getCurrentRepairWorkspaceProjection: () => Promise<RuntimeActionResult>;
   getCloseReturnSelectionProjection: () => Promise<RuntimeActionResult>;
-  generateCloseReturnNextIntakeHandoff: () => Promise<RuntimeActionResult>;
+  generateCloseReturnNextIntakeHandoff: (candidateId: string) => Promise<RuntimeActionResult>;
   copyCurrentWorkCardAdvisoryReviewPrompt: () => Promise<RuntimeActionResult>;
   applyOperatorValidationDecisionForCurrentWorkCard: (
     input: OperatorValidationDecisionInput,
-  ) => Promise<RuntimeActionResult>;
+    selectedDocumentId?: string | null,
+  ) => Promise<CurrentWorkflowMutationResult>;
   applyCurrentDisposition: (
     status: DocumentDispositionStatus,
     operatorReviewNotes?: string,

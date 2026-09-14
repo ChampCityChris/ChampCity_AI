@@ -1,11 +1,20 @@
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
+import {
+  evaluateDocumentFreshness,
+  listPlanningDocuments,
+  setDocumentDisposition,
+  type PlanningReadContext,
+} from "../documents/planningDocumentService";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 import { getPhaseMapProjection } from "../phaseMap/phaseMapService";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 
 export function createProjectCloseout(workspaceRoot: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
   assertProjectCloseEligible(workspaceRoot);
@@ -26,9 +35,9 @@ export function createProjectCloseout(workspaceRoot: string, closureDecision: "C
       participationRole: "compoundGatingReview",
       identity: { closureDecision },
       sourceRevisions,
-      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      workflowData: mergeRepositoryBindingIntoWorkflowData(
         content,
-        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+        inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
       ),
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },
@@ -43,24 +52,32 @@ export function setProjectCloseoutDisposition(workspaceRoot: string, status: Doc
   return setDocumentDisposition(workspaceRoot, closeout.logicalDocumentId, status);
 }
 
-export function getProjectCloseProjection(workspaceRoot: string) {
-  const blockers = projectCloseBlockers(workspaceRoot);
-  const closeout = latestCloseout(workspaceRoot);
+export function getProjectCloseProjection(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+) {
+  const context = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const blockers = projectCloseBlockers(workspaceRoot, context);
+  const closeout = latestCloseout(context);
   if (!closeout) return { complete: false, workspaceId: "project-validation", blockers: blockers.length ? blockers : ["Project Closeout is required."] };
-  const fresh = evaluateDocumentFreshness(workspaceRoot, closeout.logicalDocumentId).state === "fresh";
+  const fresh = evaluateDocumentFreshness(context, closeout.logicalDocumentId).state === "fresh";
   const complete = blockers.length === 0 && fresh && closeout.effectiveDisposition === "Approved" && closeout.metadata.closureDecision === "Close";
   return { complete, workspaceId: complete ? "project-close" : "project-validation", blockers };
 }
 
-export function projectCloseBlockers(workspaceRoot: string): string[] {
-  const documents = listPlanningDocuments(workspaceRoot);
+export function projectCloseBlockers(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): string[] {
+  const context = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const documents = listPlanningDocuments(context);
   const blockers: string[] = [];
   for (const prefix of ["planning/project/PROJECT_PROFILE", "planning/project/Project_Roadmap/PROJECT_ROADMAP", "planning/project/Phase_Map/PHASE_MAP"]) {
     const doc = documents.find((candidate) => candidate.markdownPath.startsWith(prefix));
     if (!doc || doc.effectiveDisposition !== "Approved") blockers.push(`Missing current Approved ${prefix}.`);
-    else if (evaluateDocumentFreshness(workspaceRoot, doc.logicalDocumentId).state === "stale") blockers.push(`Stale ${prefix}.`);
+    else if (evaluateDocumentFreshness(context, doc.logicalDocumentId).state === "stale") blockers.push(`Stale ${prefix}.`);
   }
-  const phaseMap = getPhaseMapProjection(workspaceRoot);
+  const phaseMap = getPhaseMapProjection(workspaceRoot, context);
   if (phaseMap.state !== "all-complete") blockers.push(`Phase Map is not all complete: ${phaseMap.state}.`);
   return blockers;
 }
@@ -70,8 +87,8 @@ function assertProjectCloseEligible(workspaceRoot: string): void {
   if (blockers.length > 0) throw new Error(blockers.join(" "));
 }
 
-function latestCloseout(workspaceRoot: string) {
-  return listPlanningDocuments(workspaceRoot)
+function latestCloseout(source: PlanningReadContext) {
+  return listPlanningDocuments(source)
     .filter((document) => document.markdownPath.startsWith("planning/project/Project_Closeouts/PROJECT_CLOSEOUT_"))
     .at(-1);
 }

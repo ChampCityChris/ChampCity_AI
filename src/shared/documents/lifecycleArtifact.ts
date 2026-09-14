@@ -49,11 +49,11 @@ export function classifyLifecycleArtifact(
     return classification("generated-handoff", "nonReviewHandoff", handoffWorkspace(normalized), evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (isCanonicalAuthority(document, "project-intake")) {
+  if (isCanonicalLifecycleRecord(document, "project-intake")) {
     return classification("project-intake", metadataRole ?? "gatingReview", "project-intake-capture", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
-  if (isCanonicalAuthority(document, "project-architect-interview")) {
+  if (isCanonicalLifecycleRecord(document, "project-architect-interview")) {
     return classification("project-architect-interview", metadataRole ?? "gatingReview", "architect-interview", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
@@ -74,7 +74,7 @@ export function classifyLifecycleArtifact(
   }
 
   if (normalized.includes("phase_closeout")) {
-    return classification("phase-closeout", metadataRole ?? "compoundGatingReview", closeoutWorkspace(document, "phase-validation", "phase-close"), evidencePaths, selectedPhaseId, selectedWorkCardId);
+    return classification("phase-closeout", metadataRole ?? "compoundGatingReview", "phase-validation", evidencePaths, selectedPhaseId, selectedWorkCardId);
   }
 
   if (normalized.includes("phase_interview")) {
@@ -198,7 +198,7 @@ function derivePhaseId(value: string): string | undefined {
   return value.match(/phase-(\d+)/i)?.[0];
 }
 
-function isCanonicalAuthority(document: PlanningDocumentSummary, artifactType: string): boolean {
+function isCanonicalLifecycleRecord(document: PlanningDocumentSummary, artifactType: string): boolean {
   return (
     document.metadata.artifactType === artifactType &&
     Boolean(document.metadata.canonical) &&

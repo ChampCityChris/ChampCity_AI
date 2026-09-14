@@ -31,9 +31,13 @@ import {
   type PhaseInterviewReadyContext,
 } from "./phaseInterviewDraftOutput";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 
 export interface PhaseInterviewHandoffResult {
   phaseId: string;
@@ -91,9 +95,11 @@ export function generatePhaseInterviewHandoff(workspaceRoot: string): PhaseInter
 
 export function getPhaseInterviewWorkspaceModel(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): PhaseInterviewWorkspaceModel {
   const draftStatus = getPhaseInterviewDraftStatus(workspaceRoot);
-  const context = resolvePhaseInterviewDraftContext(workspaceRoot);
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolvePhaseInterviewDraftContext(workspaceRoot, contextSnapshot);
   if (context.status !== "ready") {
     return {
       state: context.status === "not-ready" ? "not-ready" : "needs-attention",
@@ -265,8 +271,10 @@ export function setPhaseInterviewDisposition(
 export function getPhaseIntakeCompletion(
   workspaceRoot: string,
   phaseId?: string,
+  planningContext?: PlanningProjectionContext,
 ): PhaseIntakeCompletion {
-  const context = resolvePhaseInterviewDraftContext(workspaceRoot);
+  const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const context = resolvePhaseInterviewDraftContext(workspaceRoot, contextSnapshot);
   const selectedPhaseId = phaseId ?? (context.status === "ready" ? context.selectedPhase.phaseId : undefined);
   if (!selectedPhaseId) {
     return {
@@ -274,7 +282,7 @@ export function getPhaseIntakeCompletion(
       reason: context.status === "ready" ? "Phase Interview selected phase is unavailable." : context.reason,
     };
   }
-  const interview = listPlanningDocuments(workspaceRoot)
+  const interview = listPlanningDocuments(contextSnapshot)
     .find((document) => document.markdownPath === phaseInterviewOutputPath(selectedPhaseId));
   if (!interview) {
     return {
@@ -283,7 +291,7 @@ export function getPhaseIntakeCompletion(
       reason: "Phase Interview is required for Phase Intake completion.",
     };
   }
-  const freshness = evaluateDocumentFreshness(workspaceRoot, interview.logicalDocumentId);
+  const freshness = evaluateDocumentFreshness(contextSnapshot, interview.logicalDocumentId);
   const complete =
     interview.effectiveDisposition === "Approved" &&
     interview.documentReadState === "readable" &&
@@ -321,7 +329,7 @@ function phaseInterviewHandoffMetadata(
       phaseId: context.selectedPhase.phaseId,
     },
     sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       {
         handoffKind: "phase-interview",
         contractId: phaseInterviewSubmissionContractId,
@@ -329,7 +337,7 @@ function phaseInterviewHandoffMetadata(
         outputTarget: context.interviewMarkdownPath,
         requiredSections: [...phaseInterviewRequiredSections()],
       },
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
     ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
@@ -361,7 +369,7 @@ function buildPhaseInterviewHandoffBody(
     "Current source revisions:",
     ...sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
     "",
-    "Browser chat is not durable authority. This handoff supports conversation only; ChampCity A/I provides a separate Final Draft action after Operator confirmation.",
+    "Browser chat is not a durable record. This handoff supports conversation only; ChampCity A/I provides a separate Final Draft action after Operator confirmation.",
   ].join("\n");
 }
 

@@ -22,6 +22,7 @@ import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
+import type { PlanningProjectionContext } from "../documents/planningProjectionContext";
 import { getPhaseIntakeCompletion } from "../phaseInterview/phaseInterviewService";
 import { getPhaseMapProjection, type PhaseMapPhase } from "../phaseMap/phaseMapService";
 import {
@@ -29,9 +30,9 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 
 export const phasePlanningSubmissionContractId = "phase-planning-atomic-bundle-v1";
 export const phasePlanningOutputKind = "phase-planning-bundle";
@@ -154,9 +155,9 @@ export const phasePlanningArchitectOutputDefinition: ArchitectOutputDefinition<
         const metadata: CanonicalDocumentMetadata = existing
           ? {
               ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
-              workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              workflowData: mergeRepositoryBindingIntoWorkflowData(
                 existing.metadata.workflowData,
-                inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+                inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
               ),
             }
           : freshBundleMetadata(workspaceRoot, context, "phase-planning", {});
@@ -178,9 +179,9 @@ export const phasePlanningArchitectOutputDefinition: ArchitectOutputDefinition<
         const metadata: CanonicalDocumentMetadata = existing
           ? {
               ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
-              workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+              workflowData: mergeRepositoryBindingIntoWorkflowData(
                 { candidates },
-                inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+                inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
               ),
             }
           : freshBundleMetadata(workspaceRoot, context, "work-card-plan", { candidates });
@@ -258,10 +259,13 @@ export function getActivePhasePlanningDraftBundleSubmission(
   return getActiveArchitectOutputRuntimeSubmission(workspaceRoot, phasePlanningOwningWorkspaceId);
 }
 
-export function resolvePhasePlanningDraftContext(workspaceRoot: string): PhasePlanningDraftContext {
+export function resolvePhasePlanningDraftContext(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): PhasePlanningDraftContext {
   let selectedPhase: PhaseMapPhase;
   try {
-    const projection = getPhaseMapProjection(workspaceRoot);
+    const projection = getPhaseMapProjection(workspaceRoot, planningContext);
     if (projection.state !== "first-incomplete") {
       return {
         status: "not-ready",
@@ -278,7 +282,7 @@ export function resolvePhasePlanningDraftContext(workspaceRoot: string): PhasePl
     };
   }
 
-  const intake = getPhaseIntakeCompletion(workspaceRoot, selectedPhase.phaseId);
+  const intake = getPhaseIntakeCompletion(workspaceRoot, selectedPhase.phaseId, planningContext);
   if (!intake.complete) {
     return {
       status: "not-ready",
@@ -287,10 +291,10 @@ export function resolvePhasePlanningDraftContext(workspaceRoot: string): PhasePl
     };
   }
 
-  const profile = requiredApprovedDocument(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md");
-  const roadmap = requiredApprovedDocument(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md");
-  const phaseMap = requiredApprovedDocument(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".md");
-  const phaseInterview = requiredApprovedDocument(workspaceRoot, `planning/phases/${selectedPhase.phaseId}/Phase_Interview`, ".md");
+  const profile = requiredApprovedDocument(workspaceRoot, "planning/project/PROJECT_PROFILE", ".md", planningContext);
+  const roadmap = requiredApprovedDocument(workspaceRoot, "planning/project/Project_Roadmap/PROJECT_ROADMAP", ".md", planningContext);
+  const phaseMap = requiredApprovedDocument(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".md", planningContext);
+  const phaseInterview = requiredApprovedDocument(workspaceRoot, `planning/phases/${selectedPhase.phaseId}/Phase_Interview`, ".md", planningContext);
   const baseEvidence = [
     "planning/project/PROJECT_PROFILE.md",
     "planning/project/Project_Roadmap",
@@ -310,7 +314,7 @@ export function resolvePhasePlanningDraftContext(workspaceRoot: string): PhasePl
   const handoffMarkdownPath = phasePlanningHandoffPath(selectedPhase.phaseId);
   const phasePlanningMarkdownPath = phasePlanningOutputPath(selectedPhase.phaseId);
   const workCardPlanMarkdownPath = workCardPlanOutputPath(selectedPhase.phaseId);
-  const handoff = approvedPhasePlanningHandoff(workspaceRoot, selectedPhase.phaseId);
+  const handoff = approvedPhasePlanningHandoff(workspaceRoot, selectedPhase.phaseId, planningContext);
   const evidencePaths = [
     profileDocument.markdownPath,
     roadmapDocument.markdownPath,
@@ -325,6 +329,7 @@ export function resolvePhasePlanningDraftContext(workspaceRoot: string): PhasePl
       selectedPhase.phaseId,
       phasePlanningMarkdownPath,
       workCardPlanMarkdownPath,
+      planningContext,
     );
     if (handoffProblem) {
       return {
@@ -347,17 +352,17 @@ export function resolvePhasePlanningDraftContext(workspaceRoot: string): PhasePl
         { path: phaseInterviewDocument.markdownPath, revision: phaseInterviewDocument.metadata.artifactRevision ?? 1 },
       ];
 
-  const documents = listPlanningDocuments(workspaceRoot);
+  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
   const phasePlanningDocument = documents.find((document) => document.markdownPath === phasePlanningMarkdownPath);
   const workCardPlanDocument = documents.find((document) => document.markdownPath === workCardPlanMarkdownPath);
   const phasePlanningInvalid = phasePlanningDocument
-    ? validateExistingBundleMember(workspaceRoot, phasePlanningDocument, "phase-planning", selectedPhase.phaseId, sourceRevisions)
+    ? validateExistingBundleMember(workspaceRoot, phasePlanningDocument, "phase-planning", selectedPhase.phaseId, sourceRevisions, planningContext)
     : undefined;
   const workCardPlanInvalid = workCardPlanDocument
-    ? validateExistingBundleMember(workspaceRoot, workCardPlanDocument, "work-card-plan", selectedPhase.phaseId, sourceRevisions)
+    ? validateExistingBundleMember(workspaceRoot, workCardPlanDocument, "work-card-plan", selectedPhase.phaseId, sourceRevisions, planningContext)
     : undefined;
-  const phasePlanningIdentity = phasePlanningDocument ? identityForDocument(phasePlanningDocument, workspaceRoot) : undefined;
-  const workCardPlanIdentity = workCardPlanDocument ? identityForDocument(workCardPlanDocument, workspaceRoot) : undefined;
+  const phasePlanningIdentity = phasePlanningDocument ? identityForDocument(phasePlanningDocument, workspaceRoot, planningContext) : undefined;
+  const workCardPlanIdentity = workCardPlanDocument ? identityForDocument(workCardPlanDocument, workspaceRoot, planningContext) : undefined;
 
   return {
     status: "ready",
@@ -562,9 +567,9 @@ function freshBundleMetadata(
     participationRole: "compoundGatingReview",
     identity: { phaseId: context.selectedPhase.phaseId },
     sourceRevisions: context.sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       workflowData,
-      inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
     ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
@@ -573,8 +578,9 @@ function freshBundleMetadata(
 function approvedPhasePlanningHandoff(
   workspaceRoot: string,
   phaseId: string,
+  planningContext?: PlanningProjectionContext,
 ): PlanningDocumentSummary | undefined {
-  return listPlanningDocuments(workspaceRoot)
+  return listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((document) => document.metadata.artifactType === "generated-handoff")
     .filter((document) => document.metadata.canonical?.workflowData.handoffKind === "phase-planning")
     .filter((document) => document.metadata.canonical?.identity.phaseId === phaseId)
@@ -588,8 +594,9 @@ function validateHandoffForContext(
   phaseId: string,
   phasePlanningMarkdownPath: string,
   workCardPlanMarkdownPath: string,
+  planningContext?: PlanningProjectionContext,
 ): string | undefined {
-  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+  if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, handoff.logicalDocumentId).state === "stale") {
     return "Current Phase Planning handoff is stale.";
   }
   const workflowData = handoff.metadata.canonical?.workflowData ?? {};
@@ -614,6 +621,7 @@ function validateExistingBundleMember(
   artifactType: "phase-planning" | "work-card-plan",
   phaseId: string,
   sourceRevisions: SourceRevision[],
+  planningContext?: PlanningProjectionContext,
 ): string | undefined {
   const canonical = document.metadata.canonical;
   if (document.documentReadState !== "readable" || !canonical) {
@@ -633,7 +641,7 @@ function validateExistingBundleMember(
       return `${document.markdownPath} does not reference current source revision: ${source.path}.`;
     }
   }
-  const freshness = evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId);
+  const freshness = evaluateDocumentFreshness(planningContext ?? workspaceRoot, document.logicalDocumentId);
   if (freshness.state === "stale") {
     return `${document.markdownPath} is stale.`;
   }
@@ -647,10 +655,10 @@ function validateExistingBundleMember(
   return undefined;
 }
 
-function requiredApprovedDocument(workspaceRoot: string, prefix: string, extension: ".md"):
+function requiredApprovedDocument(workspaceRoot: string, prefix: string, extension: ".md", planningContext?: PlanningProjectionContext):
   | { ok: true; document: PlanningDocumentSummary }
   | { ok: false; reason: string } {
-  const document = listPlanningDocuments(workspaceRoot)
+  const document = listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((candidate) => candidate.markdownPath.startsWith(prefix))
     .filter((candidate) => candidate.markdownPath.endsWith(extension))
     .at(-1);
@@ -660,7 +668,7 @@ function requiredApprovedDocument(workspaceRoot: string, prefix: string, extensi
   if (document.effectiveDisposition !== "Approved") {
     return { ok: false, reason: `Current Approved input is required: ${prefix}` };
   }
-  if (evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state === "stale") {
+  if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, document.logicalDocumentId).state === "stale") {
     return { ok: false, reason: `Current input is stale: ${prefix}` };
   }
   return { ok: true, document };
@@ -669,9 +677,10 @@ function requiredApprovedDocument(workspaceRoot: string, prefix: string, extensi
 function identityForDocument(
   document: PlanningDocumentSummary,
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): PhasePlanningArtifactIdentity {
   const freshness = document.documentReadState === "readable"
-    ? evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state
+    ? evaluateDocumentFreshness(planningContext ?? workspaceRoot, document.logicalDocumentId).state
     : undefined;
   return {
     logicalDocumentId: document.logicalDocumentId,
@@ -803,7 +812,7 @@ function buildPhasePlanningPreparedInstruction(
       promptWorkflowData,
     ),
     "```",
-    "Do not supply caller metadata, canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, domain save actions, manual imports, file-copy fallbacks, or any other authority fields as params.",
+    "Do not supply caller metadata, canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, domain save actions, manual imports, file-copy fallbacks, or any other application-owned fields as params.",
     "After both drafts are created, respond with a concise draft-created confirmation.",
     ...(includeRevisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
   ].join("\n");

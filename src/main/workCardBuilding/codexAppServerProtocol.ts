@@ -1,7 +1,8 @@
-// Method names and payload shapes are copied from the pinned @openai/codex
-// 0.146.0 output of `codex app-server generate-ts`.
+// Bounded App Server contract, verified against stable 0.153.4 generated schema.
+// Startup probes each candidate schema before it becomes loaded runtime identity.
 
 export const codexAppServerMethods = {
+  modelList: "model/list",
   initialize: "initialize",
   initialized: "initialized",
   threadStart: "thread/start",
@@ -46,6 +47,7 @@ export interface CodexAppServerInitializeResponse {
 }
 
 export interface CodexAppServerThreadStartParams {
+  model?: string;
   cwd?: string | null;
   approvalPolicy?: "on-request" | null;
   approvalsReviewer?: "user" | null;
@@ -82,6 +84,8 @@ export type CodexAppServerUserInput =
   | { type: "mention"; name: string; path: string };
 
 export interface CodexAppServerTurnStartParams {
+  model?: string;
+  effort?: string;
   threadId: string;
   input: CodexAppServerUserInput[];
   cwd?: string | null;

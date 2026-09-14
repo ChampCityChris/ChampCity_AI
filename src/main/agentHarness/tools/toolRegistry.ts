@@ -1,5 +1,7 @@
 import { AgentHarnessError, toBoundedError } from "../core/errors";
 import { writeAttachedImage } from "../repository/attachedImages";
+import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
+import { readIssueScreenshotEvidence } from "../repository/issueScreenshotEvidence";
 import {
   gitDiff,
   gitStatus,
@@ -14,16 +16,22 @@ import {
   writeTextArtifact,
 } from "../repository/repositoryOperations";
 import {
+  commitGitChanges,
+  integrateGitBranchToDev,
+  prepareGitBranch,
+  pushGitBranch,
+  stageGitChanges,
+} from "../repository/gitMutations";
+import {
   applyApprovedPatch,
   registerPatchProposal,
 } from "../repository/patches";
 import {
-  type AgentHarnessAuthorityProvider,
+  type AgentHarnessWorkspaceAccessProvider,
   type AgentHarnessWorkspaceContext,
-  assertActionAuthority,
-  assertWorkspaceIdMatches,
+  assertActionAccess,
   type HarnessActionKind,
-} from "../workspace/workspaceAuthority";
+} from "../workspace/workspaceAccess";
 import * as z from "zod/v4";
 
 export type PublicToolName =
@@ -37,7 +45,8 @@ export type PublicToolName =
   | "workspace_write_attached_image";
 
 type RequiredScope = "files.read" | "files.write";
-type ParamType = "string" | "number" | "boolean";
+type ParamType = "string" | "number" | "boolean" | "string-array";
+type GitMutationAction = "prepare_branch" | "stage_changes" | "commit" | "push" | "integrate_to_dev";
 
 interface ParamSpec {
   type: ParamType;
@@ -49,7 +58,7 @@ interface ToolActionContract {
   kind: HarnessActionKind;
   requiredScope: RequiredScope;
   params: Record<string, ParamSpec>;
-  dispatch: (input: DispatchInput) => unknown;
+  dispatch: (input: DispatchInput) => unknown | Promise<unknown>;
 }
 
 interface ToolProvider {
@@ -63,6 +72,7 @@ interface DispatchInput {
   context: AgentHarnessWorkspaceContext;
   params: Record<string, unknown>;
   userDataRoot: string;
+  workspaceSummaries: AgentHarnessWorkspaceAccessProvider["listWorkspaceSummaries"];
   runtimeDiagnostics?: () => Record<string, unknown>;
 }
 
@@ -95,11 +105,11 @@ export interface AgentHarnessToolResult {
 
 export interface AgentHarnessToolRegistry {
   listTools: (scope?: string) => AgentHarnessToolDefinition[];
-  callTool: (call: AgentHarnessToolCall) => AgentHarnessToolResult;
+  callTool: (call: AgentHarnessToolCall) => Promise<AgentHarnessToolResult>;
 }
 
 interface RegistryOptions {
-  authority: AgentHarnessAuthorityProvider;
+  workspaceAccess: AgentHarnessWorkspaceAccessProvider;
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
 }
@@ -111,7 +121,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
     listTools: (scope = "files.read files.write") => providers
       .map((provider) => buildToolDefinition(provider, scope))
       .filter((definition): definition is AgentHarnessToolDefinition => Boolean(definition)),
-    callTool: (call) => {
+    callTool: async (call) => {
       const attemptId = `ahr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
       const timestamp = new Date().toISOString();
       let action = "unknown";
@@ -137,14 +147,14 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
             action,
           });
         }
-        const context = options.authority.resolveWorkspaceContext();
-        assertWorkspaceIdMatches(context, args.workspaceId);
+        const context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const params = validateParams(args.params, contract);
-        assertActionAuthority(context, contract.kind);
-        const payload = contract.dispatch({
+        assertActionAccess(context, contract.kind);
+        const payload = await contract.dispatch({
           context,
           params,
           userDataRoot: options.userDataRoot,
+          workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
           runtimeDiagnostics: options.runtimeDiagnostics,
         });
         return { ok: true, toolName: provider.name, action, workspaceId: context.workspaceId, payload, attemptId, timestamp };
@@ -169,12 +179,22 @@ function createToolProviders(): ToolProvider[] {
       title: "repo_toolbox",
       description: "ChampCity A/I Agent Harness repo_toolbox.",
       actions: [
-        readAction("status", {}, ({ context }) => ({ workspace: context, repository: gitStatus(context.root) })),
-        readAction("list_files", optionalParams({ directory: "string", maxFiles: "number" }), ({ context, params }) => (
-          listRepositoryFiles(context.root, { directory: stringValue(params.directory), maxFiles: numberValue(params.maxFiles) })
+        readAction("status", {}, async ({ context }) => ({
+          workspace: context,
+          repository: await gitStatus(context.root, context.gitBacked),
+        })),
+        readAction("list_files", optionalParams({ directory: "string", maxFiles: "number" }), async ({ context, params }) => (
+          normalizeRepositoryListOutput(await listRepositoryFiles(context.root, {
+            directory: stringValue(params.directory),
+            maxFiles: numberValue(params.maxFiles),
+            gitBacked: context.gitBacked,
+          }))
         )),
         readAction("read_file", requiredParams({ relativePath: "string" }), ({ context, params }) => (
           readRepositoryFile(context.root, context.workspaceId, requiredString(params.relativePath, "relativePath"))
+        )),
+        readAction("read_issue_screenshot", requiredParams({ relativePath: "string" }), ({ context, params }) => (
+          readIssueScreenshotEvidence(context.root, requiredString(params.relativePath, "relativePath"))
         )),
         readAction("inspect_text_file", requiredParams({ relativePath: "string" }), ({ context, params }) => (
           inspectRepositoryTextFile(context.root, context.workspaceId, requiredString(params.relativePath, "relativePath"))
@@ -214,6 +234,7 @@ function createToolProviders(): ToolProvider[] {
           ({ context, params }) => searchRepositoryFiles(context.root, requiredString(params.query, "query"), {
             directory: stringValue(params.directory),
             maxResults: numberValue(params.maxResults),
+            gitBacked: context.gitBacked,
           }),
         ),
         writeAction("write_markdown_artifact", "artifact-write", {
@@ -255,19 +276,19 @@ function createToolProviders(): ToolProvider[] {
       title: "git_toolbox",
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
-        gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root)),
-        gitInspectionAction("diff", {}, ({ context }) => gitDiff(context.root)),
-        gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root)),
-        gitInspectionAction("readiness_summary", {}, ({ context }) => preCommitSafetyScan(context.root)),
+        gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root, context.gitBacked)),
+        gitInspectionAction("diff", {}, ({ context }) => gitDiff(context.root, context.gitBacked)),
+        gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
+        gitInspectionAction("readiness_summary", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("inspect_history", {}, ({ context }) => ({
           gitBacked: context.gitBacked,
           message: "History inspection is deferred to a later bounded provider.",
         })),
-        gitMutationAction("prepare_branch"),
-        gitMutationAction("stage_changes"),
-        gitMutationAction("commit"),
-        gitMutationAction("push"),
-        gitMutationAction("integrate_to_dev"),
+        gitMutationAction("prepare_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
+        gitMutationAction("commit", requiredParams({ message: "string" })),
+        gitMutationAction("push", optionalParams({ remote: "string", branch: "string" })),
+        gitMutationAction("integrate_to_dev", {}),
       ],
     },
     {
@@ -276,8 +297,21 @@ function createToolProviders(): ToolProvider[] {
       description: "ChampCity A/I Agent Harness artifact_toolbox.",
       actions: [
         readAction("status", {}, () => ({
-          canonicalAuthority: "ChampCity A/I planning document services",
+          canonicalSource: "ChampCity A/I planning document services",
           genericPersistenceOnly: true,
+        })),
+        writeAction("replace_markdown_body", "artifact-write", requiredParams({
+          relativePath: "string",
+          submissionId: "string",
+          expectedMetadataSha256: "string",
+          expectedBodySha256: "string",
+          bodyMarkdown: "string",
+        }), ({ context, params }) => replaceControlledMarkdownBody(context.root, {
+          relativePath: requiredString(params.relativePath, "relativePath"),
+          submissionId: requiredString(params.submissionId, "submissionId"),
+          expectedMetadataSha256: requiredString(params.expectedMetadataSha256, "expectedMetadataSha256"),
+          expectedBodySha256: requiredString(params.expectedBodySha256, "expectedBodySha256"),
+          bodyMarkdown: requiredString(params.bodyMarkdown, "bodyMarkdown"),
         })),
         writeAction("write_markdown_artifact", "artifact-write", {
           ...requiredParams({ relativePath: "string", content: "string" }),
@@ -304,17 +338,41 @@ function createToolProviders(): ToolProvider[] {
       title: "diagnostics_toolbox",
       description: "ChampCity A/I Agent Harness diagnostics_toolbox.",
       actions: [
-        readAction("status", {}, ({ context, runtimeDiagnostics }) => ({
-          workspace: context,
-          runtime: runtimeDiagnostics?.() ?? {},
-        })),
-        readAction("list_workspaces", {}, ({ context }) => ({ workspaces: [context] })),
-        readAction("tool_inventory", {}, () => ({
-          tools: createToolProviders().map((provider) => ({
-            name: provider.name,
-            actions: provider.actions.map((action) => action.name),
-          })),
-        })),
+        readAction("status", {}, ({ context, runtimeDiagnostics }) => {
+          const runtime = runtimeDiagnostics?.() ?? {};
+          return {
+            workspace: {
+              workspaceId: context.workspaceId,
+              repositoryName: context.repositoryName,
+              gitBacked: context.gitBacked,
+            },
+            operational: runtime.operationalDiagnostics ?? {},
+          };
+        }),
+        readAction("list_workspaces", {}, ({ workspaceSummaries }) => ({ workspaces: workspaceSummaries() })),
+        readAction("tool_inventory", {}, ({ runtimeDiagnostics }) => {
+          const runtime = runtimeDiagnostics?.() ?? {};
+          const toolContractDiagnostics = runtime.toolContractDiagnostics;
+          if (toolContractDiagnostics && typeof toolContractDiagnostics === "object") {
+            return toolContractDiagnostics;
+          }
+          return {
+            registry: {
+              state: "registry-only",
+              fingerprint: null,
+              tools: createToolProviders().map((provider) => ({
+                name: provider.name,
+                actions: provider.actions.map((action) => action.name),
+              })),
+            },
+            published: {
+              state: "none",
+              activeSessionCount: 0,
+              staleSessionCount: 0,
+              contracts: [],
+            },
+          };
+        }),
       ],
     },
     statusOnlyProvider("integration_toolbox"),
@@ -392,7 +450,12 @@ function buildParamsInputSchema(params: Record<string, ParamSpec>): Record<strin
     type: "object",
     additionalProperties: false,
     required: requiredParamNames(params),
-    properties: Object.fromEntries(Object.entries(params).map(([name, spec]) => [name, { type: spec.type }])),
+    properties: Object.fromEntries(Object.entries(params).map(([name, spec]) => [
+      name,
+      spec.type === "string-array"
+        ? { type: "array", minItems: 1, maxItems: 256, items: { type: "string", minLength: 1, maxLength: 4_096 } }
+        : { type: spec.type },
+    ])),
   };
 }
 
@@ -425,6 +488,9 @@ function buildParamsZodSchema(params: Record<string, ParamSpec>): z.ZodType<Reco
 }
 
 function zodParamSchema(type: ParamType): z.ZodType<unknown> {
+  if (type === "string-array") {
+    return z.array(z.string().min(1).max(4_096)).min(1).max(256);
+  }
   if (type === "number") {
     return z.number().refine((value) => Number.isFinite(value), "number must be finite");
   }
@@ -451,14 +517,31 @@ function writeAction(
   return { name, kind, requiredScope: "files.write", params, dispatch };
 }
 
-function gitMutationAction(name: string): ToolActionContract {
+function gitMutationAction(
+  name: GitMutationAction,
+  params: Record<string, ParamSpec>,
+): ToolActionContract {
   return {
     name,
     kind: "git-mutation",
     requiredScope: "files.write",
-    params: {},
-    dispatch: () => {
-      throw new AgentHarnessError("GIT_MUTATION_DENIED", "Git mutation is not authorized by the active A/I workflow.");
+    params,
+    dispatch: async ({ context, params: values }) => {
+      switch (name) {
+        case "prepare_branch":
+          return prepareGitBranch(context.root, requiredString(values.branchName, "branchName"));
+        case "stage_changes":
+          return stageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
+        case "commit":
+          return commitGitChanges(context.root, requiredString(values.message, "message"));
+        case "push":
+          return pushGitBranch(context.root, {
+            remote: stringValue(values.remote),
+            branch: stringValue(values.branch),
+          });
+        case "integrate_to_dev":
+          return integrateGitBranchToDev(context.root);
+      }
     },
   };
 }
@@ -521,6 +604,10 @@ function requiredParamNames(params: Record<string, ParamSpec>): string[] {
 }
 
 function paramMatchesType(value: unknown, type: ParamType): boolean {
+  if (type === "string-array") {
+    return Array.isArray(value) && value.length > 0 && value.length <= 256 &&
+      value.every((entry) => typeof entry === "string" && entry.trim() && Buffer.byteLength(entry, "utf8") <= 4_096);
+  }
   if (type === "number") {
     return typeof value === "number" && Number.isFinite(value);
   }
@@ -542,6 +629,11 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+function normalizeRepositoryListOutput(result: Awaited<ReturnType<typeof listRepositoryFiles>>): Omit<typeof result, "root"> {
+  const { root: _localRoot, ...publicResult } = result;
+  return publicResult;
+}
+
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -555,4 +647,16 @@ function requiredString(value: unknown, name: string): string {
     throw new AgentHarnessError("INVALID_INPUT", `${name} is required.`);
   }
   return value;
+}
+
+function requiredStringArray(value: unknown, name: string): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > 256 ||
+    value.some((entry) => typeof entry !== "string" || !entry.trim() || Buffer.byteLength(entry, "utf8") > 4_096)
+  ) {
+    throw new AgentHarnessError("INVALID_INPUT", `${name} must be a non-empty string array.`);
+  }
+  return value as string[];
 }

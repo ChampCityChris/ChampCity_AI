@@ -15,6 +15,7 @@ import {
   listPlanningDocuments,
   savePlanningDocumentRevision,
 } from "../documents/planningDocumentService";
+import type { PlanningProjectionContext } from "../documents/planningProjectionContext";
 import { updateCanonicalMarkdownDisposition } from "../documents/canonicalMarkdownDocumentWriter";
 import {
   approveFormalWorkCardAndRegisterReport,
@@ -36,10 +37,11 @@ import {
   resolveMcpWorkspaceBindingForPrompt,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 import { parseDevelopmentEnvironmentContractFromMarkdown } from "../../shared/developmentEnvironment/developmentEnvironmentContract";
+import { buildImplementationValidationScopeGuidance } from "../validation/implementationValidationScopeGuidance";
 
 export interface FormalWorkCardResult {
   phaseId: string;
@@ -104,7 +106,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
               workCardId: context.workCardId,
               candidateId: context.candidateId,
             },
-            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+            workflowData: mergeRepositoryBindingIntoWorkflowData(
               {
                 phaseId: context.phaseId,
                 workCardId: context.workCardId,
@@ -112,7 +114,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
                 candidate: context.candidate,
                 returnToPhasePlanningOnRejected: true,
               },
-              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+              inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
             ),
           }
         : outputMetadata({
@@ -142,12 +144,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     });
   },
   resolvePreparation(workspaceRoot) {
-    const context = requireFormalWorkCardContext(workspaceRoot);
-    assertFormalWorkCardEligible(workspaceRoot, context);
-    return {
-      sourceHandoff: { path: context.handoff.markdownPath, revision: context.handoff.metadata.artifactRevision ?? 1 },
-      domainContext: context,
-    };
+    return resolveFormalWorkCardPreparation(workspaceRoot);
   },
   resolvePromotionContext({ workspaceRoot, submission, preparedContext }) {
     const context = requireFormalWorkCardContext(workspaceRoot);
@@ -178,6 +175,21 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     };
   },
 };
+
+export function resolveFormalWorkCardPreparation(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): {
+  sourceHandoff: { path: string; revision: number };
+  domainContext: FormalWorkCardContext;
+} {
+  const context = requireFormalWorkCardContext(workspaceRoot, planningContext);
+  assertFormalWorkCardEligible(workspaceRoot, context, planningContext);
+  return {
+    sourceHandoff: { path: context.handoff.markdownPath, revision: context.handoff.metadata.artifactRevision ?? 1 },
+    domainContext: context,
+  };
+}
 
 export function prepareFormalWorkCardDraftSubmission(
   workspaceRoot: string,
@@ -281,9 +293,12 @@ function findByPrefix(workspaceRoot: string, prefix: string, extension: ".md") {
     .at(-1);
 }
 
-function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary {
-  const current = resolveCurrentFormalWorkCardSelection(workspaceRoot);
-  const handoff = listPlanningDocuments(workspaceRoot)
+function requiredApprovedHandoff(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): PlanningDocumentSummary {
+  const current = resolveCurrentFormalWorkCardSelection(workspaceRoot, planningContext);
+  const handoff = listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((document) => document.metadata.artifactType === "work-card-intake-handoff")
     .filter((document) => document.metadata.phaseId === current.phaseId || document.metadata.canonical?.identity.phaseId === current.phaseId)
     .filter((document) => document.metadata.workCardId === current.workCardId || document.metadata.canonical?.identity.workCardId === current.workCardId)
@@ -292,14 +307,17 @@ function requiredApprovedHandoff(workspaceRoot: string): PlanningDocumentSummary
   if (!handoff) {
     throw new Error("Current Approved Work Card Intake handoff is required.");
   }
-  if (evaluateDocumentFreshness(workspaceRoot, handoff.logicalDocumentId).state === "stale") {
+  if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, handoff.logicalDocumentId).state === "stale") {
     throw new Error("Current Work Card Intake handoff is stale.");
   }
   return handoff;
 }
 
-function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardContext {
-  const handoff = requiredApprovedHandoff(workspaceRoot);
+function requireFormalWorkCardContext(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): FormalWorkCardContext {
+  const handoff = requiredApprovedHandoff(workspaceRoot, planningContext);
   const workflowData = handoff.metadata.canonical?.workflowData ?? {};
   const binding = resolveMcpWorkspaceBindingForPrompt(workspaceRoot, workflowData);
   const candidate = candidateFromHandoff(workflowData.candidate);
@@ -309,14 +327,14 @@ function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardCont
     ? handoff.metadata.canonical.identity.workCardId
     : candidateId;
   const targetPath = formalWorkCardTargetFromHandoff(handoff);
-  const existing = listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === targetPath);
+  const existing = listPlanningDocuments(planningContext ?? workspaceRoot).find((document) => document.markdownPath === targetPath);
   const implementerReportPath = resolveWorkCardImplementerReportContext(workspaceRoot, {
     phaseId,
     workCardId,
     formalWorkCardPath: targetPath,
     formalWorkCardRevision: existing?.metadata.artifactRevision ?? 1,
     workCardTitle: typeof candidate.title === "string" ? candidate.title : undefined,
-  }).implementerReportPath;
+  }, planningContext).implementerReportPath;
   const context = {
     handoff,
     phaseId,
@@ -338,12 +356,16 @@ function requireFormalWorkCardContext(workspaceRoot: string): FormalWorkCardCont
   return context;
 }
 
-function assertFormalWorkCardEligible(workspaceRoot: string, context: FormalWorkCardContext): void {
+function assertFormalWorkCardEligible(
+  workspaceRoot: string,
+  context: FormalWorkCardContext,
+  planningContext?: PlanningProjectionContext,
+): void {
   if (!context.existing) return;
   if (context.existing.documentReadState !== "readable") {
     throw new Error(context.existing.readError ?? "Existing Formal Work Card is not readable.");
   }
-  if (evaluateDocumentFreshness(workspaceRoot, context.existing.logicalDocumentId).state === "stale") {
+  if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, context.existing.logicalDocumentId).state === "stale") {
     throw new Error("Existing Formal Work Card is stale.");
   }
   if (context.existing.effectiveDisposition !== "RevisionRequested") {
@@ -359,20 +381,23 @@ function formalWorkCardTargetFromHandoff(handoff: PlanningDocumentSummary): stri
   return target;
 }
 
-function resolveCurrentFormalWorkCardSelection(workspaceRoot: string): {
+function resolveCurrentFormalWorkCardSelection(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): {
   phaseId: string;
   workCardId: string;
 } {
-  const projection = getPhaseMapProjection(workspaceRoot);
+  const projection = getPhaseMapProjection(workspaceRoot, planningContext);
   if (projection.state !== "first-incomplete") {
     throw new Error("Current Phase Map must select an incomplete phase before Formal Work Card planning.");
   }
   const phaseId = projection.phase.phaseId;
-  const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId);
+  const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId, planningContext);
   if (!phasePlanning.complete) {
     throw new Error("Current Approved Phase Planning bundle is required before Formal Work Card planning.");
   }
-  const handoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot, phaseId);
+  const handoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot, phaseId, planningContext);
   if (!handoff) {
     throw new Error("Current active Work Card Intake handoff is required before Formal Work Card planning.");
   }
@@ -403,7 +428,7 @@ function outputMetadata(input: {
       candidateId: input.candidateId,
     },
     sourceRevisions: input.sourceRevisions,
-    workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+    workflowData: mergeRepositoryBindingIntoWorkflowData(
       {
         phaseId: input.phaseId,
         workCardId: input.workCardId,
@@ -411,7 +436,7 @@ function outputMetadata(input: {
         candidate: input.candidate,
         returnToPhasePlanningOnRejected: true,
       },
-      inheritRepositoryAuthorityFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
+      inheritRepositoryBindingFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
     ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
@@ -508,30 +533,22 @@ function buildFormalWorkCardPreparedInstruction(
     "- approved planning direction that is not yet implemented;",
     "- unresolved assumptions or Operator-owned choices.",
     "",
-    "3. Make all Architect-owned decisions needed for this Work Card. Do not ask the Implementer to determine the source of authority, persistence mechanism, output structure, workflow state model, atomicity, retry behavior, review semantics, UI interaction pattern, schema, invocation object, or existing mechanism to reuse.",
+    "3. Make all Architect-owned decisions needed for this Work Card. Do not ask the Implementer to determine the architectural source, persistence mechanism, output structure, workflow state model, atomicity, retry behavior, review semantics, UI interaction pattern, schema, invocation object, or existing mechanism to reuse.",
     "",
     "4. When a material Operator-owned choice remains, ask one primary question at a time in plain language. Provide the recommended answer first with a brief rationale. The Operator may answer `use your recommendation` or `unsure`; treat either as permission to proceed with the best evidence-grounded recommendation. Do not ask questions already resolved by repository evidence or normal architectural judgment. Do not create the draft until material questions are resolved.",
     "",
     "5. When no material Operator-owned choice remains, proceed without asking a question.",
     "",
     "6. Define the smallest complete buildable outcome and the exact runtime sequence:",
-    "existing authoritative evidence",
-    "\u2192 authorized application action",
+    "existing verified evidence",
+    "\u2192 application-owned action",
     "\u2192 required state transition",
     "\u2192 persistence or rendering result",
     "\u2192 Operator-visible outcome",
     "",
     "Do not restate the Phase Plan except where a specific constraint directly governs this Work Card.",
     "",
-    "Validation evidence guidance:",
-    "- Tests are evidence of the Work Card objective, not independent product authority.",
-    "- Select validation at the smallest practical boundary relevant to the behavior owned by this Work Card.",
-    "- Do not make an entire multi-domain test file or broad suite an all-or-nothing acceptance gate unless this Work Card actually owns all behavior exercised by that file or suite.",
-    "- When practical, prefer dedicated focused tests, relevant named test cases, or a focused lane whose assertions map to this Work Card objective.",
-    "- Full-suite or broad integration cleanliness belongs only to a Work Card that explicitly owns integration or baseline validation.",
-    "- If a shared validation lane discovers a demonstrated unrelated or pre-existing failure, require the Implementer to record it and route it to the appropriate owner instead of automatically attributing it to this Work Card.",
-    "- Unexplained failures that may affect this Work Card objective still require classification and cannot be ignored.",
-    "",
+    ...buildImplementationValidationScopeGuidance("work-card"),
     "Create one complete Formal Work Card body with exactly this structure:",
     "",
     `# ${context.workCardId} \u2014 ${candidateTitle}`,
@@ -545,12 +562,12 @@ function buildFormalWorkCardPreparedInstruction(
     "- Required Changes embeds exact approved prompt text, schemas, invocation objects, metadata shapes, or required sequences when practical. The Implementer installs the decision rather than inventing it.",
     "- If implementation or acceptance depends on a currently unverified machine-level development capability, include exactly one fenced JSON block marked champcity-development-environment. Use schemaVersion 1 and requirements with capabilityId, optional versionConstraint, optional profile, and provisioning set only to managed or external.",
     "- The champcity-development-environment block states required capability only. Do not place installer commands, package IDs, download URLs, vendor bootstrap scripts, registry keys, executable paths, or absolute machine paths in that block. ChampCity A/I owns detection, installation, configuration, and verification mechanics through the application-owned provisioner.",
-    "- Treat ordinary required local development tooling as managed unless approved evidence explicitly establishes external ownership or a legal/technical boundary. Necessary managed machine-level setup is authorized implementation work, not an unrelated workspace modification.",
+    "- Treat ordinary required local development tooling as managed unless approved evidence explicitly establishes external ownership or a legal/technical boundary. Necessary managed machine-level setup is in-scope implementation work, not an unrelated workspace modification.",
     "- Acceptance Criteria require successful verification of required development capabilities before dependent configure, build, test, run, package, or validation proof. Missing tooling means establish the selected approved tooling, not choose a different architecture.",
-    "- Preserved Behavior states accepted authorities and invariants that must not be reopened.",
-    "- Authorized Surface lists expected production and test files. Permit only a narrowly necessary adjacent correction that preserves the architecture, is documented, and is fully tested.",
+    "- Preserved Behavior states accepted constraints and invariants that must not be reopened.",
+    "- In-Scope Surface lists expected production and test files. Permit only a narrowly necessary adjacent correction that preserves the architecture, is documented, and is fully tested.",
     "- Acceptance Criteria prove the actual production path. Require positive and negative proof, state before and after the action, final repository bytes or rendered projection, failure handling, retry behavior when relevant, and downstream readiness. Source-string checks may support wiring but cannot be primary runtime proof.",
-    "- Negative Constraints prohibit alternate persistence, retired fallbacks, duplicate authority, unauthorized compatibility wrappers, duplicate schemas, manual imports, unnecessary migration, unrelated workspace changes, and Git operations unless explicitly authorized.",
+    "- Negative Constraints prohibit alternate persistence, retired fallbacks, duplicate lifecycle ownership, compatibility wrappers outside current task scope, duplicate schemas, manual imports, unnecessary migration, unrelated workspace changes, and Git operations outside explicit task scope.",
     "- Implementer Report Requirements must name the exact application-owned Implementer Report target above and state that the Implementer updates that existing canonical report rather than creating an alternate report. Implementation is incomplete until the report at that exact path contains the complete auditable evidence required by the Work Card and remains Pending for Architect review.",
     "- Implementer Report Requirements map every acceptance criterion to concrete evidence, list all changed files and adjacent corrections, identify production paths exercised, commands and results, Operator validation remaining, scope expansion, and residual risk.",
     "- Manual Validation contains only visual, interactive, timing-sensitive, or embedded-browser checks that require the running product.",
@@ -560,11 +577,11 @@ function buildFormalWorkCardPreparedInstruction(
     "exact requested production behavior",
     "+ preserved behavior intact",
     "+ safe failure paths",
-    "+ no unauthorized parallel mechanism",
+    "+ no prohibited parallel mechanism",
     "+ auditable automated proof",
     "= ready for Operator review",
     "",
-    "Do not include application metadata delimiters, canonical metadata, source revisions, final-write metadata, route selectors, fallback fields, hidden authority values, or placeholder content in the body.",
+    "Do not include application metadata delimiters, canonical metadata, source revisions, final-write metadata, route selectors, fallback fields, hidden application-owned values, or placeholder content in the body.",
     "ChampCity A/I owns validation, canonical metadata, promotion, final writes, review state, and cleanup.",
     "",
     "When the complete body is ready, call artifact_toolbox.write_markdown_artifact exactly once:",
@@ -610,7 +627,7 @@ const formalWorkCardHeadings = [
   "Runtime Sequence",
   "Required Changes",
   "Preserved Behavior",
-  "Authorized Surface",
+  "In-Scope Surface",
   "Risks and Constraints",
   "Acceptance Criteria",
   "Negative Constraints",

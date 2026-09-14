@@ -1,4 +1,3 @@
-import { CheckCircle2, Wrench } from "lucide-react";
 import type {
   CurrentWorkspaceModel,
 } from "../../shared/workspaceContracts";
@@ -6,6 +5,7 @@ import type {
   PlanningDocumentDetail,
   PlanningDocumentSummary,
 } from "../../shared/documents/planningDocument";
+import { OperatorValidationPresentation } from "./OperatorValidationPresentation";
 
 export type OperatorValidationDecision = "ValidatePassed" | "RequestRepair";
 
@@ -102,103 +102,42 @@ export function WorkCardReportReviewWorkspace({
           <small>{projection?.implementerReportPath ?? "Report path unavailable."}</small>
         </div>
         <div>
-          <span>Authority</span>
-          <strong>Architect review advisory; Operator decision creates validation authority.</strong>
+          <span>Decision ownership</span>
+          <strong>Architect review advisory; Operator decision creates validation basis.</strong>
         </div>
-        {feedback ? <div className="document-feedback" role="status">{feedback}</div> : null}
-        {documentError || missingDocumentMessage ? (
-          <div className="document-error" role="status">
-            {documentError || missingDocumentMessage}
-          </div>
-        ) : null}
       </section>
 
-      <section className="work-card-report-document-pane" aria-label="Review & Validation documents and decision">
-        <div className="architect-document-selector" role="tablist" aria-label="Review and validation documents">
-          <button
-            aria-selected={selectedRole === "formal"}
-            className={selectedRole === "formal" ? "document-choice selected" : "document-choice"}
-            disabled={!formalDocument?.logicalDocumentId}
-            onClick={() => formalDocument?.logicalDocumentId && onSelectDocument(formalDocument.logicalDocumentId)}
-            type="button"
-          >
-            <span>Approved Work Card</span>
-          </button>
-          <button
-            aria-selected={selectedRole === "report"}
-            className={selectedRole === "report" ? "document-choice selected" : "document-choice"}
-            disabled={!reportDocument?.logicalDocumentId}
-            onClick={() => reportDocument?.logicalDocumentId && onSelectDocument(reportDocument.logicalDocumentId)}
-            type="button"
-          >
-            <span>Implementer Report</span>
-          </button>
-        </div>
-
-        <article className="document-preview">
-          <header className="preview-header">
-            <div>
-              <span>{selectedDocumentLabel}</span>
-              <h2>{selectedDocument?.displayFilename ?? selectedDocumentLabel}</h2>
-              <p>{selectedDocument?.markdownPath ?? projection?.implementerReportPath ?? "Repository-relative path"}</p>
-            </div>
-            <div className="document-read-status">
-              <span>Read / Freshness</span>
-              <strong>{selectedDocumentStatus}</strong>
-            </div>
-          </header>
-          <pre className="preview-body">
-            {selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? ""}
-          </pre>
-        </article>
-
-        <section className="architect-review-panel" aria-label="Operator validation controls">
-          <label>
-            <span>Operator validation notes</span>
-            <textarea
-              disabled={isApplying}
-              onChange={(event) => onOperatorNotesChange(event.target.value)}
-              value={operatorNotes}
-            />
-          </label>
-          <label>
-            <span>Advisory summary / pasted recommendation (optional)</span>
-            <textarea
-              disabled={isApplying}
-              onChange={(event) => onAdvisorySummaryChange(event.target.value)}
-              value={advisorySummary}
-            />
-          </label>
-          <label>
-            <span>Repair defect text</span>
-            <textarea
-              disabled={isApplying}
-              onChange={(event) => onRepairDefectTextChange(event.target.value)}
-              value={repairDefectText}
-            />
-          </label>
-          <div className="validation-action-row">
-            <button
-              className="apply-button"
-              disabled={!canValidatePassed}
-              onClick={() => onValidationDecision("ValidatePassed")}
-              type="button"
-            >
-              <CheckCircle2 aria-hidden="true" size={18} />
-              Validate Passed
-            </button>
-            <button
-              className="apply-button secondary"
-              disabled={!canRequestRepair}
-              onClick={() => onValidationDecision("RequestRepair")}
-              type="button"
-            >
-              <Wrench aria-hidden="true" size={18} />
-              Request Repair
-            </button>
-          </div>
-        </section>
-      </section>
+      <OperatorValidationPresentation
+        advisoryField={{
+          label: "Advisory summary / pasted recommendation (optional)",
+          value: advisorySummary,
+          onChange: onAdvisorySummaryChange,
+        }}
+        ariaLabel="Review & Validation documents and decision"
+        canRequestRepair={canRequestRepair}
+        canValidatePassed={canValidatePassed}
+        decisionAriaLabel="Operator validation controls"
+        documentChoices={[
+          { id: formalDocument?.logicalDocumentId ?? "approved-work-card", label: "Approved Work Card", available: Boolean(formalDocument?.logicalDocumentId) },
+          { id: reportDocument?.logicalDocumentId ?? "implementer-report", label: "Implementer Report", available: Boolean(reportDocument?.logicalDocumentId) },
+        ]}
+        documentError={documentError || missingDocumentMessage}
+        feedback={feedback}
+        isApplying={isApplying}
+        onOperatorNotesChange={onOperatorNotesChange}
+        onRepairDefectTextChange={onRepairDefectTextChange}
+        onRequestRepair={() => onValidationDecision("RequestRepair")}
+        onSelectDocument={onSelectDocument}
+        onValidatePassed={() => onValidationDecision("ValidatePassed")}
+        operatorNotes={operatorNotes}
+        repairDefectText={repairDefectText}
+        selectedDocumentBody={selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? ""}
+        selectedDocumentFilename={selectedDocument?.displayFilename ?? selectedDocumentLabel}
+        selectedDocumentId={selectedDocumentId ?? ""}
+        selectedDocumentLabel={selectedDocumentLabel}
+        selectedDocumentPath={selectedDocument?.markdownPath ?? projection?.implementerReportPath ?? "Repository-relative path"}
+        selectedDocumentStatus={selectedDocumentStatus}
+      />
     </section>
   );
 }

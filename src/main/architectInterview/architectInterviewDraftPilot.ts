@@ -19,9 +19,9 @@ import {
   buildMcpWorkspaceBindingPromptBlock,
 } from "../integrations/mcpWorkspacePromptContract";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
 
 const outputKind = "project-architect-interview";
 const owningWorkspaceId = "architect-interview";
@@ -82,9 +82,9 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
       const metadata: CanonicalDocumentMetadata = existing
         ? {
             ...metadataWithSubstantiveRevision(existing.metadata, sourceRevisions),
-            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+            workflowData: mergeRepositoryBindingIntoWorkflowData(
               existing.metadata.workflowData,
-              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+              inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
             ),
           }
         : {
@@ -94,9 +94,9 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
             participationRole: "gatingReview",
             identity: context.expectedProjectIdentity,
             sourceRevisions,
-            workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+            workflowData: mergeRepositoryBindingIntoWorkflowData(
               {},
-              inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+              inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
             ),
             documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
           };
@@ -258,9 +258,9 @@ function buildProjectArchitectInterviewChatInstruction(
   const revisionNotes = context.interview?.disposition === "RevisionRequested"
     ? context.interview.operatorReviewNotes
     : undefined;
-  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+  const promptWorkflowData = mergeRepositoryBindingIntoWorkflowData(
     {},
-    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
+    inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
   );
   return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
@@ -275,6 +275,15 @@ function buildProjectArchitectInterviewChatInstruction(
     "",
     "Conduct the Project Architect Interview conversationally with the Operator.",
     "Ask one primary question at a time and continue until material scope, constraints, risks, decisions, unresolved questions, acceptance direction, and planning direction are resolved.",
+    "When Project Intake declares existing source or planning, or supplies repository review context, inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions.",
+    "Distinguish verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions.",
+    "Treat architecture identified by Intake or repository evidence as governing, approved, adopted, canonical, or otherwise Operator-established as a controlling planning constraint unless the Operator explicitly revises it.",
+    "Assess that architecture for consistency, applicability, gaps, stale assumptions, or direct conflicts; do not redesign, summarize away, or silently supersede it merely to complete the generic interview structure.",
+    "Evidence review controls interview length. Do not use a target, minimum, or expected question count.",
+    "Ask only material Operator-owned questions that remain unresolved after reviewing the required Project Intake and materially relevant repository evidence and applying normal Architect judgment, including concrete architecture conflicts that cannot be resolved without the Operator.",
+    "When that evidence resolves the project context and required coverage, ask zero clarification questions and proceed directly to the concise confirmation summary.",
+    "Treat required coverage as coverage obligations, not a questionnaire or an implied one-question-per-section requirement.",
+    "Do not compress unresolved material decisions merely to shorten the interview.",
     "Do not return a snippet as completion.",
     `Final output identity: ${projectArchitectInterviewTitle}`,
     `Final canonical target owned by ChampCity A/I, for context only: ${context.interviewTargets.markdownPath}`,
@@ -303,9 +312,9 @@ function buildProjectArchitectInterviewFinalizationInstruction(
   const revisionNotes = context.interview?.disposition === "RevisionRequested"
     ? context.interview.operatorReviewNotes
     : undefined;
-  const promptWorkflowData = mergeRepositoryAuthorityIntoWorkflowData(
+  const promptWorkflowData = mergeRepositoryBindingIntoWorkflowData(
     {},
-    inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
+    inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
   );
   return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData, {
@@ -319,6 +328,8 @@ function buildProjectArchitectInterviewFinalizationInstruction(
     `- Approved Project Intake: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
     "",
     "Write only the complete body-only Project Architect Interview Markdown that reflects the confirmed interview summary.",
+    "Preserve governing, approved, adopted, canonical, or otherwise Operator-established architecture from the inspected evidence unless the confirmed Operator direction explicitly revised it.",
+    "Do not silently redesign or supersede established architecture during final synthesis.",
     `Final output identity: ${projectArchitectInterviewTitle}`,
     `Final canonical target owned by ChampCity A/I: ${context.interviewTargets.markdownPath}`,
     `Temporary draft Markdown: ${draftPath}`,
@@ -338,7 +349,7 @@ function buildProjectArchitectInterviewFinalizationInstruction(
       promptWorkflowData,
     ),
     "```",
-    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden authorization values, or any other authority fields as params.",
+    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, route selectors, fallback fields, hidden application-control values, or any other application-owned fields as params.",
     "After the draft is created, respond with a concise draft-created confirmation.",
     "Read and address current Operator revision notes when the existing Interview is RevisionRequested.",
     ...(revisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),

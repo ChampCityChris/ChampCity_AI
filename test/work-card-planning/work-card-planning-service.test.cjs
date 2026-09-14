@@ -22,6 +22,9 @@ const {
   generateWorkCardIntakeHandoff,
 } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
 const {
+  buildImplementationValidationScopeGuidance,
+} = require("../../dist/main/validation/implementationValidationScopeGuidance.js");
+const {
   seedApprovedPhaseInterview,
   seedApprovedPhasePlanningBundle,
   seedApprovedProjectPlanning,
@@ -41,8 +44,8 @@ test("work card planning creates Markdown-only Formal Work Card and approves eli
   const intakeCanonical = parseCanonicalMarkdownDocument(
     fs.readFileSync(path.join(root, intakeHandoff.handoffMarkdownPath), "utf8"),
   );
-  assert.equal(intakeCanonical.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
-  assert.equal(intakeCanonical.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
+  assert.equal(intakeCanonical.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
+  assert.equal(intakeCanonical.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding.mcpWorkspaceId, "alpha");
 
   const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
   assert.match(prepared.preparedInstruction, /Use ChampCity MCP workspaceId "alpha" only/);
@@ -56,8 +59,8 @@ test("work card planning creates Markdown-only Formal Work Card and approves eli
     fs.readFileSync(path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md"), "utf8"),
   );
   assert.deepEqual(
-    formalCanonical.metadata.workflowData.repositoryAuthority,
-    intakeCanonical.metadata.workflowData.repositoryAuthority,
+    formalCanonical.metadata.workflowData.repositoryBinding,
+    intakeCanonical.metadata.workflowData.repositoryBinding,
   );
 
   setFormalWorkCardDisposition(root, "phase-01", "WC01", "Approved");
@@ -311,14 +314,25 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.match(instruction, /champcity-development-environment/);
   assert.match(instruction, /provisioning set only to managed or external/);
   assert.match(instruction, /Do not place installer commands, package IDs, download URLs/);
-  assert.match(instruction, /managed machine-level setup is authorized implementation work/);
-  assert.match(instruction, /Tests are evidence of the Work Card objective, not independent product authority/);
+  assert.match(instruction, /managed machine-level setup is in-scope implementation work/);
+  assert.match(instruction, /## In-Scope Surface/);
+  assert.doesNotMatch(instruction, /## Authorized Surface/);
+  assert.match(instruction, /Tests are evidence of the Work Card objective, not an independent product decision/);
   assert.match(instruction, /smallest practical boundary relevant to the behavior owned by this Work Card/);
   assert.match(instruction, /Do not make an entire multi-domain test file or broad suite an all-or-nothing acceptance gate/);
   assert.match(instruction, /prefer dedicated focused tests, relevant named test cases, or a focused lane/);
   assert.match(instruction, /Full-suite or broad integration cleanliness belongs only to a Work Card that explicitly owns integration or baseline validation/);
   assert.match(instruction, /demonstrated unrelated or pre-existing failure/);
   assert.match(instruction, /Unexplained failures that may affect this Work Card objective still require classification/);
+  const expectedValidationGuidance = buildImplementationValidationScopeGuidance("work-card");
+  const validationGuidanceStart = instruction.indexOf(expectedValidationGuidance[0]);
+  const formalWorkCardStructureStart = instruction.indexOf("Create one complete Formal Work Card body with exactly this structure:");
+  assert.notEqual(validationGuidanceStart, -1);
+  assert.ok(formalWorkCardStructureStart > validationGuidanceStart);
+  assert.equal(
+    instruction.slice(validationGuidanceStart, formalWorkCardStructureStart),
+    `${expectedValidationGuidance.join("\n")}\n`,
+  );
   assert.doesNotMatch(instruction, /ChampCity_AI/);
   assert.doesNotMatch(instruction, /champcity_ai/);
   assert.equal(actionBlocks.length, 1);
@@ -330,7 +344,7 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
 
 test("retained Work Card standard maps validation scope to owned behavior", () => {
   const standard = fs.readFileSync(
-    path.join(__dirname, "..", "..", "planning", "project", "Design_Documents", "WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md"),
+    path.join(__dirname, "..", "..", "docs", "governance", "WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md"),
     "utf8",
   );
 
@@ -464,7 +478,7 @@ function formalWorkCardBody(workCardId) {
     "Changes.",
     "## Preserved Behavior",
     "Behavior.",
-    "## Authorized Surface",
+    "## In-Scope Surface",
     "Surface.",
     "## Risks and Constraints",
     "Risks.",

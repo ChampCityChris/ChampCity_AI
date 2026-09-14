@@ -1,10 +1,36 @@
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import { evaluateDocumentFreshness, listPlanningDocuments, setDocumentDisposition } from "../documents/planningDocumentService";
+import {
+  evaluateDocumentFreshness,
+  listPlanningDocuments,
+  setDocumentDisposition,
+  type PlanningReadContext,
+} from "../documents/planningDocumentService";
+import {
+  resolvePlanningProjectionContext,
+  type PlanningProjectionContext,
+} from "../documents/planningProjectionContext";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import {
-  inheritRepositoryAuthorityFromSourceRevisions,
-  mergeRepositoryAuthorityIntoWorkflowData,
-} from "../documents/repositoryAuthority";
+  inheritRepositoryBindingFromSourceRevisions,
+  mergeRepositoryBindingIntoWorkflowData,
+} from "../documents/repositoryBinding";
+
+export interface PhaseCloseoutEvidence {
+  logicalDocumentId: string;
+  markdownPath: string;
+  artifactRevision: number;
+  effectiveDisposition: DocumentDispositionStatus;
+  closureDecision?: string;
+  freshnessState: "fresh" | "stale";
+}
+
+export interface PhaseCloseProjection {
+  phaseId: string;
+  complete: boolean;
+  workspaceId: "phase-validation" | "phase-close";
+  reason: string;
+  closeout?: PhaseCloseoutEvidence;
+}
 
 export function createPhaseCloseout(workspaceRoot: string, phaseId: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
   const content = { phaseId, closureDecision, rationale, completionSummary: "", limitations: [], unresolvedMatters: [] };
@@ -24,9 +50,9 @@ export function createPhaseCloseout(workspaceRoot: string, phaseId: string, clos
       participationRole: "compoundGatingReview",
       identity: { phaseId, closureDecision },
       sourceRevisions,
-      workflowData: mergeRepositoryAuthorityIntoWorkflowData(
+      workflowData: mergeRepositoryBindingIntoWorkflowData(
         content,
-        inheritRepositoryAuthorityFromSourceRevisions(workspaceRoot, sourceRevisions),
+        inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
       ),
       documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
     },
@@ -35,28 +61,59 @@ export function createPhaseCloseout(workspaceRoot: string, phaseId: string, clos
   return { markdownPath };
 }
 
-export function setPhaseCloseoutDisposition(workspaceRoot: string, phaseId: string, status: DocumentDispositionStatus) {
+export function setPhaseCloseoutDisposition(
+  workspaceRoot: string,
+  phaseId: string,
+  status: DocumentDispositionStatus,
+  expectedLogicalDocumentId?: string,
+) {
   const closeout = latestCloseout(workspaceRoot, phaseId);
   if (!closeout) throw new Error("Phase Closeout is required.");
+  if (expectedLogicalDocumentId && closeout.logicalDocumentId !== expectedLogicalDocumentId) {
+    throw new Error("Current canonical Phase Closeout changed before disposition; refresh Phase Validation and retry.");
+  }
   return setDocumentDisposition(workspaceRoot, closeout.logicalDocumentId, status);
 }
 
-export function getPhaseCloseProjection(workspaceRoot: string, phaseId: string) {
-  const closeout = latestCloseout(workspaceRoot, phaseId);
-  if (!closeout) return { complete: false, workspaceId: "phase-validation", reason: "Phase Closeout is required." };
-  const fresh = evaluateDocumentFreshness(workspaceRoot, closeout.logicalDocumentId).state === "fresh";
-  const complete = closeout.effectiveDisposition === "Approved" && closeout.metadata.closureDecision === "Close" && fresh;
+export function getPhaseCloseProjection(
+  workspaceRoot: string,
+  phaseId: string,
+  planningContext?: PlanningProjectionContext,
+): PhaseCloseProjection {
+  const context = resolvePlanningProjectionContext(workspaceRoot, planningContext);
+  const closeout = latestCloseout(context, phaseId);
+  if (!closeout) {
+    return {
+      phaseId,
+      complete: false,
+      workspaceId: "phase-validation",
+      reason: "Phase Closeout is required.",
+    };
+  }
+  const freshnessState = evaluateDocumentFreshness(context, closeout.logicalDocumentId).state;
+  const complete = closeout.effectiveDisposition === "Approved" &&
+    closeout.metadata.closureDecision === "Close" &&
+    freshnessState === "fresh";
   return {
+    phaseId,
     complete,
     workspaceId: complete ? "phase-close" : "phase-validation",
     reason: complete
       ? "Approved Close Phase Closeout completes the phase."
       : "Phase remains in validation until current closeout is Approved with closureDecision=Close.",
+    closeout: {
+      logicalDocumentId: closeout.logicalDocumentId,
+      markdownPath: closeout.markdownPath,
+      artifactRevision: closeout.metadata.artifactRevision ?? 1,
+      effectiveDisposition: closeout.effectiveDisposition,
+      closureDecision: closeout.metadata.closureDecision,
+      freshnessState,
+    },
   };
 }
 
-function latestCloseout(workspaceRoot: string, phaseId: string) {
-  return listPlanningDocuments(workspaceRoot)
+function latestCloseout(source: PlanningReadContext, phaseId: string) {
+  return listPlanningDocuments(source)
     .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Phase_Closeouts/`))
     .at(-1);
 }

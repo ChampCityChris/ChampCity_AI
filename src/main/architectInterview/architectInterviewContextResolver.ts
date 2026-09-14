@@ -8,6 +8,7 @@ import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
 } from "../documents/planningDocumentService";
+import type { PlanningProjectionContext } from "../documents/planningProjectionContext";
 import {
   projectArchitectInterviewPromptPath,
   projectArchitectInterviewTargetPath,
@@ -75,9 +76,10 @@ export type CanonicalArchitectInterviewContext =
 
 export function resolveCanonicalArchitectInterviewContext(
   workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
 ): CanonicalArchitectInterviewContext {
   try {
-    const documents = listPlanningDocuments(workspaceRoot);
+    const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
     const intakeCorpus = analyzeProjectIntakeCorpus(documents);
     if (intakeCorpus.state === "open") {
       return unavailable("No active canonical Project Intake Markdown document is available.", []);
@@ -161,6 +163,7 @@ export function resolveCanonicalArchitectInterviewContext(
       intakeIdentity,
       promptIdentity,
       expectedIdentity,
+      planningContext,
     );
 
     return {
@@ -204,6 +207,7 @@ function validateInterviewDocument(
   intake: CanonicalArtifactIdentity,
   prompt: CanonicalArtifactIdentity,
   expectedIdentity: Record<string, unknown>,
+  planningContext?: PlanningProjectionContext,
 ): {
   identity?: CanonicalArtifactIdentity & { operatorReviewNotes?: string };
   invalidIdentity?: CanonicalArtifactIdentity;
@@ -265,7 +269,7 @@ function validateInterviewDocument(
       evidencePaths,
     };
   }
-  const freshness = evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId);
+  const freshness = evaluateDocumentFreshness(planningContext ?? workspaceRoot, document.logicalDocumentId);
   if (freshness.state !== "fresh") {
     return {
       invalidIdentity,

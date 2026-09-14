@@ -3,6 +3,7 @@ import type { PlanningDocumentSummary, SourceRevision } from "../../shared/docum
 import { evaluateFreshnessFromSummaries } from "../../shared/documents/sourceFreshness";
 import { analyzeProjectIntakeCorpus } from "../../shared/projectIntake/projectIntakeCorpus";
 import { listPlanningDocuments } from "../documents/planningDocumentService";
+import type { PlanningProjectionContext } from "../documents/planningProjectionContext";
 import {
   preflightProjectPlanningRepository,
   type ProjectPlanningReconciliationMode,
@@ -57,9 +58,12 @@ export type ProjectPlanningContext =
       evidencePaths: string[];
     };
 
-export function resolveProjectPlanningContext(workspaceRoot: string): ProjectPlanningContext {
+export function resolveProjectPlanningContext(
+  workspaceRoot: string,
+  planningContext?: PlanningProjectionContext,
+): ProjectPlanningContext {
   try {
-    const documents = listPlanningDocuments(workspaceRoot);
+    const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
     const intakeCorpus = analyzeProjectIntakeCorpus(documents);
     if (intakeCorpus.state === "open") {
       return notReady("Approved current Project Intake is required before Project Planning.", []);

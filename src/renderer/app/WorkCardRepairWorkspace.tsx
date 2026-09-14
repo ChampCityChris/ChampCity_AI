@@ -168,8 +168,110 @@ export function WorkCardRepairWorkspace({
   }
 
   return (
+    <WorkCardRepairPresentation
+      actionError={actionError}
+      actionFeedback={actionFeedback}
+      architectAriaLabel="Repair Work Card Architect"
+      architectHeading="Repair Work Card Architect"
+      architectStateLabel={repairStateLabel(state)}
+      architectStatusText={repairStatusText(state)}
+      browserPanel={browserPanel}
+      copyEnabled={copyEnabled}
+      documentFeedback={copyFeedback}
+      documentSlots={documentSlots}
+      isArchitectPaneVisible={isArchitectPaneVisible}
+      isPreparing={isPreparing || isCreating}
+      onCopyDocument={() => void copySelectedRepairDocumentBody()}
+      onCopyHandoff={onCopyHandoff}
+      onPrepareHandoff={onPrepareHandoff}
+      onRefresh={onRefresh}
+      onReloadBrowser={onReloadBrowser}
+      onSelectDocument={(slotId) => {
+        setCopyFeedback("");
+        setSelectedTabId(slotId);
+      }}
+      prepareButtonLabel="Prepare Repair Work Card Prompt"
+      prepareEnabled={prepareEnabled}
+      repairReviewPanel={repairReviewPanel}
+      selectedDocument={selectedDocumentForViewer}
+      selectedSlotId={selectedTabId}
+      showRepairReviewPanel={selectedIsRepairWorkCard}
+      statusDefectText={projection?.repairDefectText}
+      statusIdentity={projection?.repairId ?? model?.executionContext.workCard.repairId ?? "Repair not resolved"}
+      statusLabel={repairStateLabel(state)}
+      statusReason={projection?.reason ?? "Current repair basis is not resolved."}
+      statusTarget={projection?.repairWorkCardTarget}
+      workspaceAriaLabel="Work Card Repair workspace"
+    />
+  );
+}
+
+export function WorkCardRepairPresentation({
+  actionError,
+  actionFeedback,
+  architectAriaLabel,
+  architectHeading,
+  architectStateLabel,
+  architectStatusText,
+  browserPanel,
+  copyEnabled,
+  documentFeedback,
+  documentSlots,
+  isArchitectPaneVisible,
+  isPreparing,
+  onCopyDocument,
+  onCopyHandoff,
+  onPrepareHandoff,
+  onRefresh,
+  onReloadBrowser,
+  onSelectDocument,
+  prepareButtonLabel,
+  prepareEnabled,
+  repairReviewPanel,
+  selectedDocument,
+  selectedSlotId,
+  showRepairReviewPanel,
+  statusDefectText,
+  statusIdentity,
+  statusLabel,
+  statusReason,
+  statusTarget,
+  workspaceAriaLabel,
+}: {
+  actionError: string;
+  actionFeedback: string;
+  architectAriaLabel: string;
+  architectHeading: string;
+  architectStateLabel: string;
+  architectStatusText: string;
+  browserPanel: ReactNode;
+  copyEnabled: boolean;
+  documentFeedback: string;
+  documentSlots: ArchitectOutputDocumentSlotModel[];
+  isArchitectPaneVisible: boolean;
+  isPreparing: boolean;
+  onCopyDocument: () => void;
+  onCopyHandoff: () => void;
+  onPrepareHandoff: () => void;
+  onRefresh: () => void;
+  onReloadBrowser: () => void;
+  onSelectDocument: (slotId: string) => void;
+  prepareButtonLabel: string;
+  prepareEnabled: boolean;
+  repairReviewPanel?: ReactNode;
+  selectedDocument: PlanningDocumentDetail | null;
+  selectedSlotId: string;
+  showRepairReviewPanel: boolean;
+  statusDefectText?: string;
+  statusIdentity: string;
+  statusLabel: string;
+  statusReason: string;
+  statusTarget?: string;
+  workspaceAriaLabel: string;
+}): JSX.Element {
+  return (
     <section
-      aria-label="Work Card Repair workspace"
+      aria-label={workspaceAriaLabel}
       className={[
         "figma-doc-chat-workspace",
         "work-card-repair-workspace",
@@ -178,37 +280,34 @@ export function WorkCardRepairWorkspace({
     >
       <div className="work-card-repair-column">
         <FigmaDocumentCard
-          documentError={selectedDocumentForViewer?.readError ?? ""}
-          feedback={copyFeedback}
-          onCopy={() => void copySelectedRepairDocumentBody()}
-          onSelectSlot={(slotId) => {
-            setCopyFeedback("");
-            setSelectedTabId(slotId);
-          }}
-          selectedDocument={selectedDocumentForViewer}
-          selectedSlotId={selectedTabId}
+          documentError={selectedDocument?.readError ?? ""}
+          feedback={documentFeedback}
+          onCopy={onCopyDocument}
+          onSelectSlot={onSelectDocument}
+          selectedDocument={selectedDocument}
+          selectedSlotId={selectedSlotId}
           slots={documentSlots}
         />
-        {selectedIsRepairWorkCard && repairReviewPanel ? (
+        {showRepairReviewPanel && repairReviewPanel ? (
           <div className="work-card-repair-disposition-slot">
             {repairReviewPanel}
           </div>
         ) : null}
         <div className="work-card-repair-status-strip" aria-label="Repair status details">
-          <span>{repairStateLabel(state)}</span>
-          <strong>{projection?.repairId ?? model?.executionContext.workCard.repairId ?? "Repair not resolved"}</strong>
-          <small>{projection?.reason ?? "Current repair authority is not resolved."}</small>
-          {projection?.repairDefectText ? <small>Repair defect: {projection.repairDefectText}</small> : null}
-          {projection?.repairWorkCardTarget ? <small>Repair target: {projection.repairWorkCardTarget}</small> : null}
+          <span>{statusLabel}</span>
+          <strong>{statusIdentity}</strong>
+          <small>{statusReason}</small>
+          {statusDefectText ? <small>Repair defect: {statusDefectText}</small> : null}
+          {statusTarget ? <small>Repair target: {statusTarget}</small> : null}
         </div>
       </div>
       {isArchitectPaneVisible ? (
-        <div className="figma-browser-column work-card-repair-architect-column" aria-label="Repair Work Card Architect">
+        <div className="figma-browser-column work-card-repair-architect-column" aria-label={architectAriaLabel}>
           <section className="work-card-repair-actions" aria-label="Repair Work Card Architect actions">
             <div>
-              <span>Repair Work Card Architect</span>
-              <strong>{repairStateLabel(state)}</strong>
-              <p>{repairStatusText(state)}</p>
+              <span>{architectHeading}</span>
+              <strong>{architectStateLabel}</strong>
+              <p>{architectStatusText}</p>
             </div>
             <button
               className="work-card-repair-primary"
@@ -217,7 +316,7 @@ export function WorkCardRepairWorkspace({
               type="button"
             >
               <Wrench aria-hidden="true" size={16} />
-              {isPreparing || isCreating ? "Preparing..." : "Prepare Repair Work Card Prompt"}
+              {isPreparing ? "Preparing..." : prepareButtonLabel}
             </button>
             <div className="work-card-repair-action-row">
               <button

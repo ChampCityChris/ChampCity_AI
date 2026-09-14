@@ -25,6 +25,9 @@ const {
   candidateResolutionStatuses,
   phasePlanningRequiredSections,
 } = require("../../dist/main/phasePlanning/phasePlanningDraftBundle.js");
+const {
+  buildImplementationValidationScopeGuidance,
+} = require("../../dist/main/validation/implementationValidationScopeGuidance.js");
 
 const formalWorkCardHeadings = [
   "Verified Repository Evidence",
@@ -32,7 +35,7 @@ const formalWorkCardHeadings = [
   "Runtime Sequence",
   "Required Changes",
   "Preserved Behavior",
-  "Authorized Surface",
+  "In-Scope Surface",
   "Risks and Constraints",
   "Acceptance Criteria",
   "Negative Constraints",
@@ -47,13 +50,25 @@ const repairWorkCardHeadings = [
   "Runtime Sequence",
   "Required Changes",
   "Preserved Behavior",
-  "Authorized Surface",
+  "In-Scope Surface",
   "Acceptance Criteria",
   "Negative Constraints",
   "Return Target",
   "Implementer Report Requirements",
   "Manual Validation",
 ];
+
+test("shared validation-scope guidance preserves ordered Work Card and Fix Card semantic parity", () => {
+  const workCardGuidance = buildImplementationValidationScopeGuidance("work-card");
+  const fixCardGuidance = buildImplementationValidationScopeGuidance("fix-card");
+  const normalizeContractNoun = (lines) => lines.map((line) =>
+    line.replaceAll("Work Card", "Contract").replaceAll("Fix Card", "Contract"),
+  );
+
+  assert.equal(workCardGuidance.filter((line) => line.startsWith("- ")).length, 7);
+  assert.equal(fixCardGuidance.filter((line) => line.startsWith("- ")).length, 7);
+  assert.deepEqual(normalizeContractNoun(workCardGuidance), normalizeContractNoun(fixCardGuidance));
+});
 
 function identity(markdownPath, artifactRevision = 1, disposition = "Pending") {
   return {
@@ -331,7 +346,7 @@ test("production catalog requires definition-owned prepared-instruction builders
 
 test("production Architect-output prompt toolbox references match live Agent Harness registry", () => {
   const registry = createAgentHarnessToolRegistry({
-    authority: {
+    workspaceAccess: {
       resolveWorkspaceContext: () => {
         throw new Error("parity test should not call tools");
       },
@@ -450,11 +465,24 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(phaseMapPrompt, /sourceReferences must contain normalized repository-relative paths/);
   assert.match(phaseMapPrompt, /Do not persist completion state/);
   assert.match(phaseMapPrompt, /Derive the substantive phase list from the approved full Project Roadmap and Project Profile/);
+  assert.match(phaseMapPrompt, /Preserve the approved Project Roadmap's outcome grouping when defining phase boundaries/);
+  assert.match(phaseMapPrompt, /Do not re-expand one Roadmap outcome into separate subsystem, tooling, or foundation phases unless the approved Roadmap requires those as independent milestones/);
+  assert.match(phaseMapPrompt, /Keep fine-grained prerequisite sequencing inside Phase Planning and Work Card dependencies/);
   assert.equal(jsonActionBlocks(phaseMapPrompt).length, 1);
   assert.equal((phaseMapPrompt.match(/```json/g) ?? []).length, 1);
   assert.doesNotMatch(phaseMapPrompt, /Use this structural shape/);
   assert.doesNotMatch(phaseMapPrompt, /roadmap-derived/);
   assert.doesNotMatch(phaseMapPrompt, /"phases"\s*:\s*\[/);
+
+  const projectPlanningPrompt = prompts.get("project-planning").instruction;
+  assert.match(projectPlanningPrompt, /Repository review context:/);
+  assert.match(projectPlanningPrompt, /verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions/);
+  assert.match(projectPlanningPrompt, /controlling constraint on both the Project Profile and Project Roadmap unless the Operator explicitly revises it/);
+  assert.match(projectPlanningPrompt, /shortest dependency-complete path to the next coherent usable or productive milestone/);
+  assert.match(projectPlanningPrompt, /at or immediately before the first outcome that consumes it/);
+  assert.match(projectPlanningPrompt, /Avoid standalone horizontal foundation phases/);
+  assert.match(projectPlanningPrompt, /Avoid speculative prework for future capabilities/);
+  assert.match(projectPlanningPrompt, /Use Phase Planning and Work Card dependencies for fine-grained sequencing/);
 
   const phasePlanningPrompt = prompts.get("phase-planning-bundle").instruction;
   assert.match(phasePlanningPrompt, /Require exactly one champcity-work-card-plan fenced JSON array/);
@@ -492,10 +520,12 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(formalPrompt, /Make all Architect-owned decisions needed for this Work Card/);
   assert.match(formalPrompt, /When a material Operator-owned choice remains, ask one primary question at a time in plain language/);
   assert.match(formalPrompt, /When no material Operator-owned choice remains, proceed without asking a question/);
-  assert.match(formalPrompt, /existing authoritative evidence\n→ authorized application action\n→ required state transition\n→ persistence or rendering result\n→ Operator-visible outcome/);
+  assert.match(formalPrompt, /existing verified evidence\n→ application-owned action\n→ required state transition\n→ persistence or rendering result\n→ Operator-visible outcome/);
+  assert.match(formalPrompt, /## In-Scope Surface/);
+  assert.doesNotMatch(formalPrompt, /## Authorized Surface/);
   assert.match(formalPrompt, /Acceptance Criteria prove the actual production path/);
   assert.match(formalPrompt, /Require positive and negative proof, state before and after the action, final repository bytes or rendered projection, failure handling, retry behavior when relevant, and downstream readiness/);
-  assert.match(formalPrompt, /Tests are evidence of the Work Card objective, not independent product authority/);
+  assert.match(formalPrompt, /Tests are evidence of the Work Card objective, not an independent product decision/);
   assert.match(formalPrompt, /smallest practical boundary relevant to the behavior owned by this Work Card/);
   assert.match(formalPrompt, /Do not make an entire multi-domain test file or broad suite an all-or-nothing acceptance gate/);
   assert.match(formalPrompt, /demonstrated unrelated or pre-existing failure/);
@@ -518,6 +548,8 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(repairPrompt, /Repair handoff path: planning\/phases\/phase-01\/Architect_Handoffs\/REPAIR_ARCHITECT_HANDOFF_WC41-REPAIR01\.md/);
   assert.match(repairPrompt, /Return target: work-card-building-review/);
   assert.match(repairPrompt, /Final Repair Work Card target: planning\/phases\/phase-01\/Work_Cards\/WC41-REPAIR01_prompt_contract_mismatch\.md/);
+  assert.match(repairPrompt, /## In-Scope Surface/);
+  assert.doesNotMatch(repairPrompt, /## Authorized Surface/);
   assert.doesNotMatch(repairPrompt, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
   assert.doesNotMatch(repairPrompt, /ChampCityChris|champcity_ai/i);
 });
@@ -540,7 +572,7 @@ test("workspace-bound MCP prompt contract forbids multi-workspace fallback", () 
   assert.doesNotMatch(instruction, /beta/);
 });
 
-test("prompt generation routes from selected project root without projectRepository route authority", () => {
+test("prompt generation routes from selected project root without projectRepository routing state", () => {
   const definition = activeProductionArchitectOutputDefinitions()
     .find((candidate) => candidate.outputKind === "phase-map");
   assert.ok(definition);

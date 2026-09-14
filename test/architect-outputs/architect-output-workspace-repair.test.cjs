@@ -85,15 +85,15 @@ function tempNamedWorkspace(folderName) {
   return root;
 }
 
-function seedApprovedProjectPlanningWithRepositoryAuthority(root, slug = "demo") {
-  const repositoryAuthority = { projectRepository: path.resolve(root) };
+function seedApprovedProjectPlanningWithRepositoryBinding(root, slug = "demo") {
+  const repositoryBinding = { projectRepository: path.resolve(root) };
   const profile = writeDoc(root, "planning/project/PROJECT_PROFILE.md", "project-profile", "Approved", {
     participationRole: "compoundGatingReview",
-    workflowData: { repositoryAuthority },
+    workflowData: { repositoryBinding },
   });
   const roadmap = writeDoc(root, `planning/project/Project_Roadmap/PROJECT_ROADMAP_${slug}.md`, "project-roadmap", "Approved", {
     participationRole: "compoundGatingReview",
-    workflowData: { repositoryAuthority },
+    workflowData: { repositoryBinding },
   });
   return { profile, roadmap };
 }
@@ -256,7 +256,7 @@ test("non-Approved Formal Work Card review outcomes create no Implementer Report
   }
 });
 
-test("atomic architect bundle review is synchronized and rejects mixed bundle authority unchanged", () => {
+test("atomic architect bundle review is synchronized and rejects mixed bundle state unchanged", () => {
   const root = tempWorkspace("champcity-bundle-review-");
   const seeded = seedApprovedProjectIntake(root);
   writeDoc(root, seeded.interview, "project-architect-interview", "Approved", {
@@ -333,7 +333,7 @@ test("Project Planning Architect workspace enables first handoff preparation bef
 
 test("Phase Map Architect workspace uses generic prepare route for first handoff and copy instruction", () => {
   const root = tempNamedWorkspace("ChampCity_PDL");
-  const { profile, roadmap } = seedApprovedProjectPlanningWithRepositoryAuthority(root, "pocket_decision_log");
+  const { profile, roadmap } = seedApprovedProjectPlanningWithRepositoryBinding(root, "pocket_decision_log");
 
   const first = getArchitectOutputWorkspaceModel(root, "project-phase-map");
   assert.equal(first.state, "ready-for-handoff");
@@ -361,8 +361,8 @@ test("Phase Map Architect workspace uses generic prepare route for first handoff
     { path: profile, revision: 1 },
     { path: roadmap, revision: 1 },
   ]);
-  assert.equal(parsed.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
-  assert.equal(parsed.metadata.workflowData.repositoryAuthority.mcpWorkspaceBinding, undefined);
+  assert.equal(parsed.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
+  assert.equal(parsed.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding, undefined);
   assert.match(instruction, /Bound workspaceId: champcity_pdl/);
   assert.match(instruction, /"workspaceId": "champcity_pdl"/);
   assert.match(instruction, /Temporary Phase Map draft path: planning\/Architect_Drafts\//);
@@ -475,7 +475,7 @@ test("repair Work Card promotion accepts substantive bodies without former title
       "This is a substantive Repair Work Card body.",
       "",
       "It does not use the former exact title or section heading shape.",
-      "The exact authorized return target is work-card-building-review.",
+      "The exact application-owned return target is work-card-building-review.",
     ].join("\n"),
   );
   const promoted = getArchitectOutputWorkspaceModel(root, "work-card-repair");
@@ -499,7 +499,7 @@ test("repair Work Card retained validators reject empty metadata and missing ret
     },
     {
       label: "missing-return-target",
-      body: "Substantive Repair body that omits the exact application authorized target.",
+      body: "Substantive Repair body that omits the exact application-owned target.",
       expectedError: /Return Target section must agree/,
     },
   ]) {
@@ -561,7 +561,7 @@ test("formal, repair, and phase map workspace states classify final output befor
   }
 });
 
-test("repair authority selects the exact active handoff without redirecting unrelated repair output", () => {
+test("repair basis selects the exact active handoff without redirecting unrelated repair output", () => {
   const root = tempWorkspace("champcity-repair-exact-active-");
   const unrelated = seedRepairHandoff(root, "WC02", "Unrelated repair.");
   writeRepairOutput(root, unrelated, "Approved");
@@ -699,7 +699,7 @@ test("Formal and Repair revision prompts include exact Operator instructions", (
   assert.ok(revisedRepair.preparedInstruction.includes(repairInstructions));
 });
 
-test("Repair output authority rejects mismatched metadata and source revisions without mutation", () => {
+test("Repair output state rejects mismatched metadata and source revisions without mutation", () => {
   const cases = [
     {
       label: "participation role",
@@ -738,8 +738,8 @@ test("Repair output authority rejects mismatched metadata and source revisions w
   ];
 
   for (const entry of cases) {
-    const root = tempWorkspace(`champcity-repair-authority-${entry.label.replace(/\s+/g, "-")}-`);
-    const repair = seedRepairHandoff(root, "WC01", "Preserve exact Repair authority.");
+    const root = tempWorkspace(`champcity-repair-state-${entry.label.replace(/\s+/g, "-")}-`);
+    const repair = seedRepairHandoff(root, "WC01", "Preserve exact Repair basis.");
     const handoff = listPlanningDocuments(root).find((document) => document.markdownPath === repair.handoffMarkdownPath);
     const parentWorkCardId = repair.repairId.replace(/-REPAIR\d+$/i, "");
     const workflowData = {
@@ -778,8 +778,8 @@ test("Repair output authority rejects mismatched metadata and source revisions w
   }
 });
 
-test("missing and conflicting Repair authority are non-mutating and cannot redirect unrelated current work", () => {
-  const missingRoot = tempWorkspace("champcity-repair-missing-authority-");
+test("missing and conflicting Repair basis are non-mutating and cannot redirect unrelated current work", () => {
+  const missingRoot = tempWorkspace("champcity-repair-missing-state-");
   const orphanPath = "planning/phases/phase-01/Work_Cards/WC01-REPAIR01_orphan.md";
   writeDoc(missingRoot, orphanPath, "repair-work-card", "Pending", {
     identity: {
@@ -1065,7 +1065,7 @@ function formalHeadings() {
     "Runtime Sequence",
     "Required Changes",
     "Preserved Behavior",
-    "Authorized Surface",
+    "In-Scope Surface",
     "Risks and Constraints",
     "Acceptance Criteria",
     "Negative Constraints",
@@ -1082,7 +1082,7 @@ function repairHeadings() {
     "Runtime Sequence",
     "Required Changes",
     "Preserved Behavior",
-    "Authorized Surface",
+    "In-Scope Surface",
     "Acceptance Criteria",
     "Negative Constraints",
     "Return Target",
@@ -1116,13 +1116,13 @@ function repairBodyWithEmbeddedHeadingExamples(repairId, defect, returnTarget) {
   return [
     `# ${repairId} - ${defect}`,
     "",
-    `The exact authorized return target is ${returnTarget}.`,
+    `The exact application-owned return target is ${returnTarget}.`,
     "",
     "```markdown",
     "# Example Repair Heading",
     "",
     "## Return Target",
-    "Example prose can mention work-card-building-review without becoming runtime heading authority.",
+    "Example prose can mention work-card-building-review without becoming runtime heading control.",
     "",
     "## Acceptance Criteria",
     "Example criteria.",

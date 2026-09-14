@@ -78,7 +78,7 @@ test("execution context dashboard renders active phase metadata and no Work Card
   assert.match(markup, /Phase Planning/);
 });
 
-test("execution context dashboard preserves parent Work Card authority during repair", () => {
+test("execution context dashboard preserves parent Work Card state during repair", () => {
   const markup = renderToStaticMarkup(
     React.createElement(ExecutionContextDashboard, {
       workspace: selectedWorkspace,
@@ -102,7 +102,7 @@ test("execution context dashboard preserves parent Work Card authority during re
           dispositionOrState: "Repair Work Card output is ready to import.",
           repairId: "WC01-REPAIR01",
           parentWorkCardId: "WC01",
-          reason: "Repair context preserves the parent Work Card authority.",
+          reason: "Repair context preserves the parent Work Card state.",
         },
       }),
     }),

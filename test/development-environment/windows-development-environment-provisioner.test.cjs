@@ -480,7 +480,7 @@ test("WinGet repair elevation paths classify elevated results deterministically"
   assert.doesNotMatch(failedResult.requirements[0].blocker ?? "", /permission/i);
 });
 
-test("ambiguous WinGet output blocks and cannot become install authority", async () => {
+test("ambiguous WinGet output blocks and cannot become install source", async () => {
   const runner = sequentialRunner({
     "git --version": [failure(null, "", "ENOENT")],
     "winget --version": [success("v1.11.0")],
@@ -667,7 +667,7 @@ test("zero-result provider search remains recoverable resolution-required", asyn
   assert.equal(result.requirements[0].providerAttempts.some((attempt) => attempt.outcome === "no-results"), true);
 });
 
-test("repository ecosystem provider recognizes native dependency authorities without library allowlists", () => {
+test("repository ecosystem provider recognizes native dependency sources without library allowlists", () => {
   const cases = [
     ["package-lock.json", "npm"],
     ["pnpm-lock.yaml", "pnpm"],

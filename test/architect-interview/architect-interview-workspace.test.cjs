@@ -252,7 +252,7 @@ test("ineligible existing Interview target remains byte-identical and blocks dra
   });
   const before = fs.readFileSync(path.join(root, targets.interview), "utf8");
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
-  fs.writeFileSync(path.join(root, draftPath), "# Architect Interview\n\nUnauthorized replacement.\n", "utf8");
+  fs.writeFileSync(path.join(root, draftPath), "# Architect Interview\n\nOut-of-scope replacement.\n", "utf8");
 
   const model = getArchitectInterviewWorkspaceModel(root);
 
@@ -262,7 +262,7 @@ test("ineligible existing Interview target remains byte-identical and blocks dra
   assert.equal(fs.existsSync(path.join(root, draftPath)), true);
 });
 
-test("Architect Interview model does not carry a truncated authoritative preview body", () => {
+test("Architect Interview model does not carry a truncated canonical preview body", () => {
   const root = tempWorkspace("champcity-architect-no-preview-");
   seedApprovedProjectIntake(root);
   submitDraft(
@@ -276,12 +276,12 @@ test("Architect Interview model does not carry a truncated authoritative preview
   assert.equal(model.preview, undefined);
 });
 
-test("Architect Interview handoff uses projectRepository route when repository authority has no binding", () => {
+test("Architect Interview handoff uses projectRepository route when repository binding has no binding", () => {
   const root = tempWorkspaceWithoutBinding("champcity-architect-interview-unbound-");
   const result = submitProjectIntake({
     projectName: "Unbound Interview",
     projectPurpose: "Keep Architect Interview projection usable without MCP binding.",
-    desiredOutcome: "Handoff setup routes from Project Intake repository authority.",
+    desiredOutcome: "Handoff setup routes from Project Intake repository binding.",
     projectType: "Desktop application",
     projectRepository: root,
     hasExistingSourceOrPlanning: false,
@@ -307,11 +307,56 @@ test("Architect Interview handoff uses projectRepository route when repository a
   assert.match(prepared.handoffInstruction, new RegExp(`Use ChampCity MCP workspaceId "${expectedWorkspaceId}" only\\.`));
   assert.match(finalized.finalDraftHandoffInstruction, new RegExp(`Use ChampCity MCP workspaceId "${expectedWorkspaceId}" only\\.`));
   assert.doesNotMatch(prepared.handoffInstruction, /BLOCKED_MCP_WORKSPACE_BINDING_REQUIRED/);
-  assert.doesNotMatch(prepared.handoffInstruction, /resolve the configured workspace ID|search other workspaces|infer/i);
+  assert.match(prepared.handoffInstruction, /do not invent, normalize, or infer an alternate workspaceId/i);
+  assert.doesNotMatch(
+    prepared.handoffInstruction,
+    /resolve the configured workspace ID|search other workspaces|(?:discover|select|use|fall back to) (?:an? )?(?:alternate|another|different|other) (?:MCP )?workspace/i,
+  );
 
   const manifest = buildArchitectHandoffManifest(root);
   assert.equal(manifest.state, "handoff-ready");
   assert.equal(manifest.mcpWorkspaceBinding.mcpWorkspaceId, expectedWorkspaceId);
+});
+
+test("Architect Interview preserves established architecture and inspects repository review evidence before questions", () => {
+  const root = tempWorkspace("champcity-architect-established-architecture-");
+  const result = submitProjectIntake({
+    projectName: "Established Architecture",
+    projectPurpose: "Translate approved architecture into implementation planning.",
+    desiredOutcome: "Preserve settled architecture while resolving genuine gaps.",
+    projectType: "Desktop application",
+    projectRepository: root,
+    hasExistingSourceOrPlanning: true,
+    knownConstraints: "Do not reopen adopted subsystem ownership.",
+    repositoryReviewContext: "Inspect docs/architecture/adopted-design.md before asking unresolved questions.",
+  });
+  const prompt = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
+  );
+
+  assert.match(prompt.bodyMarkdown, /Project Intake declares existing source or planning: Yes/);
+  assert.match(prompt.bodyMarkdown, /Repository review context: Inspect docs\/architecture\/adopted-design\.md before asking unresolved questions\./);
+  assert.match(prompt.bodyMarkdown, /inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions/);
+  assert.match(prompt.bodyMarkdown, /governing, approved, adopted, canonical, or otherwise established by the Operator/);
+  assert.match(prompt.bodyMarkdown, /Do not redesign, summarize away, or silently supersede it/);
+  assert.match(prompt.bodyMarkdown, /Do not treat all repository Markdown as controlling planning direction/);
+  assert.match(prompt.bodyMarkdown, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
+  assert.match(prompt.bodyMarkdown, /Ask only material Operator-owned questions that remain unresolved after evidence review and normal Architect judgment/);
+  assert.match(prompt.bodyMarkdown, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
+  assert.match(prompt.bodyMarkdown, /coverage obligations.*not a questionnaire.*do not imply one question per section/i);
+  assert.match(prompt.bodyMarkdown, /Do not compress unresolved material decisions merely to shorten the interview/);
+  assert.doesNotMatch(prompt.bodyMarkdown, /8[–-]12 substantive questions|approximately five substantive questions|approximately ten substantive questions/i);
+
+  approve(root, result.projectIntakeMarkdownPath);
+  const prepared = prepareArchitectInterviewHandoff(root);
+  assert.match(prepared.handoffInstruction, /inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions/);
+  assert.match(prepared.handoffInstruction, /do not redesign, summarize away, or silently supersede it/);
+  assert.match(prepared.handoffInstruction, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
+  assert.match(prepared.handoffInstruction, /Ask only material Operator-owned questions that remain unresolved/);
+  assert.match(prepared.handoffInstruction, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
+  assert.match(prepared.handoffInstruction, /coverage obligations, not a questionnaire or an implied one-question-per-section requirement/);
+  assert.match(prepared.handoffInstruction, /Do not compress unresolved material decisions merely to shorten the interview/);
+  assert.doesNotMatch(prepared.handoffInstruction, /8[–-]12 substantive questions|approximately five substantive questions|approximately ten substantive questions/i);
 });
 
 test("Architect Interview regenerates a deleted prompt from Approved Project Intake", () => {
@@ -363,7 +408,7 @@ test("Architect Interview regenerates a deleted prompt from Approved Project Int
     { path: result.projectIntakeMarkdownPath, revision: 1 },
   ]);
   assert.equal(prompt.metadata.workflowData.projectRepository, path.resolve(root));
-  assert.equal(prompt.metadata.workflowData.repositoryAuthority.projectRepository, path.resolve(root));
+  assert.equal(prompt.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
   assert.equal(prompt.metadata.workflowData.projectSlug, "pocket_decision_log");
   assert.equal(prompt.metadata.workflowData.architectOutputTargets.markdown, result.architectInterviewTargetMarkdownPath);
   const regeneratedPromptBytes = fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8");
@@ -379,7 +424,11 @@ test("Architect Interview regenerates a deleted prompt from Approved Project Int
   assert.equal(prepared.canCopyFinalDraftHandoff, false);
   assert.match(prepared.preparedInstruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);
   assertInitialInterviewHandoffIsNoWrite(prepared.preparedInstruction);
-  assert.doesNotMatch(prepared.preparedInstruction, /resolve the configured workspace ID|search other workspaces|infer/i);
+  assert.match(prepared.preparedInstruction, /do not invent, normalize, or infer an alternate workspaceId/i);
+  assert.doesNotMatch(
+    prepared.preparedInstruction,
+    /resolve the configured workspace ID|search other workspaces|(?:discover|select|use|fall back to) (?:an? )?(?:alternate|another|different|other) (?:MCP )?workspace/i,
+  );
   const finalized = prepareArchitectInterviewFinalDraftHandoff(root);
   assert.equal(finalized.canCopyFinalDraftHandoff, true);
   assert.match(finalized.finalDraftHandoffInstruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);

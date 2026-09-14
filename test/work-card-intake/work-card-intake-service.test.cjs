@@ -6,9 +6,15 @@ const {
   generateWorkCardIntakeHandoff,
   getWorkCardIntakeProjection,
   getWorkCardMapProjection,
-  resolveActiveWorkCardAuthority,
+  resolveActiveWorkCardState,
   selectNextWorkCardCandidate,
 } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
+const {
+  resolveEffectiveWorkCardCompletion,
+} = require("../../dist/main/workCardLoop/effectiveWorkCardCompletion.js");
+const {
+  consumeWorkCardCloseReturn,
+} = require("../../dist/main/workCardLoop/workCardCloseReturnLifecycle.js");
 const {
   seedApprovedPhaseInterview,
   seedApprovedPhasePlanningBundle,
@@ -69,9 +75,7 @@ test("Work Card Map projection exposes only Complete, Eligible, and Ineligible u
   seedPhaseMap(root, "phase-01");
   seedApprovedPhaseInterview(root, "phase-01");
   seedTwoCandidatePhasePlanningBundle(root);
-  writeDoc(root, "planning/phases/phase-01/Validation_Records/VALIDATION_RECORD_WC01_ATTEMPT01.md", "validation-record", "Approved", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-  });
+  writeEffectiveCompletion(root, "phase-01", "WC01", "first_work_card", "2026-08-30T12:00:00.000Z");
 
   const projection = getWorkCardMapProjection(root, "phase-01");
 
@@ -94,9 +98,7 @@ test("candidate-scoped Begin Planning rejects non-eligible candidates and reuses
   seedPhaseMap(root, "phase-01");
   seedApprovedPhaseInterview(root, "phase-01");
   seedTwoCandidatePhasePlanningBundle(root);
-  writeDoc(root, "planning/phases/phase-01/Validation_Records/VALIDATION_RECORD_WC01_ATTEMPT01.md", "validation-record", "Approved", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-  });
+  writeEffectiveCompletion(root, "phase-01", "WC01", "first_work_card", "2026-08-30T12:00:00.000Z");
 
   assert.throws(
     () => beginWorkCardPlanningForCandidate(root, "phase-01", "WC01"),
@@ -117,8 +119,8 @@ test("candidate-scoped Begin Planning rejects non-eligible candidates and reuses
   assert.equal(reused.reusedExisting, true);
 });
 
-test("active Work Card authority locks Begin Planning and reports conflicts", () => {
-  const root = tempWorkspace("champcity-work-card-map-active-authority-");
+test("active Work Card state locks Begin Planning and reports conflicts", () => {
+  const root = tempWorkspace("champcity-work-card-map-active-state-");
   seedApprovedProjectPlanning(root);
   seedPhaseMap(root, "phase-01");
   seedApprovedPhaseInterview(root, "phase-01");
@@ -127,7 +129,7 @@ test("active Work Card authority locks Begin Planning and reports conflicts", ()
   const created = beginWorkCardPlanningForCandidate(root, "phase-01", "WC02");
   assert.equal(created.candidateId, "WC02");
 
-  const active = resolveActiveWorkCardAuthority(root, "phase-01");
+  const active = resolveActiveWorkCardState(root, "phase-01");
   assert.equal(active.status, "active");
   assert.equal(active.workCardId, "WC02");
   assert.match(active.evidencePaths.join(";"), /WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WC02\.md/);
@@ -172,7 +174,7 @@ test("active Work Card authority locks Begin Planning and reports conflicts", ()
       formalWorkCardTarget: "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md",
     },
   });
-  const conflict = resolveActiveWorkCardAuthority(root, "phase-01");
+  const conflict = resolveActiveWorkCardState(root, "phase-01");
   assert.equal(conflict.status, "conflict");
   assert.deepEqual(conflict.activeWorkCardIds.sort(), ["WC01", "WC02"]);
   const conflictMap = getWorkCardMapProjection(root, "phase-01");
@@ -184,15 +186,13 @@ test("active Work Card authority locks Begin Planning and reports conflicts", ()
   );
 });
 
-test("close-pending validation keeps active authority until explicit close return view", () => {
+test("close-pending validation keeps active state until durable close-return consumption", () => {
   const root = tempWorkspace("champcity-work-card-map-close-pending-");
   seedApprovedProjectPlanning(root);
   seedPhaseMap(root, "phase-01");
   seedApprovedPhaseInterview(root, "phase-01");
   seedTwoCandidatePhasePlanningBundle(root);
-  writeDoc(root, "planning/phases/phase-01/Validation_Records/VALIDATION_RECORD_WC01_ATTEMPT01.md", "validation-record", "Approved", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-  });
+  writeEffectiveCompletion(root, "phase-01", "WC01", "first_work_card", "2026-08-30T12:00:00.000Z");
 
   beginWorkCardPlanningForCandidate(root, "phase-01", "WC02");
   writeDoc(root, "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md", "formal-work-card", "Approved", {
@@ -208,7 +208,7 @@ test("close-pending validation keeps active authority until explicit close retur
       filesChanged: ["src/main/workCardIntake/workCardIntakeService.ts"],
       implementationSummary: "Completed WC02 close-pending evidence.",
       validationResults: ["work card intake service test passed"],
-      acceptanceEvidence: ["close-pending active authority remains bound to WC02"],
+      acceptanceEvidence: ["close-pending active state remains bound to WC02"],
     },
     bodyMarkdown: [
       "# Implementer Report - WC02",
@@ -222,13 +222,14 @@ test("close-pending validation keeps active authority until explicit close retur
   });
   writeDoc(root, "planning/phases/phase-01/Validation_Records/VALIDATION_RECORD_WC02_ATTEMPT01.md", "validation-record", "Approved", {
     identity: { phaseId: "phase-01", workCardId: "WC02", candidateId: "WC02" },
+    reviewedAt: "2026-08-30T13:00:00.000Z",
     sourceRevisions: [
       { path: "planning/phases/phase-01/Work_Cards/WC02_second_work_card.md", revision: 1 },
       { path: "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC02_second_work_card.md", revision: 1 },
     ],
   });
 
-  const active = resolveActiveWorkCardAuthority(root, "phase-01");
+  const active = resolveActiveWorkCardState(root, "phase-01");
   assert.equal(active.status, "active");
   assert.equal(active.workCardId, "WC02");
   assert.match(active.evidencePaths.join(";"), /IMPLEMENTER_REPORT_WC02_second_work_card\.md/);
@@ -244,11 +245,13 @@ test("close-pending validation keeps active authority until explicit close retur
     /Cannot begin WC03 because WC02 is the active Work Card/,
   );
 
-  const closeReturnedMap = getWorkCardMapProjection(root, "phase-01", { closeReturnCompleted: true });
+  const completion = resolveEffectiveWorkCardCompletion(root, "phase-01", "WC02");
+  consumeWorkCardCloseReturn(root, completion);
+  const closeReturnedMap = getWorkCardMapProjection(root, "phase-01");
   assert.equal(closeReturnedMap.candidates.find((candidate) => candidate.candidateId === "WC02").status, "Complete");
   assert.equal(closeReturnedMap.candidates.find((candidate) => candidate.candidateId === "WC02").isActive, false);
   assert.equal(closeReturnedMap.candidates.find((candidate) => candidate.candidateId === "WC03").status, "Eligible");
-  const next = beginWorkCardPlanningForCandidate(root, "phase-01", "WC03", { closeReturnCompleted: true });
+  const next = beginWorkCardPlanningForCandidate(root, "phase-01", "WC03");
   assert.equal(next.candidateId, "WC03");
 });
 
@@ -310,6 +313,56 @@ function seedTwoCandidatePhasePlanningBundle(root) {
     workflowData: { candidates },
     bodyMarkdown: `# Work Card Plan\n\n\`\`\`champcity-work-card-plan\n${JSON.stringify(candidates, null, 2)}\n\`\`\`\n`,
   });
+}
+
+function writeEffectiveCompletion(root, phaseId, workCardId, slug, reviewedAt) {
+  const formalPath = writeDoc(
+    root,
+    `planning/phases/${phaseId}/Work_Cards/${workCardId}_${slug}.md`,
+    "formal-work-card",
+    "Approved",
+    { identity: { phaseId, workCardId, candidateId: workCardId } },
+  );
+  const reportPath = writeDoc(
+    root,
+    `planning/phases/${phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${workCardId}_${slug}.md`,
+    "implementer-report",
+    "Pending",
+    {
+      identity: { phaseId, workCardId, candidateId: workCardId },
+      sourceRevisions: [{ path: formalPath, revision: 1 }],
+      workflowData: {
+        repositoryVerification: "Verified approved repo root.",
+        filesChanged: ["src/main/workCardIntake/workCardIntakeService.ts"],
+        implementationSummary: `Completed ${workCardId} effective completion evidence.`,
+        validationResults: ["work card intake service test passed"],
+        acceptanceEvidence: [`${workCardId} has exact current Approved validation evidence`],
+      },
+      bodyMarkdown: [
+        `# Implementer Report - ${workCardId}`,
+        "",
+        "Status: Pending Operator review.",
+        "",
+        "## Implementation Summary",
+        `Completed ${workCardId} effective completion evidence.`,
+        "",
+      ].join("\n"),
+    },
+  );
+  return writeDoc(
+    root,
+    `planning/phases/${phaseId}/Validation_Records/VALIDATION_RECORD_${workCardId}_ATTEMPT01.md`,
+    "validation-record",
+    "Approved",
+    {
+      identity: { phaseId, workCardId, candidateId: workCardId },
+      reviewedAt,
+      sourceRevisions: [
+        { path: formalPath, revision: 1 },
+        { path: reportPath, revision: 1 },
+      ],
+    },
+  );
 }
 
 function seedSimultaneouslyEligiblePhasePlanningBundle(root) {

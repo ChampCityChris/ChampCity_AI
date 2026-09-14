@@ -10,11 +10,18 @@ const componentSourcePath = path.join(repoRoot, "src", "renderer", "app", "WorkC
 const appSourcePath = path.join(repoRoot, "src", "renderer", "app", "App.tsx");
 const preloadSourcePath = path.join(repoRoot, "src", "preload", "index.ts");
 const workspaceSourcePath = path.join(repoRoot, "src", "shared", "workspaceContracts.ts");
+const orchestrationSourcePath = path.join(repoRoot, "src", "renderer", "app", "closeReturnRendererOrchestration.ts");
 const {
   WorkCardCloseWorkspace,
   workCardCloseProjectionFromResult,
 } = require("./renderer-source-loader.cjs")
   .loadRendererSourceModule("src/renderer/app/WorkCardCloseWorkspace.tsx");
+const {
+  closeReturnSelectionProjectionFromResult,
+  executeCloseReturnCandidateIntake,
+  executeCloseReturnToMap,
+} = require("./renderer-source-loader.cjs")
+  .loadRendererSourceModule("src/renderer/app/closeReturnRendererOrchestration.ts");
 
 function closeModel() {
   return {
@@ -79,6 +86,124 @@ function renderWorkspace(overrides = {}) {
   );
 }
 
+function mapCandidate(candidateId, order, status) {
+  return {
+    candidateId,
+    order,
+    title: `${candidateId} title`,
+    purpose: `${candidateId} purpose`,
+    dependsOn: order === 1 ? [] : ["WC01"],
+    status,
+    reason: `${candidateId} is ${status}.`,
+    evidencePaths: status === "Complete" ? [`planning/${candidateId}-validation.md`] : [],
+    handoffMarkdownPath: `planning/${candidateId}-handoff.md`,
+    formalWorkCardMarkdownPath: `planning/${candidateId}.md`,
+    isActive: false,
+  };
+}
+
+function closeReturnProjection(state = "selection-required") {
+  const candidates = [
+    mapCandidate("WC00", 1, "Complete"),
+    mapCandidate("WC01", 2, "Complete"),
+    mapCandidate("WC02", 3, "Eligible"),
+    mapCandidate("WC03", 4, "Eligible"),
+  ];
+  const common = {
+    state,
+    phaseId: "phase-08",
+    closedWorkCardId: "WC01",
+    close: {
+      closed: true,
+      returnTarget: "phase-work-card-selection",
+      reason: "The current Work Card is effectively complete.",
+    },
+    closeReturnRecordPath: "planning/phases/phase-08/Close_Return_Records/WC01.md",
+    closeReturnRecordRevision: 1,
+    closeReturnRecordReused: false,
+    candidates,
+    explanations: candidates.map((candidate) => ({
+      candidateId: candidate.candidateId,
+      state: candidate.status === "Complete" ? "complete" : "eligible",
+      reason: candidate.reason,
+      evidencePaths: candidate.evidencePaths,
+    })),
+  };
+  if (state === "selection-required") {
+    return {
+      ...common,
+      sourceWorkCardPlanPath: "planning/phases/phase-08/Work_Card_Plan.md",
+      eligibleCandidates: candidates.slice(2),
+    };
+  }
+  if (state === "all-complete") {
+    return {
+      ...common,
+      candidates: candidates.map((candidate) => ({ ...candidate, status: "Complete" })),
+      continuationTarget: "phase-validation",
+      reason: "All planned Work Cards are complete.",
+    };
+  }
+  return {
+    ...common,
+    blockerState: "dependency-blocked",
+    candidates: candidates.map((candidate) => ({ ...candidate, status: "Ineligible" })),
+    reason: "Current dependency state requires attention.",
+  };
+}
+
+function orchestrationApi(calls, projection = closeReturnProjection()) {
+  return {
+    async getCloseReturnSelectionProjection() {
+      calls.push("getCloseReturnSelectionProjection");
+      return {
+        ok: true,
+        action: "currentWorkflow:getCloseReturnSelectionProjection",
+        message: "Close return consumed.",
+        payload: projection,
+      };
+    },
+    async generateCloseReturnNextIntakeHandoff(candidateId) {
+      calls.push(`generateCloseReturnNextIntakeHandoff:${candidateId}`);
+      return {
+        ok: true,
+        action: "currentWorkflow:generateCloseReturnNextIntakeHandoff",
+        message: "Selected intake established.",
+        payload: { candidateId },
+      };
+    },
+    async listDocuments() {
+      calls.push("listDocuments");
+      return [];
+    },
+    async getProjectPlanningWorkspaceModel() {
+      calls.push("getProjectPlanningWorkspaceModel");
+      return { state: "ready" };
+    },
+    async getCurrentWorkspaceModel() {
+      calls.push("getCurrentWorkspaceModel");
+      return {
+        activeWorkspaceId: "work-card-intake",
+        currentWorkCardId: "WC03",
+        executionContext: { workCard: { workCardId: "WC03" } },
+      };
+    },
+    async resolveCurrentDocument() {
+      calls.push("resolveCurrentDocument");
+      return { status: "current" };
+    },
+    async getWorkCardMapProjection(phaseId) {
+      calls.push(`getWorkCardMapProjection:${phaseId}`);
+      return {
+        ok: true,
+        action: "currentWorkflow:getWorkCardMapProjection",
+        message: "Default map loaded.",
+        payload: { phaseId, state: projection.state },
+      };
+    },
+  };
+}
+
 test("Work Card Close workspace renders projection, evidence names, and return action", () => {
   const markup = renderWorkspace();
 
@@ -139,34 +264,141 @@ test("Work Card Close parser rejects malformed close projection payloads", () =>
   });
 });
 
-test("App routes work-card-close through close projection instead of generic handoff", () => {
+test("Close / Next executes canonical consumption followed by default repository refresh", async () => {
+  const calls = [];
+  const api = orchestrationApi(calls);
+  let consumedProjection = null;
+
+  assert.deepEqual(calls, []);
+  const transition = await executeCloseReturnToMap(api, (projection) => {
+    calls.push(`consumed:${projection.state}`);
+    consumedProjection = projection;
+  });
+
+  assert.deepEqual(calls, [
+    "getCloseReturnSelectionProjection",
+    "consumed:selection-required",
+    "listDocuments",
+    "getProjectPlanningWorkspaceModel",
+    "getCurrentWorkspaceModel",
+    "resolveCurrentDocument",
+    "getWorkCardMapProjection:phase-08",
+  ]);
+  assert.equal(consumedProjection.state, "selection-required");
+  assert.deepEqual(
+    transition.projection.eligibleCandidates.map((candidate) => candidate.candidateId),
+    ["WC02", "WC03"],
+  );
+  assert.equal(transition.projection.candidates[0].status, "Complete");
+  assert.equal(transition.projection.candidates[0].isActive, false);
+  assert.equal(transition.projection.candidates[1].status, "Complete");
+  assert.equal(transition.projection.candidates[1].isActive, false);
+  assert.equal(transition.mapResult.message, "Default map loaded.");
+});
+
+test("Close-return parser and orchestration reject malformed results before false navigation", async () => {
+  const malformed = {
+    ok: true,
+    action: "currentWorkflow:getCloseReturnSelectionProjection",
+    message: "Malformed response.",
+    payload: {
+      ...closeReturnProjection(),
+      eligibleCandidates: "WC02",
+    },
+  };
+  assert.equal(closeReturnSelectionProjectionFromResult(malformed), null);
+
+  const calls = [];
+  const api = orchestrationApi(calls);
+  api.getCloseReturnSelectionProjection = async () => {
+    calls.push("getCloseReturnSelectionProjection");
+    return malformed;
+  };
+  await assert.rejects(
+    executeCloseReturnToMap(api),
+    /malformed canonical selection projection/,
+  );
+  assert.deepEqual(calls, ["getCloseReturnSelectionProjection"]);
+});
+
+test("all-complete and needs-attention close returns refresh the map without creating intake", async () => {
+  for (const state of ["all-complete", "needs-attention"]) {
+    const calls = [];
+    const transition = await executeCloseReturnToMap(
+      orchestrationApi(calls, closeReturnProjection(state)),
+    );
+    assert.equal(transition.projection.state, state);
+    assert.equal(calls.includes("getWorkCardMapProjection:phase-08"), true);
+    assert.equal(calls.some((call) => call.startsWith("generateCloseReturnNextIntakeHandoff")), false);
+  }
+});
+
+test("explicit non-first candidate selection uses close-return intake and refreshes state", async () => {
+  const calls = [];
+  const transition = await executeCloseReturnCandidateIntake(
+    orchestrationApi(calls),
+    "phase-08",
+    "WC03",
+  );
+
+  assert.equal(transition.state, "established");
+  assert.deepEqual(calls, [
+    "generateCloseReturnNextIntakeHandoff:WC03",
+    "listDocuments",
+    "getProjectPlanningWorkspaceModel",
+    "getCurrentWorkspaceModel",
+    "resolveCurrentDocument",
+  ]);
+  assert.equal(transition.currentModel.currentWorkCardId, "WC03");
+});
+
+test("rejected close-return candidate preserves the error and reloads only the default map", async () => {
+  const calls = [];
+  const api = orchestrationApi(calls);
+  api.generateCloseReturnNextIntakeHandoff = async (candidateId) => {
+    calls.push(`generateCloseReturnNextIntakeHandoff:${candidateId}`);
+    throw new Error("WC02 is no longer Eligible.");
+  };
+
+  const transition = await executeCloseReturnCandidateIntake(api, "phase-08", "WC02");
+  assert.equal(transition.state, "rejected");
+  assert.match(transition.error.message, /no longer Eligible/);
+  assert.equal(transition.mapResult.message, "Default map loaded.");
+  assert.deepEqual(calls, [
+    "generateCloseReturnNextIntakeHandoff:WC02",
+    "getWorkCardMapProjection:phase-08",
+  ]);
+});
+
+test("App routes work-card-close through canonical close-return orchestration", () => {
   const componentSource = fs.readFileSync(componentSourcePath, "utf8");
   const appSource = fs.readFileSync(appSourcePath, "utf8");
   const preloadSource = fs.readFileSync(preloadSourcePath, "utf8");
   const workspaceSource = fs.readFileSync(workspaceSourcePath, "utf8");
+  const orchestrationSource = fs.readFileSync(orchestrationSourcePath, "utf8");
   const closeReturnSource = appSource.slice(
     appSource.indexOf("async function returnFromWorkCardCloseToSelection"),
     appSource.indexOf("async function createImplementerReportFromBuildReview"),
   );
 
   assert.match(workspaceSource, /getCurrentCloseProjection: \(\) => Promise<RuntimeActionResult>/);
-  assert.match(workspaceSource, /getWorkCardMapProjection:[\s\S]*options\?: WorkCardMapProjectionOptions[\s\S]*Promise<RuntimeActionResult>/);
-  assert.match(workspaceSource, /beginWorkCardPlanning:[\s\S]*Promise<RuntimeActionResult>/);
+  assert.match(workspaceSource, /getCloseReturnSelectionProjection: \(\) => Promise<RuntimeActionResult>/);
+  assert.match(workspaceSource, /generateCloseReturnNextIntakeHandoff: \(candidateId: string\) => Promise<RuntimeActionResult>/);
   assert.match(preloadSource, /getCurrentCloseProjection:[\s\S]*currentWorkflow:getCloseProjection/);
-  assert.match(preloadSource, /getWorkCardMapProjection:[\s\S]*currentWorkflow:getWorkCardMapProjection/);
-  assert.match(preloadSource, /beginWorkCardPlanning:[\s\S]*currentWorkflow:beginWorkCardPlanning/);
+  assert.match(preloadSource, /getCloseReturnSelectionProjection:[\s\S]*currentWorkflow:getCloseReturnSelectionProjection/);
+  assert.match(preloadSource, /generateCloseReturnNextIntakeHandoff:[\s\S]*currentWorkflow:generateCloseReturnNextIntakeHandoff/);
   assert.match(appSource, /<WorkCardCloseWorkspace/);
   assert.match(appSource, /activeWorkspaceId === "work-card-close"/);
   assert.match(appSource, /!isVisibleArchitectOutputWorkspace &&\s*!isWorkCardClose/);
-  assert.match(closeReturnSource, /window\.champcity\.getWorkCardMapProjection\(phaseId, \{/);
-  assert.match(closeReturnSource, /closeReturnCompleted: true/);
-  assert.match(closeReturnSource, /window\.champcity\.listDocuments\(\)/);
-  assert.match(closeReturnSource, /refreshCurrentModel\(\)/);
-  assert.match(closeReturnSource, /window\.champcity\.resolveCurrentDocument\(\)/);
+  assert.match(closeReturnSource, /executeCloseReturnToMap\(/);
+  assert.match(orchestrationSource, /api\.getCloseReturnSelectionProjection\(\)/);
+  assert.match(orchestrationSource, /api\.getWorkCardMapProjection\(projection\.phaseId\)/);
   assert.match(closeReturnSource, /transitionToWorkflowStep\("phase-work-card-selection"/);
   assert.doesNotMatch(closeReturnSource, /generateCurrentHandoff/);
+  assert.doesNotMatch(appSource, /workCardCloseReturnCompleted/);
+  assert.doesNotMatch(appSource, /closeReturnCompleted:\s*true/);
   assert.doesNotMatch(componentSource, /generateCurrentHandoff/);
-  assert.match(appSource, /window\.champcity\.beginWorkCardPlanning\(phaseId, candidateId, \{/);
+  assert.match(appSource, /executeCloseReturnCandidateIntake\(/);
   assert.match(appSource, /<WorkCardMapWorkspace/);
   assert.match(appSource, /!isWorkCardClose &&\s*!isWorkCardMap/);
 });

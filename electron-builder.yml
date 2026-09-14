@@ -1,0 +1,46 @@
+appId: ChampCity.AI
+# Electron Builder preserves productName in human-readable Windows metadata and
+# sanitizes filesystem-backed names separately. Explicit legal executable,
+# artifact, and shortcut names remain configured below.
+productName: ChampCity A/I
+artifactName: ChampCityAI-Setup-${version}.${ext}
+
+directories:
+  output: release
+
+files:
+  - dist/main/**/*
+  - dist/preload/**/*
+  - dist/shared/**/*
+  - dist/renderer/**/*
+  - dist/branding/**/*
+  - package.json
+
+asar: true
+asarUnpack:
+  - node_modules/@openai/codex-win32-x64/vendor/**/*
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: dist/branding/ChampCity-AI.ico
+  executableName: ChampCityAI
+
+nsis:
+  oneClick: false
+  perMachine: false
+  selectPerMachineByDefault: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  runAfterFinish: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ChampCity AI
+  include: packaging/windows/installer.nsh
+  installerIcon: dist/branding/ChampCity-AI.ico
+  uninstallerIcon: dist/branding/ChampCity-AI.ico
+  uninstallDisplayName: ChampCity A/I ${version}
+  deleteAppDataOnUninstall: false
+  differentialPackage: false

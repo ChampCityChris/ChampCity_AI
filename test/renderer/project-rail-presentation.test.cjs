@@ -180,7 +180,7 @@ test("App does not derive Architect Interview rail status from unrelated active 
   assert.match(appSource, /architectOutputModel\?\.workspaceId === "architect-interview"/);
 });
 
-test("App uses the direct Project Planning model for Project Planning rail authority", () => {
+test("App uses the direct Project Planning model for Project Planning rail state", () => {
   const appSource = fs.readFileSync(appSourcePath, "utf8");
   const activeWorkspaceSwitch = appSource.slice(
     appSource.indexOf("switch (architectOutputModel.workspaceId)"),
@@ -193,7 +193,7 @@ test("App uses the direct Project Planning model for Project Planning rail autho
   assert.doesNotMatch(activeWorkspaceSwitch, /statuses\["project-planning-review"\]/);
 });
 
-test("Project Planning rail service has no duplicate Project Planning lifecycle authority", () => {
+test("Project Planning rail service has no duplicate Project Planning lifecycle state", () => {
   const source = fs.readFileSync(projectLifecycleRailSourcePath, "utf8");
 
   assert.match(source, /projectPlanningStatus:\s*ProjectLifecycleRailStatus/);
@@ -209,7 +209,7 @@ test("Project Planning workspace model is exposed through a direct read-only IPC
   const contractsSource = fs.readFileSync(workspaceContractsSourcePath, "utf8");
 
   assert.match(mainSource, /projectPlanning:getWorkspaceModel/);
-  assert.match(mainSource, /getAuthoritativeProjectPlanningWorkspaceModel\(getRequiredWorkspaceRoot\(\)\)/);
+  assert.match(mainSource, /getCurrentProjectPlanningWorkspaceModel\(getRequiredWorkspaceRoot\(\)\)/);
   assert.match(preloadSource, /getProjectPlanningWorkspaceModel:\s*\(\) =>/);
   assert.match(preloadSource, /projectPlanning:getWorkspaceModel/);
   assert.match(contractsSource, /getProjectPlanningWorkspaceModel:\s*\(\) => Promise<ProjectPlanningWorkspaceModel>/);
@@ -426,7 +426,7 @@ test("Work Card Architect workspaces reuse the shared dual-pane layout", () => {
   assert.doesNotMatch(stylesSource, /work-card-architect-workspace/);
 });
 
-test("project rail consumes Project Planning blocker state from the authoritative model input", () => {
+test("project rail consumes Project Planning blocker state from the current model input", () => {
   const statuses = deriveProjectLifecycleRailStatuses([], {
     projectIntakeStatus: "Completed",
     architectInterviewStatus: "Completed",

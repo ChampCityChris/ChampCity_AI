@@ -16,6 +16,8 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
   await transport.initialize();
   const thread = transport.startThread({
     workingDirectory: "<PROJECT_REPO>",
+    model: "exact-execution-id",
+    reasoningEffort: "future-effort",
     skipGitRepoCheck: true,
     sandboxMode: "workspace-write",
     approvalPolicy: "on-request",
@@ -27,6 +29,9 @@ test("App Server transport uses JSONL initialize, thread, turn, notifications, a
   const iterator = streamed.events[Symbol.asyncIterator]();
 
   assert.deepEqual((await iterator.next()).value, { type: "turn.started" });
+  assert.equal(fake.lastRequest("thread/start").params.model, "exact-execution-id");
+  assert.equal(fake.lastRequest("turn/start").params.model, "exact-execution-id");
+  assert.equal(fake.lastRequest("turn/start").params.effort, "future-effort");
   assert.equal(fake.lastRequest("thread/start").params.approvalPolicy, "on-request");
   assert.equal(fake.lastRequest("thread/start").params.approvalsReviewer, "user");
   assert.equal(fake.lastRequest("thread/start").params.sandbox, "workspace-write");
@@ -774,6 +779,9 @@ function createFakeAppServerProcess(options = {}) {
         }
         respond(message.id, { userAgent: "fake-codex-app-server", codexHome: "<CODEX_HOME>" });
         return;
+      case "model/list":
+        respond(message.id, { data: [{id: "picker-id", model: "exact-execution-id", displayName: "Display label", description: "Model", supportedReasoningEfforts: [{reasoningEffort: "future-effort"}, {reasoningEffort: "low"}], defaultReasoningEffort: "low", isDefault: false}], nextCursor: null });
+        return;
       case "thread/start":
         if (options.holdCapabilities) {
           return;
@@ -781,7 +789,7 @@ function createFakeAppServerProcess(options = {}) {
         respond(message.id, {
           thread: { id: "thread-1" },
           cwd: message.params.cwd,
-          model: "gpt-5-codex",
+          model: options.substituteModel ?? message.params.model ?? "gpt-5-codex",
           reasoningEffort: "high",
           approvalPolicy: "on-request",
           approvalsReviewer: "user",
@@ -856,3 +864,25 @@ function createFakeAppServerProcess(options = {}) {
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+
+test("model/list queries the injected current runtime and preserves exact ordered catalog fields", async () => {
+  const fake = createFakeAppServerProcess();
+  const transport = await loadCodexAppServerAdapter(() => fake.child);
+  try {
+    const catalog = await transport.listModels();
+    assert.deepEqual(fake.lastRequest("model/list").params, {limit: 100, includeHidden: false, cursor: null});
+    assert.deepEqual(catalog, [{id: "picker-id", model: "exact-execution-id", displayName: "Display label", description: "Model", supportedReasoningEfforts: ["future-effort", "low"], defaultReasoningEffort: "low", isDefault: false}]);
+  } finally { await transport.dispose(); }
+});
+
+
+test("a runtime that substitutes the selected model cannot start the implementation turn", async () => {
+  const fake=createFakeAppServerProcess({substituteModel:"ambient-model"});
+  const transport=await loadCodexAppServerAdapter(()=>fake.child);
+  try {
+    const thread=transport.startThread({workingDirectory:"<PROJECT_REPO>",model:"selected-model",reasoningEffort:"high"});
+    await assert.rejects(thread.runStreamed("Implement"),/did not honor the selected model/);
+    assert.throws(()=>fake.lastRequest("turn/start"),/Expected turn\/start request/);
+  } finally {await transport.dispose();}
+});

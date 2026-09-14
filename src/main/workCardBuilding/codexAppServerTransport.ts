@@ -1,3 +1,4 @@
+import { normalizeModelCatalog, type CodexModelCatalogEntry } from "../../shared/codexRuntimeContracts";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createRequire } from "node:module";
 import readline from "node:readline";
@@ -42,6 +43,8 @@ export type CodexAppServerThreadItem =
   | { type: string; status?: string; [key: string]: unknown };
 
 export interface CodexAppServerThreadOptions {
+  model?: string;
+  reasoningEffort?: string;
   workingDirectory: string;
   skipGitRepoCheck?: boolean;
   sandboxMode?: "danger-full-access" | "workspace-write";
@@ -69,6 +72,7 @@ export interface CodexAppServerThreadAdapter {
 }
 
 export interface CodexAppServerAdapter {
+  listModels?(): Promise<CodexModelCatalogEntry[]>;
   startThread(options?: CodexAppServerThreadOptions): CodexAppServerThreadAdapter;
   getRuntimeState?(): CodexAppServerRuntimeState;
   dispose?(): Promise<void>;
@@ -298,6 +302,7 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
 
   async startAppThread(thread: JsonlCodexAppServerThread): Promise<string> {
     const params: CodexAppServerThreadStartParams = {
+      model: thread.options.model,
       cwd: thread.options.workingDirectory,
       approvalPolicy: thread.options.approvalPolicy ?? "on-request",
       approvalsReviewer: thread.options.approvalsReviewer ?? "user",
@@ -312,6 +317,9 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     const threadId = String(threadRecord.id ?? "");
     if (!threadId) {
       throw new Error("Codex App Server did not return a thread id.");
+    }
+    if (thread.options.model && result.model !== thread.options.model) {
+      throw new Error("Codex did not honor the selected model. Implementation was blocked.");
     }
     this.threads.set(threadId, thread);
     this.runtimeState = {
@@ -346,6 +354,8 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     try {
       const params: CodexAppServerTurnStartParams = {
         threadId,
+        model: thread.options.model,
+        effort: thread.options.reasoningEffort,
         input: [{ type: "text", text: input, text_elements: [] }],
         cwd: thread.options.workingDirectory,
         approvalPolicy: thread.options.approvalPolicy ?? "on-request",
@@ -355,6 +365,8 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
       const result = asRecord(
         await this.request(codexAppServerMethods.turnStart, params),
       ) as unknown as Partial<CodexAppServerTurnStartResponse>;
+      this.runtimeState.model = thread.options.model ?? this.runtimeState.model;
+      this.runtimeState.reasoningEffort = thread.options.reasoningEffort ?? this.runtimeState.reasoningEffort;
       const turn = asRecord(result.turn);
       thread.activeTurn.turnId = stringOrNull(turn.id);
       if (options?.signal?.aborted || thread.activeTurn.interruptRequested) {
@@ -458,6 +470,22 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
       }
     }
     this.childExit = null;
+  }
+
+  async listModels(): Promise<CodexModelCatalogEntry[]> {
+    const entries: CodexModelCatalogEntry[] = [];
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const page = asRecord(await this.request(codexAppServerMethods.modelList, { limit: 100, includeHidden: false, cursor }));
+      entries.push(...normalizeModelCatalog(page.data));
+      if (page.nextCursor !== null && typeof page.nextCursor !== "string") throw new Error("Invalid model catalog cursor.");
+      cursor = page.nextCursor as string | null;
+      if (cursor && (seen.has(cursor) || seen.size >= 100)) throw new Error("Invalid model catalog pagination.");
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    if (new Set(entries.map((entry) => entry.model)).size !== entries.length) throw new Error("Duplicate model execution identifiers.");
+    return entries;
   }
 
   getRuntimeState(): CodexAppServerRuntimeState {
@@ -891,7 +919,7 @@ export function spawnPackagedCodexAppServer(): ChildProcessWithoutNullStreams {
   const require = createRequire(__filename);
   const codexEntrypoint = require.resolve("@openai/codex/bin/codex.js");
   return spawn(process.execPath, [codexEntrypoint, "app-server", "--listen", "stdio://"], {
-    env: buildCodexAppServerEnvironment(process.env),
+    env: { ...buildCodexAppServerEnvironment(process.env), ELECTRON_RUN_AS_NODE: "1" },
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
   });

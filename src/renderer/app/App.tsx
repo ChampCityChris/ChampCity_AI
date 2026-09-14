@@ -1,15 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type FormEvent } from "react";
 import { Bot, Clipboard, FileText, FolderOpen, Play, RefreshCw, RotateCcw, Settings as SettingsIcon, Square } from "lucide-react";
 import {
   type ClosureDecision,
+  type CloseReturnSelectionProjection,
   type CodexImplementerExecutionModel,
   type CurrentWorkspaceModel,
+  type DevelopmentPostMutationProjection,
   type AgentHarnessAuthenticationMode,
   type AgentHarnessSettingsInput,
+  type AgentHarnessServiceHostLifecycleSettingsInput,
+  type AgentHarnessServiceHostLifecycleStatus,
   type AgentHarnessStatus,
+  type AgentHarnessWorkspaceRegistrySnapshot,
   type ArchitectOutputWorkspaceModel,
   projectTypeOptions,
   type ProjectPlanningWorkspaceModel,
+  type PhaseValidationActionProjection,
   type RuntimeActionResult,
   type WorkCardRepairProjection,
   type WorkCardMapCandidateProjection,
@@ -59,6 +66,18 @@ import { NestedWorkflowRail } from "./NestedWorkflowRail";
 import { IssueResolutionRail } from "./IssueResolutionRail";
 import { IssueResolutionWorkspace } from "./IssueResolutionWorkspace";
 import { IssueArchitectPlanningWorkspace } from "./IssueArchitectPlanningWorkspace";
+import { IssuePlanningWorkspace } from "./IssuePlanningWorkspace";
+import { IssueValidationWorkspace } from "./IssueValidationWorkspace";
+import { IssueCloseWorkspace } from "./IssueCloseWorkspace";
+import {
+  IssueFixCardCloseWorkspace,
+  IssueFixCardContextStrip,
+  IssueFixCardImplementWorkspace,
+  IssueFixCardMapWorkspace,
+  IssueFixCardPlanningWorkspace,
+  IssueFixCardRepairWorkspace,
+  IssueFixCardReviewValidationWorkspace,
+} from "./IssueFixCardMapWorkspace";
 import {
   FigmaPhaseMapWorkspace,
   PhaseMapDocumentPreview,
@@ -84,21 +103,61 @@ import {
 } from "./WorkCardCloseWorkspace";
 import { WorkCardMapWorkspace } from "./WorkCardMapWorkspace";
 import { WorkCardRepairWorkspace } from "./WorkCardRepairWorkspace";
+import {
+  executeCloseReturnCandidateIntake,
+  executeCloseReturnToMap,
+  refreshRendererRepositoryBinding,
+} from "./closeReturnRendererOrchestration";
+import {
+  createEvidenceDrivenRefreshCoordinator,
+  type EvidenceDrivenRefreshCoordinator,
+  type EvidenceDrivenRefreshTarget,
+} from "./evidenceDrivenRefreshCoordinator";
+import {
+  codexExecutionPresentationReducer,
+  initialCodexExecutionPresentationState,
+  issueCodexExecutionContextKey,
+} from "./codexExecutionPresentationOwnership";
+import { reconcileArchitectBrowserBoundsAck } from "./architectBrowserBoundsOrchestration";
+import {
+  shouldPollDevelopmentCodexExecution,
+  shouldPollIssueCodexExecution,
+  startAgentHarnessSettingsPolling,
+} from "./rendererPollingPolicy";
+import {
+  executePhaseValidationMutation,
+  loadPhaseValidationEntry,
+  phaseValidationActionForWorkspace,
+  phaseValidationPresentation,
+} from "./phaseValidationRendererOrchestration";
 import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
+import { FigmaDocumentDispositionPanel } from "./FigmaDocumentDispositionPanel";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
+import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { WorkflowId } from "../../shared/workflowHubContracts";
 import type {
   IssueArchitectPlanningProjection,
   IssueArchitectReviewInput,
+  IssueCloseActionInput,
+  IssueCloseProjection,
+  IssueFixCardLoopStepId,
+  IssueFixCardProjection,
+  IssueFixCardValidationDecisionInput,
   IssueInventoryProjection,
+  IssuePlanningProjection,
+  IssuePostMutationProjection,
+  IssueValidationDecisionInput,
+  IssueValidationProjection,
   IssueRecordProjection,
+  IssueResolutionNavigationProjection,
   IssueResolutionStageId,
   NewIssueInput,
 } from "../../shared/issueResolutionContracts";
+import { issueFixCardLoop } from "../../shared/issueResolutionContracts";
 
 const neutralMessage = "Document workflow not yet implemented";
 const handoffWorkspaceIds = new Set<WorkspaceId>([
@@ -116,8 +175,6 @@ const specializedDispositionWorkspaceIds = new Set<WorkspaceId>([
   "work-card-planning",
   "work-card-report-review",
   "work-card-validation",
-  "phase-validation",
-  "phase-close",
   "project-validation",
   "project-close",
 ]);
@@ -144,8 +201,9 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
 ]);
 export const settingsWorkspaceId = "settings" as WorkspaceId;
 
-type ShellView = "workflow-hub" | "workflow" | "settings";
-type SettingsReturnShellView = Exclude<ShellView, "settings">;
+type ShellView = "landing" | "workflow-hub" | "workflow" | "settings";
+type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
+type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -210,7 +268,7 @@ export function App(): JSX.Element {
   const [priorWorkflowWorkspaceId, setPriorWorkflowWorkspaceId] = useState<WorkspaceId>(
     workspaceDefinitions[0].id,
   );
-  const [shellView, setShellView] = useState<ShellView>("workflow-hub");
+  const [shellView, setShellView] = useState<ShellView>("landing");
   const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
@@ -219,10 +277,15 @@ export function App(): JSX.Element {
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
   const [agentHarnessStatus, setAgentHarnessStatus] =
     useState<AgentHarnessStatus | null>(null);
+  const [agentHarnessServiceHostLifecycleStatus, setAgentHarnessServiceHostLifecycleStatus] =
+    useState<AgentHarnessServiceHostLifecycleStatus | null>(null);
+  const [agentHarnessWorkspaceRegistry, setAgentHarnessWorkspaceRegistry] =
+    useState<AgentHarnessWorkspaceRegistrySnapshot | null>(null);
   const [agentHarnessActionPending, setAgentHarnessActionPending] = useState<
-    "start" | "stop" | "restart" | "importLegacyOAuthClients" | null
+    "start" | "stop" | "restart" | "startBackgroundAgent" | "exitBackgroundAgent" | "restartServiceHost" | "importLegacyOAuthClients" | "registerWorkspace" | "unregisterWorkspace" | null
   >(null);
   const [agentHarnessSettingsPending, setAgentHarnessSettingsPending] = useState(false);
+  const [agentHarnessServiceHostSettingsPending, setAgentHarnessServiceHostSettingsPending] = useState(false);
   const [agentHarnessActionFeedback, setAgentHarnessActionFeedback] = useState("");
   const [agentHarnessActionError, setAgentHarnessActionError] = useState("");
   const [documents, setDocuments] = useState<PlanningDocumentSummary[]>([]);
@@ -258,8 +321,11 @@ export function App(): JSX.Element {
   const [advisorySummary, setAdvisorySummary] = useState("");
   const [repairDefectText, setRepairDefectText] = useState("");
   const [isArchitectPaneVisible, setIsArchitectPaneVisible] = useState(true);
-  const [codexExecution, setCodexExecution] =
-    useState<CodexImplementerExecutionModel | null>(null);
+  const [codexExecutionPresentation, dispatchCodexExecutionPresentation] = useReducer(
+    codexExecutionPresentationReducer,
+    initialCodexExecutionPresentationState,
+  );
+  const codexExecution = codexExecutionPresentation.development;
   const [isCodexExecutionActionRunning, setIsCodexExecutionActionRunning] = useState(false);
   const [viewedArchitectOutputRevisionKeys, setViewedArchitectOutputRevisionKeys] =
     useState<string[]>([]);
@@ -272,6 +338,8 @@ export function App(): JSX.Element {
     useState<RuntimeActionResult | null>(null);
   const [workCardMapResult, setWorkCardMapResult] =
     useState<RuntimeActionResult | null>(null);
+  const [phaseValidationAction, setPhaseValidationAction] =
+    useState<PhaseValidationActionProjection | null>(null);
   const [issueInventory, setIssueInventory] =
     useState<IssueInventoryProjection | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
@@ -279,25 +347,60 @@ export function App(): JSX.Element {
     useState<IssueResolutionStageId>("intake");
   const [issueArchitectProjection, setIssueArchitectProjection] =
     useState<IssueArchitectPlanningProjection | null>(null);
+  const [issuePlanningProjection, setIssuePlanningProjection] =
+    useState<IssuePlanningProjection | null>(null);
+  const [issueNavigationProjection, setIssueNavigationProjection] =
+    useState<IssueResolutionNavigationProjection | null>(null);
+  const [issueValidationProjection, setIssueValidationProjection] =
+    useState<IssueValidationProjection | null>(null);
+  const [issueCloseProjection, setIssueCloseProjection] =
+    useState<IssueCloseProjection | null>(null);
+  const [activeIssueFixCardStepId, setActiveIssueFixCardStepId] =
+    useState<IssueFixCardLoopStepId>("fix-card-map");
+  const [issueFixCardProjection, setIssueFixCardProjection] =
+    useState<IssueFixCardProjection | null>(null);
   const [issueInventoryError, setIssueInventoryError] = useState("");
   const [isIssueInventoryLoading, setIsIssueInventoryLoading] = useState(false);
   const [isIssueCreating, setIsIssueCreating] = useState(false);
   const [isIssueArchitectActionPending, setIsIssueArchitectActionPending] = useState(false);
   const [issueArchitectActionFeedback, setIssueArchitectActionFeedback] = useState("");
   const [issueArchitectActionError, setIssueArchitectActionError] = useState("");
-  const [workCardCloseReturnCompleted, setWorkCardCloseReturnCompleted] = useState(false);
+  const [isIssuePlanningActionPending, setIsIssuePlanningActionPending] = useState(false);
+  const [issuePlanningActionFeedback, setIssuePlanningActionFeedback] = useState("");
+  const [issuePlanningActionError, setIssuePlanningActionError] = useState("");
+  const [isIssueCloseLoading, setIsIssueCloseLoading] = useState(false);
+  const [isIssueCloseActionPending, setIsIssueCloseActionPending] = useState(false);
+  const [issueCloseActionFeedback, setIssueCloseActionFeedback] = useState("");
+  const [issueCloseActionError, setIssueCloseActionError] = useState("");
+  const [closeReturnSelectionProjection, setCloseReturnSelectionProjection] =
+    useState<CloseReturnSelectionProjection | null>(null);
   const architectOutputFingerprintRef = useRef<string | null>(null);
   const architectOutputPollInFlightRef = useRef<number | null>(null);
   const architectOutputPollRequestRef = useRef(0);
+  const architectOutputRefreshCompletionRef = useRef<Promise<void> | null>(null);
+  const workCardRepairRefreshInFlightRef = useRef<number | null>(null);
+  const workCardRepairRefreshRequestRef = useRef(0);
+  const workCardRepairRefreshCompletionRef = useRef<Promise<void> | null>(null);
   const issueArchitectProjectionRefreshInFlightRef = useRef<number | null>(null);
   const issueArchitectProjectionRefreshRequestRef = useRef(0);
-  const codexExecutionPreviousStateRef = useRef<CodexImplementerExecutionModel["state"] | null>(null);
+  const issueArchitectProjectionRefreshCompletionRef = useRef<Promise<void> | null>(null);
+  const issuePlanningProjectionRefreshInFlightRef = useRef<number | null>(null);
+  const issuePlanningProjectionRefreshRequestRef = useRef(0);
+  const issuePlanningProjectionRefreshCompletionRef = useRef<Promise<void> | null>(null);
+  const issueFixCardProjectionRefreshInFlightRef = useRef<number | null>(null);
+  const issueFixCardProjectionRefreshRequestRef = useRef(0);
+  const issueFixCardProjectionRefreshCompletionRef = useRef<Promise<void> | null>(null);
+  const developmentCodexExecutionPreviousStateRef = useRef<CodexImplementerExecutionModel["state"] | null>(null);
+  const issueCodexExecutionPreviousStateRef = useRef<CodexImplementerExecutionModel["state"] | null>(null);
+  const issueCodexExecutionContextRef = useRef<string | null>(null);
   const architectBoundsSequenceRef = useRef(0);
   const architectAttachmentGenerationRef = useRef(0);
   const architectBoundsRafRef = useRef<number | null>(null);
   const architectFeedbackTimeoutRef = useRef<number | null>(null);
   const architectAttachmentCoordinatorRef =
     useRef<ReturnType<typeof createArchitectAttachmentCoordinator> | null>(null);
+  const evidenceRefreshTargetRef = useRef<EvidenceDrivenRefreshTarget | null>(null);
+  const evidenceRefreshCoordinatorRef = useRef<EvidenceDrivenRefreshCoordinator | null>(null);
   const [architectAttachmentError, setArchitectAttachmentError] = useState("");
   const [currentModel, setCurrentModel] = useState<CurrentWorkspaceModel | null>(null);
   const [isWorkCardIntakeGenerating, setIsWorkCardIntakeGenerating] = useState(false);
@@ -328,7 +431,7 @@ export function App(): JSX.Element {
     activeWorkspaceId === "project-phase-map";
   const isVisibleArchitectOutputWorkspace =
     isArchitectEnabledWorkspace(activeWorkspaceId) && !isWorkCardPlanningPreparation && !isWorkCardRepair;
-  const shouldPollArchitectOutputWorkspace =
+  const shouldRefreshArchitectOutputWorkspace =
     isVisibleArchitectOutputWorkspace || isWorkCardRepair;
   const architectBrowserWorkspaceAvailable =
     isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
@@ -336,17 +439,66 @@ export function App(): JSX.Element {
     shellView === "workflow" && activeWorkflowId === "development";
   const isIssueResolutionForeground =
     shellView === "workflow" && activeWorkflowId === "issue-resolution";
+  const isIssueCodexExecutionForeground =
+    isIssueResolutionForeground &&
+    activeIssueStageId === "fix-cards" &&
+    activeIssueFixCardStepId === "implement";
+  const isLandingForeground = shellView === "landing";
   const isWorkflowHubForeground = shellView === "workflow-hub";
   const shouldAttachEmbeddedArchitectSurface =
     ((isDevelopmentForeground &&
       (architectBrowserWorkspaceAvailable || isWorkCardRepair)) ||
-      (isIssueResolutionForeground && activeIssueStageId === "architect-planning")) &&
+      (isIssueResolutionForeground &&
+        (
+          activeIssueStageId === "architect-planning" ||
+          activeIssueStageId === "issue-planning" ||
+          (activeIssueStageId === "fix-cards" &&
+            (activeIssueFixCardStepId === "planning" || activeIssueFixCardStepId === "review-validation" || activeIssueFixCardStepId === "repair"))
+        ))) &&
     isArchitectPaneVisible;
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
     [issueInventory, selectedIssueId],
   );
+  evidenceRefreshTargetRef.current = currentEvidenceRefreshTarget();
+  const selectedIssueFixCardId = issueFixCardProjection?.selectedCandidate?.fixCardId ?? null;
+  const selectedIssueImplementationId = issueFixCardProjection?.currentImplementationId ?? selectedIssueFixCardId;
+  const selectedIssueCodexExecutionContextKey = currentIssue && selectedIssueImplementationId
+    ? issueCodexExecutionContextKey(currentIssue.issueId, selectedIssueImplementationId)
+    : null;
+  const issueCodexExecution = selectedIssueCodexExecutionContextKey &&
+      codexExecutionPresentation.issue?.contextKey === selectedIssueCodexExecutionContextKey
+    ? codexExecutionPresentation.issue.status
+    : null;
+  const issueWorkflowStatus =
+    activeIssueStageId === "issue-close"
+      ? issueCloseProjection?.workflowStatus ?? null
+      : activeIssueStageId === "issue-validation"
+      ? issueValidationProjection?.workflowStatus ?? null
+      : activeIssueStageId === "fix-cards"
+      ? {
+          ...(issueNavigationProjection?.fixCardsWorkflowStatus ?? {
+            issueId: currentIssue?.issueId ?? "",
+            stageId: "fix-cards" as const,
+            stageLabel: "Fix Cards" as const,
+            state: "fix-card-map-ready" as const,
+            stateLabel: "Fix Card Map Ready",
+            issuePlanningEligible: true,
+            fixCardsEligible: true,
+            reason: "Fix Cards foregrounded.",
+          }),
+          stateLabel: issueFixCardProjection?.selectedCandidate
+            ? `${issueFixCardProjection.selectedCandidate.fixCardId} - ${issueFixCardProjection.stepAvailability.find((step) => step.stepId === activeIssueFixCardStepId)?.stateLabel ?? "Current"}`
+            : issueNavigationProjection?.fixCardsWorkflowStatus?.stateLabel ?? "Fix Card Map Ready",
+        }
+      : activeIssueStageId === "issue-planning"
+      ? issuePlanningProjection?.workflowStatus ?? null
+      : issueArchitectProjection?.workflowStatus ?? issueNavigationProjection?.workflowStatus ?? issuePlanningProjection?.workflowStatus ?? null;
+  const issuePlanningAvailable = Boolean(issueNavigationProjection?.issuePlanningAvailable);
+  const fixCardsAvailable = Boolean(issueNavigationProjection?.fixCardsAvailable);
+  const activeIssueFixCardStepLabel =
+    issueFixCardLoop.find((step) => step.id === activeIssueFixCardStepId)?.label ?? "Fix Card Map";
 
   useEffect(() => {
     const isDark = themeMode === "dark";
@@ -366,35 +518,61 @@ export function App(): JSX.Element {
           ...current,
           projectRepository: selection.workspaceRoot,
         }));
-        setShellView("workflow-hub");
-        setActiveWorkflowId(null);
       }
     });
   }, []);
 
   useEffect(() => {
+    let disposed = false;
+    void window.champcity.getAgentHarnessServiceHostLifecycleStatus().then((status) => {
+      if (!disposed) setAgentHarnessServiceHostLifecycleStatus(status);
+    }).catch(() => { /* Retain the last current lifecycle projection. */ });
+    return () => { disposed = true; };
+  }, [shellView, activeWorkspaceId, activeIssueStageId, activeIssueFixCardStepId]);
+
+  useEffect(() => {
+    if (!isSettingsWorkspace) {
+      return;
+    }
     let isDisposed = false;
     const refresh = async (): Promise<void> => {
       try {
-        const status = await window.champcity.getAgentHarnessStatus();
+        const lifecycleStatus = await window.champcity.getAgentHarnessServiceHostLifecycleStatus();
+        if (!isDisposed) {
+          setAgentHarnessServiceHostLifecycleStatus(lifecycleStatus);
+        }
+        if (lifecycleStatus.explicitlyStopped) {
+          if (!isDisposed) {
+            setAgentHarnessStatus(null);
+          }
+          return;
+        }
+        const [status, workspaceRegistry] = await Promise.all([
+          window.champcity.getAgentHarnessStatus(),
+          window.champcity.listAgentHarnessRegisteredWorkspaces(),
+        ]);
         if (!isDisposed) {
           setAgentHarnessStatus(status);
+          setAgentHarnessWorkspaceRegistry(workspaceRegistry);
         }
       } catch {
         if (!isDisposed) {
           setAgentHarnessStatus(null);
+          // A failed refresh must not erase a known stale-host warning.
+          setAgentHarnessWorkspaceRegistry(null);
         }
       }
     };
-    void refresh();
-    const interval = window.setInterval(() => {
-      void refresh();
-    }, 5000);
+    const stopPolling = startAgentHarnessSettingsPolling({
+      refresh,
+      setInterval: (callback, milliseconds) => window.setInterval(callback, milliseconds),
+      clearInterval: (handle) => window.clearInterval(handle),
+    });
     return () => {
       isDisposed = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
-  }, []);
+  }, [isSettingsWorkspace]);
 
   useEffect(() => {
     return () => {
@@ -405,14 +583,55 @@ export function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    const coordinator = createEvidenceDrivenRefreshCoordinator({
+      getForegroundTarget: () => evidenceRefreshTargetRef.current,
+    });
+    evidenceRefreshCoordinatorRef.current = coordinator;
+    const unsubscribeEvidence = window.champcity.onWorkspaceEvidenceChanged((notification) => {
+      coordinator.notify(notification);
+    });
+    const unsubscribeBrowserStatus = window.champcity.onArchitectBrowserFoundationStatus((status) => {
+      applyArchitectStatus(status);
+    });
+    const refreshOnFocus = (): void => coordinator.refreshBoundary();
+    const refreshOnVisibility = (): void => {
+      if (document.visibilityState === "visible") {
+        coordinator.refreshBoundary();
+      }
+    };
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnVisibility);
+    return () => {
+      unsubscribeEvidence();
+      unsubscribeBrowserStatus();
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
+      coordinator.dispose();
+      if (evidenceRefreshCoordinatorRef.current === coordinator) {
+        evidenceRefreshCoordinatorRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    evidenceRefreshCoordinatorRef.current?.setWorkspaceGeneration(
+      workspace.ok ? workspace.evidenceGeneration ?? null : null,
+    );
+  }, [workspace.ok, workspace.workspaceRoot, workspace.ok ? workspace.evidenceGeneration : null]);
+
+  useEffect(() => {
     if (!selectedDocumentId) {
       setSelectedDocument(null);
       setSelectedStatus("");
       return;
     }
 
+    if (selectedDocument?.logicalDocumentId === selectedDocumentId) {
+      return;
+    }
+
     void loadDocument(selectedDocumentId);
-  }, [selectedDocumentId]);
+  }, [selectedDocumentId, selectedDocument?.logicalDocumentId]);
 
   useEffect(() => {
     if (!isDevelopmentForeground) {
@@ -447,6 +666,17 @@ export function App(): JSX.Element {
   }, [activeWorkspaceId, currentModel?.workCardBuildingReview, currentModel?.workCardIntake, documents, isDevelopmentForeground, selectedDocumentId]);
 
   useEffect(() => {
+    if (
+      activeWorkspaceId === "phase-validation" &&
+      phaseValidationAction &&
+      currentModel?.currentPhaseId &&
+      currentModel?.currentPhaseId !== phaseValidationAction.phaseId
+    ) {
+      setPhaseValidationAction(null);
+    }
+  }, [activeWorkspaceId, currentModel?.currentPhaseId, phaseValidationAction]);
+
+  useEffect(() => {
     if (!isIssueResolutionForeground || issueInventory || isIssueInventoryLoading) {
       return;
     }
@@ -455,12 +685,57 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     if (
-      activeIssueStageId === "architect-planning" &&
+      activeIssueStageId !== "intake" &&
       (!currentIssue || currentIssue.recordState !== "readable")
     ) {
       setActiveIssueStageId("intake");
     }
   }, [activeIssueStageId, currentIssue]);
+
+  useEffect(() => {
+    setActiveIssueFixCardStepId("fix-card-map");
+    setIssueFixCardProjection(null);
+    setIssueValidationProjection(null);
+    setIssueCloseProjection(null);
+    setIssueCloseActionError("");
+    setIssueCloseActionFeedback("");
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    issueFixCardProjectionRefreshRequestRef.current += 1;
+    issueFixCardProjectionRefreshInFlightRef.current = null;
+  }, [currentIssue?.issueId]);
+
+  useEffect(() => {
+    if (
+      !isIssueResolutionForeground ||
+      activeIssueStageId !== "issue-validation" ||
+      !currentIssue
+    ) {
+      setIssueValidationProjection(null);
+      return;
+    }
+    void refreshIssueValidationProjection(currentIssue.issueId);
+  }, [activeIssueStageId, currentIssue?.issueId, isIssueResolutionForeground]);
+
+  useEffect(() => {
+    if (
+      !isIssueResolutionForeground ||
+      activeIssueStageId !== "issue-close" ||
+      !currentIssue
+    ) {
+      setIssueCloseProjection(null);
+      return;
+    }
+    void refreshIssueCloseProjection(currentIssue.issueId);
+  }, [activeIssueStageId, currentIssue?.issueId, isIssueResolutionForeground]);
+
+  useEffect(() => {
+    if (!isIssueResolutionForeground || !currentIssue) {
+      setIssueNavigationProjection(null);
+      return;
+    }
+    void refreshIssueResolutionNavigationProjection(currentIssue.issueId);
+  }, [currentIssue?.issueId, isIssueResolutionForeground]);
 
   useEffect(() => {
     if (
@@ -481,37 +756,56 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (
       !isIssueResolutionForeground ||
-      activeIssueStageId !== "architect-planning" ||
-      currentIssue?.recordState !== "readable"
+      !currentIssue
     ) {
+      setIssuePlanningProjection(null);
+      setIssuePlanningActionError("");
+      setIssuePlanningActionFeedback("");
+      issuePlanningProjectionRefreshRequestRef.current += 1;
+      issuePlanningProjectionRefreshInFlightRef.current = null;
       return;
     }
-
-    let isDisposed = false;
-    const refreshSelectedIssueArchitectProjection = async (): Promise<void> => {
-      if (isDisposed) {
-        return;
-      }
-      await refreshIssueArchitectPlanningProjection(currentIssue.issueId, { quiet: true });
-    };
-
-    void refreshSelectedIssueArchitectProjection();
-    const interval = window.setInterval(() => {
-      void refreshSelectedIssueArchitectProjection();
-    }, 2500);
-
-    return () => {
-      isDisposed = true;
-      window.clearInterval(interval);
-      issueArchitectProjectionRefreshRequestRef.current += 1;
-      issueArchitectProjectionRefreshInFlightRef.current = null;
-    };
-  }, [activeIssueStageId, currentIssue?.issueId, currentIssue?.recordState, isIssueResolutionForeground]);
+    if (activeIssueStageId !== "issue-planning" && activeIssueStageId !== "fix-cards") {
+      setIssuePlanningActionError("");
+      setIssuePlanningActionFeedback("");
+      issuePlanningProjectionRefreshRequestRef.current += 1;
+      issuePlanningProjectionRefreshInFlightRef.current = null;
+      return;
+    }
+    void refreshIssuePlanningProjection(currentIssue.issueId);
+  }, [activeIssueStageId, currentIssue?.issueId, isIssueResolutionForeground]);
 
   useEffect(() => {
-    if (!isDevelopmentForeground || !workspace.ok || activeWorkspaceId !== "work-card-building-review") {
-      setCodexExecution(null);
-      codexExecutionPreviousStateRef.current = null;
+    if (
+      !isIssueResolutionForeground ||
+      activeIssueStageId !== "fix-cards" ||
+      !currentIssue
+    ) {
+      setIssueFixCardProjection(null);
+      issueFixCardProjectionRefreshRequestRef.current += 1;
+      issueFixCardProjectionRefreshInFlightRef.current = null;
+      return;
+    }
+    const requestedStep = issueFixCardProjection?.issueId === currentIssue.issueId
+      ? activeIssueFixCardStepId
+      : "fix-card-map";
+    void refreshIssueFixCardProjection(currentIssue.issueId, requestedStep);
+  }, [
+    activeIssueFixCardStepId,
+    activeIssueStageId,
+    currentIssue?.issueId,
+    isIssueResolutionForeground,
+    issueFixCardProjection?.issueId,
+  ]);
+
+  useEffect(() => {
+    if (!shouldPollDevelopmentCodexExecution({
+      isDevelopmentForeground,
+      workspaceAvailable: workspace.ok,
+      activeWorkspaceId,
+    })) {
+      dispatchCodexExecutionPresentation({ type: "clear-development" });
+      developmentCodexExecutionPreviousStateRef.current = null;
       return;
     }
 
@@ -522,9 +816,9 @@ export function App(): JSX.Element {
         if (isDisposed) {
           return;
         }
-        setCodexExecution(status);
-        const previousState = codexExecutionPreviousStateRef.current;
-        codexExecutionPreviousStateRef.current = status.state;
+        dispatchCodexExecutionPresentation({ type: "set-development", status });
+        const previousState = developmentCodexExecutionPreviousStateRef.current;
+        developmentCodexExecutionPreviousStateRef.current = status.state;
         if (
           previousState === "running" &&
           ["completed", "failed", "cancelled"].includes(status.state)
@@ -550,6 +844,79 @@ export function App(): JSX.Element {
   }, [activeWorkspaceId, isDevelopmentForeground, workspace.ok, codexExecution?.state]);
 
   useEffect(() => {
+    if (!shouldPollIssueCodexExecution({
+      isIssueCodexExecutionForeground,
+      workspaceAvailable: workspace.ok,
+      hasCurrentIssue: Boolean(currentIssue),
+      hasSelectedFixCard: Boolean(selectedIssueFixCardId),
+      hasExecutionContext: Boolean(selectedIssueCodexExecutionContextKey),
+    }) || !currentIssue || !selectedIssueFixCardId || !selectedIssueCodexExecutionContextKey) {
+      dispatchCodexExecutionPresentation({ type: "clear-issue" });
+      issueCodexExecutionPreviousStateRef.current = null;
+      issueCodexExecutionContextRef.current = null;
+      return;
+    }
+
+    if (issueCodexExecutionContextRef.current !== selectedIssueCodexExecutionContextKey) {
+      issueCodexExecutionContextRef.current = selectedIssueCodexExecutionContextKey;
+      issueCodexExecutionPreviousStateRef.current = null;
+    }
+    dispatchCodexExecutionPresentation({
+      type: "activate-issue-context",
+      contextKey: selectedIssueCodexExecutionContextKey,
+    });
+
+    let isDisposed = false;
+    const refreshStatus = async (): Promise<void> => {
+      try {
+        const status = await window.champcity.getIssueCodexImplementerExecutionStatus(
+          currentIssue.issueId,
+          selectedIssueFixCardId,
+          selectedIssueImplementationId ?? undefined,
+        );
+        if (isDisposed) {
+          return;
+        }
+        dispatchCodexExecutionPresentation({
+          type: "set-issue",
+          contextKey: selectedIssueCodexExecutionContextKey,
+          status,
+        });
+        const previousState = issueCodexExecutionPreviousStateRef.current;
+        issueCodexExecutionPreviousStateRef.current = status.state;
+        if (
+          previousState === "running" &&
+          ["completed", "failed", "cancelled"].includes(status.state)
+        ) {
+          await refreshIssueFixCardProjection(currentIssue.issueId, activeIssueFixCardStepId, { quiet: true });
+        }
+      } catch (error) {
+        if (!isDisposed) {
+          setIssuePlanningActionError(error instanceof Error ? error.message : "Codex execution status could not be loaded.");
+        }
+      }
+    };
+
+    void refreshStatus();
+    const interval = window.setInterval(() => {
+      void refreshStatus();
+    }, issueCodexExecution?.state === "running" ? 1500 : 4000);
+
+    return () => {
+      isDisposed = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    currentIssue?.issueId,
+    isIssueCodexExecutionForeground,
+    issueCodexExecution?.state,
+    selectedIssueCodexExecutionContextKey,
+    selectedIssueFixCardId,
+    selectedIssueImplementationId,
+    workspace.ok,
+  ]);
+
+  useEffect(() => {
     if (!isDevelopmentForeground || !workspace.ok || activeWorkspaceId !== "work-card-close") {
       setWorkCardCloseProjectionResult(null);
       return;
@@ -564,7 +931,7 @@ export function App(): JSX.Element {
     if (activeWorkspaceId !== "phase-work-card-selection") {
       setWorkCardMapResult(null);
       if (activeWorkspaceId !== "work-card-close") {
-        setWorkCardCloseReturnCompleted(false);
+        setCloseReturnSelectionProjection(null);
       }
     }
   }, [activeWorkspaceId, isDevelopmentForeground]);
@@ -578,10 +945,8 @@ export function App(): JSX.Element {
       setDocumentError("Work Card Map requires a current phase.");
       return;
     }
-    void refreshWorkCardMapProjection(phaseId, {
-      closeReturnCompleted: workCardCloseReturnCompleted,
-    });
-  }, [activeWorkspaceId, currentModel?.currentPhaseId, isDevelopmentForeground, workCardCloseReturnCompleted, workspace.ok]);
+    void refreshWorkCardMapProjection(phaseId);
+  }, [activeWorkspaceId, currentModel?.currentPhaseId, isDevelopmentForeground, workspace.ok]);
 
   useEffect(() => {
     if (!workspace.ok) {
@@ -643,9 +1008,13 @@ export function App(): JSX.Element {
           height: measurement.height,
           sequence,
           attachmentGeneration: coordinator.getGeneration(),
-        }).then((status) => {
-          if (sequence === architectBoundsSequenceRef.current) {
-            applyArchitectStatus(status);
+        }).then((ack) => {
+          const application = reconcileArchitectBrowserBoundsAck(ack, {
+            attachmentGeneration: coordinator.getGeneration(),
+            latestRequestedSequence: architectBoundsSequenceRef.current,
+          });
+          if (application.applied && !isDisposed) {
+            setArchitectAttachmentError(application.error);
           }
         }).catch(() => undefined);
       });
@@ -700,7 +1069,7 @@ export function App(): JSX.Element {
   }, [activeWorkspaceId, shouldAttachEmbeddedArchitectSurface, workspace.ok]);
 
   useEffect(() => {
-    if (!workspace.ok || !shouldPollArchitectOutputWorkspace) {
+    if (!workspace.ok || !shouldRefreshArchitectOutputWorkspace) {
       return;
     }
 
@@ -708,20 +1077,13 @@ export function App(): JSX.Element {
     if (isWorkCardRepair) {
       void refreshWorkCardRepairProjection();
     }
-    const interval = window.setInterval(() => {
-      void refreshArchitectStatus();
-      void refreshArchitectOutputWorkspace({ autoSelectOutput: true, quiet: true });
-      if (isWorkCardRepair) {
-        void refreshWorkCardRepairProjection({ quiet: true });
-      }
-    }, 3000);
-
     return () => {
-      window.clearInterval(interval);
       architectOutputPollRequestRef.current += 1;
       architectOutputPollInFlightRef.current = null;
+      workCardRepairRefreshRequestRef.current += 1;
+      workCardRepairRefreshInFlightRef.current = null;
     };
-  }, [activeWorkspaceId, isWorkCardRepair, shouldPollArchitectOutputWorkspace, workspace.ok]);
+  }, [activeWorkspaceId, isWorkCardRepair, shouldRefreshArchitectOutputWorkspace, workspace.ok, workspace.workspaceRoot]);
 
   const workspaceGroups = useMemo(
     () => getWorkspaceGroups(documents, activeWorkspaceId),
@@ -810,7 +1172,10 @@ export function App(): JSX.Element {
     setIsChoosing(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(await window.champcity.chooseWorkspaceFolder());
+      await activateWorkspaceSelection(
+        await window.champcity.chooseWorkspaceFolder(),
+        "workflow-hub",
+      );
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Project could not be selected.");
     } finally {
@@ -831,7 +1196,10 @@ export function App(): JSX.Element {
     setIsChoosingProjectRepository(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(await window.champcity.chooseWorkspaceFolder());
+      await activateWorkspaceSelection(
+        await window.champcity.chooseWorkspaceFolder(),
+        "workflow-hub",
+      );
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Project repository could not be selected.");
     } finally {
@@ -883,6 +1251,64 @@ export function App(): JSX.Element {
     }
   }
 
+  function currentEvidenceRefreshTarget(): EvidenceDrivenRefreshTarget | null {
+    if (workspace.ok && isDevelopmentForeground && shouldRefreshArchitectOutputWorkspace) {
+      const workspaceId = activeWorkspaceId;
+      const refreshRepair = isWorkCardRepair;
+      return {
+        ownerKey: refreshRepair ? "planning:work-card-repair" : `planning:architect-output:${workspaceId}`,
+        domain: "planning",
+        waitForIdle: () => Promise.all([
+          architectOutputRefreshCompletionRef.current,
+          refreshRepair ? workCardRepairRefreshCompletionRef.current : null,
+        ].filter((completion): completion is Promise<void> => completion !== null)).then(() => undefined),
+        refresh: async () => {
+          await refreshArchitectOutputWorkspace({
+            autoSelectOutput: true,
+            quiet: true,
+            workspaceId,
+          });
+          if (refreshRepair) {
+            await refreshWorkCardRepairProjection({ quiet: true });
+          }
+        },
+      };
+    }
+    if (!workspace.ok || !isIssueResolutionForeground || currentIssue?.recordState !== "readable") {
+      return null;
+    }
+    const issueId = currentIssue.issueId;
+    if (activeIssueStageId === "architect-planning") {
+      return {
+        ownerKey: `issues:${issueId}:architect-planning`,
+        domain: "issues",
+        waitForIdle: () => issueArchitectProjectionRefreshCompletionRef.current ?? Promise.resolve(),
+        refresh: () => refreshIssueArchitectPlanningProjection(issueId, { quiet: true }),
+      };
+    }
+    if (activeIssueStageId === "issue-planning") {
+      return {
+        ownerKey: `issues:${issueId}:issue-planning`,
+        domain: "issues",
+        waitForIdle: () => issuePlanningProjectionRefreshCompletionRef.current ?? Promise.resolve(),
+        refresh: () => refreshIssuePlanningProjection(issueId, { quiet: true }),
+      };
+    }
+    if (
+      activeIssueStageId === "fix-cards" &&
+      (activeIssueFixCardStepId === "planning" || activeIssueFixCardStepId === "review-validation")
+    ) {
+      const stepId = activeIssueFixCardStepId;
+      return {
+        ownerKey: `issues:${issueId}:fix-card:${stepId}`,
+        domain: "issues",
+        waitForIdle: () => issueFixCardProjectionRefreshCompletionRef.current ?? Promise.resolve(),
+        refresh: () => refreshIssueFixCardProjection(issueId, stepId, { quiet: true }),
+      };
+    }
+    return null;
+  }
+
   async function refreshArchitectStatus(): Promise<void> {
     setDocumentError("");
     try {
@@ -905,6 +1331,11 @@ export function App(): JSX.Element {
     const requestId = architectOutputPollRequestRef.current + 1;
     architectOutputPollRequestRef.current = requestId;
     architectOutputPollInFlightRef.current = requestId;
+    let resolveCompletion!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    architectOutputRefreshCompletionRef.current = completion;
     if (!options.quiet) {
       setDocumentError("");
     }
@@ -977,10 +1408,15 @@ export function App(): JSX.Element {
       if (architectOutputPollInFlightRef.current === requestId) {
         architectOutputPollInFlightRef.current = null;
       }
+      if (architectOutputRefreshCompletionRef.current === completion) {
+        architectOutputRefreshCompletionRef.current = null;
+      }
+      resolveCompletion();
     }
   }
 
   async function copyArchitectHandoff(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -997,6 +1433,7 @@ export function App(): JSX.Element {
   }
 
   async function prepareArchitectOutputFromAction(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -1014,6 +1451,7 @@ export function App(): JSX.Element {
   }
 
   async function prepareArchitectInterviewFinalDraftFromAction(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -1031,6 +1469,7 @@ export function App(): JSX.Element {
   }
 
   async function preparePhaseInterviewFinalDraftFromAction(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -1048,6 +1487,7 @@ export function App(): JSX.Element {
   }
 
   async function copyArchitectInterviewFinalDraftHandoff(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -1064,6 +1504,7 @@ export function App(): JSX.Element {
   }
 
   async function copyPhaseInterviewFinalDraftHandoff(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -1080,6 +1521,7 @@ export function App(): JSX.Element {
   }
 
   async function regenerateArchitectInterviewPromptFromAction(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
     setArchitectFeedback(null);
     try {
@@ -1162,12 +1604,19 @@ export function App(): JSX.Element {
         architectOutputReviewStatus,
         architectOutputReviewNotes,
         presentedRevisionsForArchitectOutputModel(architectOutputModel),
+        selectedDocumentId,
       );
-      setArchitectOutputModel(nextModel);
+      setArchitectOutputModel(nextModel.architectOutput);
+      if (workspace.ok) {
+        architectOutputFingerprintRef.current = buildArchitectOutputEvidenceFingerprint(
+          workspace.workspaceRoot,
+          nextModel.architectOutput,
+        );
+      }
+      setViewedArchitectOutputRevisionKeys([]);
+      applyDevelopmentPostMutationProjection(nextModel.development);
       setArchitectOutputReviewStatus("");
       setArchitectOutputReviewNotes("");
-      await refreshDocuments({ useResolver: true });
-      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
       setFeedback(`Architect output disposition applied: ${architectOutputReviewStatus}.`);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Architect output review could not be applied.");
@@ -1199,6 +1648,7 @@ export function App(): JSX.Element {
   }
 
   async function runWorkspaceAction(action: () => Promise<RuntimeActionResult>): Promise<void> {
+    if (action === window.champcity.generateCurrentHandoff && !(await preflightMcpHandoff())) return;
     setDocumentError("");
     setFeedback("");
     try {
@@ -1208,6 +1658,100 @@ export function App(): JSX.Element {
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Workspace action failed.");
     }
+  }
+
+  async function openPhaseValidation(): Promise<void> {
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const nextPhaseAction = await loadPhaseValidationEntry(
+        () => window.champcity.getPhaseValidationActionProjection(),
+      );
+      transitionToWorkflowStep(nextPhaseAction.workspaceId, {
+        preferredDocumentId: nextPhaseAction.closeout?.logicalDocumentId ?? null,
+      });
+      setPhaseValidationAction(nextPhaseAction);
+      setFeedback(nextPhaseAction.reason);
+    } catch (error) {
+      setPhaseValidationAction(null);
+      setDocumentError(
+        error instanceof Error
+          ? error.message
+          : "Phase Validation eligibility could not be verified.",
+      );
+    }
+  }
+
+  async function runPhaseValidationMutation(
+    mutation: () => Promise<RuntimeActionResult>,
+  ): Promise<void> {
+    setIsApplying(true);
+    setDocumentError("");
+    setFeedback("");
+    try {
+      const transition = await executePhaseValidationMutation(
+        mutation,
+        async () => {
+          const nextDocuments = await window.champcity.listDocuments();
+          const nextProjectPlanningModel = await window.champcity.getProjectPlanningWorkspaceModel();
+          const nextCurrentModel = await window.champcity.getCurrentWorkspaceModel();
+          const nextResolverResult = await window.champcity.resolveCurrentDocument();
+          return {
+            documents: nextDocuments,
+            projectPlanningModel: nextProjectPlanningModel,
+            currentModel: nextCurrentModel,
+            resolverResult: nextResolverResult,
+          };
+        },
+      );
+      const repository = transition.repositoryEvidence;
+      applyDocumentInventory(repository.documents);
+      setProjectPlanningModel(repository.projectPlanningModel);
+      setCurrentModel(repository.currentModel);
+      setResolverResult(repository.resolverResult);
+      transitionToWorkflowStep(transition.phaseAction.workspaceId, {
+        documents: repository.documents,
+        preferredDocumentId: transition.phaseAction.closeout?.logicalDocumentId ?? null,
+        resolverResult: repository.resolverResult,
+      });
+      setPhaseValidationAction(transition.phaseAction);
+      setFeedback(transition.result.message);
+    } catch (error) {
+      setPhaseValidationAction(null);
+      setDocumentError(error instanceof Error ? error.message : "Phase Validation action failed.");
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  async function createCurrentPhaseCloseout(): Promise<void> {
+    if (phaseValidationAction?.requiredAction !== "create-closeout") {
+      setDocumentError("Repository binding does not currently permit Phase Closeout creation.");
+      return;
+    }
+    await runPhaseValidationMutation(
+      () => window.champcity.createPhaseCloseoutForCurrentPhase(
+        actionInputs.closureDecision,
+        actionInputs.rationale,
+      ),
+    );
+  }
+
+  async function applyCurrentPhaseCloseoutDisposition(): Promise<void> {
+    if (
+      phaseValidationAction?.requiredAction !== "dispose-closeout" ||
+      phaseValidationAction.workspaceId !== "phase-validation"
+    ) {
+      setDocumentError("Repository binding does not currently permit Phase Closeout disposition.");
+      return;
+    }
+    await runPhaseValidationMutation(
+      () => window.champcity.applyCurrentDisposition(
+        actionInputs.status,
+        "",
+        phaseValidationAction.workspaceId,
+      ),
+    );
   }
 
   async function refreshWorkCardCloseProjection(): Promise<RuntimeActionResult | null> {
@@ -1225,16 +1769,41 @@ export function App(): JSX.Element {
   async function refreshWorkCardRepairProjection(
     options: { quiet?: boolean } = {},
   ): Promise<RuntimeActionResult | null> {
+    if (options.quiet && workCardRepairRefreshInFlightRef.current !== null) {
+      return null;
+    }
+    const requestId = workCardRepairRefreshRequestRef.current + 1;
+    workCardRepairRefreshRequestRef.current = requestId;
+    workCardRepairRefreshInFlightRef.current = requestId;
+    let resolveCompletion!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    workCardRepairRefreshCompletionRef.current = completion;
     try {
       const result = await window.champcity.getCurrentRepairWorkspaceProjection();
+      if (requestId !== workCardRepairRefreshRequestRef.current) {
+        return null;
+      }
       setWorkCardRepairProjectionResult(result);
       return result;
     } catch (error) {
+      if (requestId !== workCardRepairRefreshRequestRef.current) {
+        return null;
+      }
       setWorkCardRepairProjectionResult(null);
       if (!options.quiet) {
         setDocumentError(error instanceof Error ? error.message : "Work Card Repair projection could not be loaded.");
       }
       return null;
+    } finally {
+      if (workCardRepairRefreshInFlightRef.current === requestId) {
+        workCardRepairRefreshInFlightRef.current = null;
+      }
+      if (workCardRepairRefreshCompletionRef.current === completion) {
+        workCardRepairRefreshCompletionRef.current = null;
+      }
+      resolveCompletion();
     }
   }
 
@@ -1270,6 +1839,7 @@ export function App(): JSX.Element {
   }
 
   async function prepareRepairWorkCardPromptFromEvidence(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     setIsRepairPromptPreparing(true);
     setDocumentError("");
     setFeedback("");
@@ -1311,10 +1881,9 @@ export function App(): JSX.Element {
 
   async function refreshWorkCardMapProjection(
     phaseId: string,
-    options = {},
   ): Promise<RuntimeActionResult | null> {
     try {
-      const result = await window.champcity.getWorkCardMapProjection(phaseId, options);
+      const result = await window.champcity.getWorkCardMapProjection(phaseId);
       setWorkCardMapResult(result);
       return result;
     } catch (error) {
@@ -1329,40 +1898,28 @@ export function App(): JSX.Element {
     setDocumentError("");
     setFeedback("");
     try {
-      const phaseId = currentModel?.currentPhaseId;
-      if (!phaseId) {
-        setDocumentError("Work Card Map requires a current phase.");
-        return;
-      }
-      const mapResult = await window.champcity.getWorkCardMapProjection(phaseId, {
-        closeReturnCompleted: true,
-      });
-      setWorkCardCloseReturnCompleted(true);
-      setWorkCardMapResult(mapResult);
-      setWorkCardCloseProjectionResult(
-        {
-          ok: true,
-          action: "currentWorkflow:getWorkCardCloseProjection",
-          message: "Work Card Close returned to the Work Card Map.",
-          payload: { closed: true, returnTarget: "phase-work-card-selection", reason: "Work Card Close returned to the Work Card Map." },
+      const transition = await executeCloseReturnToMap(
+        window.champcity,
+        (projection) => {
+          setCloseReturnSelectionProjection(projection);
+          setWorkCardCloseProjectionResult(null);
+          transitionToWorkflowStep("phase-work-card-selection");
         },
       );
-
-      const nextDocuments = await window.champcity.listDocuments();
-      applyDocumentInventory(nextDocuments);
-      await refreshProjectPlanningWorkspaceModel();
-      await refreshCurrentModel();
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
+      applyDocumentInventory(transition.documents);
+      setProjectPlanningModel(transition.projectPlanningModel);
+      setCurrentModel(transition.currentModel);
+      setResolverResult(transition.resolverResult);
+      setWorkCardMapResult(transition.mapResult);
       transitionToWorkflowStep("phase-work-card-selection", {
-        documents: nextDocuments,
+        documents: transition.documents,
         preferredDocumentId: preferredDocumentIdFromResolver(
-          nextResolverResult,
+          transition.resolverResult,
           "phase-work-card-selection",
         ),
-        resolverResult: nextResolverResult,
+        resolverResult: transition.resolverResult,
       });
-      setFeedback(mapResult.message);
+      setFeedback(transition.closeReturnResult.message);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Work Card close return could not be completed.");
     } finally {
@@ -1411,14 +1968,14 @@ export function App(): JSX.Element {
     setFeedback(terminalMessage);
   }
 
-  async function startCodexImplementerExecution(): Promise<void> {
+  async function startCodexImplementerExecution(selection: CodexModelSelection): Promise<void> {
     setIsCodexExecutionActionRunning(true);
     setDocumentError("");
     setFeedback("");
     try {
-      const status = await window.champcity.startCodexImplementerExecution();
-      setCodexExecution(status);
-      codexExecutionPreviousStateRef.current = status.state;
+      const status = await window.champcity.startCodexImplementerExecution(selection);
+      dispatchCodexExecutionPresentation({ type: "set-development", status });
+      developmentCodexExecutionPreviousStateRef.current = status.state;
       if (status.state === "running") {
         setFeedback("Codex Implementer execution started.");
       } else if (["completed", "failed", "cancelled"].includes(status.state)) {
@@ -1439,8 +1996,8 @@ export function App(): JSX.Element {
     setFeedback("");
     try {
       const status = await window.champcity.startCodexEnvironmentResolution();
-      setCodexExecution(status);
-      codexExecutionPreviousStateRef.current = status.state;
+      dispatchCodexExecutionPresentation({ type: "set-development", status });
+      developmentCodexExecutionPreviousStateRef.current = status.state;
       if (status.state === "running") {
         setFeedback("Environment Resolution started.");
       } else if (["completed", "failed", "cancelled"].includes(status.state)) {
@@ -1455,17 +2012,43 @@ export function App(): JSX.Element {
     }
   }
 
+  function projectCodexExecutionForActiveSurface(status: CodexImplementerExecutionModel): void {
+    if (isIssueCodexExecutionForeground && selectedIssueCodexExecutionContextKey) {
+      dispatchCodexExecutionPresentation({
+        type: "set-issue",
+        contextKey: selectedIssueCodexExecutionContextKey,
+        status,
+      });
+      return;
+    }
+    dispatchCodexExecutionPresentation({ type: "set-development", status });
+  }
+
   async function cancelCodexImplementerExecution(): Promise<void> {
+    const isIssueFixCardSurface = isIssueCodexExecutionForeground;
     setIsCodexExecutionActionRunning(true);
     setDocumentError("");
+    if (isIssueFixCardSurface) {
+      setIssuePlanningActionError("");
+      setIssuePlanningActionFeedback("");
+    }
     try {
       const status = await window.champcity.cancelCodexImplementerExecution();
-      setCodexExecution(status);
+      projectCodexExecutionForActiveSurface(status);
       if (status.failureReason) {
-        setFeedback(status.failureReason);
+        if (isIssueFixCardSurface) {
+          setIssuePlanningActionFeedback(status.failureReason);
+        } else {
+          setFeedback(status.failureReason);
+        }
       }
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Codex Implementer execution could not be cancelled.");
+      const message = error instanceof Error ? error.message : "Codex Implementer execution could not be cancelled.";
+      if (isIssueFixCardSurface) {
+        setIssuePlanningActionError(message);
+      } else {
+        setDocumentError(message);
+      }
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -1473,14 +2056,28 @@ export function App(): JSX.Element {
 
   async function respondToCodexUserInput(requestId: string, answers: Record<string, string[]>): Promise<void> {
     setIsCodexExecutionActionRunning(true);
-    setDocumentError("");
-    setFeedback("");
+    if (isIssueCodexExecutionForeground) {
+      setIssuePlanningActionError("");
+      setIssuePlanningActionFeedback("");
+    } else {
+      setDocumentError("");
+      setFeedback("");
+    }
     try {
       const status = await window.champcity.respondToCodexUserInput({ requestId, answers });
-      setCodexExecution(status);
-      setFeedback("Codex input submitted.");
+      projectCodexExecutionForActiveSurface(status);
+      if (isIssueCodexExecutionForeground) {
+        setIssuePlanningActionFeedback("Codex input submitted.");
+      } else {
+        setFeedback("Codex input submitted.");
+      }
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Codex input could not be submitted.");
+      const message = error instanceof Error ? error.message : "Codex input could not be submitted.";
+      if (isIssueCodexExecutionForeground) {
+        setIssuePlanningActionError(message);
+      } else {
+        setDocumentError(message);
+      }
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -1488,14 +2085,29 @@ export function App(): JSX.Element {
 
   async function respondToCodexApproval(requestId: string, decision: "approve" | "deny"): Promise<void> {
     setIsCodexExecutionActionRunning(true);
-    setDocumentError("");
-    setFeedback("");
+    if (isIssueCodexExecutionForeground) {
+      setIssuePlanningActionError("");
+      setIssuePlanningActionFeedback("");
+    } else {
+      setDocumentError("");
+      setFeedback("");
+    }
     try {
       const status = await window.champcity.respondToCodexApproval({ requestId, decision });
-      setCodexExecution(status);
-      setFeedback(decision === "approve" ? "Codex approval granted once." : "Codex approval denied.");
+      projectCodexExecutionForActiveSurface(status);
+      const message = decision === "approve" ? "Codex approval granted once." : "Codex approval denied.";
+      if (isIssueCodexExecutionForeground) {
+        setIssuePlanningActionFeedback(message);
+      } else {
+        setFeedback(message);
+      }
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Codex approval response could not be submitted.");
+      const message = error instanceof Error ? error.message : "Codex approval response could not be submitted.";
+      if (isIssueCodexExecutionForeground) {
+        setIssuePlanningActionError(message);
+      } else {
+        setDocumentError(message);
+      }
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -1507,14 +2119,28 @@ export function App(): JSX.Element {
     content: unknown | null,
   ): Promise<void> {
     setIsCodexExecutionActionRunning(true);
-    setDocumentError("");
-    setFeedback("");
+    if (isIssueCodexExecutionForeground) {
+      setIssuePlanningActionError("");
+      setIssuePlanningActionFeedback("");
+    } else {
+      setDocumentError("");
+      setFeedback("");
+    }
     try {
       const status = await window.champcity.respondToCodexMcpElicitation({ requestId, action, content });
-      setCodexExecution(status);
-      setFeedback("MCP input submitted.");
+      projectCodexExecutionForActiveSurface(status);
+      if (isIssueCodexExecutionForeground) {
+        setIssuePlanningActionFeedback("MCP input submitted.");
+      } else {
+        setFeedback("MCP input submitted.");
+      }
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "MCP input could not be submitted.");
+      const message = error instanceof Error ? error.message : "MCP input could not be submitted.";
+      if (isIssueCodexExecutionForeground) {
+        setIssuePlanningActionError(message);
+      } else {
+        setDocumentError(message);
+      }
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -1545,20 +2171,12 @@ export function App(): JSX.Element {
         operatorNotes: operatorValidationNotes,
         advisorySummary,
         repairDefectText,
-      });
+      }, selectedDocumentId);
       setFeedback(result.message);
       setOperatorValidationNotes("");
       setAdvisorySummary("");
       setRepairDefectText("");
-      const nextDocuments = await window.champcity.listDocuments();
-      applyDocumentInventory(nextDocuments);
-      await refreshProjectPlanningWorkspaceModel();
-      await refreshCurrentModel();
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
-      if (selectedDocumentId) {
-        await loadDocument(selectedDocumentId, { preserveOnFailure: true });
-      }
+      applyDevelopmentPostMutationProjection(result.development);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Operator validation decision could not be applied.");
     } finally {
@@ -1567,6 +2185,7 @@ export function App(): JSX.Element {
   }
 
   async function generateWorkCardIntakeAndTransition(): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
     if (isWorkCardIntakeGenerating) {
       return;
     }
@@ -1623,23 +2242,62 @@ export function App(): JSX.Element {
     setWorkCardIntakeFeedback("");
     setDocumentError("");
     setFeedback("");
+    const phaseId = workCardMapProjectionFromResult(workCardMapResult)?.phaseId ?? currentModel?.currentPhaseId;
+    const isCloseReturnCandidateAction =
+      closeReturnSelectionProjection?.state === "selection-required" &&
+      closeReturnSelectionProjection.phaseId === phaseId;
     try {
-      const phaseId = workCardMapProjectionFromResult(workCardMapResult)?.phaseId ?? currentModel?.currentPhaseId;
       if (!phaseId) {
         setWorkCardIntakeError("Work Card Map requires a current phase before planning can begin.");
         return;
       }
-      const result = await window.champcity.beginWorkCardPlanning(phaseId, candidateId, {
-        closeReturnCompleted: workCardCloseReturnCompleted,
-      });
-      const nextDocuments = await window.champcity.listDocuments();
+      if (closeReturnSelectionProjection && !isCloseReturnCandidateAction) {
+        setWorkCardIntakeError("The current Close / Next result does not permit successor intake selection.");
+        await refreshWorkCardMapProjection(phaseId);
+        return;
+      }
+
+      let result: RuntimeActionResult;
+      let refresh: Awaited<ReturnType<typeof refreshRendererRepositoryBinding>>;
+      if (isCloseReturnCandidateAction) {
+        const closeReturnTransition = await executeCloseReturnCandidateIntake(
+          window.champcity,
+          phaseId,
+          candidateId,
+        );
+        if (closeReturnTransition.state === "rejected") {
+          if (closeReturnTransition.mapResult) {
+            setWorkCardMapResult(closeReturnTransition.mapResult);
+          }
+          if (closeReturnTransition.mapRefreshError) {
+            setDocumentError(
+              closeReturnTransition.mapRefreshError instanceof Error
+                ? `Work Card Map refresh failed: ${closeReturnTransition.mapRefreshError.message}`
+                : "Work Card Map refresh failed after the selection was rejected.",
+            );
+          }
+          setWorkCardIntakeError(
+            closeReturnTransition.error instanceof Error
+              ? closeReturnTransition.error.message
+              : "The selected Work Card was rejected by current repository binding.",
+          );
+          return;
+        }
+        result = closeReturnTransition.actionResult;
+        refresh = closeReturnTransition;
+      } else {
+        result = await window.champcity.beginWorkCardPlanning(phaseId, candidateId);
+        refresh = await refreshRendererRepositoryBinding(window.champcity);
+      }
+
+      const nextDocuments = refresh.documents;
+      const nextModel = refresh.currentModel;
+      const nextResolverResult = refresh.resolverResult;
       applyDocumentInventory(nextDocuments);
-      await refreshProjectPlanningWorkspaceModel();
-      const nextModel = await refreshCurrentModel();
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
+      setProjectPlanningModel(refresh.projectPlanningModel);
+      setCurrentModel(nextModel);
       setResolverResult(nextResolverResult);
       if (
-        !nextModel ||
         !activeWorkCardResumeWorkspaceIds.has(nextModel.activeWorkspaceId) ||
         !currentModelMatchesCandidate(nextModel, candidateId) ||
         (nextModel.activeWorkspaceId === "work-card-planning" && nextModel.workCardIntake)
@@ -1649,6 +2307,7 @@ export function App(): JSX.Element {
           `Work Card action completed, but the refreshed workspace resolved to ${resolvedWorkspace} for ${nextModel?.currentWorkCardId ?? "no Work Card"} instead of ${candidateId}.`,
         );
         setWorkCardIntakeFeedback(result.message);
+        await refreshWorkCardMapProjection(phaseId);
         return;
       }
       const destinationWorkspaceId = nextModel.activeWorkspaceId;
@@ -1664,7 +2323,7 @@ export function App(): JSX.Element {
         resolverResult: nextResolverResult,
       });
       setWorkCardMapResult(null);
-      setWorkCardCloseReturnCompleted(false);
+      setCloseReturnSelectionProjection(null);
       if (isArchitectEnabledWorkspace(destinationWorkspaceId)) {
         await refreshArchitectOutputWorkspace({
           autoSelectOutput: true,
@@ -1675,6 +2334,9 @@ export function App(): JSX.Element {
       }
       setFeedback(result.message);
     } catch (error) {
+      if (isCloseReturnCandidateAction && phaseId) {
+        await refreshWorkCardMapProjection(phaseId);
+      }
       setWorkCardIntakeError(error instanceof Error ? error.message : "Work Card Planning could not be started.");
     } finally {
       setIsWorkCardIntakeGenerating(false);
@@ -1716,6 +2378,25 @@ export function App(): JSX.Element {
           documents: nextDocuments,
         });
         setFeedback(getResolverFeedback(nextResolverResult));
+      } else if (activeWorkspaceId === "phase-validation") {
+        try {
+          const refreshedPhaseAction = await loadPhaseValidationEntry(
+            () => window.champcity.getPhaseValidationActionProjection(),
+          );
+          setPhaseValidationAction(refreshedPhaseAction);
+          transitionToWorkflowStep(refreshedPhaseAction.workspaceId, {
+            documents: nextDocuments,
+            preferredDocumentId: refreshedPhaseAction.closeout?.logicalDocumentId ?? null,
+          });
+          setFeedback("Documents and Phase Validation basis refreshed.");
+        } catch (error) {
+          setPhaseValidationAction(null);
+          setDocumentError(
+            error instanceof Error
+              ? error.message
+              : "Phase Validation basis could not be refreshed.",
+          );
+        }
       } else {
         transitionToWorkflowStep(activeWorkspaceId, { documents: nextDocuments });
         setFeedback("Documents refreshed.");
@@ -1729,7 +2410,40 @@ export function App(): JSX.Element {
     }
   }
 
-  async function activateWorkspaceSelection(selection: WorkspaceSelection): Promise<void> {
+  async function openExistingProjectFromLanding(): Promise<void> {
+    setIsChoosing(true);
+    setDocumentError("");
+    try {
+      await activateWorkspaceSelection(
+        await window.champcity.chooseWorkspaceFolder(),
+        "workflow-hub",
+      );
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Existing project could not be opened.");
+    } finally {
+      setIsChoosing(false);
+    }
+  }
+
+  async function startNewProjectFromLanding(): Promise<void> {
+    setIsChoosing(true);
+    setDocumentError("");
+    try {
+      await activateWorkspaceSelection(
+        await window.champcity.chooseWorkspaceFolder(),
+        "project-intake-capture",
+      );
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "New project directory could not be selected.");
+    } finally {
+      setIsChoosing(false);
+    }
+  }
+
+  async function activateWorkspaceSelection(
+    selection: WorkspaceSelection,
+    destination: ProjectEntryDestination,
+  ): Promise<void> {
     if (!selection.ok) {
       setDocumentError(selection.reason);
       return;
@@ -1737,13 +2451,25 @@ export function App(): JSX.Element {
 
     clearRepositoryDerivedState();
     setWorkspace(selection);
-    setShellView("workflow-hub");
-    setActiveWorkflowId(null);
-    setActiveWorkspaceId(workspaceDefinitions[0].id);
+    if (selection.mcpRegistrationError) {
+      setDocumentError(`Project selected, but MCP registration failed: ${selection.mcpRegistrationError}`);
+    }
     setProjectIntake((current) => ({
       ...current,
       projectRepository: selection.workspaceRoot,
     }));
+
+    if (destination === "project-intake-capture") {
+      setShellView("workflow");
+      setActiveWorkflowId("development");
+      setActiveWorkspaceId("project-intake-capture");
+      setPriorWorkflowWorkspaceId("project-intake-capture");
+      return;
+    }
+
+    setShellView("workflow-hub");
+    setActiveWorkflowId(null);
+    setActiveWorkspaceId(workspaceDefinitions[0].id);
   }
 
   function clearRepositoryDerivedState(): void {
@@ -1762,13 +2488,15 @@ export function App(): JSX.Element {
     setResolverResult(null);
     setProjectIntakeConfirmation(clearedPostSubmitState.confirmation);
     setCurrentModel(null);
+    setPhaseValidationAction(null);
     setProjectPlanningModel(null);
     setArchitectStatus(null);
     setArchitectOutputModel(null);
     setSelectedArchitectOutputSlotId(null);
     setArchitectOutputReviewStatus("");
     setArchitectOutputReviewNotes("");
-    setCodexExecution(null);
+    dispatchCodexExecutionPresentation({ type: "clear-development" });
+    dispatchCodexExecutionPresentation({ type: "clear-issue" });
     setIsCodexExecutionActionRunning(false);
     setViewedArchitectOutputRevisionKeys([]);
     setArchitectFeedback(null);
@@ -1776,17 +2504,36 @@ export function App(): JSX.Element {
     architectOutputFingerprintRef.current = null;
     architectOutputPollRequestRef.current += 1;
     architectOutputPollInFlightRef.current = null;
-    codexExecutionPreviousStateRef.current = null;
+    developmentCodexExecutionPreviousStateRef.current = null;
+    issueCodexExecutionPreviousStateRef.current = null;
+    issueCodexExecutionContextRef.current = null;
     setIssueInventory(null);
     setSelectedIssueId(null);
     setActiveIssueStageId("intake");
     setIssueArchitectProjection(null);
+    setIssuePlanningProjection(null);
+    setIssueNavigationProjection(null);
+    setIssueValidationProjection(null);
+    setIssueCloseProjection(null);
+    setActiveIssueFixCardStepId("fix-card-map");
+    setIssueFixCardProjection(null);
     setIssueInventoryError("");
     setIsIssueInventoryLoading(false);
     setIsIssueCreating(false);
     setIsIssueArchitectActionPending(false);
     setIssueArchitectActionFeedback("");
     setIssueArchitectActionError("");
+    setIsIssuePlanningActionPending(false);
+    setIssuePlanningActionFeedback("");
+    setIssuePlanningActionError("");
+    setIsIssueCloseLoading(false);
+    setIsIssueCloseActionPending(false);
+    setIssueCloseActionFeedback("");
+    setIssueCloseActionError("");
+    issuePlanningProjectionRefreshRequestRef.current += 1;
+    issuePlanningProjectionRefreshInFlightRef.current = null;
+    issueFixCardProjectionRefreshRequestRef.current += 1;
+    issueFixCardProjectionRefreshInFlightRef.current = null;
   }
 
   function applyDocumentInventory(nextDocuments: PlanningDocumentSummary[]): void {
@@ -1798,6 +2545,52 @@ export function App(): JSX.Element {
       setSelectedDocumentId(null);
       setSelectedDocument(null);
       setSelectedStatus("");
+    }
+  }
+
+  function applyDevelopmentPostMutationProjection(
+    projection: DevelopmentPostMutationProjection,
+  ): void {
+    applyDocumentInventory(projection.documents);
+    setProjectPlanningModel(projection.projectPlanningModel);
+    setCurrentModel(projection.currentModel);
+    setResolverResult(projection.resolverResult);
+    if (projection.selectedDocument) {
+      setSelectedDocumentId(projection.selectedDocument.logicalDocumentId);
+      setSelectedDocument(projection.selectedDocument);
+      setSelectedStatus(
+        projection.selectedDocument.effectiveDisposition === "Pending"
+          ? ""
+          : projection.selectedDocument.effectiveDisposition,
+      );
+    } else {
+      setSelectedDocumentId(null);
+      setSelectedDocument(null);
+      setSelectedStatus("");
+    }
+    transitionToWorkflowStep(projection.currentModel.activeWorkspaceId, {
+      documents: projection.documents,
+      preferredDocumentId: projection.selectedDocument?.logicalDocumentId ?? null,
+      resolverResult: projection.resolverResult,
+    });
+  }
+
+  function applyIssuePostMutationProjection(
+    projection: IssuePostMutationProjection,
+    options: { synchronizeStage?: boolean } = {},
+  ): void {
+    setIssueNavigationProjection(projection.navigation);
+    if (projection.planning) {
+      setIssuePlanningProjection(projection.planning);
+    }
+    if (projection.validation) {
+      setIssueValidationProjection(projection.validation);
+    }
+    if (projection.close) {
+      setIssueCloseProjection(projection.close);
+    }
+    if (options.synchronizeStage) {
+      setActiveIssueStageId(projection.navigation.currentStageId);
     }
   }
 
@@ -1819,6 +2612,13 @@ export function App(): JSX.Element {
       resolverResult?: FirstNonApprovedResult | null;
     } = {},
   ): void {
+    const retainedPhaseValidationAction = phaseValidationActionForWorkspace(
+      destinationWorkspaceId,
+      phaseValidationAction,
+    );
+    if (retainedPhaseValidationAction !== phaseValidationAction) {
+      setPhaseValidationAction(retainedPhaseValidationAction);
+    }
     if (destinationWorkspaceId !== settingsWorkspaceId) {
       setShellView("workflow");
       setActiveWorkflowId("development");
@@ -1877,11 +2677,12 @@ export function App(): JSX.Element {
       setDocumentError("Select a project before opening a workflow.");
       return;
     }
+    setIssueCloseActionFeedback("");
     if (workflowId === "issue-resolution") {
       setShellView("workflow");
       setActiveWorkflowId("issue-resolution");
       setActiveWorkspaceId(workspaceDefinitions[0].id);
-      await refreshIssueInventory();
+      await refreshIssueInventory(undefined, true);
       return;
     }
     setShellView("workflow");
@@ -1894,7 +2695,10 @@ export function App(): JSX.Element {
     setActiveWorkflowId(null);
   }
 
-  async function refreshIssueInventory(preferredIssueId = selectedIssueId): Promise<void> {
+  async function refreshIssueInventory(
+    preferredIssueId = selectedIssueId,
+    synchronizeStage = false,
+  ): Promise<void> {
     if (!workspace.ok) {
       setIssueInventory(null);
       setSelectedIssueId(null);
@@ -1908,7 +2712,12 @@ export function App(): JSX.Element {
       setIssueInventory(nextInventory);
       const nextIssueId = resolveSelectedIssueId(nextInventory.issues, preferredIssueId);
       setSelectedIssueId(nextIssueId);
-      if (activeIssueStageId === "architect-planning") {
+      if (synchronizeStage && nextIssueId) {
+        const navigation = await window.champcity.getIssueResolutionNavigationProjection(nextIssueId);
+        setIssueNavigationProjection(navigation);
+        setActiveIssueStageId(navigation.currentStageId);
+      }
+      if (activeIssueStageId === "architect-planning" || activeIssueStageId === "issue-planning") {
         const nextIssue = nextInventory.issues.find((issue) => issue.issueId === nextIssueId) ?? null;
         if (nextIssue?.recordState !== "readable") {
           setActiveIssueStageId("intake");
@@ -1923,6 +2732,95 @@ export function App(): JSX.Element {
     }
   }
 
+  async function refreshIssueResolutionNavigationProjection(
+    issueId = currentIssue?.issueId,
+    options: { synchronizeStage?: boolean } = {},
+  ): Promise<void> {
+    if (!workspace.ok || !issueId) {
+      setIssueNavigationProjection(null);
+      return;
+    }
+    try {
+      const projection = await window.champcity.getIssueResolutionNavigationProjection(issueId);
+      setIssueNavigationProjection(projection);
+      if (options.synchronizeStage) {
+        setActiveIssueStageId(projection.currentStageId);
+      }
+    } catch {
+      setIssueNavigationProjection(null);
+    }
+  }
+
+  async function selectIssueFromSidebar(issueId: string): Promise<void> {
+    setSelectedIssueId(issueId);
+    setActiveIssueFixCardStepId("fix-card-map");
+    setIssueFixCardProjection(null);
+    dispatchCodexExecutionPresentation({ type: "clear-issue" });
+    issueCodexExecutionPreviousStateRef.current = null;
+    issueCodexExecutionContextRef.current = null;
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const navigation = await window.champcity.getIssueResolutionNavigationProjection(issueId);
+      setIssueNavigationProjection(navigation);
+      const nextStage: IssueResolutionStageId = navigation.currentStageId;
+      setActiveIssueStageId(nextStage);
+      if (nextStage === "issue-close") {
+        setIssueCloseProjection(await window.champcity.getIssueCloseProjection(issueId));
+        setIssueValidationProjection(null);
+        setIssuePlanningProjection(null);
+        setIssueFixCardProjection(null);
+        setIssueArchitectProjection(null);
+      } else if (nextStage === "issue-validation") {
+        setIssueValidationProjection(await window.champcity.getIssueValidationProjection(issueId));
+        setIssueCloseProjection(null);
+        setIssuePlanningProjection(null);
+        setIssueFixCardProjection(null);
+        setIssueArchitectProjection(null);
+      } else if (nextStage === "fix-cards") {
+        const planning = await window.champcity.getIssuePlanningProjection(issueId);
+        setIssuePlanningProjection(planning);
+        setIssueFixCardProjection(await window.champcity.getIssueFixCardProjection(issueId, "fix-card-map"));
+        setIssueArchitectProjection(null);
+        setIssueValidationProjection(null);
+        setIssueCloseProjection(null);
+      } else if (nextStage === "issue-planning") {
+        setIssuePlanningProjection(await window.champcity.getIssuePlanningProjection(issueId));
+        setIssueValidationProjection(null);
+        setIssueCloseProjection(null);
+        setIssueFixCardProjection(null);
+        setIssueArchitectProjection(null);
+      } else if (nextStage === "architect-planning") {
+        setIssueArchitectProjection(await window.champcity.getIssueArchitectPlanningProjection(issueId));
+        setIssuePlanningProjection(null);
+        setIssueFixCardProjection(null);
+        setIssueValidationProjection(null);
+        setIssueCloseProjection(null);
+      } else {
+        setIssueArchitectProjection(null);
+        setIssuePlanningProjection(null);
+        setIssueFixCardProjection(null);
+        setIssueValidationProjection(null);
+        setIssueCloseProjection(null);
+      }
+    } catch (error) {
+      setActiveIssueStageId("intake");
+      setIssueNavigationProjection(null);
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Issue navigation could not be loaded.");
+    }
+  }
+
+  function browseIssuesFromSidebar(): void {
+    setActiveIssueStageId("intake");
+    setActiveIssueFixCardStepId("fix-card-map");
+    setIssueFixCardProjection(null);
+    setIssueCloseProjection(null);
+    setIssueCloseActionError("");
+    setIssueCloseActionFeedback("");
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+  }
+
   async function createIssue(input: NewIssueInput): Promise<void> {
     setIsIssueCreating(true);
     setIssueInventoryError("");
@@ -1932,7 +2830,11 @@ export function App(): JSX.Element {
       setSelectedIssueId(result.createdIssueId);
       setActiveIssueStageId("intake");
     } catch (error) {
-      setIssueInventoryError(error instanceof Error ? error.message : "Issue Record could not be created.");
+      const creationError = error instanceof Error
+        ? error
+        : new Error("Issue Record could not be created.");
+      setIssueInventoryError(creationError.message);
+      throw creationError;
     } finally {
       setIsIssueCreating(false);
     }
@@ -1952,6 +2854,11 @@ export function App(): JSX.Element {
     const requestId = issueArchitectProjectionRefreshRequestRef.current + 1;
     issueArchitectProjectionRefreshRequestRef.current = requestId;
     issueArchitectProjectionRefreshInFlightRef.current = requestId;
+    let resolveCompletion!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    issueArchitectProjectionRefreshCompletionRef.current = completion;
     setIssueArchitectActionError("");
     try {
       const projection = await window.champcity.getIssueArchitectPlanningProjection(issueId);
@@ -1969,6 +2876,10 @@ export function App(): JSX.Element {
       if (issueArchitectProjectionRefreshInFlightRef.current === requestId) {
         issueArchitectProjectionRefreshInFlightRef.current = null;
       }
+      if (issueArchitectProjectionRefreshCompletionRef.current === completion) {
+        issueArchitectProjectionRefreshCompletionRef.current = null;
+      }
+      resolveCompletion();
     }
   }
 
@@ -1986,6 +2897,7 @@ export function App(): JSX.Element {
       const result = await action(currentIssue.issueId);
       setIssueArchitectProjection(result.projection);
       setIssueArchitectActionFeedback(result.message);
+      await refreshIssueResolutionNavigationProjection(currentIssue.issueId);
       if (result.projection.finalInvestigationState === "readable") {
         await refreshIssueInventory(currentIssue.issueId);
       }
@@ -2008,6 +2920,7 @@ export function App(): JSX.Element {
     try {
       const result = await window.champcity.applyIssueArchitectReview(currentIssue.issueId, input);
       setIssueArchitectProjection(result.projection);
+      applyIssuePostMutationProjection(result.postMutation);
       setIssueArchitectActionFeedback(result.message);
     } catch (error) {
       setIssueArchitectActionError(error instanceof Error ? error.message : "Issue Architect review failed.");
@@ -2017,7 +2930,440 @@ export function App(): JSX.Element {
     }
   }
 
+  async function refreshIssuePlanningProjection(
+    issueId = currentIssue?.issueId,
+    options: { quiet?: boolean } = {},
+  ): Promise<void> {
+    if (!issueId) {
+      setIssuePlanningProjection(null);
+      return;
+    }
+    if (options.quiet && issuePlanningProjectionRefreshInFlightRef.current !== null) {
+      return;
+    }
+    const requestId = issuePlanningProjectionRefreshRequestRef.current + 1;
+    issuePlanningProjectionRefreshRequestRef.current = requestId;
+    issuePlanningProjectionRefreshInFlightRef.current = requestId;
+    let resolveCompletion!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    issuePlanningProjectionRefreshCompletionRef.current = completion;
+    setIssuePlanningActionError("");
+    try {
+      const projection = await window.champcity.getIssuePlanningProjection(issueId);
+      if (requestId !== issuePlanningProjectionRefreshRequestRef.current) {
+        return;
+      }
+      setIssuePlanningProjection(projection);
+    } catch (error) {
+      if (requestId !== issuePlanningProjectionRefreshRequestRef.current) {
+        return;
+      }
+      setIssuePlanningProjection(null);
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Issue Planning could not be loaded.");
+    } finally {
+      if (issuePlanningProjectionRefreshInFlightRef.current === requestId) {
+        issuePlanningProjectionRefreshInFlightRef.current = null;
+      }
+      if (issuePlanningProjectionRefreshCompletionRef.current === completion) {
+        issuePlanningProjectionRefreshCompletionRef.current = null;
+      }
+      resolveCompletion();
+    }
+  }
+
+  async function refreshIssueValidationProjection(
+    issueId = currentIssue?.issueId,
+    options: { synchronizeStage?: boolean } = {},
+  ): Promise<void> {
+    if (!issueId) {
+      setIssueValidationProjection(null);
+      return;
+    }
+    setIssuePlanningActionError("");
+    try {
+      const projection = await window.champcity.getIssueValidationProjection(issueId);
+      setIssueValidationProjection(projection);
+      if (options.synchronizeStage) {
+        const navigation = await window.champcity.getIssueResolutionNavigationProjection(issueId);
+        setIssueNavigationProjection(navigation);
+        setActiveIssueStageId(navigation.currentStageId);
+        if (navigation.currentStageId === "issue-close") {
+          setIssueCloseProjection(await window.champcity.getIssueCloseProjection(issueId));
+        } else if (navigation.currentStageId === "issue-planning") {
+          setIssuePlanningProjection(await window.champcity.getIssuePlanningProjection(issueId));
+        }
+      }
+    } catch (error) {
+      setIssueValidationProjection(null);
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Issue Validation could not be loaded.");
+    }
+  }
+
+  async function runIssueValidationDecision(input: IssueValidationDecisionInput): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an eligible Issue before applying aggregate Issue Validation.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const result = await window.champcity.applyIssueValidationDecision(currentIssue.issueId, input);
+      setIssueValidationProjection(result.projection);
+      applyIssuePostMutationProjection(result.postMutation, { synchronizeStage: true });
+      setIssuePlanningActionFeedback(result.message);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Aggregate Issue Validation decision failed.");
+      await refreshIssueValidationProjection(currentIssue.issueId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function refreshIssueCloseProjection(
+    issueId = currentIssue?.issueId,
+    options: { synchronizeStage?: boolean } = {},
+  ): Promise<void> {
+    if (!issueId) {
+      setIssueCloseProjection(null);
+      return;
+    }
+    setIsIssueCloseLoading(true);
+    setIssueCloseActionError("");
+    try {
+      const projection = await window.champcity.getIssueCloseProjection(issueId);
+      setIssueCloseProjection(projection);
+      if (options.synchronizeStage) {
+        const navigation = await window.champcity.getIssueResolutionNavigationProjection(issueId);
+        setIssueNavigationProjection(navigation);
+        setActiveIssueStageId(navigation.currentStageId);
+      }
+    } catch (error) {
+      setIssueCloseProjection(null);
+      setIssueCloseActionError(error instanceof Error ? error.message : "Issue Close record could not be loaded.");
+    } finally {
+      setIsIssueCloseLoading(false);
+    }
+  }
+
+  async function runIssueClose(input: IssueCloseActionInput): Promise<void> {
+    if (!currentIssue) {
+      setIssueCloseActionError("Select an eligible Issue before closing it.");
+      return;
+    }
+    setIsIssueCloseActionPending(true);
+    setIssueCloseActionError("");
+    setIssueCloseActionFeedback("");
+    try {
+      const result = await window.champcity.closeIssue(currentIssue.issueId, input);
+      setIssueCloseProjection(result.projection);
+      setIssueCloseActionFeedback(result.message);
+      const navigation = await window.champcity.getIssueResolutionNavigationProjection(currentIssue.issueId);
+      setIssueNavigationProjection(navigation);
+      await refreshIssueInventory(currentIssue.issueId);
+      returnToWorkflowHub();
+    } catch (error) {
+      setIssueCloseActionError(error instanceof Error ? error.message : "Issue Close failed.");
+      await refreshIssueCloseProjection(currentIssue.issueId);
+    } finally {
+      setIsIssueCloseActionPending(false);
+    }
+  }
+
+  async function runIssuePlanningAction(
+    action: (issueId: string) => Promise<{ message: string; projection: IssuePlanningProjection }>,
+  ): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an eligible Issue before using Issue Planning.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const result = await action(currentIssue.issueId);
+      setIssuePlanningProjection(result.projection);
+      setIssuePlanningActionFeedback(result.message);
+      await refreshIssueResolutionNavigationProjection(currentIssue.issueId);
+      if (result.projection.issueResolutionPlanState === "readable" && result.projection.fixCardPlanState === "readable") {
+        await refreshIssueInventory(currentIssue.issueId);
+      }
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Issue Planning action failed.");
+      await refreshIssuePlanningProjection(currentIssue.issueId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function runIssuePlanningReview(input: IssueArchitectReviewInput): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an eligible Issue before applying Issue Planning review.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const result = await window.champcity.applyIssuePlanningReview(currentIssue.issueId, input);
+      setIssuePlanningProjection(result.projection);
+      applyIssuePostMutationProjection(result.postMutation);
+      setIssuePlanningActionFeedback(result.message);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Issue Planning review failed.");
+      await refreshIssuePlanningProjection(currentIssue.issueId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function refreshIssueFixCardProjection(
+    issueId = currentIssue?.issueId,
+    currentStep = activeIssueFixCardStepId,
+    options: { quiet?: boolean } = {},
+  ): Promise<void> {
+    if (!issueId) {
+      setIssueFixCardProjection(null);
+      return;
+    }
+    if (options.quiet && issueFixCardProjectionRefreshInFlightRef.current !== null) {
+      return;
+    }
+    const requestId = issueFixCardProjectionRefreshRequestRef.current + 1;
+    issueFixCardProjectionRefreshRequestRef.current = requestId;
+    issueFixCardProjectionRefreshInFlightRef.current = requestId;
+    let resolveCompletion!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    issueFixCardProjectionRefreshCompletionRef.current = completion;
+    if (!options.quiet) {
+      setIssuePlanningActionError("");
+    }
+    try {
+      const projection = await window.champcity.getIssueFixCardProjection(issueId, currentStep);
+      if (requestId !== issueFixCardProjectionRefreshRequestRef.current) {
+        return;
+      }
+      setIssueFixCardProjection(projection);
+      setActiveIssueFixCardStepId((current) =>
+        current === projection.currentStep ? current : projection.currentStep,
+      );
+    } catch (error) {
+      if (requestId !== issueFixCardProjectionRefreshRequestRef.current) {
+        return;
+      }
+      setIssueFixCardProjection(null);
+      if (!options.quiet) {
+        setIssuePlanningActionError(error instanceof Error ? error.message : "Issue Fix Card state could not be loaded.");
+      }
+    } finally {
+      if (issueFixCardProjectionRefreshInFlightRef.current === requestId) {
+        issueFixCardProjectionRefreshInFlightRef.current = null;
+      }
+      if (issueFixCardProjectionRefreshCompletionRef.current === completion) {
+        issueFixCardProjectionRefreshCompletionRef.current = null;
+      }
+      resolveCompletion();
+    }
+  }
+
+  async function selectIssueFixCardCandidate(fixCardId: string): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an Issue before selecting a Fix Card candidate.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const result = await window.champcity.selectIssueFixCardCandidate(
+        currentIssue.issueId,
+        fixCardId,
+        "fix-card-map",
+      );
+      setActiveIssueFixCardStepId(result.projection.currentStep);
+      setIssueFixCardProjection(result.projection);
+      setIssuePlanningActionFeedback(result.message);
+      await refreshIssueResolutionNavigationProjection(currentIssue.issueId);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Fix Card candidate selection failed.");
+      await refreshIssueFixCardProjection(currentIssue.issueId, activeIssueFixCardStepId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  function openIssueFixCardStep(stepId: IssueFixCardLoopStepId): void {
+    const availability = issueFixCardProjection?.stepAvailability.find((step) => step.stepId === stepId);
+    const available = availability?.available ?? stepId === "fix-card-map";
+    if (!available) {
+      setIssuePlanningActionError(availability?.reason ?? "That Fix Card step is unavailable for the current Issue.");
+      return;
+    }
+    setActiveIssueFixCardStepId(stepId);
+    void refreshIssueFixCardProjection(currentIssue?.issueId, stepId);
+  }
+
+  async function runIssueFixCardAction(
+    action: (issueId: string, currentStep?: IssueFixCardLoopStepId) => Promise<{ message: string; projection: IssueFixCardProjection }>,
+  ): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an Issue before using Fix Cards.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const result = await action(currentIssue.issueId, activeIssueFixCardStepId);
+      setIssueFixCardProjection(result.projection);
+      setIssuePlanningActionFeedback(result.message);
+      await refreshIssueResolutionNavigationProjection(currentIssue.issueId);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Issue Fix Card action failed.");
+      await refreshIssueFixCardProjection(currentIssue.issueId, activeIssueFixCardStepId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function runIssueFixCardContractReview(input: IssueArchitectReviewInput): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an Issue before applying Fix Card review.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const nextStep = input.disposition === "Approved" ? "implement" : activeIssueFixCardStepId;
+      const result = await window.champcity.applyIssueFixCardContractReview(
+        currentIssue.issueId,
+        input,
+        nextStep,
+      );
+      setActiveIssueFixCardStepId(result.projection.currentStep);
+      setIssueFixCardProjection(result.projection);
+      applyIssuePostMutationProjection(result.postMutation);
+      setIssuePlanningActionFeedback(result.message);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Fix Card contract review failed.");
+      await refreshIssueFixCardProjection(currentIssue.issueId, activeIssueFixCardStepId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function runIssueFixCardValidationDecision(input: IssueFixCardValidationDecisionInput): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an Issue before applying Fix Card validation.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const nextStep: IssueFixCardLoopStepId = input.decision === "RequestRepair" ? "repair" : "close-next";
+      const result = await window.champcity.applyIssueFixCardValidationDecision(currentIssue.issueId, input, nextStep);
+      setActiveIssueFixCardStepId(result.projection.currentStep);
+      setIssueFixCardProjection(result.projection);
+      applyIssuePostMutationProjection(result.postMutation);
+      setIssuePlanningActionFeedback(result.message);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Fix Card validation decision failed.");
+      await refreshIssueFixCardProjection(currentIssue.issueId, activeIssueFixCardStepId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function runIssueFixCardClose(): Promise<void> {
+    if (!currentIssue) {
+      setIssuePlanningActionError("Select an Issue before closing a Fix Card.");
+      return;
+    }
+    setIsIssuePlanningActionPending(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const result = await window.champcity.closeIssueFixCard(currentIssue.issueId, "close-next");
+      setActiveIssueFixCardStepId(result.projection.currentStep);
+      setIssueFixCardProjection(result.projection);
+      applyIssuePostMutationProjection(result.postMutation, { synchronizeStage: true });
+      setIssuePlanningActionFeedback(result.message);
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Fix Card close failed.");
+      await refreshIssueFixCardProjection(currentIssue.issueId, activeIssueFixCardStepId);
+    } finally {
+      setIsIssuePlanningActionPending(false);
+    }
+  }
+
+  async function startIssueCodexImplementerExecution(selection: CodexModelSelection): Promise<void> {
+    const selectedFixCardId = issueFixCardProjection?.selectedCandidate?.fixCardId;
+    const currentImplementationId = issueFixCardProjection?.currentImplementationId;
+    if (!currentIssue || !selectedFixCardId || !currentImplementationId) {
+      setIssuePlanningActionError("Select an approved Fix Card before running Codex.");
+      return;
+    }
+    setIsCodexExecutionActionRunning(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const status = await window.champcity.startIssueCodexImplementerExecution(
+        currentIssue.issueId,
+        selectedFixCardId,
+        currentImplementationId,
+        selection,
+      );
+      const contextKey = issueCodexExecutionContextKey(currentIssue.issueId, currentImplementationId);
+      dispatchCodexExecutionPresentation({ type: "set-issue", contextKey, status });
+      issueCodexExecutionPreviousStateRef.current = status.state;
+      setIssuePlanningActionFeedback(status.failureReason ?? "Codex Implementer started for the selected Fix Card.");
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Codex Implementer could not start.");
+    } finally {
+      setIsCodexExecutionActionRunning(false);
+    }
+  }
+
+  async function startIssueCodexEnvironmentResolution(): Promise<void> {
+    const selectedFixCardId = issueFixCardProjection?.selectedCandidate?.fixCardId;
+    const currentImplementationId = issueFixCardProjection?.currentImplementationId;
+    if (!currentIssue || !selectedFixCardId || !currentImplementationId) {
+      setIssuePlanningActionError("Select an approved Fix Card before resolving its environment.");
+      return;
+    }
+    setIsCodexExecutionActionRunning(true);
+    setIssuePlanningActionError("");
+    setIssuePlanningActionFeedback("");
+    try {
+      const status = await window.champcity.startIssueCodexEnvironmentResolution(
+        currentIssue.issueId,
+        selectedFixCardId,
+        currentImplementationId,
+      );
+      const contextKey = issueCodexExecutionContextKey(currentIssue.issueId, currentImplementationId);
+      dispatchCodexExecutionPresentation({ type: "set-issue", contextKey, status });
+      issueCodexExecutionPreviousStateRef.current = status.state;
+      setIssuePlanningActionFeedback(status.failureReason ?? "Environment Resolution started for the selected Fix Card.");
+    } catch (error) {
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Environment Resolution could not start.");
+    } finally {
+      setIsCodexExecutionActionRunning(false);
+    }
+  }
+
   async function refreshAgentHarnessStatus(): Promise<AgentHarnessStatus | null> {
+    const lifecycle = await refreshAgentHarnessServiceHostLifecycleStatus();
+    if (lifecycle?.explicitlyStopped) {
+      setAgentHarnessStatus(null);
+      return null;
+    }
+    void refreshAgentHarnessWorkspaceRegistry();
     try {
       const status = await window.champcity.getAgentHarnessStatus();
       setAgentHarnessStatus(status);
@@ -2025,6 +3371,91 @@ export function App(): JSX.Element {
     } catch (error) {
       setAgentHarnessStatus(null);
       setAgentHarnessActionError(error instanceof Error ? error.message : "Agent Harness status could not be loaded.");
+      return null;
+    }
+  }
+
+  async function refreshAgentHarnessWorkspaceRegistry(): Promise<AgentHarnessWorkspaceRegistrySnapshot | null> {
+    try {
+      const registry = await window.champcity.listAgentHarnessRegisteredWorkspaces();
+      setAgentHarnessWorkspaceRegistry(registry);
+      return registry;
+    } catch (error) {
+      setAgentHarnessWorkspaceRegistry(null);
+      setAgentHarnessActionError(
+        error instanceof Error ? error.message : "Registered MCP projects could not be loaded.",
+      );
+      return null;
+    }
+  }
+
+  async function addAgentHarnessWorkspace(): Promise<void> {
+    setAgentHarnessActionPending("registerWorkspace");
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const result = await window.champcity.chooseAndRegisterAgentHarnessWorkspace();
+      setAgentHarnessWorkspaceRegistry(result.registry);
+      if (result.canceled) {
+        setAgentHarnessActionFeedback("MCP project registration canceled.");
+      } else {
+        setAgentHarnessActionFeedback(`Registered MCP project ${result.workspace.workspaceId}.`);
+      }
+      await refreshAgentHarnessStatus();
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : "MCP project registration failed.");
+      await refreshAgentHarnessWorkspaceRegistry();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
+  }
+
+  async function removeAgentHarnessWorkspace(workspaceId: string): Promise<void> {
+    setAgentHarnessActionPending("unregisterWorkspace");
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const registry = await window.champcity.unregisterAgentHarnessWorkspace(workspaceId);
+      setAgentHarnessWorkspaceRegistry(registry);
+      setAgentHarnessActionFeedback(`Unregistered MCP project ${workspaceId}.`);
+      await refreshAgentHarnessStatus();
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : "MCP project removal failed.");
+      await refreshAgentHarnessWorkspaceRegistry();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
+  }
+
+  async function preflightMcpHandoff(): Promise<boolean> {
+    const status = await refreshAgentHarnessServiceHostLifecycleStatus();
+    if (!status || status.restartRequired || status.explicitlyStopped) {
+      setAgentHarnessActionError(status?.explicitlyStopped
+        ? "Background Agent is stopped by user request. Start Background Agent before preparing or copying this MCP-dependent handoff. Your workflow draft is preserved."
+        : status?.restartRequired
+        ? "Restart Background Agent before preparing or copying this MCP-dependent handoff. Your workflow draft is preserved."
+        : "Background Agent status could not be confirmed. Retry the handoff to refresh status.");
+      return false;
+    }
+    setAgentHarnessActionError("");
+    return true;
+  }
+
+  async function runMcpHandoff(action: () => Promise<unknown>): Promise<void> {
+    if (!(await preflightMcpHandoff())) return;
+    await action();
+  }
+
+  async function refreshAgentHarnessServiceHostLifecycleStatus(): Promise<AgentHarnessServiceHostLifecycleStatus | null> {
+    try {
+      const status = await window.champcity.getAgentHarnessServiceHostLifecycleStatus();
+      setAgentHarnessServiceHostLifecycleStatus(status);
+      return status;
+    } catch (error) {
+      // Retain the last current lifecycle projection on refresh failure.
+      setAgentHarnessActionError(
+        error instanceof Error ? error.message : "Background Agent lifecycle status could not be loaded.",
+      );
       return null;
     }
   }
@@ -2043,9 +3474,85 @@ export function App(): JSX.Element {
         : await window.champcity.restartAgentHarness();
       setAgentHarnessStatus(status);
       setAgentHarnessActionFeedback(`Agent Harness ${action} completed: ${status.state}.`);
+      await refreshAgentHarnessServiceHostLifecycleStatus();
     } catch (error) {
       setAgentHarnessActionError(error instanceof Error ? error.message : `Agent Harness ${action} failed.`);
       await refreshAgentHarnessStatus();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
+  }
+
+  async function saveAgentHarnessServiceHostLifecycleSettings(
+    settings: AgentHarnessServiceHostLifecycleSettingsInput,
+  ): Promise<void> {
+    setAgentHarnessServiceHostSettingsPending(true);
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const status = await window.champcity.saveAgentHarnessServiceHostLifecycleSettings(settings);
+      setAgentHarnessServiceHostLifecycleStatus(status);
+      setAgentHarnessActionFeedback(
+        `Background Agent Windows sign-in launch ${status.launchAtLogin ? "enabled" : "disabled"}.`,
+      );
+    } catch (error) {
+      setAgentHarnessActionError(
+        error instanceof Error ? error.message : "Background Agent lifecycle settings could not be saved.",
+      );
+      await refreshAgentHarnessServiceHostLifecycleStatus();
+    } finally {
+      setAgentHarnessServiceHostSettingsPending(false);
+    }
+  }
+
+  async function restartAgentHarnessServiceHost(): Promise<void> {
+    setAgentHarnessActionPending("restartServiceHost");
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const lifecycle = await window.champcity.restartAgentHarnessServiceHost();
+      setAgentHarnessServiceHostLifecycleStatus(lifecycle);
+      setAgentHarnessActionFeedback("Background Agent restarted and confirmed the expected build generation.");
+      await refreshAgentHarnessStatus();
+    } catch (error) {
+      setAgentHarnessActionError(
+        error instanceof Error ? error.message : "Background Agent controlled restart failed.",
+      );
+      await refreshAgentHarnessServiceHostLifecycleStatus();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
+  }
+
+  async function startBackgroundAgent(): Promise<void> {
+    setAgentHarnessActionPending("startBackgroundAgent");
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const lifecycle = await window.champcity.startBackgroundAgent();
+      setAgentHarnessServiceHostLifecycleStatus(lifecycle);
+      setAgentHarnessActionFeedback("Background Agent started.");
+      await refreshAgentHarnessStatus();
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : "Background Agent could not be started.");
+      await refreshAgentHarnessServiceHostLifecycleStatus();
+    } finally {
+      setAgentHarnessActionPending(null);
+    }
+  }
+
+  async function exitBackgroundAgent(): Promise<void> {
+    setAgentHarnessActionPending("exitBackgroundAgent");
+    setAgentHarnessActionFeedback("");
+    setAgentHarnessActionError("");
+    try {
+      const lifecycle = await window.champcity.exitBackgroundAgent();
+      setAgentHarnessServiceHostLifecycleStatus(lifecycle);
+      setAgentHarnessStatus(null);
+      setAgentHarnessActionFeedback("Background Agent exited and will remain stopped for this login session.");
+    } catch (error) {
+      setAgentHarnessActionError(error instanceof Error ? error.message : "Background Agent could not be exited safely.");
+      await refreshAgentHarnessServiceHostLifecycleStatus();
     } finally {
       setAgentHarnessActionPending(null);
     }
@@ -2156,37 +3663,18 @@ export function App(): JSX.Element {
     setDocumentError("");
     setFeedback("");
     try {
-      await window.champcity.setDocumentDisposition(selectedDocumentId, selectedStatus);
-      const nextDocuments = await window.champcity.listDocuments();
-      applyDocumentInventory(nextDocuments);
-      await refreshProjectPlanningWorkspaceModel();
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      setResolverResult(nextResolverResult);
-      const nextCurrentModel = await refreshCurrentModel();
-      if (isArchitectEnabledWorkspace(activeWorkspaceId)) {
-        await refreshArchitectOutputWorkspace({
-          force: true,
-          refreshRepositoryProjection: false,
-        });
-      }
+      const result = await window.champcity.setDocumentDisposition(selectedDocumentId, selectedStatus);
+      const { resolverResult: nextResolverResult } = result.development;
+      applyDevelopmentPostMutationProjection(result.development);
       if (
         selectedStatus === "Approved" &&
         nextResolverResult.status === "current" &&
         activeWorkspaceId !== "project-intake-capture"
       ) {
-        selectResolverResult(nextResolverResult, {
-          currentModel: nextCurrentModel,
-          documents: nextDocuments,
-        });
         setFeedback(getResolverFeedback(nextResolverResult));
       } else if (selectedStatus === "Approved" && nextResolverResult.status === "all-approved") {
-        selectResolverResult(nextResolverResult, {
-          currentModel: nextCurrentModel,
-          documents: nextDocuments,
-        });
         setFeedback(nextResolverResult.message);
       } else {
-        await loadDocument(selectedDocumentId);
         setFeedback(getResolverFeedback(nextResolverResult));
       }
     } catch (error) {
@@ -2372,7 +3860,13 @@ export function App(): JSX.Element {
           activeWorkspaceId={activeWorkspaceId}
           architectInterviewStatus={architectInterviewRailStatus}
           executionContext={currentModel?.executionContext}
-          onWorkspaceChange={transitionToWorkflowStep}
+          onWorkspaceChange={(workspaceId) => {
+            if (workspaceId === "phase-validation") {
+              void openPhaseValidation();
+              return;
+            }
+            transitionToWorkflowStep(workspaceId);
+          }}
           projectRailStatuses={projectRailStatuses}
           projectIntakeStatus={projectIntakeRailStatus}
           requiredWorkspaceId={currentModel?.activeWorkspaceId ?? null}
@@ -2383,38 +3877,62 @@ export function App(): JSX.Element {
         <IssueResolutionRail
           activeStageId={activeIssueStageId}
           currentIssue={currentIssue}
+          activeFixCardStepId={activeIssueFixCardStepId}
+          fixCardProjection={issueFixCardProjection}
+          fixCardsAvailable={fixCardsAvailable}
+          issuePlanningAvailable={issuePlanningAvailable}
+          navigationProjection={issueNavigationProjection}
+          onFixCardStepChange={openIssueFixCardStep}
           onStageChange={setActiveIssueStageId}
         />
       ) : null}
 
-      <div className="app-body">
-        <FigmaSidebar
-          activeWorkspaceId={activeWorkspaceId}
-          currentModel={currentModel}
-          currentIssue={currentIssue}
-          issueWorkflowStatus={issueArchitectProjection?.workflowStatus ?? null}
-          isChoosing={isChoosing}
-          mode={
-            isDevelopmentForeground
-              ? "development"
-              : isIssueResolutionForeground
-              ? "issue-resolution"
-              : "hub"
-          }
-          onChooseProject={chooseWorkspace}
-          onClearProject={clearWorkspace}
-          onOpenSettings={openSettingsWorkspace}
-          onReturnToWorkflowHub={returnToWorkflowHub}
-          onThemeChange={setThemeMode}
-          projectName={projectDisplayName(workspace)}
-          themeMode={themeMode}
-          workspace={workspace}
-        />
+      <div className={isLandingForeground ? "app-body landing-app-body" : "app-body"}>
+          {!isSettingsWorkspace && (agentHarnessServiceHostLifecycleStatus?.restartRequired || agentHarnessActionError) ? (
+            <div className="service-host-shell-notice">
+              <ServiceHostRemediation
+                lifecycleStatus={agentHarnessServiceHostLifecycleStatus}
+                isBusy={agentHarnessActionPending !== null}
+                onRestartServiceHost={() => void restartAgentHarnessServiceHost()}
+              />
+              {agentHarnessActionError ? (
+                <div className="agent-harness-message error" role="status">{agentHarnessActionError}</div>
+              ) : null}
+            </div>
+          ) : null}
+        {!isLandingForeground ? (
+          <FigmaSidebar
+            activeWorkspaceId={activeWorkspaceId}
+            currentModel={currentModel}
+            currentIssue={currentIssue}
+            issueInventory={issueInventory}
+            issueWorkflowStatus={issueWorkflowStatus}
+            isChoosing={isChoosing}
+            mode={
+              isDevelopmentForeground
+                ? "development"
+                : isIssueResolutionForeground
+                ? "issue-resolution"
+                : "hub"
+            }
+            onChooseProject={chooseWorkspace}
+            onClearProject={clearWorkspace}
+            onBrowseIssues={isIssueResolutionForeground ? browseIssuesFromSidebar : undefined}
+            onIssueSelect={isIssueResolutionForeground ? (issueId) => void selectIssueFromSidebar(issueId) : undefined}
+            onOpenSettings={openSettingsWorkspace}
+            onReturnToWorkflowHub={returnToWorkflowHub}
+            onThemeChange={setThemeMode}
+            projectName={projectDisplayName(workspace)}
+            themeMode={themeMode}
+            workspace={workspace}
+          />
+        ) : null}
 
         <section
           className={[
             "workspace-surface",
-            usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
+            isLandingForeground ? "landing-surface" : "",
+            !isLandingForeground && usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
             isWorkflowHubForeground ? "workflow-hub-surface" : "",
             isIssueResolutionForeground ? "issue-resolution-surface" : "",
             isSettingsWorkspace ? "settings-workspace-surface" : "",
@@ -2424,13 +3942,27 @@ export function App(): JSX.Element {
           aria-labelledby="workspace-heading"
           ref={workspaceSurfaceRef}
         >
-          {isWorkflowHubForeground ? (
-            <WorkflowHubWorkspace
-              isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
-              onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
-              projectName={projectDisplayName(workspace)}
-              workspace={workspace}
+          {isLandingForeground ? (
+            <LandingWorkspace
+              feedback={documentError}
+              isChoosing={isChoosing}
+              onOpenExistingProject={() => void openExistingProjectFromLanding()}
+              onStartNewProject={() => void startNewProjectFromLanding()}
             />
+          ) : isWorkflowHubForeground ? (
+            <>
+              {issueCloseActionFeedback ? (
+                <div className="document-feedback issue-close-hub-feedback" role="status">
+                  {issueCloseActionFeedback}
+                </div>
+              ) : null}
+              <WorkflowHubWorkspace
+                isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
+                onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
+                projectName={projectDisplayName(workspace)}
+                workspace={workspace}
+              />
+            </>
           ) : isIssueResolutionForeground && activeIssueStageId === "intake" ? (
             <IssueResolutionWorkspace
               currentIssue={currentIssue}
@@ -2459,8 +3991,8 @@ export function App(): JSX.Element {
               currentIssue={currentIssue}
               isActionPending={isIssueArchitectActionPending}
               onApplyReview={runIssueArchitectReview}
-              onCopyHandoff={() => void runIssueArchitectAction(window.champcity.copyIssueArchitectPlanningHandoff)}
-              onPrepareHandoff={() => void runIssueArchitectAction(window.champcity.prepareIssueArchitectPlanningHandoff)}
+              onCopyHandoff={() => void runMcpHandoff(() => runIssueArchitectAction(window.champcity.copyIssueArchitectPlanningHandoff))}
+              onPrepareHandoff={() => void runMcpHandoff(() => runIssueArchitectAction(window.champcity.prepareIssueArchitectPlanningHandoff))}
               onRefresh={() => {
                 void refreshIssueInventory();
                 void refreshIssueArchitectPlanningProjection(currentIssue?.issueId);
@@ -2469,6 +4001,200 @@ export function App(): JSX.Element {
               onReloadBrowser={() => void reloadArchitectBrowser()}
               projection={issueArchitectProjection}
               projectName={projectDisplayName(workspace)}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "issue-planning" ? (
+            <IssuePlanningWorkspace
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              browserPanel={
+                <FigmaBrowserPanel
+                  hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()}
+                  onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label}
+                />
+              }
+              currentIssue={currentIssue}
+              isActionPending={isIssuePlanningActionPending}
+              onApplyReview={runIssuePlanningReview}
+              onCopyHandoff={() => void runMcpHandoff(() => runIssuePlanningAction(window.champcity.copyIssuePlanningHandoff))}
+              onPrepareHandoff={() => void runMcpHandoff(() => runIssuePlanningAction(window.champcity.prepareIssuePlanningHandoff))}
+              onRefresh={() => {
+                void refreshIssueInventory();
+                void refreshIssuePlanningProjection(currentIssue?.issueId);
+                void refreshArchitectStatus();
+              }}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+              projection={issuePlanningProjection}
+              projectName={projectDisplayName(workspace)}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "fix-card-map" ? (
+            <IssueFixCardMapWorkspace
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              actionPending={isIssuePlanningActionPending}
+              currentIssue={currentIssue}
+              fixCardProjection={issueFixCardProjection}
+              isLoading={issuePlanningProjectionRefreshInFlightRef.current !== null}
+              onRefresh={() => {
+                void refreshIssueInventory();
+                void refreshIssuePlanningProjection(currentIssue?.issueId);
+                void refreshIssueResolutionNavigationProjection(currentIssue?.issueId);
+                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
+              }}
+              onSelectCandidate={(fixCardId) => void selectIssueFixCardCandidate(fixCardId)}
+              projection={issuePlanningProjection}
+              projectName={projectDisplayName(workspace)}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "planning" ? (
+            <IssueFixCardPlanningWorkspace
+              activeStepLabel={activeIssueFixCardStepLabel}
+              agentHarnessStatus={agentHarnessStatus}
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              actionPending={isIssuePlanningActionPending || isCodexExecutionActionRunning}
+              browserPanel={
+                <FigmaBrowserPanel
+                  hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()}
+                  onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label}
+                />
+              }
+              currentIssue={currentIssue}
+              fixCardProjection={issueFixCardProjection}
+              onApplyContractReview={runIssueFixCardContractReview}
+              onCopyPlanningHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.copyIssueFixCardPlanningHandoff))}
+              onPreparePlanningHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.prepareIssueFixCardPlanningHandoff))}
+              onRefresh={() => {
+                void refreshIssueInventory();
+                void refreshIssuePlanningProjection(currentIssue?.issueId);
+                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
+                void refreshArchitectStatus();
+              }}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+              projectName={projectDisplayName(workspace)}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "implement" ? (
+            <section className="issue-fix-card-step-workspace-body" aria-labelledby="workspace-heading">
+              <header className="issue-resolution-header">
+                <div>
+                  <span>Issue Resolution</span>
+                  <h1 id="workspace-heading">Fix Card Implement</h1>
+                  <p>{`Run the shared Codex Implementer against the selected Issue-owned Fix Card.`}</p>
+                </div>
+              </header>
+              <IssueFixCardContextStrip
+                activeStepLabel={activeIssueFixCardStepLabel}
+                currentIssue={currentIssue}
+                fixCardProjection={issueFixCardProjection}
+              />
+              <IssueFixCardImplementWorkspace
+                actionError={issuePlanningActionError}
+                actionFeedback={issuePlanningActionFeedback}
+                codexExecution={issueCodexExecution}
+                fixCardProjection={issueFixCardProjection}
+                isActionPending={isIssuePlanningActionPending || isCodexExecutionActionRunning}
+                onCancelCodex={() => void cancelCodexImplementerExecution()}
+                onRecoverImplementSetup={() => void runIssueFixCardAction(window.champcity.reserveIssueFixCardImplementerReport)}
+                onResolveEnvironment={() => void startIssueCodexEnvironmentResolution()}
+                onRespondToCodexMcpElicitation={(requestId, action, content) =>
+                  void respondToCodexMcpElicitation(requestId, action, content)}
+                onRespondToCodexApproval={(requestId, decision) => void respondToCodexApproval(requestId, decision)}
+                onRespondToCodexUserInput={(requestId, answers) => void respondToCodexUserInput(requestId, answers)}
+                onRunCodex={(selection) => void startIssueCodexImplementerExecution(selection)}
+              />
+            </section>
+          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "review-validation" ? (
+            <IssueFixCardReviewValidationWorkspace
+              key={`${currentIssue?.issueId ?? "none"}:${issueFixCardProjection?.currentImplementationId ?? "none"}`}
+              activeStepLabel={activeIssueFixCardStepLabel}
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              actionPending={isIssuePlanningActionPending}
+              browserPanel={
+                <FigmaBrowserPanel
+                  hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()}
+                  onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label}
+                />
+              }
+              currentIssue={currentIssue}
+              fixCardProjection={issueFixCardProjection}
+              onApplyDecision={(input) => void runIssueFixCardValidationDecision(input)}
+              onCopyAdvisoryPrompt={() => void runIssueFixCardAction(window.champcity.copyIssueFixCardAdvisoryReviewPrompt)}
+              onRefresh={() => {
+                void refreshIssueInventory();
+                void refreshIssuePlanningProjection(currentIssue?.issueId);
+                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
+                void refreshArchitectStatus();
+              }}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+              projectName={projectDisplayName(workspace)}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "repair" ? (
+            <IssueFixCardRepairWorkspace
+              key={`${currentIssue?.issueId ?? "none"}:${issueFixCardProjection?.currentImplementationId ?? "none"}`}
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              actionPending={isIssuePlanningActionPending}
+              browserPanel={
+                <FigmaBrowserPanel
+                  hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()}
+                  onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label}
+                />
+              }
+              currentIssue={currentIssue}
+              fixCardProjection={issueFixCardProjection}
+              onApplyContractReview={runIssueFixCardContractReview}
+              onCopyRepairHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.copyIssueFixCardRepairHandoff))}
+              onPrepareRepairHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.prepareIssueFixCardRepairHandoff))}
+              onRefresh={() => {
+                void refreshIssueInventory();
+                void refreshIssuePlanningProjection(currentIssue?.issueId);
+                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
+                void refreshArchitectStatus();
+              }}
+              onReloadBrowser={() => void reloadArchitectBrowser()}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "close-next" ? (
+            <IssueFixCardCloseWorkspace
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              actionPending={isIssuePlanningActionPending}
+              currentIssue={currentIssue}
+              fixCardProjection={issueFixCardProjection}
+              onClose={() => void runIssueFixCardClose()}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "issue-validation" ? (
+            <IssueValidationWorkspace
+              key={`${currentIssue?.issueId ?? "none"}:${issueValidationProjection?.currentAttemptNumber ?? "pending"}`}
+              actionError={issuePlanningActionError}
+              actionFeedback={issuePlanningActionFeedback}
+              actionPending={isIssuePlanningActionPending}
+              currentIssue={currentIssue}
+              onApplyDecision={(input) => void runIssueValidationDecision(input)}
+              onRefresh={() => void refreshIssueValidationProjection(currentIssue?.issueId, { synchronizeStage: true })}
+              projection={issueValidationProjection}
+            />
+          ) : isIssueResolutionForeground && activeIssueStageId === "issue-close" ? (
+            <IssueCloseWorkspace
+              key={`${currentIssue?.issueId ?? "none"}:${issueCloseProjection?.closeRecord.revision ?? "pending"}`}
+              actionError={issueCloseActionError}
+              actionFeedback={issueCloseActionFeedback}
+              actionPending={isIssueCloseActionPending}
+              currentIssue={currentIssue}
+              isLoading={isIssueCloseLoading}
+              onClose={(input) => void runIssueClose(input)}
+              onRefresh={() => void refreshIssueCloseProjection(currentIssue?.issueId, { synchronizeStage: true })}
+              projection={issueCloseProjection}
             />
           ) : (
           <>
@@ -2490,7 +4216,7 @@ export function App(): JSX.Element {
                 <FigmaHeaderStatus
                   label="Harness"
                   value={agentHarnessStatus
-                    ? `${agentHarnessStatus.state}${agentHarnessStatus.activeWorkspaceId ? ` / ${agentHarnessStatus.activeWorkspaceId}` : ""}`
+                    ? `${agentHarnessStatus.state} / ${agentHarnessStatus.registeredWorkspaceCount} registered`
                     : "Unavailable"}
                   mono
                 />
@@ -2586,16 +4312,26 @@ export function App(): JSX.Element {
               actionError={agentHarnessActionError}
               actionFeedback={agentHarnessActionFeedback}
               actionPending={agentHarnessActionPending}
+              lifecycleSavePending={agentHarnessServiceHostSettingsPending}
+              lifecycleStatus={agentHarnessServiceHostLifecycleStatus}
               onRefresh={() => void refreshAgentHarnessStatus()}
+              onExitBackgroundAgent={() => void exitBackgroundAgent()}
               onImportLegacyOAuthClients={() => void importLegacyOAuthClients()}
+              onRegisterWorkspace={() => void addAgentHarnessWorkspace()}
               onRestart={() => void runAgentHarnessLifecycleAction("restart")}
+              onRestartServiceHost={() => void restartAgentHarnessServiceHost()}
               onReturn={returnFromSettingsWorkspace}
               onSaveConfiguration={(settings) => void saveAgentHarnessSettings(settings)}
+              onSaveServiceHostLifecycleSettings={(settings) =>
+                void saveAgentHarnessServiceHostLifecycleSettings(settings)}
+              onStartBackgroundAgent={() => void startBackgroundAgent()}
               onStart={() => void runAgentHarnessLifecycleAction("start")}
               onStop={() => void runAgentHarnessLifecycleAction("stop")}
+              onUnregisterWorkspace={(workspaceId) => void removeAgentHarnessWorkspace(workspaceId)}
               savePending={agentHarnessSettingsPending}
               selectedProjectName={projectDisplayName(workspace)}
               status={agentHarnessStatus}
+              workspaceRegistry={agentHarnessWorkspaceRegistry}
             />
           ) : null}
 
@@ -2742,7 +4478,10 @@ export function App(): JSX.Element {
               feedback={feedback}
               inputs={actionInputs}
               model={currentModel}
+              phaseAction={phaseValidationAction}
               onChange={setActionInputs}
+              onCreatePhaseCloseout={() => void createCurrentPhaseCloseout()}
+              onApplyPhaseDisposition={() => void applyCurrentPhaseCloseoutDisposition()}
               onRun={runWorkspaceAction}
               onSelectDocument={setSelectedDocumentId}
               selectedDocument={selectedDocument}
@@ -2777,7 +4516,7 @@ export function App(): JSX.Element {
               onRespondToCodexApproval={(requestId, decision) => void respondToCodexApproval(requestId, decision)}
               onRespondToCodexUserInput={(requestId, answers) => void respondToCodexUserInput(requestId, answers)}
               onResolveEnvironment={() => void startCodexEnvironmentResolution()}
-              onRunCodex={() => void startCodexImplementerExecution()}
+              onRunCodex={(selection) => void startCodexImplementerExecution(selection)}
             />
           ) : null}
 
@@ -2865,10 +4604,14 @@ export function App(): JSX.Element {
             <WorkCardMapWorkspace
               actionError={workCardIntakeError || documentError}
               actionFeedback={workCardIntakeFeedback || feedback}
+              candidateActionEnabled={
+                !closeReturnSelectionProjection ||
+                closeReturnSelectionProjection.state === "selection-required"
+              }
               isBeginningPlanning={isWorkCardIntakeGenerating}
               model={currentModel}
               onBeginPlanning={(candidateId) => void beginMappedWorkCardPlanningAndTransition(candidateId)}
-              onOpenPhaseValidation={() => transitionToWorkflowStep("phase-validation")}
+              onOpenPhaseValidation={() => void openPhaseValidation()}
               projection={workCardMapProjectionFromResult(workCardMapResult)}
             />
           ) : null}
@@ -3039,62 +4782,21 @@ function FigmaArchitectReviewPanel({
   status: DocumentDispositionStatus | "";
 }): JSX.Element {
   return (
-    <section className="figma-disposition-panel" aria-label="Document disposition">
-      <header>
-        <span>Document Disposition</span>
-      </header>
-      <div className="figma-disposition-row">
-        <label>
-          <span>Disposition</span>
-          <select
-            disabled={isApplying || !model?.canApplyDisposition}
-            onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus | "")}
-            value={status}
-          >
-            <option value="">Select disposition</option>
-            {dispositionOptions.map((option) => (
-              <option key={option.status} value={option.status}>{option.label}</option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="apply-button"
-          disabled={isApplying || !canApply}
-          onClick={onReview}
-          type="button"
-        >
-          Apply Review
-        </button>
-        <label className="figma-review-notes">
-          <span>Review Notes</span>
-          <input
-            disabled={isApplying || !model?.canApplyDisposition}
-            onChange={(event) => onNotesChange(event.target.value)}
-            placeholder="Add notes..."
-            value={notes}
-          />
-        </label>
-      </div>
-      <dl>
-        <div>
-          <dt>Current Document</dt>
-          <dd>{selectedDocument?.displayFilename ?? "Waiting"}</dd>
-        </div>
-        <div>
-          <dt>Effective Disposition</dt>
-          <dd>{selectedDocument?.effectiveDisposition ?? "Pending"}</dd>
-        </div>
-        <div>
-          <dt>Workflow Step</dt>
-          <dd>Review & Validation</dd>
-        </div>
-      </dl>
-      {!allCurrentRevisionsViewed && model?.canApplyDisposition ? (
-        <div className="document-feedback" role="status">
-          Open every current output revision before approval.
-        </div>
-      ) : null}
-    </section>
+    <FigmaDocumentDispositionPanel
+      canApply={canApply}
+      currentDocument={selectedDocument?.displayFilename}
+      effectiveDisposition={selectedDocument?.effectiveDisposition}
+      isApplying={isApplying || !model?.canApplyDisposition}
+      notes={notes}
+      onApply={onReview}
+      onNotesChange={onNotesChange}
+      onStatusChange={onStatusChange}
+      status={status}
+      warning={!allCurrentRevisionsViewed && model?.canApplyDisposition
+        ? "Open every current output revision before approval."
+        : undefined}
+      workflowStep="Review & Validation"
+    />
   );
 }
 
@@ -3382,48 +5084,82 @@ export function buildAgentHarnessSettingsInput(
   };
 }
 
+export function ServiceHostRemediation({ lifecycleStatus, isBusy, onRestartServiceHost }: {
+  lifecycleStatus: AgentHarnessServiceHostLifecycleStatus | null;
+  isBusy: boolean;
+  onRestartServiceHost: () => void;
+}): JSX.Element | null {
+  if (!lifecycleStatus?.restartRequired) return null;
+  return (
+    <section className="agent-harness-message error service-host-remediation" role="status" aria-label="Background Agent update required">
+      <div className="service-host-remediation-message">
+        <strong>Background Agent update required</strong>
+        <p>The running Background Agent belongs to a different ChampCity build generation.</p>
+        <p>MCP-dependent work may fail or use stale loaded runtime state until the Background Agent is replaced.</p>
+      </div>
+      <div className="service-host-remediation-actions">
+        <button disabled={isBusy} onClick={onRestartServiceHost} type="button">Restart Background Agent</button>
+      </div>
+    </section>
+  );
+}
+
 export function AgentHarnessSettingsWorkspace({
   actionError,
   actionFeedback,
   actionPending,
+  lifecycleSavePending,
+  lifecycleStatus,
+  onExitBackgroundAgent,
   onImportLegacyOAuthClients,
+  onRegisterWorkspace,
   onRefresh,
   onRestart,
+  onRestartServiceHost,
   onReturn,
   onSaveConfiguration,
+  onSaveServiceHostLifecycleSettings,
+  onStartBackgroundAgent,
   onStart,
   onStop,
+  onUnregisterWorkspace,
   savePending,
   selectedProjectName,
   status,
+  workspaceRegistry,
 }: {
   actionError: string;
   actionFeedback: string;
-  actionPending: "start" | "stop" | "restart" | "importLegacyOAuthClients" | null;
+  actionPending: "start" | "stop" | "restart" | "startBackgroundAgent" | "exitBackgroundAgent" | "restartServiceHost" | "importLegacyOAuthClients" | "registerWorkspace" | "unregisterWorkspace" | null;
+  lifecycleSavePending: boolean;
+  lifecycleStatus: AgentHarnessServiceHostLifecycleStatus | null;
+  onExitBackgroundAgent: () => void;
   onImportLegacyOAuthClients: () => void;
+  onRegisterWorkspace: () => void;
   onRefresh: () => void;
   onRestart: () => void;
+  onRestartServiceHost: () => void;
   onReturn: () => void;
   onSaveConfiguration: (settings: AgentHarnessSettingsInput) => void;
+  onSaveServiceHostLifecycleSettings: (settings: AgentHarnessServiceHostLifecycleSettingsInput) => void;
+  onStartBackgroundAgent: () => void;
   onStart: () => void;
   onStop: () => void;
+  onUnregisterWorkspace: (workspaceId: string) => void;
   savePending: boolean;
   selectedProjectName: string;
   status: AgentHarnessStatus | null;
+  workspaceRegistry: AgentHarnessWorkspaceRegistrySnapshot | null;
 }): JSX.Element {
   const [settingsForm, setSettingsForm] = useState<AgentHarnessSettingsForm>(() =>
     agentHarnessSettingsFormFromStatus(status),
   );
   const [settingsFormDirty, setSettingsFormDirty] = useState(false);
-  const routeTone = status?.routingState === "matched"
-    ? "matched"
-    : status?.routingState === "mismatched"
-    ? "mismatched"
-    : "unavailable";
   const configuredPort = status?.configuredPort === 0
     ? "Auto"
     : status?.configuredPort?.toString() ?? "Unavailable";
-  const isBusy = Boolean(actionPending) || savePending;
+  const isBusy = Boolean(actionPending) || savePending || lifecycleSavePending;
+  const backgroundAgentStopped = lifecycleStatus?.explicitlyStopped === true;
 
   useEffect(() => {
     if (!settingsFormDirty) {
@@ -3476,31 +5212,77 @@ export function AgentHarnessSettingsWorkspace({
 
       <div className="agent-harness-control-strip" aria-label="Agent Harness controls">
         <div className={`agent-harness-state ${status?.state ?? "unavailable"}`}>
-          <span>Service Status</span>
+          <span>MCP Runtime</span>
           <strong>{status?.state ?? "unavailable"}</strong>
         </div>
-        <button disabled={isBusy} onClick={onStart} type="button">
+        <button disabled={isBusy || backgroundAgentStopped} onClick={onStart} type="button">
           <Play aria-hidden="true" size={14} />
-          Start
+          Start MCP Runtime
         </button>
-        <button disabled={isBusy} onClick={onStop} type="button">
+        <button disabled={isBusy || backgroundAgentStopped} onClick={onStop} type="button">
           <Square aria-hidden="true" size={13} />
-          Stop
+          Stop MCP Runtime
         </button>
-        <button disabled={isBusy} onClick={onRestart} type="button">
+        <button disabled={isBusy || backgroundAgentStopped} onClick={onRestart} type="button">
           <RotateCcw aria-hidden="true" size={14} />
-          Restart
+          Restart MCP Runtime
         </button>
       </div>
 
       {actionFeedback ? (
         <div className="agent-harness-message success" role="status">{actionFeedback}</div>
       ) : null}
-      {actionError || status?.lastError ? (
+      {actionError || lifecycleStatus?.lastError || status?.lastError ? (
         <div className="agent-harness-message error" role="status">
-          {actionError || status?.lastError}
+          {actionError || lifecycleStatus?.lastError || status?.lastError}
         </div>
       ) : null}
+
+      <section className="settings-panel settings-panel-wide" aria-label="Background Agent lifecycle">
+        <header>
+          <span>Background Agent</span>
+          <strong>{backgroundAgentLifecycleLabel(lifecycleStatus)}</strong>
+        </header>
+        <div className="settings-workspace-actions">
+          {backgroundAgentStopped ? (
+            <button disabled={isBusy} onClick={onStartBackgroundAgent} type="button">Start Background Agent</button>
+          ) : (
+            <button disabled={isBusy || !lifecycleStatus?.serviceHostProcessId} onClick={onExitBackgroundAgent} type="button">Exit Background Agent</button>
+          )}
+        </div>
+        <label className="agent-harness-checkbox-row">
+          <input
+            checked={lifecycleStatus?.launchAtLogin ?? true}
+            disabled={isBusy || lifecycleStatus?.startupRegistrationSupported === false}
+            onChange={(event) => onSaveServiceHostLifecycleSettings({
+              launchAtLogin: event.currentTarget.checked,
+            })}
+            type="checkbox"
+          />
+          <span>Start Background Agent for my Windows user at sign-in</span>
+        </label>
+        <SettingsFacts
+          facts={[
+            ["Background Agent State", backgroundAgentLifecycleLabel(lifecycleStatus)],
+            ["Service Host PID", lifecycleStatus?.serviceHostProcessId?.toString() ?? "Unavailable"],
+            ["Worker PID", lifecycleStatus?.workerProcessId?.toString() ?? "Unavailable"],
+            ["Worker Recovery", lifecycleStatus?.workerRecoveryState ?? "idle"],
+            ["Power Epoch", lifecycleStatus?.powerEpoch?.toString() ?? "0"],
+            ["Recovery Reason", lifecycleStatus?.reason ?? "None"],
+            ["Heartbeat Misses", lifecycleStatus?.consecutiveHeartbeatMisses?.toString() ?? "0"],
+            ["Runtime Build", lifecycleStatus?.runtimeBuildIdentity?.slice(0, 23) ?? "Unavailable"],
+            ["Startup Trigger Scope", startupRegistrationScopeLabel(lifecycleStatus?.startupRegistrationScope)],
+            ["Login Registration", lifecycleStatus?.loginItemRegistered ? "Exact trigger detected" : "Exact trigger not detected"],
+            ["Executable Will Launch", yesNo(lifecycleStatus?.executableWillLaunchAtLogin)],
+            ["Windows Registration Supported", yesNo(lifecycleStatus?.startupRegistrationSupported)],
+          ]}
+        />
+        <ServiceHostRemediation
+          lifecycleStatus={lifecycleStatus}
+          isBusy={isBusy}
+          onRestartServiceHost={onRestartServiceHost}
+        />
+      </section>
 
       <form className="agent-harness-settings-form" aria-label="Agent Harness configuration" onSubmit={submitSettings}>
         <label className="agent-harness-checkbox-row">
@@ -3510,7 +5292,7 @@ export function AgentHarnessSettingsWorkspace({
             onChange={(event) => updateSettingsForm("enabled", event.currentTarget.checked)}
             type="checkbox"
           />
-          <span>Start Agent Harness automatically</span>
+          <span>Start MCP Runtime when Background Agent starts</span>
         </label>
         <label>
           <span>Host</span>
@@ -3562,19 +5344,48 @@ export function AgentHarnessSettingsWorkspace({
       </form>
 
       <div className="settings-grid">
-        <section className="settings-panel" aria-label="Active project routing">
+        <section className="settings-panel settings-panel-wide" aria-label="Registered MCP Projects">
           <header>
-            <span>Active Project Routing</span>
-            <strong className={routeTone}>{status?.routingState ?? "unavailable"}</strong>
+            <span>Registered MCP Projects</span>
+            <strong>{workspaceRegistry?.workspaces.length ?? 0} projects</strong>
           </header>
           <SettingsFacts
             facts={[
-              ["Selected Project", selectedProjectName],
-              ["Expected workspaceId", status?.expectedWorkspaceId ?? "Unavailable"],
-              ["Harness workspaceId", status?.activeWorkspaceId ?? "Unavailable"],
-              ["Routing", status?.routingState ?? "unavailable"],
+              ["Registry", workspaceRegistry?.state ?? "unavailable"],
+              ["Desktop-selected project", selectedProjectName],
+              ["MCP routing", "Exact registered workspaceId"],
             ]}
           />
+          <button
+            className="settings-inline-action"
+            disabled={isBusy}
+            onClick={onRegisterWorkspace}
+            type="button"
+          >
+            <FolderOpen aria-hidden="true" size={14} />
+            Add Project
+          </button>
+          <ul className="settings-tool-list" aria-label="Registered MCP project list">
+            {(workspaceRegistry?.workspaces ?? []).map((registeredWorkspace) => (
+              <li key={registeredWorkspace.workspaceId}>
+                <span>
+                  {registeredWorkspace.repositoryName} / {registeredWorkspace.workspaceId} / {registeredWorkspace.availability}
+                </span>
+                <button
+                  disabled={isBusy}
+                  onClick={() => onUnregisterWorkspace(registeredWorkspace.workspaceId)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+            {workspaceRegistry?.state === "failed" ? <li>{workspaceRegistry.error}</li> : null}
+            {workspaceRegistry?.state === "ready" && workspaceRegistry.workspaces.length === 0
+              ? <li>No MCP projects registered</li>
+              : null}
+            {!workspaceRegistry ? <li>Registry unavailable</li> : null}
+          </ul>
         </section>
 
         <section className="settings-panel" aria-label="Local service">
@@ -3611,8 +5422,8 @@ export function AgentHarnessSettingsWorkspace({
               ["Public URL Configured", yesNo(status?.publicBaseUrlConfigured)],
               ["OAuth", status?.oauthConfigured ? "Configured" : "Not configured"],
               ["Auth Mode", status?.localAuthenticationMode ?? "Unavailable"],
-              ["files.read Transport", authorizedLabel(status?.filesReadTransportAuthorized)],
-              ["files.write Transport", authorizedLabel(status?.filesWriteTransportAuthorized)],
+              ["files.read Transport", accessGrantedLabel(status?.filesReadTransportAuthorized)],
+              ["files.write Transport", accessGrantedLabel(status?.filesWriteTransportAuthorized)],
               ["Registered Clients", status?.registeredClientCount.toString() ?? "Unavailable"],
               ["Active Tokens", status?.activeOAuthTokenCount.toString() ?? "Unavailable"],
               ["Active files.read Grants", status?.activeFilesReadAuthorizationCount.toString() ?? "Unavailable"],
@@ -3669,21 +5480,41 @@ function SettingsFacts({
   );
 }
 
+export function backgroundAgentLifecycleLabel(
+  lifecycleStatus: AgentHarnessServiceHostLifecycleStatus | null,
+): string {
+  if (lifecycleStatus?.explicitlyStopped) {
+    return "Stopped by user";
+  }
+  return lifecycleStatus?.state ?? "unavailable";
+}
+
+export function startupRegistrationScopeLabel(
+  scope: AgentHarnessServiceHostLifecycleStatus["startupRegistrationScope"] | undefined,
+): string {
+  if (scope === "machine") return "Machine managed for everyone";
+  if (scope === "user") return "Current Windows user";
+  return "Unavailable";
+}
+
 function yesNo(value: boolean | undefined): string {
   return value ? "Yes" : "No";
 }
 
-function authorizedLabel(value: boolean | undefined): string {
-  return value ? "Authorized" : "Not authorized";
+function accessGrantedLabel(value: boolean | undefined): string {
+  return value ? "Access granted" : "No access grant";
 }
 
-function FigmaActionWorkspace({
+export function FigmaActionWorkspace({
   activeWorkspaceId,
   documentError,
   feedback,
   inputs,
   model,
+  phaseAction,
+  onApplyPhaseDisposition,
   onChange,
+  onCreatePhaseCloseout,
   onRun,
   onSelectDocument,
   selectedDocument,
@@ -3702,12 +5533,15 @@ function FigmaActionWorkspace({
     status: DocumentDispositionStatus;
   };
   model: CurrentWorkspaceModel | null;
+  phaseAction: PhaseValidationActionProjection | null;
+  onApplyPhaseDisposition: () => void;
   onChange: (value: {
     defect: string;
     closureDecision: ClosureDecision;
     rationale: string;
     status: DocumentDispositionStatus;
   }) => void;
+  onCreatePhaseCloseout: () => void;
   onRun: (action: () => Promise<RuntimeActionResult>) => Promise<void>;
   onSelectDocument: (logicalDocumentId: string) => void;
   selectedDocument: PlanningDocumentDetail | null;
@@ -3726,42 +5560,55 @@ function FigmaActionWorkspace({
   );
   const canApplyPhaseMapDisposition =
     activeWorkspaceId !== "project-phase-map" || selectedDocumentIsPhaseMapOutput;
-  const canApplyDisposition =
+  const canApplyGenericDisposition =
     specializedDispositionWorkspaceIds.has(activeWorkspaceId) && canApplyPhaseMapDisposition;
+  const visiblePhaseAction = phaseValidationActionForWorkspace(activeWorkspaceId, phaseAction);
+  const phasePresentation = visiblePhaseAction
+    ? phaseValidationPresentation(visiblePhaseAction)
+    : null;
+  const canApplyPhaseDisposition = phasePresentation?.dispositionTarget === "phase-validation";
+  const canApplyDisposition = canApplyGenericDisposition || canApplyPhaseDisposition;
   const hasDocuments = workspaceGroups.some((group) => group.documents.length > 0);
-  const actionPath = [model?.level, model?.stage, model?.currentPhaseId, model?.currentWorkCardId]
-    .filter(Boolean)
-    .join(" / ") || "Repository evidence required";
+  const actionPath = phasePresentation?.actionPath ?? (
+    [model?.level, model?.stage, model?.currentPhaseId, model?.currentWorkCardId]
+      .filter(Boolean)
+      .join(" / ") || "Repository evidence required"
+  );
+  const phaseProjectionPending =
+    (activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close") && !phasePresentation;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden" aria-label={`${model?.currentTarget ?? activeWorkspaceId} workspace`}>
+    <section
+      className="flex h-full min-h-0 flex-col overflow-hidden"
+      aria-label={`${phasePresentation?.currentTarget ?? (phaseProjectionPending ? "Phase Validation basis" : model?.currentTarget ?? activeWorkspaceId)} workspace`}
+    >
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
           <div className="max-w-2xl space-y-3">
             <FigmaInfoCard>
               <FigmaInfoGrid
                 items={[
-                  { label: "Current Required Workflow Step", value: model?.executionContext.workCard.loopStep ?? model?.executionContext.phase.loopStep ?? model?.stage ?? "Waiting" },
-                  { label: "Current Target", value: model?.currentTarget ?? "Resolve current workflow target" },
-                  { label: "Eligibility", value: model?.eligibility ?? "Repository evidence required.", muted: true },
-                  { label: "Required Action", value: model?.requiredAction ?? "Select a project and refresh workflow evidence.", muted: true },
+                  { label: "Current Required Workflow Step", value: phasePresentation?.currentRequiredWorkflowStep ?? (phaseProjectionPending ? "Phase Validation basis required" : model?.executionContext.workCard.loopStep ?? model?.executionContext.phase.loopStep ?? model?.stage ?? "Waiting") },
+                  { label: "Current Target", value: phasePresentation?.currentTarget ?? (phaseProjectionPending ? "Repository-validated current phase required" : model?.currentTarget ?? "Resolve current workflow target") },
+                  { label: "Eligibility", value: phasePresentation?.eligibility ?? (phaseProjectionPending ? "Phase mutation controls remain disabled until repository binding is loaded." : model?.eligibility ?? "Repository evidence required."), muted: true },
+                  { label: "Required Action", value: phasePresentation?.requiredAction ?? (phaseProjectionPending ? "Load repository Phase Validation action" : model?.requiredAction ?? "Select a project and refresh workflow evidence."), muted: true },
                 ]}
               />
               <div className="mt-3 border-t border-border pt-3">
                 <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Expected Output</p>
-                <p className="break-all font-mono text-[12px] text-muted-foreground">{model?.expectedOutput ?? neutralMessage}</p>
+                <p className="break-all font-mono text-[12px] text-muted-foreground">{phasePresentation?.expectedOutput ?? (phaseProjectionPending ? "Repository Phase Validation projection." : model?.expectedOutput ?? neutralMessage)}</p>
               </div>
               <div className="mt-2">
                 <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Next State</p>
-                <p className="text-[12px] text-muted-foreground">{model?.expectedNextState ?? "Waiting for current workflow evidence."}</p>
+                <p className="text-[12px] text-muted-foreground">{phasePresentation?.expectedNextState ?? (phaseProjectionPending ? "No Phase Validation transition is eligible yet." : model?.expectedNextState ?? "Waiting for current workflow evidence.")}</p>
               </div>
             </FigmaInfoCard>
 
             <FigmaInfoCard>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Action Authority</p>
-                  <p className="break-words text-[13px] font-medium text-foreground">{model?.currentTarget ?? "Current workflow action"}</p>
+                  <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Action Context</p>
+                  <p className="break-words text-[13px] font-medium text-foreground">{phasePresentation?.actionContext ?? (phaseProjectionPending ? "Phase Validation basis not loaded" : model?.currentTarget ?? "Current workflow action")}</p>
                   <p className="mt-1 break-all font-mono text-[12px] text-muted-foreground">{actionPath}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -3780,7 +5627,9 @@ function FigmaActionWorkspace({
                       </select>
                       <button
                         className="min-h-8 rounded border border-sky-500/20 bg-sky-500/10 px-3 text-[13px] font-medium text-sky-400 transition-colors hover:bg-sky-500/20"
-                        onClick={() => onRun(() => window.champcity.applyCurrentDisposition(inputs.status))}
+                        onClick={canApplyPhaseDisposition
+                          ? onApplyPhaseDisposition
+                          : () => void onRun(() => window.champcity.applyCurrentDisposition(inputs.status))}
                         type="button"
                       >
                         Apply Current Disposition
@@ -3790,7 +5639,7 @@ function FigmaActionWorkspace({
                   {handoffWorkspaceIds.has(activeWorkspaceId) ? (
                     <button
                       className="min-h-8 rounded bg-sky-500 px-3 text-[13px] font-semibold text-[#0c0e14] transition-colors hover:bg-sky-400"
-                      onClick={() => onRun(() => window.champcity.generateCurrentHandoff())}
+                      onClick={() => onRun(window.champcity.generateCurrentHandoff)}
                       type="button"
                     >
                       Run Current Handoff Action
@@ -3805,11 +5654,11 @@ function FigmaActionWorkspace({
                       Create Current Validation Attempt
                     </button>
                   ) : null}
-                  {activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close" ? (
+                  {phasePresentation?.canCreateCloseout ? (
                     <FigmaCloseControls
                       inputs={inputs}
                       onChange={update}
-                      onRun={() => onRun(() => window.champcity.createPhaseCloseoutForCurrentPhase(inputs.closureDecision, inputs.rationale))}
+                      onRun={onCreatePhaseCloseout}
                       submitLabel="Create Current Phase Closeout"
                     />
                   ) : null}
@@ -4003,11 +5852,14 @@ type FigmaCloseControlsProps = {
   };
 };
 
-function CurrentActionPanel({
+export function CurrentActionPanel({
   activeWorkspaceId,
   inputs,
   model,
+  phaseAction,
+  onApplyPhaseDisposition,
   onChange,
+  onCreatePhaseCloseout,
   onRun,
   selectedDocument,
 }: {
@@ -4018,12 +5870,15 @@ function CurrentActionPanel({
     rationale: string;
     status: DocumentDispositionStatus;
   };
+  phaseAction: PhaseValidationActionProjection | null;
+  onApplyPhaseDisposition: () => void;
   onChange: (value: {
     defect: string;
     closureDecision: ClosureDecision;
     rationale: string;
     status: DocumentDispositionStatus;
   }) => void;
+  onCreatePhaseCloseout: () => void;
   model: CurrentWorkspaceModel | null;
   onRun: (action: () => Promise<RuntimeActionResult>) => Promise<void>;
   selectedDocument: PlanningDocumentSummary | null;
@@ -4053,30 +5908,42 @@ function CurrentActionPanel({
   );
   const canApplyPhaseMapDisposition =
     activeWorkspaceId !== "project-phase-map" || selectedDocumentIsPhaseMapOutput;
-  const canApplyDisposition =
+  const canApplyGenericDisposition =
     specializedDispositionWorkspaceIds.has(activeWorkspaceId) && canApplyPhaseMapDisposition;
+  const visiblePhaseAction = phaseValidationActionForWorkspace(activeWorkspaceId, phaseAction);
+  const phasePresentation = visiblePhaseAction
+    ? phaseValidationPresentation(visiblePhaseAction)
+    : null;
+  const canApplyPhaseDisposition = phasePresentation?.dispositionTarget === "phase-validation";
+  const canApplyDisposition = canApplyGenericDisposition || canApplyPhaseDisposition;
+  const phaseProjectionPending =
+    (activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close") && !phasePresentation;
 
   return (
     <section className="workspace-action-panel" aria-label="Workflow step actions">
       <div className="current-action-context">
-        <span>Action Authority</span>
-        <strong>{model?.currentTarget ?? "Resolve current workflow step to enable actions"}</strong>
+        <span>Action Context</span>
+        <strong>{phasePresentation?.actionContext ?? (phaseProjectionPending ? "Phase Validation basis not loaded" : model?.currentTarget ?? "Resolve current workflow step to enable actions")}</strong>
         <small>
-          {[model?.level, model?.stage, model?.currentPhaseId, model?.currentWorkCardId]
-            .filter(Boolean)
-            .join(" / ") || "Repository evidence required"}
+          {phasePresentation?.actionPath ?? (
+            [model?.level, model?.stage, model?.currentPhaseId, model?.currentWorkCardId]
+              .filter(Boolean)
+              .join(" / ") || "Repository evidence required"
+          )}
         </small>
       </div>
       {canApplyDisposition ? (
         <>
           {statusSelect}
-          <button className="apply-button" onClick={() => onRun(() => window.champcity.applyCurrentDisposition(inputs.status))} type="button">
+          <button className="apply-button" onClick={canApplyPhaseDisposition
+            ? onApplyPhaseDisposition
+            : () => void onRun(() => window.champcity.applyCurrentDisposition(inputs.status))} type="button">
             Apply Current Disposition
           </button>
         </>
       ) : null}
       {handoffWorkspaceIds.has(activeWorkspaceId) ? (
-        <button className="apply-button" onClick={() => onRun(() => window.champcity.generateCurrentHandoff())} type="button">
+        <button className="apply-button" onClick={() => onRun(window.champcity.generateCurrentHandoff)} type="button">
           Run Current Handoff Action
         </button>
       ) : null}
@@ -4085,7 +5952,7 @@ function CurrentActionPanel({
           Create Current Validation Attempt
         </button>
       ) : null}
-      {activeWorkspaceId === "phase-validation" || activeWorkspaceId === "phase-close" ? (
+      {phasePresentation?.canCreateCloseout ? (
         <>
           <label>
             <span>Closure Decision</span>
@@ -4098,7 +5965,7 @@ function CurrentActionPanel({
             <span>Rationale</span>
             <input onChange={(event) => update("rationale", event.target.value)} value={inputs.rationale} />
           </label>
-          <button className="apply-button" onClick={() => onRun(() => window.champcity.createPhaseCloseoutForCurrentPhase(inputs.closureDecision, inputs.rationale))} type="button">
+          <button className="apply-button" onClick={onCreatePhaseCloseout} type="button">
             Create Current Phase Closeout
           </button>
         </>

@@ -8,6 +8,7 @@ import type {
   IssueRecordProjection,
 } from "../../shared/issueResolutionContracts";
 import { FigmaMarkdownBody } from "./FigmaDocumentCard";
+import { IssueDocumentChatWorkspaceShell } from "./IssueDocumentChatWorkspaceShell";
 
 type IssueArchitectDocumentRole = "issue-record" | "investigation";
 
@@ -88,21 +89,56 @@ export function IssueArchitectPlanningWorkspace({
   }
 
   return (
-    <section className="issue-architect-workspace" aria-labelledby="workspace-heading">
-      <header className="issue-resolution-header">
-        <div>
-          <span>Issue Resolution</span>
-          <h1 id="workspace-heading">Architect Planning</h1>
-          <p>{`Investigate the selected Issue for ${projectName}.`}</p>
-        </div>
-        <button className="icon-button text-button" disabled={isActionPending} onClick={onRefresh} type="button">
-          <RefreshCw aria-hidden="true" size={16} />
-          Refresh
-        </button>
-      </header>
-
-      <div className="figma-doc-chat-workspace issue-architect-doc-chat-workspace">
-        <div className="figma-doc-review-column issue-architect-review-column">
+    <IssueDocumentChatWorkspaceShell
+      bodyClassName="issue-architect-doc-chat-workspace"
+      browserActions={(
+        <section className="figma-browser-actions-panel issue-architect-browser-actions-panel" aria-label="Browser actions">
+          <header>
+            <span>Browser Actions</span>
+          </header>
+          <div className="figma-browser-actions-row">
+            <button className="primary-action" onClick={onReloadBrowser} type="button">
+              <RefreshCw aria-hidden="true" size={14} />
+              Reload ChatGPT
+            </button>
+            {showHandoffActions ? (
+              <>
+                <i aria-hidden="true" />
+                <button
+                  disabled={!projection?.canPrepareHandoff || isActionPending}
+                  onClick={onPrepareHandoff}
+                  type="button"
+                >
+                  <FolderOpen aria-hidden="true" size={14} />
+                  Prepare Handoff
+                </button>
+                <button
+                  disabled={!projection?.canCopyHandoff || isActionPending}
+                  onClick={onCopyHandoff}
+                  type="button"
+                >
+                  <Clipboard aria-hidden="true" size={14} />
+                  Copy Handoff
+                </button>
+              </>
+            ) : null}
+            <button disabled={isActionPending} onClick={onRefresh} type="button">
+              <RefreshCw aria-hidden="true" size={14} />
+              Refresh
+            </button>
+          </div>
+          {actionError ? (
+            <div className="figma-browser-action-message error" role="status">{actionError}</div>
+          ) : actionFeedback ? (
+            <div className="figma-browser-action-message success" role="status">{actionFeedback}</div>
+          ) : null}
+        </section>
+      )}
+      browserColumnClassName="issue-architect-browser-column"
+      browserPanel={browserPanel}
+      className="issue-architect-workspace"
+      documentColumn={(
+        <>
           <article className="figma-document-card issue-architect-document-card" aria-label="Issue Architect document">
             {hasInvestigation ? (
               <div className="figma-document-tabs" role="tablist" aria-label="Issue Architect documents">
@@ -233,54 +269,18 @@ export function IssueArchitectPlanningWorkspace({
               </dl>
             </section>
           ) : null}
-        </div>
-
-        <div className="figma-browser-column issue-architect-browser-column">
-          {browserPanel}
-          <section className="figma-browser-actions-panel issue-architect-browser-actions-panel" aria-label="Browser actions">
-            <header>
-              <span>Browser Actions</span>
-            </header>
-            <div className="figma-browser-actions-row">
-              <button className="primary-action" onClick={onReloadBrowser} type="button">
-                <RefreshCw aria-hidden="true" size={14} />
-                Reload ChatGPT
-              </button>
-              {showHandoffActions ? (
-                <>
-                  <i aria-hidden="true" />
-                  <button
-                    disabled={!projection?.canPrepareHandoff || isActionPending}
-                    onClick={onPrepareHandoff}
-                    type="button"
-                  >
-                    <FolderOpen aria-hidden="true" size={14} />
-                    Prepare Handoff
-                  </button>
-                  <button
-                    disabled={!projection?.canCopyHandoff || isActionPending}
-                    onClick={onCopyHandoff}
-                    type="button"
-                  >
-                    <Clipboard aria-hidden="true" size={14} />
-                    Copy Handoff
-                  </button>
-                </>
-              ) : null}
-              <button disabled={isActionPending} onClick={onRefresh} type="button">
-                <RefreshCw aria-hidden="true" size={14} />
-                Refresh
-              </button>
-            </div>
-            {actionError ? (
-              <div className="figma-browser-action-message error" role="status">{actionError}</div>
-            ) : actionFeedback ? (
-              <div className="figma-browser-action-message success" role="status">{actionFeedback}</div>
-            ) : null}
-          </section>
-        </div>
-      </div>
-    </section>
+        </>
+      )}
+      documentColumnClassName="issue-architect-review-column"
+      headerAction={(
+        <button className="icon-button text-button" disabled={isActionPending} onClick={onRefresh} type="button">
+          <RefreshCw aria-hidden="true" size={16} />
+          Refresh
+        </button>
+      )}
+      heading="Architect Planning"
+      summary={`Investigate the selected Issue for ${projectName}.`}
+    />
   );
 }
 

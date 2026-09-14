@@ -72,6 +72,7 @@ test("Architect Planning workspace shows Issue evidence, target path, controls, 
   }));
 
   assert.match(markup, /Architect Planning/);
+  assert.match(markup, /issue-document-chat-workspace-shell issue-architect-workspace/);
   assert.match(markup, /ISSUE_002: Blank shell/);
   assert.match(markup, /figma-doc-chat-workspace issue-architect-doc-chat-workspace/);
   assert.match(markup, /figma-doc-review-column issue-architect-review-column/);
@@ -158,16 +159,15 @@ test("awaiting-review Architect Investigation renders Figma disposition below th
   assert.doesNotMatch(markup, /Prepare Handoff|Copy Handoff|Promote Draft/);
 });
 
-test("Issue Architect foreground reuses embedded Architect browser with scoped projection polling", () => {
+test("Issue Architect foreground uses scoped evidence-driven projection refresh", () => {
   const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
   assert.match(appSource, /isIssueResolutionForeground && activeIssueStageId === "architect-planning"/);
   assert.match(appSource, /window\.champcity\.showArchitectBrowser/);
-  const issueArchitectPollingEffect = extractIssueArchitectPollingEffect(appSource);
-  assert.match(issueArchitectPollingEffect, /activeIssueStageId !== "architect-planning"/);
-  assert.match(issueArchitectPollingEffect, /currentIssue\?\.recordState !== "readable"/);
-  assert.match(issueArchitectPollingEffect, /window\.setInterval/);
-  assert.match(issueArchitectPollingEffect, /refreshIssueArchitectPlanningProjection\(currentIssue\.issueId, \{ quiet: true \}\)/);
-  assert.doesNotMatch(issueArchitectPollingEffect, /startCodex|currentWorkflow|refreshArchitectOutputWorkspace/);
+  const refreshTarget = extractEvidenceRefreshTarget(appSource);
+  assert.match(refreshTarget, /activeIssueStageId === "architect-planning"/);
+  assert.match(refreshTarget, /currentIssue\?\.recordState !== "readable"/);
+  assert.match(refreshTarget, /refreshIssueArchitectPlanningProjection\(issueId, \{ quiet: true \}\)/);
+  assert.doesNotMatch(refreshTarget, /window\.setInterval/);
   assert.doesNotMatch(
     extractEffectSource(appSource, "void refreshArchitectOutputWorkspace({ autoSelectOutput: true, force: true });"),
     /isIssueResolutionForeground/,
@@ -210,16 +210,12 @@ function extractEffectSource(source, needle) {
   return source.slice(start, end);
 }
 
-function extractIssueArchitectPollingEffect(source) {
-  const needle = "const refreshSelectedIssueArchitectProjection = async";
-  const needleIndex = source.indexOf(needle);
-  assert.notEqual(needleIndex, -1, "Issue Architect polling effect body not found");
-  const start = source.lastIndexOf("useEffect(() =>", needleIndex);
-  assert.notEqual(start, -1, "Issue Architect polling effect start not found");
-  const endNeedle = "}, [activeIssueStageId, currentIssue?.issueId, currentIssue?.recordState, isIssueResolutionForeground]);";
-  const end = source.indexOf(endNeedle, start);
-  assert.notEqual(end, -1, "Issue Architect polling effect end not found");
-  return source.slice(start, end + endNeedle.length);
+function extractEvidenceRefreshTarget(source) {
+  const start = source.indexOf("function currentEvidenceRefreshTarget");
+  assert.notEqual(start, -1, "evidence refresh target not found");
+  const end = source.indexOf("async function refreshArchitectStatus", start);
+  assert.notEqual(end, -1, "evidence refresh target end not found");
+  return source.slice(start, end);
 }
 
 function findCssRule(source, selector) {

@@ -1,14 +1,22 @@
 export type AgentHarnessErrorCode =
-  | "AUTHORITY_DENIED"
+  | "CONTROLLED_DRAFT_DENIED"
   | "FILE_DENIED"
-  | "GIT_MUTATION_DENIED"
+  | "GIT_CAPABILITY_UNAVAILABLE"
+  | "GIT_EXECUTION_FAILED"
+  | "GIT_OUTPUT_LIMIT"
+  | "GIT_TIMEOUT"
   | "INVALID_INPUT"
   | "MCP_PROTOCOL_ERROR"
   | "OAUTH_SCOPE_DENIED"
   | "PATCH_DENIED"
   | "PATH_DENIED"
+  | "REPOSITORY_TRAVERSAL_INCOMPLETE"
   | "RUNTIME_ERROR"
-  | "WORKSPACE_UNAVAILABLE";
+  | "STALE_SOURCE"
+  | "WORKSPACE_ACCESS_DENIED"
+  | "WORKSPACE_UNAVAILABLE"
+  | "WORKSPACE_REGISTRY_CONFLICT"
+  | "WORKSPACE_REGISTRY_INVALID";
 
 export class AgentHarnessError extends Error {
   readonly code: AgentHarnessErrorCode;
@@ -30,19 +38,22 @@ export function toBoundedError(error: unknown): {
   if (error instanceof AgentHarnessError) {
     return {
       code: error.code,
-      message: error.message,
+      message: boundedErrorText(error.message),
       ...(error.details ? { details: redactSecretValues(error.details) } : {}),
     };
   }
   return {
     code: "RUNTIME_ERROR",
-    message: error instanceof Error ? error.message : String(error),
+    message: boundedErrorText(error instanceof Error ? error.message : String(error)),
   };
 }
 
 export function redactSecretValues<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map((entry) => redactSecretValues(entry)) as T;
+  }
+  if (typeof value === "string") {
+    return boundedErrorText(value) as T;
   }
   if (!value || typeof value !== "object") {
     return value;
@@ -56,4 +67,8 @@ export function redactSecretValues<T>(value: T): T {
     }
   }
   return output as T;
+}
+
+function boundedErrorText(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").slice(0, 1_000);
 }

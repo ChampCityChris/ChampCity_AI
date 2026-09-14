@@ -6,6 +6,7 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
 
 const componentSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "WorkCardReportReviewWorkspace.tsx");
+const sharedPresentationSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "OperatorValidationPresentation.tsx");
 const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
 const stylesSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "styles.css");
 const workspaceSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaceContracts.ts");
@@ -86,26 +87,24 @@ function renderWorkspace(overrides = {}) {
 
 test("Review & Validation workspace offers evidence choices and Operator validation controls", () => {
   const source = fs.readFileSync(componentSourcePath, "utf8");
-  const selectorSource = source.slice(
-    source.indexOf("aria-label=\"Review and validation documents\""),
-    source.indexOf("<article className=\"document-preview\">"),
-  );
-  const choiceLabels = [...selectorSource.matchAll(/<span>(Approved Work Card|Implementer Report)<\/span>/g)]
-    .map((match) => match[1]);
+  const sharedSource = fs.readFileSync(sharedPresentationSourcePath, "utf8");
 
-  assert.deepEqual(choiceLabels, ["Approved Work Card", "Implementer Report"]);
+  assert.match(source, /import \{ OperatorValidationPresentation \} from "\.\/OperatorValidationPresentation"/);
+  assert.match(source, /<OperatorValidationPresentation/);
+  assert.match(source, /label: "Approved Work Card"/);
+  assert.match(source, /label: "Implementer Report"/);
   assert.match(source, /selectedRole === "report"/);
   assert.match(source, /className="work-card-report-evidence-strip"/);
-  assert.match(source, /className="work-card-report-document-pane"/);
+  assert.match(sharedSource, /className="work-card-report-document-pane"/);
   assert.match(source, /reportIsCurrent/);
-  assert.match(source, /Architect review advisory; Operator decision creates validation authority\./);
-  assert.match(source, /Operator validation notes/);
+  assert.match(source, /Architect review advisory; Operator decision creates validation basis\./);
+  assert.match(sharedSource, /Operator validation notes/);
   assert.match(source, /Advisory summary \/ pasted recommendation \(optional\)/);
-  assert.match(source, /Repair defect text/);
-  assert.match(source, /Validate Passed/);
-  assert.match(source, /Request Repair/);
-  assert.doesNotMatch(source, /Select disposition/);
-  assert.doesNotMatch(source, /Apply Review/);
+  assert.match(sharedSource, /Repair defect text/);
+  assert.match(sharedSource, /Validate Passed/);
+  assert.match(sharedSource, /Request Repair/);
+  assert.doesNotMatch(`${source}\n${sharedSource}`, /Select disposition/);
+  assert.doesNotMatch(`${source}\n${sharedSource}`, /Apply Review/);
   assert.doesNotMatch(source, /Run Codex Implementer/);
   assert.doesNotMatch(source, /Cancel Codex Run/);
   assert.doesNotMatch(source, /Event Tail/);
@@ -149,8 +148,8 @@ test("Review & Validation renders Implementer Report by default in a compact doc
   assert.match(markup, /WC44-REPAIR03 - Review &amp; Validation Workspace Layout and Document Viewer/);
   assert.match(markup, /Report/);
   assert.match(markup, /revision 1 \| Pending \| fresh\/readable/);
-  assert.match(markup, /Authority/);
-  assert.match(markup, /Architect review advisory; Operator decision creates validation authority\./);
+  assert.match(markup, /Decision ownership/);
+  assert.match(markup, /Architect review advisory; Operator decision creates validation basis\./);
   assert.match(markup, /aria-selected="true" class="document-choice selected"[^>]*><span>Implementer Report<\/span>/);
   assert.match(markup, /Read \/ Freshness/);
   assert.match(markup, /fresh \/ readable/);

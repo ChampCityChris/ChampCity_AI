@@ -8,6 +8,8 @@ import {
 } from "electron";
 import type {
   ArchitectBrowserAttachmentStatus,
+  ArchitectBrowserBoundsAck,
+  ArchitectBrowserBoundsDisposition,
   ArchitectBrowserFoundationStatus,
   ArchitectBrowserLoadState,
   ArchitectBrowserNavigationDiagnostic,
@@ -21,7 +23,6 @@ import {
   isAllowedEmbeddedArchitectNavigationUrl,
   redactedHostFromUrl,
 } from "../../shared/architectInterview/architectBrowserNavigationPolicy";
-import { buildArchitectHandoffManifest } from "../integrations/architectMcpHandoffService";
 import { buildRemoteSurfaceContextMenuTemplate } from "../contextMenu/localRendererContextMenu";
 
 export { isAllowedArchitectSurfaceUrl, isAllowedEmbeddedArchitectNavigationUrl };
@@ -44,6 +45,9 @@ let lastAttachmentError: string | undefined;
 let didReleaseArchitectBrowserSurface = false;
 let authWindows = new Set<BrowserWindow>();
 let navigationDiagnostics: ArchitectBrowserNavigationDiagnostic[] = [];
+let navigationDiagnosticsRevision = 0;
+let browserStatusListeners = new Set<(status: ArchitectBrowserFoundationStatus) => void>();
+let lastEmittedBrowserStatusFingerprint: string | null = null;
 let createArchitectWebContentsView = (): WebContentsView =>
   new WebContentsView({
     webPreferences: architectBrowserWebPreferences(),
@@ -54,11 +58,16 @@ const layoutArchitectBrowserSurface = (): boolean => {
     return true;
   }
   try {
+    const recoveredFromError = Boolean(lastAttachmentError);
     architectView.setBounds(rendererBounds ?? zeroBounds(latestBoundsSequence));
     lastAttachmentError = undefined;
+    if (recoveredFromError) {
+      emitArchitectBrowserFoundationStatusIfChanged();
+    }
     return true;
   } catch (error) {
     lastAttachmentError = normalizeErrorMessage(error, "Architect browser bounds could not be applied.");
+    emitArchitectBrowserFoundationStatusIfChanged();
     return false;
   }
 };
@@ -111,9 +120,7 @@ export function inferArchitectBrowserLoadState(
   return "loaded-auth-state-unknown";
 }
 
-export function reloadArchitectBrowserSurface(
-  workspaceRoot: string,
-): ArchitectBrowserFoundationStatus {
+export function reloadArchitectBrowserSurface(): ArchitectBrowserFoundationStatus {
   if (!architectView || architectView.webContents.isDestroyed()) {
     throw new Error("Embedded ChatGPT browser is not available to reload.");
   }
@@ -121,21 +128,29 @@ export function reloadArchitectBrowserSurface(
   didFailLastLoad = false;
   currentBrowserState = "loading";
   architectView.webContents.reload();
-  return getArchitectBrowserFoundationStatus(workspaceRoot);
+  emitArchitectBrowserFoundationStatusIfChanged();
+  return getArchitectBrowserFoundationStatus();
 }
 
-export function getArchitectBrowserFoundationStatus(
-  workspaceRoot: string,
-): ArchitectBrowserFoundationStatus {
+export function getArchitectBrowserFoundationStatus(): ArchitectBrowserFoundationStatus {
   return {
     surfaceUrl: getArchitectSurfaceUrl(),
     sessionPartition: architectSessionPartition,
     browserState: architectView ? currentBrowserState : "detached",
     boundsSequence: latestBoundsSequence,
+    attachmentGeneration: currentAttachmentGeneration,
     attachment: getArchitectBrowserAttachmentStatus(),
     navigationDiagnostics: navigationDiagnostics.slice(),
-    handoff: buildArchitectHandoffManifest(workspaceRoot),
     security: architectBrowserSecuritySummary(),
+  };
+}
+
+export function subscribeArchitectBrowserFoundationStatus(
+  listener: (status: ArchitectBrowserFoundationStatus) => void,
+): () => void {
+  browserStatusListeners.add(listener);
+  return () => {
+    browserStatusListeners.delete(listener);
   };
 }
 
@@ -187,11 +202,10 @@ export function getArchitectBrowserAttachmentStatus(): ArchitectBrowserAttachmen
 
 export function attachArchitectBrowserSurface(
   mainWindow: BrowserWindow,
-  workspaceRoot: string,
   attachmentGeneration?: number,
 ): ArchitectBrowserFoundationStatus {
   if (isStaleAttachmentGeneration(attachmentGeneration)) {
-    return getArchitectBrowserFoundationStatus(workspaceRoot);
+    return getArchitectBrowserFoundationStatus();
   }
   acceptAttachmentGeneration(attachmentGeneration);
   didReleaseArchitectBrowserSurface = false;
@@ -203,7 +217,7 @@ export function attachArchitectBrowserSurface(
 
   if (attachedWindow !== mainWindow) {
     if (!detachFromWindow()) {
-      return getArchitectBrowserFoundationStatus(workspaceRoot);
+      return getArchitectBrowserFoundationStatus();
     }
     attachedWindow = mainWindow;
     try {
@@ -215,7 +229,8 @@ export function attachArchitectBrowserSurface(
       attachedWindow = null;
       isArchitectViewAttachedToWindow = false;
       lastAttachmentError = normalizeErrorMessage(error, "Architect browser surface could not attach to the current window.");
-      return getArchitectBrowserFoundationStatus(workspaceRoot);
+      emitArchitectBrowserFoundationStatusIfChanged();
+      return getArchitectBrowserFoundationStatus();
     }
   } else if (!isArchitectViewAttachedToWindow) {
     try {
@@ -225,7 +240,8 @@ export function attachArchitectBrowserSurface(
       attachWindowLifecycle(mainWindow);
     } catch (error) {
       lastAttachmentError = normalizeErrorMessage(error, "Architect browser surface could not reattach to the current window.");
-      return getArchitectBrowserFoundationStatus(workspaceRoot);
+      emitArchitectBrowserFoundationStatusIfChanged();
+      return getArchitectBrowserFoundationStatus();
     }
   } else {
     attachWindowLifecycle(mainWindow);
@@ -239,15 +255,15 @@ export function attachArchitectBrowserSurface(
     currentBrowserState = inferArchitectBrowserLoadState(false, architectView.webContents.getURL());
   }
 
-  return getArchitectBrowserFoundationStatus(workspaceRoot);
+  emitArchitectBrowserFoundationStatusIfChanged();
+  return getArchitectBrowserFoundationStatus();
 }
 
 export function detachArchitectBrowserSurface(
-  workspaceRoot: string,
   attachmentGeneration?: number,
 ): ArchitectBrowserFoundationStatus {
   if (isStaleAttachmentGeneration(attachmentGeneration)) {
-    return getArchitectBrowserFoundationStatus(workspaceRoot);
+    return getArchitectBrowserFoundationStatus();
   }
   acceptAttachmentGeneration(attachmentGeneration);
   const zeroed = zeroArchitectBrowserSurface(attachmentGeneration);
@@ -255,30 +271,40 @@ export function detachArchitectBrowserSurface(
   if (zeroed && detached) {
     currentBrowserState = "detached";
   }
-  return getArchitectBrowserFoundationStatus(workspaceRoot);
+  emitArchitectBrowserFoundationStatusIfChanged();
+  return getArchitectBrowserFoundationStatus();
 }
 
 export function setArchitectBrowserBounds(
-  workspaceRoot: string,
   bounds: BrowserViewBounds,
-): ArchitectBrowserFoundationStatus {
+): ArchitectBrowserBoundsAck {
   if (isStaleAttachmentGeneration(bounds.attachmentGeneration)) {
-    return getArchitectBrowserFoundationStatus(workspaceRoot);
+    return createArchitectBrowserBoundsAck("stale-generation");
   }
+  const previousAttachment = getArchitectBrowserAttachmentStatus();
+  const previousAttachmentGeneration = currentAttachmentGeneration;
   acceptAttachmentGeneration(bounds.attachmentGeneration);
   const normalized = normalizeBounds(bounds);
   if ((normalized.sequence ?? 0) < latestBoundsSequence) {
-    return getArchitectBrowserFoundationStatus(workspaceRoot);
+    return createArchitectBrowserBoundsAck("stale-sequence");
   }
   latestBoundsSequence = normalized.sequence ?? latestBoundsSequence + 1;
   rendererBounds = { ...normalized, sequence: latestBoundsSequence };
-  layoutArchitectBrowserSurface();
-  return getArchitectBrowserFoundationStatus(workspaceRoot);
+  const applied = layoutArchitectBrowserSurface();
+  const nextAttachment = getArchitectBrowserAttachmentStatus();
+  if (
+    previousAttachment.lastError === nextAttachment.lastError &&
+    (
+      previousAttachment.state !== nextAttachment.state ||
+      previousAttachmentGeneration !== currentAttachmentGeneration
+    )
+  ) {
+    emitArchitectBrowserFoundationStatusIfChanged();
+  }
+  return createArchitectBrowserBoundsAck(applied ? "accepted" : "failed");
 }
 
-export function confirmArchitectSignedIn(
-  workspaceRoot: string,
-): ArchitectBrowserFoundationStatus {
+export function confirmArchitectSignedIn(): ArchitectBrowserFoundationStatus {
   if (!architectView) {
     throw new Error("Architect browser surface must be attached before sign-in can be confirmed.");
   }
@@ -286,7 +312,8 @@ export function confirmArchitectSignedIn(
     throw new Error("Sign-in can only be confirmed after the Architect surface has loaded with unknown authentication state.");
   }
   currentBrowserState = "operator-confirmed-signed-in";
-  return getArchitectBrowserFoundationStatus(workspaceRoot);
+  emitArchitectBrowserFoundationStatusIfChanged();
+  return getArchitectBrowserFoundationStatus();
 }
 
 function registerMainArchitectWebContents(webContents: WebContents): void {
@@ -339,6 +366,7 @@ function registerMainArchitectWebContents(webContents: WebContents): void {
   webContents.on("did-start-loading", () => {
     didFailLastLoad = false;
     currentBrowserState = "loading";
+    emitArchitectBrowserFoundationStatusIfChanged();
   });
   webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (isMainFrame === false) {
@@ -480,6 +508,7 @@ function focusMainArchitectSurface(targetUrl: string): void {
     currentBrowserState = "loading";
     void architectView.webContents.loadURL(targetUrl);
     architectView.webContents.focus();
+    emitArchitectBrowserFoundationStatusIfChanged();
   }
   if (attachedWindow && !attachedWindow.isDestroyed()) {
     attachedWindow.focus();
@@ -526,6 +555,51 @@ function recordNavigationDiagnostic(input: {
     loadResult: input.loadResult,
   };
   navigationDiagnostics = [...navigationDiagnostics, diagnostic].slice(-maxNavigationDiagnostics);
+  navigationDiagnosticsRevision += 1;
+  emitArchitectBrowserFoundationStatusIfChanged();
+}
+
+function emitArchitectBrowserFoundationStatusIfChanged(): void {
+  const fingerprint = architectBrowserSemanticStatusFingerprint();
+  if (fingerprint === lastEmittedBrowserStatusFingerprint) {
+    return;
+  }
+  lastEmittedBrowserStatusFingerprint = fingerprint;
+  if (browserStatusListeners.size === 0) {
+    return;
+  }
+  const status = getArchitectBrowserFoundationStatus();
+  browserStatusListeners.forEach((listener) => listener(status));
+}
+
+function architectBrowserSemanticStatusFingerprint(): string {
+  const attachment = getArchitectBrowserAttachmentStatus();
+  return JSON.stringify({
+    surfaceUrl: getArchitectSurfaceUrl(),
+    browserState: architectView ? currentBrowserState : "detached",
+    attachmentGeneration: currentAttachmentGeneration,
+    attachment: {
+      state: attachment.state,
+      isViewCreated: attachment.isViewCreated,
+      isAttachedToWindow: attachment.isAttachedToWindow,
+      isVisible: attachment.isVisible,
+      lastError: attachment.lastError,
+    },
+    navigationDiagnosticsRevision,
+  });
+}
+
+function createArchitectBrowserBoundsAck(
+  disposition: ArchitectBrowserBoundsDisposition,
+): ArchitectBrowserBoundsAck {
+  const attachment = getArchitectBrowserAttachmentStatus();
+  return {
+    attachmentGeneration: currentAttachmentGeneration,
+    boundsSequence: latestBoundsSequence,
+    attachmentState: attachment.state,
+    disposition,
+    ...(attachment.lastError ? { lastError: attachment.lastError } : {}),
+  };
 }
 
 function isCanceledNavigation(errorCode: unknown, errorDescription: unknown): boolean {
@@ -656,6 +730,7 @@ function releaseArchitectBrowserSurface(): void {
   currentAttachmentGeneration = 0;
   lastAttachmentError = undefined;
   currentBrowserState = "detached";
+  emitArchitectBrowserFoundationStatusIfChanged();
 }
 
 function normalizeErrorMessage(error: unknown, fallback: string): string {
@@ -681,4 +756,7 @@ export function resetArchitectBrowserServiceForTest(): void {
     });
   didReleaseArchitectBrowserSurface = false;
   navigationDiagnostics = [];
+  navigationDiagnosticsRevision = 0;
+  browserStatusListeners = new Set();
+  lastEmittedBrowserStatusFingerprint = null;
 }

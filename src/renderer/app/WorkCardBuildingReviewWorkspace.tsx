@@ -1,3 +1,5 @@
+import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import { useCodexModelSelection } from "./CodexModelSelectionControls";
 import { useState } from "react";
 import { Play, Square, Wrench } from "lucide-react";
 import type {
@@ -8,6 +10,14 @@ import type {
 import {
   codexImplementerAvailabilityLabel,
 } from "../../shared/workspaceContracts";
+
+export interface CodexExecutionContextSummary {
+  contractLabel: string;
+  contractPath: string;
+  contractRevision: number | string;
+  reportPath: string;
+  reportRevision: number | string;
+}
 
 export function WorkCardBuildingReviewWorkspace({
   codexExecution,
@@ -38,12 +48,21 @@ export function WorkCardBuildingReviewWorkspace({
   ) => void;
   onRespondToCodexUserInput: (requestId: string, answers: Record<string, string[]>) => void;
   onResolveEnvironment: () => void;
-  onRunCodex: () => void;
+  onRunCodex: (selection: CodexModelSelection) => void;
 }): JSX.Element {
   const projection = model?.workCardBuildingReview;
   const reportIsPending = projection?.report?.disposition === "Pending";
   const contractLabel = projection?.implementationContractLabel ?? "Approved Work Card Contract";
   const revisionLabel = projection?.implementationContractType === "repair-work-card" ? "Repair Revision" : "Formal Revision";
+  const codexContext = projection
+    ? {
+        contractLabel,
+        contractPath: projection.formalWorkCardPath,
+        contractRevision: projection.formalWorkCardRevision,
+        reportPath: projection.implementerReportPath,
+        reportRevision: projection.report?.artifactRevision ?? "Pending",
+      }
+    : undefined;
 
   return (
     <section className="work-card-building-workspace" aria-label="Work Card Implement and Codex Execution">
@@ -115,18 +134,19 @@ export function WorkCardBuildingReviewWorkspace({
       </section>
 
       <CodexExecutionConsole
+        contextSummary={codexContext}
         execution={codexExecution}
         isActionRunning={isCodexActionRunning}
         onRespondToCodexApproval={onRespondToCodexApproval}
         onRespondToCodexMcpElicitation={onRespondToCodexMcpElicitation}
         onRespondToCodexUserInput={onRespondToCodexUserInput}
-        projection={projection}
+        postRunMessage={terminalPostRunMessage(codexExecution, projection)}
       />
     </section>
   );
 }
 
-function DevelopmentEnvironmentStatus({
+export function DevelopmentEnvironmentStatus({
   execution,
 }: {
   execution: CodexImplementerExecutionModel | null;
@@ -271,7 +291,7 @@ function waitingDevelopmentEnvironmentStatusLabel(
   return "Windows permission required.";
 }
 
-function LastRunSummary({
+export function LastRunSummary({
   execution,
 }: {
   execution: CodexImplementerExecutionModel | null;
@@ -289,37 +309,41 @@ function LastRunSummary({
   );
 }
 
-function CodexExecutionActions({
+export function CodexExecutionActions({
+  canRunOverride = true,
   execution,
   isActionRunning,
   onCancel,
   onResolveEnvironment,
   onRun,
 }: {
+  canRunOverride?: boolean;
   execution: CodexImplementerExecutionModel | null;
   isActionRunning: boolean;
   onCancel: () => void;
-  onResolveEnvironment: () => void;
-  onRun: () => void;
+  onResolveEnvironment?: () => void;
+  onRun: (selection: CodexModelSelection) => void;
 }): JSX.Element {
+  const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
-  const canRun = Boolean(execution?.canRunAgain) && !isActionRunning;
-  const canResolveEnvironment = Boolean(execution?.canResolveEnvironment) && !isActionRunning;
+  const canRun = Boolean(execution?.canRunAgain) && canRunOverride && !isActionRunning;
+  const canResolveEnvironment = Boolean(onResolveEnvironment && execution?.canResolveEnvironment) && !isActionRunning;
   const isRunning = state === "running";
 
   return (
     <div className="codex-execution-controls" aria-label="Codex execution controls">
+      {modelSelection.controls}
       <div className="codex-execution-actions">
         <button
           className="apply-button codex-command"
-          disabled={!canRun}
-          onClick={onRun}
+          disabled={!canRun || !modelSelection.canRun}
+          onClick={() => { if (modelSelection.selection) onRun({ ...modelSelection.selection }); }}
           type="button"
         >
           <Play aria-hidden="true" size={16} />
           Run Codex Implementer
         </button>
-        {execution?.developmentEnvironmentPreflight?.state === "resolution-required" ? (
+        {onResolveEnvironment && execution?.developmentEnvironmentPreflight?.state === "resolution-required" ? (
           <button
             className="apply-button codex-command secondary"
             disabled={!canResolveEnvironment}
@@ -346,14 +370,16 @@ function CodexExecutionActions({
   );
 }
 
-function CodexExecutionConsole({
+export function CodexExecutionConsole({
+  contextSummary,
   execution,
   isActionRunning,
   onRespondToCodexMcpElicitation,
   onRespondToCodexApproval,
   onRespondToCodexUserInput,
-  projection,
+  postRunMessage,
 }: {
+  contextSummary?: CodexExecutionContextSummary;
   execution: CodexImplementerExecutionModel | null;
   isActionRunning: boolean;
   onRespondToCodexMcpElicitation: (
@@ -363,15 +389,15 @@ function CodexExecutionConsole({
   ) => void;
   onRespondToCodexApproval: (requestId: string, decision: "approve" | "deny") => void;
   onRespondToCodexUserInput: (requestId: string, answers: Record<string, string[]>) => void;
-  projection: CurrentWorkspaceModel["workCardBuildingReview"] | undefined;
+  postRunMessage?: string | null;
 }): JSX.Element {
+  const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
   const availability = codexImplementerAvailabilityLabel(execution);
   const executionLabel = execution?.executionKind === "environment-resolution"
     ? "Environment Resolution"
     : "Work Card Implementation";
   const reportUpdated = execution?.reportUpdated ? "Updated" : "Not updated";
-  const postRunMessage = terminalPostRunMessage(execution, projection);
 
   return (
     <section className="codex-execution-panel" aria-label="Codex execution console">
@@ -387,12 +413,12 @@ function CodexExecutionConsole({
       </header>
       <dl>
         <div>
-          <dt>Work Card Contract</dt>
-          <dd>{projection ? `${projection.formalWorkCardPath} revision ${projection.formalWorkCardRevision}` : "Waiting"}</dd>
+          <dt>{contextSummary?.contractLabel ?? "Work Card Contract"}</dt>
+          <dd>{contextSummary ? `${contextSummary.contractPath} revision ${contextSummary.contractRevision}` : "Waiting"}</dd>
         </div>
         <div>
           <dt>Implementer Report</dt>
-          <dd>{projection ? `${projection.implementerReportPath} revision ${projection.report?.artifactRevision ?? "Pending"}` : "Waiting"}</dd>
+          <dd>{contextSummary ? `${contextSummary.reportPath} revision ${contextSummary.reportRevision}` : "Waiting"}</dd>
         </div>
         <div>
           <dt>State</dt>
@@ -407,7 +433,7 @@ function CodexExecutionConsole({
           <dd>{reportUpdated}</dd>
         </div>
       </dl>
-      {execution?.failureReason && !execution.developmentEnvironmentPreflight ? (
+      {execution?.failureReason ? (
         <div className="codex-execution-message error" role="status">{execution.failureReason}</div>
       ) : null}
       {execution?.retryBlocker && !execution.canRunAgain ? (

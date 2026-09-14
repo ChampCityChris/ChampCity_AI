@@ -182,8 +182,15 @@ export function loadTextSource(input: {
   if (!stats.isFile()) {
     throw new AgentHarnessError("FILE_DENIED", "Only regular files can be read.", { relativePath: resolved.relativePath });
   }
+  const maxBytes = Math.min(input.maxBytes ?? MAX_SOURCE_BYTES, MAX_SOURCE_BYTES);
+  if (stats.size > maxBytes) {
+    throw new AgentHarnessError("FILE_DENIED", "File exceeds the configured text read limit.", {
+      relativePath: resolved.relativePath,
+      maxBytes,
+    });
+  }
   const buffer = fs.readFileSync(resolved.resolvedPath);
-  validateTextBuffer(buffer, resolved.relativePath, Math.min(input.maxBytes ?? MAX_SOURCE_BYTES, MAX_SOURCE_BYTES));
+  validateTextBuffer(buffer, resolved.relativePath, maxBytes);
   const starts = lineStarts(buffer);
   return {
     workspaceId: input.workspaceId,
@@ -239,6 +246,20 @@ export function inspectTextFile(input: { workspaceId: string; root: string; rela
   contentOmitted: true;
 } {
   const source = loadTextSource(input);
+  return inspectLoadedTextSource(source);
+}
+
+function inspectLoadedTextSource(source: TextSource): {
+  workspaceId: string;
+  relativePath: string;
+  sizeBytes: number;
+  sourceSha256: string;
+  lineCount: number;
+  markdownDetected: boolean;
+  headingIndex: MarkdownHeading[];
+  recommendedFirstCursor: string | null;
+  contentOmitted: true;
+} {
   return {
     workspaceId: source.workspaceId,
     relativePath: source.relativePath,
@@ -274,7 +295,7 @@ export function inlineOrInspect(input: { workspaceId: string; root: string; rela
       contentComplete: true,
     };
   }
-  return inspectTextFile(input);
+  return inspectLoadedTextSource(source);
 }
 
 export function readTextChunk(input: {

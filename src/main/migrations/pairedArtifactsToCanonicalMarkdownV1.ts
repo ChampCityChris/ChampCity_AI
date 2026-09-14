@@ -100,7 +100,7 @@ export function migratePairedArtifactsToCanonicalMarkdownV1(
     const json = readJson(workspaceRoot, item.jsonPath);
     const markdown = fs.readFileSync(path.join(workspaceRoot, item.markdownPath), "utf8");
     const metadata = metadataFromLegacyJson(json);
-    const bodyMarkdown = stripLegacyAuthoritySections(markdown);
+    const bodyMarkdown = stripLegacyMetadataSections(markdown);
     writeCanonicalMarkdownDocument({
       workspaceRoot,
       relativePath: item.targetMarkdownPath,
@@ -168,7 +168,7 @@ function previewItem(
       filesToDelete: [jsonPath],
       status: mismatchFindings.length > 0 ? "blocked" : "ready",
       findings,
-      error: mismatchFindings.length > 0 ? "Legacy Markdown/JSON authority mismatch." : undefined,
+      error: mismatchFindings.length > 0 ? "Legacy Markdown/JSON metadata mismatch." : undefined,
     };
   } catch (error) {
     return {
@@ -345,7 +345,7 @@ function sourceRevisions(value: unknown) {
   });
 }
 
-function stripLegacyAuthoritySections(markdown: string): string {
+function stripLegacyMetadataSections(markdown: string): string {
   return markdown
     .replace(/^Artifact\.Revision=.*(?:\r?\n)?/gim, "")
     .replace(/^participationRole=.*(?:\r?\n)?/gim, "")

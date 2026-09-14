@@ -219,7 +219,7 @@ function assertDistinctSubmissionIdentityPair(definition, sourcePathA, sourcePat
   return submissionA;
 }
 
-test("submission identity uses compact source digests and stores full source handoff authority", () => {
+test("submission identity uses compact source digests and stores full source handoff evidence", () => {
   const root = tempWorkspace();
   const definition = singleDefinition();
 
@@ -258,7 +258,7 @@ test("submission identity uses compact source digests and stores full source han
   const realArchitectPromptPath =
     "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_pocket_decision_log.md";
   const longRepairHandoffPath =
-    "planning/phases/phase-08/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC46-REPAIR16_repository_authority_mcp_binding_and_compact_draft_ids.md";
+    "planning/phases/phase-08/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC46-REPAIR16_repository_binding_mcp_binding_and_compact_draft_ids.md";
   for (const sourcePath of [realArchitectPromptPath, longRepairHandoffPath]) {
     const submission = createArchitectDraftSubmission(
       definition,
