@@ -315,6 +315,10 @@ test("production App binds the Figma shell to existing document, browser, Codex,
   assert.match(appSource, /Copy Phase Map Handoff/);
   assert.match(appSource, /disabled=\{!model\?\.canPrepareHandoff\}/);
   assert.match(appSource, /disabled=\{!model\?\.canCopyHandoff\}/);
+  assert.match(
+    appSource,
+    /architectOutputPollRequestRef\.current \+= 1;\s*setArchitectOutputModel\(nextModel\.architectOutput\)/,
+  );
   assert.match(appSource, /prepareArchitectInterviewFinalDraftHandoff/);
   assert.match(appSource, /copyArchitectInterviewFinalDraftHandoff/);
   assert.match(appSource, /Prepare Final Draft Handoff/);

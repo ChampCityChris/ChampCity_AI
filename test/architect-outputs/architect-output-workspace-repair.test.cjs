@@ -103,6 +103,53 @@ function writeDraft(root, draftRelativePath, bodyMarkdown) {
   fs.writeFileSync(path.join(root, draftRelativePath), bodyMarkdown, "utf8");
 }
 
+function projectProfileBody(extra = "Profile body.") {
+  return [
+    "# Project Profile",
+    "",
+    "## Current-State Baseline",
+    extra,
+    "",
+    "## Existing Implementation",
+    "Implementation state.",
+    "",
+    "## Legacy Planning Reconciliation",
+    "Reconciliation state.",
+    "",
+    "## Risks and Unknowns",
+    "Known risks.",
+    "",
+  ].join("\n");
+}
+
+function projectRoadmapBody(extra = "Roadmap body.") {
+  return [
+    "# Project Roadmap",
+    "",
+    "## Baseline Summary",
+    extra,
+    "",
+    "## Work-State Classification",
+    "Work states.",
+    "",
+    "## MVP Scope",
+    "MVP scope.",
+    "",
+    "## Sequenced Roadmap",
+    "Sequence.",
+    "",
+    "## Post-MVP Roadmap",
+    "Later work.",
+    "",
+    "## Deferred and Conditional Work",
+    "Deferred work.",
+    "",
+    "## Dependencies and Constraints",
+    "Dependencies.",
+    "",
+  ].join("\n");
+}
+
 test("copy handoff reads one prepared instruction without promoting temporary drafts", () => {
   const root = tempWorkspace("champcity-copy-read-only-");
   seedFormalPrerequisites(root);
@@ -310,6 +357,78 @@ test("atomic architect bundle review is synchronized and rejects mixed bundle st
   );
   assert.equal(fs.readFileSync(path.join(root, "planning/project/PROJECT_PROFILE.md"), "utf8"), beforeProfile);
   assert.equal(fs.readFileSync(path.join(root, "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md"), "utf8"), beforeRoadmap);
+});
+
+test("Project Planning generic review immediately exposes a fresh revision prepare and copy path", () => {
+  const root = tempWorkspace("champcity-project-planning-generic-revision-");
+  seedProjectThroughPlanning(root);
+
+  const initial = prepareArchitectOutputHandoff(root, "project-planning-review");
+  writeDraft(
+    root,
+    initial.submission.draftSlots.find((slot) => slot.slotId === "project-profile").draftRelativePath,
+    projectProfileBody("Initial profile."),
+  );
+  writeDraft(
+    root,
+    initial.submission.draftSlots.find((slot) => slot.slotId === "project-roadmap").draftRelativePath,
+    projectRoadmapBody("Initial roadmap."),
+  );
+  const pending = getArchitectOutputWorkspaceModel(root, "project-planning-review");
+  assert.equal(pending.state, "ready-for-review");
+  assert.equal(pending.submission.state, "promoted");
+
+  const revisionInstructions = "Tighten the dependency sequence and keep the approved architecture explicit.";
+  const revisionRequested = reviewArchitectOutput(
+    root,
+    "project-planning-review",
+    "RevisionRequested",
+    revisionInstructions,
+    presentedRevisions(pending),
+  );
+
+  assert.equal(revisionRequested.state, "revision-requested");
+  assert.equal(revisionRequested.documentSlots.every((slot) => slot.disposition === "RevisionRequested"), true);
+  assert.equal(revisionRequested.canPrepareHandoff, true);
+  assert.equal(revisionRequested.canCopyHandoff, false);
+  assert.equal(revisionRequested.preparedInstruction, undefined);
+  assert.throws(
+    () => getPreparedArchitectOutputInstruction(root, "project-planning-review"),
+    /Prepare Handoff must be completed before Copy Handoff/,
+  );
+
+  const revised = prepareArchitectOutputHandoff(root, "project-planning-review");
+  assert.notEqual(revised.submission.submissionId, initial.submission.submissionId);
+  assert.deepEqual(
+    revised.submission.draftSlots.map((slot) => slot.slotId),
+    ["project-profile", "project-roadmap"],
+  );
+  assert.equal(revised.canCopyHandoff, true);
+  assert.ok(revised.preparedInstruction.includes(revisionInstructions));
+  assert.match(revised.preparedInstruction, /Project Profile target: planning\/project\/PROJECT_PROFILE\.md/);
+  assert.match(revised.preparedInstruction, /Project Roadmap target: planning\/project\/Project_Roadmap\/PROJECT_ROADMAP_demo\.md/);
+  assert.match(revised.preparedInstruction, /Temporary Project Profile draft path: planning\/Architect_Drafts\//);
+  assert.match(revised.preparedInstruction, /Temporary Project Roadmap draft path: planning\/Architect_Drafts\//);
+
+  writeDraft(
+    root,
+    revised.submission.draftSlots.find((slot) => slot.slotId === "project-profile").draftRelativePath,
+    projectProfileBody("Revised profile."),
+  );
+  writeDraft(
+    root,
+    revised.submission.draftSlots.find((slot) => slot.slotId === "project-roadmap").draftRelativePath,
+    projectRoadmapBody("Revised roadmap."),
+  );
+  const promoted = getArchitectOutputWorkspaceModel(root, "project-planning-review");
+  assert.equal(promoted.state, "ready-for-review");
+  assert.equal(promoted.documentSlots.every((slot) => slot.artifactRevision === 2), true);
+  assert.equal(promoted.documentSlots.every((slot) => slot.disposition === "Pending"), true);
+  for (const targetPath of promoted.documentSlots.map((slot) => slot.targetPath)) {
+    const document = readCanonical(root, targetPath);
+    assert.equal(document.metadata.documentDisposition.notes, "");
+    assert.equal(document.metadata.documentDisposition.reviewedAt, null);
+  }
 });
 
 test("Project Planning Architect workspace enables first handoff preparation before copy", () => {

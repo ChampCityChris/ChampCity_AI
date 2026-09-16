@@ -1606,6 +1606,7 @@ export function App(): JSX.Element {
         presentedRevisionsForArchitectOutputModel(architectOutputModel),
         selectedDocumentId,
       );
+      architectOutputPollRequestRef.current += 1;
       setArchitectOutputModel(nextModel.architectOutput);
       if (workspace.ok) {
         architectOutputFingerprintRef.current = buildArchitectOutputEvidenceFingerprint(
