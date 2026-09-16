@@ -431,6 +431,57 @@ test("Project Planning generic review immediately exposes a fresh revision prepa
   }
 });
 
+test("Project Planning revision promotion failure preserves the request and explicit retry path", () => {
+  const root = tempWorkspace("champcity-project-planning-generic-revision-retry-");
+  seedProjectThroughPlanning(root);
+
+  const initial = prepareArchitectOutputHandoff(root, "project-planning-review");
+  writeDraft(
+    root,
+    initial.submission.draftSlots.find((slot) => slot.slotId === "project-profile").draftRelativePath,
+    projectProfileBody("Initial profile."),
+  );
+  writeDraft(
+    root,
+    initial.submission.draftSlots.find((slot) => slot.slotId === "project-roadmap").draftRelativePath,
+    projectRoadmapBody("Initial roadmap."),
+  );
+  const pending = getArchitectOutputWorkspaceModel(root, "project-planning-review");
+  reviewArchitectOutput(
+    root,
+    "project-planning-review",
+    "RevisionRequested",
+    "Keep the revision request available after a draft validation failure.",
+    presentedRevisions(pending),
+  );
+
+  const revision = prepareArchitectOutputHandoff(root, "project-planning-review");
+  writeDraft(
+    root,
+    revision.submission.draftSlots.find((slot) => slot.slotId === "project-profile").draftRelativePath,
+    projectProfileBody("Valid revised profile."),
+  );
+  writeDraft(
+    root,
+    revision.submission.draftSlots.find((slot) => slot.slotId === "project-roadmap").draftRelativePath,
+    "# Project Roadmap\n\nMissing required sections.\n",
+  );
+
+  const failed = getArchitectOutputWorkspaceModel(root, "project-planning-review");
+  assert.equal(failed.state, "needs-attention");
+  assert.equal(failed.documentSlots.every((slot) => slot.disposition === "RevisionRequested"), true);
+  assert.equal(failed.canPrepareHandoff, true);
+  assert.equal(failed.canCopyHandoff, false);
+  assert.match(failed.promotionError, /Baseline Summary/);
+  assert.match(failed.requiredAction, /promotion failed/i);
+
+  const retried = prepareArchitectOutputHandoff(root, "project-planning-review");
+  assert.notEqual(retried.submission.submissionId, revision.submission.submissionId);
+  assert.equal(retried.state, "revision-requested");
+  assert.equal(retried.canPrepareHandoff, true);
+  assert.equal(retried.canCopyHandoff, true);
+});
+
 test("Project Planning Architect workspace enables first handoff preparation before copy", () => {
   const root = tempWorkspace("champcity-project-planning-first-workspace-");
   seedProjectThroughPlanning(root);
