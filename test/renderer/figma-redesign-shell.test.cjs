@@ -310,11 +310,25 @@ test("production App binds the Figma shell to existing document, browser, Codex,
   assert.match(appSource, /Prepare ChatGPT Handoff/);
   assert.match(appSource, /Copy ChatGPT Handoff/);
   assert.match(appSource, /Prepare Project Planning Handoff/);
-  assert.match(appSource, /Copy Project Planning Handoff/);
+  assert.match(appSource, /Prepare Revision Request/);
+  assert.match(appSource, /Revision Request Ready\. Copy Handoff/);
+  assert.match(
+    appSource,
+    /model\.documentSlots\.every\(\(slot\) => slot\.disposition === "RevisionRequested"\)/,
+  );
+  assert.match(appSource, /isProjectPlanningRevisionRequestModel\(model\) && model\?\.promotionError/);
+  assert.match(
+    appSource,
+    /const architectOutputCopyHandoffLabel =[\s\S]*?activeWorkspaceId === "project-planning-review"\s*\? isProjectPlanningRevisionRequestModel\(architectOutputModel\)\s*\? "Copy Revision Request"\s*: "Copy Project Planning Handoff"/,
+  );
   assert.match(appSource, /Prepare Phase Map Handoff/);
   assert.match(appSource, /Copy Phase Map Handoff/);
   assert.match(appSource, /disabled=\{!model\?\.canPrepareHandoff\}/);
   assert.match(appSource, /disabled=\{!model\?\.canCopyHandoff\}/);
+  assert.match(
+    appSource,
+    /architectOutputPollRequestRef\.current \+= 1;\s*setArchitectOutputModel\(nextModel\.architectOutput\)/,
+  );
   assert.match(appSource, /prepareArchitectInterviewFinalDraftHandoff/);
   assert.match(appSource, /copyArchitectInterviewFinalDraftHandoff/);
   assert.match(appSource, /Prepare Final Draft Handoff/);

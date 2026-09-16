@@ -32,10 +32,6 @@ import {
   projectPlanningRequiredRoadmapSections,
 } from "./projectPlanningPreflight";
 import {
-  buildWriteMarkdownArtifactJsonBlock,
-  buildMcpWorkspaceBindingPromptBlock,
-} from "../integrations/mcpWorkspacePromptContract";
-import {
   inheritRepositoryBindingFromSourceRevisions,
   mergeRepositoryBindingIntoWorkflowData,
 } from "../documents/repositoryBinding";
@@ -129,13 +125,18 @@ export function getProjectPlanningWorkspaceModel(
   const state = draftStatus?.submission.state === "promotion-failed" || invalidReason
     ? "needs-attention"
     : deriveWorkspaceState(context);
+  const hasCurrentPreparedSubmission = Boolean(writableDraftStatus);
+  const canCopyHandoff = Boolean(context.handoff) && (
+    hasCurrentPreparedSubmission ||
+    (!context.profile && !context.roadmap && canPrepareDraft)
+  );
   const notes = sharedOperatorReviewNotes(profile, roadmap);
   return {
     state,
     railStatus: deriveRailStatus(state),
     requiredAction: draftStatus?.submission.state === "promotion-failed"
       ? `Project Planning draft bundle promotion failed: ${draftStatus.promotionError ?? "Correct both drafts and prepare a fresh handoff."}`
-      : requiredActionForState(state),
+      : requiredActionForState(state, hasCurrentPreparedSubmission),
     reason: draftStatus?.submission.state === "promotion-failed"
       ? draftStatus.promotionError ?? "Project Planning draft bundle promotion failed."
       : invalidReason ?? reasonForState(state),
@@ -149,7 +150,7 @@ export function getProjectPlanningWorkspaceModel(
     draftSubmissionState: draftStatus?.submission.state,
     draftPromotionError: draftStatus?.promotionError,
     canPrepareHandoff,
-    canCopyHandoff: Boolean(context.handoff) && (canPrepareDraft || Boolean(writableDraftStatus)),
+    canCopyHandoff,
     canApplyBundleDisposition: canApplyBundleDisposition(context),
     reconciliationMode: context.reconciliationMode,
     repositoryReviewRequired: context.repositoryReviewRequired,
@@ -171,9 +172,12 @@ export function prepareProjectPlanningHandoff(
 ): ProjectPlanningWorkspaceModel {
   const result = generateProjectPlanningHandoff(workspaceRoot);
   prepareProjectPlanningDraftBundleSubmission(workspaceRoot);
+  const model = getProjectPlanningWorkspaceModel(workspaceRoot);
   return {
-    ...getProjectPlanningWorkspaceModel(workspaceRoot),
-    handoffPreparationMessage: result.alreadyPrepared
+    ...model,
+    handoffPreparationMessage: model.state === "revision-requested" && model.canCopyHandoff
+      ? "Revision Request Ready."
+      : result.alreadyPrepared
       ? "Project Planning draft bundle prepared from the current handoff."
       : "Project Planning handoff and draft bundle prepared.",
   };
@@ -400,7 +404,10 @@ function deriveRailStatus(state: ProjectPlanningWorkspaceState): ProjectPlanning
   return "Awaiting Approval";
 }
 
-function requiredActionForState(state: ProjectPlanningWorkspaceState): string {
+function requiredActionForState(
+  state: ProjectPlanningWorkspaceState,
+  hasCurrentPreparedSubmission: boolean,
+): string {
   switch (state) {
     case "ready-for-handoff":
       return "Prepare Project Planning handoff, copy the MCP instruction, and send it manually in embedded ChatGPT.";
@@ -411,7 +418,9 @@ function requiredActionForState(state: ProjectPlanningWorkspaceState): string {
     case "ready-for-review":
       return "Review both current outputs, then apply one shared bundle disposition.";
     case "revision-requested":
-      return "Copy the Project Planning instruction with revision notes and send it in embedded ChatGPT.";
+      return hasCurrentPreparedSubmission
+        ? "Revision Request Ready. Copy Handoff and send it manually in embedded ChatGPT."
+        : "Prepare Revision Request to create a fresh handoff with the current Operator instructions.";
     case "rejected":
       return "Resolve the rejected Project Planning bundle before continuing.";
     case "completed":
@@ -488,133 +497,6 @@ function identityForContract(identity: ProjectPlanningArtifactIdentity): Project
     readError: identity.readError,
     operatorReviewNotes: identity.operatorReviewNotes,
   };
-}
-
-function buildProjectPlanningHandoffInstruction(
-  workspaceRoot: string,
-  context: ReturnType<typeof requireReadyProjectPlanningContext>,
-  submission: ReturnType<typeof prepareProjectPlanningDraftBundleSubmission>,
-): string {
-  const revisionNotes = sharedOperatorReviewNotes(context.profile, context.roadmap);
-  const includeRevisionNotes = (context.profile?.disposition === "RevisionRequested" || context.roadmap?.disposition === "RevisionRequested") && revisionNotes;
-  const profileDraftPath = draftPathForSlot(submission, "project-profile");
-  const roadmapDraftPath = draftPathForSlot(submission, "project-roadmap");
-  const promptSourceRevisions = [
-    ...context.sourceRevisions,
-    ...(context.handoff
-      ? [{ path: context.handoff.markdownPath, revision: context.handoff.artifactRevision }]
-      : []),
-  ];
-  const promptWorkflowData = mergeRepositoryBindingIntoWorkflowData(
-    {},
-    inheritRepositoryBindingFromSourceRevisions(workspaceRoot, promptSourceRevisions),
-  );
-  return [
-    ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
-    "This handoff is for the embedded Project Planning Architect chat.",
-    "",
-    "Read these exact current inputs:",
-    `- Project Intake Markdown: ${context.projectIntake.markdownPath}`,
-    `- Architect Interview Prompt Markdown: ${context.prompt.markdownPath}`,
-    `- Approved Architect Interview Markdown: ${context.interview.markdownPath}`,
-    `- Approved Project Planning handoff Markdown: ${context.handoffMarkdownPath}`,
-    "",
-    "The Approved Project Planning handoff is the canonical source for this contract:",
-    `- contractId: ${projectPlanningSubmissionContractId}`,
-    `- reconciliationMode: ${context.reconciliationMode}`,
-    `- repositoryReviewRequired: ${context.repositoryReviewRequired ? "true" : "false"}`,
-    `- repositoryReviewContext: ${context.repositoryReviewContext}`,
-    `- legacyPlanningPaths: ${JSON.stringify(context.legacyPlanningPaths)}`,
-    `- sourceEvidencePaths: ${JSON.stringify(context.sourceEvidencePaths)}`,
-    "",
-    "Inspect required repository evidence through ChampCity MCP before drafting outputs.",
-    "When repositoryReviewContext is present, use it to identify and inspect the materially relevant evidence before drafting; do not treat it as decorative context.",
-    "Distinguish verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions.",
-    "Treat architecture identified by Intake or repository evidence as governing, approved, adopted, canonical, or otherwise Operator-established as a controlling constraint on both the Project Profile and Project Roadmap unless the Operator explicitly revises it.",
-    "Do not invent a second architecture or reinterpret established architecture into incompatible subsystem ownership merely to fill the planning template. Do not treat legacy evidence as canonical unless evidence establishes it as governing.",
-    "Treat project ground zero as the selected project repository plus the local development machine. Do not assume a greenfield repository means the host development environment is ready.",
-    "",
-    "Produce both complete Markdown document bodies for these exact repository-relative targets:",
-    `- Project Profile target: ${context.profileMarkdownPath}`,
-    `- Project Roadmap target: ${context.roadmapMarkdownPath}`,
-    "",
-    "Both outputs belong to one atomic Project Planning draft bundle.",
-    "MCP creates only these temporary body-only drafts:",
-    `- Temporary Project Profile draft path: ${profileDraftPath}`,
-    `- Temporary Project Roadmap draft path: ${roadmapDraftPath}`,
-    "ChampCity A/I owns final targets, canonical metadata, validation, revisions, atomic promotion, cleanup, and review state.",
-    "The workflow remains incomplete until both temporary drafts are created and ChampCity A/I promotes the bundle.",
-    "",
-    "The Project Profile Markdown body must contain these exact headings:",
-    "# Project Profile",
-    ...projectPlanningRequiredProfileSections().map((heading) => `## ${heading}`),
-    "",
-    "For an existing repository, the Project Profile must cover verified purpose and actual implementation state; technologies, major components, and entry points; implemented, incomplete, defective, or abandoned capabilities; existing planning evidence; adopted, superseded, contradicted, or unresolved prior decisions; risks, ambiguity, and known limitations; and repository-relative evidence references where practical.",
-    "For a greenfield repository, the Project Profile must explicitly state that no prior implementation baseline exists and separately classify local development machine readiness.",
-    "Within Current-State Baseline, Existing Implementation, and Risks and Unknowns, distinguish when relevant and discoverable: verified installed development capabilities; verified missing development capabilities; unverified development capabilities; repository-native dependency or bootstrap mechanisms; existing project-local agent, build, or validation instructions; and any required capability explicitly established as externally managed.",
-    "",
-    "The Project Roadmap Markdown body must contain these exact headings:",
-    "# Project Roadmap",
-    ...projectPlanningRequiredRoadmapSections().map((heading) => `## ${heading}`),
-    "",
-    "The Roadmap must begin from the Profile baseline and distinguish, as applicable: Already implemented, Partially implemented, Planned but not implemented, Superseded, Deferred, and New work.",
-    "The Roadmap must cover the complete currently intended development lifecycle, not only the MVP boundary.",
-    "Prioritize the shortest dependency-complete path to the next coherent usable or productive milestone.",
-    "Organize phases around independently meaningful outcomes, not around architectural components merely because those components exist.",
-    "Place enabling, tooling, and foundation work at or immediately before the first outcome that consumes it whenever the work can remain one coherent bounded phase.",
-    "Avoid standalone horizontal foundation phases when enabling work has no independent outcome and can be safely delivered as Work Cards inside the consuming phase.",
-    "Create a separate foundation phase only when the prerequisite is independently substantial, must complete before multiple later outcomes, or cannot remain bounded inside the first consuming outcome.",
-    "Avoid speculative prework for future capabilities that are not required by the current milestone.",
-    "Preserve explicit architecture-defined dependency or extraction order where that order is semantically required.",
-    "Use Phase Planning and Work Card dependencies for fine-grained sequencing instead of expanding every prerequisite into a Project phase.",
-    "Missing development capabilities required by planned implementation must be sequenced as project work before dependent work. Engineering or foundation stages must establish both machine readiness and repository readiness when applicable.",
-    "Do not invent unnecessary tools to populate a foundation; required capabilities must derive from approved architecture and intended implementation work.",
-    "MVP phases must remain clearly identified.",
-    "Post-MVP phases or roadmap stages must be separately sequenced at the level supported by current evidence.",
-    "Every known major workstream from the approved Interview/Profile must be sequenced, explicitly deferred, superseded, or declared conditional.",
-    "Unknown future work must not be fabricated.",
-    "The Roadmap remains a project-level development roadmap, not a single-release checklist.",
-    "",
-    "Current source revisions:",
-    ...context.sourceRevisions.map((source) => `- path: ${source.path} revision: ${source.revision}`),
-    ...(context.handoff ? [`- path: ${context.handoff.markdownPath} revision: ${context.handoff.artifactRevision}`] : []),
-    "",
-    "When the complete Project Profile body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
-    "```json",
-    ...buildWriteMarkdownArtifactJsonBlock(
-      workspaceRoot,
-      profileDraftPath,
-      "<complete body-only Project Profile Markdown>",
-      promptWorkflowData,
-    ),
-    "```",
-    "",
-    "When the complete Project Roadmap body is ready, call artifact_toolbox.write_markdown_artifact with this invocation shape:",
-    "```json",
-    ...buildWriteMarkdownArtifactJsonBlock(
-      workspaceRoot,
-      roadmapDraftPath,
-      "<complete body-only Project Roadmap Markdown>",
-      promptWorkflowData,
-    ),
-    "```",
-    "Do not supply canonical metadata, metadata delimiters, final canonical output paths, source revisions, reconciliation fields, route selectors, fallback fields, hidden application-control values, or any other application-owned fields as params.",
-    "Do not write placeholders. Do not call retired Project Planning submission actions, retired save actions, domain-specific write routes, old-action aliases, dual-write routes, manual imports, local import fields, or manual file-copy fallbacks.",
-    "After both drafts are created, respond with a concise draft-created confirmation.",
-    "If the action is unavailable, denied, or fails, report the exact tool failure and remain incomplete.",
-    ...(includeRevisionNotes ? ["", "Current Operator revision instructions:", revisionNotes] : []),
-  ].join("\n");
-}
-
-function draftPathForSlot(
-  submission: ReturnType<typeof prepareProjectPlanningDraftBundleSubmission>,
-  slotId: "project-profile" | "project-roadmap",
-): string {
-  const slot = submission.expectedDraftSlots.find((candidate) => candidate.slotId === slotId);
-  if (!slot) {
-    throw new Error("Project Planning draft submission is missing an expected slot.");
-  }
-  return slot.draftRelativePath;
 }
 
 function readExistingCanonical(workspaceRoot: string, relativePath: string) {

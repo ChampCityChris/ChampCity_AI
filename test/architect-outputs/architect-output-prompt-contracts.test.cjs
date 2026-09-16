@@ -483,6 +483,15 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(projectPlanningPrompt, /Avoid standalone horizontal foundation phases/);
   assert.match(projectPlanningPrompt, /Avoid speculative prework for future capabilities/);
   assert.match(projectPlanningPrompt, /Use Phase Planning and Work Card dependencies for fine-grained sequencing/);
+  assert.match(projectPlanningPrompt, /Do not assume an MVP\. Use MVP framing only when the approved project evidence explicitly establishes/);
+  assert.match(projectPlanningPrompt, /existing system, treat current implemented behavior as the functional baseline/);
+  assert.match(projectPlanningPrompt, /existing-product refactor, migration, platform-transition, feature-expansion, or capability-extraction work/);
+  assert.match(projectPlanningPrompt, /legacy V1 structural labels and do not establish MVP semantics/);
+  assert.match(projectPlanningPrompt, /use MVP Scope for the primary bounded delivery, migration, or refactor scope/);
+  assert.match(projectPlanningPrompt, /use Post-MVP Roadmap for subsequent lifecycle work after that primary scope/);
+  assert.doesNotMatch(projectPlanningPrompt, /MVP phases must remain clearly identified/);
+  assert.doesNotMatch(projectPlanningPrompt, /Post-MVP phases or roadmap stages must be separately sequenced/);
+  assert.doesNotMatch(projectPlanningPrompt, /not only the MVP boundary/);
 
   const phasePlanningPrompt = prompts.get("phase-planning-bundle").instruction;
   assert.match(phasePlanningPrompt, /Require exactly one champcity-work-card-plan fenced JSON array/);
