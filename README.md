@@ -14,7 +14,7 @@ This repository is the source for **ChampCity A/I Desktop**, the standalone prod
 - A workstation-resident Background Agent, tray controls, loopback MCP runtime, OAuth support, registered-project authority, and operational diagnostics.
 - Interactive Windows x64 installation for the current user or everyone on the machine.
 
-Package metadata identifies the application as `0.1.0-beta.1`, the first public beta baseline. The Desktop product boundary is established; a public binary is authoritative only when it is built, validated, tagged, and published through the documented release process.
+Package metadata identifies the application as `0.1.0-beta.2`, the current public beta. The Desktop product boundary is established; a public binary is authoritative only when it is built, validated, tagged, and published through the documented release process.
 
 ## Install a release
 

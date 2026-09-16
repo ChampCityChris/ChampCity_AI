@@ -185,6 +185,8 @@ const dispositionOptions = [
 ] as const;
 const architectOutputPreparedFeedback =
   "Architect handoff prepared. Copy it and send it manually in embedded ChatGPT.";
+const projectPlanningRevisionReadyFeedback =
+  "Revision Request Ready. Copy Handoff and send it manually in embedded ChatGPT.";
 const architectOutputCopiedFeedback =
   "Architect handoff copied. Paste and send it manually in embedded ChatGPT.";
 const architectInterviewFinalDraftPreparedFeedback =
@@ -1439,7 +1441,12 @@ export function App(): JSX.Element {
     try {
       const nextModel = await window.champcity.prepareArchitectOutputHandoff(activeWorkspaceId);
       setArchitectOutputModel(nextModel);
-      setArchitectFeedback({ kind: "success", message: architectOutputPreparedFeedback }, 3500);
+      setArchitectFeedback({
+        kind: "success",
+        message: isProjectPlanningRevisionRequestModel(nextModel) && nextModel.canCopyHandoff
+          ? projectPlanningRevisionReadyFeedback
+          : architectOutputPreparedFeedback,
+      }, 3500);
       await refreshDocuments({ useResolver: true });
       await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
     } catch (error) {
@@ -1606,6 +1613,7 @@ export function App(): JSX.Element {
         presentedRevisionsForArchitectOutputModel(architectOutputModel),
         selectedDocumentId,
       );
+      architectOutputPollRequestRef.current += 1;
       setArchitectOutputModel(nextModel.architectOutput);
       if (workspace.ok) {
         architectOutputFingerprintRef.current = buildArchitectOutputEvidenceFingerprint(
@@ -3794,7 +3802,9 @@ export function App(): JSX.Element {
       : activeWorkspaceId === "phase-interview"
       ? "Prepare Phase Interview Handoff"
       : activeWorkspaceId === "project-planning-review"
-      ? "Prepare Project Planning Handoff"
+      ? isProjectPlanningRevisionRequestModel(architectOutputModel)
+        ? "Prepare Revision Request"
+        : "Prepare Project Planning Handoff"
       : activeWorkspaceId === "project-phase-map"
       ? "Prepare Phase Map Handoff"
       : "Prepare Handoff";
@@ -3804,7 +3814,9 @@ export function App(): JSX.Element {
       : activeWorkspaceId === "phase-interview"
       ? "Copy Phase Interview Handoff"
       : activeWorkspaceId === "project-planning-review"
-      ? "Copy Project Planning Handoff"
+      ? isProjectPlanningRevisionRequestModel(architectOutputModel)
+        ? "Copy Revision Request"
+        : "Copy Project Planning Handoff"
       : activeWorkspaceId === "project-phase-map"
       ? "Copy Phase Map Handoff"
       : "Copy Handoff";
@@ -4976,7 +4988,20 @@ function FigmaBrowserActionsPanel({
   prepareHandoffLabel?: string;
 }): JSX.Element {
   const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
-  const actionMessage = actionFeedbackForDisplay(attachmentError, pollingError, actionFeedback);
+  const revisionRequestReady =
+    isProjectPlanningRevisionRequestModel(model) &&
+    model?.canCopyHandoff &&
+    Boolean(model.preparedInstruction)
+      ? { kind: "success" as const, message: projectPlanningRevisionReadyFeedback }
+      : null;
+  const modelFailure = isProjectPlanningRevisionRequestModel(model) && model?.promotionError
+    ? { kind: "error" as const, message: model.promotionError }
+    : null;
+  const actionMessage = actionFeedbackForDisplay(
+    attachmentError,
+    pollingError,
+    modelFailure ?? actionFeedback ?? revisionRequestReady,
+  );
   return (
     <section className="figma-browser-actions-panel" aria-label="Browser actions">
       <header>
@@ -5049,6 +5074,16 @@ function FigmaBrowserActionsPanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function isProjectPlanningRevisionRequestModel(
+  model: ArchitectOutputWorkspaceModel | null,
+): boolean {
+  return Boolean(
+    model?.workspaceId === "project-planning-review" &&
+    model.documentSlots.length > 0 &&
+    model.documentSlots.every((slot) => slot.disposition === "RevisionRequested"),
   );
 }
 
