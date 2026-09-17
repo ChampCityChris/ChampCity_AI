@@ -400,8 +400,8 @@ function runBoundedProcess(
         durationMs: ended - started,
         exitCode,
         status,
-        stdout: stdout.toString("utf8"),
-        stderr: stderr.toString("utf8"),
+        stdout: redactCommandRoot(stdout.toString("utf8"), request.root),
+        stderr: redactCommandRoot(stderr.toString("utf8"), request.root),
         stdoutTruncated,
         stderrTruncated,
       });
@@ -450,6 +450,27 @@ function runBoundedProcess(
     }, specification.timeoutMs);
     timeout.unref();
   });
+}
+
+function redactCommandRoot(value: string, root: string): string {
+  const variants = new Set([
+    root,
+    path.normalize(root),
+    root.replace(/\\/g, "/"),
+    root.replace(/\//g, "\\"),
+  ]);
+  let redacted = value;
+  for (const variant of [...variants].filter(Boolean).sort((left, right) => right.length - left.length)) {
+    redacted = redacted.replace(
+      new RegExp(escapeRegExp(variant), process.platform === "win32" ? "gi" : "g"),
+      "<COMMAND_CWD>",
+    );
+  }
+  return redacted;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function appendBoundedTail(

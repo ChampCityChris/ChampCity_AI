@@ -30,6 +30,8 @@ On Windows, npm-backed release operations require a standalone Node/npm installa
 
 Because full candidate validation can outlast an external connector response window, the existing read-only `release_toolbox.status` action returns the latest completed validation snapshot for that registered repository. The bounded snapshot includes its application-generated validation ID, start/completion timestamps, final pass/fail result, and safe public command receipts; it does not expose the resolved local Node/npm paths. This permits recovery of an attributable result after a gateway timeout without adding a raw command or changing the `validate_candidate` input schema.
 
+`release_toolbox.validate_candidate` keeps the registered repository as the source of truth for Git identity and state while isolating destructive npm validation. It captures the current `HEAD`, enumerates tracked files plus non-ignored untracked files through Git, copies their current working-tree bytes into an application-owned OS-temporary workspace, preserves tracked deletions, rejects unsafe or symlinked source entries, and verifies the source remained stable while the snapshot was created. Ignored dependency, build, runtime, and local governance state—including the registered repository's `node_modules`—is not copied. `npm ci`, typecheck, build, and the full test suite run only in that disposable snapshot; `git diff --check` and `git status --short` then run against the registered repository. The temporary workspace is removed after success, command failure, timeout, or thrown error, and public results expose only bounded source identity, candidate digest/counts, phase attribution, and path-redacted command receipts.
+
 Git branch, commit, push, and tag mechanics remain the exclusive responsibility of `git_toolbox`. `release_toolbox.publish_github_release` never creates or pushes a tag: it fails closed unless the exact `v<packageVersion>` tag exists locally at current `HEAD` and the same target exists on `origin`. GitHub publication uses the installed, authenticated `gh` CLI, uploads only the canonical installer, reads only the canonical release-notes file, and refuses to alter an existing release. Post-publication verification downloads the canonical asset to an OS temporary directory, compares it with the local installer by SHA-256, and removes the temporary download on success or failure.
 
 ## 1. Establish the release candidate
@@ -44,7 +46,7 @@ Do not restore archived planning records or generated output to make the release
 
 ## 2. Run release validation
 
-Read [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md), then use the approved normal Windows lane:
+Read [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md), then invoke the bounded release validator. Its application-owned execution sequence is:
 
 ```powershell
 npm ci
@@ -54,6 +56,8 @@ npm test
 git diff --check
 git status --short
 ```
+
+The first four commands use the isolated current-working-tree candidate snapshot. The final two commands use the registered source repository. Callers cannot select either working directory, the copied file set, exclusions, executable, arguments, or environment.
 
 Record exact exit results and relevant test counts. A restricted-lane `spawn EPERM` is not a pass; rerun once in the approved normal Windows lane. Resolve or explicitly block on source failures.
 

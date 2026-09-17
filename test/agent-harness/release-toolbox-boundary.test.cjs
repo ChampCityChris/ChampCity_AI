@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -172,8 +173,10 @@ test("status reports bounded prerequisites without returning raw GitHub authenti
 test("status recovers the latest completed candidate validation and its safe receipts", async () => {
   const root = createReleaseWorkspace("0.1.0-beta.3");
   const otherRoot = createReleaseWorkspace("0.1.0-beta.3");
+  const validationRequests = [];
   const service = createReleaseToolbox({
     commandRunner: async (request) => {
+      validationRequests.push(request);
       switch (request.id) {
         case "git-origin-url":
           return receipt(request.id, { stdout: "https://github.com/ChampCityChris/ChampCity_AI.git\n" });
@@ -191,8 +194,18 @@ test("status recovers the latest completed candidate validation and its safe rec
   assert.match(completed.validationId, /^validation_[0-9a-f-]{36}$/i);
   assert.equal(completed.passed, true);
   assert.equal(completed.commandReceipts.length, 6);
+  assert.match(completed.candidateSnapshot.sourceHead, /^[0-9a-f]{40,64}$/);
+  assert.match(completed.candidateSnapshot.candidateDigest, /^[0-9a-f]{64}$/);
+  assert.equal(completed.candidateSnapshot.cleanupStatus, "succeeded");
   assert.ok(Date.parse(completed.startedAt));
   assert.ok(Date.parse(completed.completedAt));
+  const npmRequests = validationRequests.filter((entry) => entry.id.startsWith("npm"));
+  const gitRequests = validationRequests.filter((entry) => entry.id === "git-diff-check" || entry.id === "git-status-short");
+  assert.equal(npmRequests.length, 4);
+  assert.ok(npmRequests.every((entry) => normalize(entry.root) === normalize(npmRequests[0].root)));
+  assert.notEqual(normalize(npmRequests[0].root), normalize(root));
+  assert.equal(fs.existsSync(npmRequests[0].root), false);
+  assert.deepEqual(gitRequests.map((entry) => normalize(entry.root)), [normalize(root), normalize(root)]);
 
   const status = await service.status(root, true);
   assert.deepEqual(status.latestCandidateValidation, completed);
@@ -206,18 +219,32 @@ test("status recovers the latest completed candidate validation and its safe rec
 
 test("validation and Windows packaging execute only fixed ordered sequences and stop on failure", async () => {
   const root = createReleaseWorkspace("0.1.0-beta.3");
+  const sourceSentinel = path.join(root, "node_modules", "electron", "dist", "resources", "default_app.asar");
+  fs.mkdirSync(path.dirname(sourceSentinel), { recursive: true });
+  fs.writeFileSync(sourceSentinel, "source dependency sentinel");
   const validationRequests = [];
+  let candidateRoot;
   const validationService = createReleaseToolbox({
     commandRunner: async (request) => {
-      validationRequests.push(request.id);
+      validationRequests.push({ id: request.id, root: request.root });
+      if (request.id.startsWith("npm")) {
+        candidateRoot = request.root;
+        assert.notEqual(normalize(request.root), normalize(root));
+        assert.equal(fs.existsSync(path.join(request.root, "node_modules")), false);
+      }
       return receipt(request.id, request.id === "npm-run-build" ? { status: "nonzero", exitCode: 2 } : {});
     },
   });
   const validation = await validationService.validateCandidate(root);
   assert.equal(validation.passed, false);
   assert.equal(validation.failedCommand, "npm-run-build");
-  assert.deepEqual(validationRequests, ["npm-ci", "npm-run-typecheck", "npm-run-build"]);
+  assert.equal(validation.failedPhase, "npm-validation");
+  assert.deepEqual(validationRequests.map((entry) => entry.id), ["npm-ci", "npm-run-typecheck", "npm-run-build"]);
+  assert.ok(validationRequests.every((entry) => normalize(entry.root) === normalize(candidateRoot)));
   assert.equal(validation.commandReceipts.length, 3);
+  assert.equal(validation.candidateSnapshot.cleanupStatus, "succeeded");
+  assert.equal(fs.existsSync(candidateRoot), false);
+  assert.equal(fs.readFileSync(sourceSentinel, "utf8"), "source dependency sentinel");
 
   writeCanonicalArtifacts(root, "0.1.0-beta.3", Buffer.from("installer bytes"));
   const packageRequests = [];
@@ -242,6 +269,38 @@ test("validation and Windows packaging execute only fixed ordered sequences and 
     sizeBytes: Buffer.byteLength("installer bytes"),
     sha256: sha256(Buffer.from("installer bytes")),
   });
+});
+
+test("validation cleans its isolated workspace on timeout and thrown command error", async () => {
+  const timeoutRoot = createReleaseWorkspace("0.1.0-beta.3");
+  let timedOutCandidateRoot;
+  const timeoutService = createReleaseToolbox({
+    commandRunner: async (request) => {
+      timedOutCandidateRoot = request.root;
+      return receipt(request.id, { status: "timeout", exitCode: null });
+    },
+  });
+  const timedOut = await timeoutService.validateCandidate(timeoutRoot);
+  assert.equal(timedOut.passed, false);
+  assert.equal(timedOut.failedCommand, "npm-ci");
+  assert.equal(timedOut.candidateSnapshot.cleanupStatus, "succeeded");
+  assert.equal(fs.existsSync(timedOutCandidateRoot), false);
+
+  const errorRoot = createReleaseWorkspace("0.1.0-beta.3");
+  let errorCandidateRoot;
+  const errorService = createReleaseToolbox({
+    commandRunner: async (request) => {
+      errorCandidateRoot = request.root;
+      throw new Error("simulated runner failure");
+    },
+  });
+  const failed = await errorService.validateCandidate(errorRoot);
+  assert.equal(failed.passed, false);
+  assert.equal(failed.failedPhase, "npm-validation");
+  assert.equal(failed.failure.code, "RUNTIME_ERROR");
+  assert.equal(fs.existsSync(errorCandidateRoot), false);
+  assert.doesNotMatch(JSON.stringify(failed), new RegExp(escapeRegex(errorRoot), "i"));
+  assert.doesNotMatch(JSON.stringify(failed), /champcity-candidate-validation-/i);
 });
 
 test("publication enforces Git/tag/source/artifact/provider invariants and uploads only canonical inputs", async () => {
@@ -396,6 +455,7 @@ test("the production adapter uses shell-false fixed commands and redacts reposit
   assert.match(source, /process\.release/);
   assert.doesNotMatch(source, /ELECTRON_RUN_AS_NODE:\s*["']1["']/);
   assert.match(source, /"<OS_TEMP>"/);
+  assert.match(source, /"<COMMAND_CWD>"/);
 });
 
 function publicationRunner(options) {
@@ -443,6 +503,12 @@ function createReleaseWorkspace(version) {
     lockfileVersion: 3,
     packages: { "": { name: "champcity-ai", version } },
   }, null, 2)}\n`);
+  fs.writeFileSync(path.join(root, ".gitignore"), "node_modules/\ndist/\nbuild/\nout/\nrelease/\ncoverage/\n");
+  execFileSync("git", ["init", "-b", "main"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["config", "user.name", "ChampCity Test"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "champcity-test@example.invalid"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["add", "--", "package.json", "package-lock.json", ".gitignore"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["commit", "-m", "fixture"], { cwd: root, stdio: "ignore" });
   return root;
 }
 
@@ -459,6 +525,15 @@ function sha256(value) {
 
 function readJson(target) {
   return JSON.parse(fs.readFileSync(target, "utf8"));
+}
+
+function normalize(value) {
+  const normalized = path.normalize(value);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function recordCall(calls, action, args) {

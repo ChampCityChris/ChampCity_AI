@@ -3,6 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { AgentHarnessError } from "../core/errors";
+import { toBoundedError } from "../core/errors";
+import {
+  type CandidateValidationSnapshotReceipt,
+  withCandidateValidationSnapshot,
+} from "./candidateValidationSnapshot";
 import {
   type ReleaseCommandReceipt,
   type ReleaseCommandRequest,
@@ -25,11 +30,14 @@ const SUPPORTED_ACTIONS = [
 ] as const;
 const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
-const VALIDATION_COMMANDS = [
+const NPM_VALIDATION_COMMANDS = [
   "npm-ci",
   "npm-run-typecheck",
   "npm-run-build",
   "npm-test",
+] as const satisfies ReadonlyArray<ReleaseCommandRequest["id"]>;
+
+const GIT_VALIDATION_COMMANDS = [
   "git-diff-check",
   "git-status-short",
 ] as const satisfies ReadonlyArray<ReleaseCommandRequest["id"]>;
@@ -119,13 +127,55 @@ export function createReleaseToolbox(options: {
     async validateCandidate(root) {
       const validationId = `validation_${randomUUID()}`;
       const startedAt = new Date().toISOString();
-      const result = await runSequence(root, VALIDATION_COMMANDS, runCommand);
+      let npmResult: Awaited<ReturnType<typeof runSequence>> | undefined;
+      let snapshotReceipt: CandidateValidationSnapshotReceipt | undefined;
+      try {
+        const snapshotResult = await withCandidateValidationSnapshot(root, async (snapshot) => {
+          npmResult = await runSequence(snapshot.root, NPM_VALIDATION_COMMANDS, runCommand);
+          return npmResult;
+        });
+        snapshotReceipt = snapshotResult.receipt;
+      } catch (error) {
+        const boundedError = toBoundedError(error);
+        const failedPhase = boundedError.code === "RELEASE_CANDIDATE_CLEANUP_FAILED"
+          ? "cleanup"
+          : boundedError.code === "RELEASE_CANDIDATE_SNAPSHOT_FAILED"
+            ? "snapshot-materialization"
+            : "npm-validation";
+        const completed = {
+          validationId,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          passed: false,
+          failedCommand: npmResult?.failedCommand ?? null,
+          failedPhase,
+          candidateSnapshot: null,
+          failure: boundedError,
+          commandReceipts: npmResult?.receipts ?? [],
+        };
+        retainCompletedValidation(completedValidations, root, completed);
+        return completed;
+      }
+
+      if (!npmResult || !snapshotReceipt) {
+        throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "Candidate validation did not produce an attributable result.");
+      }
+      const gitResult = npmResult.passed
+        ? await runSequence(root, GIT_VALIDATION_COMMANDS, runCommand)
+        : { passed: false, failedCommand: npmResult.failedCommand, receipts: [] };
+      const result = {
+        passed: npmResult.passed && gitResult.passed,
+        failedCommand: npmResult.failedCommand ?? gitResult.failedCommand,
+        receipts: [...npmResult.receipts, ...gitResult.receipts],
+      };
       const completed = {
         validationId,
         startedAt,
         completedAt: new Date().toISOString(),
         passed: result.passed,
         failedCommand: result.failedCommand,
+        failedPhase: result.passed ? null : npmResult.passed ? "git-validation" : "npm-validation",
+        candidateSnapshot: snapshotReceipt,
         commandReceipts: result.receipts,
       };
       retainCompletedValidation(completedValidations, root, completed);
