@@ -19,6 +19,7 @@ import {
   commitGitChanges,
   createGitTag,
   deleteGitBranch,
+  deleteGitTag,
   fastForwardGitBranch,
   fetchGitRemote,
   inspectGitBranchState,
@@ -66,6 +67,7 @@ type GitMutationAction =
   | "merge_branch"
   | "create_tag"
   | "push_tag"
+  | "delete_tag"
   | "delete_branch"
   | "stage_changes"
   | "commit"
@@ -346,6 +348,10 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           ...requiredParams({ tagName: "string" }),
           ...optionalParams({ remote: "string" }),
         }),
+        gitMutationAction("delete_tag", {
+          ...requiredParams({ tagName: "string" }),
+          ...optionalParams({ remote: "string" }),
+        }),
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
         gitMutationAction("commit", requiredParams({ message: "string" })),
@@ -459,6 +465,13 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         )),
         releaseMutationAction("publish_github_release", requiredParams({ tagName: "string" }), ({ context, params }) => (
           releaseToolbox.publishGithubRelease(
+            context.root,
+            context.gitBacked,
+            requiredString(params.tagName, "tagName"),
+          )
+        )),
+        releaseMutationAction("abandon_github_draft_release", requiredParams({ tagName: "string" }), ({ context, params }) => (
+          releaseToolbox.abandonGithubDraftRelease(
             context.root,
             context.gitBacked,
             requiredString(params.tagName, "tagName"),
@@ -672,6 +685,11 @@ function gitMutationAction(
           });
         case "push_tag":
           return pushGitTag(context.root, {
+            tagName: requiredString(values.tagName, "tagName"),
+            remote: stringValue(values.remote),
+          });
+        case "delete_tag":
+          return deleteGitTag(context.root, {
             tagName: requiredString(values.tagName, "tagName"),
             remote: stringValue(values.remote),
           });

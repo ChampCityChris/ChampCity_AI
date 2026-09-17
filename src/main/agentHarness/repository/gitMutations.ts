@@ -416,6 +416,79 @@ export async function pushGitTag(root: string, input: {
   return { remote, tagName: verified.tagName, targetCommit: verified.targetCommit };
 }
 
+export async function deleteGitTag(root: string, input: {
+  tagName: string;
+  remote?: string;
+}): Promise<{
+  remote: string;
+  tagName: string;
+  deletedCommit: string | null;
+  localDeleted: boolean;
+  remoteDeleted: boolean;
+  localState: "absent";
+  remoteState: "absent";
+}> {
+  await assertCleanRepository(root);
+  const tagName = await validateTagName(root, input.tagName);
+  const remote = await assertConfiguredRemote(root, input.remote ?? "origin");
+  const ref = `refs/tags/${tagName}`;
+  const local = await tagExists(root, tagName) ? await verifyGitTag(root, tagName) : null;
+
+  // Inspection must corroborate the same single destination used by push.
+  const fetchUrl = (await runBoundedGit({ cwd: root, args: ["remote", "get-url", "--all", remote] })).stdout.trim();
+  const pushUrl = (await runBoundedGit({ cwd: root, args: ["remote", "get-url", "--push", "--all", remote] })).stdout.trim();
+  if (!fetchUrl || /[\r\n]/.test(fetchUrl) || fetchUrl !== pushUrl) {
+    throw gitPrecondition("Tag deletion requires one matching remote fetch and push destination.");
+  }
+  const mirror = await runBoundedGit({
+    cwd: root, args: ["config", "--get", "--bool", `remote.${remote}.mirror`], rejectNonZero: false,
+  });
+  if ((mirror.exitCode !== 0 && mirror.exitCode !== 1) || mirror.stdout.trim() === "true") {
+    throw gitPrecondition("Tag deletion requires a non-mirroring remote.");
+  }
+  const remoteTarget = await inspectRemoteTagTarget(root, remote, ref);
+  if (remoteTarget && !local) {
+    throw gitPrecondition("Remote tag deletion requires a corroborating local tag.");
+  }
+  if (remoteTarget && remoteTarget !== local?.targetCommit) {
+    throw gitPrecondition("Local and remote tag targets do not match.");
+  }
+  if (remoteTarget) {
+    await runBoundedGit({ cwd: root, args: ["push", "--no-follow-tags", "--delete", "--", remote, ref] });
+    if (await inspectRemoteTagTarget(root, remote, ref)) {
+      throw gitPrecondition("Remote tag deletion was not confirmed absent; the local tag was preserved.");
+    }
+  }
+  if (local) {
+    // Compare-and-delete preserves a local tag changed since the inspection.
+    await runBoundedGit({ cwd: root, args: ["update-ref", "--no-deref", "-d", ref, local.object] });
+    if (await tagExists(root, tagName)) {
+      throw gitPrecondition("Local tag deletion was not confirmed absent.");
+    }
+  }
+  return {
+    remote, tagName, deletedCommit: local?.targetCommit ?? null,
+    localDeleted: local !== null, remoteDeleted: remoteTarget !== null,
+    localState: "absent", remoteState: "absent",
+  };
+}
+
+async function inspectRemoteTagTarget(root: string, remote: string, ref: string): Promise<string | null> {
+  const result = await runBoundedGit({ cwd: root, args: ["ls-remote", "--tags", "--", remote, ref, `${ref}^{}`] });
+  const targets = new Map<string, string>();
+  for (const line of result.stdout.split(/\r?\n/).filter(Boolean)) {
+    const match = /^([0-9a-f]{40,64})\t(.+)$/i.exec(line);
+    if (!match || (match[2] !== ref && match[2] !== `${ref}^{}`) || targets.has(match[2])) {
+      throw gitPrecondition("Remote tag inspection returned ambiguous metadata.");
+    }
+    targets.set(match[2], match[1].toLowerCase());
+  }
+  if (targets.size && !targets.has(ref)) {
+    throw gitPrecondition("Remote tag inspection is missing the direct tag ref.");
+  }
+  return targets.get(`${ref}^{}`) ?? targets.get(ref) ?? null;
+}
+
 export async function deleteGitBranch(root: string, branchName: string): Promise<{
   branchName: string;
   deletedCommit: string;

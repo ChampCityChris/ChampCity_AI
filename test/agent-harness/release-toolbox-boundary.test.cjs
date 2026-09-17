@@ -25,6 +25,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
     ["buildWindowsRelease", async (...args) => recordCall(calls, "buildWindowsRelease", args)],
     ["inspectReleaseArtifact", async (...args) => recordCall(calls, "inspectReleaseArtifact", args)],
     ["publishGithubRelease", async (...args) => recordCall(calls, "publishGithubRelease", args)],
+    ["abandonGithubDraftRelease", async (...args) => recordCall(calls, "abandonGithubDraftRelease", args)],
     ["verifyGithubRelease", async (...args) => recordCall(calls, "verifyGithubRelease", args)],
   ]);
   const context = {
@@ -57,7 +58,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
   const writeTool = registry.listTools("files.write").find((entry) => entry.name === "release_toolbox");
   const fullTool = registry.listTools("files.read files.write").find((entry) => entry.name === "release_toolbox");
   assert.deepEqual(readTool.actions, ["status", "inspect_release_artifact", "verify_github_release"]);
-  assert.deepEqual(writeTool.actions, ["set_version", "validate_candidate", "build_windows_release", "publish_github_release"]);
+  assert.deepEqual(writeTool.actions, ["set_version", "validate_candidate", "build_windows_release", "publish_github_release", "abandon_github_draft_release"]);
   assert.deepEqual(fullTool.actions, [
     "status",
     "set_version",
@@ -65,6 +66,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
     "build_windows_release",
     "inspect_release_artifact",
     "publish_github_release",
+    "abandon_github_draft_release",
     "verify_github_release",
   ]);
   assert.equal(readTool.readOnly, true);
@@ -102,6 +104,22 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
     action: "publishGithubRelease",
     args: [root, true, "v0.1.0-beta.2"],
   });
+  const abandonment = { workspaceId: context.workspaceId, action: "abandon_github_draft_release", params: { tagName: "v0.1.0-beta.2" } };
+  assert.equal(fullTool.inputZodSchema.safeParse(abandonment).success, true);
+  for (const extra of ["repository", "command", "args", "token", "executable", "timeout", "cwd", "environment", "assetPath", "cleanupTag"]) {
+    assert.equal(fullTool.inputZodSchema.safeParse({ ...abandonment, params: { ...abandonment.params, [extra]: "forbidden" } }).success, false);
+  }
+  assert.equal(fullTool.inputZodSchema.safeParse({ ...abandonment, params: {} }).success, false);
+  const abandoned = await registry.callTool({ name: "release_toolbox", arguments: abandonment, scope: "files.write" });
+  assert.equal(abandoned.ok, true);
+  assert.deepEqual(calls.at(-1), { action: "abandonGithubDraftRelease", args: [root, true, "v0.1.0-beta.2"] });
+  const beforeDeniedCalls = calls.length;
+  assert.equal((await registry.callTool({ name: "release_toolbox", arguments: abandonment, scope: "files.read" })).error.code, "OAUTH_SCOPE_DENIED");
+  assert.equal((await registry.callTool({ name: "release_toolbox", arguments: { ...abandonment, workspaceId: "foreign" }, scope: "files.write" })).ok, false);
+  context.gitBacked = false;
+  releaseToolbox.abandonGithubDraftRelease = createReleaseToolbox().abandonGithubDraftRelease;
+  assert.equal((await registry.callTool({ name: "release_toolbox", arguments: abandonment, scope: "files.write" })).error.code, "GIT_CAPABILITY_UNAVAILABLE");
+  assert.equal(calls.length, beforeDeniedCalls);
 });
 
 test("SemVer and set_version are bounded to a validated version and npm-owned version files", async () => {
@@ -165,6 +183,7 @@ test("status reports bounded prerequisites without returning raw GitHub authenti
     "build_windows_release",
     "inspect_release_artifact",
     "publish_github_release",
+    "abandon_github_draft_release",
     "verify_github_release",
   ]);
   assert.doesNotMatch(JSON.stringify(status), /sensitive raw authentication/i);
@@ -408,7 +427,6 @@ test("ineligible existing release metadata and asset states fail closed without 
     ["wrong tag", (context) => publicationView(context, { tagName: "v0.1.0-wrong" })],
     ["wrong title", (context) => publicationView(context, { name: "Wrong title" })],
     ["wrong prerelease state", (context) => publicationView(context, { isPrerelease: false })],
-    ["draft release", (context) => publicationView(context, { isDraft: true })],
     ["wrong notes", (context) => publicationView(context, { body: "different notes\n" })],
     ["unexpected asset", (context) => publicationView(context, { assets: [{ name: "unexpected.exe" }] })],
     ["canonical plus unexpected asset", (context) => publicationView(context, {
@@ -573,6 +591,7 @@ test("publication preserves Git, source, artifact, and provider prerequisites", 
   );
   fs.writeFileSync(notesPath, "# Release notes\n");
   fs.unlinkSync(path.join(root, "release", `ChampCityAI-Setup-${version}.exe`));
+  fs.writeFileSync(path.join(root, "docs", "release", `RELEASE_NOTES_${version}.md`), "# Release notes\n");
   const missingInstallerService = createReleaseToolbox({
     commandRunner: publicationRunner({ root, version, tagName, commit }),
   });
@@ -642,10 +661,251 @@ test("the production adapter uses shell-false fixed commands and redacts reposit
   assert.match(source, /"<COMMAND_CWD>"/);
 });
 
+test("exact drafts complete only their missing upload and publication steps", async (t) => {
+  for (const complete of [false, true]) {
+    await t.test(complete ? "draft-complete" : "draft-incomplete", async () => {
+      const context = createPublicationContext();
+      const requests = [];
+      const draftComplete = publicationView(context, { isDraft: true, body: context.notes.replace(/\n/g, "\r\n") });
+      const releaseViews = complete ? [draftComplete] : [publicationView(context, { isDraft: true, assets: [] }), draftComplete];
+      releaseViews.push(publicationView(context));
+      const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests, releaseViews }) });
+      const result = await service.publishGithubRelease(context.root, true, context.tagName);
+      assert.equal(result.publicationState, "complete");
+      assert.equal(result.assetUploaded, !complete);
+      assert.equal(result.assetAlreadyPresent, complete);
+      assert.equal(result.draftPublished, true);
+      assert.equal(result.verificationRequired, true);
+      assert.deepEqual(providerCommands(requests), [
+        "gh-release-view",
+        ...complete ? [] : ["gh-release-upload", "gh-release-view"],
+        "gh-release-publish-draft", "gh-release-view",
+      ]);
+    });
+  }
+});
+
+test("draft recovery resumes from fresh state after ambiguous upload and publish failures", async (t) => {
+  for (const step of ["upload", "publish"]) {
+    for (const status of ["timeout", "nonzero"]) {
+      for (const completedRemotely of [false, true]) {
+        await t.test(`${step} ${status}, remote completed: ${completedRemotely}`, async () => {
+          const context = createPublicationContext();
+          const requests = [];
+          const incomplete = publicationView(context, { isDraft: true, assets: [] });
+          const complete = publicationView(context, { isDraft: true });
+          const published = publicationView(context);
+          const releaseViews = step === "upload"
+            ? [incomplete, ...completedRemotely ? [] : [incomplete], complete, published]
+            : [complete, ...completedRemotely ? [] : [complete], published];
+          const service = createReleaseToolbox({ commandRunner: publicationRunner({
+            ...context, requests, releaseViews,
+            [step === "upload" ? "uploadResults" : "publishResults"]: [{ status, exitCode: status === "timeout" ? null : 1 }, {}],
+          }) });
+          await assert.rejects(() => service.publishGithubRelease(context.root, true, context.tagName),
+            (error) => error.code === (status === "timeout" ? "RELEASE_TIMEOUT" : "RELEASE_COMMAND_FAILED"));
+          const beforeRetry = providerCommands(requests);
+          assert.deepEqual(beforeRetry, ["gh-release-view", step === "upload" ? "gh-release-upload" : "gh-release-publish-draft"]);
+          const result = await service.publishGithubRelease(context.root, true, context.tagName);
+          assert.equal(result.publicationState, "complete");
+          assert.equal(providerCommands(requests)[beforeRetry.length], "gh-release-view");
+          assert.equal(requests.filter((entry) => entry.id === (step === "upload" ? "gh-release-upload" : "gh-release-publish-draft")).length,
+            completedRemotely ? 1 : 2);
+        });
+      }
+    }
+  }
+});
+
+test("draft recovery requires exact state after upload and after draft publication", async () => {
+  const context = createPublicationContext();
+  for (const releaseViews of [
+    [publicationView(context, { isDraft: true, assets: [] }), publicationView(context)],
+    [publicationView(context, { isDraft: true }), publicationView(context, { isDraft: true })],
+    [publicationView(context, { isDraft: true }), "absent"],
+  ]) {
+    const requests = [];
+    const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests, releaseViews }) });
+    await assert.rejects(() => service.publishGithubRelease(context.root, true, context.tagName),
+      (error) => error.code === "RELEASE_PROVIDER_FAILED");
+    assert.equal(providerCommands(requests).length, 3);
+  }
+});
+
+test("draft metadata and asset mismatches block both recovery and abandonment", async (t) => {
+  const context = createPublicationContext();
+  for (const [label, overrides] of [
+    ["tag", { tagName: "v9.9.9" }], ["title", { name: "Wrong" }],
+    ["prerelease", { isPrerelease: false }], ["notes", { body: `${context.notes} ` }],
+    ["extra asset", { assets: [{ name: context.assetFilename }, { name: "unexpected.exe" }] }],
+    ["wrong asset", { assets: [{ name: "unexpected.exe" }] }],
+    ["duplicate", { assets: [{ name: context.assetFilename }, { name: context.assetFilename }] }],
+    ["malformed assets", { assets: [{}] }], ["missing assets", { assets: null }],
+    ["malformed draft state", { isDraft: "true" }],
+  ]) {
+    await t.test(label, async () => {
+      for (const method of ["publishGithubRelease", "abandonGithubDraftRelease"]) {
+        const requests = [];
+        const service = createReleaseToolbox({ commandRunner: publicationRunner({
+          ...context, requests, releaseViews: [publicationView(context, { isDraft: true, ...overrides })],
+        }) });
+        await assert.rejects(() => service[method](context.root, true, context.tagName),
+          (error) => error.code === "RELEASE_ALREADY_EXISTS");
+        assert.deepEqual(providerCommands(requests), ["gh-release-view"]);
+      }
+    });
+  }
+});
+
+test("abandonment deletes only exact drafts and confirms absence, without requiring installer bytes", async (t) => {
+  const context = createPublicationContext();
+  fs.unlinkSync(path.join(context.root, "release", context.assetFilename));
+  for (const assets of [[], [{ name: context.assetFilename }]]) {
+    await t.test(`draft with ${assets.length} assets`, async () => {
+      const requests = [];
+      const service = createReleaseToolbox({ commandRunner: publicationRunner({
+        ...context, requests, releaseViews: [publicationView(context, { isDraft: true, assets }), "absent"],
+      }) });
+      const result = await service.abandonGithubDraftRelease(context.root, true, context.tagName);
+      assert.equal(result.releaseState, "absent");
+      assert.equal(result.releaseDeleted, true);
+      assert.equal(result.sourceCommit, context.commit);
+      assert.deepEqual(providerCommands(requests), ["gh-release-view", "gh-release-delete-draft", "gh-release-view"]);
+      assert.equal(requests.some((request) => /delete.*tag|publish|upload|create/.test(request.id)), false);
+    });
+  }
+});
+
+test("abandonment refuses all published states and unconfirmed deletion", async () => {
+  const context = createPublicationContext();
+  for (const assets of [[], [{ name: context.assetFilename }]]) {
+    const requests = [];
+    const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests, releaseViews: [publicationView(context, { assets })] }) });
+    await assert.rejects(() => service.abandonGithubDraftRelease(context.root, true, context.tagName),
+      (error) => error.code === "RELEASE_ALREADY_EXISTS" && /published/.test(error.details.reason));
+    assert.deepEqual(providerCommands(requests), ["gh-release-view"]);
+  }
+  const requests = [];
+  const draft = publicationView(context, { isDraft: true });
+  const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests, releaseViews: [draft, draft] }) });
+  await assert.rejects(() => service.abandonGithubDraftRelease(context.root, true, context.tagName),
+    (error) => error.code === "RELEASE_PROVIDER_FAILED");
+  assert.deepEqual(providerCommands(requests), ["gh-release-view", "gh-release-delete-draft", "gh-release-view"]);
+});
+
+test("abandonment is idempotent and explicit retries inspect ambiguous deletion outcomes", async (t) => {
+  const context = createPublicationContext();
+  const absentRequests = [];
+  const absent = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests: absentRequests, releaseViews: ["absent"] }) });
+  assert.equal((await absent.abandonGithubDraftRelease(context.root, true, context.tagName)).releaseAlreadyAbsent, true);
+  assert.deepEqual(providerCommands(absentRequests), ["gh-release-view"]);
+  for (const status of ["timeout", "nonzero"]) {
+    for (const completedRemotely of [false, true]) {
+      await t.test(`${status}, remote completed: ${completedRemotely}`, async () => {
+        const requests = [];
+        const draft = publicationView(context, { isDraft: true });
+        const service = createReleaseToolbox({ commandRunner: publicationRunner({
+          ...context, requests, releaseViews: [draft, ...completedRemotely ? [] : [draft], "absent"],
+          deleteResults: [{ status, exitCode: status === "timeout" ? null : 1 }, {}],
+        }) });
+        await assert.rejects(() => service.abandonGithubDraftRelease(context.root, true, context.tagName),
+          (error) => error.code === (status === "timeout" ? "RELEASE_TIMEOUT" : "RELEASE_COMMAND_FAILED"));
+        assert.deepEqual(providerCommands(requests), ["gh-release-view", "gh-release-delete-draft"]);
+        const result = await service.abandonGithubDraftRelease(context.root, true, context.tagName);
+        assert.equal(result.releaseAlreadyAbsent, completedRemotely);
+        assert.deepEqual(providerCommands(requests), ["gh-release-view", "gh-release-delete-draft", "gh-release-view",
+          ...completedRemotely ? [] : ["gh-release-delete-draft", "gh-release-view"]]);
+      });
+    }
+  }
+});
+
+test("release mutation rejects malformed, truncated, and failed provider inspection including ambiguous absence", async () => {
+  const context = createPublicationContext();
+  for (const override of [
+    { stdout: "{broken" },
+    { stdout: JSON.stringify(publicationView(context, { isDraft: true })), stdoutTruncated: true },
+    { stdout: JSON.stringify(publicationView(context, { isDraft: true })), stderrTruncated: true },
+    { status: "nonzero", exitCode: 1, stderr: "release not found", stderrTruncated: true },
+    { status: "nonzero", exitCode: 1, stderr: "provider unavailable" },
+    { status: "timeout", exitCode: null },
+  ]) {
+    for (const method of ["publishGithubRelease", "abandonGithubDraftRelease"]) {
+      const requests = [];
+      const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests, commandOverrides: { "gh-release-view": override } }) });
+      await assert.rejects(() => service[method](context.root, true, context.tagName));
+      assert.deepEqual(providerCommands(requests), ["gh-release-view"]);
+    }
+  }
+});
+
+test("abandonment preserves source, tag, provider, and Git-backed prerequisites", async () => {
+  const context = createPublicationContext();
+  const failures = [
+    ["git-origin-url", { stdout: "https://example.invalid/owner/repo.git" }],
+    ["gh-version", { status: "spawn-error", exitCode: null }],
+    ["gh-auth-status", { status: "nonzero", exitCode: 1 }],
+    ["git-local-tag-target", { status: "nonzero", exitCode: 1 }],
+    ["git-local-tag-target", { stdout: "b".repeat(40) }],
+    ["git-remote-tag-target", { stdout: "" }],
+    ["git-remote-tag-target", { stdout: `${"b".repeat(40)}\trefs/tags/${context.tagName}\n` }],
+    ["git-remote-tag-target", { stdout: `${context.commit}\trefs/tags/${context.tagName}\n`, stdoutTruncated: true }],
+    ["git-status-porcelain", { stdout: " M package.json\n" }],
+  ];
+  for (const [id, override] of failures) {
+    const requests = [];
+    const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests, commandOverrides: { [id]: override } }) });
+    await assert.rejects(() => service.abandonGithubDraftRelease(context.root, true, context.tagName));
+    assert.deepEqual(providerCommands(requests), []);
+  }
+  const requests = [];
+  const service = createReleaseToolbox({ commandRunner: publicationRunner({ ...context, requests }) });
+  await assert.rejects(() => service.abandonGithubDraftRelease(context.root, false, context.tagName), (error) => error.code === "GIT_CAPABILITY_UNAVAILABLE");
+  await assert.rejects(() => service.abandonGithubDraftRelease(context.root, true, "v9.9.9"), (error) => error.code === "INVALID_INPUT");
+  fs.writeFileSync(path.join(context.root, "package.json"), JSON.stringify({ version: "invalid" }));
+  await assert.rejects(() => service.abandonGithubDraftRelease(context.root, true, context.tagName), (error) => error.code === "RELEASE_INVARIANT_FAILED");
+  assert.deepEqual(requests, []);
+});
+
+test("production adapter fixes draft edit and delete arguments with shell false", async (t) => {
+  const childProcess = require("node:child_process");
+  const { EventEmitter } = require("node:events");
+  const { PassThrough } = require("node:stream");
+  const { runFixedReleaseCommand } = require(path.join(repositoryRoot, "dist/main/agentHarness/release/releaseCommandAdapter.js"));
+  const spawns = [];
+  t.mock.method(childProcess, "spawn", (executable, args, options) => {
+    spawns.push({ executable, args, options });
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    queueMicrotask(() => child.emit("close", 0));
+    return child;
+  });
+  for (const [id, verb, flags] of [
+    ["gh-release-publish-draft", "edit", ["--draft=false", "--verify-tag"]],
+    ["gh-release-delete-draft", "delete", ["--yes"]],
+  ]) {
+    const result = await runFixedReleaseCommand({ root: repositoryRoot, id, repository: "Example/Fixture", tagName: "v1.2.3" });
+    assert.equal(result.status, "succeeded");
+    assert.equal(spawns.at(-1).executable, "gh");
+    assert.deepEqual(spawns.at(-1).args, ["release", verb, "v1.2.3", "--repo", "Example/Fixture", ...flags]);
+    assert.equal(spawns.at(-1).options.shell, false);
+    assert.deepEqual(result.command.args, spawns.at(-1).args);
+  }
+  const source = fs.readFileSync(path.join(repositoryRoot, "src/main/agentHarness/release/releaseCommandAdapter.ts"), "utf8");
+  assert.doesNotMatch(source, /--cleanup-tag|--clobber|delete-asset/);
+});
+
+function providerCommands(requests) {
+  return requests.filter((request) => request.id.startsWith("gh-release-")).map((request) => request.id);
+}
+
 function publicationRunner(options) {
   let releaseViewIndex = 0;
   let createResultIndex = 0;
   let uploadResultIndex = 0;
+  let publishResultIndex = 0;
+  let deleteResultIndex = 0;
   const releaseViews = options.releaseViews ?? [
     "absent",
     publicationView(options, { assets: [] }),
@@ -653,6 +913,9 @@ function publicationRunner(options) {
   ];
   return async (request) => {
     options.requests?.push(request);
+    if (options.commandOverrides?.[request.id]) {
+      return receipt(request.id, options.commandOverrides[request.id]);
+    }
     switch (request.id) {
       case "git-origin-url": return receipt(request.id, { stdout: "https://github.com/ChampCityChris/ChampCity_AI.git\n" });
       case "gh-version": return receipt(request.id, options.ghMissing ? { status: "spawn-error", exitCode: null } : {});
@@ -697,6 +960,10 @@ function publicationRunner(options) {
           ...overrides,
         });
       }
+      case "gh-release-publish-draft":
+        return receipt(request.id, options.publishResults?.[publishResultIndex++] ?? {});
+      case "gh-release-delete-draft":
+        return receipt(request.id, options.deleteResults?.[deleteResultIndex++] ?? {});
       default: throw new Error(`Unexpected command ${request.id}`);
     }
   };

@@ -26,6 +26,7 @@ const SUPPORTED_ACTIONS = [
   "build_windows_release",
   "inspect_release_artifact",
   "publish_github_release",
+  "abandon_github_draft_release",
   "verify_github_release",
 ] as const;
 const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
@@ -55,6 +56,7 @@ export interface ReleaseToolbox {
   buildWindowsRelease(root: string): Promise<Record<string, unknown>>;
   inspectReleaseArtifact(root: string): Promise<Record<string, unknown>>;
   publishGithubRelease(root: string, gitBacked: boolean, tagName: string): Promise<Record<string, unknown>>;
+  abandonGithubDraftRelease(root: string, gitBacked: boolean, tagName: string): Promise<Record<string, unknown>>;
   verifyGithubRelease(root: string, gitBacked: boolean, tagName: string): Promise<Record<string, unknown>>;
 }
 
@@ -78,8 +80,7 @@ interface GithubReleaseView {
 
 type GithubReleaseState =
   | { kind: "absent" }
-  | { kind: "incomplete"; release: GithubReleaseView }
-  | { kind: "complete"; release: GithubReleaseView };
+  | { kind: "published-incomplete" | "published-complete" | "draft-incomplete" | "draft-complete"; release: GithubReleaseView };
 
 export function createReleaseToolbox(options: {
   commandRunner?: ReleaseCommandRunner;
@@ -258,66 +259,16 @@ export function createReleaseToolbox(options: {
     },
 
     async publishGithubRelease(root, gitBacked, tagName) {
-      requireGitBacked(gitBacked);
-      const packageVersion = await readValidPackageVersion(root);
-      assertExactTag(tagName, packageVersion);
-      const repository = await requireGithubRepository(root, runCommand);
-      await requireGithubCli(root, runCommand);
-
-      const [headReceipt, localTagReceipt, remoteTagReceipt, statusReceipt] = await Promise.all([
-        runCommand({ root, id: "git-head" }),
-        runCommand({ root, id: "git-local-tag-target", tagName }),
-        runCommand({ root, id: "git-remote-tag-target", tagName }),
-        runCommand({ root, id: "git-status-porcelain" }),
-      ]);
-      requireSuccessfulCommand(headReceipt, "Current Git HEAD could not be resolved.");
-      requireSuccessfulCommand(localTagReceipt, "The required local release tag does not exist.");
-      requireSuccessfulCommand(remoteTagReceipt, "The release tag could not be verified on origin.");
-      requireSuccessfulCommand(statusReceipt, "The release working state could not be inspected.");
-      const sourceCommit = normalizedCommit(headReceipt.stdout, "Current Git HEAD is invalid.");
-      const localTagTarget = normalizedCommit(localTagReceipt.stdout, "Local release tag target is invalid.");
-      if (localTagTarget !== sourceCommit) {
-        throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "The local release tag does not resolve to current HEAD.");
-      }
-      const remoteTagTarget = parseRemoteTagTarget(remoteTagReceipt.stdout, tagName);
-      if (remoteTagTarget !== localTagTarget) {
-        throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "The origin release tag does not match the local tag target.");
-      }
-      if (statusReceipt.stdout.trim()) {
-        throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "Git working tree and index must be clean for publication.");
-      }
-
+      const { packageVersion, repository, sourceCommit, notesPath, notesRelativePath, expectedRelease } = await requireReleaseCandidate(
+        root, gitBacked, tagName, runCommand,
+      );
+      const { title, assetFilename } = expectedRelease;
       const installer = await inspectCanonicalInstaller(root, packageVersion);
       if (!installer.exists) {
         throw new AgentHarnessError("RELEASE_ARTIFACT_MISSING", "Canonical Windows installer is missing.", {
           relativePath: installer.relativePath,
         });
       }
-      const notesRelativePath = canonicalNotesRelativePath(packageVersion);
-      const notesPath = path.join(root, ...notesRelativePath.split("/"));
-      const notes = await inspectFile(notesPath, false);
-      if (!notes.exists) {
-        throw new AgentHarnessError("RELEASE_ARTIFACT_MISSING", "Canonical release notes are missing.", {
-          relativePath: notesRelativePath,
-        });
-      }
-      const title = `ChampCity A/I Desktop ${packageVersion}`;
-      let canonicalNotes: string;
-      try {
-        canonicalNotes = await fs.promises.readFile(notesPath, "utf8");
-      } catch {
-        throw new AgentHarnessError("RELEASE_ARTIFACT_INVALID", "Canonical release notes could not be read.", {
-          relativePath: notesRelativePath,
-        });
-      }
-      const assetFilename = path.posix.basename(installer.relativePath);
-      const expectedRelease: ExpectedGithubRelease = {
-        tagName,
-        title,
-        prerelease: hasPrereleaseComponent(packageVersion),
-        notes: canonicalNotes,
-        assetFilename,
-      };
       const providerReceipts: ReleaseCommandReceipt[] = [];
       let releaseCreated = false;
       let state = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
@@ -345,52 +296,80 @@ export function createReleaseToolbox(options: {
         }
       }
 
-      if (state.kind === "complete") {
-        return {
-          tag: tagName,
-          sourceCommit,
-          releaseUrl: state.release.url,
-          installerFilename: assetFilename,
-          localInstallerSha256: installer.sha256,
-          publicationState: "complete",
-          releaseCreated,
-          assetUploaded: false,
-          assetAlreadyPresent: true,
-          verificationRequired: true,
-          providerReceipt: providerReceipts.at(-1) ?? null,
-          providerReceipts,
-        };
+      let assetUploaded = false;
+      let draftPublished = false;
+      if (state.kind === "published-incomplete" || state.kind === "draft-incomplete") {
+        const expectedAfterUpload = state.kind === "draft-incomplete" ? "draft-complete" : "published-complete";
+        const uploadReceipt = await runCommand({
+          root,
+          id: "gh-release-upload",
+          repository,
+          tagName,
+          installerPath: path.join(root, ...installer.relativePath.split("/")),
+          installerRelativePath: installer.relativePath,
+        });
+        providerReceipts.push(uploadReceipt);
+        requireSuccessfulCommand(uploadReceipt, "GitHub Release installer upload failed.");
+        state = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+        if (state.kind !== expectedAfterUpload) {
+          throw new AgentHarnessError(
+            "RELEASE_PROVIDER_FAILED",
+            "GitHub Release did not retain its publication state with exactly the canonical installer after upload.",
+          );
+        }
+        assetUploaded = true;
       }
-
-      const uploadReceipt = await runCommand({
-        root,
-        id: "gh-release-upload",
-        repository,
-        tagName,
-        installerPath: path.join(root, ...installer.relativePath.split("/")),
-        installerRelativePath: installer.relativePath,
-      });
-      providerReceipts.push(uploadReceipt);
-      requireSuccessfulCommand(uploadReceipt, "GitHub Release installer upload failed.");
-      const confirmed = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
-      if (confirmed.kind !== "complete") {
-        throw new AgentHarnessError(
-          "RELEASE_PROVIDER_FAILED",
-          "GitHub Release did not contain exactly the canonical installer after upload.",
-        );
+      if (state.kind === "draft-complete") {
+        const publishReceipt = await runCommand({ root, id: "gh-release-publish-draft", repository, tagName });
+        providerReceipts.push(publishReceipt);
+        requireSuccessfulCommand(publishReceipt, "GitHub Release draft publication failed.");
+        state = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+        draftPublished = true;
+      }
+      if (state.kind !== "published-complete") {
+        throw new AgentHarnessError("RELEASE_PROVIDER_FAILED", "GitHub Release publication was not confirmed complete.");
       }
       return {
         tag: tagName,
         sourceCommit,
-        releaseUrl: confirmed.release.url,
+        releaseUrl: state.release.url,
         installerFilename: assetFilename,
         localInstallerSha256: installer.sha256,
         publicationState: "complete",
         releaseCreated,
-        assetUploaded: true,
-        assetAlreadyPresent: false,
+        assetUploaded,
+        assetAlreadyPresent: !assetUploaded,
+        draftPublished,
         verificationRequired: true,
-        providerReceipt: uploadReceipt,
+        providerReceipt: providerReceipts.at(-1) ?? null,
+        providerReceipts,
+      };
+    },
+
+    async abandonGithubDraftRelease(root, gitBacked, tagName) {
+      const { repository, sourceCommit, expectedRelease } = await requireReleaseCandidate(
+        root, gitBacked, tagName, runCommand,
+      );
+      const state = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+      const providerReceipts: ReleaseCommandReceipt[] = [];
+      if (state.kind !== "absent") {
+        if (state.kind !== "draft-incomplete" && state.kind !== "draft-complete") {
+          throw ineligibleExistingRelease("published releases cannot be abandoned");
+        }
+        const deleteReceipt = await runCommand({ root, id: "gh-release-delete-draft", repository, tagName });
+        providerReceipts.push(deleteReceipt);
+        requireSuccessfulCommand(deleteReceipt, "GitHub draft release deletion failed; re-inspect on the next explicit call.");
+        const confirmed = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+        if (confirmed.kind !== "absent") {
+          throw new AgentHarnessError("RELEASE_PROVIDER_FAILED", "GitHub draft release deletion was not confirmed absent.");
+        }
+      }
+      return {
+        tag: tagName,
+        sourceCommit,
+        releaseState: "absent",
+        releaseDeleted: state.kind !== "absent",
+        releaseAlreadyAbsent: state.kind === "absent",
         providerReceipts,
       };
     },
@@ -460,6 +439,74 @@ export function createReleaseToolbox(options: {
       }
     },
   };
+}
+
+async function requireReleaseCandidate(
+  root: string,
+  gitBacked: boolean,
+  tagName: string,
+  runCommand: ReleaseCommandRunner,
+) {
+  requireGitBacked(gitBacked);
+  const packageVersion = await readValidPackageVersion(root);
+  assertExactTag(tagName, packageVersion);
+  const repository = await requireGithubRepository(root, runCommand);
+  await requireGithubCli(root, runCommand);
+
+  const [headReceipt, localTagReceipt, remoteTagReceipt, statusReceipt] = await Promise.all([
+    runCommand({ root, id: "git-head" }),
+    runCommand({ root, id: "git-local-tag-target", tagName }),
+    runCommand({ root, id: "git-remote-tag-target", tagName }),
+    runCommand({ root, id: "git-status-porcelain" }),
+  ]);
+  requireSuccessfulCommand(headReceipt, "Current Git HEAD could not be resolved.");
+  requireSuccessfulCommand(localTagReceipt, "The required local release tag does not exist.");
+  requireSuccessfulCommand(remoteTagReceipt, "The release tag could not be verified on origin.");
+  requireSuccessfulCommand(statusReceipt, "The release working state could not be inspected.");
+  if ([headReceipt, localTagReceipt, remoteTagReceipt, statusReceipt].some(
+    (receipt) => receipt.stdoutTruncated || receipt.stderrTruncated,
+  )) {
+    throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "Release source inspection output was truncated.");
+  }
+  const sourceCommit = normalizedCommit(headReceipt.stdout, "Current Git HEAD is invalid.");
+  const localTagTarget = normalizedCommit(localTagReceipt.stdout, "Local release tag target is invalid.");
+  if (localTagTarget !== sourceCommit) {
+    throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "The local release tag does not resolve to current HEAD.");
+  }
+  const remoteTagTarget = parseRemoteTagTarget(remoteTagReceipt.stdout, tagName);
+  if (remoteTagTarget !== localTagTarget) {
+    throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "The origin release tag does not match the local tag target.");
+  }
+  if (statusReceipt.stdout.trim()) {
+    throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "Git working tree and index must be clean for release mutation.");
+  }
+
+  const notesRelativePath = canonicalNotesRelativePath(packageVersion);
+  const notesPath = path.join(root, ...notesRelativePath.split("/"));
+  const notes = await inspectFile(notesPath, false);
+  if (!notes.exists) {
+    throw new AgentHarnessError("RELEASE_ARTIFACT_MISSING", "Canonical release notes are missing.", {
+      relativePath: notesRelativePath,
+    });
+  }
+  const title = `ChampCity A/I Desktop ${packageVersion}`;
+  let canonicalNotes: string;
+  try {
+    canonicalNotes = await fs.promises.readFile(notesPath, "utf8");
+  } catch {
+    throw new AgentHarnessError("RELEASE_ARTIFACT_INVALID", "Canonical release notes could not be read.", {
+      relativePath: notesRelativePath,
+    });
+  }
+  const assetFilename = path.posix.basename(canonicalInstallerRelativePath(packageVersion));
+  const expectedRelease: ExpectedGithubRelease = {
+    tagName,
+    title,
+    prerelease: hasPrereleaseComponent(packageVersion),
+    notes: canonicalNotes,
+    assetFilename,
+  };
+  return { packageVersion, repository, sourceCommit, notesPath, notesRelativePath, expectedRelease };
 }
 
 function retainCompletedValidation(
@@ -621,6 +668,9 @@ async function runSequence(
 async function requireGithubRepository(root: string, runCommand: ReleaseCommandRunner): Promise<string> {
   const receipt = await runCommand({ root, id: "git-origin-url" });
   requireSuccessfulCommand(receipt, "Git origin could not be inspected.");
+  if (receipt.stdoutTruncated || receipt.stderrTruncated) {
+    throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "Git origin inspection output was truncated.");
+  }
   const repository = parseGithubRepository(receipt.stdout);
   if (!repository) {
     throw new AgentHarnessError("RELEASE_PREREQUISITE_UNAVAILABLE", "Git origin must resolve to a GitHub repository.");
@@ -673,16 +723,17 @@ function parseGithubRepository(remote: string): string | null {
 
 function parseRemoteTagTarget(output: string, tagName: string): string {
   const targets = new Map<string, string>();
-  for (const line of output.split(/\r?\n/)) {
+  for (const line of output.split(/\r?\n/).filter(Boolean)) {
     const match = /^([0-9a-fA-F]{40,64})\s+(.+)$/.exec(line.trim());
-    if (match) {
-      targets.set(match[2], match[1].toLowerCase());
+    if (!match || ![`refs/tags/${tagName}`, `refs/tags/${tagName}^{}`].includes(match[2]) || targets.has(match[2])) {
+      throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "Origin release tag metadata is ambiguous.");
     }
+    targets.set(match[2], match[1].toLowerCase());
   }
   const peeled = targets.get(`refs/tags/${tagName}^{}`);
   const direct = targets.get(`refs/tags/${tagName}`);
   const target = peeled ?? direct;
-  if (!target) {
+  if (!direct || !target) {
     throw new AgentHarnessError("RELEASE_INVARIANT_FAILED", "The release tag is missing from origin.");
   }
   return target;
@@ -712,14 +763,14 @@ async function inspectGithubReleaseState(
     repository,
     tagName: expected.tagName,
   });
+  if (receipt.stdoutTruncated || receipt.stderrTruncated) {
+    throw ineligibleExistingRelease("release metadata output was truncated");
+  }
   if (isReleaseNotFound(receipt)) {
     return { kind: "absent" };
   }
   if (receipt.status !== "succeeded") {
     throw commandError("GitHub Release state could not be inspected.", receipt);
-  }
-  if (receipt.stdoutTruncated) {
-    throw ineligibleExistingRelease("release metadata output was truncated");
   }
 
   let release: GithubReleaseView;
@@ -737,17 +788,14 @@ async function inspectGithubReleaseState(
   if (release.prerelease !== expected.prerelease) {
     throw ineligibleExistingRelease("prerelease state does not match");
   }
-  if (release.draft) {
-    throw ineligibleExistingRelease("release is a draft");
-  }
   if (normalizeReleaseNotes(release.notes) !== normalizeReleaseNotes(expected.notes)) {
     throw ineligibleExistingRelease("release notes do not match");
   }
   if (release.assets.length === 0) {
-    return { kind: "incomplete", release };
+    return { kind: release.draft ? "draft-incomplete" : "published-incomplete", release };
   }
   if (release.assets.length === 1 && release.assets[0] === expected.assetFilename) {
-    return { kind: "complete", release };
+    return { kind: release.draft ? "draft-complete" : "published-complete", release };
   }
   throw ineligibleExistingRelease("release assets are not exactly the canonical installer state");
 }
@@ -755,7 +803,7 @@ async function inspectGithubReleaseState(
 function ineligibleExistingRelease(reason: string): AgentHarnessError {
   return new AgentHarnessError(
     "RELEASE_ALREADY_EXISTS",
-    "The existing GitHub Release is ineligible for safe publication recovery.",
+    "The existing GitHub Release is ineligible for exact release recovery or abandonment.",
     { reason },
   );
 }

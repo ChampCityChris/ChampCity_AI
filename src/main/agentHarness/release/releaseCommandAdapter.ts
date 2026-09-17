@@ -27,6 +27,8 @@ export type ReleaseCommandId =
   | "gh-release-view"
   | "gh-release-create"
   | "gh-release-upload"
+  | "gh-release-publish-draft"
+  | "gh-release-delete-draft"
   | "gh-release-download";
 
 interface BaseReleaseCommandRequest {
@@ -55,7 +57,7 @@ export type ReleaseCommandRequest =
   | (BaseReleaseCommandRequest & { id: "npm-set-version"; version: string })
   | (BaseReleaseCommandRequest & { id: "git-local-tag-target" | "git-remote-tag-target"; tagName: string })
   | (BaseReleaseCommandRequest & {
-      id: "gh-release-view";
+      id: "gh-release-view" | "gh-release-publish-draft" | "gh-release-delete-draft";
       repository: string;
       tagName: string;
     })
@@ -217,6 +219,18 @@ function commandSpecification(request: ReleaseCommandRequest): SpawnSpecificatio
         ["release", "upload", request.tagName, request.installerPath, "--repo", request.repository],
         30 * 60_000,
         ["release", "upload", request.tagName, request.installerRelativePath, "--repo", request.repository],
+      );
+    case "gh-release-publish-draft":
+      return spec(
+        "gh", "gh",
+        ["release", "edit", request.tagName, "--repo", request.repository, "--draft=false", "--verify-tag"],
+        2 * 60_000,
+      );
+    case "gh-release-delete-draft":
+      return spec(
+        "gh", "gh",
+        ["release", "delete", request.tagName, "--repo", request.repository, "--yes"],
+        2 * 60_000,
       );
     case "gh-release-download":
       return spec(

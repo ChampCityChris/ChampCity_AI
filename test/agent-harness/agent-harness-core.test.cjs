@@ -761,6 +761,7 @@ test("Agent Harness direct write calls require files.write before provider dispa
       "merge_branch",
       "create_tag",
       "push_tag",
+      "delete_tag",
       "delete_branch",
       "stage_changes",
       "commit",
