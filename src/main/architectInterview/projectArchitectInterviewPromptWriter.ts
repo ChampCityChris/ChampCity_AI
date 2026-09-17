@@ -94,6 +94,29 @@ function architectPromptBody(
 ): string {
   const hasExistingSourceOrPlanning = intakeWorkflowData.hasExistingSourceOrPlanning === true;
   const repositoryReviewContext = stringValue(intakeWorkflowData.repositoryReviewContext) ?? "none provided";
+  const productCapabilityEvidence = hasExistingSourceOrPlanning
+    ? [
+        "",
+        "For this existing-product evolution, distinguish and preserve at least:",
+        "",
+        "- current product capabilities and principal user workflows;",
+        "- governing next-version product and capability intent;",
+        "- governing architecture and technical constraints;",
+        "- verified current implementation evidence;",
+        "- unresolved Operator-owned product decisions.",
+        "",
+        "Derive the intended capability changes from the approved Project Intake and materially relevant governing product and architecture evidence before asking the Operator to restate known facts.",
+        "Resolve the material next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional.",
+        "Preserve means capabilities or behaviors that must remain available.",
+        "Improve or Replace means existing capabilities whose behavior or implementation materially changes in the next version.",
+        "Add means genuinely new user or product capabilities intended for the next version.",
+        "Defer or Conditional means known capabilities intentionally outside the current version or dependent on later evidence.",
+        "Do not treat preservation of architecture or current implementation details as a substitute for preserving the intended product capability delta.",
+      ]
+    : [
+        "",
+        "For this greenfield project, resolve intended product capabilities, principal workflows, and acceptance outcomes without assuming a prior version or migration baseline.",
+      ];
   return [
     `# Project Architect Interview Prompt: ${projectName}`,
     "",
@@ -121,6 +144,7 @@ function architectPromptBody(
     "Assess established architecture for internal consistency, implementation applicability, gaps, stale assumptions, and direct conflicts. Do not redesign, summarize away, or silently supersede it merely to complete this generic interview structure.",
     "Do not treat all repository Markdown as controlling planning direction; require evidence that architecture or planning direction is governing or Operator-established.",
     "Ask the Operator only about genuinely unresolved material product or scope decisions, or concrete architecture conflicts that cannot be resolved through normal Architect judgment.",
+    ...productCapabilityEvidence,
     "",
     "Distinguish between:",
     "",
@@ -162,6 +186,9 @@ function architectPromptBody(
     "",
     "- project purpose and desired outcome;",
     "- intended users and primary workflows;",
+    ...(hasExistingSourceOrPlanning
+      ? ["- material next-version capability delta: Preserve, Improve or Replace, Add, and Defer or Conditional;"]
+      : ["- intended product capabilities and acceptance outcomes;"]),
     "- scope and explicit non-scope;",
     "- success and acceptance criteria;",
     "- operational and technical constraints;",
@@ -180,12 +207,16 @@ function architectPromptBody(
     "",
     "Before creating the final Interview document, present a concise confirmation summary containing:",
     "",
-    "- project understanding;",
-    "- key decisions;",
-    "- Architect recommendations accepted;",
+    hasExistingSourceOrPlanning ? "- project and next-version understanding;" : "- project understanding;",
+    "- principal users and workflows;",
+    ...(hasExistingSourceOrPlanning
+      ? ["- material capability delta, explicitly distinguishing Preserve, Improve or Replace, Add, and Defer or Conditional;"]
+      : ["- intended product capabilities;"]),
+    "- key decisions and Architect recommendations accepted;",
+    "- acceptance direction;",
     "- assumptions;",
-    "- deferred items;",
-    "- unresolved issues.",
+    "- deferred or conditional items;",
+    "- unresolved material issues.",
     "",
     "Ask the Operator to confirm the summary or identify corrections.",
     "",
@@ -194,6 +225,9 @@ function architectPromptBody(
     "## Final Output",
     "",
     "When the interview is complete and confirmed, synthesize one complete substantive Project Architect Interview Markdown document body, not a snippet.",
+    ...(hasExistingSourceOrPlanning
+      ? ["Preserve the confirmed next-version capability delta within the existing required sections; do not add a new required heading or document schema for it."]
+      : ["Preserve the confirmed intended product capabilities, principal workflows, and acceptance outcomes within the existing required sections."]),
     "",
     "The final document should include:",
     "",

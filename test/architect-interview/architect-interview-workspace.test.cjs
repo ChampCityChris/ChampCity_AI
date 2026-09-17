@@ -340,6 +340,19 @@ test("Architect Interview preserves established architecture and inspects reposi
   assert.match(prompt.bodyMarkdown, /governing, approved, adopted, canonical, or otherwise established by the Operator/);
   assert.match(prompt.bodyMarkdown, /Do not redesign, summarize away, or silently supersede it/);
   assert.match(prompt.bodyMarkdown, /Do not treat all repository Markdown as controlling planning direction/);
+  assert.match(prompt.bodyMarkdown, /current product capabilities and principal user workflows/);
+  assert.match(prompt.bodyMarkdown, /governing next-version product and capability intent/);
+  assert.match(prompt.bodyMarkdown, /governing architecture and technical constraints/);
+  assert.match(prompt.bodyMarkdown, /verified current implementation evidence/);
+  assert.match(prompt.bodyMarkdown, /unresolved Operator-owned product decisions/);
+  assert.match(prompt.bodyMarkdown, /before asking the Operator to restate known facts/);
+  assert.match(prompt.bodyMarkdown, /Resolve the material next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional/);
+  assert.match(prompt.bodyMarkdown, /principal users and workflows/);
+  assert.match(prompt.bodyMarkdown, /material capability delta, explicitly distinguishing Preserve, Improve or Replace, Add, and Defer or Conditional/);
+  assert.match(prompt.bodyMarkdown, /acceptance direction/);
+  assert.match(prompt.bodyMarkdown, /do not add a new required heading or document schema/);
+  assert.doesNotMatch(prompt.bodyMarkdown, /Feature workflow|Power Workbench|AI Memory|ChampCity A\/I V2/);
+  assert.doesNotMatch(prompt.bodyMarkdown, /## Capability Delta/);
   assert.match(prompt.bodyMarkdown, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
   assert.match(prompt.bodyMarkdown, /Ask only material Operator-owned questions that remain unresolved after evidence review and normal Architect judgment/);
   assert.match(prompt.bodyMarkdown, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
@@ -351,12 +364,51 @@ test("Architect Interview preserves established architecture and inspects reposi
   const prepared = prepareArchitectInterviewHandoff(root);
   assert.match(prepared.handoffInstruction, /inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions/);
   assert.match(prepared.handoffInstruction, /do not redesign, summarize away, or silently supersede it/);
+  assert.match(prepared.handoffInstruction, /Resolve intended product capabilities, principal user workflows, and acceptance outcomes/);
+  assert.match(prepared.handoffInstruction, /distinguish current product capabilities and workflows, governing next-version product and capability intent/);
+  assert.match(prepared.handoffInstruction, /next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional/);
+  assert.match(prepared.handoffInstruction, /summary must include project understanding; principal users and workflows; intended product capabilities/);
+  assert.match(prepared.handoffInstruction, /summary must also include next-version understanding and a material capability delta/);
   assert.match(prepared.handoffInstruction, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
   assert.match(prepared.handoffInstruction, /Ask only material Operator-owned questions that remain unresolved/);
   assert.match(prepared.handoffInstruction, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
   assert.match(prepared.handoffInstruction, /coverage obligations, not a questionnaire or an implied one-question-per-section requirement/);
   assert.match(prepared.handoffInstruction, /Do not compress unresolved material decisions merely to shorten the interview/);
   assert.doesNotMatch(prepared.handoffInstruction, /8[–-]12 substantive questions|approximately five substantive questions|approximately ten substantive questions/i);
+
+  const finalized = prepareArchitectInterviewFinalDraftHandoff(root);
+  assert.match(finalized.finalDraftHandoffInstruction, /Preserve confirmed product and capability intent, principal workflows, acceptance direction/);
+  assert.match(finalized.finalDraftHandoffInstruction, /not as permission to omit established product or capability intent/);
+  assert.match(finalized.finalDraftHandoffInstruction, /preserve the material next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional/);
+  assert.match(finalized.finalDraftHandoffInstruction, /Do not silently redesign, supersede, or summarize away established architecture or product capability intent/);
+});
+
+test("greenfield Architect Interview prompt resolves capabilities without assuming a prior version", () => {
+  const root = tempWorkspace("champcity-architect-greenfield-capabilities-");
+  const result = submitProjectIntake({
+    projectName: "Greenfield Capability Intent",
+    projectPurpose: "Define a new product from first principles.",
+    desiredOutcome: "Capture intended workflows, capabilities, and acceptance outcomes.",
+    projectType: "Desktop application",
+    projectRepository: root,
+    hasExistingSourceOrPlanning: false,
+    knownConstraints: "",
+    repositoryReviewContext: "",
+  });
+  const prompt = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
+  );
+
+  assert.match(prompt.bodyMarkdown, /For this greenfield project, resolve intended product capabilities, principal workflows, and acceptance outcomes/);
+  assert.match(prompt.bodyMarkdown, /intended product capabilities and acceptance outcomes/);
+  assert.match(prompt.bodyMarkdown, /principal users and workflows/);
+  assert.doesNotMatch(prompt.bodyMarkdown, /existing-product evolution|next-version capability delta|prior version must|migration baseline must/i);
+
+  approve(root, result.projectIntakeMarkdownPath);
+  const prepared = prepareArchitectInterviewHandoff(root);
+  assert.match(prepared.handoffInstruction, /Resolve intended product capabilities, principal user workflows, and acceptance outcomes/);
+  assert.match(prepared.handoffInstruction, /When the approved inputs describe existing-product evolution/);
+  assert.doesNotMatch(prepared.handoffInstruction, /This is an existing-product evolution|assume a prior version/i);
 });
 
 test("Architect Interview regenerates a deleted prompt from Approved Project Intake", () => {

@@ -180,6 +180,8 @@ test("project planning greenfield preflight emits the approved submission contra
   assert.match(handoff.bodyMarkdown, /Do not assume greenfield means the development machine is ready/);
   assert.match(handoff.bodyMarkdown, /selected project repository plus the local development machine/);
   assert.match(handoff.bodyMarkdown, /Missing development capabilities required by planned implementation must be sequenced as project work/);
+  assert.match(handoff.bodyMarkdown, /architecture or migration requirements and product or Operator capability requirements as simultaneous axes/);
+  assert.match(handoff.bodyMarkdown, /Silent omission is prohibited/);
 });
 
 test("project planning existing-source fixture resolves reconciliation-required without Git", () => {
@@ -210,9 +212,16 @@ test("project planning existing-source fixture resolves reconciliation-required 
   const prepared = prepareProjectPlanningHandoff(root);
   assert.match(prepared.handoffInstruction, /Repository review context: Inspect the existing TypeScript entry point\./);
   assert.match(prepared.handoffInstruction, /use it to identify and inspect the materially relevant evidence before drafting/);
+  assert.doesNotMatch(prepared.handoffInstruction, /Source evidence paths:/i);
+  assert.doesNotMatch(prepared.handoffInstruction, /src\/index\.ts/);
   assert.match(prepared.handoffInstruction, /verified current implementation, established planning or architecture intent, historical or legacy evidence, and unresolved assumptions/);
   assert.match(prepared.handoffInstruction, /controlling constraint on both the Project Profile and Project Roadmap unless the Operator explicitly revises it/);
   assert.match(prepared.handoffInstruction, /Do not invent a second architecture or reinterpret established architecture into incompatible subsystem ownership/);
+  const handoff = parseCanonicalMarkdownDocument(
+    fs.readFileSync(path.join(root, prepared.handoffMarkdownPath), "utf8"),
+  );
+  assert.deepEqual(handoff.metadata.workflowData.sourceEvidencePaths, ["src/index.ts"]);
+  assert.match(handoff.bodyMarkdown, /Source evidence paths:\n- src\/index\.ts/);
 });
 
 test("project planning intake and source mismatch resolves reconciliation-required without blocking handoff", () => {
@@ -528,6 +537,18 @@ test("project planning handoff instruction includes exact targets and MCP constr
   assert.match(instruction, /existing system, treat current implemented behavior as the functional baseline unless the approved project evidence explicitly deprecates or changes it/);
   assert.match(instruction, /existing-product refactor, migration, platform-transition, feature-expansion, or capability-extraction work/);
   assert.match(instruction, /behavior preservation, compatibility boundaries, dependencies, and cutover criteria/);
+  assert.match(instruction, /approved Architect Interview is the primary semantic synthesis/);
+  assert.match(instruction, /prior Interview Prompt is provenance and contract evidence.*only when needed to resolve a contradiction or ambiguity/);
+  assert.match(instruction, /two simultaneous axes: architecture or migration requirements, and product or Operator capability requirements/);
+  assert.match(instruction, /Neither axis may silently erase the other/);
+  assert.match(instruction, /For every material product capability or workflow.*must do exactly one of the following/);
+  assert.match(instruction, /sequence it into a specific roadmap phase or outcome; explicitly defer it with rationale; explicitly supersede it with the governing replacement decision; or mark it conditional and state the condition/);
+  assert.match(instruction, /Silent omission is prohibited/);
+  assert.match(instruction, /Creating a MemoryService, RepositoryService, runtime adapter, or equivalent internal boundary does not by itself prove delivery/);
+  assert.match(instruction, /both the architecture or migration boundary established or changed and the meaningful product or Operator capability/);
+  assert.match(instruction, /real consuming vertical slice as early as architecture dependencies safely permit/);
+  assert.match(instruction, /Do not build every hypothetical portability abstraction first/);
+  assert.doesNotMatch(instruction, /Source evidence paths:/i);
   assert.match(instruction, /legacy V1 structural labels and do not establish MVP semantics/);
   assert.match(instruction, /use MVP Scope for the primary bounded delivery, migration, or refactor scope/);
   assert.match(instruction, /use Post-MVP Roadmap for subsequent lifecycle work after that primary scope/);
