@@ -165,6 +165,224 @@ test("all five bounded git_toolbox mutations execute in a registered Git reposit
   assert.equal(dirtyBranch.error.code, "GIT_EXECUTION_FAILED");
 });
 
+test("branch state, existing-branch switching, and bounded history expose real repository evidence", async () => {
+  const root = createBoundWorkspace("champcity-git-branch-state-", true);
+  commitAllFixtureState(root, "fixture baseline");
+  const baseline = git(root, ["rev-parse", "HEAD"]);
+  execFileSync("git", ["branch", "main"], { cwd: root, stdio: "ignore" });
+  const registry = registryFor(root);
+
+  const state = await requireSuccess(callGit(registry, root, "inspect_branch_state", undefined, "files.read"));
+  assert.equal(state.payload.currentBranch, "dev");
+  assert.equal(state.payload.head, baseline);
+  assert.deepEqual(state.payload.branches.map((branch) => branch.name), ["dev", "main"]);
+  assert.deepEqual(state.payload.remotes, []);
+  assert.deepEqual(state.payload.selectedBranch, {
+    name: "dev",
+    commit: baseline,
+    upstream: null,
+    ahead: null,
+    behind: null,
+  });
+
+  await requireSuccess(callGit(registry, root, "switch_branch", { branchName: "main" }));
+  assert.equal(git(root, ["branch", "--show-current"]), "main");
+  await requireSuccess(callGit(registry, root, "switch_branch", { branchName: "dev" }));
+  assert.equal(git(root, ["branch", "--show-current"]), "dev");
+
+  fs.writeFileSync(path.join(root, "dirty.txt"), "dirty\n", "utf8");
+  const dirtySwitch = await callGit(registry, root, "switch_branch", { branchName: "main" });
+  assert.equal(dirtySwitch.ok, false);
+  assert.equal(dirtySwitch.error.code, "GIT_EXECUTION_FAILED");
+  assert.equal(git(root, ["branch", "--show-current"]), "dev");
+  fs.unlinkSync(path.join(root, "dirty.txt"));
+
+  execFileSync("git", ["checkout", "--detach", baseline], { cwd: root, stdio: "ignore" });
+  const detachedSwitch = await callGit(registry, root, "switch_branch", { branchName: "main" });
+  assert.equal(detachedSwitch.ok, false);
+  assert.equal(detachedSwitch.error.code, "GIT_EXECUTION_FAILED");
+  assert.equal(git(root, ["branch", "--show-current"]), "");
+  execFileSync("git", ["switch", "dev"], { cwd: root, stdio: "ignore" });
+
+  fs.writeFileSync(path.join(root, "history.txt"), "history\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["history.txt"] }));
+  const latest = await requireSuccess(callGit(registry, root, "commit", { message: "history evidence" }));
+  const history = await requireSuccess(callGit(registry, root, "inspect_history", {
+    ref: "dev",
+    maxCount: 2,
+    ancestor: baseline,
+    descendant: "dev",
+  }, "files.read"));
+  assert.equal(history.payload.resolvedCommit, latest.payload.commit);
+  assert.deepEqual(history.payload.commits.map((commit) => commit.subject), ["history evidence", "fixture baseline"]);
+  assert.equal(history.payload.ancestry.ancestorCommit, baseline);
+  assert.equal(history.payload.ancestry.descendantCommit, latest.payload.commit);
+  assert.equal(history.payload.ancestry.isAncestor, true);
+});
+
+test("fetch_remote and fast_forward_branch update from configured upstream without a merge commit", async () => {
+  const root = createBoundWorkspace("champcity-git-fast-forward-", true);
+  commitAllFixtureState(root, "fixture baseline");
+  const remote = path.join(path.dirname(root), "upstream.git");
+  execFileSync("git", ["init", "--bare", remote], { stdio: "ignore" });
+  execFileSync("git", ["remote", "add", "origin", remote], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["push", "--set-upstream", "origin", "dev"], { cwd: root, stdio: "ignore" });
+
+  const competitor = path.join(path.dirname(root), "upstream-writer");
+  execFileSync("git", ["clone", remote, competitor], { stdio: "ignore" });
+  configureGitIdentity(competitor);
+  execFileSync("git", ["switch", "dev"], { cwd: competitor, stdio: "ignore" });
+  fs.writeFileSync(path.join(competitor, "remote-update.txt"), "remote update\n", "utf8");
+  execFileSync("git", ["add", "--", "remote-update.txt"], { cwd: competitor, stdio: "ignore" });
+  execFileSync("git", ["commit", "-m", "remote update"], { cwd: competitor, stdio: "ignore" });
+  execFileSync("git", ["push", "origin", "dev"], { cwd: competitor, stdio: "ignore" });
+  const remoteCommit = git(competitor, ["rev-parse", "HEAD"]);
+
+  const registry = registryFor(root);
+  const fetched = await requireSuccess(callGit(registry, root, "fetch_remote", { remote: "origin" }));
+  assert.equal(fetched.payload.remote, "origin");
+  assert.ok(fetched.payload.remoteTrackingRefs.some((ref) => ref.name === "origin/dev" && ref.commit === remoteCommit));
+  const before = git(root, ["rev-parse", "HEAD"]);
+  const state = await requireSuccess(callGit(registry, root, "inspect_branch_state", { branchName: "dev" }, "files.read"));
+  assert.equal(state.payload.selectedBranch.upstream, "origin/dev");
+  assert.equal(state.payload.selectedBranch.ahead, 0);
+  assert.equal(state.payload.selectedBranch.behind, 1);
+
+  const updated = await requireSuccess(callGit(registry, root, "fast_forward_branch"));
+  assert.equal(updated.payload.previousCommit, before);
+  assert.equal(updated.payload.commit, remoteCommit);
+  assert.equal(updated.payload.behind, 1);
+  assert.equal(git(root, ["rev-list", "--count", `${before}..${remoteCommit}`]), "1");
+  assert.equal(git(root, ["rev-list", "--parents", "-n", "1", "HEAD"]).split(" ").length, 2);
+
+  fs.writeFileSync(path.join(root, "local-divergence.txt"), "local divergence\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["local-divergence.txt"] }));
+  const localAdvance = await requireSuccess(callGit(registry, root, "commit", { message: "local divergence" }));
+  fs.writeFileSync(path.join(competitor, "remote-divergence.txt"), "remote divergence\n", "utf8");
+  execFileSync("git", ["add", "--", "remote-divergence.txt"], { cwd: competitor, stdio: "ignore" });
+  execFileSync("git", ["commit", "-m", "remote divergence"], { cwd: competitor, stdio: "ignore" });
+  execFileSync("git", ["push", "origin", "dev"], { cwd: competitor, stdio: "ignore" });
+  await requireSuccess(callGit(registry, root, "fetch_remote", { remote: "origin" }));
+  const divergence = await callGit(registry, root, "fast_forward_branch");
+  assert.equal(divergence.ok, false);
+  assert.equal(divergence.error.code, "GIT_EXECUTION_FAILED");
+  assert.equal(divergence.error.details.ahead, 1);
+  assert.equal(divergence.error.details.behind, 1);
+  assert.equal(git(root, ["rev-parse", "HEAD"]), localAdvance.payload.commit);
+});
+
+test("merge_branch carries a hotfix into main and forward into diverged dev, then deletes merged branches safely", async () => {
+  const root = createBoundWorkspace("champcity-git-merge-lifecycle-", true);
+  commitAllFixtureState(root, "fixture baseline");
+  execFileSync("git", ["branch", "main"], { cwd: root, stdio: "ignore" });
+  const registry = registryFor(root);
+
+  await requireSuccess(callGit(registry, root, "switch_branch", { branchName: "main" }));
+  await requireSuccess(callGit(registry, root, "prepare_branch", { branchName: "hotfix/release" }));
+  fs.writeFileSync(path.join(root, "hotfix.txt"), "hotfix\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["hotfix.txt"] }));
+  const hotfix = await requireSuccess(callGit(registry, root, "commit", { message: "release hotfix" }));
+
+  const mergedMain = await requireSuccess(callGit(registry, root, "merge_branch", {
+    sourceBranch: "hotfix/release",
+    targetBranch: "main",
+    mode: "ff-only",
+  }));
+  assert.equal(mergedMain.payload.commit, hotfix.payload.commit);
+  assert.equal(git(root, ["branch", "--show-current"]), "main");
+
+  await requireSuccess(callGit(registry, root, "switch_branch", { branchName: "dev" }));
+  fs.writeFileSync(path.join(root, "dev-only.txt"), "dev line\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["dev-only.txt"] }));
+  const devAdvance = await requireSuccess(callGit(registry, root, "commit", { message: "dev advance" }));
+  const mergedDev = await requireSuccess(callGit(registry, root, "merge_branch", {
+    sourceBranch: "main",
+    targetBranch: "dev",
+    mode: "merge",
+  }));
+  assert.notEqual(mergedDev.payload.commit, hotfix.payload.commit);
+  assert.notEqual(mergedDev.payload.commit, devAdvance.payload.commit);
+  assert.equal(git(root, ["rev-list", "--parents", "-n", "1", "HEAD"]).split(" ").length, 3);
+
+  const deleted = await requireSuccess(callGit(registry, root, "delete_branch", { branchName: "hotfix/release" }));
+  assert.equal(deleted.payload.deletedCommit, hotfix.payload.commit);
+  assert.equal(gitLines(root, ["branch", "--list", "hotfix/release"]).length, 0);
+  const currentDelete = await callGit(registry, root, "delete_branch", { branchName: "dev" });
+  assert.equal(currentDelete.ok, false);
+
+  await requireSuccess(callGit(registry, root, "prepare_branch", { branchName: "unmerged/work" }));
+  fs.writeFileSync(path.join(root, "unmerged.txt"), "unmerged\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["unmerged.txt"] }));
+  await requireSuccess(callGit(registry, root, "commit", { message: "unmerged work" }));
+  await requireSuccess(callGit(registry, root, "switch_branch", { branchName: "dev" }));
+  const unmergedDelete = await callGit(registry, root, "delete_branch", { branchName: "unmerged/work" });
+  assert.equal(unmergedDelete.ok, false);
+  assert.equal(gitLines(root, ["branch", "--list", "unmerged/work"]).length, 1);
+});
+
+test("merge_branch reports conflicts and aborts the merge without resolving or rewriting history", async () => {
+  const root = createBoundWorkspace("champcity-git-merge-conflict-", true);
+  fs.writeFileSync(path.join(root, "shared.txt"), "baseline\n", "utf8");
+  commitAllFixtureState(root, "fixture baseline");
+  const registry = registryFor(root);
+  await requireSuccess(callGit(registry, root, "prepare_branch", { branchName: "hotfix/conflict" }));
+  fs.writeFileSync(path.join(root, "shared.txt"), "hotfix\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["shared.txt"] }));
+  await requireSuccess(callGit(registry, root, "commit", { message: "hotfix conflict side" }));
+  await requireSuccess(callGit(registry, root, "switch_branch", { branchName: "dev" }));
+  fs.writeFileSync(path.join(root, "shared.txt"), "development\n", "utf8");
+  await requireSuccess(callGit(registry, root, "stage_changes", { paths: ["shared.txt"] }));
+  const dev = await requireSuccess(callGit(registry, root, "commit", { message: "dev conflict side" }));
+
+  const conflict = await callGit(registry, root, "merge_branch", {
+    sourceBranch: "hotfix/conflict",
+    targetBranch: "dev",
+    mode: "merge",
+  });
+  assert.equal(conflict.ok, false);
+  assert.equal(conflict.error.code, "GIT_EXECUTION_FAILED");
+  assert.deepEqual(conflict.error.details.conflictingPaths, ["shared.txt"]);
+  assert.equal(conflict.error.details.mergeAborted, true);
+  assert.equal(conflict.error.details.mergeInProgress, false);
+  assert.equal(git(root, ["rev-parse", "HEAD"]), dev.payload.commit);
+  assert.equal(git(root, ["status", "--porcelain=v1"]), "");
+});
+
+test("release tag actions create, verify, and push tags without overwriting local or remote tags", async () => {
+  const root = createBoundWorkspace("champcity-git-tags-", true);
+  commitAllFixtureState(root, "fixture baseline");
+  const baseline = git(root, ["rev-parse", "HEAD"]);
+  const remote = path.join(path.dirname(root), "tag-remote.git");
+  execFileSync("git", ["init", "--bare", remote], { stdio: "ignore" });
+  execFileSync("git", ["remote", "add", "origin", remote], { cwd: root, stdio: "ignore" });
+  const registry = registryFor(root);
+
+  const created = await requireSuccess(callGit(registry, root, "create_tag", {
+    tagName: "v1.2.3",
+    tagType: "annotated",
+    target: "HEAD",
+    message: "Release v1.2.3",
+  }));
+  assert.equal(created.payload.targetCommit, baseline);
+  const verified = await requireSuccess(callGit(registry, root, "verify_tag", { tagName: "v1.2.3" }, "files.read"));
+  assert.equal(verified.payload.tagType, "annotated");
+  assert.equal(verified.payload.targetCommit, baseline);
+  await requireSuccess(callGit(registry, root, "push_tag", { tagName: "v1.2.3", remote: "origin" }));
+  assert.equal(git(remote, ["rev-parse", "refs/tags/v1.2.3^{}"]), baseline);
+
+  const duplicate = await callGit(registry, root, "create_tag", {
+    tagName: "v1.2.3",
+    tagType: "lightweight",
+  });
+  assert.equal(duplicate.ok, false);
+  fs.writeFileSync(path.join(root, "advance.txt"), "advance\n", "utf8");
+  commitAllFixtureState(root, "advance after release");
+  execFileSync("git", ["tag", "--force", "v1.2.3", "HEAD"], { cwd: root, stdio: "ignore" });
+  const remoteOverwrite = await callGit(registry, root, "push_tag", { tagName: "v1.2.3", remote: "origin" });
+  assert.equal(remoteOverwrite.ok, false);
+  assert.equal(git(remote, ["rev-parse", "refs/tags/v1.2.3^{}"]), baseline);
+});
+
 test("push and integrate_to_dev reject divergence without force, merge commits, rebase, or reset", async () => {
   const pushRoot = createBoundWorkspace("champcity-git-push-reject-", true);
   commitAllFixtureState(pushRoot, "fixture baseline");
@@ -223,12 +441,22 @@ test("OAuth, workspace registration, Git-backed state, action, and parameter gat
     action: "stage_changes",
     params: { paths: ["one.txt", "two/*.ts"] },
   }).success, true);
+  assert.equal(tool.inputZodSchema.safeParse({
+    workspaceId: "alpha",
+    action: "merge_branch",
+    params: { sourceBranch: "hotfix/one", targetBranch: "dev", mode: "merge" },
+  }).success, true);
   for (const input of [
     { workspaceId: "alpha", action: "stage_changes", params: { paths: [] } },
     { workspaceId: "alpha", action: "stage_changes", params: { paths: "one.txt" } },
     { workspaceId: "alpha", action: "commit", params: {} },
     { workspaceId: "alpha", action: "push", params: { force: true } },
     { workspaceId: "alpha", action: "integrate_to_dev", params: { branch: "main" } },
+    { workspaceId: "alpha", action: "merge_branch", params: { targetBranch: "dev" } },
+    { workspaceId: "alpha", action: "merge_branch", params: { sourceBranch: "hotfix/one", mode: "force" } },
+    { workspaceId: "alpha", action: "create_tag", params: { tagName: "v1" } },
+    { workspaceId: "alpha", action: "create_tag", params: { tagName: "v1", tagType: "signed" } },
+    { workspaceId: "alpha", action: "delete_branch", params: { branchName: "old", force: true } },
     { workspaceId: "alpha", action: "raw_git", params: { args: ["reset", "--hard"] } },
   ]) {
     assert.equal(tool.inputZodSchema.safeParse(input).success, false);
