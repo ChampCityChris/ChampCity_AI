@@ -753,7 +753,20 @@ test("Agent Harness direct write calls require files.write before provider dispa
       arguments: { workspaceId: "write_denied_project", action: "write_attached_image", params: { relativePath: "planning/denied.png", base64: Buffer.from("png").toString("base64"), mimeType: "image/png" } },
       expectedPath: "planning/denied.png",
     },
-    ...["prepare_branch", "stage_changes", "commit", "push", "integrate_to_dev"].map((action) => ({
+    ...[
+      "prepare_branch",
+      "switch_branch",
+      "fetch_remote",
+      "fast_forward_branch",
+      "merge_branch",
+      "create_tag",
+      "push_tag",
+      "delete_branch",
+      "stage_changes",
+      "commit",
+      "push",
+      "integrate_to_dev",
+    ].map((action) => ({
       name: "git_toolbox",
       arguments: { workspaceId: "write_denied_project", action },
     })),

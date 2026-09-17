@@ -17,10 +17,20 @@ import {
 } from "../repository/repositoryOperations";
 import {
   commitGitChanges,
+  createGitTag,
+  deleteGitBranch,
+  fastForwardGitBranch,
+  fetchGitRemote,
+  inspectGitBranchState,
+  inspectGitHistory,
   integrateGitBranchToDev,
+  mergeGitBranch,
   prepareGitBranch,
   pushGitBranch,
+  pushGitTag,
   stageGitChanges,
+  switchGitBranch,
+  verifyGitTag,
 } from "../repository/gitMutations";
 import {
   applyApprovedPatch,
@@ -48,11 +58,24 @@ export type PublicToolName =
 
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
-type GitMutationAction = "prepare_branch" | "stage_changes" | "commit" | "push" | "integrate_to_dev";
+type GitMutationAction =
+  | "prepare_branch"
+  | "switch_branch"
+  | "fetch_remote"
+  | "fast_forward_branch"
+  | "merge_branch"
+  | "create_tag"
+  | "push_tag"
+  | "delete_branch"
+  | "stage_changes"
+  | "commit"
+  | "push"
+  | "integrate_to_dev";
 
 interface ParamSpec {
   type: ParamType;
   required?: boolean;
+  allowedValues?: readonly string[];
 }
 
 interface ToolActionContract {
@@ -284,11 +307,46 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("diff", {}, ({ context }) => gitDiff(context.root, context.gitBacked)),
         gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("readiness_summary", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
-        gitInspectionAction("inspect_history", {}, ({ context }) => ({
-          gitBacked: context.gitBacked,
-          message: "History inspection is deferred to a later bounded provider.",
+        gitInspectionAction("inspect_branch_state", optionalParams({ branchName: "string" }), ({ context, params }) => (
+          inspectGitBranchState(context.root, stringValue(params.branchName))
+        )),
+        gitInspectionAction("inspect_history", optionalParams({
+          ref: "string",
+          maxCount: "number",
+          ancestor: "string",
+          descendant: "string",
+        }), ({ context, params }) => inspectGitHistory(context.root, {
+          ref: stringValue(params.ref),
+          maxCount: numberValue(params.maxCount),
+          ancestor: stringValue(params.ancestor),
+          descendant: stringValue(params.descendant),
         })),
+        gitInspectionAction("verify_tag", requiredParams({ tagName: "string" }), ({ context, params }) => (
+          verifyGitTag(context.root, requiredString(params.tagName, "tagName"))
+        )),
         gitMutationAction("prepare_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("switch_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("fetch_remote", optionalParams({ remote: "string" })),
+        gitMutationAction("fast_forward_branch", optionalParams({
+          branchName: "string",
+          remote: "string",
+          remoteBranch: "string",
+        })),
+        gitMutationAction("merge_branch", {
+          ...requiredParams({ sourceBranch: "string" }),
+          ...optionalParams({ targetBranch: "string" }),
+          mode: { type: "string", allowedValues: ["ff-only", "merge"] },
+        }),
+        gitMutationAction("create_tag", {
+          ...requiredParams({ tagName: "string" }),
+          tagType: { type: "string", required: true, allowedValues: ["annotated", "lightweight"] },
+          ...optionalParams({ target: "string", message: "string" }),
+        }),
+        gitMutationAction("push_tag", {
+          ...requiredParams({ tagName: "string" }),
+          ...optionalParams({ remote: "string" }),
+        }),
+        gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
         gitMutationAction("commit", requiredParams({ message: "string" })),
         gitMutationAction("push", optionalParams({ remote: "string", branch: "string" })),
@@ -494,7 +552,7 @@ function buildParamsInputSchema(params: Record<string, ParamSpec>): Record<strin
       name,
       spec.type === "string-array"
         ? { type: "array", minItems: 1, maxItems: 256, items: { type: "string", minLength: 1, maxLength: 4_096 } }
-        : { type: spec.type },
+        : { type: spec.type, ...(spec.allowedValues ? { enum: spec.allowedValues } : {}) },
     ])),
   };
 }
@@ -517,7 +575,7 @@ function buildInputZodSchema(actions: ToolActionContract[]): z.ZodType<Record<st
 
 function buildParamsZodSchema(params: Record<string, ParamSpec>): z.ZodType<Record<string, unknown> | undefined> {
   const shape = Object.fromEntries(Object.entries(params).map(([name, spec]) => {
-    const schema = zodParamSchema(spec.type);
+    const schema = zodParamSchema(spec);
     return [name, spec.required ? schema : schema.optional()];
   })) as Record<string, z.ZodType<unknown>>;
   const paramsSchema = z.object(shape).strict();
@@ -527,15 +585,18 @@ function buildParamsZodSchema(params: Record<string, ParamSpec>): z.ZodType<Reco
   return paramsSchema.optional() as z.ZodType<Record<string, unknown> | undefined>;
 }
 
-function zodParamSchema(type: ParamType): z.ZodType<unknown> {
-  if (type === "string-array") {
+function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
+  if (spec.type === "string-array") {
     return z.array(z.string().min(1).max(4_096)).min(1).max(256);
   }
-  if (type === "number") {
+  if (spec.type === "number") {
     return z.number().refine((value) => Number.isFinite(value), "number must be finite");
   }
-  if (type === "boolean") {
+  if (spec.type === "boolean") {
     return z.boolean();
+  }
+  if (spec.allowedValues) {
+    return z.string().refine((value) => spec.allowedValues?.includes(value) === true, "unsupported value");
   }
   return z.string();
 }
@@ -586,6 +647,36 @@ function gitMutationAction(
       switch (name) {
         case "prepare_branch":
           return prepareGitBranch(context.root, requiredString(values.branchName, "branchName"));
+        case "switch_branch":
+          return switchGitBranch(context.root, requiredString(values.branchName, "branchName"));
+        case "fetch_remote":
+          return fetchGitRemote(context.root, stringValue(values.remote));
+        case "fast_forward_branch":
+          return fastForwardGitBranch(context.root, {
+            branch: stringValue(values.branchName),
+            remote: stringValue(values.remote),
+            remoteBranch: stringValue(values.remoteBranch),
+          });
+        case "merge_branch":
+          return mergeGitBranch(context.root, {
+            sourceBranch: requiredString(values.sourceBranch, "sourceBranch"),
+            targetBranch: stringValue(values.targetBranch),
+            mode: stringValue(values.mode),
+          });
+        case "create_tag":
+          return createGitTag(context.root, {
+            tagName: requiredString(values.tagName, "tagName"),
+            tagType: requiredString(values.tagType, "tagType"),
+            target: stringValue(values.target),
+            message: stringValue(values.message),
+          });
+        case "push_tag":
+          return pushGitTag(context.root, {
+            tagName: requiredString(values.tagName, "tagName"),
+            remote: stringValue(values.remote),
+          });
+        case "delete_branch":
+          return deleteGitBranch(context.root, requiredString(values.branchName, "branchName"));
         case "stage_changes":
           return stageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
         case "commit":
@@ -640,6 +731,9 @@ function validateParams(value: unknown, contract: ToolActionContract): Record<st
     }
     if (spec.type === "string" && typeof paramValue === "string" && !paramValue.trim()) {
       throw new AgentHarnessError("INVALID_INPUT", `${name} is required.`);
+    }
+    if (spec.allowedValues && typeof paramValue === "string" && !spec.allowedValues.includes(paramValue)) {
+      throw new AgentHarnessError("INVALID_INPUT", `${name} has an unsupported value.`);
     }
   }
   return params;
