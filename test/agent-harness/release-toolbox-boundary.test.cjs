@@ -303,47 +303,236 @@ test("validation cleans its isolated workspace on timeout and thrown command err
   assert.doesNotMatch(JSON.stringify(failed), /champcity-candidate-validation-/i);
 });
 
-test("publication enforces Git/tag/source/artifact/provider invariants and uploads only canonical inputs", async () => {
-  const version = "0.1.0-beta.3";
-  const tagName = `v${version}`;
-  const commit = "a".repeat(40);
-  const root = createReleaseWorkspace(version);
-  writeCanonicalArtifacts(root, version, Buffer.from("release candidate"));
-  const notesPath = path.join(root, "docs", "release", `RELEASE_NOTES_${version}.md`);
-  fs.mkdirSync(path.dirname(notesPath), { recursive: true });
-  fs.writeFileSync(notesPath, "# Release notes\n");
+test("absent publication creates metadata, re-inspects, uploads the canonical asset, and confirms completion", async () => {
+  const context = createPublicationContext();
   const requests = [];
+  const incomplete = publicationView(context, { assets: [] });
+  const complete = publicationView(context);
   const service = createReleaseToolbox({
-    commandRunner: async (request) => {
-      requests.push(request);
-      switch (request.id) {
-        case "git-origin-url": return receipt(request.id, { stdout: "git@github.com:ChampCityChris/ChampCity_AI.git\n" });
-        case "gh-version": return receipt(request.id, { stdout: "gh version 2.test\n" });
-        case "gh-auth-status": return receipt(request.id);
-        case "git-head": return receipt(request.id, { stdout: `${commit}\n` });
-        case "git-local-tag-target": return receipt(request.id, { stdout: `${commit}\n` });
-        case "git-remote-tag-target": return receipt(request.id, { stdout: `${commit}\trefs/tags/${tagName}\n` });
-        case "git-status-porcelain": return receipt(request.id);
-        case "gh-release-view": return receipt(request.id, { status: "nonzero", exitCode: 1, stderr: "release not found\n" });
-        case "gh-release-create": return receipt(request.id, { stdout: `https://github.com/ChampCityChris/ChampCity_AI/releases/tag/${tagName}\n` });
-        default: throw new Error(`Unexpected command ${request.id}`);
-      }
-    },
+    commandRunner: publicationRunner({
+      ...context,
+      requests,
+      releaseViews: ["absent", incomplete, complete],
+    }),
   });
 
-  await assert.rejects(() => service.publishGithubRelease(root, true, "v9.9.9"), (error) => error.code === "INVALID_INPUT");
-  const published = await service.publishGithubRelease(root, true, tagName);
-  assert.equal(published.tag, tagName);
-  assert.equal(published.sourceCommit, commit);
-  assert.equal(published.installerFilename, `ChampCityAI-Setup-${version}.exe`);
-  assert.equal(published.localInstallerSha256, sha256(Buffer.from("release candidate")));
+  await assert.rejects(
+    () => service.publishGithubRelease(context.root, true, "v9.9.9"),
+    (error) => error.code === "INVALID_INPUT",
+  );
+  const published = await service.publishGithubRelease(context.root, true, context.tagName);
+  assert.equal(published.tag, context.tagName);
+  assert.equal(published.sourceCommit, context.commit);
+  assert.equal(published.installerFilename, context.assetFilename);
+  assert.equal(published.localInstallerSha256, sha256(context.installerBytes));
+  assert.equal(published.publicationState, "complete");
+  assert.equal(published.releaseCreated, true);
+  assert.equal(published.assetUploaded, true);
+  assert.equal(published.assetAlreadyPresent, false);
+  assert.equal(published.verificationRequired, true);
+  assert.deepEqual(
+    requests.filter((request) => request.id.startsWith("gh-release-")).map((request) => request.id),
+    ["gh-release-view", "gh-release-create", "gh-release-view", "gh-release-upload", "gh-release-view"],
+  );
   const createRequest = requests.find((request) => request.id === "gh-release-create");
   assert.equal(createRequest.repository, "ChampCityChris/ChampCity_AI");
-  assert.equal(createRequest.installerRelativePath, `release/ChampCityAI-Setup-${version}.exe`);
-  assert.equal(createRequest.notesRelativePath, `docs/release/RELEASE_NOTES_${version}.md`);
-  assert.equal(createRequest.title, `ChampCity A/I Desktop ${version}`);
+  assert.equal(createRequest.notesRelativePath, `docs/release/RELEASE_NOTES_${context.version}.md`);
+  assert.equal(createRequest.title, `ChampCity A/I Desktop ${context.version}`);
   assert.equal(createRequest.prerelease, true);
-  assert.equal(Object.hasOwn(createRequest, "assets"), false);
+  assert.equal(Object.hasOwn(createRequest, "installerPath"), false);
+  assert.equal(Object.hasOwn(createRequest, "installerRelativePath"), false);
+  const uploadRequest = requests.find((request) => request.id === "gh-release-upload");
+  assert.equal(uploadRequest.installerRelativePath, `release/${context.assetFilename}`);
+  assert.equal(path.normalize(uploadRequest.installerPath), path.join(context.root, "release", context.assetFilename));
+  assert.deepEqual(published.providerReceipt.command.args, [
+    "release",
+    "upload",
+    context.tagName,
+    `release/${context.assetFilename}`,
+    "--repo",
+    "ChampCityChris/ChampCity_AI",
+  ]);
+  assert.doesNotMatch(JSON.stringify(published.providerReceipts), new RegExp(escapeRegex(context.root), "i"));
+  assert.doesNotMatch(JSON.stringify(published.providerReceipts), /--clobber/i);
+});
+
+test("exact incomplete publication resumes with upload only and exact complete publication is idempotent", async () => {
+  const incompleteContext = createPublicationContext();
+  const incompleteRequests = [];
+  const incompleteService = createReleaseToolbox({
+    commandRunner: publicationRunner({
+      ...incompleteContext,
+      requests: incompleteRequests,
+      releaseViews: [
+        publicationView(incompleteContext, { body: "# Release notes\r\n", assets: [] }),
+        publicationView(incompleteContext),
+      ],
+    }),
+  });
+  const recovered = await incompleteService.publishGithubRelease(
+    incompleteContext.root,
+    true,
+    incompleteContext.tagName,
+  );
+  assert.equal(recovered.releaseCreated, false);
+  assert.equal(recovered.assetUploaded, true);
+  assert.deepEqual(
+    incompleteRequests.filter((request) => request.id === "gh-release-create" || request.id === "gh-release-upload")
+      .map((request) => request.id),
+    ["gh-release-upload"],
+  );
+
+  const completeContext = createPublicationContext();
+  const completeRequests = [];
+  const completeService = createReleaseToolbox({
+    commandRunner: publicationRunner({
+      ...completeContext,
+      requests: completeRequests,
+      releaseViews: [publicationView(completeContext)],
+    }),
+  });
+  const idempotent = await completeService.publishGithubRelease(completeContext.root, true, completeContext.tagName);
+  assert.equal(idempotent.releaseCreated, false);
+  assert.equal(idempotent.assetUploaded, false);
+  assert.equal(idempotent.assetAlreadyPresent, true);
+  assert.equal(idempotent.providerReceipt, null);
+  assert.deepEqual(idempotent.providerReceipts, []);
+  assert.equal(
+    completeRequests.some((request) => request.id === "gh-release-create" || request.id === "gh-release-upload"),
+    false,
+  );
+});
+
+test("ineligible existing release metadata and asset states fail closed without mutation", async () => {
+  const cases = [
+    ["wrong tag", (context) => publicationView(context, { tagName: "v0.1.0-wrong" })],
+    ["wrong title", (context) => publicationView(context, { name: "Wrong title" })],
+    ["wrong prerelease state", (context) => publicationView(context, { isPrerelease: false })],
+    ["draft release", (context) => publicationView(context, { isDraft: true })],
+    ["wrong notes", (context) => publicationView(context, { body: "different notes\n" })],
+    ["unexpected asset", (context) => publicationView(context, { assets: [{ name: "unexpected.exe" }] })],
+    ["canonical plus unexpected asset", (context) => publicationView(context, {
+      assets: [{ name: context.assetFilename }, { name: "unexpected.exe" }],
+    })],
+    ["duplicate canonical assets", (context) => publicationView(context, {
+      assets: [{ name: context.assetFilename }, { name: context.assetFilename }],
+    })],
+    ["malformed asset metadata", (context) => publicationView(context, { assets: [{}] })],
+    ["unparsable release", () => "{not-json"],
+  ];
+
+  for (const [label, makeView] of cases) {
+    const context = createPublicationContext();
+    const requests = [];
+    const service = createReleaseToolbox({
+      commandRunner: publicationRunner({ ...context, requests, releaseViews: [makeView(context)] }),
+    });
+    await assert.rejects(
+      () => service.publishGithubRelease(context.root, true, context.tagName),
+      (error) => error.code === "RELEASE_ALREADY_EXISTS" && /ineligible/i.test(error.message),
+      label,
+    );
+    assert.equal(
+      requests.some((request) => request.id === "gh-release-create" || request.id === "gh-release-upload"),
+      false,
+      label,
+    );
+  }
+});
+
+test("explicit retries recover safely after ambiguous create and upload timeouts", async () => {
+  const createContext = createPublicationContext();
+  const createRequests = [];
+  const createService = createReleaseToolbox({
+    commandRunner: publicationRunner({
+      ...createContext,
+      requests: createRequests,
+      releaseViews: [
+        "absent",
+        publicationView(createContext, { assets: [] }),
+        publicationView(createContext),
+      ],
+      createResults: [{ status: "timeout", exitCode: null }],
+    }),
+  });
+  await assert.rejects(
+    () => createService.publishGithubRelease(createContext.root, true, createContext.tagName),
+    (error) => error.code === "RELEASE_TIMEOUT",
+  );
+  const createRecovered = await createService.publishGithubRelease(createContext.root, true, createContext.tagName);
+  assert.equal(createRecovered.releaseCreated, false);
+  assert.equal(createRecovered.assetUploaded, true);
+  assert.equal(createRequests.filter((request) => request.id === "gh-release-create").length, 1);
+
+  const incompleteContext = createPublicationContext();
+  const incompleteRequests = [];
+  const incompleteService = createReleaseToolbox({
+    commandRunner: publicationRunner({
+      ...incompleteContext,
+      requests: incompleteRequests,
+      releaseViews: [
+        publicationView(incompleteContext, { assets: [] }),
+        publicationView(incompleteContext, { assets: [] }),
+        publicationView(incompleteContext),
+      ],
+      uploadResults: [{ status: "timeout", exitCode: null }, {}],
+    }),
+  });
+  await assert.rejects(
+    () => incompleteService.publishGithubRelease(incompleteContext.root, true, incompleteContext.tagName),
+    (error) => error.code === "RELEASE_TIMEOUT",
+  );
+  const uploadRecovered = await incompleteService.publishGithubRelease(
+    incompleteContext.root,
+    true,
+    incompleteContext.tagName,
+  );
+  assert.equal(uploadRecovered.assetUploaded, true);
+  assert.equal(incompleteRequests.filter((request) => request.id === "gh-release-upload").length, 2);
+
+  const completeContext = createPublicationContext();
+  const completeRequests = [];
+  const completeService = createReleaseToolbox({
+    commandRunner: publicationRunner({
+      ...completeContext,
+      requests: completeRequests,
+      releaseViews: [publicationView(completeContext, { assets: [] }), publicationView(completeContext)],
+      uploadResults: [{ status: "timeout", exitCode: null }],
+    }),
+  });
+  await assert.rejects(
+    () => completeService.publishGithubRelease(completeContext.root, true, completeContext.tagName),
+    (error) => error.code === "RELEASE_TIMEOUT",
+  );
+  const completeRecovered = await completeService.publishGithubRelease(
+    completeContext.root,
+    true,
+    completeContext.tagName,
+  );
+  assert.equal(completeRecovered.assetUploaded, false);
+  assert.equal(completeRecovered.assetAlreadyPresent, true);
+  assert.equal(completeRequests.filter((request) => request.id === "gh-release-upload").length, 1);
+});
+
+test("publication success requires complete post-upload re-inspection", async () => {
+  const context = createPublicationContext();
+  const requests = [];
+  const service = createReleaseToolbox({
+    commandRunner: publicationRunner({
+      ...context,
+      requests,
+      releaseViews: [publicationView(context, { assets: [] }), publicationView(context, { assets: [] })],
+    }),
+  });
+  await assert.rejects(
+    () => service.publishGithubRelease(context.root, true, context.tagName),
+    (error) => error.code === "RELEASE_PROVIDER_FAILED" && /after upload/i.test(error.message),
+  );
+  assert.equal(requests.filter((request) => request.id === "gh-release-view").length, 2);
+});
+
+test("publication preserves Git, source, artifact, and provider prerequisites", async () => {
+  const { root, version, tagName, commit, notesPath } = createPublicationContext();
 
   const dirtyService = createReleaseToolbox({
     commandRunner: publicationRunner({ root, version, tagName, commit, status: " M package.json\n" }),
@@ -365,13 +554,6 @@ test("publication enforces Git/tag/source/artifact/provider invariants and uploa
   await assert.rejects(
     () => remoteMismatchService.publishGithubRelease(root, true, tagName),
     (error) => error.code === "RELEASE_INVARIANT_FAILED" && /origin release tag/i.test(error.message),
-  );
-  const existingService = createReleaseToolbox({
-    commandRunner: publicationRunner({ root, version, tagName, commit, existing: true }),
-  });
-  await assert.rejects(
-    () => existingService.publishGithubRelease(root, true, tagName),
-    (error) => error.code === "RELEASE_ALREADY_EXISTS",
   );
   const missingCliService = createReleaseToolbox({
     commandRunner: publicationRunner({ root, version, tagName, commit, ghMissing: true }),
@@ -454,12 +636,23 @@ test("the production adapter uses shell-false fixed commands and redacts reposit
   assert.match(source, /node\.exe/);
   assert.match(source, /process\.release/);
   assert.doesNotMatch(source, /ELECTRON_RUN_AS_NODE:\s*["']1["']/);
+  assert.match(source, /case "gh-release-upload":[\s\S]*?30 \* 60_000/);
+  assert.doesNotMatch(source, /--clobber/);
   assert.match(source, /"<OS_TEMP>"/);
   assert.match(source, /"<COMMAND_CWD>"/);
 });
 
 function publicationRunner(options) {
+  let releaseViewIndex = 0;
+  let createResultIndex = 0;
+  let uploadResultIndex = 0;
+  const releaseViews = options.releaseViews ?? [
+    "absent",
+    publicationView(options, { assets: [] }),
+    publicationView(options),
+  ];
   return async (request) => {
+    options.requests?.push(request);
     switch (request.id) {
       case "git-origin-url": return receipt(request.id, { stdout: "https://github.com/ChampCityChris/ChampCity_AI.git\n" });
       case "gh-version": return receipt(request.id, options.ghMissing ? { status: "spawn-error", exitCode: null } : {});
@@ -468,12 +661,74 @@ function publicationRunner(options) {
       case "git-local-tag-target": return receipt(request.id, { stdout: `${options.localCommit ?? options.commit}\n` });
       case "git-remote-tag-target": return receipt(request.id, { stdout: `${options.remoteCommit ?? options.commit}\trefs/tags/${options.tagName}\n` });
       case "git-status-porcelain": return receipt(request.id, { stdout: options.status ?? "" });
-      case "gh-release-view": return options.existing
-        ? receipt(request.id, { stdout: JSON.stringify({ url: "https://github.com/example/release", tagName: options.tagName, assets: [] }) })
-        : receipt(request.id, { status: "nonzero", exitCode: 1, stderr: "release not found\n" });
-      case "gh-release-create": return receipt(request.id, { stdout: `https://github.com/ChampCityChris/ChampCity_AI/releases/tag/${options.tagName}\n` });
+      case "gh-release-view": {
+        const view = releaseViews[releaseViewIndex++];
+        if (view === undefined) {
+          throw new Error("Unexpected extra GitHub Release inspection");
+        }
+        return view === "absent"
+          ? receipt(request.id, { status: "nonzero", exitCode: 1, stderr: "release not found\n" })
+          : receipt(request.id, { stdout: typeof view === "string" ? view : JSON.stringify(view) });
+      }
+      case "gh-release-create": {
+        const overrides = options.createResults?.[createResultIndex++] ?? {};
+        return receipt(request.id, {
+          command: {
+            executable: "gh",
+            args: [
+              "release", "create", options.tagName, "--repo", "ChampCityChris/ChampCity_AI",
+              "--title", `ChampCity A/I Desktop ${options.version}`,
+              "--notes-file", `docs/release/RELEASE_NOTES_${options.version}.md`, "--verify-tag", "--prerelease",
+            ],
+          },
+          ...overrides,
+        });
+      }
+      case "gh-release-upload": {
+        const overrides = options.uploadResults?.[uploadResultIndex++] ?? {};
+        return receipt(request.id, {
+          command: {
+            executable: "gh",
+            args: [
+              "release", "upload", options.tagName, request.installerRelativePath,
+              "--repo", "ChampCityChris/ChampCity_AI",
+            ],
+          },
+          ...overrides,
+        });
+      }
       default: throw new Error(`Unexpected command ${request.id}`);
     }
+  };
+}
+
+function createPublicationContext(version = "0.1.0-beta.3") {
+  const tagName = `v${version}`;
+  const commit = "a".repeat(40);
+  const root = createReleaseWorkspace(version);
+  const installerBytes = Buffer.from("release candidate");
+  const assetFilename = `ChampCityAI-Setup-${version}.exe`;
+  const notes = "# Release notes\n";
+  const notesPath = path.join(root, "docs", "release", `RELEASE_NOTES_${version}.md`);
+  writeCanonicalArtifacts(root, version, installerBytes);
+  fs.mkdirSync(path.dirname(notesPath), { recursive: true });
+  fs.writeFileSync(notesPath, notes);
+  return { root, version, tagName, commit, installerBytes, assetFilename, notes, notesPath };
+}
+
+function publicationView(context, overrides = {}) {
+  const version = context.version;
+  const tagName = context.tagName ?? `v${version}`;
+  const assetFilename = context.assetFilename ?? `ChampCityAI-Setup-${version}.exe`;
+  return {
+    url: `https://github.com/ChampCityChris/ChampCity_AI/releases/tag/${tagName}`,
+    tagName,
+    name: `ChampCity A/I Desktop ${version}`,
+    isPrerelease: version.includes("-"),
+    isDraft: false,
+    body: context.notes ?? "# Release notes\n",
+    assets: [{ name: assetFilename }],
+    ...overrides,
   };
 }
 

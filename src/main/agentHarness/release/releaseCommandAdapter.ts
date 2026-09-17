@@ -26,6 +26,7 @@ export type ReleaseCommandId =
   | "gh-auth-status"
   | "gh-release-view"
   | "gh-release-create"
+  | "gh-release-upload"
   | "gh-release-download";
 
 interface BaseReleaseCommandRequest {
@@ -63,11 +64,16 @@ export type ReleaseCommandRequest =
       repository: string;
       tagName: string;
       title: string;
-      installerPath: string;
-      installerRelativePath: string;
       notesPath: string;
       notesRelativePath: string;
       prerelease: boolean;
+    })
+  | (BaseReleaseCommandRequest & {
+      id: "gh-release-upload";
+      repository: string;
+      tagName: string;
+      installerPath: string;
+      installerRelativePath: string;
     })
   | (BaseReleaseCommandRequest & {
       id: "gh-release-download";
@@ -162,7 +168,15 @@ function commandSpecification(request: ReleaseCommandRequest): SpawnSpecificatio
       return spec(
         "gh",
         "gh",
-        ["release", "view", request.tagName, "--repo", request.repository, "--json", "url,tagName,assets"],
+        [
+          "release",
+          "view",
+          request.tagName,
+          "--repo",
+          request.repository,
+          "--json",
+          "url,tagName,name,isPrerelease,isDraft,body,assets",
+        ],
         2 * 60_000,
       );
     case "gh-release-create": {
@@ -170,7 +184,6 @@ function commandSpecification(request: ReleaseCommandRequest): SpawnSpecificatio
         "release",
         "create",
         request.tagName,
-        request.installerPath,
         "--repo",
         request.repository,
         "--title",
@@ -183,7 +196,6 @@ function commandSpecification(request: ReleaseCommandRequest): SpawnSpecificatio
         "release",
         "create",
         request.tagName,
-        request.installerRelativePath,
         "--repo",
         request.repository,
         "--title",
@@ -198,6 +210,14 @@ function commandSpecification(request: ReleaseCommandRequest): SpawnSpecificatio
       }
       return spec("gh", "gh", args, 5 * 60_000, publicArgs);
     }
+    case "gh-release-upload":
+      return spec(
+        "gh",
+        "gh",
+        ["release", "upload", request.tagName, request.installerPath, "--repo", request.repository],
+        30 * 60_000,
+        ["release", "upload", request.tagName, request.installerRelativePath, "--repo", request.repository],
+      );
     case "gh-release-download":
       return spec(
         "gh",

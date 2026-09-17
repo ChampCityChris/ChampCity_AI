@@ -58,6 +58,29 @@ export interface ReleaseToolbox {
   verifyGithubRelease(root: string, gitBacked: boolean, tagName: string): Promise<Record<string, unknown>>;
 }
 
+interface ExpectedGithubRelease {
+  tagName: string;
+  title: string;
+  prerelease: boolean;
+  notes: string;
+  assetFilename: string;
+}
+
+interface GithubReleaseView {
+  url: string;
+  tagName: string;
+  title: string;
+  prerelease: boolean;
+  draft: boolean;
+  notes: string;
+  assets: string[];
+}
+
+type GithubReleaseState =
+  | { kind: "absent" }
+  | { kind: "incomplete"; release: GithubReleaseView }
+  | { kind: "complete"; release: GithubReleaseView };
+
 export function createReleaseToolbox(options: {
   commandRunner?: ReleaseCommandRunner;
 } = {}): ReleaseToolbox {
@@ -278,43 +301,97 @@ export function createReleaseToolbox(options: {
           relativePath: notesRelativePath,
         });
       }
-
-      const existing = await runCommand({ root, id: "gh-release-view", repository, tagName });
-      if (existing.status === "succeeded") {
-        throw new AgentHarnessError("RELEASE_ALREADY_EXISTS", "A GitHub Release already exists for this tag.");
-      }
-      if (!isReleaseNotFound(existing)) {
-        throw commandError("GitHub Release existence could not be verified.", existing);
-      }
-
       const title = `ChampCity A/I Desktop ${packageVersion}`;
-      const providerReceipt = await runCommand({
-        root,
-        id: "gh-release-create",
-        repository,
+      let canonicalNotes: string;
+      try {
+        canonicalNotes = await fs.promises.readFile(notesPath, "utf8");
+      } catch {
+        throw new AgentHarnessError("RELEASE_ARTIFACT_INVALID", "Canonical release notes could not be read.", {
+          relativePath: notesRelativePath,
+        });
+      }
+      const assetFilename = path.posix.basename(installer.relativePath);
+      const expectedRelease: ExpectedGithubRelease = {
         tagName,
         title,
+        prerelease: hasPrereleaseComponent(packageVersion),
+        notes: canonicalNotes,
+        assetFilename,
+      };
+      const providerReceipts: ReleaseCommandReceipt[] = [];
+      let releaseCreated = false;
+      let state = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+
+      if (state.kind === "absent") {
+        const createReceipt = await runCommand({
+          root,
+          id: "gh-release-create",
+          repository,
+          tagName,
+          title,
+          notesPath,
+          notesRelativePath,
+          prerelease: expectedRelease.prerelease,
+        });
+        providerReceipts.push(createReceipt);
+        requireSuccessfulCommand(createReceipt, "GitHub Release metadata creation failed.");
+        releaseCreated = true;
+        state = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+        if (state.kind === "absent") {
+          throw new AgentHarnessError(
+            "RELEASE_PROVIDER_FAILED",
+            "GitHub Release metadata was not observable after successful creation.",
+          );
+        }
+      }
+
+      if (state.kind === "complete") {
+        return {
+          tag: tagName,
+          sourceCommit,
+          releaseUrl: state.release.url,
+          installerFilename: assetFilename,
+          localInstallerSha256: installer.sha256,
+          publicationState: "complete",
+          releaseCreated,
+          assetUploaded: false,
+          assetAlreadyPresent: true,
+          verificationRequired: true,
+          providerReceipt: providerReceipts.at(-1) ?? null,
+          providerReceipts,
+        };
+      }
+
+      const uploadReceipt = await runCommand({
+        root,
+        id: "gh-release-upload",
+        repository,
+        tagName,
         installerPath: path.join(root, ...installer.relativePath.split("/")),
         installerRelativePath: installer.relativePath,
-        notesPath,
-        notesRelativePath,
-        prerelease: hasPrereleaseComponent(packageVersion),
       });
-      requireSuccessfulCommand(providerReceipt, "GitHub Release publication failed.");
-      const releaseUrl = extractReleaseUrl(providerReceipt.stdout);
-      if (!releaseUrl) {
+      providerReceipts.push(uploadReceipt);
+      requireSuccessfulCommand(uploadReceipt, "GitHub Release installer upload failed.");
+      const confirmed = await inspectGithubReleaseState(root, repository, expectedRelease, runCommand);
+      if (confirmed.kind !== "complete") {
         throw new AgentHarnessError(
           "RELEASE_PROVIDER_FAILED",
-          "GitHub CLI did not return a release URL after publication.",
+          "GitHub Release did not contain exactly the canonical installer after upload.",
         );
       }
       return {
         tag: tagName,
         sourceCommit,
-        releaseUrl,
-        installerFilename: path.posix.basename(installer.relativePath),
+        releaseUrl: confirmed.release.url,
+        installerFilename: assetFilename,
         localInstallerSha256: installer.sha256,
-        providerReceipt,
+        publicationState: "complete",
+        releaseCreated,
+        assetUploaded: true,
+        assetAlreadyPresent: false,
+        verificationRequired: true,
+        providerReceipt: uploadReceipt,
+        providerReceipts,
       };
     },
 
@@ -623,6 +700,70 @@ function isReleaseNotFound(receipt: ReleaseCommandReceipt): boolean {
   return receipt.status === "nonzero" && /(?:release not found|no release found|not a valid release)/i.test(receipt.stderr);
 }
 
+async function inspectGithubReleaseState(
+  root: string,
+  repository: string,
+  expected: ExpectedGithubRelease,
+  runCommand: ReleaseCommandRunner,
+): Promise<GithubReleaseState> {
+  const receipt = await runCommand({
+    root,
+    id: "gh-release-view",
+    repository,
+    tagName: expected.tagName,
+  });
+  if (isReleaseNotFound(receipt)) {
+    return { kind: "absent" };
+  }
+  if (receipt.status !== "succeeded") {
+    throw commandError("GitHub Release state could not be inspected.", receipt);
+  }
+  if (receipt.stdoutTruncated) {
+    throw ineligibleExistingRelease("release metadata output was truncated");
+  }
+
+  let release: GithubReleaseView;
+  try {
+    release = parsePublicationReleaseView(receipt.stdout);
+  } catch {
+    throw ineligibleExistingRelease("release metadata could not be parsed");
+  }
+  if (release.tagName !== expected.tagName) {
+    throw ineligibleExistingRelease("tag does not match");
+  }
+  if (release.title !== expected.title) {
+    throw ineligibleExistingRelease("title does not match");
+  }
+  if (release.prerelease !== expected.prerelease) {
+    throw ineligibleExistingRelease("prerelease state does not match");
+  }
+  if (release.draft) {
+    throw ineligibleExistingRelease("release is a draft");
+  }
+  if (normalizeReleaseNotes(release.notes) !== normalizeReleaseNotes(expected.notes)) {
+    throw ineligibleExistingRelease("release notes do not match");
+  }
+  if (release.assets.length === 0) {
+    return { kind: "incomplete", release };
+  }
+  if (release.assets.length === 1 && release.assets[0] === expected.assetFilename) {
+    return { kind: "complete", release };
+  }
+  throw ineligibleExistingRelease("release assets are not exactly the canonical installer state");
+}
+
+function ineligibleExistingRelease(reason: string): AgentHarnessError {
+  return new AgentHarnessError(
+    "RELEASE_ALREADY_EXISTS",
+    "The existing GitHub Release is ineligible for safe publication recovery.",
+    { reason },
+  );
+}
+
+function normalizeReleaseNotes(value: string): string {
+  return value.replace(/\r\n?/g, "\n");
+}
+
 function parseReleaseView(output: string): { url: string; tagName: string; assets: string[] } {
   try {
     const parsed = JSON.parse(output) as {
@@ -638,19 +779,49 @@ function parseReleaseView(output: string): { url: string; tagName: string; asset
     ) {
       throw new Error("invalid release metadata");
     }
+    const assets = parsed.assets.map((asset) => {
+      if (!asset || typeof asset !== "object" || typeof asset.name !== "string") {
+        throw new Error("invalid release asset metadata");
+      }
+      return asset.name;
+    });
     return {
       url: parsed.url,
       tagName: parsed.tagName,
-      assets: parsed.assets.flatMap((asset) => typeof asset.name === "string" ? [asset.name] : []),
+      assets,
     };
   } catch {
     throw new AgentHarnessError("RELEASE_PROVIDER_FAILED", "GitHub CLI returned invalid release metadata.");
   }
 }
 
-function extractReleaseUrl(output: string): string | null {
-  const candidate = output.split(/\r?\n/).map((line) => line.trim()).find((line) => /^https:\/\/github\.com\//i.test(line));
-  return candidate ?? null;
+function parsePublicationReleaseView(output: string): GithubReleaseView {
+  const basic = parseReleaseView(output);
+  try {
+    const parsed = JSON.parse(output) as {
+      name?: unknown;
+      isPrerelease?: unknown;
+      isDraft?: unknown;
+      body?: unknown;
+    };
+    if (
+      typeof parsed.name !== "string" ||
+      typeof parsed.isPrerelease !== "boolean" ||
+      typeof parsed.isDraft !== "boolean" ||
+      typeof parsed.body !== "string"
+    ) {
+      throw new Error("invalid publication metadata");
+    }
+    return {
+      ...basic,
+      title: parsed.name,
+      prerelease: parsed.isPrerelease,
+      draft: parsed.isDraft,
+      notes: parsed.body,
+    };
+  } catch {
+    throw new AgentHarnessError("RELEASE_PROVIDER_FAILED", "GitHub CLI returned invalid release metadata.");
+  }
 }
 
 function requireSuccessfulCommand(receipt: ReleaseCommandReceipt, message: string): void {
