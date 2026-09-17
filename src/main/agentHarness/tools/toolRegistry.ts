@@ -2,6 +2,7 @@ import { AgentHarnessError, toBoundedError } from "../core/errors";
 import { writeAttachedImage } from "../repository/attachedImages";
 import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
 import { readIssueScreenshotEvidence } from "../repository/issueScreenshotEvidence";
+import { copyRepositoryFile, moveRepositoryFile } from "../repository/fileOperations";
 import {
   gitDiff,
   gitStatus,
@@ -266,6 +267,22 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
             gitBacked: context.gitBacked,
           }),
         ),
+        writeAction("copy_file", "artifact-write", requiredParams({
+          sourceRelativePath: "string",
+          destinationRelativePath: "string",
+        }), ({ context, params }) => copyRepositoryFile(
+          context.root,
+          requiredString(params.sourceRelativePath, "sourceRelativePath"),
+          requiredString(params.destinationRelativePath, "destinationRelativePath"),
+        )),
+        writeAction("move_file", "artifact-write", requiredParams({
+          sourceRelativePath: "string",
+          destinationRelativePath: "string",
+        }), ({ context, params }) => moveRepositoryFile(
+          context.root,
+          requiredString(params.sourceRelativePath, "sourceRelativePath"),
+          requiredString(params.destinationRelativePath, "destinationRelativePath"),
+        )),
         writeAction("write_markdown_artifact", "artifact-write", {
           ...requiredParams({ relativePath: "string", content: "string" }),
           ...optionalParams({ overwrite: "boolean" }),
