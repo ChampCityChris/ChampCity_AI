@@ -26,6 +26,7 @@ import {
   applyApprovedPatch,
   registerPatchProposal,
 } from "../repository/patches";
+import { createReleaseToolbox, type ReleaseToolbox } from "../release/releaseToolbox";
 import {
   type AgentHarnessWorkspaceAccessProvider,
   type AgentHarnessWorkspaceContext,
@@ -40,6 +41,7 @@ export type PublicToolName =
   | "artifact_toolbox"
   | "diagnostics_toolbox"
   | "integration_toolbox"
+  | "release_toolbox"
   | "browser_toolbox"
   | "knowledge_toolbox"
   | "workspace_write_attached_image";
@@ -112,10 +114,12 @@ interface RegistryOptions {
   workspaceAccess: AgentHarnessWorkspaceAccessProvider;
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
+  releaseToolbox?: ReleaseToolbox;
 }
 
 export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentHarnessToolRegistry {
-  const providers = createToolProviders();
+  const releaseToolbox = options.releaseToolbox ?? createReleaseToolbox();
+  const providers = createToolProviders(releaseToolbox);
   const providerByName = new Map(providers.map((provider) => [provider.name, provider]));
   return {
     listTools: (scope = "files.read files.write") => providers
@@ -172,7 +176,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
   };
 }
 
-function createToolProviders(): ToolProvider[] {
+function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
   return [
     {
       name: "repo_toolbox",
@@ -360,7 +364,7 @@ function createToolProviders(): ToolProvider[] {
             registry: {
               state: "registry-only",
               fingerprint: null,
-              tools: createToolProviders().map((provider) => ({
+              tools: createToolProviders(releaseToolbox).map((provider) => ({
                 name: provider.name,
                 actions: provider.actions.map((action) => action.name),
               })),
@@ -373,6 +377,42 @@ function createToolProviders(): ToolProvider[] {
             },
           };
         }),
+      ],
+    },
+    {
+      name: "release_toolbox",
+      title: "release_toolbox",
+      description: "ChampCity A/I bounded Desktop release mechanics and GitHub Release provider.",
+      actions: [
+        releaseInspectionAction("status", {}, ({ context }) => (
+          releaseToolbox.status(context.root, context.gitBacked)
+        )),
+        releaseMutationAction("set_version", requiredParams({ version: "string" }), ({ context, params }) => (
+          releaseToolbox.setVersion(context.root, requiredString(params.version, "version"))
+        )),
+        releaseMutationAction("validate_candidate", {}, ({ context }) => (
+          releaseToolbox.validateCandidate(context.root)
+        )),
+        releaseMutationAction("build_windows_release", {}, ({ context }) => (
+          releaseToolbox.buildWindowsRelease(context.root)
+        )),
+        releaseInspectionAction("inspect_release_artifact", {}, ({ context }) => (
+          releaseToolbox.inspectReleaseArtifact(context.root)
+        )),
+        releaseMutationAction("publish_github_release", requiredParams({ tagName: "string" }), ({ context, params }) => (
+          releaseToolbox.publishGithubRelease(
+            context.root,
+            context.gitBacked,
+            requiredString(params.tagName, "tagName"),
+          )
+        )),
+        releaseInspectionAction("verify_github_release", requiredParams({ tagName: "string" }), ({ context, params }) => (
+          releaseToolbox.verifyGithubRelease(
+            context.root,
+            context.gitBacked,
+            requiredString(params.tagName, "tagName"),
+          )
+        )),
       ],
     },
     statusOnlyProvider("integration_toolbox"),
@@ -506,6 +546,22 @@ function readAction(name: string, params: Record<string, ParamSpec>, dispatch: T
 
 function gitInspectionAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
   return { name, kind: "git-inspection", requiredScope: "files.read", params, dispatch };
+}
+
+function releaseInspectionAction(
+  name: string,
+  params: Record<string, ParamSpec>,
+  dispatch: ToolActionContract["dispatch"],
+): ToolActionContract {
+  return { name, kind: "release-inspection", requiredScope: "files.read", params, dispatch };
+}
+
+function releaseMutationAction(
+  name: string,
+  params: Record<string, ParamSpec>,
+  dispatch: ToolActionContract["dispatch"],
+): ToolActionContract {
+  return { name, kind: "release-mutation", requiredScope: "files.write", params, dispatch };
 }
 
 function writeAction(

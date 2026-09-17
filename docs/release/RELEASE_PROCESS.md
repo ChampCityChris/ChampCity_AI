@@ -20,6 +20,18 @@ accepted source baseline
 
 A Work Card does not itself grant permission to commit, push, tag, create a release, or publish assets. Each Git and release action requires explicit Operator authority.
 
+## Bounded MCP release mechanics
+
+The public `release_toolbox` MCP provider may perform only the fixed release operations documented here against the exact registered repository root. It is an execution façade, not an approval system, and it does not accept raw commands, executables, arguments, working directories, environment overrides, shell fragments, or provider credentials.
+
+Its read-scoped actions are `status`, `inspect_release_artifact`, and `verify_github_release`. Its write-scoped actions are `set_version`, `validate_candidate`, `build_windows_release`, and `publish_github_release`. Validation and packaging use fixed command sequences with `shell: false`, bounded output, fixed deadlines, and attributable receipts. Installer hashing is performed in the Desktop Node process and is limited to the canonical installer derived from the current package version.
+
+On Windows, npm-backed release operations require a standalone Node/npm installation. ChampCity resolves a directly executable `node.exe` and the bounded `node_modules/npm/bin/npm-cli.js` entry from the same fixed installation root, verifies that the executable identifies as standalone Node rather than Electron, and fails closed with `RELEASE_PREREQUISITE_UNAVAILABLE` when that pair is unavailable. It does not use the hosting ChampCity/Electron executable, `npm.cmd`, a command shell, or caller-selected runtime paths.
+
+Because full candidate validation can outlast an external connector response window, the existing read-only `release_toolbox.status` action returns the latest completed validation snapshot for that registered repository. The bounded snapshot includes its application-generated validation ID, start/completion timestamps, final pass/fail result, and safe public command receipts; it does not expose the resolved local Node/npm paths. This permits recovery of an attributable result after a gateway timeout without adding a raw command or changing the `validate_candidate` input schema.
+
+Git branch, commit, push, and tag mechanics remain the exclusive responsibility of `git_toolbox`. `release_toolbox.publish_github_release` never creates or pushes a tag: it fails closed unless the exact `v<packageVersion>` tag exists locally at current `HEAD` and the same target exists on `origin`. GitHub publication uses the installed, authenticated `gh` CLI, uploads only the canonical installer, reads only the canonical release-notes file, and refuses to alter an existing release. Post-publication verification downloads the canonical asset to an OS temporary directory, compares it with the local installer by SHA-256, and removes the temporary download on success or failure.
+
 ## 1. Establish the release candidate
 
 1. Begin from the Operator-approved Desktop source baseline.
