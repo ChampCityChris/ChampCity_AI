@@ -4,7 +4,14 @@ import { requireBoundMcpWorkspace } from "../../integrations/mcpWorkspacePromptC
 import { AgentHarnessError } from "../core/errors";
 import { isGitBacked } from "../repository/repositoryOperations";
 
-export type HarnessActionKind = "read" | "artifact-write" | "patch-write" | "git-inspection" | "git-mutation";
+export type HarnessActionKind =
+  | "read"
+  | "artifact-write"
+  | "patch-write"
+  | "git-inspection"
+  | "git-mutation"
+  | "release-inspection"
+  | "release-mutation";
 
 export interface AgentHarnessWorkspaceContext {
   workspaceId: string;

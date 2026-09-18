@@ -54,8 +54,9 @@ export interface LegacyOAuthClientImportResult {
   registeredClientCount: number;
 }
 
-export const OAUTH_SCOPES = ["files.read", "files.write"] as const;
-type OAuthScope = (typeof OAUTH_SCOPES)[number];
+export const OAUTH_RESOURCE_SCOPES = ["files.read", "files.write"] as const;
+export const OAUTH_AUTHORIZATION_SCOPES = [...OAUTH_RESOURCE_SCOPES, "offline_access"] as const;
+type OAuthAuthorizationScope = (typeof OAUTH_AUTHORIZATION_SCOPES)[number];
 
 const DCR_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DCR_RESPONSE_TYPES = ["code"] as const;
@@ -119,7 +120,7 @@ export function registerOAuthClient(userDataRoot: string, input: Record<string, 
     client_uri: optionalClientUri(payload.client_uri),
     grant_types: grantTypes,
     response_types: responseTypes,
-    scope: assertSupportedScope(typeof payload.scope === "string" ? payload.scope : "files.read"),
+    scope: normalizeAuthorizationScope(typeof payload.scope === "string" ? payload.scope : "files.read"),
     created_at: new Date().toISOString(),
   };
   writeStore(userDataRoot, { ...store, clients: [...store.clients, client] });
@@ -192,7 +193,7 @@ export function validateOAuthAuthorizationRequest(userDataRoot: string, input: {
   }
   let requestedScope: string;
   try {
-    requestedScope = assertSupportedScope(input.scope ?? client.scope);
+    requestedScope = assertResourceAuthorizationScope(input.scope ?? client.scope);
   } catch (error) {
     return {
       ok: false,
@@ -219,7 +220,7 @@ export function issueAuthorizationCode(userDataRoot: string, input: {
         code_hash: hash(code),
         client_id: input.client_id,
         redirect_uri: input.redirect_uri,
-        scope: normalizeScope(input.scope),
+        scope: assertResourceAuthorizationScope(input.scope),
         code_challenge: input.code_challenge,
         code_challenge_method: "S256",
         expires_at: new Date(Date.now() + AUTHORIZATION_CODE_SECONDS * 1000).toISOString(),
@@ -306,12 +307,10 @@ export function readOAuthStoreDiagnostics(userDataRoot: string): OAuthStoreDiagn
   };
 }
 
-export function normalizeScope(scope: string): string {
-  const scopes = new Set(scope.split(/\s+/).filter((entry): entry is OAuthScope => OAUTH_SCOPES.includes(entry as OAuthScope)));
-  if (scopes.size === 0) {
-    scopes.add("files.read");
-  }
-  return [...scopes].join(" ");
+// Session scopes never confer repository permissions, including when none remain.
+export function projectOAuthResourceScope(scope: string): string {
+  const scopes = new Set(scope.split(/\s+/).filter(Boolean));
+  return OAUTH_RESOURCE_SCOPES.filter((entry) => scopes.has(entry)).join(" ");
 }
 
 export function pkceChallenge(verifier: string): string {
@@ -322,6 +321,7 @@ function issueTokens(clientId: string, scope: string): {
   publicToken: { access_token: string; refresh_token: string; token_type: "Bearer"; expires_in: number; scope: string };
   record: OAuthTokenRecord;
 } {
+  scope = normalizeAuthorizationScope(scope);
   const accessToken = token();
   const refreshToken = token();
   return {
@@ -345,7 +345,7 @@ function issueTokens(clientId: string, scope: string): {
 }
 
 function scopeIncludes(scope: string, expected: "files.read" | "files.write"): boolean {
-  return normalizeScope(scope).split(/\s+/).includes(expected);
+  return projectOAuthResourceScope(scope).split(/\s+/).includes(expected);
 }
 
 function timestampIsFuture(value: unknown): boolean {
@@ -380,7 +380,7 @@ function normalizeLegacyOAuthClient(value: unknown): OAuthClientRecord {
     response_types: Array.isArray(payload.response_types)
       ? assertSupportedStringArray(payload.response_types, "response_types", DCR_RESPONSE_TYPES, "code")
       : [...DCR_RESPONSE_TYPES],
-    scope: assertSupportedScope(payload.scope),
+    scope: normalizeAuthorizationScope(payload.scope),
     created_at: requiredIsoTimestamp(payload.created_at, "created_at"),
   };
 }
@@ -407,7 +407,7 @@ function canonicalClientRecord(client: OAuthClientRecord): OAuthClientRecord {
     client_uri: client.client_uri,
     grant_types: [...client.grant_types],
     response_types: [...client.response_types],
-    scope: client.scope,
+    scope: normalizeAuthorizationScope(client.scope),
     created_at: client.created_at,
   };
 }
@@ -430,7 +430,7 @@ function requiredIsoTimestamp(value: unknown, label: string): string {
   return value;
 }
 
-function assertSupportedScope(value: unknown): string {
+export function normalizeAuthorizationScope(value: unknown): string {
   if (typeof value !== "string") {
     throw new Error("scope must be a string.");
   }
@@ -438,11 +438,19 @@ function assertSupportedScope(value: unknown): string {
   if (entries.length === 0) {
     throw new Error("scope must include at least one supported OAuth scope.");
   }
-  const unsupported = entries.filter((entry) => !OAUTH_SCOPES.includes(entry as OAuthScope));
+  const unsupported = entries.filter((entry) => !OAUTH_AUTHORIZATION_SCOPES.includes(entry as OAuthAuthorizationScope));
   if (unsupported.length > 0) {
     throw new Error(`scope contains unsupported value "${unsupported[0]}".`);
   }
-  return normalizeScope(value);
+  return OAUTH_AUTHORIZATION_SCOPES.filter((entry) => entries.includes(entry)).join(" ");
+}
+
+function assertResourceAuthorizationScope(value: unknown): string {
+  const scope = normalizeAuthorizationScope(value);
+  if (!projectOAuthResourceScope(scope)) {
+    throw new Error("scope must include at least one resource permission: files.read or files.write.");
+  }
+  return scope;
 }
 
 function assertStringArray(value: unknown, label: string): string[] {

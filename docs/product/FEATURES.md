@@ -105,6 +105,7 @@ An Everyone installation additionally identifies the Windows startup trigger as 
 - The MCP HTTP runtime binds only to `127.0.0.1` or `localhost`.
 - Port `0` selects an available port automatically.
 - Default authentication is OAuth with Authorization Code plus PKCE; scopes distinguish `files.read` and `files.write`.
+- Connectors can request `offline_access` alongside resource scopes for long-lived sessions. Refresh preserves granted scopes and rotates tokens; existing clients continue to refresh without requesting it. `offline_access` grants no repository or tool permissions.
 - **Local unauthenticated** mode is permitted only without a public base URL.
 - **Registered MCP Projects** stores exact canonical project roots per Windows user. Unknown or colliding `workspaceId` values fail closed.
 - Registered projects may be Git-backed or ordinary writable directories. Availability is re-evaluated rather than silently changing registration.

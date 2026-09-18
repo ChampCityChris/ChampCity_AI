@@ -1,10 +1,13 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type {
   DevelopmentEnvironmentProviderAttempt,
   DevelopmentEnvironmentProviderCandidate,
   DevelopmentEnvironmentRequirement,
 } from "../../shared/developmentEnvironmentContracts";
+import { ExternalProviderGateway } from "../externalProviders/externalProviderGateway";
+import type {
+  ExternalProviderAdapter,
+  ExternalProviderDiscoveredTool,
+} from "../externalProviders/externalProviderRegistry";
 import type {
   CommandRunResult,
   DevelopmentEnvironmentCommandRunner,
@@ -492,54 +495,74 @@ export class StdioWindowsPackageMcpClient implements WindowsPackageMcpClient {
     workspaceRoot: string,
     serverArgs: string[] = [],
   ): Promise<WindowsPackageMcpFindResult> {
-    const transport = new StdioClientTransport({
-      command: serverPath,
-      args: serverArgs,
-      cwd: workspaceRoot,
-      stderr: "pipe",
+    const gateway = new ExternalProviderGateway();
+    gateway.register({
+      providerId: "winget-mcp",
+      displayName: "Windows Package Manager MCP",
+      configured: true,
+      transport: {
+        kind: "stdio",
+        command: serverPath,
+        args: serverArgs,
+        cwd: workspaceRoot,
+      },
+      lifecycle: "ephemeral",
+      requestTimeoutMs: mcpRequestTimeoutMs,
+      adapter: winGetExternalProviderAdapter,
     });
-    let stderr = "";
-    transport.stderr?.on("data", (chunk: Buffer | string) => {
-      stderr += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : chunk;
-    });
-    const client = new Client(
-      { name: "champcity-ai", version: "0.1.0" },
-      { capabilities: {} },
-    );
     try {
-      await client.connect(transport, { timeout: mcpRequestTimeoutMs });
-      const toolsResult = await client.listTools(undefined, { timeout: mcpRequestTimeoutMs });
-      const toolName = findPackageFindToolName(toolsResult);
-      if (!toolName) {
-        throw new Error("WinGet MCP server did not advertise a package find tool.");
-      }
-      const findResult = await client.callTool({
-        name: toolName,
-        arguments: { query },
-      }, undefined, { timeout: mcpRequestTimeoutMs });
+      const receipt = await gateway.invokeCapability(
+        "winget-mcp",
+        "package.search",
+        { query },
+      );
+      const findResult = receipt.result;
       const rawText = JSON.stringify(findResult);
       return {
         candidates: normalizeMcpFindCandidates(findResult),
         rawText,
-        summary: `WinGet MCP ${toolName} returned package discovery data.`,
+        summary: `WinGet MCP ${receipt.toolName} returned package discovery data.`,
       };
-    } catch (error) {
-      const stderrText = stderr.trim();
-      throw new Error(stderrText ? `${errorMessage(error)} ${stderrText}` : errorMessage(error));
     } finally {
-      await client.close().catch(() => undefined);
+      await gateway.shutdown().catch(() => undefined);
     }
   }
 }
 
-function findPackageFindToolName(result: unknown): string | null {
-  const tools = Array.isArray((result as { tools?: unknown[] })?.tools)
-    ? (result as { tools: unknown[] }).tools
-    : [];
-  const names = tools
-    .filter((tool): tool is Record<string, unknown> => Boolean(tool) && typeof tool === "object")
-    .map((tool) => stringValue(tool.name))
-    .filter((name): name is string => Boolean(name));
+const winGetExternalProviderAdapter: ExternalProviderAdapter = {
+  capabilityIds: ["package.search"],
+  mapCapabilities(discovery) {
+    const toolName = findPackageFindToolName(discovery.tools);
+    return [{
+      capabilityId: "package.search",
+      availability: toolName ? "available" : "unavailable",
+      toolName: toolName ?? undefined,
+      diagnostic: toolName ? undefined : "WinGet MCP did not advertise a package find tool.",
+    }];
+  },
+  prepareInvocation({ capabilityId, request, capability }) {
+    if (capabilityId !== "package.search" || !capability.toolName) {
+      throw new Error("WinGet MCP package search capability is unavailable.");
+    }
+    const query = request && typeof request === "object"
+      ? stringValue((request as { query?: unknown }).query)
+      : undefined;
+    if (!query) {
+      throw new Error("WinGet MCP package search requires a non-empty application-derived query.");
+    }
+    return { toolName: capability.toolName, arguments: { query } };
+  },
+  validateResult(capabilityId, result) {
+    return capabilityId === "package.search" && Boolean(
+      result &&
+      typeof result === "object" &&
+      Array.isArray((result as { content?: unknown }).content),
+    );
+  },
+};
+
+function findPackageFindToolName(tools: readonly ExternalProviderDiscoveredTool[]): string | null {
+  const names = tools.map((tool) => tool.name);
   return names.find((name) => name === "find") ??
     names.find((name) => /find/i.test(name) && /package|winget/i.test(name)) ??
     null;

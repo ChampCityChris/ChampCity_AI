@@ -1,4 +1,7 @@
 import type { CodexModelSelection } from "../shared/codexRuntimeContracts";
+import { createGithubRuntimeOperations } from "./externalProviders/githubRuntime";
+import { GithubProviderService } from "./externalProviders/githubProviderService";
+import { registerGithubProviderIpc } from "./externalProviders/githubProviderIpc";
 import { productIdentity } from "../shared/productIdentity";
 import { codexRuntimeManager } from "./workCardBuilding/codexRuntimeManager";
 import { createCodexRuntimeExecutionOperations } from "./workCardBuilding/codexRuntimeOperations";
@@ -194,6 +197,8 @@ let desktopExclusionConfirmed = false;
 let desktopRuntimeReady = false;
 let pendingSecondInstanceActivation = false;
 const sessionActiveWorkspace = new SessionActiveWorkspaceSelection();
+const githubProviderService = new GithubProviderService({ runtime: createGithubRuntimeOperations(getUserDataRoot()) });
+registerGithubProviderIpc(ipcMain, githubProviderService, getRequiredWorkspaceRoot);
 const selectedWorkspaceEvidenceNotifier = new SelectedWorkspaceEvidenceNotifier((notification) => {
   sendRendererEvent("workspace:evidenceChanged", notification);
 });
@@ -1042,6 +1047,7 @@ if (!desktopSingleInstanceLockAcquired) {
       desktopLifecycleLease = acquisition.lease;
       desktopExclusionConfirmed = true;
       await app.whenReady();
+      await githubProviderService.restore();
       const codexUserDataRoot = getUserDataRoot();
       void codexRuntimeManager.initialize(
         new CodexRuntimeInitializerClient({
@@ -1100,6 +1106,7 @@ app.on("before-quit", (event) => {
   void Promise.all([
     codexImplementerExecutionService.shutdownActiveExecutions(),
     codexRuntimeManager.shutdown(),
+    githubProviderService.disconnect(),
   ])
     .catch((error) => {
       console.error("Codex App Server shutdown cleanup failed.", error);

@@ -144,9 +144,11 @@ test("normalized OAuth scopes capture at most once and preserve exact scope-filt
   const fixture = createWorkspace("Scoped_Contract_Project");
   const baseRegistry = createRegistry(fixture);
   let registryCaptureCount = 0;
+  const capturedScopes = [];
   const registry = {
     listTools(scope) {
       registryCaptureCount += 1;
+      capturedScopes.push(scope);
       return baseRegistry.listTools(scope);
     },
     callTool: (call) => baseRegistry.callTool(call),
@@ -178,12 +180,32 @@ test("normalized OAuth scopes capture at most once and preserve exact scope-filt
     const fullTools = await fullClient.client.listTools();
     assert.equal(registryCaptureCount, 2);
 
+    const baselineContracts = runtime.publishedToolContractDiagnostics().contracts;
+    for (const [scope, expectedTools] of [
+      ["files.read offline_access", readTools.tools],
+      ["offline_access files.write files.read offline_access", fullTools.tools],
+    ]) {
+      const offlineToken = await issueOAuthToken(base, scope);
+      assert.ok(offlineToken.scope.endsWith("offline_access"));
+      const offlineClient = await connectMcpClient(runtime.url, offlineToken.access_token);
+      clients.push(offlineClient);
+      assert.deepEqual((await offlineClient.client.listTools()).tools, expectedTools);
+    }
+    assert.equal(fullTools.tools.length, 35);
+    assert.equal(registryCaptureCount, 2);
+
     const diagnostics = runtime.publishedToolContractDiagnostics();
     assert.equal(diagnostics.capturedScopeCount, 2);
     assert.equal(diagnostics.contractCaptureCount, 2);
     assert.equal(diagnostics.periodicContractTimerCount, 0);
-    assert.equal(diagnostics.contracts.find((entry) => entry.scope === "files.read").sessionCount, 8);
-    assert.equal(diagnostics.contracts.find((entry) => entry.scope === "files.read files.write").sessionCount, 1);
+    assert.equal(diagnostics.contracts.find((entry) => entry.scope === "files.read").sessionCount, 9);
+    assert.equal(diagnostics.contracts.find((entry) => entry.scope === "files.read files.write").sessionCount, 2);
+    assert.deepEqual(
+      diagnostics.contracts.map(({ sessionCount, ...contract }) => contract),
+      baselineContracts.map(({ sessionCount, ...contract }) => contract),
+    );
+    assert.deepEqual(capturedScopes, ["files.read files.write", "files.read"]);
+    assert.equal(JSON.stringify(diagnostics).includes("offline_access"), false);
     assert.equal(
       diagnostics.contracts.find((entry) => entry.scope === "files.read").fingerprint,
       fingerprintAgentHarnessPublicToolDefinitions("files.read", readTools.tools),

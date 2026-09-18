@@ -1,4 +1,5 @@
 import type { CodexManagedRuntimeStatus, CodexModelSelection } from "./codexRuntimeContracts";
+import type { GithubEvidence, GithubEvidenceRequest, GithubProviderStatus } from "./githubProviderContracts";
 import type {
   FirstNonApprovedResult,
 } from "./documents/documentOrder";
@@ -1377,6 +1378,11 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getGithubProviderStatus: () => Promise<GithubProviderStatus>;
+  connectGithubProvider: () => Promise<GithubProviderStatus>;
+  restartGithubProvider: () => Promise<GithubProviderStatus>;
+  disconnectGithubProvider: () => Promise<GithubProviderStatus>;
+  readGithubEvidence: (request: GithubEvidenceRequest) => Promise<GithubEvidence>;
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;

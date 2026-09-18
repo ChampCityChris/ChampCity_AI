@@ -1,4 +1,5 @@
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import { GithubProviderSettings } from "./GithubProviderSettings";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type FormEvent } from "react";
 import { Bot, Clipboard, FileText, FolderOpen, Play, RefreshCw, RotateCcw, Settings as SettingsIcon, Square } from "lucide-react";
 import {
@@ -5379,6 +5380,7 @@ export function AgentHarnessSettingsWorkspace({
       </form>
 
       <div className="settings-grid">
+        <GithubProviderSettings />
         <section className="settings-panel settings-panel-wide" aria-label="Registered MCP Projects">
           <header>
             <span>Registered MCP Projects</span>
