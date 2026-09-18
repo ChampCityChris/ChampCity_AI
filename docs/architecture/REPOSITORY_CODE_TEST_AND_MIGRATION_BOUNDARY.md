@@ -46,6 +46,8 @@ Tests remain under `test/` and are not packaged runtime code. Permanent suites s
 
 Use curated or synthetic workspaces under `test/fixtures/` or temporary test roots. Do not use locally archived ChampCity planning, Issue, or Repair history as a live workflow fixture, and do not change production behavior merely to keep historical fixtures passing.
 
+One-time repository searches and inventories are Architect audit evidence. Disposition and retire them when the audit is complete. Permanent regression tests guard durable behavior, contracts, integrity, security and resource boundaries, process behavior, or true structural dependency rules. Raw source vocabulary searches are not semantic proof.
+
 ## Migration Boundary
 
 A migration is in scope only when an active Work Card names a supported source format and target format. It must be bounded, deterministic, repository-contained, recoverable, and tested against curated fixtures. Do not add compatibility code for records preserved only in local historical archive material.

@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
@@ -29,24 +30,45 @@ const {
   writeDoc,
 } = require("../support/canonical-markdown-fixtures.cjs");
 
-test("git_toolbox production dispatch has no workflow, planning, Issue, or document authorization dependency", () => {
-  const toolRegistrySource = readSource("src/main/agentHarness/tools/toolRegistry.ts");
-  const gitMutationSource = readSource("src/main/agentHarness/repository/gitMutations.ts");
-  const workCardLoopSource = readSource("src/main/workCardLoop/workCardLoopStateService.ts");
-  const reviewSource = readSource("src/main/workCardBuilding/workCardBuildingReviewService.ts");
-  const forbiddenImport = /from\s+["'][^"']*(?:workCardLoop|currentWorkflow|issueResolution|planningDocument|gitMutationAuthorization)/i;
-  const mutationDispatch = toolRegistrySource.slice(
-    toolRegistrySource.indexOf("function gitMutationAction"),
-    toolRegistrySource.indexOf("function statusOnlyProvider"),
-  );
+test("Git dispatch and mutation modules do not import workflow decision services", () => {
+  const forbiddenDirectories = [
+    "src/main/workCardLoop",
+    "src/main/currentWorkflow",
+    "src/main/issueResolution",
+  ].map((relativePath) => path.resolve(repositoryRoot, relativePath));
+  const forbiddenModules = [
+    "src/main/documents/planningDocumentService",
+    "src/main/documents/gitMutationAuthorization",
+  ].map((relativePath) => path.resolve(repositoryRoot, relativePath));
 
-  assert.doesNotMatch(toolRegistrySource, forbiddenImport);
-  assert.doesNotMatch(gitMutationSource, forbiddenImport);
-  assert.doesNotMatch(mutationDispatch, /workCard|currentWorkflow|issue|planning|authorization/i);
-  assert.doesNotMatch(toolRegistrySource, /resolveGitMutationWorkflowAuthorization|gitMutationAuthorization/);
-  assert.doesNotMatch(workCardLoopSource, /resolveGitMutationWorkflowAuthorization|GitMutationWorkflowAuthorization|gitMutationAuthorization/);
-  assert.doesNotMatch(reviewSource, /stampGitMutationAuthorization|gitMutationAuthorization/);
-  assert.equal(fs.existsSync(path.join(repositoryRoot, "src/main/documents/gitMutationAuthorization.ts")), false);
+  for (const relativePath of [
+    "src/main/agentHarness/tools/toolRegistry.ts",
+    "src/main/agentHarness/repository/gitMutations.ts",
+  ]) {
+    const filePath = path.join(repositoryRoot, relativePath);
+    const source = ts.createSourceFile(filePath, fs.readFileSync(filePath, "utf8"), ts.ScriptTarget.Latest, true);
+    function visit(node) {
+      let specifier;
+      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+        specifier = node.moduleSpecifier;
+      } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+        specifier = node.moduleReference.expression;
+      } else if (ts.isCallExpression(node) && (
+        node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === "require")
+      )) {
+        specifier = node.arguments[0];
+      }
+      if (specifier && ts.isStringLiteralLike(specifier) && specifier.text.startsWith(".")) {
+        const target = path.resolve(path.dirname(filePath), specifier.text);
+        const forbidden = forbiddenDirectories.some((directory) => target === directory || target.startsWith(`${directory}${path.sep}`)) ||
+          forbiddenModules.some((modulePath) => [modulePath, `${modulePath}.ts`, `${modulePath}.js`].includes(target));
+        assert.equal(forbidden, false, `${relativePath} imports workflow decision service ${specifier.text}`);
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(source);
+  }
 });
 
 test("Work Card and Repair approval ignore Git wording and do not stamp Git-tool metadata", () => {
@@ -639,26 +661,6 @@ test("OAuth, workspace registration, Git-backed state, action, and parameter gat
   assert.equal(nonGitResult.error.code, "GIT_CAPABILITY_UNAVAILABLE");
 });
 
-test("governance and Desktop architecture describe Operator authority and MCP execution boundaries", () => {
-  const governance = readSource("docs/governance/WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md");
-  const architecture = readSource("docs/architecture/DESKTOP_ARCHITECTURE.md");
-
-  for (const document of [governance, architecture]) {
-    assert.match(document, /human Operator is the only authority/i);
-    assert.match(document, /Work Cards?[^.]*Repair Cards?[^.]*(?:cannot serve|none[^.]*can serve) as (?:a )?permission principals?/is);
-    assert.match(document, /MCP does not.*(?:interpret|read).*planning|MCP does not.*interpret.*card/is);
-    assert.match(document, /files\.write/);
-    assert.match(document, /registered workspace|registered-project/i);
-  }
-  assert.doesNotMatch(governance, /versioned grant|machine permission grant.*exact heading|token-only/i);
-});
-
-test("Agent Harness production vocabulary contains no non-Operator authority terminology", () => {
-  const source = readSourceTree("src/main/agentHarness");
-  assert.doesNotMatch(source, /authority/i);
-  assert.equal(fs.existsSync(path.join(repositoryRoot, "src/main/agentHarness/workspace/workspaceAccess.ts")), true);
-});
-
 function createBoundWorkspace(prefix, gitBacked) {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   const root = path.join(container, "Alpha");
@@ -696,23 +698,6 @@ function registryFor(root) {
   return createAgentHarnessToolRegistry({ workspaceAccess, userDataRoot: path.join(path.dirname(root), "user-data") });
 }
 
-function readSourceTree(relativeRoot) {
-  const pending = [path.join(repositoryRoot, relativeRoot)];
-  const sources = [];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const target = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        pending.push(target);
-      } else if (entry.isFile() && target.endsWith(".ts")) {
-        sources.push(fs.readFileSync(target, "utf8"));
-      }
-    }
-  }
-  return sources.join("\n");
-}
-
 function callGit(registry, root, action, params, scope = "files.read files.write") {
   const workspaceId = resolveWorkspaceRootContext(root).workspaceId;
   return registry.callTool({
@@ -744,8 +729,4 @@ function gitLines(root, args) {
 
 function readCanonical(root, relativePath) {
   return parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, relativePath), "utf8"));
-}
-
-function readSource(relativePath) {
-  return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 }
