@@ -46,7 +46,7 @@ Tests remain under `test/` and are not packaged runtime code. Permanent suites s
 
 Use curated or synthetic workspaces under `test/fixtures/` or temporary test roots. Do not use locally archived ChampCity planning, Issue, or Repair history as a live workflow fixture, and do not change production behavior merely to keep historical fixtures passing.
 
-One-time repository searches and inventories are Architect audit evidence. Disposition and retire them when the audit is complete. Permanent regression tests guard durable behavior, contracts, integrity, security and resource boundaries, process behavior, or true structural dependency rules. Raw source vocabulary searches are not semantic proof.
+One-time repository searches and inventories are Architect audit evidence. Disposition and retire them when the audit is complete. Permanent regression tests guard durable behavior, contracts, integrity, security and resource boundaries, process behavior, or true structural dependency rules. Raw source text is not a substitute for semantic behavioral proof. AST or module analysis is appropriate when structure itself is the durable invariant.
 
 ## Migration Boundary
 
