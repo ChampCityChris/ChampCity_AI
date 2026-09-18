@@ -18,8 +18,18 @@ const compatibilityLines = new Map([
   ])],
 ]);
 
+const accessAuthorizationFiles = new Set([
+  "src/main/agentHarness/runtime/httpRuntime.ts",
+  "src/main/agentHarness/runtime/oauthStore.ts",
+  "src/main/externalProviders/externalProviderErrors.ts",
+  "src/main/externalProviders/externalProviderGateway.ts",
+  "src/main/externalProviders/externalProviderRegistry.ts",
+  "docs/architecture/DESKTOP_ARCHITECTURE.md",
+]);
+
 const operatorAuthorityPatterns = [
   /\b(?:the )?(?:human )?Operator is the (?:only|final) authority\b/i,
+  /\bOperator remains the only task authority\b/i,
   /\bOperator's acceptance authority\b/i,
   /\bthe human authority who\b/i,
   /\bexplicit Operator authority\b/i,
@@ -119,6 +129,10 @@ function isAllowedVocabularyLine(relativePath, line) {
 
   const allowedCompatibility = compatibilityLines.get(relativePath) ?? new Set();
   if (allowedCompatibility.has(line.trim())) return true;
+  if (hasAuthorizationTerm && (
+    accessAuthorizationFiles.has(relativePath) ||
+    relativePath.startsWith("docs/release/RELEASE_NOTES_")
+  )) return true;
   if (hasAuthorityNoun && !vocabularyOccurrencesCovered(line, /authorit[a-z]*/gi, operatorAuthorityPatterns)) return false;
   if (hasAuthorizationTerm && !vocabularyOccurrencesCovered(
     line,

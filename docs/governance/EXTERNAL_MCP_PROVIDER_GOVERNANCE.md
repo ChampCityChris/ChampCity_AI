@@ -98,7 +98,7 @@ capabilities:
   release.asset.upload: unavailable
 ```
 
-The normalized capability map is evidence, not an authorization system. The Operator remains the only task authority. The gateway determines only whether the configured provider can mechanically perform the requested operation.
+The normalized capability map is evidence, not an access-control system. The Operator remains the only task authority. The gateway determines only whether the configured provider can mechanically perform the requested operation.
 
 Do not invent a capability because a neighboring provider tool looks similar. If the provider does not expose the required operation, report it as unavailable.
 
@@ -155,7 +155,7 @@ Current external references:
 - Upstream release-write request: GitHub MCP issue `#1909`
 - Additional release-management request: GitHub MCP issue `#2853`
 
-These external references describe provider capability at a point in time. Runtime capability discovery remains authoritative for what a configured provider actually exposes.
+These external references describe provider capability at a point in time. Runtime capability discovery remains the source of truth for what a configured provider actually exposes.
 
 ## Release Responsibilities
 
@@ -212,9 +212,9 @@ Do not turn a provider timeout into assumed success or assumed failure when the 
 
 ## No Provider Bureaucracy
 
-The provider gateway is not an approval principal and must not introduce new workflow authority gates.
+The provider gateway is not an approval principal and must not introduce new workflow approval gates.
 
-Operator direction supplies task scope. ChampCity enforces deterministic execution boundaries and exact state checks. Provider MCP scope/permission failures are mechanical access results, not workflow authority decisions.
+Operator direction supplies task scope. ChampCity enforces deterministic execution boundaries and exact state checks. Provider MCP scope/permission failures are mechanical access results, not workflow approval decisions.
 
 ## Implementation Rules
 
