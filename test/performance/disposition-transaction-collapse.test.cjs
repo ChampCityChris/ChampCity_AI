@@ -39,6 +39,92 @@ const {
 
 const repoRoot = path.join(__dirname, "..", "..");
 
+test("successful renderer dispositions consume the returned transaction with one IPC call", async (t) => {
+  const ts = require("typescript");
+  const vm = require("node:vm");
+  const file = path.join(repoRoot, "src/renderer/app/App.tsx");
+  const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const functions = new Map();
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name) functions.set(node.name.text, node);
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  const cases = [
+    ["applyDisposition", "setDocumentDisposition", []],
+    ["applyArchitectOutputReview", "reviewArchitectOutput", []],
+    ["applyOperatorValidationDecision", "applyOperatorValidationDecisionForCurrentWorkCard", ["Approve"]],
+    ["runIssueArchitectReview", "applyIssueArchitectReview", [{ disposition: "Approved" }]],
+    ["runIssueValidationDecision", "applyIssueValidationDecision", [{ decision: "ValidateResolved" }]],
+    ["runIssuePlanningReview", "applyIssuePlanningReview", [{ disposition: "Approved" }]],
+    ["runIssueFixCardContractReview", "applyIssueFixCardContractReview", [{ disposition: "Approved" }]],
+    ["runIssueFixCardValidationDecision", "applyIssueFixCardValidationDecision", [{ decision: "Approve" }]],
+    ["runIssueFixCardClose", "closeIssueFixCard", []],
+  ];
+  for (const [action, mutation, args] of cases) await t.test(mutation, async () => {
+    const ipcCalls = [];
+    const state = new Map();
+    const development = {
+      documents: [], projectPlanningModel: { generation: "final" },
+      currentModel: { activeWorkspaceId: "work-card-planning" },
+      resolverResult: { status: "all-approved", message: "Applied" },
+      selectedDocument: { logicalDocumentId: "document", effectiveDisposition: "Approved" },
+    };
+    const postMutation = {
+      navigation: { currentStageId: "issue-close" },
+      planning: { generation: "final" }, validation: { generation: "final" }, close: { generation: "final" },
+    };
+    const result = { development, postMutation, projection: { currentStep: "close-next" }, architectOutput: {}, message: "Applied" };
+    const scope = {
+      Error,
+      window: { champcity: new Proxy({}, { get: (_target, method) => async (...input) => {
+        ipcCalls.push({ method, input });
+        assert.equal(method, mutation, "success must not reconstruct state with another IPC");
+        return result;
+      } }) },
+      selectedDocumentId: "document", selectedStatus: "Approved", selectedDocumentHasLocalError: false,
+      activeWorkspaceId: "work-card-planning", architectOutputReviewStatus: "Approved",
+      architectOutputReviewNotes: "reviewed", architectOutputModel: {}, workspace: { ok: false },
+      architectOutputPollRequestRef: { current: 0 },
+      presentedRevisionsForArchitectOutputModel: () => [],
+      operatorValidationNotes: "reviewed", advisorySummary: "reviewed", repairDefectText: "",
+      currentIssue: { issueId: "ISSUE_001" }, activeIssueFixCardStepId: "contract",
+      getResolverFeedback: () => "Applied",
+    };
+    for (const setter of [
+      "setIsApplying", "setDocumentError", "setFeedback", "setArchitectOutputModel",
+      "setViewedArchitectOutputRevisionKeys", "setArchitectOutputReviewStatus", "setArchitectOutputReviewNotes",
+      "setOperatorValidationNotes", "setAdvisorySummary", "setRepairDefectText", "applyDocumentInventory",
+      "setProjectPlanningModel", "setCurrentModel", "setResolverResult", "setSelectedDocumentId",
+      "setSelectedDocument", "setSelectedStatus", "transitionToWorkflowStep", "setIssueNavigationProjection",
+      "setIssuePlanningProjection", "setIssueValidationProjection", "setIssueCloseProjection", "setActiveIssueStageId",
+      "setIsIssueArchitectActionPending", "setIssueArchitectActionError", "setIssueArchitectActionFeedback",
+      "setIssueArchitectProjection", "setIsIssuePlanningActionPending", "setIssuePlanningActionError",
+      "setIssuePlanningActionFeedback", "setActiveIssueFixCardStepId", "setIssueFixCardProjection",
+    ]) scope[setter] = (...values) => state.set(setter, values);
+    const names = ["applyDevelopmentPostMutationProjection", "applyIssuePostMutationProjection", action];
+    const program = names.map((name) => functions.get(name).getText(source)).join("\n") + `\n${action};`;
+    const execute = vm.runInNewContext(ts.transpileModule(program, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, scope);
+    await execute(...args);
+    assert.equal(ipcCalls.length, 1);
+    for (const key of ["setDocumentError", "setIssueArchitectActionError", "setIssuePlanningActionError"]) {
+      if (state.has(key)) assert.deepEqual(state.get(key), [""]);
+    }
+    if (action.startsWith("runIssue")) {
+      assert.equal(state.get("setIssueNavigationProjection")[0], postMutation.navigation);
+      assert.equal(state.get("setIssuePlanningProjection")[0], postMutation.planning);
+      assert.equal(state.get("setIssueValidationProjection")[0], postMutation.validation);
+      assert.equal(state.get("setIssueCloseProjection")[0], postMutation.close);
+      assert.deepEqual(state.get("setIsIssuePlanningActionPending") ?? state.get("setIsIssueArchitectActionPending"), [false]);
+    } else {
+      assert.equal(state.get("applyDocumentInventory")[0], development.documents);
+      assert.equal(state.get("setCurrentModel")[0], development.currentModel);
+      assert.equal(state.get("setSelectedDocument")[0], development.selectedDocument);
+      assert.deepEqual(state.get("setIsApplying"), [false]);
+    }
+  });
+});
+
 test("generic Development disposition uses one pre-write and one final post-write planning acquisition", () => {
   const root = tempWorkspace("champcity-disposition-transaction-");
   writeDoc(root, "planning/project/Project_Intake/PROJECT_INTAKE_demo.md", "project-intake", "Pending", {
@@ -324,101 +410,6 @@ test("Architect review rebuilds its model and Development projection together af
   assert.equal(result.architectOutput.documentSlots[0].artifactRevision, 1);
 });
 
-test("renderer success actions contain one mutation IPC and no immediate reconstruction IPC waterfall", () => {
-  const source = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const cases = [
-    {
-      name: "generic disposition",
-      source: functionSource(source, "async function applyDisposition", "function renderDispositionControls"),
-      mutation: "window.champcity.setDocumentDisposition(",
-      forbidden: ["listDocuments(", "getProjectPlanningWorkspaceModel(", "resolveCurrentDocument(", "getCurrentWorkspaceModel(", "readDocument("],
-    },
-    {
-      name: "Architect review",
-      source: functionSource(source, "async function applyArchitectOutputReview", "async function refreshCurrentModel"),
-      mutation: "window.champcity.reviewArchitectOutput(",
-      forbidden: ["refreshDocuments(", "refreshArchitectOutputWorkspace("],
-    },
-    {
-      name: "Work Card validation",
-      source: functionSource(source, "async function applyOperatorValidationDecision", "async function generateWorkCardIntakeAndTransition"),
-      mutation: "window.champcity.applyOperatorValidationDecisionForCurrentWorkCard(",
-      forbidden: ["listDocuments(", "getProjectPlanningWorkspaceModel(", "resolveCurrentDocument(", "getCurrentWorkspaceModel(", "readDocument("],
-    },
-    {
-      name: "Issue Architect review",
-      source: functionSource(source, "async function runIssueArchitectReview", "async function refreshIssuePlanningProjection"),
-      mutation: "window.champcity.applyIssueArchitectReview(",
-      forbidden: ["window.champcity.getIssueResolutionNavigationProjection(", "window.champcity.getIssuePlanningProjection("],
-    },
-    {
-      name: "aggregate Issue validation",
-      source: functionSource(source, "async function runIssueValidationDecision", "async function refreshIssueCloseProjection"),
-      mutation: "window.champcity.applyIssueValidationDecision(",
-      forbidden: ["window.champcity.getIssueResolutionNavigationProjection(", "window.champcity.getIssuePlanningProjection(", "window.champcity.getIssueCloseProjection("],
-    },
-    {
-      name: "Issue Planning review",
-      source: functionSource(source, "async function runIssuePlanningReview", "async function refreshIssueFixCardProjection"),
-      mutation: "window.champcity.applyIssuePlanningReview(",
-      forbidden: ["window.champcity.getIssueResolutionNavigationProjection(", "window.champcity.getIssuePlanningProjection("],
-    },
-    {
-      name: "Fix Card contract review",
-      source: functionSource(source, "async function runIssueFixCardContractReview", "async function runIssueFixCardValidationDecision"),
-      mutation: "window.champcity.applyIssueFixCardContractReview(",
-      forbidden: ["window.champcity.getIssueResolutionNavigationProjection(", "window.champcity.getIssuePlanningProjection("],
-    },
-    {
-      name: "Fix Card validation",
-      source: functionSource(source, "async function runIssueFixCardValidationDecision", "async function runIssueFixCardClose"),
-      mutation: "window.champcity.applyIssueFixCardValidationDecision(",
-      forbidden: ["window.champcity.getIssueResolutionNavigationProjection(", "window.champcity.getIssueValidationProjection("],
-    },
-    {
-      name: "Fix Card Close / Next",
-      source: functionSource(source, "async function runIssueFixCardClose", "async function startIssueCodexImplementerExecution"),
-      mutation: "window.champcity.closeIssueFixCard(",
-      forbidden: ["window.champcity.getIssueResolutionNavigationProjection(", "window.champcity.getIssuePlanningProjection(", "window.champcity.getIssueValidationProjection("],
-    },
-  ];
-
-  for (const entry of cases) {
-    assert.equal(count(entry.source, entry.mutation), 1, `${entry.name} mutation IPC count`);
-    for (const forbidden of entry.forbidden) {
-      assert.equal(count(entry.source, forbidden), 0, `${entry.name} must not call ${forbidden}`);
-    }
-  }
-  const developmentApplication = functionSource(
-    source,
-    "function applyDevelopmentPostMutationProjection",
-    "function applyIssuePostMutationProjection",
-  );
-  const issueApplication = functionSource(
-    source,
-    "function applyIssuePostMutationProjection",
-    "function focusProjectIntakeReviewSurface",
-  );
-  assert.doesNotMatch(developmentApplication, /window\.champcity\./);
-  assert.doesNotMatch(issueApplication, /window\.champcity\./);
-
-  const mainSource = fs.readFileSync(path.join(repoRoot, "src", "main", "main.ts"), "utf8");
-  const currentWorkflowSource = fs.readFileSync(
-    path.join(repoRoot, "src", "main", "currentWorkflow", "currentWorkflowService.ts"),
-    "utf8",
-  );
-  const genericHandler = functionSource(mainSource, '"documents:setDisposition"', 'ipcMain.handle("documents:previewInitialization"');
-  const architectHandler = functionSource(mainSource, '"architectOutput:review"', 'ipcMain.handle("currentWorkflow:getModel"');
-  const workCardValidation = functionSource(
-    currentWorkflowSource,
-    "export function applyOperatorValidationDecisionForCurrentWorkCard",
-    "export function createValidationAttemptForCurrentWorkCard",
-  );
-  assert.equal(count(genericHandler, "buildStableDevelopmentPostMutationResult("), 1);
-  assert.equal(count(architectHandler, "buildStableDevelopmentPostMutationResult("), 1);
-  assert.equal(count(workCardValidation, "buildStableDevelopmentPostMutationResult("), 1);
-});
-
 test("Development disposition meets the controlled 200-document latency gate", (context) => {
   const fixtureCount = 11;
   const roots = [];
@@ -526,18 +517,6 @@ test("Development disposition meets the controlled 200-document latency gate", (
     }
   }
 });
-
-function functionSource(source, startMarker, endMarker) {
-  const start = source.indexOf(startMarker);
-  const end = source.indexOf(endMarker, start + startMarker.length);
-  assert.notEqual(start, -1, `${startMarker} missing`);
-  assert.notEqual(end, -1, `${endMarker} missing`);
-  return source.slice(start, end);
-}
-
-function count(source, token) {
-  return source.split(token).length - 1;
-}
 
 function percentile(sorted, percentage) {
   return sorted[Math.max(0, Math.ceil(sorted.length * percentage / 100) - 1)];

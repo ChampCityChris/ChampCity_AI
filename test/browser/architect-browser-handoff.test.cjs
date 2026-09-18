@@ -141,20 +141,54 @@ test("browser runtime changes are pushed without repository projection work", ()
   assert.deepEqual(counters, { planning: 0, issues: 0 });
 });
 
-test("browser IPC and notification wiring never resolve workspace or handoff state", () => {
-  const browserSource = fs.readFileSync(path.join(process.cwd(), "src", "main", "browser", "architectBrowserService.ts"), "utf8");
-  const mainSource = fs.readFileSync(path.join(process.cwd(), "src", "main", "main.ts"), "utf8").replace(/\r\n/g, "\n");
-  const preloadSource = fs.readFileSync(path.join(process.cwd(), "src", "preload", "index.ts"), "utf8");
-  const handlerStart = mainSource.indexOf('ipcMain.handle("architectBrowser:foundationStatus"');
-  const handlerEnd = mainSource.indexOf('ipcMain.handle(\n  "projectPlanning:getWorkspaceModel"', handlerStart);
-  assert.ok(handlerStart >= 0 && handlerEnd > handlerStart, "Browser IPC source boundary must be present");
-  const browserHandlers = mainSource.slice(handlerStart, handlerEnd);
-
-  assert.doesNotMatch(browserSource, /buildArchitectHandoffManifest|planningDocument|currentWorkflow|issueResolution/);
-  assert.doesNotMatch(browserHandlers, /getRequiredWorkspaceRoot/);
-  assert.match(mainSource, /architectBrowser:statusChanged/);
-  assert.match(preloadSource, /onArchitectBrowserFoundationStatus/);
-  assert.match(preloadSource, /removeListener\("architectBrowser:statusChanged"/);
+test("browser preload and IPC execute without workspace resolution and unsubscribe notifications", async () => {
+  const ts = require("typescript");
+  const vm = require("node:vm");
+  const service = require("../../dist/main/browser/architectBrowserService.js");
+  const source = fs.readFileSync(path.join(__dirname, "../../src/main/main.ts"), "utf8");
+  const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true);
+  const registrations = ast.statements.filter((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) &&
+    node.expression.arguments[0]?.text?.startsWith("architectBrowser:"));
+  const handlers = new Map();
+  const { view, window } = fakeBrowserBoundary();
+  configureArchitectBrowserServiceForTest({ createView: () => view });
+  let repositoryReads = 0;
+  __setPlanningRepositorySnapshotTestHooks({ onSnapshotAcquisition: () => { repositoryReads += 1; } });
+  __setIssueProjectionReadTestHooks({ onMarkdownRead: () => { repositoryReads += 1; } });
+  vm.runInNewContext(ts.transpileModule(registrations.map((node) => node.getText(ast)).join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
+    ...service, mainWindow: window,
+    getRequiredWorkspaceRoot: () => assert.fail("Browser IPC resolved a workspace"),
+    ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) },
+  });
+  const events = new EventEmitter();
+  let api;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../../dist/preload/index.js"), "utf8"), {
+    exports: {}, require: (id) => {
+      assert.equal(id, "electron");
+      return {
+        contextBridge: { exposeInMainWorld: (key, value) => { assert.equal(key, "champcity"); api = value; } },
+        ipcRenderer: Object.assign(events, { invoke: async (channel, ...args) => handlers.get(channel)({}, ...args) }),
+      };
+    },
+  });
+  const notifications = [];
+  const unsubscribe = api.onArchitectBrowserFoundationStatus((status) => notifications.push(status));
+  const status = await api.getArchitectBrowserFoundationStatus();
+  assert.equal("handoff" in status, false);
+  await api.showArchitectBrowser(1);
+  const bounds = await api.setArchitectBrowserBounds({ x: 0, y: 0, width: 640, height: 480, sequence: 1, attachmentGeneration: 1 });
+  assert.equal(bounds.disposition, "accepted");
+  await api.confirmArchitectSignedIn();
+  await api.reloadArchitectBrowser();
+  await api.hideArchitectBrowser(1);
+  events.emit("architectBrowser:statusChanged", {}, status);
+  assert.deepEqual(notifications, [status]);
+  unsubscribe();
+  events.emit("architectBrowser:statusChanged", {}, status);
+  assert.equal(notifications.length, 1);
+  assert.equal(events.listenerCount("architectBrowser:statusChanged"), 0);
+  assert.equal(repositoryReads, 0);
+  for (const forbidden of ["fs", "require", "ipcRenderer", "shell", "process"]) assert.equal(Object.hasOwn(api, forbidden), false);
 });
 
 function fakeBrowserBoundary() {

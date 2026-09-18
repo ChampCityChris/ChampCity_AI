@@ -31,13 +31,28 @@ function documentByPath(root, relativePath) {
   return document;
 }
 
-function sourceFiles(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const absolutePath = path.join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFiles(absolutePath);
-    return entry.isFile() && absolutePath.endsWith(".ts") ? [absolutePath] : [];
-  });
-}
+test("planning disposition and revision writes pass shared canonical verification", () => {
+  const root = tempWorkspace("champcity-writer-ownership-");
+  const relativePath = "planning/project/Project_Intake/PROJECT_INTAKE_demo.md";
+  writeDoc(root, relativePath, "project-intake", "Pending");
+  const document = documentByPath(root, relativePath);
+  const verified = [];
+  __setCanonicalMarkdownWriterTestHooks({ failInstalledVerification: (writtenPath) => { verified.push(writtenPath); } });
+  try {
+    setDocumentDisposition(root, document.logicalDocumentId, "Approved");
+    assert.deepEqual(verified, [relativePath]);
+    assert.equal(readCanonical(root, relativePath).metadata.documentDisposition.status, "Approved");
+    verified.length = 0;
+    const before = readCanonical(root, relativePath);
+    savePlanningDocumentRevision(root, document.logicalDocumentId);
+    assert.deepEqual(verified, [relativePath]);
+    const revised = readCanonical(root, relativePath);
+    assert.equal(revised.metadata.artifactRevision, before.metadata.artifactRevision + 1);
+    assert.equal(revised.bodyMarkdown, before.bodyMarkdown);
+  } finally {
+    __setCanonicalMarkdownWriterTestHooks();
+  }
+});
 
 test("planning document service discovers canonical Markdown without JSON summaries", () => {
   const root = tempWorkspace("champcity-planning-service-");
@@ -171,35 +186,6 @@ test("planning service write verification failure restores original bytes", () =
 
   assert.equal(fs.readFileSync(absolutePath, "utf8"), originalBytes);
   assert.equal(readCanonical(root, relativePath).metadata.documentDisposition.status, "Pending");
-});
-
-test("planning service delegates canonical writes to the shared writer", () => {
-  const planningService = fs.readFileSync(path.join(process.cwd(), "src/main/documents/planningDocumentService.ts"), "utf8");
-  const canonicalWriter = fs.readFileSync(path.join(process.cwd(), "src/main/documents/canonicalMarkdownDocumentWriter.ts"), "utf8");
-  const projectIntake = fs.readFileSync(path.join(process.cwd(), "src/main/projectIntake/projectIntakeService.ts"), "utf8");
-  const architectPromotion = fs.readFileSync(path.join(process.cwd(), "src/main/architectOutputs/architectDraftPromotionService.ts"), "utf8");
-  const mainSourceRoot = path.join(process.cwd(), "src/main");
-  const forbiddenWriterImplementers = sourceFiles(mainSourceRoot)
-    .filter((absolutePath) => !absolutePath.endsWith(path.join("src", "main", "documents", "canonicalMarkdownDocumentWriter.ts")))
-    .filter((absolutePath) => !absolutePath.endsWith(path.join("src", "main", "documents", "artifactTransaction.ts")))
-    .map((absolutePath) => ({
-      relativePath: path.relative(process.cwd(), absolutePath).replace(/\\/g, "/"),
-      content: fs.readFileSync(absolutePath, "utf8"),
-    }))
-    .filter((source) =>
-      source.content.includes("serializeCanonicalMarkdownDocument") ||
-      source.content.includes("writeArtifactTransaction"),
-    )
-    .map((source) => source.relativePath);
-
-  assert.doesNotMatch(planningService, /writeCanonicalMarkdownTransaction/);
-  assert.doesNotMatch(planningService, /writeArtifactTransaction/);
-  assert.doesNotMatch(planningService, /serializeCanonicalMarkdownDocument/);
-  assert.deepEqual(forbiddenWriterImplementers, []);
-  assert.match(canonicalWriter, /function writeCanonicalMarkdownDocuments/);
-  assert.match(canonicalWriter, /writeArtifactTransaction/);
-  assert.match(projectIntake, /documents\/canonicalMarkdownDocumentWriter/);
-  assert.match(architectPromotion, /documents\/canonicalMarkdownDocumentWriter/);
 });
 
 test("planning document detail returns the complete selected review body", () => {

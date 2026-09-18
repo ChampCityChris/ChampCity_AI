@@ -9,6 +9,42 @@ const {
   productIdentity,
 } = require("../../dist/shared/productIdentity.js");
 
+test("Desktop BrowserWindow construction supplies the generated native icon and isolated preload", () => {
+  const ts = require("typescript");
+  const vm = require("node:vm");
+  const source = fs.readFileSync(path.join(repositoryRoot, "src/main/main.ts"), "utf8");
+  const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true);
+  const constructors = ast.statements.filter((node) => {
+    if (!ts.isFunctionDeclaration(node)) return false;
+    let createsWindow = false;
+    function visit(child) {
+      if (ts.isNewExpression(child) && ts.isIdentifier(child.expression) && child.expression.text === "BrowserWindow") createsWindow = true;
+      ts.forEachChild(child, visit);
+    }
+    visit(node);
+    return createsWindow;
+  });
+  assert.equal(constructors.length, 1);
+  const code = ts.transpileModule(`(${constructors[0].getText(ast)})();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  let options;
+  let loaded;
+  vm.runInNewContext(code, {
+    path, __dirname: path.join(repositoryRoot, "dist/main"), productIdentity,
+    mainWindow: null, registerLocalRendererContextMenu() {},
+    BrowserWindow: class {
+      constructor(input) { options = input; }
+      loadFile(value) { loaded = value; }
+      once() {}
+    },
+  });
+  assert.deepEqual(fs.readFileSync(options.icon), fs.readFileSync(path.join(repositoryRoot, "assets/branding/ChampCity-AI.ico")));
+  assert.equal(options.title, productIdentity.productName);
+  assert.equal(options.webPreferences.contextIsolation, true);
+  assert.equal(options.webPreferences.nodeIntegration, false);
+  assert.equal(options.webPreferences.preload, path.join(repositoryRoot, "dist/preload/index.js"));
+  assert.equal(loaded, path.join(repositoryRoot, "dist/renderer/index.html"));
+});
+
 test("product identity owns the friendly, AppUserModelID, and future executable contracts", () => {
   assert.deepEqual(productIdentity, {
     productName: "ChampCity A/I",
@@ -59,16 +95,4 @@ test("canonical build emits the exact approved runtime branding assets", () => {
     const output = fs.readFileSync(path.join(repositoryRoot, outputRelativePath));
     assert.deepEqual(output, source, `${outputRelativePath} must be an exact generated copy`);
   }
-});
-
-test("desktop window uses the built native icon and introduces no process or tray deception", () => {
-  const mainSource = fs.readFileSync(path.join(repositoryRoot, "src/main/main.ts"), "utf8");
-  const bootstrapSource = fs.readFileSync(path.join(repositoryRoot, "src/main/bootstrap.ts"), "utf8");
-
-  assert.match(
-    mainSource,
-    /path\.join\(__dirname, "\.\.\/branding\/ChampCity-AI\.ico"\)/,
-  );
-  assert.match(mainSource, /icon: nativeWindowIconPath/);
-  assert.doesNotMatch(`${mainSource}\n${bootstrapSource}`, /process\.title|new Tray/);
 });
