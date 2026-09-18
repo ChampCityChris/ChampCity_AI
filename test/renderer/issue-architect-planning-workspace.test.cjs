@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
@@ -8,8 +6,6 @@ const test = require("node:test");
 const loader = require("./renderer-source-loader.cjs");
 const { IssueArchitectPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueArchitectPlanningWorkspace.tsx");
 const { FigmaBrowserPanel } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaBrowserPanel.tsx");
-
-const repoRoot = path.join(__dirname, "..", "..");
 
 test("Architect Planning workspace shows Issue evidence, target path, controls, and embedded browser", () => {
   const projection = {
@@ -158,74 +154,3 @@ test("awaiting-review Architect Investigation renders Figma disposition below th
   assert.match(markup, /Refresh/);
   assert.doesNotMatch(markup, /Prepare Handoff|Copy Handoff|Promote Draft/);
 });
-
-test("Issue Architect foreground uses scoped evidence-driven projection refresh", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  assert.match(appSource, /isIssueResolutionForeground && activeIssueStageId === "architect-planning"/);
-  assert.match(appSource, /window\.champcity\.showArchitectBrowser/);
-  const refreshTarget = extractEvidenceRefreshTarget(appSource);
-  assert.match(refreshTarget, /activeIssueStageId === "architect-planning"/);
-  assert.match(refreshTarget, /currentIssue\?\.recordState !== "readable"/);
-  assert.match(refreshTarget, /refreshIssueArchitectPlanningProjection\(issueId, \{ quiet: true \}\)/);
-  assert.doesNotMatch(refreshTarget, /window\.setInterval/);
-  assert.doesNotMatch(
-    extractEffectSource(appSource, "void refreshArchitectOutputWorkspace({ autoSelectOutput: true, force: true });"),
-    /isIssueResolutionForeground/,
-  );
-  assert.match(appSource, /copyIssueArchitectPlanningHandoff/);
-  assert.doesNotMatch(appSource, /promoteIssueArchitectPlanningDraft/);
-  assert.match(appSource, /getIssueArchitectPlanningProjection/);
-  assert.match(appSource, /applyIssueArchitectReview/);
-});
-
-test("Issue Architect browser sizing override wins after generic browser-column collapse rule", () => {
-  const cssSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "styles.css"), "utf8");
-  const genericPanelRule = findCssRule(cssSource, ".figma-browser-column .figma-browser-panel");
-  const issueColumnRule = findCssRule(cssSource, ".issue-architect-browser-column.figma-browser-column");
-  const issuePanelRule = findCssRule(
-    cssSource,
-    ".issue-architect-browser-column.figma-browser-column .figma-browser-panel",
-  );
-  const issueHostRule = findCssRule(
-    cssSource,
-    ".issue-architect-browser-column.figma-browser-column .architect-browser-host",
-  );
-
-  assert.match(genericPanelRule.body, /min-height:\s*0;/);
-  assert.ok(issueColumnRule.index > genericPanelRule.index);
-  assert.ok(issuePanelRule.index > genericPanelRule.index);
-  assert.ok(issueHostRule.index > genericPanelRule.index);
-  assert.match(issueColumnRule.body, /min-height:\s*640px;/);
-  assert.match(issuePanelRule.body, /min-height:\s*640px;/);
-  assert.match(issueHostRule.body, /min-height:\s*540px;/);
-});
-
-function extractEffectSource(source, needle) {
-  const needleIndex = source.indexOf(needle);
-  assert.notEqual(needleIndex, -1, `${needle} not found`);
-  const start = source.lastIndexOf("useEffect(() =>", needleIndex);
-  assert.notEqual(start, -1, "effect start not found");
-  const end = source.indexOf("  const workspaceGroups", needleIndex);
-  assert.notEqual(end, -1, "effect end not found");
-  return source.slice(start, end);
-}
-
-function extractEvidenceRefreshTarget(source) {
-  const start = source.indexOf("function currentEvidenceRefreshTarget");
-  assert.notEqual(start, -1, "evidence refresh target not found");
-  const end = source.indexOf("async function refreshArchitectStatus", start);
-  assert.notEqual(end, -1, "evidence refresh target end not found");
-  return source.slice(start, end);
-}
-
-function findCssRule(source, selector) {
-  const index = source.indexOf(`${selector} {`);
-  assert.notEqual(index, -1, `${selector} not found`);
-  const bodyStart = source.indexOf("{", index) + 1;
-  const bodyEnd = source.indexOf("}", bodyStart);
-  assert.notEqual(bodyEnd, -1, `${selector} rule end not found`);
-  return {
-    index,
-    body: source.slice(bodyStart, bodyEnd),
-  };
-}

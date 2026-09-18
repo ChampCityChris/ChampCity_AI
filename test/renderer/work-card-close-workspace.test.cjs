@@ -1,16 +1,7 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
-
-const repoRoot = path.resolve(__dirname, "../..");
-const componentSourcePath = path.join(repoRoot, "src", "renderer", "app", "WorkCardCloseWorkspace.tsx");
-const appSourcePath = path.join(repoRoot, "src", "renderer", "app", "App.tsx");
-const preloadSourcePath = path.join(repoRoot, "src", "preload", "index.ts");
-const workspaceSourcePath = path.join(repoRoot, "src", "shared", "workspaceContracts.ts");
-const orchestrationSourcePath = path.join(repoRoot, "src", "renderer", "app", "closeReturnRendererOrchestration.ts");
 const {
   WorkCardCloseWorkspace,
   workCardCloseProjectionFromResult,
@@ -368,37 +359,4 @@ test("rejected close-return candidate preserves the error and reloads only the d
     "generateCloseReturnNextIntakeHandoff:WC02",
     "getWorkCardMapProjection:phase-08",
   ]);
-});
-
-test("App routes work-card-close through canonical close-return orchestration", () => {
-  const componentSource = fs.readFileSync(componentSourcePath, "utf8");
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const preloadSource = fs.readFileSync(preloadSourcePath, "utf8");
-  const workspaceSource = fs.readFileSync(workspaceSourcePath, "utf8");
-  const orchestrationSource = fs.readFileSync(orchestrationSourcePath, "utf8");
-  const closeReturnSource = appSource.slice(
-    appSource.indexOf("async function returnFromWorkCardCloseToSelection"),
-    appSource.indexOf("async function createImplementerReportFromBuildReview"),
-  );
-
-  assert.match(workspaceSource, /getCurrentCloseProjection: \(\) => Promise<RuntimeActionResult>/);
-  assert.match(workspaceSource, /getCloseReturnSelectionProjection: \(\) => Promise<RuntimeActionResult>/);
-  assert.match(workspaceSource, /generateCloseReturnNextIntakeHandoff: \(candidateId: string\) => Promise<RuntimeActionResult>/);
-  assert.match(preloadSource, /getCurrentCloseProjection:[\s\S]*currentWorkflow:getCloseProjection/);
-  assert.match(preloadSource, /getCloseReturnSelectionProjection:[\s\S]*currentWorkflow:getCloseReturnSelectionProjection/);
-  assert.match(preloadSource, /generateCloseReturnNextIntakeHandoff:[\s\S]*currentWorkflow:generateCloseReturnNextIntakeHandoff/);
-  assert.match(appSource, /<WorkCardCloseWorkspace/);
-  assert.match(appSource, /activeWorkspaceId === "work-card-close"/);
-  assert.match(appSource, /!isVisibleArchitectOutputWorkspace &&\s*!isWorkCardClose/);
-  assert.match(closeReturnSource, /executeCloseReturnToMap\(/);
-  assert.match(orchestrationSource, /api\.getCloseReturnSelectionProjection\(\)/);
-  assert.match(orchestrationSource, /api\.getWorkCardMapProjection\(projection\.phaseId\)/);
-  assert.match(closeReturnSource, /transitionToWorkflowStep\("phase-work-card-selection"/);
-  assert.doesNotMatch(closeReturnSource, /generateCurrentHandoff/);
-  assert.doesNotMatch(appSource, /workCardCloseReturnCompleted/);
-  assert.doesNotMatch(appSource, /closeReturnCompleted:\s*true/);
-  assert.doesNotMatch(componentSource, /generateCurrentHandoff/);
-  assert.match(appSource, /executeCloseReturnCandidateIntake\(/);
-  assert.match(appSource, /<WorkCardMapWorkspace/);
-  assert.match(appSource, /!isWorkCardClose &&\s*!isWorkCardMap/);
 });

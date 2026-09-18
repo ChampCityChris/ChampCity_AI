@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
 
 const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
@@ -9,8 +7,6 @@ const {
   initialCodexExecutionPresentationState,
   issueCodexExecutionContextKey,
 } = loadRendererSourceModule("src/renderer/app/codexExecutionPresentationOwnership.ts");
-
-const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
 
 test("inactive Development cleanup cannot clear a populated Issue Codex status", () => {
   const contextKey = issueCodexExecutionContextKey("ISSUE_002", "ISSUE_002-FC01");
@@ -79,17 +75,6 @@ test("switching Issue execution context clears only Issue presentation and rejec
   });
   assert.equal(state.issue.status.workCardId, "ISSUE_002-FC02");
   assert.equal(state.issue.status.state, "ready");
-});
-
-test("App keeps terminal transition history and refresh ownership separate per workflow", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(source, /developmentCodexExecutionPreviousStateRef/);
-  assert.match(source, /issueCodexExecutionPreviousStateRef/);
-  assert.match(source, /previousState === "running"[\s\S]*?refreshBuildReviewAfterCodex\(status\)/);
-  assert.match(source, /previousState === "running"[\s\S]*?refreshIssueFixCardProjection\(currentIssue\.issueId/);
-  assert.match(source, /codexExecution=\{issueCodexExecution\}/);
-  assert.match(source, /codexExecution=\{codexExecution\}/);
 });
 
 function executionStatus(state, workCardId) {

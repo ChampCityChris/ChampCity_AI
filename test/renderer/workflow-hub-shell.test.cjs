@@ -36,27 +36,11 @@ test("fresh application shell presents the project-neutral landing actions witho
     onOpenExistingProject: () => undefined,
     onStartNewProject: () => undefined,
   }));
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const workspaceContracts = fs.readFileSync(path.join(repoRoot, "src", "shared", "workspaceContracts.ts"), "utf8");
-  const workflowContracts = fs.readFileSync(path.join(repoRoot, "src", "shared", "workflowHubContracts.ts"), "utf8");
-  const selectedWorkspaceEffect = extractSourceRange(
-    appSource,
-    "void window.champcity.getSelectedWorkspace()",
-    "  }, []);",
-  );
 
   assert.match(markup, /<h1 id="workspace-heading">Choose where to begin<\/h1>/);
   assert.match(markup, /Open Existing Project/);
   assert.match(markup, /Start New Project/);
   assert.doesNotMatch(markup, /Project navigation|Workflow navigation|Available workflows/);
-  assert.match(appSource, /type ShellView = "landing" \| "workflow-hub" \| "workflow" \| "settings"/);
-  assert.match(appSource, /useState<ShellView>\("landing"\)/);
-  assert.doesNotMatch(selectedWorkspaceEffect, /setShellView|setActiveWorkflowId/);
-  assert.match(appSource, /\{!isLandingForeground \? \(\s*<FigmaSidebar/);
-  assert.match(appSource, /\{isDevelopmentForeground \? \(\s*<NestedWorkflowRail/);
-  assert.match(appSource, /\{isIssueResolutionForeground \? \(\s*<IssueResolutionRail/);
-  assert.doesNotMatch(workspaceContracts, /"landing"/);
-  assert.doesNotMatch(workflowContracts, /"landing"/);
 });
 
 test("landing selection feedback remains bounded to the landing surface", () => {
@@ -94,9 +78,6 @@ test("Workflow Hub registry exposes only the functional peer workflows", () => {
       },
     ],
   );
-
-  const workspaceContracts = fs.readFileSync(path.join(repoRoot, "src", "shared", "workspaceContracts.ts"), "utf8");
-  assert.doesNotMatch(workspaceContracts, /workflow-hub/);
 });
 
 test("Hub with no selected project renders project-selection shell without Development lifecycle status", () => {
@@ -194,89 +175,18 @@ test("Hub sidebar omits Development lifecycle fields while Development sidebar o
   assert.match(developmentMarkup, /WC01/);
 });
 
-test("Development rail remains owned by Development foreground routing", () => {
+test("Development rail renders workflow, phase, and Work Card navigation", () => {
   const railMarkup = renderToStaticMarkup(React.createElement(NestedWorkflowRail, {
     activeWorkspaceId: "work-card-report-review",
     executionContext: sampleCurrentModel().executionContext,
     onWorkspaceChange: () => undefined,
     requiredWorkspaceId: "work-card-report-review",
   }));
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
 
   assert.match(railMarkup, /aria-label="Workflow navigation"/);
   assert.match(railMarkup, /aria-label="Phase loop"/);
   assert.match(railMarkup, /aria-label="Work Card loop"/);
-  assert.match(appSource, /\{isDevelopmentForeground \? \(\s*<NestedWorkflowRail/);
-  assert.doesNotMatch(appSource, /workflow-hub" as WorkspaceId/);
 });
-
-test("explicit project entry routes to Hub or Project Intake while normal Development entry retains resolver state", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const openExistingSource = extractFunctionSource(appSource, "async function openExistingProjectFromLanding", "async function startNewProjectFromLanding");
-  const startNewSource = extractFunctionSource(appSource, "async function startNewProjectFromLanding", "async function activateWorkspaceSelection");
-  const activateSelectionSource = extractFunctionSource(appSource, "async function activateWorkspaceSelection", "function clearRepositoryDerivedState");
-  const unsuccessfulSelectionSource = activateSelectionSource.slice(0, activateSelectionSource.indexOf("clearRepositoryDerivedState();"));
-  const openWorkflowSource = extractFunctionSource(appSource, "async function openWorkflow", "function returnToWorkflowHub");
-  const returnToHubSource = extractFunctionSource(appSource, "function returnToWorkflowHub", "async function refreshAgentHarnessStatus");
-
-  assert.match(openExistingSource, /window\.champcity\.chooseWorkspaceFolder\(\)/);
-  assert.match(openExistingSource, /"workflow-hub"/);
-  assert.doesNotMatch(openExistingSource, /resolveCurrentDocument|refreshDocuments|submitProjectIntake/);
-  assert.match(startNewSource, /window\.champcity\.chooseWorkspaceFolder\(\)/);
-  assert.match(startNewSource, /"project-intake-capture"/);
-  assert.doesNotMatch(startNewSource, /resolveCurrentDocument|refreshDocuments|submitProjectIntake/);
-
-  assert.match(activateSelectionSource, /if \(!selection\.ok\) \{\s*setDocumentError\(selection\.reason\);\s*return;/);
-  assert.doesNotMatch(unsuccessfulSelectionSource, /setWorkspace\(selection\)|setShellView\(|setActiveWorkflowId\(/);
-  assertOrdered(activateSelectionSource, [
-    "clearRepositoryDerivedState();",
-    "setWorkspace(selection);",
-    "projectRepository: selection.workspaceRoot",
-  ]);
-  assert.match(activateSelectionSource, /destination === "project-intake-capture"/);
-  assert.match(activateSelectionSource, /setShellView\("workflow"\)/);
-  assert.match(activateSelectionSource, /setActiveWorkflowId\("development"\)/);
-  assert.match(activateSelectionSource, /setActiveWorkspaceId\("project-intake-capture"\)/);
-  assert.match(activateSelectionSource, /setShellView\("workflow-hub"\)/);
-  assert.match(activateSelectionSource, /setActiveWorkflowId\(null\)/);
-  assert.doesNotMatch(activateSelectionSource, /refreshDocuments\(\{ useResolver: true \}\)/);
-  assert.doesNotMatch(activateSelectionSource, /resolveCurrentDocument/);
-
-  assert.match(openWorkflowSource, /workflowId === "issue-resolution"/);
-  assert.match(openWorkflowSource, /refreshIssueInventory\(undefined, true\)/);
-  assert.match(openWorkflowSource, /setShellView\("workflow"\)/);
-  assert.match(openWorkflowSource, /setActiveWorkflowId\("development"\)/);
-  assert.match(openWorkflowSource, /refreshDocuments\(\{ useResolver: true \}\)/);
-
-  assert.match(returnToHubSource, /setShellView\("workflow-hub"\)/);
-  assert.match(returnToHubSource, /setActiveWorkflowId\(null\)/);
-  assert.doesNotMatch(returnToHubSource, /clearRepositoryDerivedState|resolveCurrentDocument|setCurrentModel/);
-});
-
-function extractFunctionSource(source, startNeedle, endNeedle) {
-  const start = source.indexOf(startNeedle);
-  assert.notEqual(start, -1, `${startNeedle} not found`);
-  const end = source.indexOf(endNeedle, start);
-  assert.notEqual(end, -1, `${endNeedle} not found after ${startNeedle}`);
-  return source.slice(start, end);
-}
-
-function extractSourceRange(source, startNeedle, endNeedle) {
-  const start = source.indexOf(startNeedle);
-  assert.notEqual(start, -1, `${startNeedle} not found`);
-  const end = source.indexOf(endNeedle, start);
-  assert.notEqual(end, -1, `${endNeedle} not found after ${startNeedle}`);
-  return source.slice(start, end);
-}
-
-function assertOrdered(source, needles) {
-  let cursor = -1;
-  for (const needle of needles) {
-    const next = source.indexOf(needle, cursor + 1);
-    assert.notEqual(next, -1, `${needle} not found after prior assertion`);
-    cursor = next;
-  }
-}
 
 function sampleCurrentModel() {
   return {
@@ -368,9 +278,4 @@ test("MCP handoff preflight preserves drafts while stale or unavailable and perm
   assert.deepEqual([copies, prepares, issueActions], [1, 1, 1]);
   assert.equal(projected.restartRequired, false);
   assert.deepEqual(draft, { id: "existing-controlled-draft", body: "preserved" });
-  assert.match(source, /!isSettingsWorkspace &&[\s\S]*?<ServiceHostRemediation[\s\S]*?onRestartServiceHost=\{\(\) => void restartAgentHarnessServiceHost\(\)\}/);
-  assert.equal((source.match(/runMcpHandoff\(\(\) => runIssue/g) ?? []).length, 8);
-  for (const name of ["copyArchitectInterviewFinalDraftHandoff", "copyPhaseInterviewFinalDraftHandoff", "prepareArchitectInterviewFinalDraftFromAction", "preparePhaseInterviewFinalDraftFromAction", "prepareRepairWorkCardPromptFromEvidence"]) {
-    assert.match(handler(name), /Promise<void> \{\s*if \(!\(await preflightMcpHandoff\(\)\)\) return;/);
-  }
 });

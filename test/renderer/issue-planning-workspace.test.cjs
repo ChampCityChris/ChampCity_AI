@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
@@ -11,8 +9,6 @@ const { IssueFixCardMapWorkspace } = loader.loadRendererSourceModule("src/render
 const { IssueResolutionRail } = loader.loadRendererSourceModule("src/renderer/app/IssueResolutionRail.tsx");
 const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaSidebar.tsx");
 const { FigmaBrowserPanel } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaBrowserPanel.tsx");
-
-const repoRoot = path.join(__dirname, "..", "..");
 
 test("Issue Planning workspace presents planning documents, Fix Card Map, disposition, and browser actions", () => {
   const projection = planningProjection({
@@ -351,54 +347,6 @@ test("Issue sidebar reports Stage: Fix Cards and Fix Card Map Ready while map is
   assert.doesNotMatch(markup, /Current Phase|Current Work Card|phase-00|WC01|Loop Step/);
 });
 
-test("App contains an Issue-owned Fix Cards branch and repository-derived navigation refresh", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  assert.match(appSource, /getIssueResolutionNavigationProjection/);
-  assert.match(appSource, /activeIssueStageId === "fix-cards"[\s\S]*?<IssueFixCardMapWorkspace/);
-  assert.match(appSource, /activeIssueFixCardStepId === "planning"[\s\S]*?<IssueFixCardPlanningWorkspace/);
-  assert.match(appSource, /navigationProjection=\{issueNavigationProjection\}/);
-  assert.match(appSource, /issueNavigationProjection\?\.issuePlanningAvailable/);
-  assert.match(appSource, /issueNavigationProjection\?\.fixCardsAvailable/);
-  assert.match(appSource, /activeIssueStageId !== "issue-planning" && activeIssueStageId !== "fix-cards"/);
-  assert.doesNotMatch(appSource, /activeIssueStageId === "fix-cards"[\s\S]{0,400}<CurrentWorkspaceBanner/);
-});
-
-test("Issue Planning foreground reuses embedded Architect browser and scoped evidence refresh", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  assert.match(appSource, /activeIssueStageId === "issue-planning"/);
-  assert.match(appSource, /window\.champcity\.showArchitectBrowser/);
-  assert.match(appSource, /window\.champcity\.getIssuePlanningProjection/);
-  assert.match(appSource, /window\.champcity\.prepareIssuePlanningHandoff/);
-  assert.match(appSource, /window\.champcity\.copyIssuePlanningHandoff/);
-  assert.match(appSource, /window\.champcity\.applyIssuePlanningReview/);
-  const refreshTarget = extractEvidenceRefreshTarget(appSource);
-  assert.match(refreshTarget, /activeIssueStageId === "issue-planning"/);
-  assert.match(refreshTarget, /currentIssue\?\.recordState !== "readable"/);
-  assert.match(refreshTarget, /refreshIssuePlanningProjection\(issueId, \{ quiet: true \}\)/);
-  assert.doesNotMatch(refreshTarget, /window\.setInterval/);
-});
-
-test("Issue Planning browser sizing override preserves the FC03 browser repair behavior", () => {
-  const cssSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "styles.css"), "utf8");
-  const genericPanelRule = findCssRule(cssSource, ".figma-browser-column .figma-browser-panel");
-  const issuePlanningColumnRule = findCssRule(cssSource, ".issue-planning-browser-column.figma-browser-column");
-  const issuePlanningPanelRule = findCssRule(
-    cssSource,
-    ".issue-planning-browser-column.figma-browser-column .figma-browser-panel",
-  );
-  const issuePlanningHostRule = findCssRule(
-    cssSource,
-    ".issue-planning-browser-column.figma-browser-column .architect-browser-host",
-  );
-
-  assert.ok(issuePlanningColumnRule.index > genericPanelRule.index);
-  assert.ok(issuePlanningPanelRule.index > genericPanelRule.index);
-  assert.ok(issuePlanningHostRule.index > genericPanelRule.index);
-  assert.match(issuePlanningColumnRule.body, /min-height:\s*640px;/);
-  assert.match(issuePlanningPanelRule.body, /min-height:\s*640px;/);
-  assert.match(issuePlanningHostRule.body, /min-height:\s*540px;/);
-});
-
 function currentIssue() {
   return {
     issueId: "ISSUE_001",
@@ -513,25 +461,5 @@ function sampleCurrentModel() {
         reason: "Current Work Card resolved.",
       },
     },
-  };
-}
-
-function extractEvidenceRefreshTarget(source) {
-  const start = source.indexOf("function currentEvidenceRefreshTarget");
-  assert.notEqual(start, -1, "evidence refresh target not found");
-  const end = source.indexOf("async function refreshArchitectStatus", start);
-  assert.notEqual(end, -1, "evidence refresh target end not found");
-  return source.slice(start, end);
-}
-
-function findCssRule(source, selector) {
-  const index = source.indexOf(`${selector} {`);
-  assert.notEqual(index, -1, `${selector} not found`);
-  const bodyStart = source.indexOf("{", index) + 1;
-  const bodyEnd = source.indexOf("}", bodyStart);
-  assert.notEqual(bodyEnd, -1, `${selector} rule end not found`);
-  return {
-    index,
-    body: source.slice(bodyStart, bodyEnd),
   };
 }

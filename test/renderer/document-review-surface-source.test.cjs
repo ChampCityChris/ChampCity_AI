@@ -1,131 +1,83 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+const React = require("react");
+const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
+const { FigmaDocumentCard } = require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/FigmaDocumentCard.tsx");
 
-const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
+function document(overrides = {}) {
+  return { logicalDocumentId: "doc-1", displayFilename: "PROJECT_INTAKE_demo.md", markdownPath: "planning/project/Project_Intake/PROJECT_INTAKE_demo.md",
+    metadata: { artifactType: "project-intake", artifactRevision: 1, participationRole: "gatingReview" },
+    effectiveDisposition: "Pending", documentReadState: "readable", preview: "Truncated preview", bodyMarkdown: "# Complete document\n\nFinal evidence beyond preview.", ...overrides };
+}
+function props(overrides = {}) {
+  return { documentError: "", feedback: "", onCopy() {}, selectedDocument: document(), ...overrides };
+}
+function descendants(node) {
+  if (!node || typeof node !== "object") return [];
+  return [node, ...React.Children.toArray(node.props?.children).flatMap(descendants)];
+}
 
-test("shared document review surface renders selected document bodyMarkdown", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /selectedDocument\?\.bodyMarkdown \?\? selectedDocument\?\.preview/);
-  assert.match(appSource, /<pre className="preview-body">/);
+test("document viewer displays full body and falls back to preview only when body is unavailable", () => {
+  const full = renderToStaticMarkup(React.createElement(FigmaDocumentCard, props()));
+  assert.match(full, /Complete document/);
+  assert.match(full, /Final evidence beyond preview/);
+  assert.doesNotMatch(full, /Truncated preview/);
+  const fallback = renderToStaticMarkup(React.createElement(FigmaDocumentCard, props({ selectedDocument: document({ bodyMarkdown: undefined }) })));
+  assert.match(fallback, /Truncated preview/);
+  const emptyBody = renderToStaticMarkup(React.createElement(FigmaDocumentCard, props({ selectedDocument: document({ bodyMarkdown: "" }) })));
+  assert.doesNotMatch(emptyBody, /Truncated preview/);
 });
 
-test("document refresh reloads the still-selected document detail", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /nextDocuments\.some\(\(document\) => document\.logicalDocumentId === selectedDocumentId\)/);
-  assert.match(appSource, /await loadDocument\(selectedDocumentId, \{ preserveOnFailure: true \}\)/);
+test("document viewer selects readable slots and copies through supplied callbacks", () => {
+  const selections = [];
+  let copies = 0;
+  const tree = FigmaDocumentCard(props({ onCopy: () => { copies += 1; }, onSelectSlot: (...args) => selections.push(args), selectedSlotId: "profile",
+    slots: [{ slotId: "profile", logicalDocumentId: "doc-1", displayLabel: "Profile" }, { slotId: "roadmap", logicalDocumentId: "doc-2", displayLabel: "Roadmap" }, { slotId: "missing", displayLabel: "Missing" }] }));
+  const buttons = descendants(tree).filter((node) => node.type === "button");
+  const tabs = buttons.filter((node) => Object.hasOwn(node.props, "aria-selected"));
+  assert.deepEqual(tabs.map((node) => node.props.disabled), [false, false, true]);
+  assert.deepEqual(tabs.map((node) => node.props["aria-selected"]), [true, false, false]);
+  tabs[1].props.onClick();
+  buttons.find((node) => React.Children.toArray(node.props.children).includes("Copy")).props.onClick();
+  assert.deepEqual(selections, [["roadmap", "doc-2"]]);
+  assert.equal(copies, 1);
 });
 
-test("catalog Architect-output workspaces use the Figma document and browser action panels", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /usesFigmaWorkspaceBody/);
-  assert.match(appSource, /<section[\s\S]{0,240}className=\{\[[\s\S]{0,160}"figma-doc-chat-workspace"/);
-  assert.match(appSource, /<FigmaDocumentCard/);
-  assert.match(appSource, /<FigmaArchitectReviewPanel/);
-  assert.match(appSource, /<FigmaBrowserActionsPanel/);
-  assert.match(appSource, /isArchitectEnabledWorkspace\(activeWorkspaceId\)/);
-  assert.match(appSource, /prepareArchitectOutputHandoff\(activeWorkspaceId\)/);
-  assert.match(appSource, /copyArchitectOutputHandoff\(activeWorkspaceId\)/);
-  assert.match(appSource, /reviewArchitectOutput\(/);
-  assert.match(appSource, /!usesFigmaWorkspaceBody \? \(\s*<CurrentWorkspaceBanner/s);
-  assert.doesNotMatch(appSource, /ProjectPlanningActionBar/);
-  assert.doesNotMatch(appSource, /ProjectPlanningPreviewReview/);
-  assert.doesNotMatch(appSource, /Workspace Migration Required/);
-  assert.doesNotMatch(appSource, /Project Profile Markdown/);
-  assert.doesNotMatch(appSource, /Project Roadmap Markdown/);
+test("document viewer exposes read errors and a bounded empty state", () => {
+  const failed = renderToStaticMarkup(React.createElement(FigmaDocumentCard, props({ documentError: "Cannot read selected revision", feedback: "Refresh complete" })));
+  assert.match(failed, /role="status"/);
+  assert.match(failed, /Cannot read selected revision/);
+  assert.match(failed, /Refresh complete/);
+  const empty = renderToStaticMarkup(React.createElement(FigmaDocumentCard, props({ selectedDocument: null, neutralMessage: "Prepare the current handoff." })));
+  assert.match(empty, /No document yet/);
+  assert.match(empty, /Prepare the current handoff/);
+  const copy = descendants(FigmaDocumentCard(props({ selectedDocument: null }))).find((node) => node.type === "button");
+  assert.equal(copy.props.disabled, true);
 });
 
-test("Phase Map uses its compact Figma phase-list workspace with shared browser handoff actions", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /activeWorkspaceId === "project-phase-map"/);
-  assert.match(appSource, /isPhaseMapFigmaWorkspace/);
-  assert.match(appSource, /<FigmaPhaseMapWorkspace/);
-  assert.match(appSource, /\{architectBrowserColumn\}/);
-  assert.match(appSource, /isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace/);
-  assert.match(appSource, /const architectBrowserWorkspaceAvailable =\s*isVisibleArchitectOutputWorkspace \|\| isWorkCardReportReview/);
-  assert.match(appSource, /<FigmaBrowserActionsPanel/);
-  assert.match(appSource, /Prepare Phase Map Handoff/);
-  assert.match(appSource, /Copy Phase Map Handoff/);
-  assert.match(appSource, /onPrepareHandoff=\{prepareArchitectOutputFromAction\}/);
-  assert.match(appSource, /onCopyHandoff=\{copyArchitectHandoff\}/);
-  assert.doesNotMatch(appSource, /PhaseMapActionBar/);
-  assert.doesNotMatch(appSource, /PhaseMapPreviewReview/);
-  assert.doesNotMatch(appSource, /copyPhaseMapHandoff/);
-  assert.doesNotMatch(appSource, /Phase Map Markdown/);
-  assert.doesNotMatch(appSource, /savePhaseMapOutput/);
-});
-
-test("application shell routes workflow navigation through one transition helper", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const railStart = appSource.indexOf("<NestedWorkflowRail");
-  const railEnd = appSource.indexOf("/>", railStart);
-  assert.ok(railStart >= 0 && railEnd > railStart, "Nested workflow rail binding must be present");
-  const railBinding = appSource.slice(railStart, railEnd);
-
-  assert.match(appSource, /function transitionToWorkflowStep\(/);
-  assert.match(railBinding, /onWorkspaceChange=\{\(workspaceId\) => \{/);
-  assert.match(railBinding, /workspaceId === "phase-validation"/);
-  assert.match(railBinding, /void openPhaseValidation\(\)/);
-  assert.match(railBinding, /transitionToWorkflowStep\(workspaceId\)/);
-  assert.match(appSource, /function documentIdForWorkflowStep\(/);
-  assert.match(appSource, /classifyPlanningDocument\(document\)\.workspaceId === destinationWorkspaceId/);
-  assert.match(appSource, /isWorkflowReviewDocument\(document, destinationWorkspaceId\)/);
-  assert.doesNotMatch(appSource, /onWorkspaceChange=\{setActiveWorkspaceId\}/);
-  assert.doesNotMatch(appSource, /onClick=\{\(\) => setActiveWorkspaceId/);
-});
-
-test("renderer imports the shared strict workflow review predicate", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const helperSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "workflowReviewDocuments.ts"), "utf8");
-
-  assert.match(appSource, /from "\.\/workflowReviewDocuments"/);
-  assert.doesNotMatch(appSource, /function isWorkflowReviewDocument\(document: PlanningDocumentSummary\)/);
-  assert.match(helperSource, /participationRole === "gatingReview"/);
-  assert.match(helperSource, /participationRole === "compoundGatingReview"/);
-  assert.match(helperSource, /classification\.workspaceId === workspaceId/);
-  assert.doesNotMatch(helperSource, /participationRole !== "nonReviewHandoff"/);
-});
-
-test("left sidebar owns project selection and does not duplicate workflow-step lists", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const sidebarSource = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "figma", "FigmaSidebar.tsx"), "utf8");
-
-  assert.match(appSource, /<FigmaSidebar/);
-  assert.match(sidebarSource, /<aside className="sidebar figma-sidebar" aria-label="Project navigation">/);
-  assert.match(sidebarSource, /aria-label="Select Project"/);
-  assert.match(sidebarSource, /Choose Project/);
-  assert.match(sidebarSource, /Clear Project/);
-  assert.doesNotMatch(appSource, /<small>\{workspace\.ok \? workspace\.workspaceRoot/);
-  assert.doesNotMatch(appSource, /Choose Workspace/);
-  assert.doesNotMatch(appSource, /Selected workspace/);
-  assert.doesNotMatch(appSource, /navigationGroups/);
-  assert.doesNotMatch(appSource, /workspace-tab/);
-});
-
-test("Phase Map actions do not offer disposition before a Phase Map output is selected", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /const selectedDocumentIsPhaseMapOutput = Boolean/);
-  assert.match(appSource, /activeWorkspaceId !== "project-phase-map" \|\| selectedDocumentIsPhaseMapOutput/);
-  assert.match(appSource, /selectedDocument\.metadata\.participationRole !== "nonReviewHandoff"/);
-  assert.match(appSource, /No documents in this workflow step\./);
-});
-
-test("Work Card Planning preparation uses the intake view instead of generic document review", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /<WorkCardIntakeWorkspace/);
-  assert.match(appSource, /isWorkCardPlanningPreparation/);
-  assert.match(appSource, /const isFigmaActionWorkspace =/);
-  assert.match(appSource, /<FigmaActionWorkspace/);
-  assert.match(appSource, /generateWorkCardIntakeAndTransition/);
-  assert.match(appSource, /window\.champcity\.generateCurrentHandoff\(\)/);
-  assert.match(appSource, /nextModel\?\.activeWorkspaceId !== "work-card-planning" \|\| nextModel\.workCardIntake/);
-  assert.match(appSource, /!isWorkCardPlanningPreparation &&\s*!isWorkCardBuildingReview &&\s*!isWorkCardReportReview &&\s*!isFigmaActionWorkspace/);
-  assert.doesNotMatch(appSource, /Generate Work Card Intake Handoff[\s\S]*CurrentActionPanel/);
+test("document refresh reloads retained selection and skips a removed document", async () => {
+  const fs = require("node:fs"), path = require("node:path"), ts = require("typescript"), vm = require("node:vm");
+  const source = ts.createSourceFile("App.tsx", fs.readFileSync(path.join(__dirname, "../../src/renderer/app/App.tsx"), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let callback;
+  function visit(node) { if (ts.isFunctionDeclaration(node) && node.name?.text === "refreshDocuments") callback = node; ts.forEachChild(node, visit); }
+  visit(source);
+  const code = ts.transpileModule(`(${callback.getText(source)})`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  for (const retained of [true, false]) {
+    const calls = [];
+    const inventory = retained ? [document()] : [];
+    let error, loading;
+    const refresh = vm.runInNewContext(code, { Error,
+      window: { champcity: { listDocuments: async () => { calls.push("list"); return inventory; } } },
+      selectedDocumentId: "doc-1", activeWorkspaceId: "project-intake-capture",
+      setIsLoadingDocuments: (value) => { loading = value; }, setDocumentError: (value) => { error = value; },
+      applyDocumentInventory: (value) => { assert.equal(value, inventory); },
+      refreshProjectPlanningWorkspaceModel: async () => {}, refreshCurrentModel: async () => ({}),
+      loadDocument: async (id, options) => { calls.push([id, options.preserveOnFailure]); },
+      isArchitectEnabledWorkspace: () => false, transitionToWorkflowStep() {}, setFeedback() {},
+    });
+    await refresh();
+    assert.deepEqual(calls, retained ? ["list", ["doc-1", true]] : ["list"]);
+    assert.equal(loading, false);
+    assert.equal(error, "");
+  }
 });
