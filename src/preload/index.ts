@@ -14,6 +14,11 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getGithubProviderStatus: () => ipcRenderer.invoke("githubProvider:status"),
+  connectGithubProvider: () => ipcRenderer.invoke("githubProvider:connect"),
+  restartGithubProvider: () => ipcRenderer.invoke("githubProvider:restart"),
+  disconnectGithubProvider: () => ipcRenderer.invoke("githubProvider:disconnect"),
+  readGithubEvidence: (request) => ipcRenderer.invoke("githubProvider:read", request),
   getSelectedWorkspace: () => ipcRenderer.invoke("workspace:get") as Promise<WorkspaceSelection>,
   chooseWorkspaceFolder: () => ipcRenderer.invoke("workspace:choose") as Promise<WorkspaceSelection>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
