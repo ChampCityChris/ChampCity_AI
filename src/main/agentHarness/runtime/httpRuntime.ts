@@ -525,11 +525,12 @@ export async function startAgentHarnessHttpRuntime(options: AgentHarnessHttpRunt
         return;
       }
       if (requestUrl.pathname === "/.well-known/oauth-authorization-server" || requestUrl.pathname === "/.well-known/oauth-authorization-server/mcp") {
+        const publicUrls = resolvePublicUrlModel(options, actualPort);
         writeJson(res, 200, {
-          issuer: publicBaseUrl(options, actualPort),
-          registration_endpoint: `${publicBaseUrl(options, actualPort)}/oauth/register`,
-          authorization_endpoint: `${publicBaseUrl(options, actualPort)}/oauth/authorize`,
-          token_endpoint: `${publicBaseUrl(options, actualPort)}/oauth/token`,
+          issuer: publicUrls.authorizationServerIssuer,
+          registration_endpoint: publicUrls.oauthEndpoint("/oauth/register"),
+          authorization_endpoint: publicUrls.oauthEndpoint("/oauth/authorize"),
+          token_endpoint: publicUrls.oauthEndpoint("/oauth/token"),
           response_types_supported: ["code"],
           grant_types_supported: ["authorization_code", "refresh_token"],
           code_challenge_methods_supported: ["S256"],
@@ -985,6 +986,18 @@ function safeOAuthErrorDescription(error: unknown): string {
 
 function publicBaseUrl(options: AgentHarnessHttpRuntimeOptions, port: number): string {
   return options.publicBaseUrl?.replace(/\/+$/g, "") ?? `http://${options.host}:${port}`;
+}
+
+function resolvePublicUrlModel(options: AgentHarnessHttpRuntimeOptions, port: number): {
+  authorizationServerIssuer: string;
+  oauthEndpoint: (pathname: `/oauth/${string}`) => string;
+} {
+  const authorizationServerIssuer = publicBaseUrl(options, port);
+  const oauthOrigin = new URL(authorizationServerIssuer).origin;
+  return {
+    authorizationServerIssuer,
+    oauthEndpoint: (pathname) => new URL(pathname, oauthOrigin).toString(),
+  };
 }
 
 function recordValue(value: unknown): Record<string, unknown> {

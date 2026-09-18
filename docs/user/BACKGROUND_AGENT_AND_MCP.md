@@ -76,6 +76,10 @@ The embedded ChatGPT session and MCP OAuth are separate:
 
 One does not prove the other is ready.
 
+## Stable public toolbox names
+
+Public ChampCity MCP top-level toolbox names are stable compatibility boundaries. Add new capabilities as actions to an existing toolbox whenever a reasonable domain owner exists. Creating another top-level toolbox requires explicit Operator direction because downstream clients may require plugin recreation, contract rescanning, or security re-evaluation to discover it.
+
 ## Restart-required and build generation
 
 The foreground application calculates the build identity it expects and compares it with the running Service Host. If an older or different build is still running, Settings shows **Background Agent update required** and the lifecycle state becomes restart-required.

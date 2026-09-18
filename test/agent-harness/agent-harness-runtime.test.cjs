@@ -732,6 +732,83 @@ test("Saving Agent Harness settings applies stopped and running lifecycle state"
   }
 });
 
+test("Agent Harness OAuth discovery endpoints match the mounted public routes", async () => {
+  const { root, userDataRoot } = createWorkspace("OAuth_Discovery_Project");
+  const publicMcpBaseUrl = "https://connector.example.test/mcp";
+  const publicOrigin = new URL(publicMcpBaseUrl).origin;
+  const service = new AgentHarnessService({
+    userDataRoot,
+    getSelectedProjectRoot: () => root,
+    port: 0,
+    publicBaseUrl: publicMcpBaseUrl,
+    allowUnauthenticatedLocal: false,
+  });
+  try {
+    const status = await service.start();
+    assert.equal(status.state, "running");
+    assert.ok(status.port);
+    const routerOrigin = `http://127.0.0.1:${status.port}`;
+    const authorizationServerMetadata = await getJson(
+      `${routerOrigin}/.well-known/oauth-authorization-server/mcp`,
+    );
+
+    assert.equal(authorizationServerMetadata.issuer, publicMcpBaseUrl);
+    const advertisedEndpoints = [
+      ["registration_endpoint", "/oauth/register"],
+      ["authorization_endpoint", "/oauth/authorize"],
+      ["token_endpoint", "/oauth/token"],
+    ];
+    for (const [metadataKey, expectedPathname] of advertisedEndpoints) {
+      const advertisedUrl = new URL(authorizationServerMetadata[metadataKey]);
+      assert.equal(advertisedUrl.protocol, "https:");
+      assert.equal(advertisedUrl.origin, publicOrigin);
+      assert.equal(advertisedUrl.pathname, expectedPathname);
+      assert.doesNotMatch(advertisedUrl.pathname, /^\/mcp\/oauth\//);
+    }
+
+    const routeAdvertisedEndpoint = (metadataKey) => {
+      const advertisedUrl = new URL(authorizationServerMetadata[metadataKey]);
+      return new URL(`${advertisedUrl.pathname}${advertisedUrl.search}`, routerOrigin);
+    };
+    const registration = await postJsonResponse(routeAdvertisedEndpoint("registration_endpoint"), {
+      redirect_uris: ["https://chatgpt.com/connector/oauth/callback"],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+      scope: "files.read",
+      client_name: "Discovery regression client",
+    });
+    assert.equal(registration.status, 201);
+    assert.ok(registration.body.client_id);
+
+    const authorization = await getResponseJson(routeAdvertisedEndpoint("authorization_endpoint"));
+    assert.equal(authorization.status, 400);
+    assert.notEqual(authorization.status, 404);
+    assert.equal(authorization.body.error, "invalid_request");
+
+    const tokenUrl = routeAdvertisedEndpoint("token_endpoint");
+    const tokenResponse = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: registration.body.client_id,
+        redirect_uri: "https://chatgpt.com/connector/oauth/callback",
+        code: "intentionally-invalid-code",
+        code_verifier: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV",
+      }).toString(),
+    });
+    assert.equal(tokenResponse.status, 400);
+    assert.notEqual(tokenResponse.status, 404);
+    assert.equal((await tokenResponse.json()).error, "invalid_grant");
+
+    const mcpResponse = await fetch(`${routerOrigin}/mcp`);
+    assert.equal(mcpResponse.status, 401);
+  } finally {
+    await service.stop();
+  }
+});
+
 test("Agent Harness OAuth gates write actions by files.write scope", async () => {
   const { root, userDataRoot } = createWorkspace("OAuth_Project");
   const service = new AgentHarnessService({

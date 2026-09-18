@@ -5,7 +5,6 @@ import type {
   AgentHarnessToolContractSnapshot,
   AgentHarnessToolContractToolSummary,
 } from "../../../shared/workspaceContracts";
-import type { IssueScreenshotEvidenceReadResult } from "../repository/issueScreenshotEvidence";
 import type {
   AgentHarnessToolDefinition,
   AgentHarnessToolRegistry,
@@ -136,15 +135,17 @@ export function createAgentHarnessMcpServer(
 }
 
 function projectCallToolResult(result: AgentHarnessToolResult): CallToolResult {
-  if (result.ok && result.toolName === "repo_toolbox" && result.action === "read_issue_screenshot") {
-    const payload = result.payload as IssueScreenshotEvidenceReadResult;
-    const { imageBase64, ...metadata } = payload;
-    const structuredResult = { ...result, payload: metadata };
+  if (result.ok && result.imageContent && result.imageContent.length > 0) {
+    const { imageContent, ...structuredResult } = result;
     return {
       isError: false,
       content: [
         { type: "text", text: JSON.stringify(structuredResult, null, 2) },
-        { type: "image", data: imageBase64, mimeType: metadata.mimeType },
+        ...imageContent.map((image) => ({
+          type: "image" as const,
+          data: image.data,
+          mimeType: image.mimeType,
+        })),
       ],
       structuredContent: structuredResult as unknown as Record<string, unknown>,
     };

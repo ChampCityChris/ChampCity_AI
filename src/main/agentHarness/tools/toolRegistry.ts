@@ -4,6 +4,11 @@ import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownD
 import { readIssueScreenshotEvidence } from "../repository/issueScreenshotEvidence";
 import { copyRepositoryFile, moveRepositoryFile } from "../repository/fileOperations";
 import {
+  compareVisualAssetImages,
+  inspectVisualAssetImage,
+  readVisualAssetImage,
+} from "../repository/visualAssetReview";
+import {
   gitDiff,
   gitStatus,
   inspectRepositoryTextFile,
@@ -49,6 +54,7 @@ import * as z from "zod/v4";
 
 export type PublicToolName =
   | "repo_toolbox"
+  | "visual_asset_toolbox"
   | "git_toolbox"
   | "artifact_toolbox"
   | "diagnostics_toolbox"
@@ -56,7 +62,60 @@ export type PublicToolName =
   | "release_toolbox"
   | "browser_toolbox"
   | "knowledge_toolbox"
+  | "workspace_toolbox"
+  | "project_toolbox"
+  | "intake_toolbox"
+  | "planning_toolbox"
+  | "workflow_toolbox"
+  | "issue_toolbox"
+  | "agent_toolbox"
+  | "model_toolbox"
+  | "skill_toolbox"
+  | "memory_toolbox"
+  | "validation_toolbox"
+  | "test_toolbox"
+  | "development_toolbox"
+  | "system_toolbox"
+  | "network_toolbox"
+  | "data_toolbox"
+  | "security_toolbox"
+  | "observability_toolbox"
+  | "ui_toolbox"
+  | "deployment_toolbox"
+  | "automation_toolbox"
+  | "document_toolbox"
+  | "media_asset_toolbox"
+  | "model_asset_toolbox"
+  | "archive_toolbox"
   | "workspace_write_attached_image";
+
+const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
+  "workspace_toolbox",
+  "project_toolbox",
+  "intake_toolbox",
+  "planning_toolbox",
+  "workflow_toolbox",
+  "issue_toolbox",
+  "agent_toolbox",
+  "model_toolbox",
+  "skill_toolbox",
+  "memory_toolbox",
+  "validation_toolbox",
+  "test_toolbox",
+  "development_toolbox",
+  "system_toolbox",
+  "network_toolbox",
+  "data_toolbox",
+  "security_toolbox",
+  "observability_toolbox",
+  "ui_toolbox",
+  "deployment_toolbox",
+  "automation_toolbox",
+  "document_toolbox",
+  "media_asset_toolbox",
+  "model_asset_toolbox",
+  "archive_toolbox",
+] as const satisfies readonly PublicToolName[];
 
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
@@ -79,6 +138,8 @@ interface ParamSpec {
   type: ParamType;
   required?: boolean;
   allowedValues?: readonly string[];
+  minItems?: number;
+  maxItems?: number;
 }
 
 interface ToolActionContract {
@@ -126,9 +187,15 @@ export interface AgentHarnessToolResult {
   action: string;
   workspaceId?: string;
   payload?: unknown;
+  imageContent?: AgentHarnessToolImageContent[];
   error?: ReturnType<typeof toBoundedError>;
   attemptId: string;
   timestamp: string;
+}
+
+export interface AgentHarnessToolImageContent {
+  data: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
 }
 
 export interface AgentHarnessToolRegistry {
@@ -141,6 +208,14 @@ interface RegistryOptions {
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
   releaseToolbox?: ReleaseToolbox;
+}
+
+const IMAGE_BEARING_DISPATCH_RESULT = Symbol("image-bearing-dispatch-result");
+
+interface ImageBearingDispatchResult {
+  [IMAGE_BEARING_DISPATCH_RESULT]: true;
+  payload: unknown;
+  imageContent: AgentHarnessToolImageContent[];
 }
 
 export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentHarnessToolRegistry {
@@ -180,14 +255,34 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         const context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const params = validateParams(args.params, contract);
         assertActionAccess(context, contract.kind);
-        const payload = await contract.dispatch({
+        const dispatchResult = await contract.dispatch({
           context,
           params,
           userDataRoot: options.userDataRoot,
           workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
           runtimeDiagnostics: options.runtimeDiagnostics,
         });
-        return { ok: true, toolName: provider.name, action, workspaceId: context.workspaceId, payload, attemptId, timestamp };
+        if (isImageBearingDispatchResult(dispatchResult)) {
+          return {
+            ok: true,
+            toolName: provider.name,
+            action,
+            workspaceId: context.workspaceId,
+            payload: dispatchResult.payload,
+            imageContent: dispatchResult.imageContent,
+            attemptId,
+            timestamp,
+          };
+        }
+        return {
+          ok: true,
+          toolName: provider.name,
+          action,
+          workspaceId: context.workspaceId,
+          payload: dispatchResult,
+          attemptId,
+          timestamp,
+        };
       } catch (error) {
         return {
           ok: false,
@@ -223,9 +318,14 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         readAction("read_file", requiredParams({ relativePath: "string" }), ({ context, params }) => (
           readRepositoryFile(context.root, context.workspaceId, requiredString(params.relativePath, "relativePath"))
         )),
-        readAction("read_issue_screenshot", requiredParams({ relativePath: "string" }), ({ context, params }) => (
-          readIssueScreenshotEvidence(context.root, requiredString(params.relativePath, "relativePath"))
-        )),
+        readAction("read_issue_screenshot", requiredParams({ relativePath: "string" }), ({ context, params }) => {
+          const result = readIssueScreenshotEvidence(
+            context.root,
+            requiredString(params.relativePath, "relativePath"),
+          );
+          const { imageBase64, ...metadata } = result;
+          return imageBearingResult(metadata, [{ data: imageBase64, mimeType: metadata.mimeType }]);
+        }),
         readAction("inspect_text_file", requiredParams({ relativePath: "string" }), ({ context, params }) => (
           inspectRepositoryTextFile(context.root, context.workspaceId, requiredString(params.relativePath, "relativePath"))
         )),
@@ -315,6 +415,44 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           requiredString(params.proposalId, "proposalId"),
           requiredString(params.patchHash, "patchHash"),
         )),
+      ],
+    },
+    {
+      name: "visual_asset_toolbox",
+      title: "visual_asset_toolbox",
+      description: "ChampCity A/I bounded read-only repository visual asset review toolbox.",
+      actions: [
+        readAction("read_image", requiredParams({ relativePath: "string" }), ({ context, params }) => {
+          const result = readVisualAssetImage(
+            context.root,
+            requiredString(params.relativePath, "relativePath"),
+          );
+          return imageBearingResult(result.metadata, [{
+            data: result.imageBase64,
+            mimeType: result.metadata.mimeType,
+          }]);
+        }),
+        readAction("inspect_image", requiredParams({ relativePath: "string" }), ({ context, params }) => (
+          inspectVisualAssetImage(context.root, requiredString(params.relativePath, "relativePath"))
+        )),
+        readAction(
+          "compare_images",
+          {
+            relativePaths: {
+              type: "string-array",
+              required: true,
+              minItems: 2,
+              maxItems: 6,
+            },
+          },
+          ({ context, params }) => {
+            const result = compareVisualAssetImages(
+              context.root,
+              requiredStringArray(params.relativePaths, "relativePaths", 2, 6),
+            );
+            return imageBearingResult({ images: result.images }, result.imageContents);
+          },
+        ),
       ],
     },
     {
@@ -506,6 +644,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
     statusOnlyProvider("integration_toolbox"),
     statusOnlyProvider("browser_toolbox"),
     statusOnlyProvider("knowledge_toolbox"),
+    ...HOTFIX10_RESERVED_TOOLBOX_NAMES.map(reservedToolboxProvider),
     {
       name: "workspace_write_attached_image",
       title: "workspace_write_attached_image",
@@ -581,7 +720,12 @@ function buildParamsInputSchema(params: Record<string, ParamSpec>): Record<strin
     properties: Object.fromEntries(Object.entries(params).map(([name, spec]) => [
       name,
       spec.type === "string-array"
-        ? { type: "array", minItems: 1, maxItems: 256, items: { type: "string", minLength: 1, maxLength: 4_096 } }
+        ? {
+            type: "array",
+            minItems: spec.minItems ?? 1,
+            maxItems: spec.maxItems ?? 256,
+            items: { type: "string", minLength: 1, maxLength: 4_096 },
+          }
         : { type: spec.type, ...(spec.allowedValues ? { enum: spec.allowedValues } : {}) },
     ])),
   };
@@ -617,7 +761,7 @@ function buildParamsZodSchema(params: Record<string, ParamSpec>): z.ZodType<Reco
 
 function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
   if (spec.type === "string-array") {
-    return z.array(z.string().min(1).max(4_096)).min(1).max(256);
+    return z.array(z.string().min(1).max(4_096)).min(spec.minItems ?? 1).max(spec.maxItems ?? 256);
   }
   if (spec.type === "number") {
     return z.number().refine((value) => Number.isFinite(value), "number must be finite");
@@ -742,6 +886,21 @@ function statusOnlyProvider(name: PublicToolName): ToolProvider {
   };
 }
 
+function reservedToolboxProvider(name: PublicToolName): ToolProvider {
+  return {
+    name,
+    title: name,
+    description: `ChampCity A/I reserved public MCP namespace ${name}.`,
+    actions: [
+      readAction("status", {}, () => ({
+        toolbox: name,
+        state: "reserved",
+        implemented: false,
+      })),
+    ],
+  };
+}
+
 function requiredParams(params: Record<string, ParamType>): Record<string, ParamSpec> {
   return Object.fromEntries(Object.entries(params).map(([name, type]) => [name, { type, required: true }]));
 }
@@ -761,7 +920,7 @@ function validateParams(value: unknown, contract: ToolActionContract): Record<st
       }
       continue;
     }
-    if (!paramMatchesType(paramValue, spec.type)) {
+    if (!paramMatchesType(paramValue, spec)) {
       throw new AgentHarnessError("INVALID_INPUT", `${name} must be a ${spec.type}.`);
     }
     if (spec.type === "string" && typeof paramValue === "string" && !paramValue.trim()) {
@@ -788,15 +947,15 @@ function requiredParamNames(params: Record<string, ParamSpec>): string[] {
     .map(([name]) => name);
 }
 
-function paramMatchesType(value: unknown, type: ParamType): boolean {
-  if (type === "string-array") {
-    return Array.isArray(value) && value.length > 0 && value.length <= 256 &&
+function paramMatchesType(value: unknown, spec: ParamSpec): boolean {
+  if (spec.type === "string-array") {
+    return Array.isArray(value) && value.length >= (spec.minItems ?? 1) && value.length <= (spec.maxItems ?? 256) &&
       value.every((entry) => typeof entry === "string" && entry.trim() && Buffer.byteLength(entry, "utf8") <= 4_096);
   }
-  if (type === "number") {
+  if (spec.type === "number") {
     return typeof value === "number" && Number.isFinite(value);
   }
-  return typeof value === type;
+  return typeof value === spec.type;
 }
 
 function scopeIncludes(scope: string | undefined, required: string): boolean {
@@ -834,14 +993,38 @@ function requiredString(value: unknown, name: string): string {
   return value;
 }
 
-function requiredStringArray(value: unknown, name: string): string[] {
+function requiredStringArray(
+  value: unknown,
+  name: string,
+  minimumItems = 1,
+  maximumItems = 256,
+): string[] {
   if (
     !Array.isArray(value) ||
-    value.length === 0 ||
-    value.length > 256 ||
+    value.length < minimumItems ||
+    value.length > maximumItems ||
     value.some((entry) => typeof entry !== "string" || !entry.trim() || Buffer.byteLength(entry, "utf8") > 4_096)
   ) {
     throw new AgentHarnessError("INVALID_INPUT", `${name} must be a non-empty string array.`);
   }
   return value as string[];
+}
+
+function imageBearingResult(
+  payload: unknown,
+  imageContent: AgentHarnessToolImageContent[],
+): ImageBearingDispatchResult {
+  return {
+    [IMAGE_BEARING_DISPATCH_RESULT]: true,
+    payload,
+    imageContent,
+  };
+}
+
+function isImageBearingDispatchResult(value: unknown): value is ImageBearingDispatchResult {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    (value as Partial<ImageBearingDispatchResult>)[IMAGE_BEARING_DISPATCH_RESULT] === true,
+  );
 }
