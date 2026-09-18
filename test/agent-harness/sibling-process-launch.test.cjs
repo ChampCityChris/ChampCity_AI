@@ -10,6 +10,77 @@ const siblingLaunch = require(path.join(
   "dist/main/agentHarness/runtime/champCitySiblingProcessLaunch.js",
 ));
 
+test("production Desktop and Service Host callers generate bounded sibling launch requests", async () => {
+  const vm = require("node:vm");
+  const targetModule = require("../../dist/main/agentHarness/runtime/agentHarnessServiceHostStartupRegistration.js");
+  for (const isPackaged of [false, true]) {
+    const invocations = [];
+    const applicationPath = isPackaged ? path.join(repositoryRoot, "fixture/resources/app.asar") : repositoryRoot;
+    const userDataRoot = path.join(repositoryRoot, "fixture-user-data");
+    const application = Object.assign(new EventEmitter(), {
+      isPackaged, getAppPath: () => applicationPath, getPath: () => userDataRoot,
+      getVersion: () => "fixture", setPath() {}, requestSingleInstanceLock: () => true,
+    });
+    const launcher = {
+      launchDetachedChampCitySiblingProcess: (options) => siblingLaunch.launchDetachedChampCitySiblingProcess(options, (command, args, spawnOptions) => {
+        invocations.push({ command, args: Array.from(args), options: spawnOptions });
+        const child = new MockChildProcess(777);
+        queueMicrotask(() => child.emit("spawn"));
+        return child;
+      }),
+    };
+    const handlers = new Map();
+    const mocks = {
+      electron: { app: application, ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) } },
+      "../shared/productIdentity": { productIdentity: { productName: "fixture" } },
+      "./sessionActiveWorkspaceSelection": { SessionActiveWorkspaceSelection: class {} },
+      "./externalProviders/githubRuntime": { createGithubRuntimeOperations: () => ({}) },
+      "./externalProviders/githubProviderService": { GithubProviderService: class {} },
+      "./externalProviders/githubProviderIpc": { registerGithubProviderIpc() {} },
+      "./workspaceEvidence/selectedWorkspaceEvidenceNotifier": { SelectedWorkspaceEvidenceNotifier: class {} },
+      "./browser/architectBrowserService": { subscribeArchitectBrowserFoundationStatus() {} },
+      "./agentHarness/runtime/desktopLifecycleLease": { acquireDesktopLifecycleLease: () => new Promise(() => {}) },
+      "./agentHarness/runtime/agentHarnessBuildIdentity": { computeAgentHarnessRuntimeBuildIdentity: () => "fixture-build" },
+      "./agentHarness/runtime/agentHarnessServiceHostClient": { AgentHarnessServiceHostClient: class {
+        constructor(options) { this.options = options; }
+        async status() { await this.options.launchServiceHost(); return { state: "fixture-launched" }; }
+      } },
+      "./agentHarness/runtime/agentHarnessServiceHostStartupRegistration": targetModule,
+      "./agentHarness/runtime/champCitySiblingProcessLaunch": launcher,
+      "./agentHarnessServiceHostStartupRegistration": targetModule,
+      "./champCitySiblingProcessLaunch": launcher,
+    };
+    function execute(relativePath) {
+      const entry = path.join(repositoryRoot, relativePath);
+      const exports = {};
+      vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+        exports, __dirname: path.dirname(entry), console,
+        process: { execPath: process.execPath, platform: process.platform, env: { ELECTRON_RUN_AS_NODE: "1" } },
+        require: (id) => id.startsWith("node:") ? require(id) : mocks[id] ?? {},
+      });
+      return exports;
+    }
+    execute("dist/main/main.js");
+    assert.equal((await handlers.get("agentHarness:status")()).state, "fixture-launched");
+    const host = execute("dist/main/agentHarness/runtime/agentHarnessServiceHost.js");
+    assert.equal(await host.launchChampCityDesktop(application, userDataRoot), 777);
+    assert.equal(invocations.length, 2);
+    for (const [index, invocation] of invocations.entries()) {
+      assert.equal(invocation.command, process.execPath);
+      assert.deepEqual(invocation.args, [
+        ...isPackaged ? [] : [applicationPath],
+        ...index === 0 ? ["--agent-harness-service-host"] : [],
+      ]);
+      assert.equal(invocation.options.cwd, isPackaged ? path.dirname(process.execPath) : applicationPath);
+      assert.equal(invocation.options.detached, true);
+      assert.equal(invocation.options.stdio, "ignore");
+      assert.equal(invocation.options.windowsHide, index === 0);
+      assert.equal(invocation.options.env.CHAMPCITY_USER_DATA_ROOT, userDataRoot);
+      assert.equal(invocation.options.env.ELECTRON_RUN_AS_NODE, undefined);
+    }
+  }
+});
+
 test("sibling-process cwd uses the executable directory when packaged and the application directory in development", () => {
   const packagedInput = {
     isPackaged: true,
@@ -109,19 +180,6 @@ test("sibling spawn error rejects through the launch promise without an unhandle
 
   await assert.rejects(launchPromise, (error) => error === spawnError);
   assert.equal(child.unrefCount, 0);
-});
-
-test("both production sibling directions delegate to the shared launch boundary", () => {
-  const mainSource = fs.readFileSync(path.join(repositoryRoot, "src/main/main.ts"), "utf8");
-  const serviceHostSource = fs.readFileSync(
-    path.join(repositoryRoot, "src/main/agentHarness/runtime/agentHarnessServiceHost.ts"),
-    "utf8",
-  );
-
-  assert.match(mainSource, /await launchDetachedChampCitySiblingProcess\(\{/);
-  assert.match(serviceHostSource, /return launchDetachedChampCitySiblingProcess\(\{/);
-  assert.doesNotMatch(mainSource, /cwd: app\.getAppPath\(\)/);
-  assert.doesNotMatch(serviceHostSource, /cwd: application\.getAppPath\(\)/);
 });
 
 class MockChildProcess extends EventEmitter {

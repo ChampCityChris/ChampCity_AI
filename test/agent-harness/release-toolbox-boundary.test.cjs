@@ -15,6 +15,99 @@ const {
   createAgentHarnessToolRegistry,
 } = require(path.join(repositoryRoot, "dist/main/agentHarness/tools/toolRegistry.js"));
 
+test("production command adapter fixes executables, arguments, deadlines, and safe receipt paths", async (t) => {
+  const { EventEmitter } = require("node:events");
+  const { PassThrough } = require("node:stream");
+  const { createRequire } = require("node:module");
+  const vm = require("node:vm");
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-command-adapter-"));
+  t.after(() => fs.rmSync(container, { recursive: true, force: true }));
+  const toolchain = path.join(container, "toolchain");
+  const npmRoot = path.join(toolchain, "node_modules/npm");
+  fs.mkdirSync(path.join(npmRoot, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(toolchain, "node.exe"), "synthetic executable; never launched");
+  fs.writeFileSync(path.join(npmRoot, "package.json"), JSON.stringify({ name: "npm", bin: { npm: "bin/npm-cli.js" } }));
+  fs.writeFileSync(path.join(npmRoot, "bin/npm-cli.js"), "// synthetic CLI; never launched\n");
+  const root = path.join(container, "repository");
+  const temporaryDirectory = path.join(container, "download");
+  const spawns = [];
+  const timers = [];
+  let currentChild;
+  const entry = path.join(repositoryRoot, "dist/main/agentHarness/release/releaseCommandAdapter.js");
+  const nativeRequire = createRequire(entry);
+  const exports = {};
+  vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+    exports, Buffer,
+    process: { platform: "win32", execPath: path.join(toolchain, "node.exe"), env: { PATH: toolchain } },
+    setTimeout: (callback, milliseconds) => {
+      const timer = { callback, milliseconds, cleared: false, unref() {} };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimeout: (timer) => { timer.cleared = true; },
+    require: (id) => id === "node:child_process" ? {
+      spawnSync: (executable, args, options) => {
+        assert.equal(executable, path.join(toolchain, "node.exe"));
+        assert.equal(options.shell, false);
+        assert.equal(options.env.ELECTRON_RUN_AS_NODE, undefined);
+        return { status: 0, stdout: JSON.stringify({ releaseName: "node", electron: false }) };
+      },
+      spawn: (executable, args, options) => {
+        spawns.push({ executable, args: Array.from(args), options });
+        if (executable === "taskkill") {
+          currentChild.exitCode = 1;
+          queueMicrotask(() => currentChild.emit("close", 1));
+          return { unref() {} };
+        }
+        const child = new EventEmitter();
+        child.stdout = new PassThrough();
+        child.stderr = new PassThrough();
+        child.exitCode = null;
+        child.pid = 4321;
+        currentChild = child;
+        return child;
+      },
+    } : nativeRequire(id),
+  });
+
+  const common = { root, repository: "Example/Fixture", tagName: "v1.2.3" };
+  for (const [request, executable, args, publicArgs] of [
+    [{ id: "npm-run-build" }, path.join(toolchain, "node.exe"), [path.join(npmRoot, "bin/npm-cli.js"), "run", "build"], ["run", "build"]],
+    [{ id: "git-diff-check" }, "git", ["diff", "--check"]],
+    [{ id: "gh-release-upload", installerPath: path.join(root, "release/setup.exe"), installerRelativePath: "release/setup.exe" }, "gh", ["release", "upload", "v1.2.3", path.join(root, "release/setup.exe"), "--repo", "Example/Fixture"], ["release", "upload", "v1.2.3", "release/setup.exe", "--repo", "Example/Fixture"]],
+    [{ id: "gh-release-download", assetName: "setup.exe", temporaryDirectory }, "gh", ["release", "download", "v1.2.3", "--repo", "Example/Fixture", "--pattern", "setup.exe", "--dir", temporaryDirectory], ["release", "download", "v1.2.3", "--repo", "Example/Fixture", "--pattern", "setup.exe", "--dir", "<OS_TEMP>"]],
+  ]) {
+    const pending = exports.runFixedReleaseCommand({ ...common, ...request });
+    const invocation = spawns.at(-1);
+    assert.equal(invocation.executable, executable);
+    assert.deepEqual(invocation.args, args);
+    assert.equal(invocation.options.shell, false);
+    assert.equal(invocation.options.windowsHide, true);
+    assert.equal(invocation.options.cwd, root);
+    assert.equal(invocation.args.some((arg) => ["--clobber", "--cleanup-tag", "delete-asset"].includes(arg)), false);
+    currentChild.stdout.write(`output ${root} ${root.replace(/\\/g, "/")}`);
+    currentChild.stderr.write(`error ${root}`);
+    currentChild.exitCode = 0;
+    currentChild.emit("close", 0);
+    const receipt = await pending;
+    assert.equal(receipt.status, "succeeded");
+    assert.deepEqual(Array.from(receipt.command.args), publicArgs ?? args);
+    assert.equal(receipt.command.executable, request.id.startsWith("npm-") ? "npm" : executable);
+    assert.equal(receipt.stdout, "output <COMMAND_CWD> <COMMAND_CWD>");
+    assert.equal(receipt.stderr, "error <COMMAND_CWD>");
+    assert.equal(timers.at(-1).cleared, true);
+    assert.equal(JSON.stringify(receipt).includes(container), false);
+  }
+  const timedOut = exports.runFixedReleaseCommand({ ...common, id: "gh-release-upload", installerPath: path.join(root, "setup.exe"), installerRelativePath: "setup.exe" });
+  const deadline = timers.at(-1);
+  assert.equal(deadline.milliseconds, 30 * 60_000);
+  deadline.callback();
+  assert.equal((await timedOut).status, "timeout");
+  assert.deepEqual(spawns.at(-1).args, ["/pid", "4321", "/t", "/f"]);
+  assert.equal(spawns.at(-1).executable, "taskkill");
+  assert.equal(spawns.at(-1).options.shell, false);
+});
+
 test("release_toolbox publishes exact read/write-scoped actions with no raw command surface", async () => {
   const root = createReleaseWorkspace("0.1.0-beta.2");
   const calls = [];
@@ -642,25 +735,6 @@ test("verification downloads only the canonical asset to OS temp, compares SHA-2
   assert.equal(fs.existsSync(downloadDirectory), false);
 });
 
-test("the production adapter uses shell-false fixed commands and redacts repository/temp paths in receipts", () => {
-  const source = fs.readFileSync(
-    path.join(repositoryRoot, "src/main/agentHarness/release/releaseCommandAdapter.ts"),
-    "utf8",
-  );
-  assert.match(source, /shell:\s*false/);
-  assert.doesNotMatch(source, /shell:\s*true/);
-  assert.doesNotMatch(source, /cmd\.exe|powershell(?:\.exe)?/i);
-  assert.doesNotMatch(source, /npm\.cmd/i);
-  assert.match(source, /npm-cli\.js/);
-  assert.match(source, /node\.exe/);
-  assert.match(source, /process\.release/);
-  assert.doesNotMatch(source, /ELECTRON_RUN_AS_NODE:\s*["']1["']/);
-  assert.match(source, /case "gh-release-upload":[\s\S]*?30 \* 60_000/);
-  assert.doesNotMatch(source, /--clobber/);
-  assert.match(source, /"<OS_TEMP>"/);
-  assert.match(source, /"<COMMAND_CWD>"/);
-});
-
 test("exact drafts complete only their missing upload and publication steps", async (t) => {
   for (const complete of [false, true]) {
     await t.test(complete ? "draft-complete" : "draft-incomplete", async () => {
@@ -892,8 +966,9 @@ test("production adapter fixes draft edit and delete arguments with shell false"
     assert.equal(spawns.at(-1).options.shell, false);
     assert.deepEqual(result.command.args, spawns.at(-1).args);
   }
-  const source = fs.readFileSync(path.join(repositoryRoot, "src/main/agentHarness/release/releaseCommandAdapter.ts"), "utf8");
-  assert.doesNotMatch(source, /--cleanup-tag|--clobber|delete-asset/);
+  for (const { args } of spawns) {
+    assert.equal(args.some((arg) => ["--cleanup-tag", "--clobber", "delete-asset"].includes(arg)), false);
+  }
 });
 
 function providerCommands(requests) {

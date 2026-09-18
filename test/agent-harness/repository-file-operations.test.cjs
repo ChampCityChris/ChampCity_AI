@@ -20,6 +20,28 @@ const {
   resolveWorkspaceRootContext,
 } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
 
+test("large opaque files copy and move intact without launching a process", async (t) => {
+  const childProcess = require("node:child_process");
+  for (const method of ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"]) {
+    t.mock.method(childProcess, method, () => assert.fail(`File transfer launched ${method}`));
+  }
+  const root = createWorkspace("Large Transfer");
+  t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+  const bytes = Buffer.alloc(16 * 1024 * 1024 + 37);
+  for (let offset = 0; offset < bytes.length; offset += 4093) bytes[offset] = offset % 251;
+  write(root, "source.bin", bytes);
+  const copied = await copyRepositoryFile(root, "source.bin", "copied.bin");
+  assert.equal(copied.bytes, bytes.length);
+  assert.equal(copied.sha256, sha256(bytes));
+  assert.deepEqual(fs.readFileSync(path.join(root, "source.bin")), bytes);
+  assert.deepEqual(fs.readFileSync(path.join(root, "copied.bin")), bytes);
+  const moved = await moveRepositoryFile(root, "copied.bin", "nested/moved.bin");
+  assert.equal(moved.bytes, bytes.length);
+  assert.equal(moved.sha256, sha256(bytes));
+  assert.equal(fs.existsSync(path.join(root, "copied.bin")), false);
+  assert.deepEqual(fs.readFileSync(path.join(root, "nested/moved.bin")), bytes);
+});
+
 test("copy_file preserves opaque release bytes, creates contained parents, and returns bounded integrity evidence", async () => {
   const root = createWorkspace("Opaque Copy");
   const bytes = Buffer.from([0x00, 0xff, 0xfe, 0x80, 0x61, 0x00, 0xc3, 0x28]);
@@ -328,18 +350,6 @@ test("public repo_toolbox exposes strict copy and move schemas only with files.w
   assert.equal(moved.ok, true);
   assert.equal(fs.existsSync(path.join(root, "copy.bin")), false);
   assert.deepEqual(fs.readFileSync(path.join(root, "moved.bin")), Buffer.from([0x00, 0xff, 0x01]));
-});
-
-test("implementation stays chunked and documents its non-hostile namespace concurrency boundary", () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, "../../src/main/agentHarness/repository/fileOperations.ts"),
-    "utf8",
-  );
-  assert.match(source, /TRANSFER_BUFFER_BYTES = 1_048_576/);
-  assert.doesNotMatch(source, /readFile(?:Sync)?\s*\(/);
-  assert.doesNotMatch(source, /exec|spawn|cmd\.exe|powershell|robocopy/i);
-  assert.match(source, /hostile local[\s\S]*outside HOTFIX07/i);
-  assert.match(source, /cross-device copy-and-delete is not supported/i);
 });
 
 function createRegistry(root) {

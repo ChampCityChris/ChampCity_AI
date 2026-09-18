@@ -28,27 +28,6 @@ const {
   StreamableHTTPClientTransport,
 } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
-test("production source contains no contract polling, per-request synchronization, or mutable-session publication path", () => {
-  const httpRuntimeSource = fs.readFileSync(
-    path.join(root, "src/main/agentHarness/runtime/httpRuntime.ts"),
-    "utf8",
-  );
-  const mcpServerSource = fs.readFileSync(
-    path.join(root, "src/main/agentHarness/runtime/mcpServer.ts"),
-    "utf8",
-  );
-  const serviceSource = fs.readFileSync(
-    path.join(root, "src/main/agentHarness/runtime/agentHarnessService.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(httpRuntimeSource, /publicContractRefreshIntervalMs|contractRefreshTimer|synchronizePublished/);
-  assert.equal((httpRuntimeSource.match(/setInterval\s*\(/g) ?? []).length, 1);
-  assert.match(httpRuntimeSource, /const sessionReaperTimer = setInterval/);
-  assert.doesNotMatch(mcpServerSource, /sendToolListChanged|synchronizePublishedContract/);
-  const statusBody = serviceSource.slice(serviceSource.indexOf("  status(): AgentHarnessStatus"));
-  assert.doesNotMatch(statusBody, /captureAgentHarnessPublicToolContract/);
-});
-
 test("one runtime contract generation remains constant across 32 sessions and one simulated idle hour", { timeout: 30_000 }, async (t) => {
   const fixture = createWorkspace("Contract_Generation_Project");
   let runtime;
