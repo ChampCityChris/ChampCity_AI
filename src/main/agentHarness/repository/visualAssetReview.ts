@@ -11,13 +11,31 @@ import {
 import { AgentHarnessError } from "../core/errors";
 import { isPathInside, resolveRepositoryPath } from "./pathPolicy";
 
-export const VISUAL_ASSET_MAX_BYTES = 15_000_000;
+export const VISUAL_ASSET_MAX_BYTES = 24_000_000;
 export const VISUAL_ASSET_MAX_WIDTH = 8192;
 export const VISUAL_ASSET_MAX_HEIGHT = 8192;
 export const VISUAL_ASSET_MAX_PIXELS = 40_000_000;
 export const VISUAL_ASSET_COMPARE_MAX_IMAGES = 6;
-export const VISUAL_ASSET_COMPARE_MAX_BYTES = 45_000_000;
+export const VISUAL_ASSET_COMPARE_MAX_BYTES = 48_000_000;
 export const VISUAL_ASSET_COMPARE_MAX_PIXELS = 100_000_000;
+
+export const VISUAL_ASSET_PREVIEW_SOURCE_MAX_BYTES = 128_000_000;
+export const VISUAL_ASSET_PREVIEW_SOURCE_MAX_WIDTH = 16_384;
+export const VISUAL_ASSET_PREVIEW_SOURCE_MAX_HEIGHT = 16_384;
+export const VISUAL_ASSET_PREVIEW_SOURCE_MAX_PIXELS = 80_000_000;
+
+const directReadLimits = {
+  bytes: VISUAL_ASSET_MAX_BYTES,
+  width: VISUAL_ASSET_MAX_WIDTH,
+  height: VISUAL_ASSET_MAX_HEIGHT,
+  pixels: VISUAL_ASSET_MAX_PIXELS,
+};
+const previewSourceLimits = {
+  bytes: VISUAL_ASSET_PREVIEW_SOURCE_MAX_BYTES,
+  width: VISUAL_ASSET_PREVIEW_SOURCE_MAX_WIDTH,
+  height: VISUAL_ASSET_PREVIEW_SOURCE_MAX_HEIGHT,
+  pixels: VISUAL_ASSET_PREVIEW_SOURCE_MAX_PIXELS,
+};
 
 export type VisualAssetFormat = "png" | "jpeg" | "webp";
 export type VisualAssetFormatFact = "present" | "absent" | "unknown";
@@ -50,6 +68,7 @@ export interface VisualAssetComparisonResult {
 interface BoundedFileRead {
   buffer: Buffer;
   canonicalIdentity: string;
+  assertUnchanged: () => void;
 }
 
 interface ValidatedVisualAssetRead extends BoundedFileRead {
@@ -83,6 +102,11 @@ export function inspectVisualAssetImage(root: string, relativePath: string): Vis
   return readValidatedVisualAsset(root, relativePath).metadata;
 }
 
+// Local processing only: callers must never project this source buffer through MCP.
+export function readVisualAssetPreviewSource(root: string, relativePath: string): ValidatedVisualAssetRead {
+  return readValidatedVisualAsset(root, relativePath, previewSourceLimits);
+}
+
 export function compareVisualAssetImages(root: string, relativePaths: string[]): VisualAssetComparisonResult {
   if (relativePaths.length < 2 || relativePaths.length > VISUAL_ASSET_COMPARE_MAX_IMAGES) {
     throw new AgentHarnessError(
@@ -109,7 +133,7 @@ export function compareVisualAssetImages(root: string, relativePaths: string[]):
   if (aggregateBytes > VISUAL_ASSET_COMPARE_MAX_BYTES) {
     throw new AgentHarnessError(
       "FILE_DENIED",
-      "Compared images exceed the 45,000,000-byte aggregate limit.",
+      "Compared images exceed the 48,000,000-byte aggregate limit.",
     );
   }
   if (aggregatePixels > VISUAL_ASSET_COMPARE_MAX_PIXELS) {
@@ -128,18 +152,23 @@ export function compareVisualAssetImages(root: string, relativePaths: string[]):
   };
 }
 
-function readValidatedVisualAsset(root: string, relativePath: string): ValidatedVisualAssetRead {
+function readValidatedVisualAsset(
+  root: string,
+  relativePath: string,
+  limits = directReadLimits,
+): ValidatedVisualAssetRead {
   const resolved = resolveRepositoryPath(root, relativePath);
   assertNoLinkComponents(resolved.rootRealPath, resolved.requestedPath, resolved.relativePath);
   const boundedRead = readBoundedRegularFile(
     resolved.rootRealPath,
     resolved.resolvedPath,
     resolved.relativePath,
+    limits.bytes,
   );
-  const detected = inspectVisualAsset(boundedRead.buffer, resolved.relativePath);
+  const detected = inspectVisualAsset(boundedRead.buffer, resolved.relativePath, limits.bytes);
   const extension = requestedExtension(resolved.relativePath);
   assertExtensionMatches(extension, detected, resolved.relativePath);
-  assertVisualAssetBounds(detected, resolved.relativePath);
+  assertVisualAssetBounds(detected, resolved.relativePath, limits);
   const facts = inspectFormatFacts(boundedRead.buffer, detected);
   const metadata: VisualAssetMetadata = {
     relativePath: resolved.relativePath,
@@ -157,6 +186,7 @@ function readValidatedVisualAsset(root: string, relativePath: string): Validated
     metadata,
     buffer: boundedRead.buffer,
     canonicalIdentity: boundedRead.canonicalIdentity,
+    assertUnchanged: boundedRead.assertUnchanged,
   };
 }
 
@@ -185,6 +215,7 @@ function readBoundedRegularFile(
   rootRealPath: string,
   absolutePath: string,
   relativePath: string,
+  maxBytes: number,
 ): BoundedFileRead {
   let descriptor: number | undefined;
   try {
@@ -205,10 +236,10 @@ function readBoundedRegularFile(
         relativePath,
       });
     }
-    if (before.size === 0n || before.size > BigInt(VISUAL_ASSET_MAX_BYTES)) {
+    if (before.size === 0n || before.size > BigInt(maxBytes)) {
       throw new AgentHarnessError(
         "FILE_DENIED",
-        "Visual asset is empty or exceeds the 15,000,000-byte limit.",
+        `Visual asset is empty or exceeds the ${maxBytes.toLocaleString("en-US")}-byte limit.`,
         { relativePath },
       );
     }
@@ -230,7 +261,8 @@ function readBoundedRegularFile(
       !sameFileIdentity(after, currentPathEntry) ||
       after.size !== before.size ||
       after.mtimeNs !== before.mtimeNs ||
-      after.ctimeNs !== before.ctimeNs
+      after.ctimeNs !== before.ctimeNs ||
+      !sameFileState(after, currentPathEntry)
     ) {
       throw new AgentHarnessError("FILE_DENIED", "Visual asset changed while it was being read.", {
         relativePath,
@@ -240,6 +272,20 @@ function readBoundedRegularFile(
     return {
       buffer,
       canonicalIdentity: canonicalIdentity(after, absolutePath),
+      assertUnchanged: () => {
+        try {
+          assertNoLinkComponents(rootRealPath, absolutePath, relativePath);
+          assertCurrentRealPathContained(rootRealPath, absolutePath, relativePath);
+          const current = fs.lstatSync(absolutePath, { bigint: true });
+          if (!current.isFile() || current.isSymbolicLink() || !sameFileState(after, current)) {
+            throw new Error("Source changed");
+          }
+        } catch {
+          throw new AgentHarnessError("FILE_DENIED", "Visual asset changed during preview processing.", {
+            relativePath,
+          });
+        }
+      },
     };
   } catch (error) {
     if (error instanceof AgentHarnessError) {
@@ -275,6 +321,11 @@ function sameFileIdentity(
   return left.dev === right.dev && left.ino === right.ino;
 }
 
+function sameFileState(left: fs.BigIntStats, right: fs.BigIntStats): boolean {
+  return sameFileIdentity(left, right) && left.size === right.size &&
+    left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
+}
+
 function canonicalIdentity(stat: fs.BigIntStats, absolutePath: string): string {
   if (stat.ino !== 0n) {
     return `${stat.dev.toString()}:${stat.ino.toString()}`;
@@ -283,14 +334,14 @@ function canonicalIdentity(stat: fs.BigIntStats, absolutePath: string): string {
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
-function inspectVisualAsset(buffer: Buffer, relativePath: string): DetectedSupportedImage {
+function inspectVisualAsset(buffer: Buffer, relativePath: string, maxBytes: number): DetectedSupportedImage {
   try {
-    return inspectSupportedImageBytes(buffer, VISUAL_ASSET_MAX_BYTES);
+    return inspectSupportedImageBytes(buffer, maxBytes);
   } catch (error) {
     if (error instanceof SupportedImageValidationError && error.failure === "empty-or-oversized") {
       throw new AgentHarnessError(
         "FILE_DENIED",
-        "Visual asset is empty or exceeds the 15,000,000-byte limit.",
+        `Visual asset is empty or exceeds the ${maxBytes.toLocaleString("en-US")}-byte limit.`,
         { relativePath },
       );
     }
@@ -302,18 +353,22 @@ function inspectVisualAsset(buffer: Buffer, relativePath: string): DetectedSuppo
   }
 }
 
-function assertVisualAssetBounds(image: DetectedSupportedImage, relativePath: string): void {
+function assertVisualAssetBounds(
+  image: DetectedSupportedImage,
+  relativePath: string,
+  limits: typeof directReadLimits,
+): void {
   try {
     assertSupportedImageBounds(image, {
-      maxDecodedBytesPerImage: VISUAL_ASSET_MAX_BYTES,
-      maxWidth: VISUAL_ASSET_MAX_WIDTH,
-      maxHeight: VISUAL_ASSET_MAX_HEIGHT,
-      maxPixelsPerImage: VISUAL_ASSET_MAX_PIXELS,
+      maxDecodedBytesPerImage: limits.bytes,
+      maxWidth: limits.width,
+      maxHeight: limits.height,
+      maxPixelsPerImage: limits.pixels,
     });
   } catch {
     throw new AgentHarnessError(
       "FILE_DENIED",
-      "Visual asset dimensions exceed the 8192 x 8192 or 40,000,000-pixel limits.",
+      `Visual asset dimensions exceed the ${limits.width} x ${limits.height} or ${limits.pixels.toLocaleString("en-US")}-pixel limits.`,
       { relativePath },
     );
   }

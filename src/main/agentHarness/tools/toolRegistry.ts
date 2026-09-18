@@ -3,6 +3,7 @@ import { writeAttachedImage } from "../repository/attachedImages";
 import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
 import { readIssueScreenshotEvidence } from "../repository/issueScreenshotEvidence";
 import { copyRepositoryFile, moveRepositoryFile } from "../repository/fileOperations";
+import { createVisualAssetPreview } from "../repository/visualAssetPreview";
 import {
   compareVisualAssetImages,
   inspectVisualAssetImage,
@@ -453,6 +454,22 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
             return imageBearingResult({ images: result.images }, result.imageContents);
           },
         ),
+        readAction("create_image_preview", {
+          ...requiredParams({ relativePath: "string" }),
+          ...optionalParams({ cropX: "number", cropY: "number", cropWidth: "number", cropHeight: "number" }),
+        }, async ({ context, params }) => {
+          const result = await createVisualAssetPreview(
+            context.root,
+            requiredString(params.relativePath, "relativePath"),
+            {
+              cropX: numberValue(params.cropX), cropY: numberValue(params.cropY),
+              cropWidth: numberValue(params.cropWidth), cropHeight: numberValue(params.cropHeight),
+            },
+          );
+          return imageBearingResult(result.metadata, [{
+            data: result.imageBase64, mimeType: result.metadata.preview.mimeType,
+          }]);
+        }),
       ],
     },
     {

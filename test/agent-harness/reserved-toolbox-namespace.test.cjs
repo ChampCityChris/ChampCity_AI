@@ -66,7 +66,7 @@ const EXISTING_TOOL_ACTIONS = {
     "propose_patch",
     "apply_approved_patch",
   ],
-  visual_asset_toolbox: ["read_image", "inspect_image", "compare_images"],
+  visual_asset_toolbox: ["read_image", "inspect_image", "compare_images", "create_image_preview"],
   git_toolbox: [
     "status",
     "diff",

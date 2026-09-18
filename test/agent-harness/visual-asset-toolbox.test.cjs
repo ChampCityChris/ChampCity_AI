@@ -66,7 +66,7 @@ test("visual asset reader detects PNG, JPEG, and WebP bytes and returns determin
   );
 });
 
-test("visual_asset_toolbox publishes exactly three strict read-only actions", async () => {
+test("visual_asset_toolbox publishes exactly four strict read-only actions", async () => {
   const fixture = createWorkspace("Visual_Contract_Project");
   writeWorkspaceFile(fixture.root, "assets/a.png", onePixelPng());
   writeWorkspaceFile(fixture.root, "assets/b.jpg", jpegWithDimensions(2, 2));
@@ -74,7 +74,7 @@ test("visual_asset_toolbox publishes exactly three strict read-only actions", as
   const tool = registry.listTools("files.read").find((entry) => entry.name === "visual_asset_toolbox");
 
   assert.ok(tool);
-  assert.deepEqual(tool.actions, ["read_image", "inspect_image", "compare_images"]);
+  assert.deepEqual(tool.actions, ["read_image", "inspect_image", "compare_images", "create_image_preview"]);
   assert.equal(tool.readOnly, true);
   assert.equal(registry.listTools("files.write").some((entry) => entry.name === "visual_asset_toolbox"), false);
   for (const invocation of [
@@ -145,7 +145,7 @@ test("visual asset reads fail closed for paths, links, special files, invalid by
   const validPng = onePixelPng();
   const invalidCases = [
     ["assets/empty.png", Buffer.alloc(0), /empty/],
-    ["assets/too-large.png", Buffer.alloc(15_000_001), /15,000,000-byte limit/],
+    ["assets/too-large.png", Buffer.alloc(24_000_001), /24,000,000-byte limit/],
     ["assets/unsupported.gif", Buffer.from("GIF89a", "ascii"), /not a supported PNG/],
     ["assets/malformed.png", validPng.subarray(0, 16), /not a supported PNG/],
     ["assets/mismatch.jpg", validPng, /extension does not match/],
@@ -245,12 +245,25 @@ test("compare_images preserves two/four-image order and enforces counts, identit
 
   const aggregateBytePaths = Array.from({ length: 4 }, (_, index) => `large-bytes/${index}.png`);
   for (const relativePath of aggregateBytePaths) {
-    writeWorkspaceFile(fixture.root, relativePath, paddedPng(11_250_001));
+    writeWorkspaceFile(fixture.root, relativePath, paddedPng(12_000_001));
   }
   assert.throws(
     () => compareVisualAssetImages(fixture.root, aggregateBytePaths),
-    /45,000,000-byte aggregate limit/,
+    /48,000,000-byte aggregate limit/,
   );
+});
+
+test("direct transport accepts exactly 24 MB and comparison accepts exactly 48 MB", () => {
+  const fixture = createWorkspace("Visual_Transport_Boundary_Project");
+  for (const name of ["a.png", "b.png"]) writeWorkspaceFile(fixture.root, name, paddedPng(24_000_000));
+  assert.equal(Buffer.from(readVisualAssetImage(fixture.root, "a.png").imageBase64, "base64").length, 24_000_000);
+  const compared = compareVisualAssetImages(fixture.root, ["a.png", "b.png"]);
+  assert.equal(compared.images.reduce((sum, image) => sum + image.bytes, 0), 48_000_000);
+  // A third individually valid image takes the aggregate over the fixed bound.
+  writeWorkspaceFile(fixture.root, "c.png", onePixelPng());
+  assert.throws(() => compareVisualAssetImages(fixture.root, ["a.png", "b.png", "c.png"]), /48,000,000-byte/);
+  fs.appendFileSync(path.join(fixture.root, "a.png"), Buffer.from([0]));
+  assert.throws(() => readVisualAssetImage(fixture.root, "a.png"), /24,000,000-byte/);
 });
 
 test("visual asset reader rejects an ordinary file change during its bounded read", () => {
