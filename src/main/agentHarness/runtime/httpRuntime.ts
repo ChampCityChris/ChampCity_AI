@@ -12,8 +12,9 @@ import type {
 import {
   exchangeAuthorizationCode,
   issueAuthorizationCode,
-  normalizeScope,
-  OAUTH_SCOPES,
+  projectOAuthResourceScope,
+  OAUTH_RESOURCE_SCOPES,
+  OAUTH_AUTHORIZATION_SCOPES,
   refreshOAuthAccessToken,
   registerOAuthClient,
   validateOAuthAuthorizationRequest,
@@ -429,7 +430,7 @@ class RuntimeToolContractGeneration {
   }
 
   contractForScope(scope: string): CapturedAgentHarnessToolContract {
-    const normalizedScope = normalizeAgentHarnessPublicToolScope(scope);
+    const normalizedScope = normalizeAgentHarnessPublicToolScope(projectOAuthResourceScope(scope));
     const existing = this.contracts.get(normalizedScope);
     if (existing) {
       return existing;
@@ -519,7 +520,7 @@ export async function startAgentHarnessHttpRuntime(options: AgentHarnessHttpRunt
           resource: `${publicBaseUrl(options, actualPort)}/mcp`,
           authorization_servers: [publicBaseUrl(options, actualPort)],
           bearer_methods_supported: ["header"],
-          scopes_supported: OAUTH_SCOPES,
+          scopes_supported: OAUTH_RESOURCE_SCOPES,
           resource_name: "ChampCity A/I Agent Harness",
         });
         return;
@@ -535,7 +536,7 @@ export async function startAgentHarnessHttpRuntime(options: AgentHarnessHttpRunt
           grant_types_supported: ["authorization_code", "refresh_token"],
           code_challenge_methods_supported: ["S256"],
           token_endpoint_auth_methods_supported: ["none"],
-          scopes_supported: OAUTH_SCOPES,
+          scopes_supported: OAUTH_AUTHORIZATION_SCOPES,
         });
         return;
       }
@@ -802,7 +803,7 @@ async function handleMcpRequest(req: IncomingMessage, res: ServerResponse, optio
       });
       return;
     }
-    const requiredScope = normalizeAgentHarnessPublicToolScope(normalizeScope(options.scope));
+    const requiredScope = normalizeAgentHarnessPublicToolScope(projectOAuthResourceScope(options.scope));
     let record: McpSessionRecord | null = null;
     try {
       record = await options.sessions.reserve(options.authorizationPrincipal, requiredScope);
@@ -877,8 +878,8 @@ function isMcpInitializeBody(body: unknown): boolean {
 }
 
 function scopeSatisfies(presentedScope: string, requiredScope: string): boolean {
-  const presented = new Set(normalizeScope(presentedScope).split(/\s+/).filter(Boolean));
-  return normalizeScope(requiredScope).split(/\s+/).filter(Boolean).every((scope) => presented.has(scope));
+  const presented = new Set(projectOAuthResourceScope(presentedScope).split(/\s+/).filter(Boolean));
+  return projectOAuthResourceScope(requiredScope).split(/\s+/).filter(Boolean).every((scope) => presented.has(scope));
 }
 
 function authenticate(req: IncomingMessage, options: AgentHarnessHttpRuntimeOptions): {
@@ -897,8 +898,9 @@ function authenticate(req: IncomingMessage, options: AgentHarnessHttpRuntimeOpti
     return null;
   }
   const token = validateAccessToken(options.userDataRoot, match[1]);
-  return token ? {
-    scope: normalizeScope(token.scope),
+  const resourceScope = token ? projectOAuthResourceScope(token.scope) : "";
+  return token && resourceScope ? {
+    scope: resourceScope,
     authorizationPrincipal: token.clientId,
   } : null;
 }

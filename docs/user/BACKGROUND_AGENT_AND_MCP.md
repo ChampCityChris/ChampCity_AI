@@ -67,6 +67,8 @@ The MCP HTTP server accepts only loopback hosts (`127.0.0.1` or `localhost`). Th
 
 Authentication defaults to **OAuth required**. Current OAuth support uses public clients, Authorization Code with PKCE, and separate `files.read` and `files.write` scopes. Stored access and refresh tokens are represented by hashes in the per-user OAuth store. **Local unauthenticated** mode is allowed only when **Public Base URL** is empty.
 
+Connectors may also request `offline_access` with `files.read` or `files.write`. This scope supports long-lived connector sessions and grants no additional repository or tool access. Access tokens last one hour; refresh tokens last 30 days and rotate on use while retaining the granted scopes. Existing clients still receive working refresh tokens without requesting `offline_access`; no registration or stored-record migration is required. Requests for `offline_access` alone are rejected.
+
 A Public Base URL is connector metadata and must be HTTPS. It does not make the current loopback-only listener publicly reachable by itself. Do not change these settings unless the connector topology and authorization consequences are understood.
 
 The embedded ChatGPT session and MCP OAuth are separate:

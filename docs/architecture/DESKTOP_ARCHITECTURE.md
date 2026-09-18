@@ -96,10 +96,14 @@ The MCP HTTP runtime:
 - defaults to an automatically selected port;
 - exposes health and MCP endpoints while running;
 - defaults to OAuth-required authentication;
-- supports public OAuth clients with Authorization Code, PKCE S256, and `files.read`/`files.write` scopes;
+- supports public OAuth clients with Authorization Code, PKCE S256, `files.read`/`files.write` resource permissions, and the `offline_access` session scope;
 - permits local unauthenticated mode only when no public base URL is configured.
 
 The Service Host can remain healthy while MCP is stopped. This is why **Stop MCP Runtime** and **Exit Background Agent** are separate controls.
+
+OAuth protected-resource metadata advertises only `files.read` and `files.write`; authorization-server metadata also advertises `offline_access`. Registration and legacy client import accept all three scopes. Authorization requires at least one resource permission and canonicalizes scopes in that order, removing duplicates and rejecting unsupported values. Authorization-code exchange issues access and refresh tokens with the complete authorization scope, including `offline_access` when requested. Refresh rotates the token pair and preserves that scope. Access tokens retain their one-hour lifetime and refresh tokens their 30-day lifetime; clients without `offline_access` continue receiving refresh tokens, and existing stored records need no migration.
+
+Before MCP authentication reaches tool filtering, contract capture, fingerprints, session identity, or permission checks, the runtime projects OAuth scopes to resource permissions only. `offline_access` alone fails closed for MCP, adds no tools or contract generations, and contributes no read/write authorization counts.
 
 ## Per-user application state
 
