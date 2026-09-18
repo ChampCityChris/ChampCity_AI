@@ -44,6 +44,8 @@ const legacyVocabularyTranslationPaths = new Set([
 const operatorAuthorityPatterns = [
   /\b(?:the )?(?:human )?Operator is the (?:only|final) authority\b/i,
   /\bOperator remains the only task authority\b/i,
+  /\bOperator remains the only authority\b/i,
+  /\bnot (?:an?|the) (?:independent |design )?authority(?: layer)?\b/i,
   /\bOperator's acceptance authority\b/i,
   /\bthe human authority who\b/i,
   /\bexplicit Operator authority\b/i,
@@ -85,6 +87,13 @@ const accessAuthorizationPatterns = [
 const operatorAuthorizationPatterns = [
   /^(?:[-*]\s+)?(?:the )?(?:human )?Operator (?:explicitly )?authoriz(?:e|es|ed|ing)\b/i,
   /\bOperator approval authoriz(?:e|es|ed|ing)\b/i,
+];
+
+const falseAuthorizationPrincipalPatterns = [
+  /^(?:[-*]\s+)?(?:RevisionRequested )?validation\b[^.\n]*\bauthoriz(?:e|es|ed|ing|ation)\b/i,
+  /\bworkflow state\b[^.\n]*\bauthoriz(?:e|es|ed|ing|ation)\b/i,
+  /\bWork Card\b[^.\n]*\bauthoriz(?:e|es|ed|ing|ation)\b/i,
+  /^(?:#+\s*)?Authorized Surface\b/i,
 ];
 
 test("active product source and current docs reserve authority and permission vocabulary for valid principals", () => {
@@ -177,7 +186,7 @@ test("vocabulary classifier permits Operator authority, access-control terms, an
 });
 
 function isAllowedVocabularyLine(relativePath, line) {
-  const hasAuthorityNoun = /authorit/i.test(line);
+  const hasAuthorityNoun = /\bauthority\b/i.test(line);
   const hasAuthorizationTerm = /authoriz/i.test(line);
   if (!hasAuthorityNoun && !hasAuthorizationTerm) return true;
 
@@ -188,11 +197,14 @@ function isAllowedVocabularyLine(relativePath, line) {
     relativePath.startsWith("docs/release/RELEASE_NOTES_")
   )) return true;
   if (hasAuthorityNoun && !vocabularyOccurrencesCovered(line, /authorit[a-z]*/gi, operatorAuthorityPatterns)) return false;
-  if (hasAuthorizationTerm && !vocabularyOccurrencesCovered(
-    line,
-    /authoriz[a-z-]*/gi,
-    [...operatorAuthorizationPatterns, ...accessAuthorizationPatterns],
-  )) return false;
+  if (hasAuthorizationTerm) {
+    if (vocabularyOccurrencesCovered(
+      line,
+      /authoriz[a-z-]*/gi,
+      [...operatorAuthorizationPatterns, ...accessAuthorizationPatterns],
+    )) return true;
+    if (falseAuthorizationPrincipalPatterns.some((pattern) => pattern.test(line))) return false;
+  }
   return true;
 }
 

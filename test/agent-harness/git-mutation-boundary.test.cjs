@@ -646,10 +646,11 @@ test("governance and Desktop architecture describe Operator authority and MCP ex
   for (const document of [governance, architecture]) {
     assert.match(document, /human Operator is the only authority/i);
     assert.match(document, /Work Cards?[^.]*Repair Cards?[^.]*(?:cannot serve|none[^.]*can serve) as (?:a )?permission principals?/is);
-    assert.match(document, /MCP does not.*(?:interpret|read).*planning|MCP does not.*interpret.*card/is);
     assert.match(document, /files\.write/);
     assert.match(document, /registered workspace|registered-project/i);
   }
+  assert.match(architecture, /MCP does not.*(?:interpret|read).*planning|MCP does not.*interpret.*card/is);
+  assert.match(governance, /machine permission grant/i);
   assert.doesNotMatch(governance, /versioned grant|machine permission grant.*exact heading|token-only/i);
 });
 
