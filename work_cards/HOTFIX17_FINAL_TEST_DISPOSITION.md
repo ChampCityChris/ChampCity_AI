@@ -1,6 +1,6 @@
 # HOTFIX17 Final Test Disposition
 
-This is the final disposition of the changes actually made in HOTFIX13–HOTFIX16, using their local Implementer Reports and commit diffs. It is not a new repository-wide regex audit. Categories can overlap within a file: a removed source proxy does not invalidate its retained behavioral assertions.
+This records the disposition of the changes actually made in HOTFIX13–HOTFIX16, using their local Implementer Reports and commit diffs, and the subsequent HOTFIX18 Architect-review repair below. The original inventory did not exhaust the residual source-proxy population. This is not a new repository-wide regex audit. Categories can overlap within a file: a removed source proxy does not invalidate its retained behavioral assertions.
 
 Provenance, in execution order:
 
@@ -15,7 +15,7 @@ The accompanying guidance in `docs/architecture/REPOSITORY_CODE_TEST_AND_MIGRATI
 
 Existing regex against observable rendered HTML/text, error messages, paths/IDs, process receipts, HTTP/MCP responses, canonical documents, or exact package/installer contracts remains appropriate. No source snapshot or natural-language authority classifier was substituted.
 
-- `test/app-shell/app-shell.test.cjs`: compiled workflow/document classification and shell contracts retained.
+- `test/app-shell/app-shell.test.cjs`: workspace validation, persistence, and session-selection contracts retained; residual source checks are dispositioned in the HOTFIX18 section below.
 - `test/agent-harness/agent-harness-runtime.test.cjs` and `test/agent-harness/git-mutation-boundary.test.cjs`: runtime, OAuth/resource access, selected-workspace, synthetic Git, invalid-metadata, and mutation safety behavior retained.
 - `test/agent-harness/agent-harness-process-boundary.test.cjs`: real Electron, worker/Service Host, lifecycle, recovery, and heartbeat behavior retained.
 - `test/agent-harness/mcp-tool-contract-generation.test.cjs`: generation/session/capture counts and normalized OAuth scopes retained.
@@ -82,4 +82,44 @@ These assertions inspect module dependency structure because that boundary is th
 - Removed obsolete-module absence checks in `test/renderer/architect-output-workspace-source.test.cjs` and the one-time unused Figma bundle dependency/asset inventory in `test/renderer/figma-redesign-shell.test.cjs`. Retired component/module names are no longer permanent contracts.
 - Removed source-reader, CSS-slicing, and source-order helpers only where their dispositioned checks were their sole consumers.
 
-No production file changed in HOTFIX13–HOTFIX16. Consequently the already-removed workflow Git permission hierarchy was not restored, no production symbol was renamed for authority vocabulary, and OAuth/security authorization terminology is unchanged. The identified corpus-wide natural-language and authority/authorization gates are retired, with no replacement meta-scanner. Full validation results and the terminal five-commit record are recorded in `work_cards/HOTFIX17_IMPLEMENTER_REPORT.md`.
+No production file changed in HOTFIX13–HOTFIX16. Consequently the already-removed workflow Git permission hierarchy was not restored, no production symbol was renamed for authority vocabulary, and OAuth/security authorization terminology is unchanged. The identified corpus-wide natural-language and authority/authorization gates are retired, with no replacement meta-scanner. Original validation results and the five-commit record through HOTFIX17 are recorded in `work_cards/HOTFIX17_IMPLEMENTER_REPORT.md`.
+
+## HOTFIX18 Architect-review repair
+
+Independent Architect review after HOTFIX17 found residual raw production-source proxy tests in eight files outside the original inventory. HOTFIX18 was required to repair those missed assertions; it does not rewrite the HOTFIX13–16 provenance or reopen their completed changes. The following dispositions describe the repaired repository state. No new executable inventory, repository-wide scanner, or meta-test banning source reads was added.
+
+### retained legitimate runtime/rendered regex
+
+- `test/app-shell/app-shell.test.cjs`: workspace validation, persistence, session activation/switching/clearing, and runtime error assertions remain.
+- `test/agent-harness/multi-user-startup-registration.test.cjs`: all existing installed-scope, preference, exact login-item identity, opt-out, tray wording, and synthetic user-isolation behavior remains.
+- `test/repository/phase-validation-wiring.test.cjs`: the previous three tests had only source proxies; the new tests assert executable API results and runtime rejection messages.
+- `test/renderer/issue-screenshot-intake.test.cjs`: all existing clipboard/image admission, conversion, limits, removal, failure-retention, and rendered guidance tests remain.
+- `test/renderer/issue-validation-workspace.test.cjs`: rendered aggregate validation content and Issue rail eligibility remain.
+- `test/renderer/phase-validation-renderer-sequencing.test.cjs`: rendered mutation availability, projection validation, explicit entry, and mutation/refresh sequencing remain.
+- `test/renderer/project-planning-blocker-banner.test.cjs`: exact rendered reason/required action, duplicate suppression, initial evidence cap, and non-blocked/non-workspace invisibility remain.
+- `test/workflow/phase-validation-production-boundary.test.cjs`: actual repository continuation, closeout/disposition, action pruning, and all five negative production-boundary cases remain.
+
+### replaced with behavioral test
+
+- `test/app-shell/app-shell.test.cjs`: actual main handlers and compiled preload execute session selection, cancellation, rejection, switching, and clear behavior; loaded registry definitions supply labels; the empty workflow UI renders the neutral message. The exposed API is inspected at runtime for workspace methods and absence of unrestricted native access.
+- `test/agent-harness/multi-user-startup-registration.test.cjs`: execute the compiled Service Host with real opt-out intent and lifecycle preferences, observing exit before runtime identity work or controller/lifecycle/server/tray construction.
+- `test/repository/phase-validation-wiring.test.cjs`: compiled preload invokes actual main handlers and services against a disposable canonical workspace. Tests observe the projection target arriving at the service despite a different active model workspace, reject Phase Close bypass, and compare create/disposition action evidence with refreshed repository projections.
+- `test/renderer/issue-screenshot-intake.test.cjs`: invoke the actual paste handler for both synchronous submission-in-flight and renderer creating state; assert no paste accounting, queueing, preparation, preview allocation, ID allocation, or pending-evidence mutation.
+- `test/renderer/issue-validation-workspace.test.cjs`: execute the actual decision, post-mutation projection application, and sidebar-selection functions. Repository destinations control active stage and projection loading, including corrective Issue Planning re-entry, without timers or a corrective-mode override.
+- `test/renderer/phase-validation-renderer-sequencing.test.cjs`: execute the actual App disposition and mutation orchestration functions; observe projection workspace target, repository refresh, final navigation, and retained completion evidence. Invalid or unavailable disposition projections cannot invoke mutation.
+- `test/renderer/project-planning-blocker-banner.test.cjs`: click the actual disclosure callback and rerender to verify expansion/collapse without model mutation; execute the runtime rail-status owner with different supplied planning statuses.
+- `test/workflow/phase-validation-production-boundary.test.cjs`: execute the actual transition function using repository-derived create/dispose/complete actions. Direct Phase Close selection clears pending actions while preserving completion state.
+
+The two strictly required test helpers are `test/support/production-execution.cjs` (shared AST-selected function/main-handler execution plus compiled preload VM loading) and `test/support/phase-validation-fixtures.cjs` (the existing canonical workflow fixture moved out of the production-boundary test for reuse by the IPC tests). Production bodies are executed without rewriting their decisions. AST selection is a loading technique, not a source-spelling assertion.
+
+### replaced with AST/module structural test
+
+- `test/renderer/issue-screenshot-intake.test.cjs`: a narrow direct-import check over the two clipboard intake modules protects the renderer/native filesystem dependency boundary. It is not a transitive dependency or unrestricted filesystem-access proof.
+
+### deleted as migration-only/redundant
+
+- Removed the source-order, source-slicing, implementation-name, and whole-source regex assertions replaced above in all eight files, along with unused source-reader helpers/imports.
+- Retired the Project Planning banner's one-time exact JSX placement/lower-placement and CSS implementation checks. Existing rendered content/absence evidence remains; this repair does not claim a new visual-layout acceptance test.
+- Retired screenshot source negatives for drag/drop spelling, browser clipboard API spelling, and `File.path`; retained rendered upload-surface absence and actual clipboard behavior. The direct filesystem import boundary has the narrow structural replacement described above.
+
+HOTFIX18 changes only the eight named tests, the two required test helpers, and this disposition record. No production behavior, schemas, dependencies, production names, workflow Git authority, or OAuth/security terminology changed. Focused/full validation and completion status are recorded in `work_cards/HOTFIX18_IMPLEMENTER_REPORT.md`.

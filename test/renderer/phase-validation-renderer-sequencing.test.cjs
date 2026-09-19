@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
@@ -18,7 +16,7 @@ const {
   FigmaActionWorkspace,
 } = loader.loadRendererSourceModule("src/renderer/app/App.tsx");
 
-const repoRoot = path.resolve(__dirname, "../..");
+const { loadProductionFunctions } = require("../support/production-execution.cjs");
 
 function phaseAction(requiredAction) {
   const workspaceId = requiredAction === "phase-close-complete" ? "phase-close" : "phase-validation";
@@ -217,14 +215,53 @@ test("post-mutation refresh cannot overwrite current Phase Close navigation", as
   assert.equal(result.repositoryEvidence.currentModel.activeWorkspaceId, "phase-interview");
 });
 
-test("App routes Phase Validation disposition with the validated projection target", () => {
-  const source = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const dispositionSource = source.slice(
-    source.indexOf("async function applyCurrentPhaseCloseoutDisposition"),
-    source.indexOf("async function refreshWorkCardCloseProjection"),
-  );
-  assert.match(dispositionSource, /requiredAction !== "dispose-closeout"/);
-  assert.match(dispositionSource, /workspaceId !== "phase-validation"/);
-  assert.match(dispositionSource, /applyCurrentDisposition\([\s\S]*?phaseValidationAction\.workspaceId/);
-  assert.doesNotMatch(dispositionSource, /"phase-close"\s*\)/);
+test("App disposition uses the projection target, refreshes evidence, and then navigates to Phase Close", async () => {
+  const calls = [];
+  const state = {};
+  const complete = phaseAction("phase-close-complete");
+  const scope = {
+    phaseValidationAction: phaseAction("dispose-closeout"),
+    actionInputs: { status: "Approved" }, executePhaseValidationMutation,
+    window: { champcity: {
+      applyCurrentDisposition: async (...args) => { calls.push(["mutate", ...args]); return {
+        ok: true, message: "Approved", payload: { phaseAction: complete },
+      }; },
+      listDocuments: async () => { calls.push(["documents"]); return []; },
+      getProjectPlanningWorkspaceModel: async () => { calls.push(["planning"]); return {}; },
+      getCurrentWorkspaceModel: async () => { calls.push(["model"]); return { activeWorkspaceId: "phase-interview" }; },
+      resolveCurrentDocument: async () => { calls.push(["resolve"]); return null; },
+    } },
+    applyDocumentInventory() {},
+    transitionToWorkflowStep: (destination) => calls.push(["navigate", destination]),
+  };
+  for (const name of ["IsApplying", "DocumentError", "Feedback", "ProjectPlanningModel", "CurrentModel", "ResolverResult", "PhaseValidationAction"]) {
+    scope["set" + name] = (value) => { state[name] = value; };
+  }
+  const { applyCurrentPhaseCloseoutDisposition } = loadProductionFunctions("src/renderer/app/App.tsx", [
+    "applyCurrentPhaseCloseoutDisposition", "runPhaseValidationMutation",
+  ], scope);
+  await applyCurrentPhaseCloseoutDisposition();
+  assert.deepEqual(calls, [
+    ["mutate", "Approved", "", scope.phaseValidationAction.workspaceId],
+    ["documents"], ["planning"], ["model"], ["resolve"], ["navigate", "phase-close"],
+  ]);
+  assert.notEqual(calls[0][3], "phase-close");
+  assert.equal(state.PhaseValidationAction, complete);
+  assert.equal(state.DocumentError, "");
+  assert.equal(state.IsApplying, false);
+  assert.equal(state.CurrentModel.activeWorkspaceId, "phase-interview");
+});
+
+test("App refuses disposition without a current Phase Validation disposition projection", async () => {
+  for (const action of [null, phaseAction("create-closeout"), phaseAction("phase-close-complete"),
+    { ...phaseAction("dispose-closeout"), workspaceId: "phase-close" }]) {
+    let error;
+    const { applyCurrentPhaseCloseoutDisposition } = loadProductionFunctions("src/renderer/app/App.tsx", ["applyCurrentPhaseCloseoutDisposition"], {
+      phaseValidationAction: action,
+      setDocumentError: (value) => { error = value; },
+      runPhaseValidationMutation: () => assert.fail("Ineligible disposition must not mutate"),
+    });
+    await applyCurrentPhaseCloseoutDisposition();
+    assert.match(error, /does not currently permit/);
+  }
 });

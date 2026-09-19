@@ -1,21 +1,8 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
 const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
-
-const repoRoot = path.join(__dirname, "..", "..");
-const appSourcePath = path.join(repoRoot, "src", "renderer", "app", "App.tsx");
-const stylesSourcePath = path.join(repoRoot, "src", "renderer", "styles.css");
-const projectLifecycleRailSourcePath = path.join(
-  repoRoot,
-  "src",
-  "shared",
-  "workspaces",
-  "projectLifecycleRailStatus.ts",
-);
 
 const { ProjectPlanningBlockerBanner } = loadRendererSourceModule("src/renderer/app/App.tsx");
 
@@ -51,38 +38,6 @@ function renderBanner(props) {
     }),
   );
 }
-
-test("Project Planning blocker banner is placed between header and document ChatGPT workspace", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-  const workspaceSurface = source.slice(
-    source.indexOf('aria-labelledby="workspace-heading"'),
-    source.indexOf('{isWorkCardRepair ? ('),
-  );
-  const headerIndex = workspaceSurface.indexOf('<header className="workspace-header">');
-  const bannerIndex = workspaceSurface.indexOf("<ProjectPlanningBlockerBanner");
-  const bodyIndex = workspaceSurface.indexOf('"figma-doc-chat-workspace"');
-
-  assert.ok(headerIndex >= 0, "workspace header must remain in the workspace surface");
-  assert.ok(bannerIndex > headerIndex, "blocker banner must render after the workspace header");
-  assert.ok(bodyIndex > bannerIndex, "blocker banner must render before the two-column workspace body");
-});
-
-test("Project Planning blocker banner consumes direct current model fields and blocked states", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-  const componentSource = source.slice(
-    source.indexOf("export function ProjectPlanningBlockerBanner"),
-    source.indexOf("function FigmaBrowserActionsPanel"),
-  );
-
-  assert.match(componentSource, /projectPlanningModel:\s*ProjectPlanningWorkspaceModel \| null/);
-  assert.match(componentSource, /activeWorkspaceId === "project-planning-review"/);
-  assert.match(componentSource, /projectPlanningModel\?\.state === "not-ready"/);
-  assert.match(componentSource, /projectPlanningModel\?\.state === "needs-attention"/);
-  assert.match(componentSource, /const reason = projectPlanningModel\.reason/);
-  assert.match(componentSource, /const requiredAction = projectPlanningModel\.requiredAction/);
-  assert.match(componentSource, /projectPlanningModel\.evidencePaths/);
-  assert.doesNotMatch(componentSource, /selectedDocument|architectOutputModel|deriveProjectPlanning|resolveProjectPlanning/);
-});
 
 test("Project Planning blocker banner renders exact reason and distinct required action", () => {
   const reason = "Exact current blocker reason from Project Planning.";
@@ -135,47 +90,49 @@ test("Project Planning blocker banner renders no layout in non-blocked states or
     "",
   );
   assert.equal(renderBanner({ activeWorkspaceId: "architect-interview" }), "");
+  assert.equal(renderBanner({ projectPlanningModel: null }), "");
+  assert.match(renderBanner({ projectPlanningModel: blockedModel({ state: "not-ready" }) }), /Project Planning Needs Attention/);
 });
 
-test("Project Planning blocker evidence disclosure is presentation-only local state", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-  const componentSource = source.slice(
-    source.indexOf("export function ProjectPlanningBlockerBanner"),
-    source.indexOf("function FigmaBrowserActionsPanel"),
-  );
-
-  assert.match(componentSource, /const \[evidenceExpanded, setEvidenceExpanded\] = useState\(false\)/);
-  assert.match(componentSource, /evidenceExpanded \? evidencePaths : evidencePaths\.slice\(0, 3\)/);
-  assert.match(componentSource, /onClick=\{\(\) => setEvidenceExpanded\(\(current\) => !current\)\}/);
-  assert.match(componentSource, /Show less/);
+test("Project Planning evidence disclosure expands and collapses without changing model evidence", () => {
+  const model = blockedModel();
+  const snapshot = structuredClone(model);
+  let expanded;
+  const render = () => {
+    const original = React.useState;
+    React.useState = (initial) => {
+      expanded ??= initial;
+      return [expanded, (value) => { expanded = typeof value === "function" ? value(expanded) : value; }];
+    };
+    try { return ProjectPlanningBlockerBanner({ activeWorkspaceId: "project-planning-review", projectPlanningModel: model }); }
+    finally { React.useState = original; }
+  };
+  function nodes(element) {
+    if (!element || typeof element !== "object") return [];
+    return [element, ...React.Children.toArray(element.props?.children).flatMap(nodes)];
+  }
+  const initial = render();
+  assert.equal(nodes(initial).filter((node) => node.type === "li").length, 3);
+  const expand = nodes(initial).find((node) => node.type === "button");
+  assert.equal(expand.props.children, "Show 2 more");
+  expand.props.onClick();
+  const opened = render();
+  assert.deepEqual(nodes(opened).filter((node) => node.type === "li").map((node) => node.props.children), model.evidencePaths);
+  const collapse = nodes(opened).find((node) => node.type === "button");
+  assert.equal(collapse.props.children, "Show less");
+  collapse.props.onClick();
+  assert.equal(nodes(render()).filter((node) => node.type === "li").length, 3);
+  assert.deepEqual(model, snapshot);
 });
 
-test("Project Planning blocker reason is not implemented in forbidden lower placements", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-  const browserActionsSource = source.slice(
-    source.indexOf("function FigmaBrowserActionsPanel"),
-    source.indexOf("export interface AgentHarnessSettingsForm"),
-  );
-  const figmaWorkspaceSource = source.slice(
-    source.indexOf("{isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace ? ("),
-    source.indexOf("{isWorkCardRepair ? ("),
-  );
-
-  assert.doesNotMatch(browserActionsSource, /ProjectPlanningBlockerBanner|projectPlanningModel\.reason/);
-  assert.doesNotMatch(figmaWorkspaceSource, /ProjectPlanningBlockerBanner/);
-});
-
-test("Project Planning blocker banner has compact warning styling and rail source keeps single state owner", () => {
-  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
-  const railSource = fs.readFileSync(projectLifecycleRailSourcePath, "utf8");
-
-  assert.match(stylesSource, /\.project-planning-blocker-banner\s*\{/);
-  assert.match(stylesSource, /background:\s*#fef3c7/);
-  assert.match(stylesSource, /border:\s*1px solid #f59e0b/);
-  assert.match(stylesSource, /\.project-planning-blocker-evidence li\s*\{[\s\S]*font-family:\s*ui-monospace/);
-  assert.match(railSource, /projectPlanningStatus:\s*ProjectLifecycleRailStatus/);
-  assert.doesNotMatch(
-    railSource,
-    /deriveProjectPlanningRailStatus|projectPlanningContextFromSummaries|projectPlanningTargets|function bundleState|function hasSourceRevision|function defaultInterviewTarget|function projectSlugFromInterview|analyzeProjectIntakeCorpus/,
-  );
+test("Project Planning rail uses the supplied current planning status", () => {
+  const { deriveProjectLifecycleRailStatuses } = require("../../dist/shared/workspaces/projectLifecycleRailStatus.js");
+  for (const projectPlanningStatus of ["Not Ready", "Needs Attention", "Ready", "Awaiting Approval", "Completed"]) {
+    const statuses = deriveProjectLifecycleRailStatuses([], {
+      projectIntakeStatus: "Completed", architectInterviewStatus: "Completed", projectPlanningStatus,
+    });
+    assert.equal(statuses["project-planning-review"], projectPlanningStatus);
+    assert.equal(statuses["project-phase-map"], projectPlanningStatus === "Completed" ? "Ready" :
+      projectPlanningStatus === "Needs Attention" ? "Needs Attention" : "Not Ready");
+  }
 });

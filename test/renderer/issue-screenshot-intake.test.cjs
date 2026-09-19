@@ -25,7 +25,7 @@ const {
   issueScreenshotEvidencePolicy,
 } = loader.loadRendererSourceModule("src/shared/issueResolutionContracts.ts");
 
-const repoRoot = path.resolve(__dirname, "../..");
+const { loadProductionFunctions } = require("../support/production-execution.cjs");
 
 function renderWorkspace() {
   return renderToStaticMarkup(React.createElement(IssueResolutionWorkspace, {
@@ -71,18 +71,26 @@ function pasteDependencies(overrides = {}) {
 
 test("Issue Intake always renders bounded clipboard screenshot guidance without an upload surface", () => {
   const markup = renderWorkspace();
-  const workspaceSource = fs.readFileSync(
-    path.join(repoRoot, "src", "renderer", "app", "IssueResolutionWorkspace.tsx"),
-    "utf8",
-  );
-
   assert.match(markup, /Screenshot Evidence/);
   assert.match(markup, /Paste screenshots anywhere in this form/);
   assert.match(markup, /PNG, JPEG, WEBP/);
   assert.match(markup, /Maximum 4/);
   assert.match(markup, /No screenshots pending/);
   assert.doesNotMatch(markup, /type="file"/);
-  assert.doesNotMatch(workspaceSource, /onDrop=|navigator\.clipboard|node:fs|File\.path/);
+});
+
+test("clipboard intake modules have no direct native filesystem imports", () => {
+  const ts = require("typescript");
+  const forbidden = new Set(["fs", "fs/promises", "node:fs", "node:fs/promises", "electron"]);
+  for (const file of ["IssueResolutionWorkspace.tsx", "issueScreenshotIntake.ts"]) {
+    const source = fs.readFileSync(path.join(__dirname, "../../src/renderer/app", file), "utf8");
+    const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    for (const statement of ast.statements) {
+      if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
+        assert.equal(forbidden.has(statement.moduleSpecifier.text), false, file);
+      }
+    }
+  }
 });
 
 test("clipboard decision logic leaves text-only paste native and handles unreadable advertised images", async () => {
@@ -171,37 +179,40 @@ test("create-in-flight image paste is suppressed before screenshot work can be a
   assert.deepEqual(submittedInput, submittedSnapshot);
 });
 
-test("workspace wires the synchronous create guard before paste accounting and queueing", () => {
-  const workspaceSource = fs.readFileSync(
-    path.join(repoRoot, "src", "renderer", "app", "IssueResolutionWorkspace.tsx"),
-    "utf8",
-  );
-  const admissionIndex = workspaceSource.indexOf("const admission = decideScreenshotPasteAdmission(");
-  const synchronousStateIndex = workspaceSource.indexOf(
-    "submissionInFlightRef.current || isCreating",
-    admissionIndex,
-  );
-  const preventDefaultIndex = workspaceSource.indexOf("event.preventDefault();", admissionIndex);
-  const blockedBranchIndex = workspaceSource.indexOf(
-    'if (admission.kind === "blocked-during-create")',
-    admissionIndex,
-  );
-  const blockedReturnIndex = workspaceSource.indexOf("return;", blockedBranchIndex);
-  const activeCountIndex = workspaceSource.indexOf(
-    "activePasteCountRef.current += 1",
-    admissionIndex,
-  );
-  const queueIndex = workspaceSource.indexOf("pasteQueueRef.current.then", admissionIndex);
-  const preparationIndex = workspaceSource.indexOf("prepareScreenshotPaste(", admissionIndex);
-
-  assert.ok(admissionIndex >= 0);
-  assert.ok(synchronousStateIndex > admissionIndex);
-  assert.ok(preventDefaultIndex > synchronousStateIndex);
-  assert.ok(blockedBranchIndex > preventDefaultIndex);
-  assert.ok(blockedReturnIndex > blockedBranchIndex);
-  assert.ok(activeCountIndex > blockedReturnIndex);
-  assert.ok(queueIndex > activeCountIndex);
-  assert.ok(preparationIndex > queueIndex);
+test("workspace paste handler blocks create-in-flight before accounting, allocation, and queue work", () => {
+  for (const [submissionInFlight, isCreating] of [[true, false], [false, true]]) {
+    const activePasteCountRef = { current: 0 };
+    const screenshotIdRef = { current: 7 };
+    const pendingScreenshotsRef = { current: [pendingScreenshot("submitted")] };
+    const snapshot = structuredClone(pendingScreenshotsRef.current);
+    const calls = [];
+    const unexpected = (label) => () => { calls.push(label); throw new Error(label); };
+    const queue = { then: unexpected("queue") };
+    const pasteQueueRef = { current: queue };
+    const { handleScreenshotPaste } = loadProductionFunctions(
+      "src/renderer/app/IssueResolutionWorkspace.tsx", ["handleScreenshotPaste"], {
+        inspectClipboardImageData, decideScreenshotPasteAdmission,
+        submissionInFlightRef: { current: submissionInFlight }, isCreating,
+        activePasteCountRef, screenshotIdRef, pendingScreenshotsRef, pasteQueueRef,
+        setScreenshotProcessingCount: unexpected("paste-accounting"),
+        setScreenshotError: (message) => calls.push(message),
+        prepareScreenshotPaste: unexpected("preparation"),
+        readClipboardImageDimensions: unexpected("dimensions"),
+        blobToCanonicalBase64: unexpected("encoding"),
+        URL: { createObjectURL: unexpected("preview"), revokeObjectURL: unexpected("revoke") },
+        isMountedRef: { current: true }, replacePendingScreenshots: unexpected("replace"),
+      },
+    );
+    handleScreenshotPaste({
+      clipboardData: { items: [{ kind: "file", type: "image/png", getAsFile: () => new Blob(["image"], { type: "image/png" }) }], files: [] },
+      preventDefault: () => calls.push("prevent-default"),
+    });
+    assert.deepEqual(calls, ["prevent-default", screenshotPasteBlockedDuringCreateFeedback]);
+    assert.equal(activePasteCountRef.current, 0);
+    assert.equal(screenshotIdRef.current, 7);
+    assert.equal(pasteQueueRef.current, queue);
+    assert.deepEqual(pendingScreenshotsRef.current, snapshot);
+  }
 });
 
 test("valid clipboard evidence converts to canonical FC01 submission shape", async () => {
