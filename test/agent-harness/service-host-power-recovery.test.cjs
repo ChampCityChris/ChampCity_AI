@@ -8,6 +8,79 @@ const {
   defaultAgentHarnessServiceLifecyclePolicy,
 } = require("../../dist/main/agentHarness/runtime/agentHarnessServiceLifecycle.js");
 
+test("Service Host owns power subscriptions, routes epochs to its controller, and removes listeners on shutdown", async (t) => {
+  const { EventEmitter } = require("node:events");
+  const { createRequire } = require("node:module");
+  const vm = require("node:vm");
+  const entry = path.resolve(__dirname, "../../dist/main/agentHarness/runtime/agentHarnessServiceHost.js");
+  const nativeRequire = createRequire(entry);
+  const powerMonitor = new EventEmitter();
+  const hostProcess = new EventEmitter();
+  Object.assign(hostProcess, { platform: "win32", argv: [], env: {} });
+  const fake = controller();
+  let shutdowns = 0;
+  fake.shutdown = async () => { shutdowns += 1; };
+  let serverOptions;
+  let lifecycle;
+  let trayDestroyed = 0;
+  let serverClosed = 0;
+  let resolveExit;
+  const exited = new Promise((resolve) => { resolveExit = resolve; });
+  const mocks = {
+    electron: { powerMonitor },
+    "./agentHarnessController": { AgentHarnessController: class { constructor() { return fake; } } },
+    "./agentHarnessServiceLifecycle": { AgentHarnessServiceLifecycleCoordinator: class extends AgentHarnessServiceLifecycleCoordinator {
+      constructor(options) { super({ ...options, delay: async () => {}, policy: { resumeGraceMs: 0 } }); lifecycle = this; }
+    } },
+    "./agentHarnessServiceHostServer": { AgentHarnessServiceHostServer: class {
+      constructor(options) { serverOptions = options; }
+      async listen() {}
+      async close() { serverClosed += 1; }
+    } },
+    "./agentHarnessServiceHostDescriptor": {
+      createAgentHarnessServiceHostDescriptor: () => ({ instanceId: "fixture-host" }),
+      writeAgentHarnessServiceHostDescriptor() {}, removeCurrentAgentHarnessServiceHostDescriptor() {},
+    },
+    "./agentHarnessBuildIdentity": { computeAgentHarnessRuntimeBuildIdentity: () => "fixture-build" },
+    "./agentHarnessServiceHostLifecycleSettings": { initializeAgentHarnessServiceHostLifecycleSettings: () => ({ launchAtLogin: false }) },
+    "./champCityInstalledScope": { readChampCityInstalledScopeMetadata: () => ({ backgroundAgentLaunchAtLoginDefault: false }) },
+    "./backgroundAgentTray": { BackgroundAgentTrayController: class {
+      async create() {} destroy() { trayDestroyed += 1; } isPresent() { return true; }
+    } },
+  };
+  const exports = {};
+  vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+    exports, __dirname: path.dirname(entry), process: hostProcess,
+    require: (id) => Object.hasOwn(mocks, id) ? mocks[id] : nativeRequire(id),
+  });
+  t.after(() => lifecycle?.stopSupervision());
+  await exports.runAgentHarnessServiceHost({ getPath: () => "fixture-user-data", exit: resolveExit });
+  assert.equal(serverOptions.controller, fake);
+  assert.equal(serverOptions.lifecycle, lifecycle);
+  assert.equal(fake.calls.start, 1);
+  assert.equal(powerMonitor.listenerCount("suspend"), 1);
+  assert.equal(powerMonitor.listenerCount("resume"), 1);
+  powerMonitor.emit("suspend");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(fake.calls.suspend, [0]);
+  assert.equal(lifecycle.snapshot().state, "suspended");
+  powerMonitor.emit("resume");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(fake.calls.resume, [1]);
+  assert.equal(lifecycle.snapshot().state, "ready");
+  assert.equal(lifecycle.snapshot().powerEpoch, 1);
+  serverOptions.onShutdownRequested();
+  assert.equal(await exited, 0);
+  assert.equal(powerMonitor.listenerCount("suspend"), 0);
+  assert.equal(powerMonitor.listenerCount("resume"), 0);
+  powerMonitor.emit("resume");
+  assert.deepEqual(fake.calls.resume, [1]);
+  assert.equal(shutdowns, 1);
+  assert.equal(serverClosed, 1);
+  assert.equal(trayDestroyed, 1);
+  assert.equal(lifecycle.snapshot().state, "stopping");
+});
+
 function heartbeat(epoch, overrides = {}) {
   return {
     workerProcessId: 2002,
@@ -116,22 +189,6 @@ test("default lifecycle supervision values are bounded and production-safe", () 
   assert.equal(defaultAgentHarnessServiceLifecyclePolicy.resumeReadinessTargetMs, 10_000);
   assert.deepEqual(defaultAgentHarnessServiceLifecyclePolicy.recoveryBackoffMs, [250, 1_000, 3_000]);
   assert.equal(defaultAgentHarnessServiceLifecyclePolicy.recoveryAttemptLimit, 3);
-});
-
-test("production power-event handling and restart ownership belong only to the detached Service Host", () => {
-  const root = path.resolve(__dirname, "../..");
-  const host = fs.readFileSync(path.join(root, "src/main/agentHarness/runtime/agentHarnessServiceHost.ts"), "utf8");
-  const controllerSource = fs.readFileSync(path.join(root, "src/main/agentHarness/runtime/agentHarnessController.ts"), "utf8");
-  const worker = fs.readFileSync(path.join(root, "src/main/agentHarness/runtime/agentHarnessWorker.ts"), "utf8");
-  const desktop = fs.readFileSync(path.join(root, "src/main/main.ts"), "utf8");
-  assert.match(host, /powerMonitor\.on\("suspend", onSuspend\)/);
-  assert.match(host, /powerMonitor\.on\("resume", onResume\)/);
-  assert.match(host, /AgentHarnessServiceLifecycleCoordinator/);
-  assert.doesNotMatch(controllerSource, /powerMonitor/);
-  assert.doesNotMatch(worker, /powerMonitor/);
-  assert.doesNotMatch(desktop, /powerMonitor/);
-  assert.match(controllerSource, /fencedWorkerAwaitingExit/);
-  assert.match(controllerSource, /replaceWorkerExclusive/);
 });
 
 test("duplicate resume signals coalesce into one epoch reconciliation", async () => {

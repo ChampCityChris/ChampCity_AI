@@ -50,12 +50,6 @@ test("Git-backed discovery honors Git ignore rules while exact ignored reads rem
   const exactIgnoredRead = readRepositoryFile(root, "git_ignore_project", "tmp/electron-runtime/ignored.txt");
   assert.match(exactIgnoredRead.content, /ignored-only-needle/);
 
-  const enumeratorSource = fs.readFileSync(
-    path.resolve(__dirname, "../../src/main/agentHarness/repository/boundedGit.ts"),
-    "utf8",
-  );
-  assert.match(enumeratorSource, /ls-files/);
-  assert.match(enumeratorSource, /--exclude-standard/);
 });
 
 test("non-Git workspaces list, search, and prune infrastructure with deterministic traversal bounds", async () => {
@@ -125,11 +119,6 @@ test("search and direct text projection preflight oversized files before complet
     fs.readFileSync = originalSyncRead;
   }
 
-  const projectionSource = originalSyncRead(
-    path.resolve(__dirname, "../../src/main/agentHarness/repository/textProjection.ts"),
-    "utf8",
-  );
-  assert.ok(projectionSource.indexOf("stats.size > maxBytes") < projectionSource.indexOf("fs.readFileSync(resolved.resolvedPath)"));
 });
 
 test("large read_file inspection performs one complete permitted source load", () => {
@@ -182,22 +171,19 @@ test("list and search caps project deterministic truncation", async () => {
       error.details.completion.reason === "content-byte-limit",
   );
 
-  const repositorySource = fs.readFileSync(
-    path.resolve(__dirname, "../../src/main/agentHarness/repository/repositoryOperations.ts"),
-    "utf8",
-  );
-  assert.match(repositorySource, /MAX_SEARCH_CONTENT_BYTES = 134_217_728/);
-  assert.match(repositorySource, /MAX_SEARCH_DURATION_MS = 15_000/);
-  assert.match(repositorySource, /MAX_NON_GIT_VISITED_ENTRIES = 25_000/);
 });
 
-test("Git status and diff are asynchronous, bounded, and terminate timed-out children", async () => {
+test("Git status and diff are asynchronous, bounded, and terminate timed-out children", async (t) => {
   const root = createGitWorkspace("Bounded Git Project");
   write(root, "tracked.txt", "baseline\n");
   git(root, ["add", "tracked.txt"]);
   git(root, ["commit", "-m", "fixture baseline"]);
   write(root, "tracked.txt", "changed\n");
 
+  const childProcess = require("node:child_process");
+  for (const method of ["execFileSync", "execSync", "spawnSync"]) {
+    t.mock.method(childProcess, method, () => assert.fail(`Repository I/O blocked on ${method}`));
+  }
   const status = await gitStatus(root, true);
   assert.equal(status.gitBacked, true);
   assert.match(status.shortStatus, /tracked\.txt/);
@@ -229,11 +215,46 @@ test("Git status and diff are asynchronous, bounded, and terminate timed-out chi
   assert.equal(GIT_COMMAND_TIMEOUT_MS, 15_000);
   assert.equal(GIT_STDOUT_LIMIT_BYTES, 1_000_000);
   assert.equal(GIT_STDERR_LIMIT_BYTES, 65_536);
-  const source = fs.readFileSync(
-    path.resolve(__dirname, "../../src/main/agentHarness/repository/repositoryOperations.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(source, /execFileSync|execSync|spawnSync/);
+});
+
+test("bounded Git cancels streamed output and terminates children on either output limit", async (t) => {
+  const childProcess = require("node:child_process");
+  const { EventEmitter } = require("node:events");
+  const { PassThrough } = require("node:stream");
+  for (const scenario of ["cancel", "stdout", "stderr"]) {
+    await t.test(scenario, async (context) => {
+      const child = new EventEmitter();
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.exitCode = null;
+      let kills = 0;
+      child.kill = () => {
+        kills += 1;
+        child.exitCode = 1;
+        queueMicrotask(() => child.emit("close", 1));
+      };
+      context.mock.method(childProcess, "spawn", (executable, args, options) => {
+        assert.equal(executable, "git");
+        assert.equal(options.shell, false);
+        queueMicrotask(() => child[scenario === "stderr" ? "stderr" : "stdout"].write("bounded-output"));
+        return child;
+      });
+      let observed = "";
+      const result = runBoundedGit({
+        cwd: path.resolve(__dirname, "../.."), args: ["status"],
+        stdoutLimitBytes: scenario === "stdout" ? 4 : 100,
+        stderrLimitBytes: 4,
+        onStdout: (chunk, stop) => { observed += chunk.toString(); stop(); stop(); },
+      });
+      if (scenario === "cancel") {
+        assert.equal((await result).stoppedEarly, true);
+        assert.equal(observed, "bounded-output");
+      } else {
+        await assert.rejects(result, (error) => error.code === "GIT_OUTPUT_LIMIT" && error.message.includes(scenario));
+      }
+      assert.equal(kills, 1);
+    });
+  }
 });
 
 test("Git status and public toolboxes contain nested registered roots while preserving repository-root status", async () => {

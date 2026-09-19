@@ -1,16 +1,7 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
-
-const componentSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "WorkCardReportReviewWorkspace.tsx");
-const sharedPresentationSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "OperatorValidationPresentation.tsx");
-const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
-const stylesSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "styles.css");
-const workspaceSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaceContracts.ts");
-const documentWorkspaceSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaces", "documentWorkspace.ts");
 const { WorkCardReportReviewWorkspace } = require("./renderer-source-loader.cjs")
   .loadRendererSourceModule("src/renderer/app/WorkCardReportReviewWorkspace.tsx");
 
@@ -85,61 +76,6 @@ function renderWorkspace(overrides = {}) {
   );
 }
 
-test("Review & Validation workspace offers evidence choices and Operator validation controls", () => {
-  const source = fs.readFileSync(componentSourcePath, "utf8");
-  const sharedSource = fs.readFileSync(sharedPresentationSourcePath, "utf8");
-
-  assert.match(source, /import \{ OperatorValidationPresentation \} from "\.\/OperatorValidationPresentation"/);
-  assert.match(source, /<OperatorValidationPresentation/);
-  assert.match(source, /label: "Approved Work Card"/);
-  assert.match(source, /label: "Implementer Report"/);
-  assert.match(source, /selectedRole === "report"/);
-  assert.match(source, /className="work-card-report-evidence-strip"/);
-  assert.match(sharedSource, /className="work-card-report-document-pane"/);
-  assert.match(source, /reportIsCurrent/);
-  assert.match(source, /Architect review advisory; Operator decision creates validation basis\./);
-  assert.match(sharedSource, /Operator validation notes/);
-  assert.match(source, /Advisory summary \/ pasted recommendation \(optional\)/);
-  assert.match(sharedSource, /Repair defect text/);
-  assert.match(sharedSource, /Validate Passed/);
-  assert.match(sharedSource, /Request Repair/);
-  assert.doesNotMatch(`${source}\n${sharedSource}`, /Select disposition/);
-  assert.doesNotMatch(`${source}\n${sharedSource}`, /Apply Review/);
-  assert.doesNotMatch(source, /Run Codex Implementer/);
-  assert.doesNotMatch(source, /Cancel Codex Run/);
-  assert.doesNotMatch(source, /Event Tail/);
-  assert.doesNotMatch(source, /className="work-card-report-reference"/);
-  assert.doesNotMatch(source, /onCopyAdvisoryPrompt/);
-  assert.doesNotMatch(source, /Copy Advisory Prompt/);
-});
-
-test("Review & Validation is a visible Work Card Implement workspace between Implement and Repair", () => {
-  const source = fs.readFileSync(workspaceSourcePath, "utf8");
-  const registrySlice = source.slice(
-    source.indexOf("id: \"work-card-building-review\""),
-    source.indexOf("id: \"work-card-validation\""),
-  );
-
-  assert.match(registrySlice, /id:\s*"work-card-building-review"[\s\S]*label:\s*"Implement"[\s\S]*order:\s*10/);
-  assert.match(registrySlice, /id:\s*"work-card-report-review"[\s\S]*label:\s*"Review & Validation"[\s\S]*order:\s*15/);
-  assert.match(registrySlice, /id:\s*"work-card-repair"[\s\S]*order:\s*20/);
-});
-
-test("Implementer Report documents classify to Review & Validation and App targets Operator decisions there", () => {
-  const documentWorkspaceSource = fs.readFileSync(documentWorkspaceSourcePath, "utf8");
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const browserPanelSource = fs.readFileSync(path.join(__dirname, "..", "..", "src", "renderer", "app", "figma", "FigmaBrowserPanel.tsx"), "utf8");
-
-  assert.match(documentWorkspaceSource, /workspace\("work-card-report-review"\), group: "Implementer reports"/);
-  assert.match(appSource, /<WorkCardReportReviewWorkspace/);
-  assert.match(appSource, /activeWorkspaceId === "work-card-report-review"/);
-  assert.match(appSource, /window\.champcity\.copyCurrentWorkCardAdvisoryReviewPrompt\(\)/);
-  assert.match(appSource, /window\.champcity\.applyOperatorValidationDecisionForCurrentWorkCard\(/);
-  assert.doesNotMatch(appSource, /applyCurrentDisposition\(\s*workCardBuildingReviewStatus/);
-  assert.match(appSource, /<FigmaBrowserPanel/);
-  assert.match(browserPanelSource, /aria-label="Embedded ChatGPT browser"/);
-});
-
 test("Review & Validation renders Implementer Report by default in a compact document pane", () => {
   const markup = renderWorkspace();
 
@@ -185,42 +121,22 @@ test("Review & Validation renders Approved Work Card tab content and missing doc
   assert.match(missingReportMarkup, /class="document-error"/);
 });
 
-test("Review & Validation App and CSS suppress global context and preserve dual-pane browser layout", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const browserPanelSource = fs.readFileSync(path.join(__dirname, "..", "..", "src", "renderer", "app", "figma", "FigmaBrowserPanel.tsx"), "utf8");
-  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
-
-  assert.match(appSource, /isWorkCardReportReview \? "review-validation-surface" : ""/);
-  assert.match(appSource, /suppress=\{isWorkCardReportReview\}/);
-  assert.match(appSource, /if \(suppress\) \{\s*return null;\s*\}/);
-  assert.match(appSource, /"figma-doc-chat-workspace review-validation-workspace"/);
-  assert.match(appSource, /usesFigmaWorkspaceBody[\s\S]*isWorkCardReportReview/);
-  assert.match(appSource, /<FigmaBrowserPanel/);
-  assert.match(appSource, /handoffActionsVisible=\{false\}/);
-  assert.match(appSource, /Copy Advisory Prompt/);
-  assert.match(appSource, /canCopyWorkCardAdvisoryPrompt/);
-  assert.match(browserPanelSource, /aria-label="Embedded ChatGPT browser"/);
-  assert.match(browserPanelSource, /ref=\{hostRef\} className="architect-browser-host figma-browser-host"/);
-  assert.match(stylesSource, /\.workspace-surface\.review-validation-surface/);
-  assert.match(stylesSource, /\.review-validation-workspace\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 288px/);
-  assert.match(stylesSource, /\.work-card-report-document-pane\s*\{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\) auto/);
-  assert.match(stylesSource, /\.work-card-report-evidence-strip\s*\{[\s\S]*grid-template-columns:/);
-});
-
-test("Review & Validation keeps Copy Advisory Prompt in browser actions, not validation controls", () => {
+test("Review & Validation controls omit Copy Advisory Prompt", () => {
   const componentMarkup = renderWorkspace();
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const reviewWorkspaceSource = appSource.slice(
-    appSource.indexOf("{isWorkCardReportReview ? ("),
-    appSource.indexOf("{isWorkCardClose ? ("),
-  );
-  const validationWorkspaceSource = fs.readFileSync(componentSourcePath, "utf8");
 
   assert.doesNotMatch(componentMarkup, /Copy Advisory Prompt/);
-  assert.doesNotMatch(validationWorkspaceSource, /Copy Advisory Prompt/);
-  assert.match(reviewWorkspaceSource, /<FigmaBrowserActionsPanel/);
-  assert.match(reviewWorkspaceSource, /contextualActions=\{/);
-  assert.match(reviewWorkspaceSource, /Copy Advisory Prompt/);
-  assert.match(reviewWorkspaceSource, /disabled=\{!canCopyWorkCardAdvisoryPrompt\}/);
-  assert.match(reviewWorkspaceSource, /handoffActionsVisible=\{false\}/);
+});
+
+test("Review and Validation uses runtime registry order and classifies report evidence", () => {
+  const { workspaceDefinitions } = require("../../dist/shared/workspaceContracts.js");
+  const { classifyPlanningDocument } = require("../../dist/shared/workspaces/documentWorkspace.js");
+  const ids = ["work-card-building-review", "work-card-report-review", "work-card-repair"];
+  const entries = ids.map((id) => workspaceDefinitions.find((entry) => entry.id === id));
+  assert.deepEqual(entries.map((entry) => entry.label), ["Implement", "Review & Validation", "Work Card Repair"]);
+  assert.ok(entries[0].order < entries[1].order && entries[1].order < entries[2].order);
+  assert.equal(classifyPlanningDocument(reviewDocuments()[1]).workspaceId, "work-card-report-review");
+  const markup = renderWorkspace();
+  assert.match(markup, /Operator validation notes/);
+  assert.match(markup, /Repair defect text/);
+  assert.doesNotMatch(markup, /Select disposition|Apply Review|Run Codex Implementer|Cancel Codex Run/);
 });

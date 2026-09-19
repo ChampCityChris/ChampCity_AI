@@ -137,31 +137,56 @@ test("shutdown during initialization requests cancellation and confirms worker e
   assert.equal(client.diagnostics().lifecycle, "closed");
 });
 
-test("production startup has one worker-owned shared initialization algorithm and bounded main adoption", () => {
-  const main = readSource("src/main/main.ts");
-  const manager = readSource("src/main/workCardBuilding/codexRuntimeManager.ts");
-  const algorithm = readSource("src/main/workCardBuilding/codexRuntimeInitialization.ts");
-  const client = readSource("src/main/workCardBuilding/codexRuntimeInitializerClient.ts");
-  const worker = readSource("src/main/workCardBuilding/codexRuntimeInitializerWorker.ts");
-  const protocol = readSource("src/main/workCardBuilding/codexRuntimeInitializerProtocol.ts");
-
-  assert.match(main, /new CodexRuntimeInitializerClient/);
-  assert.match(main, /createCodexRuntimeExecutionOperations/);
-  assert.doesNotMatch(main, /createCodexRuntimeOperations/);
-  assert.match(client, /utilityProcess\.fork/);
-  assert.match(client, /serviceName: "ChampCity A\/I Managed Codex Initializer"/);
-  assert.match(worker, /createCodexRuntimeOperations\(request\.userDataRoot\)/);
-  assert.match(worker, /initializeManagedCodexRuntime\(operations\)/);
-  assert.doesNotMatch(manager, /\.latestVersion\(|\.stage\(|\.bootstrap\(|\.probe\(|\.promote\(/);
-  assert.match(manager, /adoptInitializationResult/);
-  assert.match(algorithm, /operations\.latestVersion\(\)/);
-  assert.match(algorithm, /operations\.stage\(latest\)/);
-  assert.match(algorithm, /operations\.probe\(candidate\)/);
-  assert.match(algorithm, /operations\.promote\(candidate\)/);
-  assert.match(protocol, /kind: "initialize"/);
-  assert.match(protocol, /kind: "success"/);
-  assert.match(protocol, /kind: "failure"/);
-  assert.match(protocol, /kind: "shutdown"/);
+test("initializer worker executes maintenance once and manager adopts its result without rerunning maintenance", async () => {
+  const vm = require("node:vm");
+  const { createRequire } = require("node:module");
+  const { CodexRuntimeManager } = require("../../dist/main/workCardBuilding/codexRuntimeManager.js");
+  const entry = path.join(repositoryRoot, "dist/main/workCardBuilding/codexRuntimeInitializerWorker.js");
+  const nativeRequire = createRequire(entry);
+  const calls = [];
+  const userDataRoot = path.join(repositoryRoot, "fixture-user-data");
+  const operations = {
+    readSelection: async () => { calls.push("selection"); return selection; },
+    loadCurrent: async () => { calls.push("current"); return null; },
+    latestVersion: async () => { calls.push("latest"); return result.runtime.version; },
+    stage: async (version) => { calls.push(["stage", version]); return result.runtime; },
+    probe: async (runtime) => { calls.push(["probe", runtime]); return result.status.catalog; },
+    promote: async (runtime) => { calls.push(["promote", runtime]); },
+    bootstrap: async () => assert.fail("Unexpected fallback"),
+    shutdown: async () => { calls.push("shutdown"); },
+  };
+  const workerProcess = new EventEmitter();
+  workerProcess.pid = process.pid + 10003;
+  workerProcess.parentPort = new EventEmitter();
+  const messages = [];
+  workerProcess.parentPort.postMessage = (message) => messages.push(message);
+  let finish;
+  const exited = new Promise((resolve) => { finish = resolve; });
+  workerProcess.exit = finish;
+  vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+    exports: {}, process: workerProcess, setImmediate,
+    require: (id) => id === "./codexRuntimeOperations" ? {
+      createCodexRuntimeOperations: (root) => { assert.equal(root, userDataRoot); calls.push("operations"); return operations; },
+    } : nativeRequire(id),
+  });
+  workerProcess.parentPort.emit("message", { data: { protocolVersion: -1, kind: "initialize", userDataRoot: "ignored" } });
+  assert.deepEqual(calls, []);
+  workerProcess.parentPort.emit("message", { data: { protocolVersion: codexRuntimeInitializerProtocolVersion, kind: "initialize", userDataRoot } });
+  assert.equal(await exited, 0);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].kind, "success");
+  assert.equal(messages[0].workerProcessId, workerProcess.pid);
+  assert.deepEqual(calls, ["operations", "selection", "current", "latest", ["stage", result.runtime.version], ["probe", result.runtime], ["promote", result.runtime], "shutdown"]);
+  const manager = new CodexRuntimeManager();
+  let initialized = 0;
+  const initializer = { initialize: async () => { initialized += 1; return messages[0].result; }, shutdown: async () => {} };
+  const execution = new Proxy({ writeSelection: async () => {}, launch: async () => "launched" }, {
+    get: (target, key) => { if (["latestVersion", "stage", "bootstrap", "probe", "promote"].includes(key)) assert.fail(`Main ran ${key}`); return target[key]; },
+  });
+  await Promise.all([manager.initialize(initializer, execution), manager.initialize(initializer, execution)]);
+  assert.equal(initialized, 1);
+  assert.deepEqual(manager.getStatus(), result.status);
+  assert.equal(await manager.launch(), "launched");
 });
 
 function createClient(worker, onFork = () => undefined) {
@@ -176,8 +201,4 @@ function createClient(worker, onFork = () => undefined) {
       return worker;
     },
   });
-}
-
-function readSource(relativePath) {
-  return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 }

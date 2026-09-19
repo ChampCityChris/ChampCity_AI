@@ -301,43 +301,6 @@ test("Settings form model normalizes persisted configuration input", () => {
   });
 });
 
-test("preload exposes Settings writes through the constrained Agent Harness IPC API", () => {
-  const preloadSource = fs.readFileSync(path.join(root, "src", "preload", "index.ts"), "utf8");
-  const mainSource = fs.readFileSync(path.join(root, "src", "main", "main.ts"), "utf8");
-
-  assert.match(preloadSource, /saveAgentHarnessSettings/);
-  assert.match(preloadSource, /agentHarness:saveSettings/);
-  assert.match(preloadSource, /getAgentHarnessServiceHostLifecycleStatus/);
-  assert.match(preloadSource, /agentHarness:serviceHostLifecycleStatus/);
-  assert.match(preloadSource, /startBackgroundAgent/);
-  assert.match(preloadSource, /agentHarness:startBackgroundAgent/);
-  assert.match(preloadSource, /exitBackgroundAgent/);
-  assert.match(preloadSource, /agentHarness:exitBackgroundAgent/);
-  assert.match(preloadSource, /restartAgentHarnessServiceHost/);
-  assert.match(preloadSource, /agentHarness:restartServiceHost/);
-  assert.match(preloadSource, /saveAgentHarnessServiceHostLifecycleSettings/);
-  assert.match(preloadSource, /agentHarness:saveServiceHostLifecycleSettings/);
-  assert.match(preloadSource, /importLegacyOAuthClients/);
-  assert.match(preloadSource, /agentHarness:importLegacyOAuthClients/);
-  assert.match(preloadSource, /listAgentHarnessRegisteredWorkspaces/);
-  assert.match(preloadSource, /chooseAndRegisterAgentHarnessWorkspace: \(\) =>/);
-  assert.match(preloadSource, /unregisterAgentHarnessWorkspace: \(workspaceId\) =>/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:saveSettings"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:serviceHostLifecycleStatus"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:startBackgroundAgent"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:exitBackgroundAgent"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:restartServiceHost"/);
-  assert.match(mainSource, /"agentHarness:saveServiceHostLifecycleSettings"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:importLegacyOAuthClients"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:listRegisteredWorkspaces"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:chooseAndRegisterWorkspace"/);
-  assert.match(mainSource, /ipcMain\.handle\("agentHarness:unregisterWorkspace"/);
-  assert.match(mainSource, /title: "Register ChampCity MCP Project"[\s\S]*?properties: \["openDirectory"\]/);
-  assert.match(mainSource, /dialog\.showOpenDialog/);
-  assert.doesNotMatch(preloadSource, /fs\.|writeFile|agent-harness\/settings/i);
-  assert.doesNotMatch(preloadSource, /showOpenDialog|readFile|oauth-clients|oauth-tokens|oauth-admin/i);
-});
-
 function sampleAgentHarnessStatus(overrides) {
   const publicToolNames = overrides.publicToolNames ?? [];
   return {
@@ -402,7 +365,34 @@ test("stale Service Host remediation separates explanation and controlled action
   const busy = renderToStaticMarkup(React.createElement(ServiceHostRemediation, { ...props, isBusy: true }));
   assert.match(busy, /<button disabled="" type="button">Restart Background Agent/);
   assert.equal(ServiceHostRemediation({ ...props, lifecycleStatus: { restartRequired: false } }), null);
-  const css = fs.readFileSync(path.join(root, "src/renderer/styles.css"), "utf8");
-  assert.match(css, /\.service-host-remediation-actions button,[^{]+\{[^}]*border: 1px solid/);
-  assert.match(css, /\.service-host-remediation \{[^}]*gap: 12px/);
+});
+
+test("Settings preload methods invoke constrained channels and preserve bounded inputs", async () => {
+  const vm = require("node:vm");
+  const calls = [];
+  let api;
+  vm.runInNewContext(fs.readFileSync(path.join(root, "dist/preload/index.js"), "utf8"), {
+    exports: {}, require: (id) => {
+      assert.equal(id, "electron");
+      return { contextBridge: { exposeInMainWorld: (_key, value) => { api = value; } }, ipcRenderer: { invoke: async (...args) => { calls.push(args); return "receipt"; } } };
+    },
+  });
+  const entries = [
+    ["saveAgentHarnessSettings", "agentHarness:saveSettings", [{ enabled: true }]],
+    ["getAgentHarnessServiceHostLifecycleStatus", "agentHarness:serviceHostLifecycleStatus", []],
+    ["startBackgroundAgent", "agentHarness:startBackgroundAgent", []],
+    ["exitBackgroundAgent", "agentHarness:exitBackgroundAgent", []],
+    ["restartAgentHarnessServiceHost", "agentHarness:restartServiceHost", []],
+    ["saveAgentHarnessServiceHostLifecycleSettings", "agentHarness:saveServiceHostLifecycleSettings", [{ launchAtLogin: false }]],
+    ["importLegacyOAuthClients", "agentHarness:importLegacyOAuthClients", []],
+    ["listAgentHarnessRegisteredWorkspaces", "agentHarness:listRegisteredWorkspaces", []],
+    ["chooseAndRegisterAgentHarnessWorkspace", "agentHarness:chooseAndRegisterWorkspace", []],
+    ["unregisterAgentHarnessWorkspace", "agentHarness:unregisterWorkspace", ["fixture-project"]],
+  ];
+  for (const [method, channel, args] of entries) {
+    assert.equal(await api[method](...args), "receipt");
+    assert.deepEqual(calls.at(-1), [channel, ...args]);
+  }
+  assert.equal(calls.length, entries.length);
+  for (const name of ["fs", "writeFile", "showOpenDialog", "readFile", "ipcRenderer"]) assert.equal(Object.hasOwn(api, name), false);
 });

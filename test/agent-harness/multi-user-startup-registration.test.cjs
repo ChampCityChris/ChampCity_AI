@@ -4,7 +4,8 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const repositoryRoot = path.resolve(__dirname, "../..");
+const vm = require("node:vm");
+const { createRequire } = require("node:module");
 const installedScope = require(
   "../../dist/main/agentHarness/runtime/champCityInstalledScope.js"
 );
@@ -107,7 +108,7 @@ test("all-users default true initializes one user's durable preference and obser
   });
 });
 
-test("all-users default false blocks startup-origin continuation before Service Host runtime construction", (t) => {
+test("all-users default false blocks startup-origin continuation before Service Host runtime construction", async (t) => {
   const userDataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-machine-opt-out-"));
   t.after(() => fs.rmSync(userDataRoot, { recursive: true, force: true }));
   const settings = lifecycleSettings.initializeAgentHarnessServiceHostLifecycleSettings(
@@ -121,14 +122,44 @@ test("all-users default false blocks startup-origin continuation before Service 
   }), false);
   assert.equal(fs.existsSync(descriptor.getAgentHarnessServiceHostDescriptorPath(userDataRoot)), false);
 
-  const serviceHostSource = fs.readFileSync(
-    path.join(repositoryRoot, "src/main/agentHarness/runtime/agentHarnessServiceHost.ts"),
-    "utf8",
-  );
-  const optOut = serviceHostSource.indexOf("if (!prepareBackgroundAgentStartupIntent");
-  const controller = serviceHostSource.indexOf("new AgentHarnessController");
-  const tray = serviceHostSource.indexOf("new BackgroundAgentTrayController");
-  assert.ok(optOut >= 0 && optOut < controller && controller < tray);
+  const entry = path.resolve(__dirname, "../../dist/main/agentHarness/runtime/agentHarnessServiceHost.js");
+  const nativeRequire = createRequire(entry);
+  const calls = [];
+  const forbidConstruction = (name) => class {
+    constructor() { calls.push(name); throw new Error(`Unexpected ${name} construction`); }
+  };
+  const mocks = {
+    electron: { powerMonitor: {} },
+    "./champCityInstalledScope": { readChampCityInstalledScopeMetadata: () => machineMetadata(false) },
+    "./backgroundAgentIntent": {
+      prepareBackgroundAgentStartupIntent: (...args) => {
+        calls.push("startup-intent");
+        const allowed = backgroundIntent.prepareBackgroundAgentStartupIntent(...args);
+        assert.equal(allowed, false);
+        return allowed;
+      },
+    },
+    "./agentHarnessController": { AgentHarnessController: forbidConstruction("controller") },
+    "./backgroundAgentTray": { BackgroundAgentTrayController: forbidConstruction("tray") },
+    "./agentHarnessServiceLifecycle": { AgentHarnessServiceLifecycleCoordinator: forbidConstruction("lifecycle") },
+    "./agentHarnessServiceHostServer": { AgentHarnessServiceHostServer: forbidConstruction("server") },
+    "./agentHarnessBuildIdentity": { computeAgentHarnessRuntimeBuildIdentity() {
+      calls.push("runtime-build");
+      throw new Error("Opted-out startup must not initialize runtime identity");
+    } },
+  };
+  const exports = {};
+  vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+    exports, __dirname: path.dirname(entry),
+    process: { platform: "win32", argv: [startupRegistration.agentHarnessServiceHostStartupOriginArgument], env: {} },
+    require: (id) => Object.hasOwn(mocks, id) ? mocks[id] : nativeRequire(id),
+  });
+  await exports.runAgentHarnessServiceHost({
+    getPath: () => userDataRoot,
+    exit: (code) => calls.push(["exit", code]),
+  });
+  assert.deepEqual(calls, ["startup-intent", ["exit", 0]]);
+  assert.equal(fs.existsSync(descriptor.getAgentHarnessServiceHostDescriptorPath(userDataRoot)), false);
 });
 
 test("all-users initialization never overwrites an existing user's stored choice", (t) => {

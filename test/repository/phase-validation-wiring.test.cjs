@@ -1,72 +1,68 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
+const service = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
+const { getPhaseCloseProjection } = require("../../dist/main/phaseClose/phaseCloseService.js");
+const { mainPreloadHarness } = require("../support/production-execution.cjs");
+const { seedAllCompletePhaseAfterCloseReturn } = require("../support/phase-validation-fixtures.cjs");
 
-const repoRoot = path.resolve(__dirname, "../..");
-const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+function phaseValidationApi(root) {
+  const calls = [];
+  const scope = { getRequiredWorkspaceRoot: () => root };
+  for (const name of ["getPhaseValidationActionProjection", "createPhaseCloseoutForCurrentPhase", "applyCurrentDisposition"]) {
+    scope[name] = (...args) => { calls.push({ name, args }); return service[name](...args); };
+  }
+  return { ...mainPreloadHarness([
+    "currentWorkflow:getPhaseValidationActionProjection", "currentWorkflow:createPhaseCloseout",
+    "currentWorkflow:applyDisposition",
+  ], scope), calls };
+}
 
-test("Phase Validation projection read crosses shared, preload, and main boundaries", () => {
-  const contracts = read("src/shared/workspaceContracts.ts");
-  const preload = read("src/preload/index.ts");
-  const main = read("src/main/main.ts");
-
-  assert.match(contracts, /export interface PhaseValidationActionProjection/);
-  assert.match(
-    contracts,
-    /getPhaseValidationActionProjection: \(\) => Promise<PhaseValidationActionProjection>/,
-  );
-  assert.match(
-    preload,
-    /getPhaseValidationActionProjection: \(\) =>[\s\S]*?"currentWorkflow:getPhaseValidationActionProjection"/,
-  );
-  assert.match(
-    main,
-    /ipcMain\.handle\("currentWorkflow:getPhaseValidationActionProjection"[\s\S]*?getPhaseValidationActionProjection\(getRequiredWorkspaceRoot\(\)\)/,
-  );
+test("Phase Validation repository projection crosses main and compiled preload public API", async () => {
+  const root = seedAllCompletePhaseAfterCloseReturn();
+  const { api, calls, invocations } = phaseValidationApi(root);
+  const action = await api.getPhaseValidationActionProjection();
+  assert.deepEqual(action, service.getPhaseValidationActionProjection(root));
+  assert.equal(action.workspaceId, "phase-validation");
+  assert.equal(action.requiredAction, "create-closeout");
+  assert.deepEqual(calls, [{ name: "getPhaseValidationActionProjection", args: [root] }]);
+  assert.deepEqual(invocations.map((call) => call.channel), ["currentWorkflow:getPhaseValidationActionProjection"]);
 });
 
-test("validated Phase Validation disposition target propagates renderer to FC01 main state", () => {
-  const renderer = read("src/renderer/app/App.tsx");
-  const preload = read("src/preload/index.ts");
-  const main = read("src/main/main.ts");
-  const service = read("src/main/currentWorkflow/currentWorkflowService.ts");
-
-  const rendererDisposition = renderer.slice(
-    renderer.indexOf("async function applyCurrentPhaseCloseoutDisposition"),
-    renderer.indexOf("async function refreshWorkCardCloseProjection"),
-  );
-  assert.match(rendererDisposition, /phaseValidationAction\.workspaceId/);
-  assert.match(
-    rendererDisposition,
-    /window\.champcity\.applyCurrentDisposition\([\s\S]*?phaseValidationAction\.workspaceId/,
-  );
-  assert.match(
-    preload,
-    /applyCurrentDisposition: \(status, operatorReviewNotes, targetWorkspaceId\) =>[\s\S]*?"currentWorkflow:applyDisposition"[\s\S]*?targetWorkspaceId/,
-  );
-  assert.match(
-    main,
-    /"currentWorkflow:applyDisposition"[\s\S]*?targetWorkspaceId\?: WorkspaceId[\s\S]*?applyCurrentDisposition\(getRequiredWorkspaceRoot\(\), status, operatorReviewNotes, targetWorkspaceId\)/,
-  );
-  assert.match(service, /const dispositionWorkspaceId = targetWorkspaceId \?\? model\.activeWorkspaceId/);
-  assert.match(service, /case "phase-validation"[\s\S]*?getPhaseValidationActionProjection\(workspaceRoot\)/);
-  assert.match(service, /case "phase-close":[\s\S]*?cannot bypass the Phase Validation disposition/);
+test("projection disposition target reaches the service despite the model's different active workspace", async () => {
+  const root = seedAllCompletePhaseAfterCloseReturn();
+  const { api, calls } = phaseValidationApi(root);
+  const created = await api.createPhaseCloseoutForCurrentPhase("Close", "All planned work complete");
+  const action = created.payload.phaseAction;
+  assert.equal(action.workspaceId, "phase-validation");
+  assert.notEqual(service.getCurrentWorkspaceModel(root).activeWorkspaceId, action.workspaceId);
+  const result = await api.applyCurrentDisposition("Approved", "Reviewed current closeout", action.workspaceId);
+  assert.deepEqual(calls.at(-1), { name: "applyCurrentDisposition", args: [root, "Approved", "Reviewed current closeout", action.workspaceId] });
+  assert.equal(result.payload.phaseAction.workspaceId, "phase-close");
+  assert.equal(result.payload.phaseAction.closeout.effectiveDisposition, "Approved");
+  await assert.rejects(api.applyCurrentDisposition("Approved", "", "phase-close"), /cannot bypass the Phase Validation disposition/);
 });
 
-test("Phase Validation mutations return refreshed FC01 action evidence", () => {
-  const service = read("src/main/currentWorkflow/currentWorkflowService.ts");
-  const createSource = service.slice(
-    service.indexOf("export function createPhaseCloseoutForCurrentPhase"),
-    service.indexOf("export function getPhaseValidationActionProjection"),
-  );
-  const dispositionSource = service.slice(
-    service.indexOf("export function applyCurrentDisposition"),
-    service.indexOf("export function createRepairForCurrentFailure"),
-  );
-
-  assert.match(createSource, /getPhaseValidationActionProjection\(workspaceRoot, refreshedContext\)/);
-  assert.match(createSource, /phaseAction: refreshedAction/);
-  assert.match(dispositionSource, /phaseValidationActionFromCloseProjection/);
-  assert.match(dispositionSource, /phaseAction:/);
+test("create and disposition public API results contain refreshed repository Phase Validation evidence", async () => {
+  const root = seedAllCompletePhaseAfterCloseReturn();
+  const { api } = phaseValidationApi(root);
+  const created = await api.createPhaseCloseoutForCurrentPhase("Close", "All planned work complete");
+  assert.deepEqual(created.payload.phaseAction, await api.getPhaseValidationActionProjection());
+  assert.equal(created.payload.phaseAction.requiredAction, "dispose-closeout");
+  assert.equal(created.payload.phaseAction.closeout.effectiveDisposition, "Pending");
+  for (const status of ["RevisionRequested", "Rejected", "Approved"]) {
+    const result = await api.applyCurrentDisposition(status, "Current review", created.payload.phaseAction.workspaceId);
+    const refreshed = result.payload.phaseAction;
+    const close = getPhaseCloseProjection(root, "phase-01");
+    assert.deepEqual(refreshed.closeout, close.closeout);
+    assert.equal(refreshed.workspaceId, close.workspaceId);
+    assert.equal(close.complete, status === "Approved");
+    if (status !== "Approved") {
+      assert.deepEqual(refreshed, await api.getPhaseValidationActionProjection());
+    }
+    assert.equal(refreshed.closeout.effectiveDisposition, status);
+    assert.equal(refreshed.requiredAction, status === "Approved" ? "phase-close-complete" : "dispose-closeout");
+    assert.equal(refreshed.workspaceId, status === "Approved" ? "phase-close" : "phase-validation");
+    assert.equal(refreshed.closeout.logicalDocumentId, created.payload.phaseAction.closeout.logicalDocumentId);
+    assert.equal(refreshed.closeout.freshnessState, "fresh");
+  }
 });

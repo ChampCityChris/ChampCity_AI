@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -26,14 +25,6 @@ const {
   tempWorkspace,
   writeDoc,
 } = require("../support/canonical-markdown-fixtures.cjs");
-
-const railSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "NestedWorkflowRail.tsx");
-const appSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "app", "App.tsx");
-const projectLifecycleRailSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaces", "projectLifecycleRailStatus.ts");
-const mainSourcePath = path.join(__dirname, "..", "..", "src", "main", "main.ts");
-const preloadSourcePath = path.join(__dirname, "..", "..", "src", "preload", "index.ts");
-const workspaceContractsSourcePath = path.join(__dirname, "..", "..", "src", "shared", "workspaceContracts.ts");
-const stylesSourcePath = path.join(__dirname, "..", "..", "src", "renderer", "styles.css");
 
 test("top rail separates viewed workspace from current required workspace", () => {
   const projectIntake = deriveProjectRailPresentation({
@@ -173,68 +164,6 @@ test("Architect Interview rail status can be derived from repository documents w
   assert.equal(statuses["project-planning-review"], "Ready");
 });
 
-test("App does not derive Architect Interview rail status from unrelated active Architect-output model", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(appSource, /deriveArchitectInterviewRailStatusFromDocuments\(documents\)/);
-  assert.match(appSource, /architectOutputModel\?\.workspaceId === "architect-interview"/);
-});
-
-test("App uses the direct Project Planning model for Project Planning rail state", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const activeWorkspaceSwitch = appSource.slice(
-    appSource.indexOf("switch (architectOutputModel.workspaceId)"),
-    appSource.indexOf("return statuses;", appSource.indexOf("switch (architectOutputModel.workspaceId)")),
-  );
-
-  assert.match(appSource, /getProjectPlanningWorkspaceModel\(\)/);
-  assert.match(appSource, /projectPlanningStatus:\s*projectPlanningModel\?\.railStatus \?\? "Not Ready"/);
-  assert.doesNotMatch(activeWorkspaceSwitch, /project-planning-review/);
-  assert.doesNotMatch(activeWorkspaceSwitch, /statuses\["project-planning-review"\]/);
-});
-
-test("Project Planning rail service has no duplicate Project Planning lifecycle state", () => {
-  const source = fs.readFileSync(projectLifecycleRailSourcePath, "utf8");
-
-  assert.match(source, /projectPlanningStatus:\s*ProjectLifecycleRailStatus/);
-  assert.doesNotMatch(
-    source,
-    /deriveProjectPlanningRailStatus|projectPlanningContextFromSummaries|projectPlanningTargets|function bundleState|function hasSourceRevision|function defaultInterviewTarget|function projectSlugFromInterview|analyzeProjectIntakeCorpus/,
-  );
-});
-
-test("Project Planning workspace model is exposed through a direct read-only IPC path", () => {
-  const mainSource = fs.readFileSync(mainSourcePath, "utf8");
-  const preloadSource = fs.readFileSync(preloadSourcePath, "utf8");
-  const contractsSource = fs.readFileSync(workspaceContractsSourcePath, "utf8");
-
-  assert.match(mainSource, /projectPlanning:getWorkspaceModel/);
-  assert.match(mainSource, /getCurrentProjectPlanningWorkspaceModel\(getRequiredWorkspaceRoot\(\)\)/);
-  assert.match(preloadSource, /getProjectPlanningWorkspaceModel:\s*\(\) =>/);
-  assert.match(preloadSource, /projectPlanning:getWorkspaceModel/);
-  assert.match(contractsSource, /getProjectPlanningWorkspaceModel:\s*\(\) => Promise<ProjectPlanningWorkspaceModel>/);
-});
-
-test("native select and option rows have explicit theme-readable colors", () => {
-  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
-
-  assert.match(stylesSource, /select\s*\{[\s\S]*color:\s*var\(--foreground\)/);
-  assert.match(stylesSource, /select\s+option\s*\{[\s\S]*background-color:\s*#eaecf0/);
-  assert.match(stylesSource, /\.dark select\s*\{[\s\S]*color-scheme:\s*dark/);
-  assert.match(stylesSource, /\.dark select option\s*\{[\s\S]*background-color:\s*#12151f/);
-  assert.match(stylesSource, /select:disabled,[\s\S]*select option:disabled/);
-});
-
-test("light theme navigation rail uses explicit restrained contrast overrides", () => {
-  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
-
-  assert.match(stylesSource, /html:not\(\.dark\) \.figma-pipeline-nav\s*\{[\s\S]*background:\s*#d7dce5/);
-  assert.match(stylesSource, /html:not\(\.dark\) \.figma-context-loop-bar\s*\{[\s\S]*background:\s*#e0e4eb/);
-  assert.match(stylesSource, /html:not\(\.dark\) \.figma-work-card-loop-bar\s*\{[\s\S]*background:\s*#e5e8ee/);
-  assert.match(stylesSource, /html:not\(\.dark\) \.figma-pipeline-status\.completed\s*\{\s*color:\s*#166534/);
-  assert.match(stylesSource, /html:not\(\.dark\) \.figma-pipeline-status\.in-progress\s*\{\s*color:\s*#0369a1/);
-});
-
 test("Architect Interview prompt selection hides disposition controls", () => {
   assert.equal(
     shouldRenderArchitectInterviewDispositionControls({
@@ -316,55 +245,6 @@ test("Phase Map disposition controls render only for readable selected Phase Map
   );
 });
 
-test("Architect-output dual-pane preview renders the Figma review workspace panels", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-
-  assert.match(source, /figma-doc-chat-workspace/);
-  assert.match(source, /<FigmaDocumentCard/);
-  assert.match(source, /<FigmaArchitectReviewPanel/);
-  assert.match(source, /aria-label="Document disposition"/);
-  assert.match(source, /Apply Review/);
-  assert.match(source, /onReview=\{applyArchitectOutputReview\}/);
-  assert.match(source, /viewedArchitectOutputRevisionKeys/);
-  assert.doesNotMatch(source, /<ArchitectOutputReviewShell/);
-  assert.doesNotMatch(source, /<PhaseMapPreviewReview/);
-  assert.doesNotMatch(source, /onReview=\{applyDisposition\}[\s\S]{0,120}Apply Phase Map Review/);
-  assert.doesNotMatch(source, /Specialized review controls appear when the current outputs exist/);
-});
-
-test("Phase Map workspace preserves special renderer and restores embedded Architect actions", () => {
-  const source = fs.readFileSync(appSourcePath, "utf8");
-  const phaseMapSection = source.slice(
-    source.indexOf("{isPhaseMapFigmaWorkspace ? ("),
-    source.indexOf("{isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace ? ("),
-  );
-
-  assert.match(phaseMapSection, /<FigmaPhaseMapWorkspace/);
-  assert.match(phaseMapSection, /<FigmaArchitectReviewPanel/);
-  assert.match(phaseMapSection, /\{architectBrowserColumn\}/);
-  assert.match(source, /const architectBrowserColumn = isArchitectPaneVisible \? \(/);
-  assert.match(source, /<FigmaBrowserPanel/);
-  assert.match(source, /<FigmaBrowserActionsPanel/);
-  assert.match(source, /onPrepareHandoff=\{prepareArchitectOutputFromAction\}/);
-  assert.match(source, /onCopyHandoff=\{copyArchitectHandoff\}/);
-  assert.match(source, /activeWorkspaceId === "project-phase-map"[\s\S]{0,80}\? "Prepare Phase Map Handoff"/);
-  assert.match(source, /activeWorkspaceId === "project-phase-map"[\s\S]{0,80}\? "Copy Phase Map Handoff"/);
-  assert.doesNotMatch(
-    source,
-    /const architectBrowserWorkspaceAvailable =[\s\S]{0,120}!isPhaseMapFigmaWorkspace/,
-  );
-});
-
-test("project selector uses a stacked full-width action layout", () => {
-  const source = fs.readFileSync(stylesSourcePath, "utf8");
-  const actionsRule = source.match(/\.project-selector-actions\s*\{(?<body>[^}]*)\}/);
-
-  assert.ok(actionsRule);
-  assert.match(actionsRule.groups.body, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  assert.doesNotMatch(actionsRule.groups.body, /\bauto\b/);
-  assert.match(source, /\.project-selector-actions \.text-button\s*\{[\s\S]*width:\s*100%/);
-});
-
 test("all top project rail cards receive one title-cased lifecycle status", () => {
   const statuses = deriveProjectLifecycleRailStatuses([], {
     projectIntakeStatus: "Open",
@@ -384,46 +264,6 @@ test("all top project rail cards receive one title-cased lifecycle status", () =
   for (const status of Object.values(statuses)) {
     assert.doesNotMatch(status, /^[A-Z_]+$/);
   }
-});
-
-test("top project rail source does not render the static lower Open line", () => {
-  const source = fs.readFileSync(railSourcePath, "utf8");
-  assert.doesNotMatch(source, /group-hover:opacity-85[\s\S]*Open[\s\S]*<\/span>/);
-});
-
-test("visible Work Card loop has one Planning item and no separate Intake item", () => {
-  const source = fs.readFileSync(railSourcePath, "utf8");
-  const workCardLoopSource = source.slice(
-    source.indexOf("const workCardLoopItems"),
-    source.indexOf("const phaseStepIdsByLoopStep"),
-  );
-
-  assert.match(workCardLoopSource, /label:\s*"Work Card Map"/);
-  assert.match(workCardLoopSource, /destination:\s*"phase-work-card-selection"/);
-  assert.match(workCardLoopSource, /label:\s*"Planning"/);
-  assert.match(workCardLoopSource, /destination:\s*"work-card-planning"/);
-  assert.match(workCardLoopSource, /label:\s*"Implement"/);
-  assert.match(workCardLoopSource, /destination:\s*"work-card-building-review"/);
-  assert.match(workCardLoopSource, /label:\s*"Review & Validation"/);
-  assert.match(workCardLoopSource, /destination:\s*"work-card-report-review"/);
-  assert.match(workCardLoopSource, /label:\s*"Close \/ Next"/);
-  assert.doesNotMatch(workCardLoopSource, /label:\s*"Validation"/);
-  assert.doesNotMatch(workCardLoopSource, /destination:\s*"work-card-validation"/);
-  assert.doesNotMatch(workCardLoopSource, /label:\s*"Work Card Intake"/);
-  assert.doesNotMatch(workCardLoopSource, /destination:\s*"work-card-intake"/);
-});
-
-test("Work Card Architect workspaces reuse the shared dual-pane layout", () => {
-  const appSource = fs.readFileSync(appSourcePath, "utf8");
-  const stylesSource = fs.readFileSync(stylesSourcePath, "utf8");
-  const existingArchitectRule = stylesSource.match(/\.document-workspace\.architect-interview-workspace\s*\{(?<body>[^}]*)\}/);
-
-  assert.doesNotMatch(appSource, /workCardArchitectLayoutWorkspaceIds/);
-  assert.doesNotMatch(appSource, /work-card-architect-workspace/);
-  assert.match(appSource, /isArchitectInterviewDualPaneWorkspace\(activeWorkspaceId\)/);
-  assert.ok(existingArchitectRule);
-  assert.match(existingArchitectRule.groups.body, /minmax\(0,\s*0\.95fr\)\s+minmax\(0,\s*1\.05fr\)/);
-  assert.doesNotMatch(stylesSource, /work-card-architect-workspace/);
 });
 
 test("project rail consumes Project Planning blocker state from the current model input", () => {

@@ -1,11 +1,12 @@
+const { seedCurrentPhasePlan, seedAllCompleteWorkCardAtClose, seedAllCompletePhaseAfterCloseReturn } = require("../support/phase-validation-fixtures.cjs");
+const { listPlanningDocuments, writeDoc } = require("../support/canonical-markdown-fixtures.cjs");
+const { loadProductionFunctions } = require("../support/production-execution.cjs");
+
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
 
 const {
   applyCurrentDisposition,
-  applyOperatorValidationDecisionForCurrentWorkCard,
   createPhaseCloseoutForCurrentPhase,
   getCloseReturnSelectionProjection,
   getCurrentWorkspaceModel,
@@ -13,26 +14,10 @@ const {
   getPhaseValidationActionProjection,
 } = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
 const {
-  generateWorkCardIntakeHandoff,
-} = require("../../dist/main/workCardIntake/workCardIntakeService.js");
-const {
-  seedApprovedPhaseInterview,
-  seedApprovedPhasePlanningBundle,
-  seedApprovedProjectIntake,
-  seedApprovedProjectPlanning,
-  seedPhaseMap,
-  tempWorkspace,
-  listPlanningDocuments,
-  writeDoc,
-} = require("../support/canonical-markdown-fixtures.cjs");
-
-const {
   phaseValidationActionForWorkspace,
   phaseValidationPresentation,
 } = require("../renderer/renderer-source-loader.cjs")
   .loadRendererSourceModule("src/renderer/app/phaseValidationRendererOrchestration.ts");
-
-const repoRoot = path.resolve(__dirname, "../..");
 
 test("production boundary preserves explicit map continuation and reaches Phase Close only after fresh Approved Close", () => {
   const root = seedAllCompleteWorkCardAtClose();
@@ -104,20 +89,31 @@ test("production boundary preserves explicit map continuation and reaches Phase 
   assert.equal(completePresentation.dispositionTarget, null);
 });
 
-test("development Phase Loop routes direct Phase Close selection through action pruning", () => {
-  const source = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const railHandler = source.slice(
-    source.indexOf("onWorkspaceChange={(workspaceId) =>"),
-    source.indexOf("projectRailStatuses=", source.indexOf("onWorkspaceChange={(workspaceId) =>")),
-  );
-  assert.match(railHandler, /transitionToWorkflowStep\(workspaceId\)/);
-
-  const transition = source.slice(
-    source.indexOf("function transitionToWorkflowStep"),
-    source.indexOf("function openSettings", source.indexOf("function transitionToWorkflowStep")),
-  );
-  assert.match(transition, /phaseValidationActionForWorkspace\([\s\S]*?destinationWorkspaceId[\s\S]*?phaseValidationAction/);
-  assert.match(transition, /setPhaseValidationAction\(retainedPhaseValidationAction\)/);
+test("direct Phase Close selection prunes pending actions and retains current completion state", () => {
+  const root = seedAllCompletePhaseAfterCloseReturn();
+  const create = getPhaseValidationActionProjection(root);
+  const dispose = createPhaseCloseoutForCurrentPhase(root, "Close", "Complete phase work").payload.phaseAction;
+  const complete = applyCurrentDisposition(root, "Approved", "", dispose.workspaceId).payload.phaseAction;
+  for (const action of [create, dispose, complete]) {
+    const state = { phaseAction: action };
+    const { transitionToWorkflowStep } = loadProductionFunctions("src/renderer/app/App.tsx", ["transitionToWorkflowStep"], {
+      phaseValidationAction: action, phaseValidationActionForWorkspace,
+      setPhaseValidationAction: (value) => { state.phaseAction = value; },
+      settingsWorkspaceId: "settings", documents: [], resolverResult: null, selectedDocumentId: null,
+      documentIdForWorkflowStep: () => null,
+      setShellView: (value) => { state.shell = value; },
+      setActiveWorkflowId: (value) => { state.workflow = value; },
+      setActiveWorkspaceId: (value) => { state.workspace = value; },
+      setPriorWorkflowWorkspaceId: (value) => { state.prior = value; },
+      setSelectedDocumentId() {}, setSelectedDocument() {}, setSelectedStatus() {},
+    });
+    transitionToWorkflowStep("phase-close");
+    assert.equal(state.phaseAction, action === complete ? complete : null);
+    assert.equal(state.workspace, "phase-close");
+    assert.equal(state.prior, "phase-close");
+    assert.equal(state.shell, "workflow");
+    assert.equal(state.workflow, "development");
+  }
 });
 
 test("negative production boundary cannot bypass Phase Validation", async (t) => {
@@ -196,68 +192,3 @@ test("negative production boundary cannot bypass Phase Validation", async (t) =>
     );
   });
 });
-
-function seedCurrentPhasePlan() {
-  const root = tempWorkspace("champcity-phase-validation-production-");
-  const { intake, prompt, interview } = seedApprovedProjectIntake(root, "demo");
-  writeDoc(root, interview, "project-architect-interview", "Approved", {
-    identity: { "Project.ArtifactKey": "demo" },
-    sourceRevisions: [
-      { path: intake, revision: 1 },
-      { path: prompt, revision: 1 },
-    ],
-  });
-  seedApprovedProjectPlanning(root, "demo");
-  seedPhaseMap(root, "phase-01");
-  seedApprovedPhaseInterview(root, "phase-01");
-  seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
-  return root;
-}
-
-function seedAllCompleteWorkCardAtClose() {
-  const root = seedCurrentPhasePlan();
-  const handoff = generateWorkCardIntakeHandoff(root, "phase-01", "WC01");
-  writeDoc(root, handoff.formalWorkCardMarkdownPath, "formal-work-card", "Approved", {
-    identity: { phaseId: "phase-01", workCardId: "WC01", candidateId: "WC01" },
-    sourceRevisions: [{ path: handoff.handoffMarkdownPath, revision: 1 }],
-  });
-  const reportPath = "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WC01_first_work_card.md";
-  writeDoc(root, reportPath, "implementer-report", "Pending", {
-    identity: { phaseId: "phase-01", workCardId: "WC01" },
-    sourceRevisions: [{ path: handoff.formalWorkCardMarkdownPath, revision: 1 }],
-    workflowData: {
-      repositoryVerification: "Verified approved repo root.",
-      filesChanged: ["src/main/currentWorkflow/currentWorkflowService.ts"],
-      implementationSummary: "Implemented fixture work.",
-      validationResults: ["Focused validation passed."],
-      acceptanceEvidence: ["Fixture evidence."],
-    },
-    bodyMarkdown: [
-      "# Implementer Report - WC01",
-      "",
-      "Status: Pending Operator review.",
-      "",
-      "## Repository Verification",
-      "Verified approved repo root.",
-      "## Implementation Summary",
-      "Implemented fixture work.",
-      "## Validation Performed",
-      "Focused validation passed.",
-      "",
-    ].join("\n"),
-  });
-  assert.equal(getCurrentWorkspaceModel(root).activeWorkspaceId, "work-card-report-review");
-  const validation = applyOperatorValidationDecisionForCurrentWorkCard(root, {
-    decision: "ValidatePassed",
-    operatorNotes: "Operator validation passed in the disposable fixture.",
-  });
-  assert.equal(validation.development.currentModel.activeWorkspaceId, "work-card-close");
-  return root;
-}
-
-function seedAllCompletePhaseAfterCloseReturn() {
-  const root = seedAllCompleteWorkCardAtClose();
-  const closeReturn = getCloseReturnSelectionProjection(root);
-  assert.equal(closeReturn.payload.state, "all-complete");
-  return root;
-}

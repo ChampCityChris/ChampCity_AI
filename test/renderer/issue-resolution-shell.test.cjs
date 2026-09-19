@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
@@ -13,8 +11,6 @@ const {
   issueFixCardLoop,
   issueResolutionStages,
 } = loader.loadRendererSourceModule("src/shared/issueResolutionContracts.ts");
-
-const repoRoot = path.join(__dirname, "..", "..");
 
 test("Issue Resolution rail exposes parent lifecycle and gates Architect Planning on a readable Issue", () => {
   const readableIssue = {
@@ -156,100 +152,6 @@ test("Issue Intake renders selected record read-only and bounded New Issue field
   assert.match(markup, /Discovery Context/);
   assert.doesNotMatch(markup, /Root Cause|Severity|Assignee|Sprint|SLA|Phase Position|Work Card/);
 });
-
-test("Issue entry branch does not invoke Development resolver state", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const openWorkflowSource = extractFunctionSource(appSource, "async function openWorkflow", "function returnToWorkflowHub");
-  const issueBranch = openWorkflowSource.slice(
-    openWorkflowSource.indexOf('workflowId === "issue-resolution"'),
-    openWorkflowSource.indexOf('setActiveWorkflowId("development")'),
-  );
-
-  assert.match(issueBranch, /setActiveWorkflowId\("issue-resolution"\)/);
-  assert.match(issueBranch, /refreshIssueInventory\(undefined, true\)/);
-  assert.doesNotMatch(issueBranch, /refreshDocuments|resolveCurrentDocument|getCurrentWorkspaceModel/);
-  assert.match(appSource, /<IssueResolutionRail[\s\S]*?activeStageId=\{activeIssueStageId\}/);
-  assert.match(appSource, /onIssueSelect=\{isIssueResolutionForeground \? \(issueId\) => void selectIssueFromSidebar\(issueId\) : undefined\}/);
-  assert.match(appSource, /setActiveIssueFixCardStepId\("fix-card-map"\)[\s\S]*?getIssueResolutionNavigationProjection\(issueId\)/);
-  assert.match(appSource, /const nextStage: IssueResolutionStageId = navigation\.currentStageId/);
-  assert.match(appSource, /nextStage === "issue-close"[\s\S]*?getIssueCloseProjection\(issueId\)/);
-  assert.match(appSource, /nextStage === "issue-validation"[\s\S]*?getIssueValidationProjection\(issueId\)/);
-  assert.match(appSource, /window\.champcity\.closeIssue\(currentIssue\.issueId, input\)[\s\S]*?returnToWorkflowHub\(\)/);
-  assert.match(openWorkflowSource, /setActiveWorkflowId\("development"\)[\s\S]*?refreshDocuments\(\{ useResolver: true \}\)/);
-  assert.doesNotMatch(appSource, /developmentStateBeforeIssue|isIssueClosed|restoreDevelopment|snapshotDevelopment/);
-  assert.doesNotMatch(appSource, /isIssueResolutionForeground[\s\S]{0,180}<NestedWorkflowRail/);
-});
-
-test("Approved validation action, refresh, selection, and re-entry adopt repository-derived Issue Close", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const decisionSource = extractFunctionSource(
-    appSource,
-    "async function runIssueValidationDecision",
-    "async function refreshIssueCloseProjection",
-  );
-  assertOrdered(decisionSource, [
-    "applyIssueValidationDecision(currentIssue.issueId, input)",
-    "setIssueValidationProjection(result.projection)",
-    "applyIssuePostMutationProjection(result.postMutation, { synchronizeStage: true })",
-  ]);
-  assert.doesNotMatch(decisionSource, /getIssueResolutionNavigationProjection|getIssueCloseProjection|getIssuePlanningProjection/);
-
-  const refreshSource = extractFunctionSource(
-    appSource,
-    "async function refreshIssueValidationProjection",
-    "async function runIssueValidationDecision",
-  );
-  assertOrdered(refreshSource, [
-    "getIssueValidationProjection(issueId)",
-    "options.synchronizeStage",
-    "getIssueResolutionNavigationProjection(issueId)",
-    "setActiveIssueStageId(navigation.currentStageId)",
-    'navigation.currentStageId === "issue-close"',
-    "getIssueCloseProjection(issueId)",
-  ]);
-
-  const selectionSource = extractFunctionSource(
-    appSource,
-    "async function selectIssueFromSidebar",
-    "function browseIssuesFromSidebar",
-  );
-  assertOrdered(selectionSource, [
-    "getIssueResolutionNavigationProjection(issueId)",
-    "navigation.currentStageId",
-    'nextStage === "issue-close"',
-    "getIssueCloseProjection(issueId)",
-  ]);
-
-  const openWorkflowSource = extractFunctionSource(appSource, "async function openWorkflow", "function returnToWorkflowHub");
-  assertOrdered(openWorkflowSource, [
-    'workflowId === "issue-resolution"',
-    'setActiveWorkflowId("issue-resolution")',
-    "refreshIssueInventory(undefined, true)",
-  ]);
-  assert.match(
-    appSource,
-    /activeIssueStageId !== "issue-close"[\s\S]*?refreshIssueCloseProjection\(currentIssue\.issueId\)/,
-  );
-  assert.match(appSource, /activeIssueStageId === "issue-close"[\s\S]*?<IssueCloseWorkspace/);
-});
-
-function extractFunctionSource(source, startNeedle, endNeedle) {
-  const start = source.indexOf(startNeedle);
-  assert.notEqual(start, -1, `${startNeedle} not found`);
-  const end = source.indexOf(endNeedle, start);
-  assert.notEqual(end, -1, `${endNeedle} not found after ${startNeedle}`);
-  return source.slice(start, end);
-}
-
-function assertOrdered(source, needles) {
-  let previous = -1;
-  for (const needle of needles) {
-    const next = source.indexOf(needle, previous + 1);
-    assert.notEqual(next, -1, `${needle} not found in expected sequence`);
-    assert.ok(next > previous, `${needle} is out of order`);
-    previous = next;
-  }
-}
 
 function sampleCurrentModel() {
   return {

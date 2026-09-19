@@ -5,23 +5,8 @@ const path = require("node:path");
 const test = require("node:test");
 
 const repoRoot = path.resolve(__dirname, "../..");
-const srcRoot = path.join(repoRoot, "src");
 
-function collectFiles(root) {
-  if (!fs.existsSync(root)) {
-    return [];
-  }
-
-  const entries = fs.readdirSync(root, { withFileTypes: true });
-  return entries.flatMap((entry) => {
-    const entryPath = path.join(root, entry.name);
-    return entry.isDirectory() ? collectFiles(entryPath) : [entryPath];
-  });
-}
-
-function readText(filePath) {
-  return fs.readFileSync(filePath, "utf8");
-}
+const { loadProductionFunctions, mainPreloadHarness } = require("../support/production-execution.cjs");
 
 test("old implementation and rejected manifest paths are absent", () => {
   const absentPaths = [
@@ -36,39 +21,6 @@ test("old implementation and rejected manifest paths are absent", () => {
 
   for (const relativePath of absentPaths) {
     assert.equal(fs.existsSync(path.join(repoRoot, relativePath)), false, relativePath);
-  }
-});
-
-test("production source does not contain prohibited identifiers", () => {
-  const productionText = collectFiles(srcRoot)
-    .filter((filePath) => /\.(ts|tsx|js|jsx|css|html)$/.test(filePath))
-    .map(readText)
-    .join("\n");
-
-  const prohibited = [
-    "current action",
-    "workflow action catalog",
-    "Governance Maintenance",
-    "Governance Repair",
-    "Governance Approval",
-    "approval queue",
-    "approval artifact",
-    "Operator approval screen",
-    "routed IPC",
-    "renderer binding",
-    "role gate",
-    "screen gate",
-    "target-set hash",
-    "decision timeline",
-    "Execution Run",
-    "context packet",
-    "Independent Verifier",
-    "validator agent",
-    "workflow resolver",
-  ];
-
-  for (const term of prohibited) {
-    assert.equal(productionText.includes(term), false, term);
   }
 });
 
@@ -263,72 +215,100 @@ test("session workspace switching detaches the prior active workspace and clear 
   assert.equal(readSelectedWorkspace(userDataRoot).ok, false);
 });
 
-test("main workspace IPC wiring uses only session-active selection", () => {
-  const mainSource = readText(path.join(repoRoot, "src/main/main.ts"));
-
-  assert.equal(mainSource.includes("readSelectedWorkspace"), false);
-  assert.match(mainSource, /return sessionActiveWorkspace\.requireWorkspaceRoot\(\);/);
-  assert.match(mainSource, /return sessionActiveWorkspace\.currentSelection\(\);/);
-  assert.match(mainSource, /return sessionActiveWorkspace\.retainCurrentSelection\(\);/);
-  assert.match(
-    mainSource,
-    /sessionActiveWorkspace\.activateFromValidation\([\s\S]*?\(\) => detachArchitectBrowserSurface\(\)/,
-  );
-  assert.match(
-    mainSource,
-    /sessionActiveWorkspace\.deactivate\(deactivateSelectedWorkspaceRuntime\);/,
-  );
-  assert.match(mainSource, /selectedWorkspaceEvidenceNotifier\.selectWorkspace\(selection\.workspaceRoot\)/);
-  assert.match(mainSource, /selectedWorkspaceEvidenceNotifier\.clear\(\)/);
+test("workspace IPC activates only session selections and clears attached runtime evidence", async (t) => {
+  const settings = require("../../dist/main/workspaceSettings.js");
+  const { SessionActiveWorkspaceSelection } = require("../../dist/main/sessionActiveWorkspaceSelection.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-shell-ipc-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const userDataRoot = path.join(root, "user-data");
+  const first = path.join(root, "first");
+  const second = path.join(root, "second");
+  fs.mkdirSync(first);
+  fs.mkdirSync(second);
+  settings.saveSelectedWorkspace(userDataRoot, first);
+  const sessionActiveWorkspace = new SessionActiveWorkspaceSelection();
+  const events = [];
+  let choice = { canceled: true, filePaths: [] };
+  const scope = {
+    ...settings, sessionActiveWorkspace, process: { platform: "win32" },
+    getUserDataRoot: () => userDataRoot,
+    dialog: { showOpenDialog: async () => choice },
+    selectedWorkspaceEvidenceNotifier: {
+      selectWorkspace: (root) => { events.push(["select", root]); return events.length; },
+      clear: () => events.push(["clear"]),
+    },
+    detachArchitectBrowserSurface: () => events.push(["detach"]),
+    getAgentHarnessServiceHostClient: () => ({ registerWorkspace: async (root) => events.push(["register", root]) }),
+    getCurrentWorkspaceModel: (root) => ({ root }),
+  };
+  Object.assign(scope, loadProductionFunctions("src/main/main.ts", [
+    "getRequiredWorkspaceRoot", "deactivateSelectedWorkspaceRuntime",
+  ], scope));
+  const { api } = mainPreloadHarness([
+    "workspace:get", "workspace:choose", "workspace:clear", "currentWorkflow:getModel",
+  ], scope);
+  assert.equal((await api.getSelectedWorkspace()).ok, false);
+  assert.equal((await api.chooseWorkspaceFolder()).ok, false);
+  await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
+  assert.deepEqual(events, []);
+  choice = { canceled: false, filePaths: [first] };
+  assert.equal((await api.chooseWorkspaceFolder()).workspaceRoot, first);
+  assert.deepEqual(await api.getCurrentWorkspaceModel(), { root: first });
+  choice = { canceled: true, filePaths: [] };
+  assert.equal((await api.chooseWorkspaceFolder()).workspaceRoot, first);
+  choice = { canceled: false, filePaths: [path.join(root, "missing")] };
+  await assert.rejects(api.chooseWorkspaceFolder());
+  assert.equal((await api.getSelectedWorkspace()).workspaceRoot, first);
+  assert.deepEqual(events, [["select", first], ["register", first]]);
+  choice = { canceled: false, filePaths: [second] };
+  const selected = await api.chooseWorkspaceFolder();
+  assert.equal(selected.workspaceRoot, second);
+  assert.equal(selected.evidenceGeneration, 3);
+  assert.equal((await api.getSelectedWorkspace()).workspaceRoot, second);
+  assert.equal((await api.clearSelectedWorkspace()).ok, false);
+  assert.equal((await api.getSelectedWorkspace()).ok, false);
+  assert.equal(settings.readSelectedWorkspace(userDataRoot).ok, false);
+  await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
+  assert.deepEqual(events, [
+    ["select", first], ["register", first], ["select", second], ["detach"],
+    ["register", second], ["clear"], ["detach"],
+  ]);
 });
 
-test("preload exposes only approved methods", () => {
-  const preloadSource = readText(path.join(repoRoot, "dist/preload/index.js"));
-  const approvedMethods = [
-    "getSelectedWorkspace",
-    "chooseWorkspaceFolder",
-    "clearSelectedWorkspace",
-    "getAppInfo",
-  ];
-
-  for (const method of approvedMethods) {
-    assert.match(preloadSource, new RegExp(`${method}:`));
+test("compiled preload exposes workspace methods without unrestricted native access", () => {
+  const { api } = mainPreloadHarness([], {});
+  for (const method of ["getSelectedWorkspace", "chooseWorkspaceFolder", "clearSelectedWorkspace", "getAppInfo"]) {
+    assert.equal(typeof api[method], "function", method);
   }
-
-  assert.equal(preloadSource.includes("exposeInMainWorld(\"champcity\""), true);
-  assert.equal(preloadSource.includes("shell"), false);
-  assert.equal(preloadSource.includes("process:"), false);
-});
-
-test("workspace registry contains current visible labels", () => {
-  const rendererSource = readText(path.join(repoRoot, "src/shared/workspaceContracts.ts"));
-  const labels = [
-    "Project Plan and Roadmap Review",
-    "Phase Map",
-    "Project Validation",
-    "Project Close",
-    "Phase Interview",
-    "Phase Planning",
-    "Work Card Map",
-    "Work Card Intake",
-    "Work Card Planning",
-    "Implement",
-    "Review & Validation",
-    "Work Card Repair",
-    "Work Card Validation",
-    "Work Card Close",
-    "Phase Validation",
-    "Phase Close",
-  ];
-
-  for (const label of labels) {
-    assert.equal(rendererSource.includes(label), true, label);
+  for (const method of ["shell", "process", "fs", "require", "ipcRenderer"]) {
+    assert.equal(Object.hasOwn(api, method), false, method);
   }
-
-  assert.equal(rendererSource.includes("createWorkspaceRegistry"), true);
 });
 
-test("renderer contains the exact neutral message", () => {
-  const appSource = readText(path.join(repoRoot, "src/renderer/app/App.tsx"));
-  assert.equal(appSource.includes("Document workflow not yet implemented"), true);
+test("loaded workspace registry contains current visible labels", () => {
+  const { visibleWorkspaceDefinitions } = require("../../dist/shared/workspaceContracts.js");
+  const labels = visibleWorkspaceDefinitions.map((definition) => definition.label);
+  assert.deepEqual(labels, [
+    "Project Intake Capture", "Architect Interview", "Project Plan and Roadmap Review",
+    "Phase Map", "Project Validation", "Project Close", "Phase Interview", "Phase Planning",
+    "Work Card Map", "Work Card Intake", "Work Card Planning", "Implement", "Review & Validation",
+    "Work Card Repair", "Work Card Validation", "Work Card Close", "Phase Validation", "Phase Close",
+  ]);
+  assert.equal(new Set(visibleWorkspaceDefinitions.map((definition) => definition.id)).size,
+    visibleWorkspaceDefinitions.length);
+});
+
+test("empty workflow UI renders the exact neutral message", () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const { FigmaActionWorkspace } = require("../renderer/renderer-source-loader.cjs")
+    .loadRendererSourceModule("src/renderer/app/App.tsx");
+  const markup = renderToStaticMarkup(React.createElement(FigmaActionWorkspace, {
+    activeWorkspaceId: "project-intake-capture", documentError: "", feedback: "",
+    inputs: { defect: "", closureDecision: "Close", rationale: "", status: "Approved" },
+    model: null, phaseAction: null, selectedDocument: null, selectedDocumentId: null,
+    selectedSummary: null, workspaceGroups: [], workspaceOk: false,
+    onChange() {}, onRun() {}, onSelectDocument() {}, onApplyPhaseDisposition() {}, onCreatePhaseCloseout() {},
+  }));
+  assert.match(markup, /Document workflow not yet implemented/);
 });

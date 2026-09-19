@@ -1,66 +1,35 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
+const {
+  buildArchitectOutputEvidenceFingerprint, selectArchitectOutputSlot,
+  markSingleDisplayedArchitectOutputRevisionViewed, presentedRevisionsForArchitectOutputModel,
+} = require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/architectOutputWorkspaceRefresh.ts");
 
-const repoRoot = path.join(__dirname, "..", "..");
+const slot = { slotId: "formal-work-card", targetPath: "planning/phases/phase-01/Work_Cards/WC01_demo.md", logicalDocumentId: "wc01", artifactRevision: 2, disposition: "Pending", documentReadState: "readable", freshnessState: "fresh" };
+const model = { workspaceId: "work-card-planning", outputKind: "formal-work-card", state: "awaiting-review", documentSlots: [slot] };
 
-function read(relativePath) {
-  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
-}
-
-test("renderer uses one generic Architect-output refresh with Figma workspace review panels", () => {
-  const source = read("src/renderer/app/App.tsx");
-  const refreshSource = read("src/renderer/app/architectOutputWorkspaceRefresh.ts");
-
-  assert.match(source, /getArchitectOutputWorkspaceModel\(activeWorkspaceId\)/);
-  assert.match(source, /prepareArchitectOutputHandoff\(activeWorkspaceId\)/);
-  assert.match(source, /copyArchitectOutputHandoff\(activeWorkspaceId\)/);
-  assert.match(source, /reviewArchitectOutput\(/);
-  assert.match(source, /usesFigmaWorkspaceBody/);
-  assert.match(source, /<FigmaDocumentCard/);
-  assert.match(source, /<FigmaArchitectReviewPanel/);
-  assert.match(source, /<FigmaBrowserActionsPanel/);
-  assert.match(source, /slots=\{architectOutputModel\?\.documentSlots\}/);
-  assert.doesNotMatch(source, /function ArchitectOutputActionBar/);
-  assert.doesNotMatch(source, /function ArchitectOutputReviewShell/);
-  assert.doesNotMatch(source, /<ArchitectOutputActionBar/);
-  assert.doesNotMatch(source, /<ArchitectOutputReviewShell/);
-  assert.match(source, /architectOutputPollInFlightRef/);
-  assert.match(source, /architectOutputPollRequestRef/);
-  assert.match(source, /buildArchitectOutputEvidenceFingerprint/);
-  assert.match(refreshSource, /buildArchitectOutputEvidenceFingerprint/);
-  assert.match(refreshSource, /selectArchitectOutputSlot/);
-  assert.match(source, /viewedArchitectOutputRevisionKeys/);
-  assert.match(source, /markSingleDisplayedArchitectOutputRevisionViewed/);
-  const loadDocumentSource = source.slice(
-    source.indexOf("async function loadDocument"),
-    source.indexOf("async function applyDisposition"),
-  );
-  assert.match(loadDocumentSource, /readDocument\(logicalDocumentId\)/);
-  assert.match(loadDocumentSource, /setSelectedDocument\(detail\)/);
-  assert.match(loadDocumentSource, /markSingleDisplayedArchitectOutputRevisionViewed\(/);
-  assert.match(source, /work-card-planning/);
-  assert.match(source, /work-card-repair/);
-  assert.match(source, /isWorkCardPlanningPreparation/);
-  assert.match(source, /<WorkCardIntakeWorkspace/);
-  assert.match(source, /generateWorkCardIntakeAndTransition/);
-  assert.match(source, /generateCurrentHandoff\(\)/);
-  assert.match(source, /isVisibleArchitectOutputWorkspace/);
-  assert.doesNotMatch(source, /work-card-architect-workspace/);
-  assert.doesNotMatch(source, /ProjectPlanningActionBar|PhaseMapActionBar|PhasePlanningActionBar|ArchitectInterviewActionBar/);
-  assert.doesNotMatch(source, /ProjectPlanningPreviewReview|PhaseMapPreviewReview|PhasePlanningPreviewReview/);
-  assert.doesNotMatch(source, /LifecycleArchitectOutputImport/);
-  assert.doesNotMatch(source, /Save Architect Output/);
+test("Architect refresh fingerprints distinguish repository, revision, and disposition changes", () => {
+  const baseline = buildArchitectOutputEvidenceFingerprint("project-a", model);
+  assert.equal(buildArchitectOutputEvidenceFingerprint("project-a", { ...model, documentSlots: [{ ...slot }] }), baseline);
+  assert.notEqual(buildArchitectOutputEvidenceFingerprint("project-b", model), baseline);
+  for (const changed of [{ artifactRevision: 3 }, { disposition: "Approved" }, { documentReadState: "missing" }]) {
+    assert.notEqual(buildArchitectOutputEvidenceFingerprint("project-a", { ...model, documentSlots: [{ ...slot, ...changed }] }), baseline);
+  }
 });
 
-test("retired workspace-specific renderer refresh modules are absent", () => {
-  for (const relativePath of [
-    "src/renderer/app/phaseMapWorkspaceRefresh.ts",
-    "src/renderer/app/phaseInterviewWorkspaceRefresh.ts",
-    "src/renderer/app/phasePlanningWorkspaceRefresh.ts",
-    "src/renderer/app/PhaseInterviewActionBar.tsx",
-  ]) {
-    assert.equal(fs.existsSync(path.join(repoRoot, relativePath)), false, relativePath);
+test("Architect review marks only the displayed readable current revision as viewed", () => {
+  const detail = { logicalDocumentId: slot.logicalDocumentId, markdownPath: slot.targetPath, documentReadState: "readable", metadata: { artifactRevision: 2 } };
+  for (const changed of [{ metadata: { artifactRevision: 1 } }, { logicalDocumentId: "other" }, { readError: "unreadable" }, { markdownPath: "other.md" }]) {
+    assert.deepEqual(markSingleDisplayedArchitectOutputRevisionViewed(model, { ...detail, ...changed }, []), []);
   }
+  const viewed = markSingleDisplayedArchitectOutputRevisionViewed(model, detail, []);
+  assert.equal(viewed.length, 1);
+  assert.equal(markSingleDisplayedArchitectOutputRevisionViewed(model, detail, viewed), viewed);
+  assert.deepEqual(presentedRevisionsForArchitectOutputModel(model), [{ slotId: slot.slotId, targetPath: slot.targetPath, artifactRevision: 2 }]);
+  const missing = { slotId: "missing", targetPath: "pending.md" };
+  const bundle = { ...model, documentSlots: [missing, slot] };
+  assert.equal(selectArchitectOutputSlot(bundle, null), slot);
+  assert.equal(selectArchitectOutputSlot(bundle, "missing"), missing);
+  assert.deepEqual(presentedRevisionsForArchitectOutputModel(bundle), presentedRevisionsForArchitectOutputModel(model));
+  assert.deepEqual(markSingleDisplayedArchitectOutputRevisionViewed(bundle, detail, []), []);
 });

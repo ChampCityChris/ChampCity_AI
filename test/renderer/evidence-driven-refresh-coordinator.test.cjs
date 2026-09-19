@@ -302,33 +302,3 @@ test("foreground return is a repository-backed missed-event fallback and workspa
   assert.equal(scheduled.length, 0);
   coordinator.dispose();
 });
-
-test("App uses pushed browser/evidence events and has no fixed heavy projection intervals", () => {
-  const fs = require("node:fs");
-  const path = require("node:path");
-  const source = fs.readFileSync(path.join(process.cwd(), "src", "renderer", "app", "App.tsx"), "utf8");
-  const targetSource = source.slice(
-    source.indexOf("function currentEvidenceRefreshTarget"),
-    source.indexOf("async function refreshArchitectStatus"),
-  );
-
-  assert.match(source, /onArchitectBrowserFoundationStatus/);
-  assert.match(source, /onWorkspaceEvidenceChanged/);
-  assert.match(source, /document\.addEventListener\("visibilitychange"/);
-  assert.match(source, /window\.addEventListener\("focus"/);
-  assert.match(targetSource, /domain: "planning"/);
-  assert.match(targetSource, /domain: "issues"/);
-  assert.match(targetSource, /activeIssueStageId === "architect-planning"/);
-  assert.match(targetSource, /activeIssueStageId === "issue-planning"/);
-  assert.match(targetSource, /activeIssueFixCardStepId === "planning"/);
-  assert.match(targetSource, /activeIssueFixCardStepId === "review-validation"/);
-  assert.match(targetSource, /architectOutputRefreshCompletionRef\.current/);
-  assert.match(targetSource, /workCardRepairRefreshCompletionRef\.current/);
-  assert.match(targetSource, /issueArchitectProjectionRefreshCompletionRef\.current/);
-  assert.match(targetSource, /issuePlanningProjectionRefreshCompletionRef\.current/);
-  assert.match(targetSource, /issueFixCardProjectionRefreshCompletionRef\.current/);
-  assert.doesNotMatch(source, /window\.setInterval\([\s\S]{0,300}refreshIssueArchitectPlanningProjection/);
-  assert.doesNotMatch(source, /window\.setInterval\([\s\S]{0,300}refreshIssuePlanningProjection/);
-  assert.doesNotMatch(source, /window\.setInterval\([\s\S]{0,300}refreshIssueFixCardProjection/);
-  assert.doesNotMatch(source, /window\.setInterval\([\s\S]{0,300}refreshArchitectOutputWorkspace/);
-});

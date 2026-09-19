@@ -1,260 +1,130 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
+const ts = require("typescript");
 const test = require("node:test");
-
 const repoRoot = path.resolve(__dirname, "../..");
 
-function read(relativePath) {
-  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+function wiring(scope) {
+  const source = fs.readFileSync(path.join(repoRoot, "src/main/main.ts"), "utf8");
+  const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true);
+  const registrations = ast.statements.filter((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) &&
+    ts.isPropertyAccessExpression(node.expression.expression) && node.expression.expression.expression.getText(ast) === "ipcMain" && node.expression.expression.name.text === "handle");
+  const handlers = new Map();
+  vm.runInNewContext(ts.transpileModule(registrations.map((node) => node.getText(ast)).join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
+    ...scope, ipcMain: { handle: (channel, handler) => { assert.equal(handlers.has(channel), false); handlers.set(channel, handler); } },
+  });
+  let api;
+  const invocations = [];
+  vm.runInNewContext(fs.readFileSync(path.join(repoRoot, "dist/preload/index.js"), "utf8"), {
+    exports: {}, require: (id) => {
+      assert.equal(id, "electron");
+      return { contextBridge: { exposeInMainWorld: (key, value) => { assert.equal(key, "champcity"); api = value; } },
+        ipcRenderer: { invoke: async (channel, ...args) => { invocations.push(channel); assert.ok(handlers.has(channel), channel); return handlers.get(channel)({}, ...args); } } };
+    },
+  });
+  return { api, handlers, invocations };
 }
 
-test("main, preload, and renderer expose evidence-derived current workflow actions", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const rendererSource = read("src/renderer/app/App.tsx");
+const routes = [
+  ["getCurrentWorkspaceModel", "getCurrentWorkspaceModel", []],
+  ["generateCurrentHandoff", "generateCurrentHandoff", []],
+  ["getWorkCardMapProjection", "getCurrentWorkCardMapProjection", ["phase-01", {}]],
+  ["beginWorkCardPlanning", "beginWorkCardPlanning", ["phase-01", "WC02", {}]],
+  ["getCurrentCloseProjection", "getCurrentCloseProjection", []],
+  ["getCurrentRepairWorkspaceProjection", "getCurrentRepairWorkspaceProjection", []],
+  ["applyCurrentDisposition", "applyCurrentDisposition", ["Approved", "notes", "work-card-planning"]],
+  ["applyOperatorValidationDecisionForCurrentWorkCard", "applyOperatorValidationDecisionForCurrentWorkCard", [{ decision: "Approve" }, "document-id"]],
+  ["createRepairForCurrentFailure", "createRepairForCurrentFailure", ["defect"]],
+  ["createValidationAttemptForCurrentWorkCard", "createValidationAttemptForCurrentWorkCard", []],
+  ["createPhaseCloseoutForCurrentPhase", "createPhaseCloseoutForCurrentPhase", ["Close", "rationale"]],
+  ["createProjectCloseoutForCurrentProject", "createProjectCloseoutForCurrentProject", ["Close", "rationale"]],
+  ["generateCloseReturnNextIntakeHandoff", "generateCloseReturnNextIntakeHandoff", ["WC02"]],
+  ["getArchitectOutputWorkspaceModel", "getArchitectOutputWorkspaceModel", ["work-card-planning"]],
+  ["prepareArchitectOutputHandoff", "prepareArchitectOutputHandoff", ["work-card-planning"]],
+  ["prepareArchitectInterviewFinalDraftHandoff", "prepareArchitectInterviewFinalDraftHandoffWorkspace", []],
+  ["preparePhaseInterviewFinalDraftHandoff", "preparePhaseInterviewFinalDraftHandoffWorkspace", []],
+  ["applyIssueFixCardValidationDecision", "applyIssueFixCardValidationDecision", ["ISSUE_001", { decision: "Approve" }, "validation"]],
+  ["prepareIssueFixCardRepairHandoff", "prepareIssueFixCardRepairHandoff", ["ISSUE_001", "validation"]],
+  ["closeIssueFixCard", "closeIssueFixCard", ["ISSUE_001", "close-next"]],
+  ["getIssueValidationProjection", "getIssueValidationProjection", ["ISSUE_001"]],
+  ["applyIssueValidationDecision", "applyIssueValidationDecision", ["ISSUE_001", { decision: "ValidateResolved" }]],
+  ["getIssueCloseProjection", "getIssueCloseProjection", ["ISSUE_001"]],
+  ["closeIssue", "closeIssue", ["ISSUE_001", { rationale: "resolved" }]],
+];
 
-  const contracts = [
-    ["currentWorkflow:getModel", "getCurrentWorkspaceModel"],
-    ["currentWorkflow:generateHandoff", "generateCurrentHandoff"],
-    ["currentWorkflow:getWorkCardMapProjection", "getWorkCardMapProjection"],
-    ["currentWorkflow:beginWorkCardPlanning", "beginWorkCardPlanning"],
-    ["currentWorkflow:getCloseProjection", "getCurrentCloseProjection"],
-    ["currentWorkflow:getRepairWorkspaceProjection", "getCurrentRepairWorkspaceProjection"],
-    ["codexImplementer:getStatus", "getCodexImplementerExecutionStatus"],
-    ["codexImplementer:start", "startCodexImplementerExecution"],
-    ["codexImplementer:cancel", "cancelCodexImplementerExecution"],
-    ["codexImplementer:respondToUserInput", "respondToCodexUserInput"],
-    ["codexImplementer:respondToMcpElicitation", "respondToCodexMcpElicitation"],
-    ["currentWorkflow:applyDisposition", "applyCurrentDisposition"],
-    ["currentWorkflow:copyAdvisoryReviewPrompt", "copyCurrentWorkCardAdvisoryReviewPrompt"],
-    ["currentWorkflow:applyOperatorValidationDecision", "applyOperatorValidationDecisionForCurrentWorkCard"],
-    ["currentWorkflow:createRepair", "createRepairForCurrentFailure"],
-    ["currentWorkflow:createValidationAttempt", "createValidationAttemptForCurrentWorkCard"],
-    ["currentWorkflow:createPhaseCloseout", "createPhaseCloseoutForCurrentPhase"],
-    ["currentWorkflow:createProjectCloseout", "createProjectCloseoutForCurrentProject"],
+test("preload actions invoke the actual main handlers with selected-root and input preservation", async (t) => {
+  for (const [method, service, args] of routes) {
+    await t.test(method, async () => {
+      const calls = [];
+      const result = { fixture: method };
+      const { api, invocations } = wiring({ getRequiredWorkspaceRoot: () => "selected-root", [service]: (...input) => { calls.push(input); return result; } });
+      assert.equal(await api[method](...args), result);
+      assert.deepEqual(calls, [["selected-root", ...args]]);
+      assert.equal(invocations.length, 1);
+    });
+  }
+});
+
+test("Codex preload start cannot forward renderer-supplied permission arguments", async () => {
+  const calls = [];
+  const selection = { model: "fixture-model", reasoningEffort: "high" };
+  const service = Object.fromEntries(["getStatus", "start", "cancel", "respondToUserInput", "respondToMcpElicitation"].map((name) => [name, (...args) => { calls.push([name, ...args]); return name; }]));
+  const { api } = wiring({ getRequiredWorkspaceRoot: () => "selected-root", codexImplementerExecutionService: service });
+  assert.equal(await api.startCodexImplementerExecution(selection, { networkAccessEnabled: true }), "start");
+  await api.getCodexImplementerExecutionStatus();
+  await api.cancelCodexImplementerExecution();
+  await api.respondToCodexUserInput({ requestId: "request", answers: { answer: "value" } });
+  await api.respondToCodexMcpElicitation({ requestId: "request", action: "accept", content: { value: true } });
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
+    ["start", "selected-root", null, selection], ["getStatus", "selected-root"], ["cancel", "selected-root"],
+    ["respondToUserInput", "selected-root", "request", { answer: "value" }],
+    ["respondToMcpElicitation", "selected-root", "request", { action: "accept", content: { value: true } }],
+  ]);
+});
+
+test("handoff preload calls copy one resolved instruction and return the corresponding receipt", async () => {
+  for (const [method, resolver, args] of [
+    ["copyCurrentWorkCardAdvisoryReviewPrompt", "resolveCurrentAdvisoryReviewPrompt", []],
+    ["copyArchitectOutputHandoff", "resolveArchitectOutputCopyHandoff", ["work-card-planning"]],
+    ["copyArchitectInterviewFinalDraftHandoff", "resolveArchitectInterviewCopyFinalDraftHandoff", []],
+    ["copyPhaseInterviewFinalDraftHandoff", "resolvePhaseInterviewCopyFinalDraftHandoff", []],
+    ["copyIssueFixCardAdvisoryReviewPrompt", "resolveIssueFixCardAdvisoryReviewPrompt", ["ISSUE_001", "validation"]],
+    ["copyIssueFixCardRepairHandoff", "resolveIssueFixCardRepairCopyHandoff", ["ISSUE_001", "validation"]],
+  ]) {
+    const calls = [];
+    const result = { ok: true };
+    const { api } = wiring({ getRequiredWorkspaceRoot: () => "selected-root",
+      [resolver]: (...input) => { calls.push(input); return { instruction: "prepared", result }; },
+      clipboard: { writeText: (text) => { calls.push([text]); } },
+    });
+    assert.equal(await api[method](...args), result);
+    assert.deepEqual(calls, [["selected-root", ...args], ["prepared"]]);
+  }
+});
+
+test("registered API surface excludes retired mutation routes and unrestricted native access", async () => {
+  let calls = 0;
+  const { api, handlers } = wiring({ getRequiredWorkspaceRoot: () => { throw new Error("No workspace selected."); },
+    getCurrentWorkspaceModel: () => { calls += 1; },
+  });
+  await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
+  assert.equal(calls, 0);
+  for (const channel of ["architectInterview:save", "architectInterview:submit", "projectPlanning:save", "projectPlanning:submit", "phaseInterview:saveOutput", "workCardPlanning:saveOutput", "workCardRepair:saveOutput"]) assert.equal(handlers.has(channel), false);
+  for (const method of ["saveFormalWorkCardOutput", "saveRepairWorkCardOutput", "prepareIssueFixCardArchitectReviewHandoff", "copyIssueFixCardArchitectReviewHandoff", "promoteIssueFixCardArchitectReviewDraft", "fs", "shell", "process", "require", "ipcRenderer"]) assert.equal(Object.hasOwn(api, method), false);
+});
+
+test("production catalog resolves seven active definitions with nine output slots", () => {
+  const catalog = require("../../dist/main/architectOutputs/productionArchitectOutputCatalog.js");
+  const expected = [
+    ["project-architect-interview", "architect-interview"], ["project-planning", "project-planning-review"],
+    ["phase-map", "project-phase-map"], ["phase-interview", "phase-interview"],
+    ["phase-planning-bundle", "phase-planning-bundle"], ["formal-work-card", "work-card-planning"], ["repair-work-card", "work-card-repair"],
   ];
-
-  for (const [channel, method] of contracts) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
-    assert.match(preloadSource, new RegExp(`${method}:`), method);
-    assert.match(rendererSource, new RegExp(`window\\.champcity\\.${method}\\(`), method);
-  }
-});
-
-test("current Work Card close return carries the selected candidate through main and preload", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const contractSource = read("src/shared/workspaceContracts.ts");
-
-  assert.match(
-    mainSource,
-    /currentWorkflow:generateCloseReturnNextIntakeHandoff[\s\S]*?candidateId: string[\s\S]*?generateCloseReturnNextIntakeHandoff\(getRequiredWorkspaceRoot\(\), candidateId\)/,
-  );
-  assert.match(
-    preloadSource,
-    /generateCloseReturnNextIntakeHandoff: \(candidateId\)[\s\S]*?currentWorkflow:generateCloseReturnNextIntakeHandoff[\s\S]*?candidateId/,
-  );
-  assert.match(
-    contractSource,
-    /generateCloseReturnNextIntakeHandoff: \(candidateId: string\) => Promise<RuntimeActionResult>/,
-  );
-});
-
-test("Codex Implementer start IPC exposes no renderer permission options", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const contractSource = read("src/shared/workspaceContracts.ts");
-
-  assert.doesNotMatch(contractSource, /interface CodexImplementerExecutionStartOptions/);
-  assert.doesNotMatch(contractSource, /networkAccessEnabled\?: boolean/);
-  assert.doesNotMatch(mainSource, /validateCodexImplementerStartOptions/);
-  assert.match(mainSource, /codexImplementerExecutionService\.start\(getRequiredWorkspaceRoot\(\), undefined, selection\)/);
-  assert.match(preloadSource, /startCodexImplementerExecution: \(selection\) =>/);
-  assert.doesNotMatch(preloadSource, /"codexImplementer:start",\s*options,/);
-});
-
-test("one generic Architect-output IPC and preload contract serves all catalog workspaces", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const rendererSource = read("src/renderer/app/App.tsx");
-
-  for (const channel of [
-    "architectOutput:getWorkspaceModel",
-    "architectOutput:prepareHandoff",
-    "architectOutput:copyHandoff",
-    "architectOutput:review",
-  ]) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
-  }
-  for (const method of [
-    "getArchitectOutputWorkspaceModel",
-    "prepareArchitectOutputHandoff",
-    "copyArchitectOutputHandoff",
-    "prepareArchitectInterviewFinalDraftHandoff",
-    "copyArchitectInterviewFinalDraftHandoff",
-    "preparePhaseInterviewFinalDraftHandoff",
-    "copyPhaseInterviewFinalDraftHandoff",
-    "reviewArchitectOutput",
-  ]) {
-    assert.match(preloadSource, new RegExp(`${method}:`), method);
-    assert.match(rendererSource, new RegExp(`window\\.champcity\\.${method}`), method);
-  }
-  for (const channel of [
-    "architectInterview:prepareFinalDraftHandoff",
-    "architectInterview:copyFinalDraftHandoff",
-    "phaseInterview:prepareFinalDraftHandoff",
-    "phaseInterview:copyFinalDraftHandoff",
-  ]) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
-  }
-
-  for (const retired of [
-    /architectInterview:save/,
-    /architectInterview:submit/,
-    /projectPlanning:(prepareHandoff|copyHandoff|review|save|submit)/,
-    /phaseInterview:(save|submit|saveOutput)/,
-    /phasePlanning:/,
-    /phaseMap:copyHandoff/,
-    /workCardPlanning:saveOutput/,
-    /workCardRepair:saveOutput/,
-  ]) {
-    assert.doesNotMatch(mainSource, retired);
-    assert.doesNotMatch(preloadSource, retired);
-  }
-});
-
-test("production Architect-output catalog activates seven definitions and nine slots", () => {
-  const catalogSource = read("src/main/architectOutputs/productionArchitectOutputCatalog.ts");
-  const runtimeSource = read("src/main/architectOutputs/architectOutputRuntimeService.ts");
-  const workspaceSource = read("src/main/architectOutputs/architectOutputWorkspaceService.ts");
-
-  for (const outputKind of [
-    "project-architect-interview",
-    "project-planning",
-    "phase-map",
-    "phase-interview",
-    "phase-planning-bundle",
-    "formal-work-card",
-    "repair-work-card",
-  ]) {
-    assert.match(catalogSource, new RegExp(`outputKind: "${outputKind}"`), outputKind);
-  }
-  for (const workspaceId of [
-    "architect-interview",
-    "project-planning-review",
-    "project-phase-map",
-    "phase-interview",
-    "phase-planning-bundle",
-    "work-card-planning",
-    "work-card-repair",
-  ]) {
-    assert.match(catalogSource, new RegExp(`owningWorkspaceId: "${workspaceId}"`), workspaceId);
-  }
-  assert.match(catalogSource, /formalWorkCardArchitectOutputDefinition/);
-  assert.match(catalogSource, /repairWorkCardArchitectOutputDefinition/);
-  assert.match(catalogSource, /productionArchitectOutputRegistry = createArchitectOutputRegistry\(activeDefinitions\)/);
-  assert.match(runtimeSource, /const activeSubmissionByRuntimeKey = new Map/);
-  assert.match(runtimeSource, /const requestOrdinalByRuntimeKey = new Map/);
-  assert.match(workspaceSource, /reviewArchitectOutput/);
-  assert.match(workspaceSource, /writeCanonicalMarkdownDocuments/);
-});
-
-test("retired direct-save and manual-import product surfaces are absent", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const rendererSource = read("src/renderer/app/App.tsx");
-
-  for (const retired of [
-    /saveFormalWorkCardOutput/,
-    /saveRepairWorkCardOutput/,
-    /LifecycleArchitectOutputImport/,
-    /Save Architect Output/,
-    /formalWorkCardMarkdown/,
-    /repairWorkCardMarkdown/,
-  ]) {
-    assert.doesNotMatch(mainSource, retired);
-    assert.doesNotMatch(preloadSource, retired);
-    assert.doesNotMatch(rendererSource, retired);
-  }
-});
-
-test("FC06 Issue validation and Repair actions use the constrained main-preload-renderer path", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const rendererSource = read("src/renderer/app/App.tsx");
-  const serviceSource = read("src/main/issueResolution/issueResolutionService.ts");
-
-  for (const [channel, method] of [
-    ["issueResolution:copyIssueFixCardAdvisoryReviewPrompt", "copyIssueFixCardAdvisoryReviewPrompt"],
-    ["issueResolution:applyIssueFixCardValidationDecision", "applyIssueFixCardValidationDecision"],
-    ["issueResolution:prepareIssueFixCardRepairHandoff", "prepareIssueFixCardRepairHandoff"],
-    ["issueResolution:copyIssueFixCardRepairHandoff", "copyIssueFixCardRepairHandoff"],
-  ]) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
-    assert.match(preloadSource, new RegExp(`${method}:`), method);
-    assert.match(rendererSource, new RegExp(`window\\.champcity\\.${method}`), method);
-  }
-  assert.match(serviceSource, /artifactType: "validation-record"/);
-  assert.match(serviceSource, /artifactType: "repair-work-card"/);
-  assert.match(serviceSource, /implementationContractType: context\.implementationKind === "repair" \? "repair-work-card" : "fix-card"/);
-  assert.match(serviceSource, /buildOperatorValidationAdvisoryPrompt/);
-  for (const retired of [
-    "prepareIssueFixCardArchitectReviewHandoff",
-    "copyIssueFixCardArchitectReviewHandoff",
-    "promoteIssueFixCardArchitectReviewDraft",
-  ]) {
-    assert.doesNotMatch(mainSource, new RegExp(retired));
-    assert.doesNotMatch(preloadSource, new RegExp(retired));
-    assert.doesNotMatch(rendererSource, new RegExp(retired));
-  }
-  assert.doesNotMatch(serviceSource, /writeFileSync\([^\n]*FIX_CARD_PLAN\.md/);
-});
-
-test("FC07 Issue Fix Card Close uses the constrained main-preload-renderer path", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const rendererSource = read("src/renderer/app/App.tsx");
-  const serviceSource = read("src/main/issueResolution/issueResolutionService.ts");
-  assert.match(mainSource, /ipcMain\.handle\(\s*"issueResolution:closeIssueFixCard"/);
-  assert.match(preloadSource, /closeIssueFixCard:[\s\S]*?issueResolution:closeIssueFixCard/);
-  assert.match(rendererSource, /window\.champcity\.closeIssueFixCard\(currentIssue\.issueId, "close-next"\)/);
-  assert.match(rendererSource, /<IssueFixCardCloseWorkspace/);
-  assert.match(serviceSource, /artifactType: "fix-card-close-record"/);
-  assert.doesNotMatch(serviceSource, /ISSUE_001.*bootstrap|bootstrap.*ISSUE_001/i);
-});
-
-test("FC08 aggregate Issue Validation and FC09 Issue Close use distinct constrained main-preload-renderer paths", () => {
-  const mainSource = read("src/main/main.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const rendererSource = read("src/renderer/app/App.tsx");
-  const workspaceSource = read("src/renderer/app/IssueValidationWorkspace.tsx");
-  const closeWorkspaceSource = read("src/renderer/app/IssueCloseWorkspace.tsx");
-  const serviceSource = read("src/main/issueResolution/issueResolutionService.ts");
-  const contractsSource = read("src/shared/issueResolutionContracts.ts");
-
-  for (const [channel, method] of [
-    ["issueResolution:getIssueValidation", "getIssueValidationProjection"],
-    ["issueResolution:applyIssueValidationDecision", "applyIssueValidationDecision"],
-    ["issueResolution:getIssueClose", "getIssueCloseProjection"],
-    ["issueResolution:closeIssue", "closeIssue"],
-  ]) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*"${channel}"`), channel);
-    assert.match(preloadSource, new RegExp(`${method}:`), method);
-    assert.match(rendererSource, new RegExp(`window\\.champcity\\.${method}`), method);
-  }
-  assert.match(rendererSource, /<IssueValidationWorkspace/);
-  assert.match(rendererSource, /<IssueCloseWorkspace/);
-  assert.match(workspaceSource, /Validate Issue Resolved/);
-  assert.match(workspaceSource, /Request Further Corrective Work/);
-  assert.match(serviceSource, /artifactType: "issue-validation-record"/);
-  assert.match(serviceSource, /artifactType: "issue-close-record"/);
-  assert.match(serviceSource, /ISSUE_VALIDATION_RECORD_\$\{issueId\}_ATTEMPT/);
-  assert.match(contractsSource, /IssueValidationDecision = "ValidateResolved" \| "RequestCorrectiveWork"/);
-  assert.match(contractsSource, /IssueCloseStatus/);
-  assert.match(closeWorkspaceSource, /Close Issue/);
-  assert.match(closeWorkspaceSource, /existing repository resolver/);
-  assert.doesNotMatch(closeWorkspaceSource, /node:fs|require\(["']fs["']\)|localStorage/);
-  assert.match(rendererSource, /window\.champcity\.closeIssue\(currentIssue\.issueId, input\)[\s\S]*?returnToWorkflowHub\(\)/);
-  assert.doesNotMatch(contractsSource, /IssueFixCardLoopStepId[\s\S]{0,180}"issue-validation"/);
+  const definitions = catalog.activeProductionArchitectOutputDefinitions();
+  assert.deepEqual(definitions.map((entry) => [entry.outputKind, entry.owningWorkspaceId]), expected);
+  assert.equal(definitions.reduce((count, entry) => count + entry.slots.length, 0), 9);
+  for (const entry of definitions) assert.equal(catalog.resolveProductionArchitectOutputDefinition(entry.outputKind, entry.owningWorkspaceId), entry);
+  assert.throws(() => catalog.resolveProductionArchitectOutputDefinition("unknown", "work-card-planning"), /Unknown/);
 });

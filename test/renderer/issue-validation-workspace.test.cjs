@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
@@ -9,7 +7,7 @@ const loader = require("./renderer-source-loader.cjs");
 const { IssueValidationWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueValidationWorkspace.tsx");
 const { IssueResolutionRail } = loader.loadRendererSourceModule("src/renderer/app/IssueResolutionRail.tsx");
 
-const repoRoot = path.join(__dirname, "..", "..");
+const { loadProductionFunctions } = require("../support/production-execution.cjs");
 
 test("aggregate Issue Validation workspace presents exact Issue, plan, close record, and explicit non-Repair decisions", () => {
   const projection = issueValidationProjection();
@@ -74,31 +72,58 @@ test("parent Issue rail exposes repository-derived Issue Validation eligibility 
   assert.doesNotMatch(markup, /aria-label="Issue Fix Card loop"/);
 });
 
-test("parent renderer consumes repository-derived Issue Planning destination after corrective decision and on re-entry", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  const applyPostMutationSource = extractFunctionSource(
-    appSource,
-    "function applyIssuePostMutationProjection",
-    "function focusProjectIntakeReviewSurface",
-  );
-  const decisionSource = extractFunctionSource(
-    appSource,
-    "async function runIssueValidationDecision",
-    "async function refreshIssueCloseProjection",
-  );
-  const selectionSource = extractFunctionSource(
-    appSource,
-    "async function selectIssueFromSidebar",
-    "function browseIssuesFromSidebar",
-  );
-
-  assert.match(decisionSource, /applyIssuePostMutationProjection\(result\.postMutation, \{ synchronizeStage: true \}\)/);
-  assert.match(applyPostMutationSource, /setActiveIssueStageId\(projection\.navigation\.currentStageId\)/);
-  assert.match(applyPostMutationSource, /projection\.planning[\s\S]*setIssuePlanningProjection\(projection\.planning\)/);
-  assert.match(selectionSource, /const nextStage: IssueResolutionStageId = navigation\.currentStageId/);
-  assert.match(selectionSource, /setActiveIssueStageId\(nextStage\)/);
-  assert.match(selectionSource, /nextStage === "issue-planning"[\s\S]*getIssuePlanningProjection\(issueId\)/);
-  assert.doesNotMatch(`${applyPostMutationSource}\n${decisionSource}\n${selectionSource}`, /setTimeout|correctiveStage|correctiveMode/);
+test("parent renderer follows repository Issue destinations after corrective decision and re-entry", async () => {
+  for (const destination of ["issue-planning", "issue-validation", "issue-close"]) {
+    const state = {};
+    const calls = [];
+    const planning = { issueId: "ISSUE_301", state: "corrective-work-required" };
+    const validation = issueValidationProjection();
+    const close = { issueId: "ISSUE_301", state: "ready" };
+    const navigation = { currentStageId: destination };
+    const projection = { navigation, planning, validation, close };
+    const input = { decision: destination === "issue-planning" ? "RequestCorrectiveWork" : "ValidateResolved", operatorNotes: "Additional correction required." };
+    const scope = {
+      currentIssue: currentIssue(),
+      issueCodexExecutionPreviousStateRef: { current: null },
+      issueCodexExecutionContextRef: { current: null },
+      dispatchCodexExecutionPresentation() {},
+      refreshIssueValidationProjection: async () => assert.fail("No fallback refresh expected"),
+      setTimeout: () => assert.fail("Repository projection must apply without a timer"),
+      window: { champcity: {
+        applyIssueValidationDecision: async (...args) => { calls.push(["decision", ...args]); return { projection: validation, postMutation: projection, message: "Recorded" }; },
+        getIssueResolutionNavigationProjection: async (id) => { calls.push(["navigation", id]); return navigation; },
+        getIssuePlanningProjection: async (id) => { calls.push(["planning", id]); return planning; },
+        getIssueValidationProjection: async (id) => { calls.push(["validation", id]); return validation; },
+        getIssueCloseProjection: async (id) => { calls.push(["close", id]); return close; },
+      } },
+    };
+    for (const name of ["IssueNavigationProjection", "IssuePlanningProjection", "IssueValidationProjection",
+      "IssueCloseProjection", "ActiveIssueStageId", "IssuePlanningActionError", "IssuePlanningActionFeedback",
+      "IsIssuePlanningActionPending", "SelectedIssueId", "ActiveIssueFixCardStepId", "IssueFixCardProjection", "IssueArchitectProjection"]) {
+      scope["set" + name] = (value) => { state[name] = value; };
+    }
+    const actions = loadProductionFunctions("src/renderer/app/App.tsx", [
+      "applyIssuePostMutationProjection", "runIssueValidationDecision", "selectIssueFromSidebar",
+    ], scope);
+    await actions.runIssueValidationDecision(input);
+    assert.equal(state.ActiveIssueStageId, destination);
+    assert.equal(state.IssuePlanningProjection, planning);
+    assert.equal(state.IssueNavigationProjection, navigation);
+    assert.equal(state.IssuePlanningActionError, "");
+    assert.equal(state.IsIssuePlanningActionPending, false);
+    assert.deepEqual(calls, [["decision", "ISSUE_301", input]]);
+    state.ActiveIssueStageId = "intake";
+    state.IssuePlanningProjection = null;
+    await actions.selectIssueFromSidebar("ISSUE_301");
+    assert.equal(state.ActiveIssueStageId, destination);
+    assert.equal(state.IssuePlanningActionError, "");
+    assert.equal(state.IssueNavigationProjection, navigation);
+    assert.equal(state.SelectedIssueId, "ISSUE_301");
+    assert.deepEqual(calls.slice(1), [["navigation", "ISSUE_301"], [
+      destination === "issue-planning" ? "planning" : destination === "issue-validation" ? "validation" : "close", "ISSUE_301",
+    ]]);
+    assert.equal(state.IssuePlanningProjection, destination === "issue-planning" ? planning : null);
+  }
 });
 
 function currentIssue() {
@@ -174,12 +199,4 @@ function issueValidationProjection() {
       reason: "All closed.",
     },
   };
-}
-
-function extractFunctionSource(source, startNeedle, endNeedle) {
-  const start = source.indexOf(startNeedle);
-  assert.notEqual(start, -1, `${startNeedle} not found`);
-  const end = source.indexOf(endNeedle, start);
-  assert.notEqual(end, -1, `${endNeedle} not found after ${startNeedle}`);
-  return source.slice(start, end);
 }

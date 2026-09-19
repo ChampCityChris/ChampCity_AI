@@ -176,15 +176,27 @@ test("copy handoff reads one prepared instruction without promoting temporary dr
   );
 });
 
-test("production copy handler source resolves the prepared instruction once", () => {
+test("production copy IPC resolves once, copies that instruction, and returns its result", async () => {
+  const ts = require("typescript");
+  const vm = require("node:vm");
   const source = fs.readFileSync(path.join(__dirname, "../../src/main/main.ts"), "utf8");
-  const copyHandler = source.slice(
-    source.indexOf('"architectOutput:copyHandoff"'),
-    source.indexOf('"architectOutput:review"'),
-  );
-  assert.match(copyHandler, /resolveArchitectOutputCopyHandoff\(workspaceRoot, workspaceId\)/);
-  assert.doesNotMatch(copyHandler, /getPreparedArchitectOutputInstruction/);
-  assert.doesNotMatch(copyHandler, /copyArchitectOutputHandoffResult/);
+  const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true);
+  const registration = ast.statements.find((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) &&
+    node.expression.arguments[0]?.text === "architectOutput:copyHandoff");
+  assert.ok(registration);
+  let handler;
+  const calls = [];
+  const result = { ok: true, payload: { bytes: 19 } };
+  vm.runInNewContext(ts.transpileModule(registration.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
+    ipcMain: { handle: (_channel, callback) => { handler = callback; } },
+    getRequiredWorkspaceRoot: () => "fixture-root",
+    resolveArchitectOutputCopyHandoff: (root, workspaceId) => {
+      calls.push([root, workspaceId]); return { instruction: "prepared instruction", result };
+    },
+    clipboard: { writeText: (instruction) => { calls.push([instruction]); } },
+  });
+  assert.equal(await handler({}, "work-card-planning"), result);
+  assert.deepEqual(calls, [["fixture-root", "work-card-planning"], ["prepared instruction"]]);
 });
 
 test("architect output review blocks stale presented revisions and then permits current single-output review", () => {

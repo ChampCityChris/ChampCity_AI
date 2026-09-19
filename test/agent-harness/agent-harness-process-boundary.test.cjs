@@ -17,6 +17,105 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 }
 
+test("Desktop and Service Host controllers do not import worker-owned runtime implementations", () => {
+  const ts = require("typescript");
+  const runtimeRoot = "src/main/agentHarness/runtime/";
+  const workerModules = ["agentHarnessService", "httpRuntime", "mcpServer"];
+  const rules = [
+    ["src/main/main.ts", [...workerModules, "agentHarnessController"]],
+    [`${runtimeRoot}agentHarnessServiceHost.ts`, workerModules],
+    [`${runtimeRoot}agentHarnessController.ts`, workerModules],
+  ];
+  for (const [file, forbidden] of rules) {
+    const absolute = path.join(repositoryRoot, file);
+    const tree = ts.createSourceFile(absolute, read(file), ts.ScriptTarget.Latest, true);
+    const forbiddenPaths = forbidden.map((name) => path.join(repositoryRoot, runtimeRoot, name));
+    forbiddenPaths.push(
+      path.join(repositoryRoot, "src/main/agentHarness/tools/toolRegistry"),
+      path.join(repositoryRoot, "src/main/agentHarness/repository/repositoryOperations"),
+    );
+    function visit(node) {
+      let specifier;
+      if ((ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly) || ts.isExportDeclaration(node)) {
+        specifier = node.moduleSpecifier;
+      } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === "require"))) {
+        specifier = node.arguments[0];
+      }
+      if (specifier && ts.isStringLiteralLike(specifier) && specifier.text.startsWith(".")) {
+        const target = path.resolve(path.dirname(absolute), specifier.text);
+        assert.equal(forbiddenPaths.some((entry) => [entry, `${entry}.ts`, `${entry}.js`].includes(target)), false,
+          `${file} imports worker-owned module ${specifier.text}`);
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(tree);
+  }
+});
+
+test("compiled bootstrap routes maintenance, Service Host, and Desktop modes with appropriate switches", async () => {
+  const vm = require("node:vm");
+  const { createRequire } = require("node:module");
+  const entry = path.join(repositoryRoot, "dist/main/bootstrap.js");
+  const nativeRequire = createRequire(entry);
+  assert.equal(JSON.parse(read("package.json")).main, "dist/main/bootstrap.js");
+  for (const [args, expectedRoute, expectedSwitches] of [
+    [[], "desktop", []],
+    [["--agent-harness-service-host"], "host", ["disable-gpu"]],
+    [["--champcity-install-configure-background-agent=enabled", "--agent-harness-service-host"], "configure", ["headless", "disable-gpu"]],
+    [["--champcity-uninstall-cleanup"], "cleanup", ["headless", "disable-gpu"]],
+  ]) {
+    const routes = [];
+    const switches = [];
+    const exits = [];
+    let identityApplied = false;
+    const application = {
+      getPath: () => "fixture-app-data", setPath() {}, setName: () => { identityApplied = true; }, setAppUserModelId() {},
+      commandLine: { appendSwitch: (value) => switches.push(value) },
+      whenReady: async () => {}, exit: (code) => exits.push(code),
+    };
+    const record = (route) => { assert.equal(identityApplied, true); routes.push(route); };
+    vm.runInNewContext(read("dist/main/bootstrap.js"), {
+      exports: {}, console, process: { argv: ["fixture", ...args], env: {} },
+      require: (id) => {
+        if (id === "electron") return { app: application };
+        if (id === "./main") { record("desktop"); return {}; }
+        if (id === "./agentHarness/runtime/agentHarnessServiceHost") return { runAgentHarnessServiceHost: async () => record("host") };
+        if (id === "./agentHarness/runtime/agentHarnessInstallLifecycle") return {
+          ...nativeRequire(id),
+          configureInstalledBackgroundAgent: async (_app, enabled) => { assert.equal(enabled, true); record("configure"); },
+          cleanupBackgroundAgentForUninstall: async () => record("cleanup"),
+        };
+        return nativeRequire(id);
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(routes, [expectedRoute]);
+    assert.deepEqual(switches, expectedSwitches);
+    assert.deepEqual(exits, ["configure", "cleanup"].includes(expectedRoute) ? [0] : []);
+  }
+});
+
+test("worker and host protocol validators accept registered-workspace controls and reject obsolete selected-project controls", () => {
+  const worker = require("../../dist/main/agentHarness/runtime/agentHarnessProcessProtocol.js");
+  const host = require("../../dist/main/agentHarness/runtime/agentHarnessServiceHostProtocol.js");
+  for (const [validate, protocolVersion] of [
+    [worker.isAgentHarnessControlRequest, worker.agentHarnessProcessProtocolVersion],
+    [host.isAgentHarnessServiceHostRequest, host.agentHarnessServiceHostControlProtocolVersion],
+  ]) {
+    const request = { protocolVersion, kind: "request", requestId: "fixture-request", expectedInstanceId: "fixture-instance", payload: null };
+    for (const operation of ["list-registered-workspaces", "register-workspace", "unregister-workspace"]) {
+      const valid = { ...request, operation };
+      assert.equal(validate(valid), true);
+      assert.equal(validate({ ...valid, requestId: "" }), false);
+      assert.equal(validate({ ...valid, protocolVersion: -1 }), false);
+    }
+    for (const operation of ["activate-workspace", "deactivate-workspace", "query-workspace-access", "confirm-workspace-access"]) {
+      assert.equal(validate({ ...request, operation }), false);
+    }
+  }
+});
+
 test("worker unhandled rejection exits with failure for controller recovery", () => {
   const vm = require("node:vm");
   const { EventEmitter } = require("node:events");
@@ -32,146 +131,6 @@ test("worker unhandled rejection exits with failure for controller recovery", ()
   assert.deepEqual(exits, []);
   workerProcess.emit("unhandledRejection", new Error("unexpected asynchronous worker failure"));
   assert.deepEqual(exits, [1]);
-});
-
-test("production source has one worker-owned Agent Harness behind an independent Service Host", () => {
-  const bootstrapSource = read("src/main/bootstrap.ts");
-  const mainSource = read("src/main/main.ts");
-  const hostSource = read("src/main/agentHarness/runtime/agentHarnessServiceHost.ts");
-  const siblingLaunchSource = read("src/main/agentHarness/runtime/champCitySiblingProcessLaunch.ts");
-  const hostServerSource = read("src/main/agentHarness/runtime/agentHarnessServiceHostServer.ts");
-  const hostClientSource = read("src/main/agentHarness/runtime/agentHarnessServiceHostClient.ts");
-  const traySource = read("src/main/agentHarness/runtime/backgroundAgentTray.ts");
-  const intentSource = read("src/main/agentHarness/runtime/backgroundAgentIntent.ts");
-  const controllerSource = read("src/main/agentHarness/runtime/agentHarnessController.ts");
-  const workerSource = read("src/main/agentHarness/runtime/agentHarnessWorker.ts");
-  const processProtocolSource = read("src/main/agentHarness/runtime/agentHarnessProcessProtocol.ts");
-  const serviceSource = read("src/main/agentHarness/runtime/agentHarnessService.ts");
-  const workspaceAccessSource = read("src/main/agentHarness/workspace/workspaceAccess.ts");
-  const toolRegistrySource = read("src/main/agentHarness/tools/toolRegistry.ts");
-  const preloadSource = read("src/preload/index.ts");
-  const packageManifest = JSON.parse(read("package.json"));
-
-  assert.equal(packageManifest.main, "dist/main/bootstrap.js");
-  assert.match(bootstrapSource, /--agent-harness-service-host/);
-  assert.match(bootstrapSource, /applyElectronProductIdentity\(app\);/);
-  assert.ok(
-    bootstrapSource.indexOf("applyElectronProductIdentity(app);") <
-      bootstrapSource.indexOf("process.argv.includes(agentHarnessServiceHostModeArgument)"),
-  );
-  assert.match(bootstrapSource, /import\("\.\/agentHarness\/runtime\/agentHarnessServiceHost"\)/);
-  assert.match(bootstrapSource, /import\("\.\/main"\)/);
-  assert.doesNotMatch(bootstrapSource, /BrowserWindow|ipcMain|codexImplementerExecutionService/);
-
-  assert.doesNotMatch(mainSource, /AgentHarnessController/);
-  assert.doesNotMatch(mainSource, /utilityProcess\.fork|agentHarnessWorker\.js/);
-  assert.doesNotMatch(mainSource, /new AgentHarnessService\s*\(/);
-  assert.match(mainSource, /AgentHarnessServiceHostClient/);
-  assert.match(mainSource, /computeAgentHarnessServiceHostDesktopLaunchTarget/);
-  assert.match(mainSource, /launchDetachedChampCitySiblingProcess/);
-  assert.match(mainSource, /windowsHide: true/);
-  assert.match(hostSource, /launchDetachedChampCitySiblingProcess/);
-  assert.match(siblingLaunchSource, /detached: true/);
-  assert.match(siblingLaunchSource, /child\.once\("spawn", onSpawn\)/);
-  assert.match(siblingLaunchSource, /child\.once\("error", onError\)/);
-  assert.match(mainSource, /requestSingleInstanceLock/);
-  assert.match(mainSource, /second-instance/);
-  const desktopLeaseBoundary = mainSource.indexOf("void acquireDesktopLifecycleLease");
-  const foregroundExplicitStart = mainSource.indexOf(
-    "await getAgentHarnessServiceHostClient().startBackgroundAgent()",
-    desktopLeaseBoundary,
-  );
-  const desktopWindowCreation = mainSource.indexOf("createMainWindow();", foregroundExplicitStart);
-  const foregroundStartupBoundary = mainSource.slice(desktopLeaseBoundary, desktopWindowCreation);
-  assert.ok(
-    desktopLeaseBoundary >= 0 &&
-      desktopLeaseBoundary < foregroundExplicitStart &&
-      foregroundExplicitStart < desktopWindowCreation,
-  );
-  assert.match(foregroundStartupBoundary, /desktopExclusionConfirmed = true/);
-  assert.match(foregroundStartupBoundary, /initializeAgentHarnessServiceHostStartupRegistration\(\)/);
-  assert.doesNotMatch(foregroundStartupBoundary, /getAgentHarnessServiceHostClient\(\)\.connect\(\)/);
-  const secondInstanceBoundary = mainSource.slice(
-    mainSource.indexOf('app.on("second-instance"'),
-    mainSource.indexOf("function registerLocalRendererContextMenu"),
-  );
-  assert.doesNotMatch(secondInstanceBoundary, /startBackgroundAgent|\.connect\(/);
-  assert.match(mainSource, /getAgentHarnessServiceHostClient\(\)\.registerWorkspace/);
-  assert.doesNotMatch(mainSource, /\.activateWorkspace|\.deactivateWorkspace/);
-  assert.doesNotMatch(mainSource, /shutdownServiceHost\(/);
-
-  assert.match(hostSource, /new AgentHarnessController/);
-  assert.doesNotMatch(hostSource, /new BrowserWindow|new AgentHarnessService\s*\(|new Tray/);
-  assert.match(hostSource, /new BackgroundAgentTrayController/);
-  assert.match(hostSource, /\.\.\/\.\.\/\.\.\/branding\/ChampCity-AI\.ico/);
-  assert.match(traySource, /new Tray/);
-  assert.match(traySource, /ChampCity Background Agent —/);
-  assert.match(intentSource, /background-agent-intent\.json/);
-  assert.match(hostServerSource, /createServer/);
-  assert.match(hostServerSource, /list-registered-workspaces/);
-  assert.match(hostServerSource, /register-workspace/);
-  assert.doesNotMatch(hostServerSource, /confirm-workspace-access|fenceWorkspaceAccess/);
-  assert.match(hostClientSource, /probeAgentHarnessServiceHostEndpoint/);
-  assert.match(hostClientSource, /SERVICE_HOST_OWNERSHIP_INDETERMINATE/);
-  assert.match(controllerSource, /utilityProcess\.fork/);
-  assert.doesNotMatch(controllerSource, /AgentHarnessService|toolRegistry|repositoryOperations|httpRuntime|mcpServer/);
-  assert.match(workerSource, /new AgentHarnessService/);
-  assert.match(workerSource, /process\.parentPort/);
-  assert.match(processProtocolSource, /requestId: string/);
-  assert.match(processProtocolSource, /"list-registered-workspaces"/);
-  assert.match(processProtocolSource, /"register-workspace"/);
-  assert.doesNotMatch([serviceSource, workspaceAccessSource, processProtocolSource, workerSource, controllerSource, hostClientSource, hostServerSource].join("\n"), /getSelectedProjectRoot|selectedWorkspaceRoot|createSelectedProjectAccessProvider/);
-  assert.match(toolRegistrySource, /resolveWorkspaceContext\(args\.workspaceId\)/);
-  assert.doesNotMatch(toolRegistrySource, /assertWorkspaceIdMatches/);
-  assert.doesNotMatch(mainSource, /workspace:clear[\s\S]{0,500}unregisterWorkspace/);
-
-  for (const channel of [
-    "agentHarness:status",
-    "agentHarness:serviceHostLifecycleStatus",
-    "agentHarness:startBackgroundAgent",
-    "agentHarness:exitBackgroundAgent",
-    "agentHarness:saveServiceHostLifecycleSettings",
-    "agentHarness:saveSettings",
-    "agentHarness:importLegacyOAuthClients",
-    "agentHarness:start",
-    "agentHarness:stop",
-    "agentHarness:restart",
-    "agentHarness:listRegisteredWorkspaces",
-    "agentHarness:chooseAndRegisterWorkspace",
-    "agentHarness:unregisterWorkspace",
-  ]) {
-    assert.match(mainSource, new RegExp(`ipcMain\\.handle\\(\\s*\"${channel}`), channel);
-    assert.match(preloadSource, new RegExp(channel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), channel);
-  }
-});
-
-test("production bootstrap preserves headless maintenance and runs the Service Host in interactive tray mode", () => {
-  const bootstrapSource = read("src/main/bootstrap.ts");
-  const hostSource = read("src/main/agentHarness/runtime/agentHarnessServiceHost.ts");
-  const maintenanceStart = bootstrapSource.indexOf('if (installLifecycleMode!.kind !== "none") {');
-  const serviceHostStart = bootstrapSource.indexOf(
-    '} else if (process.argv.includes(agentHarnessServiceHostModeArgument)) {',
-  );
-  const desktopStart = bootstrapSource.indexOf('} else {', serviceHostStart);
-
-  assert.ok(maintenanceStart >= 0);
-  assert.ok(serviceHostStart > maintenanceStart);
-  assert.ok(desktopStart > serviceHostStart);
-
-  const maintenanceBranch = bootstrapSource.slice(maintenanceStart, serviceHostStart);
-  const serviceHostBranch = bootstrapSource.slice(serviceHostStart, desktopStart);
-  const desktopBranch = bootstrapSource.slice(desktopStart);
-
-  assert.match(maintenanceBranch, /app\.commandLine\.appendSwitch\("headless"\)/);
-  assert.match(maintenanceBranch, /app\.commandLine\.appendSwitch\("disable-gpu"\)/);
-  assert.doesNotMatch(serviceHostBranch, /appendSwitch\("headless"\)/);
-  assert.match(serviceHostBranch, /app\.commandLine\.appendSwitch\("disable-gpu"\)/);
-  assert.match(serviceHostBranch, /import\("\.\/agentHarness\/runtime\/agentHarnessServiceHost"\)/);
-  assert.match(serviceHostBranch, /runAgentHarnessServiceHost\(app\)/);
-  assert.doesNotMatch(serviceHostBranch, /BrowserWindow|import\("\.\/main"\)/);
-  assert.doesNotMatch(hostSource, /BrowserWindow|import\("\.\.\/\.\.\/main"\)/);
-  assert.match(hostSource, /new BackgroundAgentTrayController/);
-  assert.match(desktopBranch, /import\("\.\/main"\)/);
 });
 
 test("actual Electron utility-process boundary preserves MCP routing, controls, heartbeat concurrency, and bounded recovery", { timeout: 180_000 }, async (context) => {
@@ -1240,20 +1199,6 @@ test("stale valid discovery metadata cannot veto one bounded replacement launch"
   } finally {
     fs.rmSync(container, { recursive: true, force: true });
   }
-});
-
-test("selected-project control and confirmation operations are absent from production protocols", () => {
-  const sources = [
-    read("src/main/agentHarness/runtime/agentHarnessProcessProtocol.ts"),
-    read("src/main/agentHarness/runtime/agentHarnessServiceHostProtocol.ts"),
-    read("src/main/agentHarness/runtime/agentHarnessServiceHostClient.ts"),
-    read("src/main/agentHarness/runtime/agentHarnessServiceHostServer.ts"),
-    read("src/main/agentHarness/runtime/agentHarnessWorker.ts"),
-  ].join("\n");
-  assert.doesNotMatch(sources, /activate-workspace|deactivate-workspace|query-workspace-access|confirm-workspace-access|selectedWorkspaceRoot/);
-  assert.match(sources, /list-registered-workspaces/);
-  assert.match(sources, /register-workspace/);
-  assert.match(sources, /unregister-workspace/);
 });
 
 test("valid and malformed explicit-stop intent suppress passive launch while explicit Start clears suppression", async () => {

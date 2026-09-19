@@ -25,6 +25,97 @@ const identity = require("../../dist/shared/productIdentity.js");
 const codexRuntime = require("../../dist/main/workCardBuilding/codexRuntimeOperations.js");
 const desktopLease = require("../../dist/main/agentHarness/runtime/desktopLifecycleLease.js");
 
+test("compiled maintenance bootstrap completes before importing Desktop or Service Host", async () => {
+  const vm = require("node:vm");
+  const { createRequire } = require("node:module");
+  const entry = path.join(repositoryRoot, "dist/main/bootstrap.js");
+  const nativeRequire = createRequire(entry);
+  for (const [argument, operation] of [["--champcity-install-configure-background-agent=enabled", "configure"], ["--champcity-uninstall-cleanup", "cleanup"]]) {
+    const events = [];
+    const app = { setPath() {}, getPath: () => "fixture-data", setName() {}, setAppUserModelId() {},
+      commandLine: { appendSwitch: (value) => events.push(value) }, whenReady: async () => {}, exit: (code) => events.push(["exit", code]),
+    };
+    vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+      exports: {}, console, process: {
+        argv: ["fixture", argument, "--agent-harness-service-host"], env: {},
+        set title(_value) { assert.fail("Maintenance must preserve native process identity"); },
+      },
+      require: (id) => {
+        if (["./main", "./agentHarness/runtime/agentHarnessServiceHost"].includes(id)) assert.fail(`Maintenance imported ${id}`);
+        if (id === "electron") return { app };
+        if (id === "./agentHarness/runtime/agentHarnessInstallLifecycle") return { ...lifecycle,
+          configureInstalledBackgroundAgent: async (_app, enabled) => { assert.equal(enabled, true); events.push("configure"); },
+          cleanupBackgroundAgentForUninstall: async () => events.push("cleanup"),
+        };
+        return nativeRequire(id);
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(events, ["headless", "disable-gpu", operation, ["exit", 0]]);
+  }
+});
+
+test("compiled Desktop waits for Electron ownership, lifecycle lease, and readiness before window creation", async () => {
+  const vm = require("node:vm");
+  const { EventEmitter } = require("node:events");
+  for (const ownsElectronLock of [false, true]) {
+    const events = [];
+    let admitLease;
+    let admitReady;
+    const lease = new Promise((resolve) => { admitLease = resolve; });
+    const ready = new Promise((resolve) => { admitReady = resolve; });
+    const app = Object.assign(new EventEmitter(), {
+      getVersion: () => "fixture", getPath: () => "fixture-data", isPackaged: false,
+      requestSingleInstanceLock: () => { events.push("electron-lock"); return ownsElectronLock; },
+      whenReady: () => { events.push("ready-request"); return ready; }, quit: () => events.push("quit"),
+    });
+    const mocks = {
+      electron: { app, ipcMain: { handle() {} }, BrowserWindow: class extends EventEmitter {
+        constructor() { super(); events.push("window"); this.webContents = new EventEmitter(); }
+        loadFile() {} isDestroyed() { return false; } isMinimized() { return false; } show() {} focus() {}
+      } },
+      "../shared/productIdentity": { productIdentity: { productName: "fixture" } },
+      "./sessionActiveWorkspaceSelection": { SessionActiveWorkspaceSelection: class {} },
+      "./externalProviders/githubRuntime": { createGithubRuntimeOperations: () => ({}) },
+      "./externalProviders/githubProviderService": { GithubProviderService: class { async restore() {} } },
+      "./externalProviders/githubProviderIpc": { registerGithubProviderIpc() {} },
+      "./workspaceEvidence/selectedWorkspaceEvidenceNotifier": { SelectedWorkspaceEvidenceNotifier: class {} },
+      "./browser/architectBrowserService": { subscribeArchitectBrowserFoundationStatus() {} },
+      "./agentHarness/runtime/desktopLifecycleLease": { acquireDesktopLifecycleLease: (_root, owner) => { assert.equal(owner, "desktop"); events.push("lease-request"); return lease; } },
+      "./workCardBuilding/codexRuntimeManager": { codexRuntimeManager: { initialize: async () => {} } },
+      "./workCardBuilding/codexRuntimeInitializerClient": { CodexRuntimeInitializerClient: class {} },
+      "./workCardBuilding/codexRuntimeOperations": { createCodexRuntimeExecutionOperations: () => ({}) },
+      "./agentHarness/runtime/agentHarnessBuildIdentity": { computeAgentHarnessRuntimeBuildIdentity: () => "fixture-build" },
+      "./agentHarness/runtime/agentHarnessServiceHostClient": { AgentHarnessServiceHostClient: class { async startBackgroundAgent() { events.push("agent-start"); } } },
+      "./agentHarness/runtime/champCityInstalledScope": { readChampCityInstalledScopeMetadata: () => ({ backgroundAgentLaunchAtLoginDefault: false }) },
+      "./agentHarness/runtime/agentHarnessServiceHostLifecycleSettings": { initializeAgentHarnessServiceHostLifecycleSettings: () => ({ launchAtLogin: false }) },
+      "./agentHarness/runtime/agentHarnessServiceHostStartupRegistration": { applyAgentHarnessServiceHostStartupRegistration() {} },
+    };
+    const entry = path.join(repositoryRoot, "dist/main/main.js");
+    vm.runInNewContext(fs.readFileSync(entry, "utf8"), {
+      exports: {}, __dirname: path.dirname(entry), console,
+      process: {
+        env: {}, execPath: process.execPath, platform: process.platform,
+        set title(_value) { assert.fail("Desktop must preserve native process identity"); },
+      },
+      require: (id) => id.startsWith("node:") ? require(id) : mocks[id] ?? {},
+    });
+    app.emit("second-instance");
+    assert.deepEqual(events, ownsElectronLock ? ["electron-lock", "lease-request"] : ["electron-lock", "quit"]);
+    if (!ownsElectronLock) continue;
+    admitLease({ acquired: true, lease: { leaseId: "fixture" } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(events.includes("window"), false);
+    assert.equal(events.at(-1), "ready-request");
+    admitReady();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(events, ["electron-lock", "lease-request", "ready-request", "agent-start", "window"]);
+    app.emit("second-instance");
+    assert.equal(events.filter((event) => event === "window").length, 1);
+    assert.equal(events.filter((event) => event === "agent-start").length, 1);
+  }
+});
+
 test("Windows package identity is legal, stable, branded, bounded, and preserves V1 userData identity", () => {
   const config = fs.readFileSync(path.join(repositoryRoot, "electron-builder.yml"), "utf8");
   assert.match(config, /^appId: ChampCity\.AI$/m);
@@ -107,15 +198,6 @@ test("install configuration uses the installed executable target and clears inhe
     "--agent-harness-service-host",
     "--agent-harness-startup",
   ]);
-});
-
-test("install maintenance bootstrap branches before desktop and Service Host imports", () => {
-  const bootstrap = fs.readFileSync(path.join(repositoryRoot, "src/main/bootstrap.ts"), "utf8");
-  const maintenanceBranch = bootstrap.indexOf('installLifecycleMode!.kind !== "none"');
-  const serviceHostBranch = bootstrap.indexOf("process.argv.includes(agentHarnessServiceHostModeArgument)");
-  const desktopImport = bootstrap.indexOf('import("./main")');
-  assert.ok(maintenanceBranch >= 0 && maintenanceBranch < serviceHostBranch && serviceHostBranch < desktopImport);
-  assert.doesNotMatch(bootstrap, /BrowserWindow|\bTray\b|runAgentHarnessWorker/);
 });
 
 test("install confirmation trusts exact launch-item evidence when Electron summary booleans disagree", async (t) => {
@@ -613,30 +695,6 @@ test("uninstall maintenance classifies a live maintenance owner without foregrou
   } finally {
     assert.equal(await desktopLease.releaseDesktopLifecycleLease(root, owner.lease), true);
   }
-});
-
-test("desktop wiring keeps Electron activation ownership and acquires the lease before BrowserWindow creation", () => {
-  const main = fs.readFileSync(path.join(repositoryRoot, "src/main/main.ts"), "utf8");
-  const electronLock = main.indexOf("app.requestSingleInstanceLock");
-  const desktopLeaseAcquisition = main.indexOf('acquireDesktopLifecycleLease(getUserDataRoot(), "desktop")');
-  assert.ok(electronLock >= 0 && electronLock < desktopLeaseAcquisition);
-  assert.match(main, /if \(!desktopSingleInstanceLockAcquired\) \{\s*app\.quit\(\)/);
-  assert.match(
-    main,
-    /acquireDesktopLifecycleLease\(getUserDataRoot\(\), "desktop"\)[\s\S]*desktopExclusionConfirmed = true;[\s\S]*await app\.whenReady\(\);[\s\S]*createMainWindow\(\);/,
-  );
-  assert.match(main, /if \(!desktopExclusionConfirmed \|\| !desktopRuntimeReady\) \{\s*return;/);
-  assert.match(main, /pendingSecondInstanceActivation = true;\s*activateDesktopAfterExclusion\(\);/);
-  const serviceHost = fs.readFileSync(
-    path.join(repositoryRoot, "src/main/agentHarness/runtime/agentHarnessServiceHost.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(serviceHost, /desktopLifecycleLease|desktop-lifecycle-lease/);
-  const lifecycleSource = fs.readFileSync(
-    path.join(repositoryRoot, "src/main/agentHarness/runtime/agentHarnessInstallLifecycle.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(lifecycleSource, /requestSingleInstanceLock|releaseSingleInstanceLock/);
 });
 
 test("packaged launch computation cannot fall back to development Electron or repository arguments", () => {

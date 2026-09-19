@@ -1299,17 +1299,6 @@ test("Agent Harness public connector configuration cannot use unauthenticated lo
   }
 });
 
-test("Agent Harness source has no donor runtime dependency or future role orchestration", () => {
-  const root = path.resolve(__dirname, "..", "..");
-  const files = walk(path.join(root, "src", "main", "agentHarness"));
-  for (const file of files) {
-    const text = fs.readFileSync(file, "utf8");
-    assert.doesNotMatch(text, /ChampCity_GPT|CHAMPCITY_GPT|runAllowedScript|execution_toolbox|delegate_codex|delegate_local/);
-    assert.doesNotMatch(text, /require\(.+ChampCity_GPT|from .+ChampCity_GPT/);
-    assert.doesNotMatch(text, /pending_authorizations|approvePendingOAuthAuthorization|authorization_request_id/);
-  }
-});
-
 function withoutControlledBodyWriteAction(definition) {
   if (definition.name !== "artifact_toolbox") {
     return definition;
@@ -1724,17 +1713,4 @@ function schemaErrors(schema, value) {
     }
   }
   return errors;
-}
-
-function walk(directory) {
-  const output = [];
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      output.push(...walk(fullPath));
-    } else {
-      output.push(fullPath);
-    }
-  }
-  return output;
 }

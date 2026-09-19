@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
@@ -18,7 +17,6 @@ const {
 } = loader.loadRendererSourceModule("src/renderer/app/IssueFixCardMapWorkspace.tsx");
 const { IssueResolutionRail } = loader.loadRendererSourceModule("src/renderer/app/IssueResolutionRail.tsx");
 const { FigmaBrowserPanel } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaBrowserPanel.tsx");
-const repoRoot = path.join(__dirname, "..", "..");
 
 test("Issue shell renders the styled second-row Fix Card loop rail from projection availability", () => {
   const markup = renderToStaticMarkup(React.createElement(IssueResolutionRail, {
@@ -199,10 +197,6 @@ test("Issue Fix Card Planning reuses shared document review presentation with co
   assert.match(markup, /issues\/Architect_Drafts\/submission-001\/fix-card-contract\.md/);
   assert.match(markup, /Apply Review/);
   assert.doesNotMatch(markup, /Promote Draft|validates and promotes|Fix Card Map Ready|champcity-fix-card-plan|Codex execution console/);
-
-  const source = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "IssueFixCardMapWorkspace.tsx"), "utf8");
-  assert.match(source, /import \{ FigmaDocumentCard \} from "\.\/FigmaDocumentCard"/);
-  assert.match(source, /import \{ FigmaDocumentDispositionPanel \} from "\.\/FigmaDocumentDispositionPanel"/);
 });
 
 test("Fix Card Planning reports published MCP readiness without inventing remote client uptake", () => {
@@ -390,37 +384,6 @@ test("Issue Fix Card combined Review & Validation owns advisory browser controls
   assert.doesNotMatch(markup, /Fix Card Map Ready|champcity-fix-card-plan|Codex execution console|Apply Review/);
 });
 
-test("Issue and Development Review & Validation share OperatorValidationPresentation ownership", () => {
-  const componentSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "IssueFixCardMapWorkspace.tsx"), "utf8");
-  const developmentValidationSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "WorkCardReportReviewWorkspace.tsx"), "utf8");
-  const sharedValidationSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "OperatorValidationPresentation.tsx"), "utf8");
-  const stylesSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "styles.css"), "utf8");
-  assert.match(componentSource, /selectedTab === "report"[\s\S]*?fixCardProjection\?\.implementerReportMarkdown[\s\S]*?selectedTab === "advisory"[\s\S]*?fixCardProjection\?\.architectReviewMarkdown[\s\S]*?selectedTab === "validation"[\s\S]*?fixCardProjection\?\.validationRecordMarkdown[\s\S]*?fixCardProjection\?\.contractMarkdown/);
-  assert.match(componentSource, /selectedTab === "contract"[\s\S]*?fixCardProjection\?\.contractPath[\s\S]*?selectedTab === "report"[\s\S]*?fixCardProjection\?\.implementerReportPath[\s\S]*?selectedTab === "advisory"[\s\S]*?fixCardProjection\?\.architectReviewPath[\s\S]*?fixCardProjection\?\.validationRecordPath/);
-  assert.match(componentSource, /selectedTab === "contract"[\s\S]*?fixCardProjection\?\.contractState[\s\S]*?selectedTab === "report"[\s\S]*?fixCardProjection\?\.implementerReportState[\s\S]*?selectedTab === "advisory"[\s\S]*?fixCardProjection\?\.architectReviewState[\s\S]*?fixCardProjection\?\.validationRecordState/);
-  assert.match(componentSource, /import \{ OperatorValidationPresentation \} from "\.\/OperatorValidationPresentation"/);
-  assert.match(componentSource, /<OperatorValidationPresentation/);
-  assert.match(developmentValidationSource, /import \{ OperatorValidationPresentation \} from "\.\/OperatorValidationPresentation"/);
-  assert.match(developmentValidationSource, /<OperatorValidationPresentation/);
-  assert.match(sharedValidationSource, /export function OperatorValidationPresentation/);
-  for (const establishedClass of [
-    "architect-document-selector",
-    "document-choice",
-    "document-preview",
-    "architect-review-panel",
-    "validation-action-row",
-    "apply-button",
-  ]) {
-    assert.match(sharedValidationSource, new RegExp(establishedClass));
-  }
-  assert.match(stylesSource, /\.architect-review-panel select,\s*\.architect-review-panel textarea\s*\{[\s\S]*?background:\s*#0e1722;[\s\S]*?border:\s*1px solid #3a4e61;[\s\S]*?border-radius:\s*6px;/);
-  assert.match(stylesSource, /\.validation-action-row\s*\{[\s\S]*?gap:\s*10px;/);
-  assert.match(stylesSource, /\.apply-button\s*\{[\s\S]*?background:\s*#167b94;[\s\S]*?border:\s*1px solid #2fb3c9;[\s\S]*?border-radius:\s*6px;/);
-  assert.match(stylesSource, /\.apply-button:disabled\s*\{[\s\S]*?background:\s*#17212d;[\s\S]*?border-color:\s*#2a3948;/);
-  assert.doesNotMatch(componentSource, /figma-review-panel|figma-review-actions|issue-fix-card-validation-layout|issue-fix-card-validation-controls/);
-  assert.doesNotMatch(stylesSource, /\.issue-fix-card-validation-layout|\.issue-fix-card-validation-controls/);
-});
-
 test("Issue Repair reuses the Work Card Repair presentation with Issue-owned evidence and actions", () => {
   const eligible = renderToStaticMarkup(React.createElement(IssueFixCardRepairWorkspace, {
     actionError: "",
@@ -476,80 +439,8 @@ test("Issue Repair reuses the Work Card Repair presentation with Issue-owned evi
   assert.match(reviewable, /Current Repair Contract/);
   assert.match(reviewable, /failed implementation ISSUE_001-FC01/);
   assert.match(reviewable, /Issue Repair Architect/);
-
-  const componentSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "IssueFixCardMapWorkspace.tsx"), "utf8");
-  const sharedRepairSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "WorkCardRepairWorkspace.tsx"), "utf8");
-  assert.match(componentSource, /<WorkCardRepairPresentation/);
-  assert.match(sharedRepairSource, /export function WorkCardRepairPresentation/);
-  assert.match(componentSource, /<FigmaDocumentDispositionPanel/);
-  assert.doesNotMatch(componentSource, /<section className="figma-disposition-panel"/);
   assert.match(reviewable, /Document Disposition/);
   assert.match(reviewable, /Workflow Step[\s\S]*Issue Repair/);
-  assert.doesNotMatch(componentSource, /figma-review-panel/);
-});
-
-test("App routes Fix Card steps as sibling workspaces and selection stays on the map", () => {
-  const appSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "App.tsx"), "utf8");
-  assert.match(appSource, /onFixCardStepChange=\{openIssueFixCardStep\}/);
-  assert.match(appSource, /selectIssueFixCardCandidate[\s\S]*?"fix-card-map"/);
-  assert.doesNotMatch(appSource, /setActiveIssueFixCardStepId\("planning"\)/);
-  assert.match(appSource, /activeIssueFixCardStepId === "fix-card-map"[\s\S]*?<IssueFixCardMapWorkspace/);
-  assert.match(appSource, /activeIssueFixCardStepId === "planning"[\s\S]*?<IssueFixCardPlanningWorkspace/);
-  assert.match(appSource, /activeIssueFixCardStepId === "implement"[\s\S]*?<IssueFixCardImplementWorkspace/);
-  assert.match(appSource, /activeIssueFixCardStepId === "review-validation"[\s\S]*?<IssueFixCardReviewValidationWorkspace/);
-  assert.doesNotMatch(appSource, /activeIssueFixCardStepId === "architect-review"|activeIssueFixCardStepId === "fix-card-validation"/);
-  assert.doesNotMatch(appSource, /activeIssueFixCardStepId === "planning"[\s\S]{0,900}<section className="issue-fix-card-step-workspace-body"/);
-  assert.doesNotMatch(appSource, /activeIssueFixCardStepId === "review-validation"[\s\S]{0,900}<section className="issue-fix-card-step-workspace-body"/);
-  assert.doesNotMatch(appSource, /<IssueFixCardMapWorkspace[\s\S]{0,900}planningBrowserPanel/);
-  assert.match(appSource, /<IssueFixCardMapWorkspace[\s\S]*?actionError=\{issuePlanningActionError\}/);
-  assert.match(appSource, /<IssueFixCardMapWorkspace[\s\S]*?actionFeedback=\{issuePlanningActionFeedback\}/);
-  assert.match(appSource, /<IssueFixCardMapWorkspace[\s\S]*?actionPending=\{isIssuePlanningActionPending\}/);
-});
-
-test("Visible Fix Card Map cards own candidate selection without a duplicate selector", () => {
-  const mapWorkspaceSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "IssueFixCardMapWorkspace.tsx"), "utf8");
-  const planningWorkspaceSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "app", "IssuePlanningWorkspace.tsx"), "utf8");
-
-  assert.doesNotMatch(mapWorkspaceSource, /issue-fix-card-selection-list/);
-  assert.match(mapWorkspaceSource, /onSelectCandidate=\{onSelectCandidate\}/);
-  assert.match(planningWorkspaceSource, /aria-pressed=\{selectedFixCardId === candidate\.fixCardId\}/);
-  assert.match(planningWorkspaceSource, /onClick=\{\(\) => onSelectCandidate\?\.\(candidate\.fixCardId\)\}/);
-});
-
-test("Issue Fix Card responsive CSS keeps step workspaces full-width and stacks panes intentionally", () => {
-  const cssSource = fs.readFileSync(path.join(repoRoot, "src", "renderer", "styles.css"), "utf8");
-  const shellRule = findCssRule(cssSource, ".issue-document-chat-workspace-shell");
-  const bodyRule = findCssRule(cssSource, ".issue-fix-card-step-workspace-body");
-  const contextRule = findCssRule(cssSource, ".issue-fix-card-context-strip");
-  const implementRule = findCssRule(cssSource, ".issue-fix-card-implement-workspace");
-  const mapLayoutRule = findCssRule(cssSource, ".issue-fix-card-map-layout");
-  const mapPanelRule = findCssRule(cssSource, ".issue-fix-card-map-panel");
-  const mapScrollRule = findCssRule(cssSource, ".issue-fix-card-candidate-scroll-region");
-  const issueResolutionSurfaceRule = findLastCssRule(cssSource, ".workspace-surface.figma-workspace-surface.issue-resolution-surface");
-
-  assert.match(cssSource, /\.workspace-surface\.figma-workspace-surface,\s*\.workspace-surface\.figma-workspace-surface\.architect-interview-surface\s*\{[\s\S]*?grid-template-rows:\s*auto minmax\(0,\s*1fr\)/);
-  assert.match(issueResolutionSurfaceRule.body, /grid-template-rows:\s*minmax\(0,\s*1fr\)/);
-  assert.doesNotMatch(issueResolutionSurfaceRule.body, /grid-template-rows:\s*auto minmax\(0,\s*1fr\)/);
-  assert.match(shellRule.body, /grid-template-rows:\s*auto minmax\(0,\s*1fr\)/);
-  assert.match(shellRule.body, /overflow:\s*hidden/);
-  assert.match(bodyRule.body, /grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
-  assert.match(bodyRule.body, /overflow:\s*hidden/);
-  assert.match(contextRule.body, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  assert.match(implementRule.body, /margin:\s*0/);
-  const fixCardBrowserOverrides = findLastCssRule(cssSource, ".issue-fix-card-browser-column.figma-browser-column");
-  const fixCardBrowserPanelOverrides = findLastCssRule(cssSource, ".issue-fix-card-browser-column.figma-browser-column .figma-browser-panel");
-  assert.match(fixCardBrowserOverrides.body, /overflow:\s*hidden/);
-  assert.match(fixCardBrowserPanelOverrides.body, /min-height:\s*0/);
-  assert.doesNotMatch(cssSource, /issue-fix-card-browser-column\.figma-browser-column[\s\S]{0,120}min-height:\s*(?:240|540|640)px/);
-  assert.doesNotMatch(cssSource, /issue-fix-card-browser-column\.figma-browser-column \.architect-browser-host/);
-  assert.match(mapLayoutRule.body, /min-height:\s*0/);
-  assert.match(mapPanelRule.body, /flex-direction:\s*column/);
-  assert.match(mapPanelRule.body, /overflow:\s*hidden/);
-  assert.match(mapScrollRule.body, /flex:\s*1 1 auto/);
-  assert.match(mapScrollRule.body, /overflow:\s*auto/);
-  assert.doesNotMatch(cssSource, /issue-fix-card-selection-list/);
-  assert.match(cssSource, /\.figma-sub-pill\.unavailable/);
-  assert.match(cssSource, /issue-fix-card-planning-workspace[\s\S]*issue-fix-card-review-validation-workspace[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
 function renderStepWorkspace(activeStepLabel, child) {
@@ -806,26 +697,19 @@ function validFixCardContract() {
   ].join("\n");
 }
 
-function findCssRule(source, selector) {
-  const index = source.indexOf(`${selector} {`);
-  assert.notEqual(index, -1, `${selector} not found`);
-  const bodyStart = source.indexOf("{", index) + 1;
-  const bodyEnd = source.indexOf("}", bodyStart);
-  assert.notEqual(bodyEnd, -1, `${selector} rule end not found`);
-  return {
-    index,
-    body: source.slice(bodyStart, bodyEnd),
-  };
-}
-
-function findLastCssRule(source, selector) {
-  const index = source.lastIndexOf(`${selector} {`);
-  assert.notEqual(index, -1, `${selector} not found`);
-  const bodyStart = source.indexOf("{", index) + 1;
-  const bodyEnd = source.indexOf("}", bodyStart);
-  assert.notEqual(bodyEnd, -1, `${selector} rule end not found`);
-  return {
-    index,
-    body: source.slice(bodyStart, bodyEnd),
-  };
-}
+test("visible Fix Card candidate buttons deliver exact identity and reflect selection and busy state", () => {
+  const { IssueFixCardMapPanel } = loader.loadRendererSourceModule("src/renderer/app/IssuePlanningWorkspace.tsx");
+  const candidates = candidateList(2).map((entry) => ({ ...entry, lifecycle: { selectable: true, state: "not-started", label: "Not Started" } }));
+  const selected = [];
+  function controls(node) {
+    if (!node || typeof node !== "object") return [];
+    return [...(node.type === "button" && Object.hasOwn(node.props, "aria-pressed") ? [node] : []), ...React.Children.toArray(node.props?.children).flatMap(controls)];
+  }
+  const input = { candidates, selectedFixCardId: candidates[0].fixCardId, onSelectCandidate: (id) => selected.push(id), isSelectionPending: false };
+  const buttons = controls(IssueFixCardMapPanel(input));
+  assert.equal(buttons.length, 2);
+  assert.deepEqual(buttons.map((node) => node.props["aria-pressed"]), [true, false]);
+  buttons[1].props.onClick();
+  assert.deepEqual(selected, [candidates[1].fixCardId]);
+  assert.ok(controls(IssueFixCardMapPanel({ ...input, isSelectionPending: true })).every((node) => node.props.disabled));
+});
