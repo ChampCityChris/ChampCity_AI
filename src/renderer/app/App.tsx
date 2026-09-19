@@ -188,6 +188,8 @@ const architectOutputPreparedFeedback =
   "Architect handoff prepared. Copy it and send it manually in embedded ChatGPT.";
 const projectPlanningRevisionReadyFeedback =
   "Revision Request Ready. Copy Handoff and send it manually in embedded ChatGPT.";
+const workCardPlanningRevisionReadyFeedback =
+  "Revision request ready to copy. Select Copy Revision Request and send it manually in embedded ChatGPT.";
 const architectOutputCopiedFeedback =
   "Architect handoff copied. Paste and send it manually in embedded ChatGPT.";
 const architectInterviewFinalDraftPreparedFeedback =
@@ -1444,9 +1446,7 @@ export function App(): JSX.Element {
       setArchitectOutputModel(nextModel);
       setArchitectFeedback({
         kind: "success",
-        message: isProjectPlanningRevisionRequestModel(nextModel) && nextModel.canCopyHandoff
-          ? projectPlanningRevisionReadyFeedback
-          : architectOutputPreparedFeedback,
+        message: architectOutputRevisionReadyFeedback(nextModel) ?? architectOutputPreparedFeedback,
       }, 3500);
       await refreshDocuments({ useResolver: true });
       await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
@@ -3803,9 +3803,7 @@ export function App(): JSX.Element {
       : activeWorkspaceId === "phase-interview"
       ? "Prepare Phase Interview Handoff"
       : activeWorkspaceId === "project-planning-review"
-      ? isProjectPlanningRevisionRequestModel(architectOutputModel)
-        ? "Prepare Revision Request"
-        : "Prepare Project Planning Handoff"
+      ? "Prepare Project Planning Handoff"
       : activeWorkspaceId === "project-phase-map"
       ? "Prepare Phase Map Handoff"
       : "Prepare Handoff";
@@ -3815,9 +3813,7 @@ export function App(): JSX.Element {
       : activeWorkspaceId === "phase-interview"
       ? "Copy Phase Interview Handoff"
       : activeWorkspaceId === "project-planning-review"
-      ? isProjectPlanningRevisionRequestModel(architectOutputModel)
-        ? "Copy Revision Request"
-        : "Copy Project Planning Handoff"
+      ? "Copy Project Planning Handoff"
       : activeWorkspaceId === "project-phase-map"
       ? "Copy Phase Map Handoff"
       : "Copy Handoff";
@@ -4951,7 +4947,7 @@ export function ProjectPlanningBlockerBanner({
   );
 }
 
-function FigmaBrowserActionsPanel({
+export function FigmaBrowserActionsPanel({
   actionFeedback,
   attachmentError,
   browserStatus,
@@ -4989,13 +4985,12 @@ function FigmaBrowserActionsPanel({
   prepareHandoffLabel?: string;
 }): JSX.Element {
   const showRetryButton = shouldShowArchitectBrowserRetry(browserStatus, attachmentError);
-  const revisionRequestReady =
-    isProjectPlanningRevisionRequestModel(model) &&
-    model?.canCopyHandoff &&
-    Boolean(model.preparedInstruction)
-      ? { kind: "success" as const, message: projectPlanningRevisionReadyFeedback }
-      : null;
-  const modelFailure = isProjectPlanningRevisionRequestModel(model) && model?.promotionError
+  const isRevisionRequest = isArchitectOutputRevisionRequestModel(model);
+  const revisionReadyFeedback = architectOutputRevisionReadyFeedback(model);
+  const revisionRequestReady = revisionReadyFeedback
+    ? { kind: "success" as const, message: revisionReadyFeedback }
+    : null;
+  const modelFailure = isRevisionRequest && model?.promotionError
     ? { kind: "error" as const, message: model.promotionError }
     : null;
   const actionMessage = actionFeedbackForDisplay(
@@ -5024,11 +5019,11 @@ function FigmaBrowserActionsPanel({
             ) : null}
             <button disabled={!model?.canPrepareHandoff} onClick={onPrepareHandoff} type="button">
               <FolderOpen aria-hidden="true" size={14} />
-              {prepareHandoffLabel}
+              {isRevisionRequest ? "Prepare Revision Request" : prepareHandoffLabel}
             </button>
             <button disabled={!model?.canCopyHandoff} onClick={onCopyHandoff} type="button">
               <Clipboard aria-hidden="true" size={14} />
-              {copyHandoffLabel}
+              {isRevisionRequest ? "Copy Revision Request" : copyHandoffLabel}
             </button>
             {onPrepareFinalDraftHandoff && onCopyFinalDraftHandoff ? (
               <>
@@ -5078,14 +5073,28 @@ function FigmaBrowserActionsPanel({
   );
 }
 
-function isProjectPlanningRevisionRequestModel(
+function isArchitectOutputRevisionRequestModel(
   model: ArchitectOutputWorkspaceModel | null,
 ): boolean {
+  if (model?.workspaceId === "work-card-planning") {
+    return model.documentSlots.some((slot) =>
+      slot.slotId === "formal-work-card" && slot.disposition === "RevisionRequested"
+    );
+  }
   return Boolean(
     model?.workspaceId === "project-planning-review" &&
     model.documentSlots.length > 0 &&
     model.documentSlots.every((slot) => slot.disposition === "RevisionRequested"),
   );
+}
+
+function architectOutputRevisionReadyFeedback(model: ArchitectOutputWorkspaceModel | null): string | null {
+  if (!isArchitectOutputRevisionRequestModel(model) || !model?.canCopyHandoff || !model.preparedInstruction) {
+    return null;
+  }
+  return model.workspaceId === "work-card-planning"
+    ? workCardPlanningRevisionReadyFeedback
+    : projectPlanningRevisionReadyFeedback;
 }
 
 export interface AgentHarnessSettingsForm {
