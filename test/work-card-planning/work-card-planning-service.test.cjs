@@ -27,6 +27,7 @@ const {
 const {
   seedApprovedPhaseInterview,
   seedApprovedPhasePlanningBundle,
+  seedApprovedProjectIntake,
   seedApprovedProjectPlanning,
   seedPhaseMap,
   tempWorkspace,
@@ -259,37 +260,103 @@ test("formal Work Card retained validators reject empty and metadata drafts with
   }
 });
 
-test("pending Formal Work Card remains byte-identical and blocks new draft preparation", () => {
-  const root = tempWorkspace("champcity-work-card-planning-pending-preserve-");
-  seedApprovedProjectPlanning(root);
-  seedPhaseMap(root, "phase-01");
-  seedApprovedPhaseInterview(root, "phase-01");
-  seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
-  generateWorkCardIntakeHandoff(root, "phase-01");
-  const formalPath = "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md";
-  writeCanonicalFormal(root, formalPath, "Pending");
-  const before = fs.readFileSync(require("node:path").join(root, formalPath), "utf8");
+for (const disposition of ["Pending", "Approved", "Rejected"]) {
+  test(`${disposition} Formal Work Card blocks preparation and late revision promotion without changing bytes`, () => {
+    const root = tempWorkspace("champcity-work-card-planning-target-preserve-");
+    seedApprovedProjectPlanning(root);
+    seedPhaseMap(root, "phase-01");
+    seedApprovedPhaseInterview(root, "phase-01");
+    seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
+    generateWorkCardIntakeHandoff(root, "phase-01");
+    const formalPath = "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md";
+    writeCanonicalFormal(root, formalPath, "RevisionRequested", "Tighten the acceptance proof.");
+    const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
+    // Another review can protect the target while the Architect is drafting.
+    writeCanonicalFormal(root, formalPath, disposition);
+    const before = fs.readFileSync(path.join(root, formalPath), "utf8");
 
-  assert.throws(
-    () => prepareArchitectOutputHandoff(root, "work-card-planning"),
-    /can only replace an absent target or a current RevisionRequested Formal Work Card/,
-  );
+    assert.throws(
+      () => prepareArchitectOutputHandoff(root, "work-card-planning"),
+      /can only replace an absent target or a current RevisionRequested Formal Work Card/,
+    );
+    assert.equal(fs.readFileSync(path.join(root, formalPath), "utf8"), before);
 
-  assert.equal(fs.readFileSync(require("node:path").join(root, formalPath), "utf8"), before);
-});
+    writeDraft(root, prepared.submission.draftSlots[0].draftRelativePath, "This revision must not replace a protected target.");
+    const failed = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+    assert.equal(failed.submission.state, "promotion-failed");
+    assert.equal(failed.canPrepareHandoff, false);
+    assert.match(failed.promotionError, /can only replace an absent target or a current RevisionRequested Formal Work Card/);
+    assert.equal(fs.readFileSync(path.join(root, formalPath), "utf8"), before);
+  });
+}
 
-test("revision requested Formal Work Card prompt includes exact Operator notes and one temporary draft call", () => {
+test("Formal Work Card production review prepares and copies exact revision notes then promotes the bounded replacement", async () => {
   const root = tempWorkspace("champcity-work-card-planning-revision-prompt-");
+  const { intake, prompt, interview } = seedApprovedProjectIntake(root);
+  writeDoc(root, interview, "project-architect-interview", "Approved", {
+    identity: { "Project.ArtifactKey": "demo" },
+    sourceRevisions: [{ path: intake, revision: 1 }, { path: prompt, revision: 1 }],
+  });
   seedApprovedProjectPlanning(root);
   seedPhaseMap(root, "phase-01");
   seedApprovedPhaseInterview(root, "phase-01");
   seedApprovedPhasePlanningBundle(root, "phase-01", "WC01");
-  generateWorkCardIntakeHandoff(root, "phase-01");
-  const revisionNotes = "Tighten the acceptance proof around renderer-visible state transition.";
-  writeCanonicalFormal(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md", "RevisionRequested", revisionNotes);
+  const handoff = generateWorkCardIntakeHandoff(root, "phase-01");
+  const handoffBytes = fs.readFileSync(path.join(root, handoff.handoffMarkdownPath), "utf8");
+  const { api, clipboard } = productionArchitectOutputApi(root);
+  const initial = await api.prepareArchitectOutputHandoff("work-card-planning");
+  writeDraft(root, initial.submission.draftSlots[0].draftRelativePath, formalWorkCardBody("WC01"));
+  const pending = await api.getArchitectOutputWorkspaceModel("work-card-planning");
+  const targetPath = pending.documentSlots[0].targetPath;
+  const before = fs.readFileSync(path.join(root, targetPath), "utf8");
+  const presented = pending.documentSlots.map(({ slotId, targetPath, artifactRevision }) =>
+    ({ slotId, targetPath, artifactRevision }));
+  assert.equal(pending.state, "ready-for-review");
+  assert.equal(pending.documentSlots[0].disposition, "Pending");
 
-  const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
+  await assert.rejects(
+    api.reviewArchitectOutput("work-card-planning", "RevisionRequested", " \n\t ", presented),
+    /RevisionRequested requires Operator revision instructions/,
+  );
+  assert.equal(fs.readFileSync(path.join(root, targetPath), "utf8"), before);
+  const revisionNotes = "Tighten the acceptance proof around renderer-visible state transition.\nKeep exact punctuation [A+B], and  internal spacing.";
+  const reviewed = await api.reviewArchitectOutput(
+    "work-card-planning", "RevisionRequested", ` \n${revisionNotes}\n\t `, presented,
+    pending.documentSlots[0].logicalDocumentId,
+  );
+  const revisionRequested = reviewed.architectOutput;
+  const persisted = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, targetPath), "utf8"));
+  assert.equal(persisted.metadata.documentDisposition.status, "RevisionRequested");
+  assert.equal(persisted.metadata.documentDisposition.notes, revisionNotes);
+  assert.equal(persisted.metadata.artifactRevision, 1);
+  assert.equal(revisionRequested.state, "revision-requested");
+  assert.equal(revisionRequested.documentSlots[0].targetPath, targetPath);
+  assert.equal(revisionRequested.currentOperatorReviewNotes, revisionNotes);
+  assert.equal(revisionRequested.canPrepareHandoff, true);
+  assert.equal(revisionRequested.canCopyHandoff, false);
+  assert.equal(revisionRequested.preparedInstruction, undefined);
+  assert.equal(reviewed.development.currentModel.activeWorkspaceId, "work-card-planning");
+  assert.equal(reviewed.development.currentModel.currentWorkCardId, "WC01");
+  assert.equal((await api.getCurrentWorkspaceModel()).activeWorkspaceId, "work-card-planning");
+  await assert.rejects(api.copyArchitectOutputHandoff("work-card-planning"), /Prepare Handoff must be completed/);
+  assert.deepEqual(clipboard, []);
+
+  const prepared = await api.prepareArchitectOutputHandoff("work-card-planning");
+  assert.equal(prepared.canCopyHandoff, true);
+  assert.notEqual(prepared.submission.submissionId, initial.submission.submissionId);
+  assert.notEqual(prepared.submission.draftSlots[0].draftRelativePath, initial.submission.draftSlots[0].draftRelativePath);
+  assert.deepEqual(prepared.handoff, initial.handoff);
   const instruction = prepared.preparedInstruction;
+  assert.ok(instruction.includes(`Current Operator revision instructions:\n${persisted.metadata.documentDisposition.notes}\n`));
+  const copyResult = await api.copyArchitectOutputHandoff("work-card-planning");
+  assert.equal(copyResult.ok, true);
+  assert.equal(copyResult.payload.bytes, Buffer.byteLength(instruction, "utf8"));
+  assert.deepEqual(clipboard, [instruction]);
+  const active = getActiveFormalWorkCardDraftSubmission(root);
+  assert.deepEqual(active.preparedContext.sourceRevisions, persisted.metadata.sourceRevisions);
+  for (const source of persisted.metadata.sourceRevisions) {
+    assert.ok(instruction.includes(`- path: ${source.path} revision: ${source.revision}`));
+  }
   const actionBlocks = [...instruction.matchAll(/```json\n([\s\S]*?)\n```/g)]
     .map((match) => JSON.parse(match[1]))
     .filter((block) => block.action === "write_markdown_artifact");
@@ -340,6 +407,24 @@ test("revision requested Formal Work Card prompt includes exact Operator notes a
   assert.equal(actionBlocks[0].params.relativePath, prepared.submission.draftSlots[0].draftRelativePath);
   assert.equal(actionBlocks[0].params.overwrite, false);
   assert.doesNotMatch(instruction, /"relativePath":\s*"planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md"/);
+
+  const revisedBody = `${formalWorkCardBody("WC01")}\nRevision proof: preserve the renderer-visible state transition.\n`;
+  writeDraft(root, prepared.submission.draftSlots[0].draftRelativePath, revisedBody);
+  const promoted = await api.getArchitectOutputWorkspaceModel("work-card-planning");
+  const replacementBytes = fs.readFileSync(path.join(root, targetPath), "utf8");
+  const replacement = parseCanonicalMarkdownDocument(replacementBytes);
+  assert.equal(promoted.state, "ready-for-review");
+  assert.equal(promoted.documentSlots[0].targetPath, targetPath);
+  assert.equal(replacement.metadata.artifactRevision, 2);
+  assert.deepEqual(replacement.metadata.documentDisposition, { status: "Pending", notes: "", reviewedAt: null });
+  assert.deepEqual(replacement.metadata.identity, persisted.metadata.identity);
+  assert.deepEqual(replacement.metadata.sourceRevisions, persisted.metadata.sourceRevisions);
+  assert.deepEqual(replacement.metadata.workflowData.repositoryBinding, persisted.metadata.workflowData.repositoryBinding);
+  assert.equal(replacement.bodyMarkdown.trim(), revisedBody.trim());
+  assert.equal(fs.existsSync(path.join(root, prepared.submission.draftSlots[0].draftRelativePath)), false);
+  await assert.rejects(api.prepareArchitectOutputHandoff("work-card-planning"), /can only replace an absent target or a current RevisionRequested Formal Work Card/);
+  assert.equal(fs.readFileSync(path.join(root, targetPath), "utf8"), replacementBytes);
+  assert.equal(fs.readFileSync(path.join(root, handoff.handoffMarkdownPath), "utf8"), handoffBytes);
 });
 
 test("retained Work Card standard maps validation scope to owned behavior", () => {
@@ -378,6 +463,45 @@ test("formal Work Card promotion context rejects mismatched active target eviden
     /Formal Work Card draft no longer matches the current Work Card Intake handoff/,
   );
 });
+
+function productionArchitectOutputApi(root) {
+  const ts = require("typescript");
+  const vm = require("node:vm");
+  const source = fs.readFileSync(path.join(__dirname, "../../src/main/main.ts"), "utf8");
+  const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true);
+  const channels = new Set([
+    "architectOutput:getWorkspaceModel", "architectOutput:prepareHandoff",
+    "architectOutput:copyHandoff", "architectOutput:review", "currentWorkflow:getModel",
+  ]);
+  const registrations = ast.statements.filter((node) =>
+    ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) &&
+    channels.has(node.expression.arguments[0]?.text));
+  const handlers = new Map();
+  const clipboard = [];
+  vm.runInNewContext(ts.transpileModule(registrations.map((node) => node.getText(ast)).join("\n"), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText, {
+    ...require("../../dist/main/architectOutputs/architectOutputWorkspaceService.js"),
+    ...require("../../dist/main/currentWorkflow/currentWorkflowService.js"),
+    ...require("../../dist/main/documents/developmentPostMutationProjection.js"),
+    getRequiredWorkspaceRoot: () => root,
+    ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) },
+    clipboard: { writeText: (instruction) => clipboard.push(instruction) },
+  });
+  assert.equal(handlers.size, channels.size);
+  let api;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../../dist/preload/index.js"), "utf8"), {
+    exports: {},
+    require: (id) => {
+      assert.equal(id, "electron");
+      return {
+        contextBridge: { exposeInMainWorld: (key, value) => { assert.equal(key, "champcity"); api = value; } },
+        ipcRenderer: { invoke: async (channel, ...args) => handlers.get(channel)({}, ...args) },
+      };
+    },
+  });
+  return { api, clipboard };
+}
 
 function writeCanonicalFormal(root, relativePath, status, notes = "") {
   const {
