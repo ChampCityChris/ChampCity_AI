@@ -3,6 +3,46 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("infrastructure planning requires operational recovery evidence and excludes unrelated product features", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "infrastructure-platform", {
+    workRequest: "Move the staging host to a supported runtime", desiredOutcome: "Recoverable runtime update with unchanged product behavior", knownConstraints: "Sharing features remain a separate Intake",
+  });
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  let model = await kernel.prepare(root, intake.intakeId, "assessment");
+  for (const rule of [/environment ownership/, /install\/provision\/update\/rollback/, /networking\/access/, /observability\/health/, /recovery conditions/, /Keep product features outside this Plan/, /do not force Phases/]) assert.match(model.preparedInstruction, rule);
+  const sections = {
+    "Evidence": "The synthetic staging host uses runtime v1; target v2 meets the existing application contract.",
+    "Decisions": "Update only the staging runtime; retain a recoverable v1 snapshot.",
+    "Risks and Unresolved Questions": "Health checks must prove unchanged scheduling after rollout.",
+    "Operational Outcome and Platform Delta": "Replace the staging runtime while preserving all product behavior.",
+    "Current and Target Operational Topology": "One staging host remains one staging host; only runtime v1 changes to v2.",
+    "Environment Ownership and Constraints": "The platform team owns staging and rollback; production is excluded.",
+    "Install Provision Update and Rollback": "Preflight v2, snapshot v1, update staging, restore snapshot on failure.",
+    "Networking and Access": "Existing private access and recovery controls remain available.",
+    "Observability Health and Recovery": "Observe health and schedule writes; restore v1 on failed readiness or data proof.",
+    "Compatibility and Preservation": "Scheduling contracts and stored state remain unchanged.",
+    "Operational Acceptance and Recovery Conditions": "Accept only with health, scheduling, and state checks passing; prove snapshot restoration before rollout.",
+    "Excluded Product Features": "Sharing and new schedule views remain separate Intakes.",
+  };
+  const body = "# Route Architect Assessment\n\n" + Object.entries(sections).map(([heading, value]) => `## ${heading}\n${value}`).join("\n\n");
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body.replace("## Operational Acceptance and Recovery Conditions", "## Missing Recovery Conditions"));
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  assert.equal(model.submission.state, "promotion-failed");
+  assert.match(model.error, /Operational Acceptance and Recovery Conditions/);
+  model = await kernel.prepare(root, intake.intakeId, "assessment");
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Operational boundary accepted" });
+  model = await kernel.prepare(root, intake.intakeId, "plan");
+  assert.match(model.preparedInstruction, /## Rollback and Recovery Proof/);
+  assert.match(model.preparedInstruction, /## Operational Acceptance Conditions/);
+  assert.match(model.preparedInstruction, /## Compatibility and Excluded Features/);
+  assert.match(model.preparedInstruction, /Choose direct topology/);
+  assert.match(model.preparedInstruction, /Choose phased only/);
+  assert.equal(git("rev-parse", "HEAD"), initialHead);
+});
+
 test("composition planning requires capability dispositions and carries non-code outcomes through the shared kernel", async (t) => {
   const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
   const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "integration-composition", {
