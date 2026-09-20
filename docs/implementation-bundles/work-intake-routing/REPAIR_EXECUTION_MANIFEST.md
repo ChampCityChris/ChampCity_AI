@@ -2,9 +2,13 @@
 
 ## Starting State
 
-Expected implementation branch: `codex/work-intake-routing`.
+Expected implementation branch: `repair/work-intake-routing-wir22`.
 
-Expected last passing bundle checkpoint before repairs:
+Expected repair-package baseline checkpoint:
+
+`cd6bc62ce7f78a886297fdeeb8530b0707107710` — repair evidence/plan/manifest/cards committed after the blocked WIR22 review.
+
+Last passing implementation checkpoint before the repair package:
 
 `45c04027705fb9beeffc8f78e5ce2887e63645c2` — WIR21.
 
