@@ -1,6 +1,38 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
+test("generic phased executor distinguishes item, Phase, and Plan criteria and blocks stale Phase progression", () => {
+  const { projectPlanExecution } = require("../../dist/main/planExecution/planExecutor.js");
+  const boundary = (criteria, extra = {}) => ({ planRevision: 3, fresh: true, blockers: [], evidencePaths: ["planning/acceptance.md"], criteria: criteria.map((criterion) => ({ criterion, status: "passed", evidencePaths: ["planning/acceptance.md"] })), ...extra });
+  const candidate = (id, phaseId, dependsOn = []) => ({ workItemId: id, phaseId, title: id, purpose: `Deliver ${id}`, dependsOn, acceptanceCriteria: [`${id} verified`] });
+  const phase = (id, dependsOn) => ({ phaseId: id, title: id, purpose: `Milestone ${id}`, dependsOn, acceptanceCriteria: [`${id} accepted`] });
+  const input = { planId: "phased-fixture", planRevision: 3, approved: true, fresh: true, blockers: [],
+    structure: { topology: "phased", topologyRationale: "Independent milestone acceptance", acceptanceCriteria: ["Whole Plan accepted"], phases: [phase("P2", ["P1"]), phase("P1", [])], workItems: [candidate("B", "P2"), candidate("A", "P1")] }, workItems: [], phases: [] };
+  let result = projectPlanExecution(input); assert.equal(result.status, "ready"); assert.equal(result.nextWorkItemId, "A"); assert.equal(result.phases.find((entry) => entry.phaseId === "P2").eligible, false);
+  input.workItems = [{ ...boundary(["A verified"]), workItemId: "A", stage: "complete" }];
+  result = projectPlanExecution(input);
+  assert.equal(result.workItems.find((entry) => entry.candidate.workItemId === "A").complete, true);
+  assert.equal(result.phases.find((entry) => entry.phaseId === "P1").workItemsComplete, true);
+  assert.equal(result.phases.find((entry) => entry.phaseId === "P1").complete, false);
+  assert.equal(result.nextWorkItemId, undefined, "Phase criteria gate successors even when all child items complete");
+  input.phases = [{ ...boundary(["P1 accepted"]), phaseId: "P1" }];
+  assert.equal(projectPlanExecution(input).nextWorkItemId, "B");
+  input.phases[0].fresh = false;
+  assert.equal(projectPlanExecution(input).nextWorkItemId, undefined);
+  input.phases[0].fresh = true; input.phases[0].blockers = ["Recovery proof unresolved"];
+  assert.equal(projectPlanExecution(input).status, "blocked");
+  input.phases[0].blockers = [];
+  input.workItems.push({ ...boundary(["B verified"]), workItemId: "B", stage: "complete" });
+  input.phases.push({ ...boundary(["P2 accepted"]), phaseId: "P2" });
+  result = projectPlanExecution(input); assert.equal(result.phasesComplete, true); assert.equal(result.complete, false); assert.equal(result.status, "awaiting-criteria");
+  input.planEvidence = boundary(["Whole Plan accepted"]);
+  assert.equal(projectPlanExecution(input).complete, true);
+  input.planEvidence.criteria.push({ ...input.planEvidence.criteria[0] });
+  assert.throws(() => projectPlanExecution(input), /malformed/);
+  input.planEvidence.criteria.pop(); input.structure.workItems[1].dependsOn = ["B"];
+  assert.throws(() => projectPlanExecution(input), /cycle/);
+});
+
 const {
   applyCurrentDisposition,
   createPhaseCloseoutForCurrentPhase,

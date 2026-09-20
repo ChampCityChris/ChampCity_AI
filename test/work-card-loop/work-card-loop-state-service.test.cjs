@@ -1,6 +1,65 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
+test("generic direct executor gates lifecycle hooks and completion with current dependency and criteria evidence", async () => {
+  const { createPlanExecutor, projectPlanExecution } = require("../../dist/main/planExecution/planExecutor.js");
+  const { applyWorkItemDecomposition } = require("../../dist/main/workCardPlanning/workItemDecomposition.js");
+  const item = (id, dependsOn = []) => ({ workItemId: id, title: id, purpose: `Deliver ${id}`, dependsOn, acceptanceCriteria: [`${id} works`] });
+  const boundary = (criteria, extra = {}) => ({ planRevision: 1, fresh: true, blockers: [], evidencePaths: ["planning/evidence.md"], criteria: criteria.map((criterion) => ({ criterion, status: "passed", evidencePaths: ["planning/evidence.md"] })), ...extra });
+  const completed = (candidate, stage = "complete") => ({ ...boundary(candidate.acceptanceCriteria), workItemId: candidate.workItemId, stage });
+  let input = { planId: "plan-fixture", planRevision: 1, approved: true, fresh: true, blockers: [], structure: { topology: "direct", topologyRationale: "Dependency ordered outcomes", acceptanceCriteria: ["Integrated outcome works"], workItems: [item("B", ["A"]), item("A"), item("C")] }, workItems: [], phases: [] };
+  let calls = 0;
+  const executor = createPlanExecutor({ load: async () => structuredClone(input), actions: {
+    implement: async ({ workItem }) => { calls++; input.workItems.push(completed(workItem.candidate, "implement")); },
+    review: async ({ workItem }) => { calls++; input.workItems.find((entry) => entry.workItemId === workItem.candidate.workItemId).stage = "review-validate"; },
+    validate: async ({ workItem }) => { calls++; input.workItems.find((entry) => entry.workItemId === workItem.candidate.workItemId).stage = "close"; },
+    close: async ({ workItem }) => { calls++; input.workItems.find((entry) => entry.workItemId === workItem.candidate.workItemId).stage = "complete"; },
+  } });
+  let result = await executor.query();
+  assert.equal(result.nextWorkItemId, "A"); assert.equal(result.phases.length, 0); assert.equal(result.complete, false);
+  await assert.rejects(executor.perform({ workItemId: "B", action: "implement", expectedFingerprint: result.fingerprint }), /not eligible/);
+  assert.equal(calls, 0);
+  const originalToken = result.fingerprint;
+  result = await executor.perform({ workItemId: "A", action: "implement", expectedFingerprint: result.fingerprint });
+  assert.equal(result.status, "active"); assert.equal(result.nextWorkItemId, "A");
+  assert.equal(result.workItems.find((entry) => entry.candidate.workItemId === "C").eligible, false);
+  await assert.rejects(executor.perform({ workItemId: "A", action: "review", expectedFingerprint: originalToken }), /evidence changed/);
+  result = await executor.perform({ workItemId: "A", action: "review", expectedFingerprint: result.fingerprint });
+  await assert.rejects(executor.perform({ workItemId: "A", action: "repair", expectedFingerprint: result.fingerprint }), /no execution adapter/);
+  result = await executor.perform({ workItemId: "A", action: "validate", expectedFingerprint: result.fingerprint });
+  assert.equal(result.workItems.find((entry) => entry.candidate.workItemId === "A").complete, false, "validation does not consume durable close");
+  result = await executor.perform({ workItemId: "A", action: "close", expectedFingerprint: result.fingerprint });
+  assert.equal(result.nextWorkItemId, "B"); assert.equal(calls, 4);
+  input.workItems = input.structure.workItems.map((candidate) => completed(candidate));
+  result = await executor.query();
+  assert.equal(result.workItemsComplete, true); assert.equal(result.complete, false); assert.equal(result.status, "awaiting-criteria");
+  input.planEvidence = boundary(input.structure.acceptanceCriteria);
+  assert.equal((await executor.query()).complete, true);
+  for (const routeId of ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]) {
+    assert.equal(projectPlanExecution({ ...input, routeId }).complete, true, "extraneous route context cannot choose progression");
+  }
+  const accepted = structuredClone(input);
+  for (const change of [() => { input.approved = false; }, () => { input.fresh = false; }, () => { input.workItems[1].fresh = false; }, () => { input.workItems[1].planRevision = 2; }, () => { input.planEvidence.criteria[0].status = "failed"; }, () => { input.planEvidence.criteria[0].evidencePaths = []; }, () => { input.blockers = ["Unresolved acceptance defect"]; }]) {
+    input = structuredClone(accepted); change(); assert.equal((await executor.query()).complete, false);
+  }
+  input = structuredClone(accepted); input.workItems[0].stage = "repair"; input.workItems[1].stage = "implement";
+  result = await executor.query(); assert.equal(result.status, "blocked"); assert.match(result.blockers.join(" "), /Multiple active/);
+  input = structuredClone(accepted); input.workItems.push(input.workItems[0]);
+  assert.throws(() => projectPlanExecution(input), /identities conflict/);
+  input = structuredClone(accepted);
+  input.structure = applyWorkItemDecomposition(input.structure, "A", { kind: "siblings", rationale: "Independent outcomes", evidence: ["Separate acceptance"], replacements: [item("A1"), item("A2", ["A1"])] }).structure;
+  assert.throws(() => projectPlanExecution(input), /superseded Work Item/);
+  input.workItems = []; input.planRevision = 2; input.planEvidence = undefined;
+  assert.equal((await executor.query()).nextWorkItemId, "A1", "accepted decomposition resumes dependency-aware replacement without new Intake");
+  let release;
+  const blockedHook = createPlanExecutor({ load: async () => input, actions: { implement: async () => new Promise((resolve) => { release = resolve; }) } });
+  result = await blockedHook.query();
+  const running = blockedHook.perform({ workItemId: "A1", action: "implement", expectedFingerprint: result.fingerprint });
+  await new Promise((resolve) => setImmediate(resolve));
+  await assert.rejects(blockedHook.perform({ workItemId: "A1", action: "implement", expectedFingerprint: result.fingerprint }), /already in progress/);
+  release(); await running;
+});
+
 const {
   resolveWorkCardLoopState,
 } = require("../../dist/main/workCardLoop/workCardLoopStateService.js");
