@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { workRouteProfiles, workRouteProfileRegistry, type WorkRouteId } from "../../shared/workIntakeRoutingContracts";
 import type { WorkRouteDecisionInput, WorkRouteDecisionModel } from "../../shared/workRouteDecisionContracts";
+import { WorkPlanningPanel } from "./WorkPlanningPanel";
 
 export function WorkRouteDecisionPanel({ intakeId, assessmentRevision }: { intakeId: string; assessmentRevision: number }) {
   const [model, setModel] = useState<WorkRouteDecisionModel | null>(null);
@@ -39,5 +40,6 @@ export function WorkRouteDecisionPanel({ intakeId, assessmentRevision }: { intak
     <button disabled={disabled} onClick={() => void decide("override")}>Select this route</button>
     <button disabled={disabled} onClick={() => void decide("request-revision")}>Request revised assessment</button>
     {model?.history.length ? <details><summary>Decision history</summary><ol>{model.history.map((entry) => <li key={entry.decision.decisionId}>{entry.decision.disposition}: {entry.decision.rationale}</li>)}</ol></details> : null}
+    {model?.state === "selected" && model.selection ? <WorkPlanningPanel key={model.selection.decisionId} intakeId={intakeId} /> : null}
   </section>;
 }

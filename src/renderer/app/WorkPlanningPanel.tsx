@@ -1,0 +1,49 @@
+import { useEffect, useState } from "react";
+import type { WorkPlanningModel, WorkPlanningReviewInput, WorkPlanningStage } from "../../shared/workPlanningContracts";
+
+export function WorkPlanningPanel({ intakeId }: { intakeId: string }) {
+  const [stage, setStage] = useState<WorkPlanningStage>("assessment");
+  const [model, setModel] = useState<WorkPlanningModel | null>(null);
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    let current = true; setModel(null); setError(""); setCopied(false);
+    window.champcity.getWorkPlanning(intakeId, stage).then((next) => { if (current) setModel(next); })
+      .catch((failure: unknown) => { if (current) setError(String(failure)); });
+    return () => { current = false; };
+  }, [intakeId, stage]);
+  async function act(action: "prepare" | "copy" | "refresh" | WorkPlanningReviewInput["disposition"]) {
+    setBusy(true); setError(""); setCopied(false);
+    try {
+      if (action === "copy") { await window.champcity.copyWorkPlanning(intakeId, stage); setCopied(true); return; }
+      const next = action === "prepare" ? await window.champcity.prepareWorkPlanning(intakeId, stage)
+        : action === "refresh" ? await window.champcity.getWorkPlanning(intakeId, stage)
+        : await window.champcity.reviewWorkPlanning(intakeId, stage, { expectedRevision: model!.artifact!.artifactRevision, disposition: action, notes });
+      setModel(next);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Planning action failed."); }
+    finally { setBusy(false); }
+  }
+  const reviewable = !!model?.artifact && !model.artifact.stale && !busy;
+  return <section aria-label="Route planning">
+    <h3>Route planning</h3>
+    <label>Planning stage<select disabled={busy} value={stage} onChange={(event) => setStage(event.target.value as WorkPlanningStage)}>
+      <option value="assessment">Architect assessment</option><option value="plan">Work Plan</option>
+    </select></label>
+    {error || model?.error ? <p role="alert">{error || model?.error}</p> : null}
+    {copied ? <p role="status">Planning handoff copied.</p> : null}
+    <button disabled={busy || !model?.canPrepare} onClick={() => void act("prepare")}>Prepare handoff</button>
+    <button disabled={busy || !model?.preparedInstruction} onClick={() => void act("copy")}>Copy handoff</button>
+    <button disabled={busy} onClick={() => void act("refresh")}>Check submitted draft</button>
+    {model?.artifact ? <>
+      <p>Revision {model.artifact.artifactRevision}: {model.artifact.stale ? "Stale" : model.artifact.disposition}</p>
+      {model.artifact.structure ? <p>Proposed topology: {model.artifact.structure.topology}. {model.artifact.structure.topologyRationale}</p> : null}
+      <pre style={{ whiteSpace: "pre-wrap" }}>{model.artifact.bodyMarkdown}</pre>
+      <label>Review notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+      <button disabled={!reviewable} onClick={() => void act("Approved")}>Approve {stage === "plan" ? "Plan and topology" : "assessment"}</button>
+      <button disabled={!reviewable || !notes.trim()} onClick={() => void act("RevisionRequested")}>Request revision</button>
+      <button disabled={!reviewable || !notes.trim()} onClick={() => void act("Rejected")}>Reject</button>
+    </> : null}
+  </section>;
+}

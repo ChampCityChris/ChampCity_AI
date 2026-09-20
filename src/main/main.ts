@@ -57,6 +57,8 @@ import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./wor
 import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
 import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
 import type { WorkRouteDecisionInput } from "../shared/workRouteDecisionContracts";
+import { workPlanningKernel } from "./workPlanning/workPlanningKernel";
+import type { WorkPlanningReviewInput, WorkPlanningStage } from "../shared/workPlanningContracts";
 import type { WorkIntakeSubmission } from "../shared/workIntakeContracts";
 import {
   attachArchitectBrowserSurface,
@@ -755,6 +757,12 @@ ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) =
 ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workRoute:status", (_event, intakeId: string) => getWorkRouteDecision(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
+ipcMain.handle("workPlanning:status", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.get(getRequiredWorkspaceRoot(), intakeId, stage));
+ipcMain.handle("workPlanning:prepare", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.prepare(getRequiredWorkspaceRoot(), intakeId, stage));
+ipcMain.handle("workPlanning:review", (_event, intakeId: string, stage: WorkPlanningStage, input: WorkPlanningReviewInput) => workPlanningKernel.review(getRequiredWorkspaceRoot(), intakeId, stage, input));
+ipcMain.handle("workPlanning:copy", async (_event, intakeId: string, stage: WorkPlanningStage) => {
+  clipboard.writeText(await workPlanningKernel.copy(getRequiredWorkspaceRoot(), intakeId, stage));
+});
 ipcMain.handle("workRouting:status", (_event, intakeId: string) => getWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workRouting:copy", async (_event, intakeId: string) => {
   const instruction = await copyWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId);

@@ -1384,6 +1384,10 @@ export interface ChampCityApi {
   copyWorkRoutingAssessment: (intakeId: string) => Promise<void>;
   getWorkRouteDecision: (intakeId: string) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
   decideWorkRoute: (intakeId: string, input: import("./workRouteDecisionContracts").WorkRouteDecisionInput) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
+  getWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
+  prepareWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
+  copyWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<void>;
+  reviewWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage, input: import("./workPlanningContracts").WorkPlanningReviewInput) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
   readWorkIntake: (intakeId: string) => Promise<import("./workIntakeContracts").WorkIntakeRecord>;
   submitWorkIntake: (submission: import("./workIntakeContracts").WorkIntakeSubmission) => Promise<import("./workIntakeContracts").WorkIntakeSubmissionResult>;
   getGithubProviderStatus: () => Promise<GithubProviderStatus>;

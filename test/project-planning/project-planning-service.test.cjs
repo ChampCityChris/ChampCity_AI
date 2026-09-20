@@ -3,6 +3,76 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("shared planning kernel reviews direct and phased Plans under the Operator-selected profile with freshness-safe revision", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t);
+  const { createWorkPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile, workPlanningProfiles } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { validateWorkPlanStructure } = require("../../dist/main/workPlanning/workPlanStructure.js");
+  const { mainPreloadHarness } = require("../support/production-execution.cjs");
+  const profile = { ...resolveWorkPlanningProfile("refactor-migration"), requiredEvidence: ["Fixture current baseline"], discoveryQuestions: ["Fixture preservation question"] };
+  const kernel = createWorkPlanningKernel(workPlanningProfiles.map((entry) => entry.routeId === profile.routeId ? profile : entry));
+  let copied = "";
+  const { api } = mainPreloadHarness(["workPlanning:status", "workPlanning:prepare", "workPlanning:copy", "workPlanning:review"], {
+    workPlanningKernel: kernel, getRequiredWorkspaceRoot: () => root, clipboard: { writeText: (value) => { copied = value; } },
+  });
+  await assert.rejects(api.getWorkPlanning(intake.intakeId, "plan"), /approved route-specific assessment/);
+  let assessment = await api.prepareWorkPlanning(intake.intakeId, "assessment");
+  assert.equal(assessment.routeId, "refactor-migration", "Operator override, not primary AI advice, resolves the profile");
+  await api.copyWorkPlanning(intake.intakeId, "assessment");
+  assert.match(copied, /Fixture current baseline/); assert.match(copied, /Fixture preservation question/);
+  assert.match(copied, /route identity does not select topology/);
+  writeDraft(root, assessment.submission.expectedDraftSlots[0].draftRelativePath, "# Route Architect Assessment\n\n## Evidence\nCurrent baseline.\n\n## Decisions\nPreserve the product.\n\n## Risks and Unresolved Questions\nBounded migration risks.\n");
+  await api.copyWorkPlanning(intake.intakeId, "assessment");
+  assert.equal(fs.existsSync(path.join(root, assessment.submission.expectedDraftSlots[0].draftRelativePath)), true, "copy does not promote");
+  assessment = await api.getWorkPlanning(intake.intakeId, "assessment");
+  assert.equal(assessment.artifact.disposition, "Pending");
+  assert.equal(assessment.artifact.identity.routeDecisionId, route.selection.decisionId);
+  await assert.rejects(api.prepareWorkPlanning(intake.intakeId, "assessment"), /Request revision/);
+  await assert.rejects(api.reviewWorkPlanning(intake.intakeId, "assessment", { expectedRevision: 99, disposition: "Approved", notes: "" }), /stale/);
+  assessment = await api.reviewWorkPlanning(intake.intakeId, "assessment", { expectedRevision: 1, disposition: "Approved", notes: "Evidence accepted" });
+  assert.equal(assessment.artifact.disposition, "Approved");
+
+  const item = { workItemId: "WI01", title: "Preserve and transform", purpose: "One bounded outcome", dependsOn: [], acceptanceCriteria: ["Preserved behavior verified"] };
+  const direct = { topology: "direct", topologyRationale: "One bounded slice needs no Phase layer.", acceptanceCriteria: ["Complete the scoped change"], workItems: [item] };
+  const planBody = (structure) => "# Work Plan\n\n## Scope\nThe approved change.\n\n## Preserved Behavior\nExisting capability.\n\n## Acceptance\nObservable proof.\n\n## Execution Structure\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n";
+  let plan = await api.prepareWorkPlanning(intake.intakeId, "plan");
+  writeDraft(root, plan.submission.expectedDraftSlots[0].draftRelativePath, planBody(direct));
+  plan = await api.getWorkPlanning(intake.intakeId, "plan");
+  assert.equal(plan.artifact.structure.topology, "direct"); assert.equal(plan.artifact.structure.phases, undefined);
+  assert.equal(plan.artifact.disposition, "Pending", "AI topology recommendation is not approval");
+  plan = await api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 1, disposition: "Approved", notes: "Direct topology approved" });
+  const planId = plan.artifact.identity.planId;
+  assert.equal(plan.artifact.disposition, "Approved");
+  plan = await api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 1, disposition: "RevisionRequested", notes: "Separate foundation and cutover." });
+  plan = await api.prepareWorkPlanning(intake.intakeId, "plan");
+  assert.match(plan.preparedInstruction, /Separate foundation and cutover/);
+  const phased = { ...direct, topology: "phased", topologyRationale: "Two meaningful ordered boundaries.",
+    phases: [{ phaseId: "P1", title: "Foundation", purpose: "Prepare", dependsOn: [], acceptanceCriteria: ["Ready"] },
+      { phaseId: "P2", title: "Cutover", purpose: "Transition", dependsOn: ["P1"], acceptanceCriteria: ["Transition verified"] }],
+    workItems: [{ ...item, phaseId: "P1" }, { ...item, workItemId: "WI02", phaseId: "P2", dependsOn: ["WI01"] }] };
+  assert.throws(() => validateWorkPlanStructure({ ...direct, topology: "hybrid" }), /direct or phased/);
+  assert.throws(() => validateWorkPlanStructure({ ...direct, phases: [] }), /no Phase layer/);
+  assert.throws(() => validateWorkPlanStructure({ ...phased, workItems: [{ ...item, phaseId: "missing" }] }), /declared nonempty/);
+  assert.throws(() => validateWorkPlanStructure({ ...direct, workItems: [{ ...item, dependsOn: ["unknown"] }] }), /unknown/);
+  assert.throws(() => validateWorkPlanStructure({ ...phased, workItems: [{ ...phased.workItems[0], dependsOn: ["WI02"] }, phased.workItems[1]] }), /cycle/);
+  writeDraft(root, plan.submission.expectedDraftSlots[0].draftRelativePath, planBody(phased));
+  plan = await api.getWorkPlanning(intake.intakeId, "plan");
+  assert.equal(plan.artifact.artifactRevision, 2); assert.equal(plan.artifact.identity.planId, planId);
+  assert.equal(plan.artifact.structure.phases.length, 2); assert.equal(plan.artifact.disposition, "Pending");
+  await assert.rejects(api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 1, disposition: "Approved", notes: "Old review" }), /stale/);
+  plan = await api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 2, disposition: "Approved", notes: "Phased topology approved" });
+  assert.equal(plan.artifact.disposition, "Approved");
+  assert.equal(git("rev-parse", "HEAD"), initialHead, "kernel performs no Git mutation");
+  assert.equal(fs.existsSync(path.join(root, "planning/phases")), false, "kernel does not run or migrate legacy execution");
+
+  // Review metadata on a source changes the prepared/source fingerprint even without a substantive revision.
+  await api.reviewWorkPlanning(intake.intakeId, "assessment", { expectedRevision: 1, disposition: "Approved", notes: "Changed source review evidence" });
+  assert.equal((await api.getWorkPlanning(intake.intakeId, "plan")).artifact.stale, true);
+  await assert.rejects(api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 2, disposition: "Approved", notes: "" }), /stale/);
+  assert.throws(() => resolveWorkPlanningProfile("unknown"), /Unknown/);
+});
+
 const {
   generateProjectPlanningHandoff,
   getProjectPlanningHandoffInstruction,
