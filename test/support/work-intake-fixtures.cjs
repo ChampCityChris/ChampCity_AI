@@ -3,7 +3,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const { tempWorkspace } = require("./canonical-markdown-fixtures.cjs");
 
-async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration") {
+async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", intent = {}) {
   const root = tempWorkspace("champcity-routed-work-");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -14,7 +14,7 @@ async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration") {
   const routing = require("../../dist/main/workIntake/workRoutingAssessmentService.js");
   const decisions = require("../../dist/main/workIntake/workRouteDecisionService.js");
   const created = await intakeService.submitWorkIntake(root, { projectId: null, projectName: "Product", workRequest: "A bounded architecture change", desiredOutcome: "Preserve behavior",
-    knownConstraints: "Preserve current product", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: initialHead });
+    knownConstraints: "Preserve current product", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", ...intent, baseBranch: "main", baseCommit: initialHead });
   if (!created.ok) throw Error(JSON.stringify(created));
   const intake = created.value;
   const draft = await routing.prepareWorkRoutingAssessment(root, intake.intakeId);

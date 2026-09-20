@@ -3,6 +3,33 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("Greenfield uses the common kernel with evidence-first new-product discovery and explicit full-scope planning", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake } = await seedRoutedWorkIntake(t, "greenfield", { workRequest: "Create a study planner", desiredOutcome: "Students organize their study schedule",
+    hasExistingSourceOrPlanning: false, knownConstraints: "Offline use and accessible keyboard navigation" });
+  const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const prepared = await workPlanningKernel.prepare(root, intake.intakeId, "assessment");
+  assert.equal(prepared.routeId, "greenfield");
+  const prompt = await workPlanningKernel.copy(root, intake.intakeId, "assessment");
+  for (const coverage of [/target users/, /principal workflows/, /complete intended capability scope/, /runtime and deployment/, /data\/state ownership/, /security\/privacy/, /accessibility/, /recovery/, /repository-known facts/, /zero clarification questions/, /MVP or POC framing only when approved evidence explicitly establishes/]) assert.match(prompt, coverage);
+  assert.match(prompt, /direct Plan/); assert.match(prompt, /phased delivery only when/);
+  assert.doesNotMatch(prompt, /Preserve, Improve or Replace, Add, and Defer|migration seams|cutover criteria/);
+  assert.doesNotMatch(resolveWorkPlanningProfile("feature-change").discoveryQuestions.join("\n"), /Establish the new product's purpose/, "Greenfield discovery does not become the existing-product default");
+  const body = "# Route Architect Assessment\n\n## Evidence\nThe Intake establishes students, offline study scheduling, and accessible navigation.\n\n## Decisions\nAn offline study planner stores schedules locally.\n\n## Risks and Unresolved Questions\nValidate screen-reader and keyboard behavior before acceptance.\n\n## Product Outcome and Users\nStudents can organize sessions around courses.\n\n## Capabilities and Principal Workflows\nCreate courses, schedule sessions, and review upcoming study.\n\n## Product Architecture and Deployment\nA local application owns scheduling and presentation.\n\n## Data and State Lifecycle\nPersist courses and sessions locally with explicit deletion and recovery.\n\n## Dependencies and External Services\nNo external service is required.\n\n## Non-Functional Constraints\nOffline operation and complete keyboard access are required.\n\n## Scope and Deferred Decisions\nDeliver the intended scheduler scope; sharing is explicitly excluded.\n";
+  const draftPath = path.join(root, prepared.submission.expectedDraftSlots[0].draftRelativePath);
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true }); fs.writeFileSync(draftPath, body);
+  const promoted = await workPlanningKernel.get(root, intake.intakeId, "assessment");
+  assert.equal(promoted.artifact.disposition, "Pending", promoted.error);
+  await workPlanningKernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "Approved", notes: "New-product scope approved" });
+  const plan = await workPlanningKernel.prepare(root, intake.intakeId, "plan");
+  assert.match(plan.preparedInstruction, /## Product Outcomes and Capability Coverage/);
+  assert.match(plan.preparedInstruction, /## Non-Functional Acceptance/);
+  assert.match(plan.preparedInstruction, /## Readiness and Delivery Sequencing/);
+  assert.match(plan.preparedInstruction, /explicit approved deferral/);
+  assert.equal(plan.artifact, null, "profile content alone cannot create or approve a Plan");
+});
+
 const {
   getArchitectInterviewWorkspaceModel,
   prepareArchitectInterviewFinalDraftHandoff,
