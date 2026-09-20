@@ -14,11 +14,22 @@ import type { IntegrationRepairPolicy } from "../../shared/integrationRepairCont
 import { assertIntegrationSourceText } from "../agentHarness/repository/integrationRepairGit";
 
 /** Main-process adapters supply current durable Plan evidence and the required validation policy, never renderer commands. */
+export interface IntegrationValidationCheck {
+  checkId: string;
+  run: (candidateRoot: string) => Promise<Omit<IntegrationValidationEvidence, "checkId">>;
+}
+export interface ResolvedIntegrationValidationPolicy {
+  sha256: string;
+  checks: IntegrationValidationCheck[];
+  assertCandidate: (candidateRoot: string) => Promise<void>;
+}
 export interface IntegrationCandidateHooks {
   repositoryRoot: string;
   repositoryId: string;
   load: () => Promise<{ binding: WorkIntakeBranchBinding; plan: PlanExecutionInput }>;
-  checks: Array<{ checkId: string; run: (candidateRoot: string) => Promise<Omit<IntegrationValidationEvidence, "checkId">> }>;
+  /** Direct application hooks remain available for WIR20/WIR21 fixtures; production supplies validationPolicy instead. */
+  checks?: IntegrationValidationCheck[];
+  validationPolicy?: { resolve: (targetCommit: string) => Promise<ResolvedIntegrationValidationPolicy> };
   repairPolicy?: () => Promise<IntegrationRepairPolicy>;
 }
 const locks = new Set<string>();
@@ -26,8 +37,13 @@ const digest = (value: string) => createHash("sha256").update(value).digest("hex
 export function createIntegrationCandidateService(hooks: IntegrationCandidateHooks) {
   const root = fs.realpathSync(hooks.repositoryRoot);
   const source = createSourceControlService({ repositoryRoot: root, repositoryId: hooks.repositoryId });
-  const checks = [...hooks.checks];
-  if (!checks.length || checks.length > 32 || checks.some((check) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(check.checkId)) || new Set(checks.map((check) => check.checkId)).size !== checks.length) throw Error("Integration requires a bounded nonempty set of distinct application validation checks.");
+  const directChecks = (hooks.checks ?? []).map((check) => ({ ...check }));
+  const validationPolicy = hooks.validationPolicy && { ...hooks.validationPolicy };
+  if (validationPolicy && directChecks.length) throw Error("Integration validation must use either target policy or direct application checks, not both.");
+  function assertChecks(checks: IntegrationValidationCheck[]) {
+    if (!checks.length || checks.length > 32 || checks.some((check) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(check.checkId)) || new Set(checks.map((check) => check.checkId)).size !== checks.length) throw Error("Integration requires a bounded nonempty set of distinct application validation checks.");
+  }
+  if (!validationPolicy) assertChecks(directChecks);
   function unwrap<T>(result: SourceControlResult<T>, record?: IntegrationCandidateRecord): T {
     record?.receipts.push(result.receipt);
     if (!result.ok) throw Error(result.error.message);
@@ -53,7 +69,8 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     const record = parsed.metadata.workflowData.record as IntegrationCandidateRecord;
     if (parsed.metadata.artifactType !== "integration-candidate" || parsed.metadata.identity.candidateId !== candidateId || !record || record.candidateId !== candidateId || record.repositoryId !== hooks.repositoryId || record.candidateBranch !== paths.branch ||
       !Array.isArray(record.receipts) || !Array.isArray(record.validation) || !Array.isArray(record.requiredChecks) ||
-      digest(JSON.stringify([record.repositoryId, record.intakeId, record.planId, record.planRevision, record.planFingerprint, record.baseCommit, record.incomingCommit, record.targetCommit, record.localTargetCommit, record.targetBranch])) !== candidateId) throw Error("Integration receipt identity is invalid.");
+      (record.validationPolicySha256 !== undefined && !/^[a-f0-9]{64}$/.test(record.validationPolicySha256)) ||
+      digest(JSON.stringify([record.repositoryId, record.intakeId, record.planId, record.planRevision, record.planFingerprint, record.baseCommit, record.incomingCommit, record.targetCommit, record.localTargetCommit, record.targetBranch, ...(record.validationPolicySha256 ? [record.validationPolicySha256] : [])])) !== candidateId) throw Error("Integration receipt identity is invalid.");
     return record;
   }
   async function exclusive<T>(action: () => Promise<T>) {
@@ -62,6 +79,7 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     try { return await action(); } finally { locks.delete(root); }
   }
   async function current(record?: IntegrationCandidateRecord) {
+    if (record) await resolveValidation(record.targetCommit, record);
     const loaded = await hooks.load();
     if (loaded.binding.repositoryId !== hooks.repositoryId) throw Error("Plan completion belongs to another repository.");
     const binding = await createWorkIntakeBranchService({ repositoryId: hooks.repositoryId, repositoryRoot: root }).verify(loaded.binding);
@@ -72,24 +90,39 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     if (!unwrap(await source.status(), record).clean) throw Error("Integration requires a clean incoming checkout.");
     return { binding, plan };
   }
+  async function resolveValidation(targetCommit: string, record?: IntegrationCandidateRecord) {
+    if (!validationPolicy) {
+      if (record?.validationPolicySha256 !== undefined) throw Error("Integration validation policy changed; construct a fresh candidate.");
+      return { sha256: undefined, checks: directChecks, assertCandidate: async () => undefined };
+    }
+    const resolved = await validationPolicy.resolve(targetCommit);
+    if (!resolved || !/^[a-f0-9]{64}$/.test(resolved.sha256) || typeof resolved.assertCandidate !== "function") throw Error("Integration validation policy identity is invalid.");
+    assertChecks(resolved.checks);
+    if (record && record.validationPolicySha256 !== resolved.sha256) throw Error("Integration validation policy changed; construct a fresh candidate.");
+    return { ...resolved, checks: resolved.checks.map((check) => ({ ...check })) };
+  }
   async function validate(record: IntegrationCandidateRecord) {
+    const checkout = integrationPaths(root, record.candidateId).checkout;
+    const resolved = await resolveValidation(record.targetCommit, record);
+    await resolved.assertCandidate(checkout);
     const before = unwrap(await source.inspectIntegration(record.candidateId), record);
     if (!before.clean || before.conflictingPaths.length) throw Error("Integration validation requires a clean committed candidate.");
     record.candidateCommit = before.commit;
     record.validation = [];
-    for (const check of checks) {
+    for (const check of resolved.checks) {
       try {
         const proof = await check.run(integrationPaths(root, record.candidateId).checkout);
         // Retain bounded semantic failure detail from the trusted adapter, never raw process diagnostics.
         const passed = Number.isInteger(proof.exitCode) && proof.exitCode === 0;
         let summary = passed ? "Required check passed." : "Required check failed; inspect the configured validation adapter evidence.";
-        if (typeof proof.summary === "string" && proof.summary.trim() && proof.summary.length <= 4000 && !/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|CHAMPCITY-METADATA)/.test(proof.summary)) {
+        if (typeof proof.summary === "string" && proof.summary.trim() && proof.summary.length <= 4000 && !/(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp|var\/tmp)\/|CHAMPCITY-METADATA)/.test(proof.summary)) {
           assertIntegrationSourceText(proof.summary); summary = proof.summary.trim();
         }
         record.validation.push({ checkId: check.checkId, exitCode: Number.isInteger(proof.exitCode) ? proof.exitCode : null, summary });
       } catch { record.validation.push({ checkId: check.checkId, exitCode: null, summary: "Required check could not complete." }); }
     }
     const after = unwrap(await source.inspectIntegration(record.candidateId), record);
+    await resolved.assertCandidate(checkout);
     const passed = after.clean && after.commit === before.commit && record.validation.every((proof) => proof.exitCode === 0);
     record.status = passed ? "validated" : "validation-failed";
     record.message = passed ? "Candidate passed every required integration check; target has not advanced." : "Post-merge validation failed or changed candidate source; target remains unchanged.";
@@ -104,12 +137,13 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
       if (binding.remote) unwrap(await source.fetch(binding.remote.name));
       const refs = unwrap(await source.integrationTarget({ baseCommit: binding.baseCommit, incomingBranch: binding.workBranch, targetBranch: binding.baseBranch, remote: binding.remote?.name }));
       if (refs.incomingCommit !== binding.currentHead) throw Error("Incoming source changed before candidate creation.");
-      const candidateId = digest(JSON.stringify([hooks.repositoryId, binding.intakeId, plan.planId, plan.planRevision, plan.fingerprint, binding.baseCommit, refs.incomingCommit, refs.targetCommit, refs.localTargetCommit, binding.baseBranch]));
+      const resolved = await resolveValidation(refs.targetCommit);
+      const candidateId = digest(JSON.stringify([hooks.repositoryId, binding.intakeId, plan.planId, plan.planRevision, plan.fingerprint, binding.baseCommit, refs.incomingCommit, refs.targetCommit, refs.localTargetCommit, binding.baseBranch, ...(resolved.sha256 ? [resolved.sha256] : [])]));
       const paths = integrationPaths(root, candidateId);
       if (fs.existsSync(paths.record)) throw Error("This exact candidate already has a receipt; inspect or abort it before creating another candidate.");
       const record: IntegrationCandidateRecord = { candidateId, repositoryId: hooks.repositoryId, intakeId: binding.intakeId, planId: plan.planId, planRevision: plan.planRevision, planFingerprint: plan.fingerprint,
         baseCommit: binding.baseCommit, incomingBranch: binding.workBranch, targetBranch: binding.baseBranch, ...refs, candidateBranch: paths.branch, ...(binding.remote ? { remote: binding.remote.name } : {}),
-        status: "constructing", conflictingPaths: [], validation: [], requiredChecks: checks.map((check) => check.checkId), remoteSync: "not-requested", message: "Constructing isolated integration candidate.", receipts: [] };
+        status: "constructing", conflictingPaths: [], validation: [], requiredChecks: resolved.checks.map((check) => check.checkId), ...(resolved.sha256 ? { validationPolicySha256: resolved.sha256 } : {}), remoteSync: "not-requested", message: "Constructing isolated integration candidate.", receipts: [] };
       persist(record);
       try {
         unwrap(await source.createIntegration({ candidateId, targetCommit: record.targetCommit }), record);
@@ -128,8 +162,10 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     }),
     advance: (candidateId: string, synchronize = false) => exclusive(async () => {
       const record = read(candidateId);
-      if (record.status !== "validated" || !record.candidateCommit || JSON.stringify(record.requiredChecks) !== JSON.stringify(checks.map((check) => check.checkId)) || record.validation.length !== checks.length || record.validation.some((proof, index) => proof.exitCode !== 0 || proof.checkId !== checks[index].checkId)) throw Error("Target advance requires a candidate with all current required checks passing.");
+      const resolved = await resolveValidation(record.targetCommit, record);
+      if (record.status !== "validated" || !record.candidateCommit || JSON.stringify(record.requiredChecks) !== JSON.stringify(resolved.checks.map((check) => check.checkId)) || record.validation.length !== resolved.checks.length || record.validation.some((proof, index) => proof.exitCode !== 0 || proof.checkId !== resolved.checks[index].checkId)) throw Error("Target advance requires a candidate with all current required checks passing.");
       await current(record);
+      await resolved.assertCandidate(integrationPaths(root, record.candidateId).checkout);
       const result = await source.advanceIntegration({ candidateId, candidateCommit: record.candidateCommit, targetBranch: record.targetBranch, localTargetCommit: record.localTargetCommit, incomingBranch: record.incomingBranch, incomingCommit: record.incomingCommit });
       record.receipts.push(result.receipt);
       if (!result.ok && !result.completedResult) { record.status = "failed"; record.message = `${result.error.message} Target advancement was not confirmed; inspect refs before retry.`; persist(record); return record; }

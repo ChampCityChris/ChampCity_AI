@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "checks": [
+    {
+      "checkId": "champcity-typecheck",
+      "lane": "static",
+      "runner": { "kind": "npm-script", "script": "typecheck", "timeoutMs": 120000 }
+    },
+    {
+      "checkId": "champcity-build",
+      "lane": "static",
+      "runner": { "kind": "npm-script", "script": "build", "timeoutMs": 120000 }
+    },
+    {
+      "checkId": "champcity-regression-built",
+      "lane": "full-regression",
+      "runner": { "kind": "npm-script", "script": "test:unit:built", "timeoutMs": 900000 }
+    }
+  ],
+  "requiredIntegrationChecks": ["champcity-typecheck", "champcity-build", "champcity-regression-built"]
+}

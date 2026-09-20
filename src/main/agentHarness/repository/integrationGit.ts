@@ -6,6 +6,28 @@ import { inspectGitBranchState, inspectGitHistory } from "./gitMutations";
 
 const fail = (message: string) => new AgentHarnessError("GIT_EXECUTION_FAILED", message);
 const exact = (commit: string) => { if (!/^[a-f0-9]{40,64}$/.test(commit)) throw fail("Integration requires an exact commit."); return commit; };
+const exactRepositoryPath = (relativePath: string) => {
+  if (typeof relativePath !== "string" || !relativePath || relativePath.length > 4096
+    || relativePath.split("/").some((part) => !part || part === "." || part === ".." || /[\\:\r\n]/.test(part))) {
+    throw fail("Integration commit read requires an exact repository-relative path.");
+  }
+  return relativePath;
+};
+
+/** Read one bounded blob from an immutable commit without changing any checkout or ref. */
+export async function readIntegrationCommitFile(root: string, commit: string, relativePath: string, limit: number): Promise<Buffer> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1_000_000) throw fail("Integration commit read exceeds its byte bound.");
+  try {
+    const result = await runBoundedGit({
+      cwd: root,
+      args: ["cat-file", "blob", `${exact(commit)}:${exactRepositoryPath(relativePath)}`],
+      stdoutLimitBytes: limit,
+    });
+    return result.stdoutBuffer;
+  } catch {
+    throw fail("Required integration configuration is missing, unreadable, or exceeds its commit-file bound.");
+  }
+}
 export function integrationPaths(root: string, candidateId: string) {
   if (!/^[a-f0-9]{64}$/.test(candidateId)) throw fail("Invalid integration candidate identity.");
   // Keep every temporary write inside the selected repository. Linked checkouts must select their owning primary repository for integration.

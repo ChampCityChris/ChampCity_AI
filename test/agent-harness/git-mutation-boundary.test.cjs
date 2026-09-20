@@ -8,17 +8,102 @@ const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 
-test("isolated integration candidates gate target advancement on current Plan and post-merge proof", async (t) => {
+test("integration policy rejects untrusted schemas and redirected or unbounded configuration", async (t) => {
+  const { parseIntegrationPolicy, INTEGRATION_POLICY_MAX_BYTES } = require("../../dist/shared/integrationPolicyContracts.js");
+  const { loadIntegrationPolicy } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-policy-contract-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const policy = { schemaVersion: 1, checks: [{ checkId: "source", lane: "integration", runner: { kind: "npm-script", script: "verify:source", timeoutMs: 10000 } }], requiredIntegrationChecks: ["source"] };
+  const invalid = [
+    ["unsupported version", (p) => { p.schemaVersion = 2; }],
+    ["empty checks", (p) => { p.checks = []; }],
+    ["too many checks", (p) => { p.checks = Array.from({ length: 33 }, (_, i) => ({ ...p.checks[0], checkId: `check-${i}` })); }],
+    ["duplicate check", (p) => { p.checks.push(p.checks[0]); }],
+    ["missing required check", (p) => { p.requiredIntegrationChecks = ["missing"]; }],
+    ["empty required checks", (p) => { p.requiredIntegrationChecks = []; }],
+    ["duplicate required check", (p) => { p.requiredIntegrationChecks.push("source"); }],
+    ["unknown lane", (p) => { p.checks[0].lane = "custom"; }],
+    ["unsupported runner", (p) => { p.checks[0].runner.kind = "shell"; }],
+    ["command field", (p) => { p.checks[0].runner.command = "node verify.cjs"; }],
+    ["arguments field", (p) => { p.checks[0].runner.args = ["--extra"]; }],
+    ["root field", (p) => { p.cwd = ".."; }],
+    ["check field", (p) => { p.checks[0].optional = true; }],
+    ["shell script fragment", (p) => { p.checks[0].runner.script = "verify; echo injected"; }],
+    ["script option", (p) => { p.checks[0].runner.script = "--help"; }],
+    ["script path", (p) => { p.checks[0].runner.script = "../verify"; }],
+    ["missing identity", (p) => { delete p.checks[0].checkId; }],
+    ...[0, -1, 1.5, 900001, "1000"].map((timeout) => [`timeout ${timeout}`, (p) => { p.checks[0].runner.timeoutMs = timeout; }]),
+  ];
+  for (const [label, mutate] of invalid) {
+    const value = structuredClone(policy); mutate(value);
+    assert.throws(() => parseIntegrationPolicy(value), undefined, label);
+  }
+  assert.deepEqual(parseIntegrationPolicy(policy), policy);
+  assert.throws(() => loadIntegrationPolicy(root), /missing/);
+  const directory = path.join(root, ".champcity"); fs.mkdirSync(directory);
+  const config = path.join(directory, "integration-policy.json");
+  fs.writeFileSync(config, "{"); assert.throws(() => loadIntegrationPolicy(root), /JSON/);
+  fs.writeFileSync(config, Buffer.from([0xff])); assert.throws(() => loadIntegrationPolicy(root), /UTF-8/);
+  fs.writeFileSync(config, " ".repeat(INTEGRATION_POLICY_MAX_BYTES + 1)); assert.throws(() => loadIntegrationPolicy(root), /bound/);
+  fs.unlinkSync(config); fs.mkdirSync(config); assert.throws(() => loadIntegrationPolicy(root), /ordinary-file/); fs.rmdirSync(config);
+  fs.writeFileSync(config, JSON.stringify(policy));
+  const loaded = loadIntegrationPolicy(root);
+  assert.match(loaded.sha256, /^[a-f0-9]{64}$/);
+  const other = path.join(root, "redirect"); fs.renameSync(directory, other);
+  fs.symlinkSync(other, directory, process.platform === "win32" ? "junction" : "dir");
+  assert.throws(() => loadIntegrationPolicy(root), /redirected/);
+  fs.unlinkSync(directory); fs.renameSync(other, directory);
+  // Required order belongs to the policy, not declaration order or alphabetical script names.
+  const ordered = structuredClone(policy);
+  ordered.checks.push({ ...ordered.checks[0], checkId: "second" });
+  ordered.requiredIntegrationChecks = ["second", "source"];
+  assert.deepEqual(parseIntegrationPolicy(ordered).requiredIntegrationChecks, ["second", "source"]);
+});
+
+for (const [title, scenarios] of [
+  ["target-owned repository policy gates isolated integration candidates", ["policy", "policy-weakened-incoming", "policy-valid-future", "policy-invalid-future", "policy-changed-script", "policy-missing-script", "policy-recreated", "policy-stale-target", "policy-failure", "policy-timeout", "policy-output", "policy-mutates"]],
+  ["isolated integration candidates gate target advancement on current Plan and post-merge proof", ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target", "operator-decision", "worker-git"]],
+]) test(title, async (t) => {
   const { createIntegrationCandidateService } = require("../../dist/main/planExecution/integrationCandidateService.js");
   const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
   const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
   const { execFileSync } = require("node:child_process");
-  for (const scenario of ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target", "operator-decision", "worker-git"]) await t.test(scenario, async () => {
+  const { createIntegrationPolicyProvider, loadIntegrationPolicyAtCommit } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
+  for (const scenario of scenarios) await t.test(scenario, async () => {
     const root = createBoundWorkspace(`champcity-integration-${scenario}-`, true);
     t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
     git(root, ["branch", "-m", "product-target"]);
     fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
     fs.writeFileSync(path.join(root, "shared.txt"), "base\n");
+    const policyScenario = scenario.startsWith("policy");
+    if (policyScenario) {
+      fs.appendFileSync(path.join(root, ".gitignore"), "/.policy-proof.json\n/.policy-processes.json\n");
+      fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
+      const policy = scenario === "policy" ? JSON.parse(fs.readFileSync(path.join(repositoryRoot, ".champcity/integration-policy.json"), "utf8"))
+        : { schemaVersion: 1, checks: [{ checkId: "candidate-source", lane: "integration", runner: { kind: "npm-script", script: "verify", timeoutMs: scenario === "policy-timeout" ? 2500 : 15000 } }], requiredIntegrationChecks: ["candidate-source"] };
+      fs.writeFileSync(path.join(root, ".champcity/integration-policy.json"), JSON.stringify(policy));
+      const scripts = Object.fromEntries(policy.checks.map((check) => [check.runner.script, "node policy-check.cjs"]));
+      if (scenario === "policy") {
+        const currentScripts = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "package.json"), "utf8")).scripts;
+        for (const script of Object.keys(scripts)) assert.ok(Object.hasOwn(currentScripts, script));
+        assert.deepEqual(Object.keys(scripts), ["typecheck", "build", "test:unit:built"]);
+        scripts.pretypecheck = "node -e \"process.exit(79)\"";
+      }
+      fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true, scripts }));
+      fs.writeFileSync(path.join(root, ".npmrc"), "if-present=true\nworkspaces=true\nscript-shell=unavailable-fixture-interpreter\n");
+      fs.writeFileSync(path.join(root, "policy-check.cjs"), `
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+assert.match(process.cwd().replaceAll('\\\\', '/'), /\\.git\\/champcity-integration\\/[a-f0-9]{64}\\/checkout$/);
+assert.match(fs.readFileSync('incoming.txt', 'utf8'), /accepted/);
+const proof = fs.existsSync('.policy-proof.json') ? JSON.parse(fs.readFileSync('.policy-proof.json', 'utf8')) : [];
+proof.push(process.env.npm_lifecycle_event); fs.writeFileSync('.policy-proof.json', JSON.stringify(proof));
+${scenario === "policy-failure" ? "console.error('not ok 1 - candidate preserves accepted source'); console.error('AssertionError: expected accepted marker'); console.error(process.cwd()); console.error(require('node:os').homedir()); console.error(require('node:os').tmpdir()); console.error('ACCESS_TOKEN=fixture-secret-token-value'); process.exit(9);" : ""}
+${scenario === "policy-mutates" ? "fs.appendFileSync('.champcity/integration-policy.json', '\\n');" : ""}
+${scenario === "policy-output" ? "process.stdout.write('x'.repeat(2 * 1024 * 1024)); setInterval(() => {}, 1000);" : ""}
+${scenario === "policy-timeout" ? "const child = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', windowsHide: true }); fs.writeFileSync('.policy-processes.json', JSON.stringify([process.pid, child.pid])); setInterval(() => {}, 1000);" : ""}
+`);
+    }
     commitAllFixtureState(root, "base");
     const base = git(root, ["rev-parse", "HEAD"]);
     const targetBranch = git(root, ["branch", "--show-current"]);
@@ -26,6 +111,25 @@ test("isolated integration candidates gate target advancement on current Plan an
     git(root, ["switch", "-c", incomingBranch]);
     const textualConflict = ["conflict", "operator-decision", "worker-git"].includes(scenario);
     fs.writeFileSync(path.join(root, textualConflict ? "shared.txt" : "incoming.txt"), "incoming accepted behavior\n");
+    if (policyScenario) {
+      const policyPath = path.join(root, ".champcity/integration-policy.json");
+      const manifestPath = path.join(root, "package.json");
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      if (scenario === "policy-weakened-incoming") {
+        fs.writeFileSync(policyPath, JSON.stringify({ schemaVersion: 1, checks: [{ checkId: "weak", lane: "integration", runner: { kind: "npm-script", script: "weak", timeoutMs: 15000 } }], requiredIntegrationChecks: ["weak"] }));
+        manifest.scripts.weak = "node -e \"process.exit(0)\"";
+      } else if (scenario === "policy-valid-future") {
+        fs.writeFileSync(policyPath, JSON.stringify({ schemaVersion: 1, checks: [{ checkId: "future", lane: "fast", runner: { kind: "npm-script", script: "future", timeoutMs: 15000 } }], requiredIntegrationChecks: ["future"] }));
+        manifest.scripts.future = "node -e \"process.exit(0)\"";
+      } else if (scenario === "policy-invalid-future") {
+        fs.writeFileSync(policyPath, "{");
+      } else if (scenario === "policy-changed-script") {
+        manifest.scripts.verify = "node -e \"process.exit(0)\"";
+      } else if (scenario === "policy-missing-script") {
+        delete manifest.scripts.verify;
+      }
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    }
     commitAllFixtureState(root, "accepted incoming source");
     const incoming = git(root, ["rev-parse", "HEAD"]);
     git(root, ["switch", targetBranch]);
@@ -53,9 +157,7 @@ test("isolated integration candidates gate target advancement on current Plan an
     writeDoc(root, "planning/plan.md", "work-planning-plan", "Approved", { identity: { intakeId: binding.intakeId, planId: plan.planId }, bodyMarkdown: "# Work Plan\n\nBoth accepted capabilities must remain." });
     fs.writeFileSync(path.join(root, "planning/architecture.md"), "# Accepted architecture\n\nKeep both public contracts.\n");
     let validationCalls = 0;
-    const service = createIntegrationCandidateService({ repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }),
-      repairPolicy: async () => ({ sources: [{ role: "intake", path: "planning/intake.md" }, { role: "plan", path: "planning/plan.md" }, { role: "architecture", path: "planning/architecture.md" }], editablePaths: [textualConflict ? "shared.txt" : "incoming.txt"] }),
-      checks: [{ checkId: "preserved-source", run: async (candidateRoot) => {
+    const directChecks = [{ checkId: "preserved-source", run: async (candidateRoot) => {
       validationCalls++;
       assert.notEqual(candidateRoot, root);
       assert.equal(git(root, ["rev-parse", targetBranch]), target, "Target remains untouched during validation");
@@ -64,7 +166,11 @@ test("isolated integration candidates gate target advancement on current Plan an
       execFileSync(process.execPath, ["-e", script], { cwd: candidateRoot, windowsHide: true, stdio: "pipe" });
       if (scenario === "validation-mutates") fs.writeFileSync(path.join(candidateRoot, "incoming.txt"), "changed during validation\n");
       return { exitCode: scenario === "validation-failed" && !fs.readFileSync(path.join(candidateRoot, "incoming.txt"), "utf8").includes("verified resolution") ? 1 : 0, summary: "Source preservation check" };
-    } }] });
+    } }];
+    const serviceHooks = { repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }),
+      repairPolicy: async () => ({ sources: [{ role: "intake", path: "planning/intake.md" }, { role: "plan", path: "planning/plan.md" }, { role: "architecture", path: "planning/architecture.md" }], editablePaths: [textualConflict ? "shared.txt" : "incoming.txt"] }),
+      ...(policyScenario ? createIntegrationPolicyProvider(root) : { checks: directChecks }) };
+    const service = createIntegrationCandidateService(serviceHooks);
     plan.fresh = false; await assert.rejects(service.create(), /Plan completion/); plan.fresh = true;
     const candidate = await service.create();
     assert.equal(git(root, ["rev-parse", targetBranch]), target);
@@ -72,6 +178,60 @@ test("isolated integration candidates gate target advancement on current Plan an
     assert.equal(candidate.mergeBase, base);
     assert.deepEqual(service.read(candidate.candidateId), candidate);
     const checkout = integrationPaths(root, candidate.candidateId).checkout;
+    if (policyScenario) {
+      assert.equal(candidate.validationPolicySha256, (await loadIntegrationPolicyAtCommit(root, target)).sha256, "Receipt binds the immutable target policy");
+      assert.equal(fs.existsSync(path.join(root, ".policy-proof.json")), false, "Checks never run in the source checkout");
+      if (scenario === "policy-invalid-future") {
+        assert.equal(candidate.status, "failed", "An invalid proposed replacement policy cannot advance");
+        assert.deepEqual(candidate.validation, []);
+        await assert.rejects(service.advance(candidate.candidateId), /all current required checks passing/);
+      } else if (["policy-changed-script", "policy-missing-script", "policy-failure", "policy-timeout", "policy-output", "policy-mutates"].includes(scenario)) {
+        assert.equal(candidate.status, "validation-failed");
+        const messages = { "policy-changed-script": /target-trusted definition/, "policy-missing-script": /target-trusted definition/, "policy-failure": /candidate preserves accepted source|AssertionError/, "policy-timeout": /duration limit/, "policy-output": /output limit/, "policy-mutates": /script passed/ };
+        assert.match(candidate.validation[0].summary, messages[scenario]);
+        assert.equal(candidate.validation[0].exitCode, scenario === "policy-failure" ? 9 : scenario === "policy-mutates" ? 0 : null);
+        const durable = JSON.stringify(candidate.validation);
+        assert.equal(durable.length < 2000, true, "Failure evidence remains bounded");
+        for (const unsafe of [root, os.homedir(), os.tmpdir(), "fixture-secret-token-value"]) assert.equal(durable.toLowerCase().includes(unsafe.toLowerCase()), false, `Durable evidence omits ${unsafe}`);
+        await assert.rejects(service.advance(candidate.candidateId), /all current required checks passing/);
+        if (scenario === "policy-timeout") {
+          const pids = JSON.parse(fs.readFileSync(path.join(checkout, ".policy-processes.json"), "utf8"));
+          for (const pid of pids) assert.throws(() => process.kill(pid, 0), /ESRCH/, "Timed out script and descendant exited");
+        }
+      } else {
+        assert.equal(candidate.status, "validated", JSON.stringify(candidate.validation));
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(checkout, ".policy-proof.json"), "utf8")), scenario === "policy" ? ["typecheck", "build", "test:unit:built"] : ["verify"]);
+        if (["policy-weakened-incoming", "policy-valid-future"].includes(scenario)) {
+          assert.deepEqual(candidate.requiredChecks, ["candidate-source"], "Incoming replacement policy does not govern its own candidate");
+        }
+        if (scenario === "policy") {
+          assert.equal((await service.advance(candidate.candidateId)).status, "integrated");
+        } else if (scenario === "policy-recreated") {
+          const correctProvider = createIntegrationPolicyProvider(root);
+          const wrongProvider = { validationPolicy: { resolve: async (commit) => ({ ...(await correctProvider.validationPolicy.resolve(commit)), sha256: "0".repeat(64) }) } };
+          await assert.rejects(createIntegrationCandidateService({ ...serviceHooks, ...wrongProvider }).advance(candidate.candidateId), /policy changed/);
+          const withoutProvider = createIntegrationCandidateService({ ...serviceHooks, validationPolicy: undefined, checks: directChecks });
+          await assert.rejects(withoutProvider.advance(candidate.candidateId), /policy changed/);
+          assert.equal((await createIntegrationCandidateService({ ...serviceHooks, ...correctProvider }).advance(candidate.candidateId)).status, "integrated");
+        } else if (scenario === "policy-stale-target") {
+          git(root, ["switch", targetBranch]);
+          fs.appendFileSync(path.join(root, ".champcity/integration-policy.json"), "\n");
+          commitAllFixtureState(root, "target policy changes after candidate validation");
+          git(root, ["switch", incomingBranch]);
+          const later = git(root, ["rev-parse", targetBranch]);
+          const blocked = await service.advance(candidate.candidateId);
+          assert.equal(blocked.status, "failed"); assert.match(blocked.message, /refs changed/); assert.equal(git(root, ["rev-parse", targetBranch]), later);
+        } else {
+          assert.equal(git(root, ["rev-parse", targetBranch]), target);
+        }
+      }
+      const retained = git(root, ["rev-parse", targetBranch]);
+      await service.abort(candidate.candidateId);
+      assert.equal(fs.existsSync(checkout), false);
+      assert.equal(git(root, ["rev-parse", targetBranch]), retained);
+      assert.equal(git(root, ["status", "--porcelain"]), "");
+      return;
+    }
     if (textualConflict) {
       assert.equal(candidate.status, "conflicted", candidate.message); assert.deepEqual(candidate.conflictingPaths, ["shared.txt"]); assert.equal(validationCalls, 0);
       assert.match(fs.readFileSync(path.join(checkout, "shared.txt"), "utf8"), /<<<<<<< HEAD/);

@@ -72,6 +72,7 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | `CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md` | **Adopted architecture decision** | Existing `ChampCity_AI` product monorepo; app/package boundaries | Architecture |
 | `CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md` | **Adopted V2 pattern** | Three-turn Architect → Design Reviewer → Architect cycle | Architecture / Workflow |
 | `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` | **Adopted workflow/source-control architecture** | Universal Work Intake routing, route-specific planning profiles, direct/phased Plan topology, generic Plan execution, dedicated Intake branches, machine-owned Git, integration candidate, Integration Repair | Architecture / Workflow |
+| `PROJECT_INTEGRATION_VALIDATION_POLICY.md` | **Implemented runtime-governing contract** | Target-owned integration policy, trusted runner definitions, controlled policy transition, and bounded validation evidence | Architecture / Runtime Contract |
 | `WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md` | **Current transition standard** | Bounded implementation/repair contracts through V1→V2 reporting transition | Governance |
 | `CHAMPCITY_VOCABULARY_MIGRATION_PLAN.md` | Current migration plan | Legacy `workspace*` and other terminology compatibility boundary | Migration |
 | `SOURCE_EXTRACTION_MAP.md` | **Frozen-V1-refreshed source map (2026-09-14)** | Current source → V2 ownership/extraction map | Migration |
@@ -129,7 +130,8 @@ docs/
 │   ├── CHAMPCITY_RUNTIME_RECOVERY_DECISION.md
 │   ├── CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md
 │   ├── CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md
-│   └── CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md
+│   ├── CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md
+│   └── PROJECT_INTEGRATION_VALIDATION_POLICY.md
 ├── governance/
 │   ├── CHAMPCITY_GOVERNANCE_VOCABULARY.md
 │   ├── CHAMPCITY_AUTHORITY_AND_DELEGATION_GOVERNANCE.md

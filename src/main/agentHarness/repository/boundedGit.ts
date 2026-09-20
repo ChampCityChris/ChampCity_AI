@@ -19,6 +19,7 @@ interface GitExecutionOptions {
 
 export interface GitExecutionResult {
   stdout: string;
+  stdoutBuffer: Buffer;
   stderr: string;
   exitCode: number | null;
   stoppedEarly: boolean;
@@ -188,8 +189,10 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
         ));
         return;
       }
+      const stdoutBuffer = Buffer.concat(stdout);
       resolve({
-        stdout: Buffer.concat(stdout).toString("utf8"),
+        stdout: stdoutBuffer.toString("utf8"),
+        stdoutBuffer,
         stderr: stderrText,
         exitCode,
         stoppedEarly,
