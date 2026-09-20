@@ -264,6 +264,8 @@ The following are prohibited unless the Work Item explicitly requires a legitima
 - changing timeout or retry values solely to hide nondeterminism;
 - reporting a focused pass as though the full required lane passed.
 
+Tests that protect the same observable contract or a materially equivalent failure boundary must map to the same capability and behavior identity. A separate executable test, file, test name, implementation path, or fixture is not by itself a separate behavior. Implementers must not create additional behavior IDs to manufacture additional primary proofs, avoid supporting or redundant classification, or make coverage appear more diverse. When similar tests genuinely protect materially different contracts or failure boundaries and therefore receive different behavior IDs, the Implementer Report must identify the tests and explain the substantive behavioral distinction.
+
 When production code and existing tests change in the same Work Item, the Implementer Report must explain each test change and identify whether it reflects:
 
 - newly covered behavior;

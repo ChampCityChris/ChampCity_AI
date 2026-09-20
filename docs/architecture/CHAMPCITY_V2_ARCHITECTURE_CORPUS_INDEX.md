@@ -21,7 +21,7 @@ When documents overlap, use this precedence:
 3. **Adopted V2 product/foundational architecture:**
    - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md`;
    - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`.
-4. **Topic-specific adopted architecture/contracts**, including Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, and the Architectural Review Cycle.
+4. **Topic-specific adopted architecture/contracts**, including Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned Git lifecycle.
 5. **Current migration/source mappings** such as `SOURCE_EXTRACTION_MAP.md`, the Desktop Source Mapping, and Vocabulary Migration Plan.
 6. **Historical/design-discussion documents**, which may explain rationale but may not override the adopted contracts above.
 
@@ -71,6 +71,7 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | `CHAMPCITY_RUNTIME_RECOVERY_DECISION.md` | **Adopted architecture decision** | Runtime/external-action continuation and recovery semantics | Architecture |
 | `CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md` | **Adopted architecture decision** | Existing `ChampCity_AI` product monorepo; app/package boundaries | Architecture |
 | `CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md` | **Adopted V2 pattern** | Three-turn Architect → Design Reviewer → Architect cycle | Architecture / Workflow |
+| `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` | **Adopted workflow/source-control architecture** | Universal Work Intake routing, route-specific planning profiles, direct/phased Plan topology, generic Plan execution, dedicated Intake branches, machine-owned Git, integration candidate, Integration Repair | Architecture / Workflow |
 | `WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md` | **Current transition standard** | Bounded implementation/repair contracts through V1→V2 reporting transition | Governance |
 | `CHAMPCITY_VOCABULARY_MIGRATION_PLAN.md` | Current migration plan | Legacy `workspace*` and other terminology compatibility boundary | Migration |
 | `SOURCE_EXTRACTION_MAP.md` | **Frozen-V1-refreshed source map (2026-09-14)** | Current source → V2 ownership/extraction map | Migration |
@@ -127,7 +128,8 @@ docs/
 │   ├── CHAMPCITY_AGENT_RUNTIME_INTERFACE_CONTRACT.md
 │   ├── CHAMPCITY_RUNTIME_RECOVERY_DECISION.md
 │   ├── CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md
-│   └── CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md
+│   ├── CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md
+│   └── CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md
 ├── governance/
 │   ├── CHAMPCITY_GOVERNANCE_VOCABULARY.md
 │   ├── CHAMPCITY_AUTHORITY_AND_DELEGATION_GOVERNANCE.md

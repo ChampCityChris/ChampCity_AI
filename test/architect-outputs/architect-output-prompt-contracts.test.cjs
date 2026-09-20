@@ -58,16 +58,33 @@ const repairWorkCardHeadings = [
   "Manual Validation",
 ];
 
-test("shared validation-scope guidance preserves ordered Work Card and Fix Card semantic parity", () => {
+test("validation-scope guidance preserves seven shared rules and keeps Work Card coverage governance out of Fix Cards", () => {
   const workCardGuidance = buildImplementationValidationScopeGuidance("work-card");
   const fixCardGuidance = buildImplementationValidationScopeGuidance("fix-card");
   const normalizeContractNoun = (lines) => lines.map((line) =>
     line.replaceAll("Work Card", "Contract").replaceAll("Fix Card", "Contract"),
   );
+  const workCardRules = workCardGuidance.filter((line) => line.startsWith("- "));
+  const fixCardRules = fixCardGuidance.filter((line) => line.startsWith("- "));
 
-  assert.equal(workCardGuidance.filter((line) => line.startsWith("- ")).length, 7);
-  assert.equal(fixCardGuidance.filter((line) => line.startsWith("- ")).length, 7);
-  assert.deepEqual(normalizeContractNoun(workCardGuidance), normalizeContractNoun(fixCardGuidance));
+  assert.equal(workCardRules.length, 12);
+  assert.equal(fixCardRules.length, 7);
+  assert.deepEqual(normalizeContractNoun(workCardRules.slice(0, 7)), normalizeContractNoun(fixCardRules));
+  for (const workCardOnlyPhrase of [
+    "validation/capability-map.json",
+    "reuse an existing test unchanged",
+    "does not by itself require a new test",
+    "does not require test-count growth",
+    "specific coverage-gap justification",
+    "existing tests reused unchanged",
+    "existing tests modified or extended",
+    "tests consolidated when explicitly authorized",
+    "tests retired when explicitly authorized",
+    "new permanent tests added",
+  ]) {
+    assert.ok(workCardGuidance.some((line) => line.includes(workCardOnlyPhrase)), workCardOnlyPhrase);
+    assert.equal(fixCardGuidance.some((line) => line.includes(workCardOnlyPhrase)), false, workCardOnlyPhrase);
+  }
 });
 
 function identity(markdownPath, artifactRevision = 1, disposition = "Pending") {
@@ -551,6 +568,15 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(formalPrompt, /smallest practical boundary relevant to the behavior owned by this Work Card/);
   assert.match(formalPrompt, /Do not make an entire multi-domain test file or broad suite an all-or-nothing acceptance gate/);
   assert.match(formalPrompt, /demonstrated unrelated or pre-existing failure/);
+  assert.match(formalPrompt, /inspect the existing tests and validation\/capability-map\.json/);
+  assert.match(formalPrompt, /reuse an existing test unchanged/);
+  assert.match(formalPrompt, /does not require test-count growth/);
+  assert.match(formalPrompt, /specific coverage-gap justification/);
+  assert.match(formalPrompt, /existing tests reused unchanged/);
+  assert.match(formalPrompt, /existing tests modified or extended/);
+  assert.match(formalPrompt, /tests consolidated when explicitly authorized/);
+  assert.match(formalPrompt, /tests retired when explicitly authorized/);
+  assert.match(formalPrompt, /new permanent tests added/);
   assert.match(formalPrompt, /Manual Validation contains only visual, interactive, timing-sensitive, or embedded-browser checks that require the running product/);
   assert.match(formalPrompt, /call artifact_toolbox\.write_markdown_artifact exactly once/);
   assert.equal(formalActionBlocks.length, 1);
@@ -571,6 +597,9 @@ test("production prompt matrix states all nine slot contracts before draft write
   assert.match(repairPrompt, /Return target: work-card-building-review/);
   assert.match(repairPrompt, /Final Repair Work Card target: planning\/phases\/phase-01\/Work_Cards\/WC41-REPAIR01_prompt_contract_mismatch\.md/);
   assert.match(repairPrompt, /## In-Scope Surface/);
+  assert.doesNotMatch(repairPrompt, /validation\/capability-map\.json/);
+  assert.doesNotMatch(repairPrompt, /existing tests reused unchanged/);
+  assert.doesNotMatch(repairPrompt, /specific coverage-gap justification/);
   assert.doesNotMatch(repairPrompt, /## Authorized Surface/);
   assert.doesNotMatch(repairPrompt, /Use ChampCity MCP with repository reference <PROJECT_REPO>\./);
   assert.doesNotMatch(repairPrompt, /ChampCityChris|champcity_ai/i);

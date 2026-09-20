@@ -51,6 +51,12 @@ Use curated or synthetic workspaces under `test/fixtures/` or temporary test roo
 
 One-time repository searches and inventories are Architect audit evidence. Disposition and retire them when the audit is complete. Permanent regression tests guard durable behavior, contracts, integrity, security and resource boundaries, process behavior, or true structural dependency rules. Raw source text is not a substitute for semantic behavioral proof. AST or module analysis is appropriate when structure itself is the durable invariant.
 
+Before creating a new permanent automated test, inspect the existing tests and `validation/capability-map.json` for the affected behavior. Prefer, in order: (1) reuse an existing test unchanged when it already proves the required behavior; (2) modify or extend an existing test when the new requirement belongs to the same stable behavior or proof boundary; (3) consolidate overlapping or redundant proof when the governing Work Card explicitly authorizes consolidation and regression protection is preserved or improved; (4) create a new permanent test only when existing coverage cannot adequately prove a materially distinct behavior, boundary condition, regression, failure mode, contract, or risk. A production-code change does not itself require a new test. Successful Work Card completion does not require the repository test count to increase, and test quantity is not an acceptance criterion. When a new permanent test is added, its owner must identify the previously uncovered behavior, boundary, regression, failure mode, contract, or risk that justified creating it rather than reusing or modifying existing proof.
+
+## Validation Metadata Boundary
+
+`validation/` contains repository-owned machine-readable validation metadata, including the canonical capability and test ownership map. It is not packaged product runtime, application workflow state, test-fixture state, generated output, or historical archive. Production code must not import runtime behavior from it. Validation tooling may read it to select and explain repository validation only when the governing implementation work introduces that consumer.
+
 ## Migration Boundary
 
 A migration is in scope only when an active Work Card names a supported source format and target format. It must be bounded, deterministic, repository-contained, recoverable, and tested against curated fixtures. Do not add compatibility code for records preserved only in local historical archive material.
