@@ -56,6 +56,28 @@ test("landing selection feedback remains bounded to the landing surface", () => 
 });
 
 test("Workflow Hub registry exposes only the functional peer workflows", () => {
+  const { workRouteProfiles, getWorkRouteProfile, isWorkRouteId } =
+    loader.loadRendererSourceModule("src/shared/workIntakeRoutingContracts.ts");
+  // Planning profiles are independent of the two existing execution entries.
+  assert.deepEqual(workRouteProfiles.map(({ routeId }) => routeId), [
+    "greenfield", "feature-change", "refactor-migration", "integration-composition",
+    "infrastructure-platform", "research-prototype", "issue-resolution",
+  ]);
+  assert.ok(Object.isFrozen(workRouteProfiles));
+  for (const [index, profile] of workRouteProfiles.entries()) {
+    assert.equal(getWorkRouteProfile(profile.routeId), profile);
+    assert.equal(isWorkRouteId(profile.routeId), true);
+    assert.ok(Object.isFrozen(profile));
+    assert.ok(profile.label && profile.description);
+    assert.ok(index === 0 || profile.order > workRouteProfiles[index - 1].order);
+    assert.equal("topology" in profile, false);
+    assert.equal("workflowId" in profile, false);
+  }
+  assert.equal(getWorkRouteProfile("issue-resolution").assessmentKind, "root-cause-analysis");
+  for (const unknown of ["maintenance", "development", "direct", "phased", "GREENFIELD", "toString", null]) {
+    assert.equal(isWorkRouteId(unknown), false);
+    assert.equal(getWorkRouteProfile(unknown), undefined);
+  }
   assert.deepEqual(
     workflowDefinitions.map(({ workflowId, label, description, tags }) => ({
       workflowId,
