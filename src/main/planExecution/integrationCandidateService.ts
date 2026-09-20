@@ -9,6 +9,9 @@ import { integrationPaths } from "../agentHarness/repository/integrationGit";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
 import { projectPlanExecution } from "./planExecutor";
+import { createIntegrationRepairController } from "./integrationRepairService";
+import type { IntegrationRepairPolicy } from "../../shared/integrationRepairContracts";
+import { assertIntegrationSourceText } from "../agentHarness/repository/integrationRepairGit";
 
 /** Main-process adapters supply current durable Plan evidence and the required validation policy, never renderer commands. */
 export interface IntegrationCandidateHooks {
@@ -16,6 +19,7 @@ export interface IntegrationCandidateHooks {
   repositoryId: string;
   load: () => Promise<{ binding: WorkIntakeBranchBinding; plan: PlanExecutionInput }>;
   checks: Array<{ checkId: string; run: (candidateRoot: string) => Promise<Omit<IntegrationValidationEvidence, "checkId">> }>;
+  repairPolicy?: () => Promise<IntegrationRepairPolicy>;
 }
 const locks = new Set<string>();
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -76,9 +80,13 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     for (const check of checks) {
       try {
         const proof = await check.run(integrationPaths(root, record.candidateId).checkout);
-        // Persist controlled summaries only; adapter output must not expose machine paths or credentials.
+        // Retain bounded semantic failure detail from the trusted adapter, never raw process diagnostics.
         const passed = Number.isInteger(proof.exitCode) && proof.exitCode === 0;
-        record.validation.push({ checkId: check.checkId, exitCode: Number.isInteger(proof.exitCode) ? proof.exitCode : null, summary: passed ? "Required check passed." : "Required check failed; inspect the configured validation adapter evidence." });
+        let summary = passed ? "Required check passed." : "Required check failed; inspect the configured validation adapter evidence.";
+        if (typeof proof.summary === "string" && proof.summary.trim() && proof.summary.length <= 4000 && !/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|CHAMPCITY-METADATA)/.test(proof.summary)) {
+          assertIntegrationSourceText(proof.summary); summary = proof.summary.trim();
+        }
+        record.validation.push({ checkId: check.checkId, exitCode: Number.isInteger(proof.exitCode) ? proof.exitCode : null, summary });
       } catch { record.validation.push({ checkId: check.checkId, exitCode: null, summary: "Required check could not complete." }); }
     }
     const after = unwrap(await source.inspectIntegration(record.candidateId), record);
@@ -89,6 +97,7 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     return record;
   }
   return {
+    ...createIntegrationRepairController({ root, source, read, persist, current, validate, exclusive, policy: hooks.repairPolicy }),
     read,
     create: () => exclusive(async () => {
       const { binding, plan } = await current();

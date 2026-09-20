@@ -8,7 +8,8 @@ export type SourceControlOperation =
   | "status" | "branches" | "history" | "diff" | "changed-files" | "readiness" | "commit-message"
   | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
   | "fast-forward" | "delete-branch" | "integration-target" | "integration-create"
-  | "integration-inspect" | "integration-merge" | "integration-advance" | "integration-abort";
+  | "integration-inspect" | "integration-merge" | "integration-advance" | "integration-abort"
+  | "integration-repair-snapshot" | "integration-repair-diffs" | "integration-repair-commit";
 
 export interface SourceControlReceipt {
   repositoryId: string;

@@ -41,7 +41,7 @@ export async function inspectIntegrationTarget(root: string, input: { baseCommit
   if (bases.length !== 1) throw fail("Integration requires one unambiguous merge base.");
   return { incomingCommit, localTargetCommit, targetCommit, mergeBase: exact(bases[0]) };
 }
-async function registeredCheckout(root: string, candidateId: string) {
+export async function registeredIntegrationCheckout(root: string, candidateId: string) {
   const paths = integrationPaths(root, candidateId);
   const listing = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout;
   const records = listing.split("\0\0").map((entry) => entry.split("\0"));
@@ -59,11 +59,11 @@ export async function createIntegrationCheckout(root: string, input: { candidate
   if (fs.existsSync(paths.checkout)) throw fail("Integration checkout already exists; resume or abort its recorded candidate.");
   fs.mkdirSync(paths.base, { recursive: true });
   await runBoundedGit({ cwd: root, args: ["worktree", "add", "-b", paths.branch, paths.checkout, input.targetCommit] });
-  await registeredCheckout(root, input.candidateId);
+  await registeredIntegrationCheckout(root, input.candidateId);
   return { branch: paths.branch, commit: input.targetCommit };
 }
 export async function inspectIntegrationCheckout(root: string, candidateId: string) {
-  const paths = await registeredCheckout(root, candidateId);
+  const paths = await registeredIntegrationCheckout(root, candidateId);
   const commit = await commitAt(paths.checkout, "HEAD");
   const conflictingPaths = (await runBoundedGit({ cwd: paths.checkout, args: ["diff", "--name-only", "--diff-filter=U", "-z"] })).stdout.split("\0").filter(Boolean);
   if (conflictingPaths.length > 256 || conflictingPaths.some((entry) => /[\r\n]/.test(entry) || entry.length > 4096)) throw fail("Conflict evidence exceeds the bounded path limit.");
@@ -71,7 +71,7 @@ export async function inspectIntegrationCheckout(root: string, candidateId: stri
   return { commit, conflictingPaths, clean: status.length === 0 };
 }
 export async function mergeIntegrationCheckout(root: string, input: { candidateId: string; incomingCommit: string; targetCommit: string }) {
-  const paths = await registeredCheckout(root, input.candidateId);
+  const paths = await registeredIntegrationCheckout(root, input.candidateId);
   const before = await inspectIntegrationCheckout(root, input.candidateId);
   if (!before.clean || before.commit !== exact(input.targetCommit)) throw fail("Candidate must be clean at its exact target before merge.");
   const merged = await runBoundedGit({ cwd: paths.checkout, args: ["-c", "rerere.enabled=false", "merge", "--no-edit", "--no-stat", "--no-gpg-sign", exact(input.incomingCommit)], rejectNonZero: false });
@@ -94,7 +94,7 @@ export async function advanceIntegrationTarget(root: string, input: { candidateI
 export async function abortIntegrationCheckout(root: string, candidateId: string) {
   const paths = integrationPaths(root, candidateId);
   if (fs.existsSync(paths.checkout)) {
-    await registeredCheckout(root, candidateId);
+    await registeredIntegrationCheckout(root, candidateId);
     // Explicit abort discards only this machine-owned temporary checkout, including unresolved merge state.
     await runBoundedGit({ cwd: root, args: ["worktree", "remove", "--force", paths.checkout] });
   }

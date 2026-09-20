@@ -9,6 +9,7 @@ import {
 } from "../agentHarness/repository/gitMutations";
 import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/repository/repositoryOperations";
 import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../agentHarness/repository/integrationGit";
+import { commitIntegrationRepair, integrationRepairDiffs, snapshotIntegrationRepair } from "../agentHarness/repository/integrationRepairGit";
 import type {
   SourceControlChangedFile, SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
@@ -108,6 +109,9 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   }
 
   return {
+    snapshotIntegrationRepair: (candidateId: string, editablePaths: string[]) => run("integration-repair-snapshot", false, () => snapshotIntegrationRepair(root, candidateId, editablePaths)),
+    integrationRepairDiffs: (input: Parameters<typeof integrationRepairDiffs>[1]) => run("integration-repair-diffs", false, () => integrationRepairDiffs(root, input)),
+    commitIntegrationRepair: (input: Parameters<typeof commitIntegrationRepair>[1]) => run("integration-repair-commit", true, () => commitIntegrationRepair(root, input)),
     integrationTarget: (input: Parameters<typeof inspectIntegrationTarget>[1]) => run("integration-target", false, () => inspectIntegrationTarget(root, input)),
     createIntegration: (input: Parameters<typeof createIntegrationCheckout>[1]) => run("integration-create", true, () => createIntegrationCheckout(root, input)),
     inspectIntegration: (candidateId: string) => run("integration-inspect", false, () => inspectIntegrationCheckout(root, candidateId)),

@@ -13,22 +13,24 @@ test("isolated integration candidates gate target advancement on current Plan an
   const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
   const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
   const { execFileSync } = require("node:child_process");
-  for (const scenario of ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target"]) await t.test(scenario, async () => {
+  for (const scenario of ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target", "operator-decision", "worker-git"]) await t.test(scenario, async () => {
     const root = createBoundWorkspace(`champcity-integration-${scenario}-`, true);
     t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
     git(root, ["branch", "-m", "product-target"]);
+    fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
     fs.writeFileSync(path.join(root, "shared.txt"), "base\n");
     commitAllFixtureState(root, "base");
     const base = git(root, ["rev-parse", "HEAD"]);
     const targetBranch = git(root, ["branch", "--show-current"]);
     const incomingBranch = workIntakeBranchName(`intake-${scenario}`);
     git(root, ["switch", "-c", incomingBranch]);
-    fs.writeFileSync(path.join(root, scenario === "conflict" ? "shared.txt" : "incoming.txt"), "incoming accepted behavior\n");
+    const textualConflict = ["conflict", "operator-decision", "worker-git"].includes(scenario);
+    fs.writeFileSync(path.join(root, textualConflict ? "shared.txt" : "incoming.txt"), "incoming accepted behavior\n");
     commitAllFixtureState(root, "accepted incoming source");
     const incoming = git(root, ["rev-parse", "HEAD"]);
     git(root, ["switch", targetBranch]);
     if (scenario !== "unchanged") {
-      fs.writeFileSync(path.join(root, scenario === "conflict" ? "shared.txt" : "target.txt"), "target accepted behavior\n");
+      fs.writeFileSync(path.join(root, textualConflict ? "shared.txt" : "target.txt"), "target accepted behavior\n");
       commitAllFixtureState(root, "independently accepted target");
     }
     const target = git(root, ["rev-parse", "HEAD"]);
@@ -47,16 +49,21 @@ test("isolated integration candidates gate target advancement on current Plan an
     const binding = { repositoryId: "integration-fixture", intakeId: `intake-${scenario}`, baseBranch: targetBranch, baseCommit: base, workBranch: incomingBranch, currentHead: incoming, ...(remote ? { remote: { name: "origin", syncState: "synced" } } : {}) };
     const proof = { planRevision: 1, fresh: true, blockers: [], evidencePaths: ["accepted.md"], criteria: [{ criterion: "Behavior accepted", status: "passed", evidencePaths: ["accepted.md"] }] };
     const plan = { planId: "PLAN01", planRevision: 1, approved: true, fresh: true, blockers: [], structure: { topology: "direct", topologyRationale: "One accepted item", acceptanceCriteria: ["Behavior accepted"], workItems: [{ workItemId: "WI01", title: "Accepted work", purpose: "Bounded change", dependsOn: [], acceptanceCriteria: ["Behavior accepted"] }] }, workItems: [{ ...proof, workItemId: "WI01", stage: "complete" }], phases: [], planEvidence: proof };
+    writeDoc(root, "planning/intake.md", "work-intake", "Pending", { identity: { intakeId: binding.intakeId }, bodyMarkdown: "# Work Intake\n\nPreserve incoming and target behavior." });
+    writeDoc(root, "planning/plan.md", "work-planning-plan", "Approved", { identity: { intakeId: binding.intakeId, planId: plan.planId }, bodyMarkdown: "# Work Plan\n\nBoth accepted capabilities must remain." });
+    fs.writeFileSync(path.join(root, "planning/architecture.md"), "# Accepted architecture\n\nKeep both public contracts.\n");
     let validationCalls = 0;
-    const service = createIntegrationCandidateService({ repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }), checks: [{ checkId: "preserved-source", run: async (candidateRoot) => {
+    const service = createIntegrationCandidateService({ repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }),
+      repairPolicy: async () => ({ sources: [{ role: "intake", path: "planning/intake.md" }, { role: "plan", path: "planning/plan.md" }, { role: "architecture", path: "planning/architecture.md" }], editablePaths: [textualConflict ? "shared.txt" : "incoming.txt"] }),
+      checks: [{ checkId: "preserved-source", run: async (candidateRoot) => {
       validationCalls++;
       assert.notEqual(candidateRoot, root);
       assert.equal(git(root, ["rev-parse", targetBranch]), target, "Target remains untouched during validation");
       assert.equal(git(root, ["branch", "--show-current"]), incomingBranch);
-      const script = "const fs=require('node:fs');if(!fs.readFileSync('incoming.txt','utf8').includes('accepted'))process.exit(2);";
+      const script = textualConflict ? "const fs=require('node:fs');const value=fs.readFileSync('shared.txt','utf8');if(!value.includes('incoming accepted')||!value.includes('target accepted'))process.exit(2);" : "const fs=require('node:fs');if(!fs.readFileSync('incoming.txt','utf8').includes('accepted'))process.exit(2);";
       execFileSync(process.execPath, ["-e", script], { cwd: candidateRoot, windowsHide: true, stdio: "pipe" });
       if (scenario === "validation-mutates") fs.writeFileSync(path.join(candidateRoot, "incoming.txt"), "changed during validation\n");
-      return { exitCode: scenario === "validation-failed" ? 1 : 0, summary: "Source preservation check" };
+      return { exitCode: scenario === "validation-failed" && !fs.readFileSync(path.join(candidateRoot, "incoming.txt"), "utf8").includes("verified resolution") ? 1 : 0, summary: "Source preservation check" };
     } }] });
     plan.fresh = false; await assert.rejects(service.create(), /Plan completion/); plan.fresh = true;
     const candidate = await service.create();
@@ -65,7 +72,7 @@ test("isolated integration candidates gate target advancement on current Plan an
     assert.equal(candidate.mergeBase, base);
     assert.deepEqual(service.read(candidate.candidateId), candidate);
     const checkout = integrationPaths(root, candidate.candidateId).checkout;
-    if (scenario === "conflict") {
+    if (textualConflict) {
       assert.equal(candidate.status, "conflicted", candidate.message); assert.deepEqual(candidate.conflictingPaths, ["shared.txt"]); assert.equal(validationCalls, 0);
       assert.match(fs.readFileSync(path.join(checkout, "shared.txt"), "utf8"), /<<<<<<< HEAD/);
       await assert.rejects(service.advance(candidate.candidateId, true), /all current required checks passing/);
@@ -86,6 +93,57 @@ test("isolated integration candidates gate target advancement on current Plan an
         assert.equal(integrated.status, "integrated", integrated.message); assert.equal(git(root, ["rev-parse", targetBranch]), candidate.candidateCommit);
         assert.equal(git(root, ["rev-parse", incomingBranch]), incoming);
         if (remote) { assert.equal(integrated.remoteSync, "synced"); assert.equal(git(remote, ["rev-parse", targetBranch]), candidate.candidateCommit); }
+      }
+    }
+    if (textualConflict || scenario === "validation-failed") {
+      const attempt = await service.prepareRepair(candidate.candidateId);
+      assert.equal(attempt.repairId, "REPAIR01");
+      assert.equal((await service.prepareRepair(candidate.candidateId)).repairId, attempt.repairId);
+      assert.match(attempt.prompt, /Do not run Git merge, add, commit, checkout-ours\/theirs, merge-continue, push/);
+      assert.match(attempt.prompt, /Operator decision/); assert.match(attempt.prompt, /Keep both public contracts/);
+      assert.match(attempt.prompt, /incoming accepted behavior/); assert.match(attempt.prompt, /target accepted behavior/);
+      assert.match(attempt.prompt, new RegExp(base)); assert.match(attempt.prompt, new RegExp(incoming)); assert.match(attempt.prompt, new RegExp(target));
+      if (scenario === "operator-decision") {
+        const stopped = await service.requestOperatorDecision(candidate.candidateId, attempt.repairId, "Accepted interfaces require incompatible semantics; Operator must revise scope before resolution.");
+        assert.equal(stopped.candidate.status, "operator-decision"); assert.equal(stopped.attempt.status, "operator-decision");
+        await assert.rejects(service.completeRepair(candidate.candidateId, attempt.repairId), /active attempt/);
+        await assert.rejects(service.advance(candidate.candidateId, true), /all current required checks passing/);
+      } else {
+        const sourcePath = textualConflict ? "shared.txt" : "incoming.txt";
+        await assert.rejects(service.applyRepairPatch(candidate.candidateId, attempt.repairId, [{ path: "unrelated.txt", beforeSha256: "deleted", content: "outside scope" }]), /source scope/);
+        if (textualConflict) {
+          const markers = await service.completeRepair(candidate.candidateId, attempt.repairId); assert.match(markers.attempt.message, /conflict markers/);
+          assert.equal(git(checkout, ["rev-parse", "HEAD"]), target);
+        } else assert.match(attempt.prompt, /No textual conflicts/);
+        const currentPlanBytes = fs.readFileSync(path.join(root, "planning/plan.md"), "utf8");
+        fs.appendFileSync(path.join(root, "planning/plan.md"), "\nChanged intent\n");
+        await assert.rejects(service.completeRepair(candidate.candidateId, attempt.repairId), /governing intent changed/);
+        fs.writeFileSync(path.join(root, "planning/plan.md"), currentPlanBytes);
+        await service.applyRepairPatch(candidate.candidateId, attempt.repairId, [{ path: sourcePath, beforeSha256: attempt.snapshot.editable[sourcePath], content: textualConflict ? "incoming accepted behavior\ntarget accepted behavior\n" : "incoming accepted behavior; first repair attempt\n" }]);
+        if (scenario === "worker-git") {
+          git(checkout, ["add", "--", sourcePath]);
+          const rejected = await service.completeRepair(candidate.candidateId, attempt.repairId); assert.match(rejected.attempt.message, /worker changed Git state/);
+          assert.equal(git(root, ["rev-parse", targetBranch]), target);
+        } else {
+          fs.writeFileSync(path.join(checkout, "out-of-scope.txt"), "unrelated edit\n");
+          const outside = await service.completeRepair(candidate.candidateId, attempt.repairId); assert.match(outside.attempt.message, /outside its bounded scope/);
+          fs.unlinkSync(path.join(checkout, "out-of-scope.txt"));
+          let completed = await service.completeRepair(candidate.candidateId, attempt.repairId);
+          assert.equal(git(root, ["rev-parse", targetBranch]), target, "Repair commit never advances target");
+          assert.equal(git(root, ["rev-parse", incomingBranch]), incoming, "Repair never rewrites accepted incoming history");
+          if (scenario === "validation-failed") {
+            assert.equal(completed.attempt.status, "validation-failed", completed.attempt.message);
+            const firstCommit = completed.attempt.commit;
+            const second = await service.prepareRepair(candidate.candidateId); assert.equal(second.repairId, "REPAIR02");
+            assert.equal(service.readRepair(candidate.candidateId, "REPAIR01").commit, firstCommit);
+            await service.applyRepairPatch(candidate.candidateId, second.repairId, [{ path: sourcePath, beforeSha256: second.snapshot.editable[sourcePath], content: "incoming accepted behavior; verified resolution\n" }]);
+            completed = await service.completeRepair(candidate.candidateId, second.repairId);
+            assert.equal(git(checkout, ["rev-parse", `${completed.attempt.commit}^`]), firstCommit, "Retry preserves repair history");
+          }
+          assert.equal(completed.attempt.status, "validated", completed.attempt.message); assert.equal(completed.candidate.status, "validated");
+          const integrated = await service.advance(candidate.candidateId, Boolean(remote)); assert.equal(integrated.status, "integrated");
+          assert.equal(git(root, ["rev-parse", targetBranch]), completed.attempt.commit);
+        }
       }
     }
     const beforeCleanupTarget = git(root, ["rev-parse", targetBranch]);

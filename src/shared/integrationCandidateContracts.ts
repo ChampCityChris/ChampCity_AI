@@ -22,7 +22,9 @@ export interface IntegrationCandidateRecord {
   candidateBranch: string;
   candidateCommit?: string;
   remote?: string;
-  status: "constructing" | "conflicted" | "validation-failed" | "validated" | "integrated" | "failed" | "aborted";
+  status: "constructing" | "conflicted" | "validation-failed" | "validated" | "integrated" | "failed" | "aborted" | "operator-decision";
+  repairAttemptCount?: number;
+  activeRepairId?: string;
   conflictingPaths: string[];
   validation: IntegrationValidationEvidence[];
   requiredChecks: string[];
