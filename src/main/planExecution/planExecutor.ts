@@ -60,7 +60,7 @@ export function projectPlanExecution(input: PlanExecutionInput): PlanExecutionPr
     const reasons = [...blockers, ...(evidence?.blockers ?? [])];
     if (evidence && !current(evidence)) reasons.push("Phase evidence is stale.");
     if (!phase.dependsOn.every(completePhase)) reasons.push("Phase prerequisites are incomplete.");
-    return { phaseId: phase.phaseId, eligible: reasons.length === 0, workItemsComplete: structure.workItems.filter((item) => item.phaseId === phase.phaseId).every((item) => completeItem(item.workItemId)),
+    return { phaseId: phase.phaseId, acceptanceCriteria: phase.acceptanceCriteria, eligible: reasons.length === 0, workItemsComplete: structure.workItems.filter((item) => item.phaseId === phase.phaseId).every((item) => completeItem(item.workItemId)),
       criteriaSatisfied: satisfied(phase.acceptanceCriteria, evidence), complete: blockers.length === 0 && completePhase(phase.phaseId), reasons };
   });
   const dependencyProjection = projectExecutionDependencies(structure.workItems.map((item) => ({ id: item.workItemId, dependsOn: item.dependsOn })), structure.workItems.filter((item) => completeItem(item.workItemId)).map((item) => item.workItemId));

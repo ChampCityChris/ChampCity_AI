@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { readRoutedIssueExecutionPlan } from "../planExecution/issueExecutionPlan";
+import { acceptIssueExecutionPhase, issuePhaseAcceptancePath, projectIssueExecution } from "../planExecution/issueExecutionAdapter";
 import crypto from "node:crypto";
 import type {
   CreateIssueResult,
@@ -1143,6 +1145,22 @@ export function getIssuePlanningProjection(
     architectRecommendation,
     architectReview,
   );
+  const routedPlan = readRoutedIssueExecutionPlan(resolvedRoot, issue.issueId);
+  if (routedPlan) {
+    const eligible = architectPlanningEligible && issue.recordState === "readable";
+    const status = eligible ? "approved-ready-for-fix-cards" : "blocked-architect-planning-not-eligible";
+    const reason = eligible ? "Approved correction Plan is ready for generic direct/phased execution." : "Current Approved Issue RCA is required.";
+    return { ...emptyIssuePlanningProjection(), issueId: issue.issueId, title: issue.title,
+      issueRecordPath: issue.recordPath, issueRecordState: issue.recordState, issueRecordMarkdown: issue.bodyMarkdown,
+      architectInvestigationPath: paths.architectInvestigationPath, architectInvestigationState: architectInvestigationRead.state, architectInvestigationMarkdown: architectInvestigationRead.bodyMarkdown,
+      architectReviewPath: paths.architectReviewPath, architectReviewState: architectReviewRead.state, architectReviewMarkdown: architectReviewRead.bodyMarkdown,
+      architectRecommendation, architectPlanningEligible, architectReviewDisposition: architectReview?.disposition,
+      issueResolutionPlanPath: routedPlan.planPath, issueResolutionPlanState: "readable", issueResolutionPlanMarkdown: routedPlan.planBody,
+      fixCardPlanPath: routedPlan.relativePath, fixCardPlanState: "readable", fixCardPlanMarkdown: routedPlan.bindingBody, fixCardCandidates: routedPlan.candidates,
+      reviewPath: routedPlan.planPath, reviewState: "readable", reviewMarkdown: routedPlan.planBody, operatorDisposition: "Approved", status, statusMessage: reason, fixCardsEligible: eligible,
+      workflowStatus: { issueId: issue.issueId, stageId: "issue-planning", stageLabel: "Issue Planning", state: status, stateLabel: eligible ? "Approved" : "Blocked", issuePlanningEligible: architectPlanningEligible, fixCardsEligible: eligible, reason },
+    };
+  }
   const issueResolutionPlanRead = readOptionalMarkdownFile(
     resolvedRoot,
     paths.issueResolutionPlanPath,
@@ -2315,7 +2333,7 @@ export function getIssueFixCardProjection(
     selectedCandidate,
     readContext,
   );
-  if (selectedLifecycle.state === "complete") {
+  if (selectedLifecycle.state === "complete" || selectedLifecycle.state === "blocked-by-dependencies") {
     activeFixCardSelections.delete(selectionKey);
     return buildIssueFixCardProjection({
       currentStep: "fix-card-map",
@@ -2324,7 +2342,7 @@ export function getIssueFixCardProjection(
       workspaceRoot: resolvedRoot,
       readContext,
       status: "candidate-selection-required",
-      statusMessage: `${selectedCandidate.fixCardId} is Complete. Select the next Eligible Fix Card from the map.`,
+      statusMessage: selectedLifecycle.reason,
     });
   }
 
@@ -4185,6 +4203,9 @@ function requireAggregateIssueValidationEvidence(
       .map((candidate) => candidate.fixCardId);
     throw new Error(`Issue Validation requires valid close record for every current Fix Card Plan candidate. Incomplete or invalid: ${incomplete.join(", ")}.`);
   }
+  const routedPlan = readRoutedIssueExecutionPlan(workspaceRoot, issue.issueId);
+  const execution = routedPlan ? deriveIssueCorrectionExecution(workspaceRoot, issue, planning, readContext).execution : undefined;
+  if (execution && !execution.phasesComplete) throw Error("Aggregate Issue Validation requires current acceptance of every correction Phase.");
   const baseSources = [
     { label: "Original Issue", path: issue.recordPath },
     { label: "Accepted Architect Investigation", path: planning.architectInvestigationPath },
@@ -4192,7 +4213,8 @@ function requireAggregateIssueValidationEvidence(
     { label: "Current Issue Resolution Plan", path: planning.issueResolutionPlanPath },
     { label: "Current Fix Card Plan", path: planning.fixCardPlanPath },
     { label: "Current Approved Issue Planning Review", path: planning.reviewPath },
-  ];
+    ...(routedPlan?.structure.topology === "phased" ? routedPlan.structure.phases.map((phase) => ({ label: `Accepted correction Phase ${phase.phaseId}`, path: issuePhaseAcceptancePath(issue.issueId, phase.phaseId) })) : []),
+  ].filter((source, index, sources) => sources.findIndex((entry) => entry.path === source.path) === index);
   const sourceEvidence: IssueValidationSourceEvidence[] = baseSources.map((source) => {
     const read = readOptionalMarkdownFile(workspaceRoot, source.path, source.label, readContext);
     if (read.state !== "readable") {
@@ -4532,6 +4554,14 @@ function validateAggregateIssueValidationRecord(
     paths.fixCardPlanPath,
     paths.planningReviewPath,
   ];
+  const routedPlanPath = metadata.sourceRevisions[3]?.path ?? "";
+  if (/^planning\/work-intake\/planning\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/PLAN\.md$/.test(routedPlanPath)) {
+    requiredPrefix.splice(3, 3, routedPlanPath, `issues/${issueId}/EXECUTION_PLAN.md`);
+    for (const source of metadata.sourceRevisions.slice(5)) {
+      if (!new RegExp(`^issues/${escapeRegex(issueId)}/Phase_Acceptance/[A-Za-z0-9][A-Za-z0-9_-]{0,79}\\.md$`).test(source.path)) break;
+      requiredPrefix.push(source.path);
+    }
+  }
   if (
     metadata.sourceRevisions.length <= requiredPrefix.length ||
     requiredPrefix.some((sourcePath, index) => metadata.sourceRevisions[index]?.path !== sourcePath)
@@ -4817,7 +4847,7 @@ function buildIssueFixCardProjection(input: {
   readContext?: IssueProjectionReadContext;
 }): IssueFixCardProjection {
   const context = input.context;
-  const candidates = deriveIssueFixCardCandidateLifecycles(input.workspaceRoot, input.issue, input.planning, input.readContext);
+  const { candidates, execution } = deriveIssueCorrectionExecution(input.workspaceRoot, input.issue, input.planning, input.readContext);
   const candidate = context
     ? candidates.find((entry) => entry.fixCardId === context.candidate.fixCardId) ?? context.candidate
     : undefined;
@@ -4828,6 +4858,7 @@ function buildIssueFixCardProjection(input: {
     const statusMessage = input.statusMessage ?? "Select a current Fix Card candidate.";
     const currentStep = "fix-card-map";
     return {
+      execution,
       issueId: input.issue.issueId,
       title: input.issue.title,
       candidates,
@@ -4875,10 +4906,10 @@ function buildIssueFixCardProjection(input: {
   }
 
   const selectedCandidate = candidates.find((entry) => entry.fixCardId === context.candidate.fixCardId) ?? context.candidate;
-  return buildIssueFixCardProjectionFromContext(input.currentStep, {
+  return { ...buildIssueFixCardProjectionFromContext(input.currentStep, {
     ...context,
     candidate: selectedCandidate,
-  }, candidates);
+  }, candidates), execution };
 }
 
 function buildIssueFixCardProjectionFromContext(
@@ -5214,6 +5245,8 @@ function requireSelectedIssueFixCardContext(
   if (!candidate) {
     throw new Error("Select one current Fix Card candidate before using this action.");
   }
+  const lifecycleState = deriveIssueFixCardCandidateLifecycle(workspaceRoot, issue, planning, candidate);
+  if (lifecycleState.state === "blocked-by-dependencies") throw Error(lifecycleState.reason);
   const rootContext = issueFixCardContextForRoot(workspaceRoot, issue, planning, candidate);
   return resolveCurrent ? resolveCurrentIssueFixCardContext(workspaceRoot, rootContext) : rootContext;
 }
@@ -5411,17 +5444,44 @@ function issueFixCardPathsForCandidate(
   };
 }
 
+export function getIssueCorrectionExecution(workspaceRoot: string, issueId: string) {
+  const issue = requireReadableIssue(workspaceRoot, issueId);
+  const planning = getIssuePlanningProjectionWithoutAutoPromotion(workspaceRoot, issueId);
+  if (!planning.fixCardsEligible) throw Error("Current Approved correction planning and RCA are required.");
+  const state = deriveIssueCorrectionExecution(workspaceRoot, issue, planning);
+  if (!state.execution?.workItemsComplete || !state.execution.phasesComplete) return state.execution;
+  const validation = getIssueValidationProjection(workspaceRoot, issueId);
+  return validation.status === "approved" && validation.currentDecision === "ValidateResolved" && validation.currentRecordPath
+    ? projectIssueExecution(workspaceRoot, issueId, state.candidates, validation.currentRecordPath)!.projection : state.execution;
+}
+export function approveIssueCorrectionPhase(workspaceRoot: string, issueId: string, input: { phaseId: string; expectedFingerprint: string; notes: string }) {
+  const issue = requireReadableIssue(workspaceRoot, issueId);
+  const planning = getIssuePlanningProjectionWithoutAutoPromotion(workspaceRoot, issueId);
+  if (!planning.fixCardsEligible) throw Error("Current Approved correction planning and RCA are required.");
+  // Facts are supplied by the same close/Repair readers used by all Fix Card actions.
+  const closeRecords = new Map(planning.fixCardCandidates.map((candidate) => [candidate.fixCardId, readIssueFixCardCloseRecord(workspaceRoot, issue, candidate)]));
+  const candidates = planning.fixCardCandidates.map((candidate) => ({ ...candidate, lifecycle: deriveIssueFixCardCandidateLifecycleWithState(workspaceRoot, issue, planning, candidate, closeRecords) }));
+  acceptIssueExecutionPhase(workspaceRoot, issueId, candidates, input);
+  return getIssueCorrectionExecution(workspaceRoot, issueId);
+}
+
 function deriveIssueFixCardCandidateLifecycles(
+  workspaceRoot: string, issue: IssueRecordProjection, planning: IssuePlanningProjection, readContext?: IssueProjectionReadContext,
+): IssueFixCardPlanCandidate[] {
+  return deriveIssueCorrectionExecution(workspaceRoot, issue, planning, readContext).candidates;
+}
+
+function deriveIssueCorrectionExecution(
   workspaceRoot: string,
   issue: IssueRecordProjection,
   planning: IssuePlanningProjection,
   readContext?: IssueProjectionReadContext,
-): IssueFixCardPlanCandidate[] {
+) {
   const closeRecords = new Map(planning.fixCardCandidates.map((candidate) => [
     candidate.fixCardId,
     readIssueFixCardCloseRecord(workspaceRoot, issue, candidate, readContext),
   ]));
-  return planning.fixCardCandidates.map((candidate) => ({
+  const facts = planning.fixCardCandidates.map((candidate) => ({
     ...candidate,
     lifecycle: deriveIssueFixCardCandidateLifecycleWithState(
       workspaceRoot,
@@ -5432,6 +5492,14 @@ function deriveIssueFixCardCandidateLifecycles(
       readContext,
     ),
   }));
+  const execution = projectIssueExecution(workspaceRoot, issue.issueId, facts);
+  const candidates = facts.map((candidate) => {
+    const projected = execution?.projection.workItems.find((item) => execution.mapping[item.candidate.workItemId] === candidate.fixCardId);
+    return projected && !projected.complete && !projected.eligible && candidate.lifecycle.state !== "needs-attention"
+      ? { ...candidate, lifecycle: lifecycle("blocked-by-dependencies", "Blocked by Dependencies", projected.reasons.join(" "), false) }
+      : candidate;
+  });
+  return { candidates, execution: execution?.projection };
 }
 
 function deriveIssueFixCardCandidateLifecycle(
@@ -5441,18 +5509,7 @@ function deriveIssueFixCardCandidateLifecycle(
   candidate: IssueFixCardPlanCandidate,
   readContext?: IssueProjectionReadContext,
 ): IssueFixCardCandidateLifecycleProjection {
-  const closeRecords = new Map(planning.fixCardCandidates.map((plannedCandidate) => [
-    plannedCandidate.fixCardId,
-    readIssueFixCardCloseRecord(workspaceRoot, issue, plannedCandidate, readContext),
-  ]));
-  return deriveIssueFixCardCandidateLifecycleWithState(
-    workspaceRoot,
-    issue,
-    planning,
-    candidate,
-    closeRecords,
-    readContext,
-  );
+  return deriveIssueFixCardCandidateLifecycles(workspaceRoot, issue, planning, readContext).find((entry) => entry.fixCardId === candidate.fixCardId)!.lifecycle!;
 }
 
 function deriveIssueFixCardCandidateLifecycleWithState(
@@ -5512,16 +5569,7 @@ function deriveIssueFixCardCandidateLifecycleWithState(
   }
 
   if (contract.state === "missing") {
-    const incompleteDependencies = candidate.dependsOn.filter((dependencyId) => !closeRecords.get(dependencyId)?.valid);
-    if (incompleteDependencies.length > 0) {
-      return lifecycle(
-        "blocked-by-dependencies",
-        "Blocked by Dependencies",
-        `Requires valid close record for: ${incompleteDependencies.join(", ")}.`,
-        false,
-      );
-    }
-    return lifecycle("eligible", "Eligible", "Dependencies are satisfied and no current Fix Card contract exists.", true);
+    return lifecycle("eligible", "Eligible", "No current Fix Card contract exists; generic execution determines eligibility.", true);
   }
   if (contract.state !== "readable" || !contract.metadata) {
     return lifecycle(
@@ -5625,20 +5673,9 @@ function nextIssueFixCardCandidateAfterClose(
   candidates: IssueFixCardPlanCandidate[],
   closingFixCardId: string,
 ): IssueFixCardPlanCandidate | undefined {
-  const completed = new Set(
-    candidates
-      .filter((candidate) => candidate.fixCardId === closingFixCardId || readIssueFixCardCloseRecord(workspaceRoot, issue, candidate).valid)
-      .map((candidate) => candidate.fixCardId),
-  );
-  return candidates
-    .slice()
-    .sort((left, right) => left.order - right.order)
-    .find((candidate) =>
-      candidate.fixCardId !== closingFixCardId &&
-      candidate.lifecycle?.state !== "complete" &&
-      (candidate.lifecycle?.state === "eligible" || candidate.lifecycle?.state === "blocked-by-dependencies") &&
-      candidate.dependsOn.every((dependencyId) => completed.has(dependencyId))
-  );
+  const projected = projectIssueExecution(workspaceRoot, issue.issueId, candidates.map((candidate) => candidate.fixCardId === closingFixCardId
+    ? { ...candidate, lifecycle: lifecycle("complete", "Complete", "Preview after explicit close", false) } : candidate));
+  return candidates.find((candidate) => candidate.fixCardId === projected?.mapping[projected.projection.nextWorkItemId ?? ""]);
 }
 
 function resolveCurrentFixCardPlanningSubmission(

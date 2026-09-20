@@ -7,11 +7,13 @@ import { getWorkRouteDecision, recommendWorkRouteReroute } from "../workIntake/w
 import { readWorkIntake } from "../workIntake/workIntakeService";
 import { sourceDigests, workPlanningArtifactPath } from "./workPlanningKernel";
 import { issueEvidenceBytes, issueEvidenceDigest, workIssueContext, workIssueHandoffPath } from "./workIssueContext";
+import { activateRoutedIssueExecutionPlan, issueExecutionPlanPath } from "../planExecution/issueExecutionPlan";
+import { approveIssueCorrectionPhase, getIssueCorrectionExecution } from "../issueResolution/issueResolutionService";
 
 /** Adapt existing Issue RCA mechanics; routing and Git authority remain outside the Architect. */
 export async function runWorkIssueAction(root: string, intakeId: string, action: WorkIssueAction, input: WorkIssueActionInput = {}): Promise<{ model: WorkIssueModel; instruction?: string }> {
-  if (!["open", "status", "prepare", "copy", "review"].includes(action) || !input || Object.keys(input).some((key) => !["review", "screenshots", "expectedEvidenceDigest"].includes(key)) ||
-    action !== "review" && (input.review !== undefined || input.expectedEvidenceDigest !== undefined) || action !== "open" && input.screenshots !== undefined) throw Error("Invalid routed Issue action.");
+  if (!["open", "status", "prepare", "copy", "review", "activate-execution", "accept-phase"].includes(action) || !input || Object.keys(input).some((key) => !["review", "screenshots", "expectedEvidenceDigest", "phaseAcceptance"].includes(key)) ||
+    action !== "review" && (input.review !== undefined || input.expectedEvidenceDigest !== undefined) || action !== "open" && input.screenshots !== undefined || action !== "accept-phase" && input.phaseAcceptance !== undefined) throw Error("Invalid routed Issue action.");
   let route = await getWorkRouteDecision(root, intakeId);
   const intake = readWorkIntake(root, intakeId);
   if (!route.selection || route.selection.selectedRouteId !== "issue-resolution" || route.history.at(-1)?.sourceIntake.revision !== intake.artifactRevision) throw Error("Issue RCA requires the current Operator-selected Issue route and Intake.");
@@ -41,6 +43,11 @@ export async function runWorkIssueAction(root: string, intakeId: string, action:
     return { model: { intakeId, issueId: null, handoffPath: null, architect: null, correctionPlanningReady: false, rerouteRecommended: false, reviewEvidenceDigest: null } };
   }
   let instruction: string | undefined;
+  if (action === "activate-execution") await activateRoutedIssueExecutionPlan(root, intakeId);
+  if (action === "accept-phase") {
+    if (route.state !== "selected" || !input.phaseAcceptance || Object.keys(input.phaseAcceptance).some((key) => !["phaseId", "expectedFingerprint", "notes"].includes(key))) throw Error("Supply current correction Phase acceptance evidence.");
+    approveIssueCorrectionPhase(root, context.issueId, input.phaseAcceptance);
+  }
   if (action === "prepare") prepareIssueArchitectPlanningHandoff(root, context.issueId);
   if (action === "copy") instruction = resolveIssueArchitectPlanningCopyHandoff(root, context.issueId).instruction +
     `\n\nRouted Work Intake: ${intake.relativePath}\nCanonical Issue handoff: ${context.relativePath}\nBranch: ${intake.branchBinding.workBranch}\nPreserve this Intake/branch. Root-cause correction may use direct or phased shared planning. Reframe is advisory; Operator route selection is required.`;
@@ -84,5 +91,6 @@ export async function runWorkIssueAction(root: string, intakeId: string, action:
     }
   }
   return { model: { intakeId, issueId: context.issueId, handoffPath: context.relativePath, architect, correctionPlanningReady: ready && route.state === "selected", rerouteRecommended: route.recommendation?.kind === "architect-reroute-recommendation",
+    execution: issueEvidenceBytes(root, issueExecutionPlanPath(context.issueId)) ? getIssueCorrectionExecution(root, context.issueId) : undefined,
     reviewEvidenceDigest: architect.finalInvestigationState === "readable" ? issueEvidenceDigest(JSON.stringify(context.evidenceDigests)) : null }, instruction };
 }

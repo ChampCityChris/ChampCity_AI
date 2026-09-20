@@ -30,6 +30,9 @@ const {
 test("Desktop Issue lifecycle requires all Fix Cards closed, aggregate Operator validation, then explicit Issue close", () => {
   const issueId = "ISSUE_901";
   const root = preparedIssue(issueId, 2);
+  const execution = require("../../dist/main/issueResolution/issueResolutionService.js").getIssueFixCardProjection(root, issueId).execution;
+  assert.equal(execution.topology, "direct");
+  assert.deepEqual(execution.phases, []);
   const closePath = issueClosePath(root, issueId);
 
   writeNormalCloseRecord(root, issueId, `${issueId}-FC01`);
@@ -105,6 +108,81 @@ test("Desktop Issue lifecycle requires all Fix Cards closed, aggregate Operator 
     expectedValidationBasisSha256: closeState.validationBasisSha256,
   }), /already exists and will not be overwritten/);
   assert.equal(fs.readFileSync(closePath, "utf8"), closeBytes);
+});
+
+test("routed phased correction uses generic barriers and exact Phase evidence before aggregate Issue close", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "issue-resolution");
+  const service = require("../../dist/main/issueResolution/issueResolutionService.js");
+  const { runWorkIssueAction } = require("../../dist/main/workPlanning/workIssueRoutingService.js");
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { mainPreloadHarness } = require("../support/production-execution.cjs");
+  const { api } = mainPreloadHarness(["workIssue:action"], { runWorkIssueAction, getRequiredWorkspaceRoot: () => root, clipboard: { writeText() {} } });
+  let model = await api.runWorkIssueAction(intake.intakeId, "open");
+  const issueId = model.issueId;
+  // Curated RCA evidence; discard only this disposable fixture's legacy planning before native planning.
+  preparedIssue(issueId, 2, root);
+  for (const name of ["ISSUE_RESOLUTION_PLAN.md", "FIX_CARD_PLAN.md", "ISSUE_PLANNING_REVIEW.md"]) fs.unlinkSync(path.join(root, "issues", issueId, name));
+  model = await api.runWorkIssueAction(intake.intakeId, "status");
+  model = await api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "Approved", operatorNotes: "Accepted bounded root-cause correction" } });
+  const investigation = fs.readFileSync(path.join(root, model.architect.finalInvestigationPath), "utf8");
+  let plan = await kernel.prepare(root, intake.intakeId, "plan");
+  const structure = { topology: "phased", topologyRationale: "Restore state before proving reconnect across a separate acceptance boundary", acceptanceCriteria: ["The reported defect is resolved"],
+    phases: [
+      { phaseId: "restore", title: "Restore state", purpose: "Correct state ownership", dependsOn: [], acceptanceCriteria: ["Restored state matches baseline"] },
+      { phaseId: "reconnect", title: "Reconnect", purpose: "Prove lifecycle recovery", dependsOn: ["restore"], acceptanceCriteria: ["Repeated reconnect preserves state"] },
+    ], workItems: ["restore", "reconnect"].map((phaseId) => ({ workItemId: `WI_${phaseId}`, phaseId, title: `Correct ${phaseId} lifecycle`, purpose: "Correct the observed lifecycle defect and preserve existing state", dependsOn: [], acceptanceCriteria: ["Regression proof passes"] })) };
+  const draft = path.join(root, plan.submission.expectedDraftSlots[0].draftRelativePath);
+  fs.mkdirSync(path.dirname(draft), { recursive: true });
+  fs.writeFileSync(draft, "# Work Plan\n\n" + resolveWorkPlanningProfile("issue-resolution").planSections.map((heading) => `## ${heading}\nCorrect the accepted root cause and preserve current behavior with bounded regression evidence.`).join("\n\n") + "\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n");
+  plan = await kernel.get(root, intake.intakeId, "plan");
+  await assert.rejects(api.runWorkIssueAction(intake.intakeId, "activate-execution"), /Approve the current RCA correction Plan/);
+  await kernel.review(root, intake.intakeId, "plan", { expectedRevision: plan.artifact.artifactRevision, disposition: "Approved", notes: "Accepted two correction milestones" });
+  model = await api.runWorkIssueAction(intake.intakeId, "activate-execution");
+  assert.equal(model.execution.topology, "phased");
+  assert.equal(model.execution.nextWorkItemId, "WI_restore");
+  const bindingPath = path.join(root, "issues", issueId, "EXECUTION_PLAN.md");
+  const binding = fs.readFileSync(bindingPath, "utf8");
+  await api.runWorkIssueAction(intake.intakeId, "activate-execution");
+  assert.equal(fs.readFileSync(bindingPath, "utf8"), binding, "Activation preserves durable identities");
+  assert.throws(() => service.selectIssueFixCardCandidate(root, issueId, `${issueId}-FC02`), /Phase prerequisites/);
+  service.selectIssueFixCardCandidate(root, issueId, `${issueId}-FC01`);
+  const handoff = service.prepareIssueFixCardPlanningHandoff(root, issueId);
+  assert.equal(handoff.projection.execution.workItems[0].stage, "implement");
+  writeNormalCloseRecord(root, issueId, `${issueId}-FC01`);
+  model = await api.runWorkIssueAction(intake.intakeId, "status");
+  assert.equal(model.execution.phases[0].workItemsComplete, true);
+  assert.equal(model.execution.phases[0].complete, false);
+  assert.throws(() => service.selectIssueFixCardCandidate(root, issueId, `${issueId}-FC02`), /Phase prerequisites/);
+  await assert.rejects(api.runWorkIssueAction(intake.intakeId, "accept-phase", { phaseAcceptance: { phaseId: "restore", expectedFingerprint: "stale", notes: "Reject stale review" } }), /Refresh/);
+  model = await api.runWorkIssueAction(intake.intakeId, "accept-phase", { phaseAcceptance: { phaseId: "restore", expectedFingerprint: model.execution.fingerprint, notes: "Restored state verified against baseline" } });
+  assert.equal(model.execution.nextWorkItemId, "WI_reconnect");
+  const firstClosePath = path.join(root, "issues", issueId, "Close_Records", `FIX_CARD_CLOSE_RECORD_${issueId}-FC01.md`);
+  const firstCloseBytes = fs.readFileSync(firstClosePath, "utf8");
+  fs.appendFileSync(firstClosePath, "\nChanged close evidence.\n");
+  assert.throws(() => service.selectIssueFixCardCandidate(root, issueId, `${issueId}-FC02`), /Phase prerequisites/);
+  fs.writeFileSync(firstClosePath, firstCloseBytes);
+  service.selectIssueFixCardCandidate(root, issueId, `${issueId}-FC02`);
+  writeNormalCloseRecord(root, issueId, `${issueId}-FC02`);
+  assert.equal(service.getIssueValidationProjection(root, issueId).eligible, false, "Child close alone does not accept the Phase");
+  model = await api.runWorkIssueAction(intake.intakeId, "status");
+  model = await api.runWorkIssueAction(intake.intakeId, "accept-phase", { phaseAcceptance: { phaseId: "reconnect", expectedFingerprint: model.execution.fingerprint, notes: "Repeated reconnect recovery verified" } });
+  assert.equal(model.execution.phasesComplete, true);
+  const validation = service.getIssueValidationProjection(root, issueId);
+  assert.equal(validation.eligible, true);
+  assert.equal(validation.sourceEvidence.filter((source) => source.path.includes("Phase_Acceptance/")).length, 2);
+  service.applyIssueValidationDecision(root, issueId, { decision: "ValidateResolved", operatorNotes: "Aggregate defect and Plan acceptance criteria verified", expectedEvidenceSha256: validation.evidenceSha256 });
+  assert.equal((await api.runWorkIssueAction(intake.intakeId, "status")).execution.complete, true, "Generic Plan completion also requires current aggregate acceptance");
+  const ready = service.getIssueCloseProjection(root, issueId);
+  assert.equal(service.closeIssue(root, issueId, { expectedValidationBasisSha256: ready.validationBasisSha256 }).projection.status, "closed");
+  const phasePath = path.join(root, "issues", issueId, "Phase_Acceptance", "restore.md");
+  fs.appendFileSync(phasePath, "\nChanged acceptance evidence.\n");
+  assert.notEqual(service.getIssueCloseProjection(root, issueId).status, "closed", "Changed Phase proof invalidates aggregate evidence");
+  assert.equal(fs.readFileSync(path.join(root, model.architect.finalInvestigationPath), "utf8"), investigation, "Generic correction never re-enters or rewrites RCA");
+  fs.appendFileSync(path.join(root, plan.artifact.relativePath), "\nChanged Plan bytes.\n");
+  assert.throws(() => service.getIssueFixCardProjection(root, issueId), /execution binding is stale/);
+  assert.equal(git("rev-parse", "HEAD"), initialHead, "Correction execution does not checkpoint Git in WIR18");
 });
 
 test("Desktop Issue validation and close reject stale reviewed evidence without creating close state", () => {

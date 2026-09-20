@@ -13,10 +13,10 @@ export function WorkIssuePanel({ intakeId, onRoutingChanged }: { intakeId: strin
     window.champcity.runWorkIssueAction(intakeId, "status").then(async (next) => { if (current) { setModel(next); if (next.rerouteRecommended) await onRoutingChanged(); } }).catch((failure: unknown) => { if (current) setError(String(failure)); });
     return () => { current = false; };
   }, [intakeId]);
-  async function act(action: WorkIssueAction, disposition?: IssueArchitectReviewDisposition) {
+  async function act(action: WorkIssueAction, disposition?: IssueArchitectReviewDisposition, phaseId?: string) {
     setBusy(true); setError(""); setCopied(false);
     try {
-      const next = await window.champcity.runWorkIssueAction(intakeId, action, disposition ? { review: { disposition, operatorNotes: notes }, expectedEvidenceDigest: model?.reviewEvidenceDigest ?? undefined } : undefined);
+      const next = await window.champcity.runWorkIssueAction(intakeId, action, phaseId ? { phaseAcceptance: { phaseId, expectedFingerprint: model?.execution?.fingerprint ?? "", notes } } : disposition ? { review: { disposition, operatorNotes: notes }, expectedEvidenceDigest: model?.reviewEvidenceDigest ?? undefined } : undefined);
       setModel(next); setCopied(action === "copy");
       if (next.rerouteRecommended) await onRoutingChanged();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Issue action failed."); }
@@ -41,6 +41,19 @@ export function WorkIssuePanel({ intakeId, onRoutingChanged }: { intakeId: strin
       </> : null}
       {model.rerouteRecommended ? <p>RCA recommends another route. Review the general route decision above.</p> : null}
       {model.correctionPlanningReady ? <WorkPlanningPanel intakeId={intakeId} planOnly /> : null}
+      {model.correctionPlanningReady && !model.execution ? <button disabled={busy} onClick={() => void act("activate-execution")}>Begin approved correction Plan</button> : null}
+      {model.execution ? <section aria-label="Correction execution">
+        <h3>Correction execution — {model.execution.topology}</h3>
+        <p>Continue Fix Card implementation, review, Repair, and close in the Issue workspace for {model.issueId}.</p>
+        <button disabled={busy} onClick={() => void act("status")}>Refresh correction evidence</button>
+        {model.execution.workItems.map((item) => <p key={item.candidate.workItemId}>{item.candidate.title}: {item.stage} — {item.reasons.join(" ")}</p>)}
+        {model.execution.phases.length ? <label>Phase acceptance evidence<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label> : null}
+        {model.execution.phases.map((phase) => <div key={phase.phaseId}>
+          <p>{phase.phaseId}: {phase.complete ? "Accepted" : phase.reasons.join(" ") || "Awaiting correction close and Phase acceptance"}</p>
+          <ul>{phase.acceptanceCriteria.map((criterion) => <li key={criterion}>{criterion}</li>)}</ul>
+          <button disabled={busy || !notes.trim() || phase.reasons.some((reason) => reason !== "Phase evidence is stale.") || !phase.workItemsComplete || phase.complete} onClick={() => void act("accept-phase", undefined, phase.phaseId)}>Accept {phase.phaseId} criteria</button>
+        </div>)}
+      </section> : null}
     </>}
   </section>;
 }

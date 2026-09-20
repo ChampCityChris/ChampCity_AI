@@ -1,7 +1,9 @@
 import type { DocumentDispositionStatus } from "./documents/documentDisposition";
+import type { PlanExecutionProjection } from "./planExecutionContracts";
 
-export type WorkIssueAction = "open" | "status" | "prepare" | "copy" | "review";
+export type WorkIssueAction = "open" | "status" | "prepare" | "copy" | "review" | "activate-execution" | "accept-phase";
 export interface WorkIssueModel {
+  execution?: PlanExecutionProjection;
   intakeId: string;
   issueId: string | null;
   handoffPath: string | null;
@@ -11,6 +13,7 @@ export interface WorkIssueModel {
   reviewEvidenceDigest: string | null;
 }
 export interface WorkIssueActionInput {
+  phaseAcceptance?: { phaseId: string; expectedFingerprint: string; notes: string };
   review?: IssueArchitectReviewInput;
   expectedEvidenceDigest?: string;
   screenshots?: IssueScreenshotEvidenceInput[];
@@ -380,6 +383,7 @@ export interface IssueFixCardRepairDraftSubmission extends IssueFixCardDraftSubm
 }
 
 export interface IssueFixCardProjection {
+  execution?: PlanExecutionProjection;
   issueId: string;
   title: string;
   selectedCandidate?: IssueFixCardPlanCandidate;

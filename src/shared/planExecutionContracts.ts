@@ -44,6 +44,7 @@ export interface WorkItemExecutionProjection {
 }
 export interface PhaseExecutionProjection {
   phaseId: string;
+  acceptanceCriteria: string[];
   eligible: boolean;
   workItemsComplete: boolean;
   criteriaSatisfied: boolean;
