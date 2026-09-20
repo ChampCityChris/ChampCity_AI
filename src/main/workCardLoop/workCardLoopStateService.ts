@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { workItemIntakeTargets, type WorkItemArtifactScope } from "./workItemArtifactScope";
 import path from "node:path";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
@@ -433,14 +434,10 @@ export function resolveActiveWorkCardPlanningHandoffFromLoop(
 }
 
 export function workCardIntakeTargets(
-  phaseId: string,
+  scope: WorkItemArtifactScope,
   candidate: Pick<WorkCardCandidate, "candidateId" | "title">,
 ): WorkCardIntakeTargets {
-  const slug = slugify(candidate.title);
-  return {
-    handoffMarkdownPath: `planning/phases/${phaseId}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_${candidate.candidateId}.md`,
-    formalWorkCardMarkdownPath: `planning/phases/${phaseId}/Work_Cards/${candidate.candidateId}_${slug}.md`,
-  };
+  return workItemIntakeTargets(scope, candidate);
 }
 
 export function readPlannedWorkCardCandidates(workspaceRoot: string, phaseId: string): WorkCardCandidate[] {
@@ -1266,10 +1263,6 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md
 function readWorkflowData(workspaceRoot: string, relativePath: string): Record<string, unknown> {
   const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(workspaceRoot, relativePath), "utf8"));
   return parsed.metadata.workflowData;
-}
-
-function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "work_card";
 }
 
 function stringValue(value: unknown): string | undefined {

@@ -27,4 +27,23 @@ async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", i
     disposition: "override", selectedRouteId, rationale: "Operator selects the intended planning focus." });
   return { root, intake, route, git, initialHead };
 }
-module.exports = { seedRoutedWorkIntake };
+async function seedApprovedRoutedWorkPlan(t, structure, routeId = "feature-change") {
+  const fixture = await seedRoutedWorkIntake(t, routeId);
+  const { root, intake } = fixture;
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const profile = resolveWorkPlanningProfile(routeId);
+  for (const stage of ["assessment", "plan"]) {
+    let model = await kernel.prepare(root, intake.intakeId, stage);
+    const body = `# ${stage === "assessment" ? "Route Architect Assessment" : "Work Plan"}\n\n` +
+      profile[stage === "assessment" ? "assessmentSections" : "planSections"].map((heading) => `## ${heading}\nDeliver the bounded export contract while preserving existing row operations.`).join("\n\n") +
+      (stage === "plan" ? `\n\n\`\`\`champcity-work-plan\n${JSON.stringify(structure)}\n\`\`\`\n` : "\n");
+    const target = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, body);
+    model = await kernel.get(root, intake.intakeId, stage);
+    await kernel.review(root, intake.intakeId, stage, { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Bounded export approved" });
+  }
+  const { activateRoutedDevelopmentExecutionBinding } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
+  return { ...fixture, binding: await activateRoutedDevelopmentExecutionBinding(root, intake.intakeId) };
+}
+module.exports = { seedRoutedWorkIntake, seedApprovedRoutedWorkPlan };

@@ -1,4 +1,5 @@
 import type { CodexManagedRuntimeStatus, CodexModelSelection } from "./codexRuntimeContracts";
+import type { LegacyPhaseArtifactScope, WorkItemArtifactScopeProjection, WorkItemArtifactScopeReference } from "./workItemArtifactScope";
 import type { GithubEvidence, GithubEvidenceRequest, GithubProviderStatus } from "./githubProviderContracts";
 import type {
   FirstNonApprovedResult,
@@ -927,8 +928,7 @@ export interface WorkCardIntakeCandidateProjection {
   carriedForwardToPhaseId?: string;
 }
 
-export interface WorkCardIntakeProjection {
-  phaseId: string;
+export type WorkCardIntakeProjection<T extends WorkItemArtifactScopeReference = LegacyPhaseArtifactScope> = WorkItemArtifactScopeProjection<T> & {
   sourceWorkCardPlanPath: string;
   selectionReason: string;
   candidate: WorkCardIntakeCandidateProjection;
@@ -985,8 +985,7 @@ export interface BeginWorkCardPlanningOptions {
   closeReturnCompleted?: boolean;
 }
 
-export interface WorkCardBuildingReviewProjection {
-  phaseId: string;
+export type WorkCardBuildingReviewProjection<T extends WorkItemArtifactScopeReference = LegacyPhaseArtifactScope> = WorkItemArtifactScopeProjection<T> & {
   workCardId: string;
   workCardTitle: string;
   formalWorkCardPath: string;

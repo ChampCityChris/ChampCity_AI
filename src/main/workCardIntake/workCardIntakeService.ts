@@ -1,4 +1,5 @@
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
+import { workItemArtifactIdentity } from "../workCardLoop/workItemArtifactScope";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
@@ -151,7 +152,7 @@ export function generateWorkCardIntakeHandoff(
       artifactType: "work-card-intake-handoff",
       artifactRevision: 1,
       participationRole: "nonReviewHandoff",
-      identity: { phaseId, workCardId: candidate.candidateId },
+      identity: workItemArtifactIdentity(phaseId, candidate.candidateId),
       sourceRevisions,
       workflowData: mergeRepositoryBindingIntoWorkflowData(
         {

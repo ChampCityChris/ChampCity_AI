@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { workItemRepairTargets, workItemArtifactRoot } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import {
   type CanonicalDocumentMetadata,
@@ -709,7 +710,7 @@ export function createRepairWorkCard(
   }
   assertNoConflictingActiveRepairState(documents);
   const repairId = nextRepairId(workspaceRoot, phaseId, originalParentId);
-  const handoffMarkdownPath = `planning/phases/${phaseId}/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_${repairId}.md`;
+  const handoffMarkdownPath = workItemRepairTargets(phaseId, repairId).handoffMarkdownPath;
   const repairMarkdownPath = deterministicRepairWorkCardTargetPath(phaseId, repairId);
   const returnTarget = returnTargetForRepairOrigin(origin);
   const content = {
@@ -883,7 +884,7 @@ function findExistingRepairHandoffForEvidence(
 }
 
 function deterministicRepairWorkCardTargetPath(phaseId: string, repairId: string): string {
-  return `planning/phases/${phaseId}/Work_Cards/${repairId}.md`;
+  return workItemRepairTargets(phaseId, repairId).repairMarkdownPath;
 }
 
 function normalizeDefectSlugHandoffIfSafe(
@@ -1364,8 +1365,8 @@ function nextRepairId(workspaceRoot: string, phaseId: string, parentId: string):
   const regex = new RegExp(`^${parentId}-REPAIR(\\d+)`, "i");
   const max = listPlanningDocuments(workspaceRoot)
     .filter((document) =>
-      document.markdownPath.includes(`planning/phases/${phaseId}/Work_Cards/`) ||
-      document.markdownPath.includes(`planning/phases/${phaseId}/Architect_Handoffs/`)
+      document.markdownPath.includes(`${workItemArtifactRoot(phaseId)}/Work_Cards/`) ||
+      document.markdownPath.includes(`${workItemArtifactRoot(phaseId)}/Architect_Handoffs/`)
     )
     .map((document) =>
       document.displayFilename.match(regex)?.[1] ??

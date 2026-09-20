@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { workItemFormalPrefix, workItemArtifactIdentity } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import {
   type CanonicalDocumentMetadata,
@@ -217,7 +218,7 @@ export function setFormalWorkCardDisposition(
   workCardId: string,
   status: DocumentDispositionStatus,
 ): PlanningDocumentSummary {
-  const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
+  const formal = requiredAny(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   if (status === "Approved") {
     approveFormalWorkCardAndRegisterReport({
       workspaceRoot,
@@ -231,7 +232,7 @@ export function setFormalWorkCardDisposition(
       reviewedAt: new Date().toISOString(),
     });
   }
-  return requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
+  return requiredAny(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
 }
 
 export function getWorkCardBuildingEligibility(
@@ -239,7 +240,7 @@ export function getWorkCardBuildingEligibility(
   phaseId: string,
   workCardId: string,
 ): WorkCardBuildingEligibility {
-  const formal = findByPrefix(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
+  const formal = findByPrefix(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   if (!formal) {
     return { eligible: false, reason: "Formal Work Card is required." };
   }
@@ -262,7 +263,7 @@ export function reviseFormalWorkCard(
   phaseId: string,
   workCardId: string,
 ): void {
-  const formal = requiredAny(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
+  const formal = requiredAny(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   savePlanningDocumentRevision(workspaceRoot, formal.logicalDocumentId);
 }
 
@@ -425,8 +426,7 @@ function outputMetadata(input: {
     artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
     participationRole: "gatingReview",
     identity: {
-      phaseId: input.phaseId,
-      workCardId: input.workCardId,
+      ...workItemArtifactIdentity(input.phaseId, input.workCardId),
       candidateId: input.candidateId,
     },
     sourceRevisions: input.sourceRevisions,

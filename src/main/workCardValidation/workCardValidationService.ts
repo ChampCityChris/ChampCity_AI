@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { workItemArtifactIdentity, workItemFormalPrefix, workItemValidationPath, workItemValidationPrefix } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
@@ -65,11 +66,10 @@ export interface OperatorValidationAdvisoryPromptInput {
 }
 
 export function createValidationAttempt(workspaceRoot: string, phaseId: string, workCardId: string): ValidationAttemptResult {
-  const workCard = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
+  const workCard = requiredApproved(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   const report = latestApprovedReport(workspaceRoot, phaseId, workCardId);
   const attemptNumber = nextAttemptNumber(workspaceRoot, phaseId, workCardId);
-  const stem = `VALIDATION_RECORD_${workCardId}_ATTEMPT${String(attemptNumber).padStart(2, "0")}`;
-  const markdownPath = `planning/phases/${phaseId}/Validation_Records/${stem}.md`;
+  const markdownPath = workItemValidationPath(phaseId, workCardId, attemptNumber);
   const content = {
     guidance: "Operator-started validation attempt.",
     stepsPerformed: [],
@@ -90,7 +90,7 @@ export function createValidationAttempt(workspaceRoot: string, phaseId: string, 
       artifactType: "validation-record",
       artifactRevision: 1,
       participationRole: "gatingReview",
-      identity: { phaseId, workCardId, candidateId: workCardId, attemptNumber },
+      identity: { ...workItemArtifactIdentity(phaseId, workCardId), candidateId: workCardId, attemptNumber },
       sourceRevisions,
       workflowData: mergeRepositoryBindingIntoWorkflowData(
         content,
@@ -245,7 +245,7 @@ export function applyOperatorValidationDecision(
     ? attemptNumberFromValidationRecord(existing)
     : nextAttemptNumber(workspaceRoot, phaseId, workCardId);
   const markdownPath = existing?.markdownPath ??
-    `planning/phases/${phaseId}/Validation_Records/VALIDATION_RECORD_${workCardId}_ATTEMPT${String(attemptNumber).padStart(2, "0")}.md`;
+    workItemValidationPath(phaseId, workCardId, attemptNumber);
   const sourceRevisions = [
     { path: workCard.markdownPath, revision: workCard.metadata.artifactRevision ?? 1 },
     reportSource,
@@ -328,7 +328,7 @@ function latestApprovedReport(workspaceRoot: string, phaseId: string, workCardId
 }
 
 function currentApprovedFormalWorkCard(workspaceRoot: string, phaseId: string, workCardId: string): PlanningDocumentSummary {
-  return requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Cards/${workCardId}`, ".md");
+  return requiredApproved(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
 }
 
 function currentImplementerReport(workspaceRoot: string, phaseId: string, workCardId: string): PlanningDocumentSummary {
@@ -344,7 +344,7 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md
 
 function latestValidationRecord(workspaceRoot: string, phaseId: string, workCardId: string) {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Validation_Records/VALIDATION_RECORD_${workCardId}_ATTEMPT`))
+    .filter((document) => document.markdownPath.startsWith(workItemValidationPrefix(phaseId, workCardId)))
     .at(-1);
 }
 
@@ -355,7 +355,7 @@ function validationRecordForReportRevision(
   reportSource: SourceRevision,
 ): PlanningDocumentSummary | undefined {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Validation_Records/VALIDATION_RECORD_${workCardId}_ATTEMPT`))
+    .filter((document) => document.markdownPath.startsWith(workItemValidationPrefix(phaseId, workCardId)))
     .filter((document) => document.metadata.artifactType === "validation-record")
     .find((document) => (document.metadata.sourceRevisions ?? []).some((source) =>
       source.path === reportSource.path && source.revision === reportSource.revision
@@ -364,7 +364,7 @@ function validationRecordForReportRevision(
 
 function nextAttemptNumber(workspaceRoot: string, phaseId: string, workCardId: string): number {
   return listPlanningDocuments(workspaceRoot)
-    .filter((document) => document.markdownPath.startsWith(`planning/phases/${phaseId}/Validation_Records/VALIDATION_RECORD_${workCardId}_ATTEMPT`))
+    .filter((document) => document.markdownPath.startsWith(workItemValidationPrefix(phaseId, workCardId)))
     .map((document) => Number(document.displayFilename.match(/ATTEMPT(\d+)/i)?.[1] ?? 0))
     .reduce((highest, value) => Math.max(highest, value), 0) + 1;
 }

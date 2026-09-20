@@ -25,6 +25,66 @@ const {
   listPlanningDocuments,
 } = require("../support/canonical-markdown-fixtures.cjs");
 
+test("Work Item artifact scopes preserve legacy paths and bind direct or genuine Phase ownership", async (t) => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const scopeService = require("../../dist/main/workCardLoop/workItemArtifactScope.js");
+  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { resolveWorkItemArtifactScope: resolve, workItemArtifactRoot: rootFor, workItemArtifactIdentity: identityFor,
+    workItemArtifactScopeFromIdentity: scopeFrom, workItemIntakeTargets: targets, workItemReportPath: report,
+    workItemValidationPath: validation, workItemRepairTargets: repair } = scopeService;
+  const candidate = { candidateId: "WI01", title: "Export Rows" };
+  assert.deepEqual(targets("phase-01", candidate), {
+    handoffMarkdownPath: "planning/phases/phase-01/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WI01.md",
+    formalWorkCardMarkdownPath: "planning/phases/phase-01/Work_Cards/WI01_export_rows.md",
+  });
+  assert.equal(report("phase-01", "WI01", "planning/phases/phase-01/Work_Cards/WI01_export_rows.md"), "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WI01_export_rows.md");
+  assert.equal(validation("phase-01", "WI01", 2), "planning/phases/phase-01/Validation_Records/VALIDATION_RECORD_WI01_ATTEMPT02.md");
+  assert.equal(repair("phase-01", "WI01-REPAIR01").repairMarkdownPath, "planning/phases/phase-01/Work_Cards/WI01-REPAIR01.md");
+  assert.equal(report("phase-01", "WI01-REPAIR01", "unused", true), "planning/phases/phase-01/Implementer_Reports/IMPLEMENTER_REPORT_WI01-REPAIR01.md");
+  assert.deepEqual(identityFor("phase-01", "WI01"), { phaseId: "phase-01", workCardId: "WI01" });
+  assert.deepEqual(scopeFrom(identityFor("phase-01", "WI01")), { kind: "legacy-phase", phaseId: "phase-01" });
+  assert.throws(() => rootFor("../escape"), /bounded identifier/);
+  assert.throws(() => targets("phase-01", { ...candidate, candidateId: "../escape" }), /bounded identifier/);
+  assert.throws(() => validation("phase-01", "WI01", 0), /positive integer/);
+  for (const topology of ["direct", "phased"]) await t.test(topology, async (t) => {
+    const structure = { topology, topologyRationale: "Two bounded export outcomes", acceptanceCriteria: ["Exports preserve values"],
+      workItems: ["WI01", "WI02"].map((workItemId, i) => ({ workItemId, title: "Export Rows", purpose: "Preserve exported row values", dependsOn: i ? ["WI01"] : [], acceptanceCriteria: ["Rows round-trip"] })) };
+    if (topology === "phased") {
+      structure.phases = ["P1", "P2"].map((phaseId, i) => ({ phaseId, title: "Export milestone", purpose: "Prove the export boundary", dependsOn: i ? ["P1"] : [], acceptanceCriteria: ["Milestone proven"] }));
+      structure.workItems.forEach((item, i) => { item.phaseId = `P${i + 1}`; });
+    }
+    const { root, intake, binding, initialHead, git } = await seedApprovedRoutedWorkPlan(t, structure);
+    const ref = { kind: topology === "direct" ? "routed-direct-plan" : "routed-phase", intakeId: intake.intakeId,
+      routeDecisionId: binding.identity.routeDecisionId, planId: binding.identity.planId, ...(topology === "phased" ? { phaseId: "P1" } : {}) };
+    const scope = await resolve(root, ref);
+    const expectedRoot = `planning/work-intake/execution/${intake.intakeId}/${ref.routeDecisionId}/${ref.planId}/${topology === "direct" ? "direct" : "phases/P1"}`;
+    assert.equal(rootFor(scope), expectedRoot);
+    assert.equal(scope.planDigest, binding.planDigest);
+    const paths = targets(scope, candidate);
+    assert.equal(paths.formalWorkCardMarkdownPath, `${expectedRoot}/Work_Cards/WI01_export_rows.md`);
+    assert.equal(paths.handoffMarkdownPath, `${expectedRoot}/Architect_Handoffs/WORK_CARD_INTAKE_ARCHITECT_HANDOFF_WI01.md`);
+    assert.equal(report(scope, "WI01", paths.formalWorkCardMarkdownPath), `${expectedRoot}/Implementer_Reports/IMPLEMENTER_REPORT_WI01_export_rows.md`);
+    assert.equal(validation(scope, "WI01", 1), `${expectedRoot}/Validation_Records/VALIDATION_RECORD_WI01_ATTEMPT01.md`);
+    assert.equal(repair(scope, "WI01-REPAIR02").repairMarkdownPath, `${expectedRoot}/Work_Cards/WI01-REPAIR02.md`);
+    const identity = JSON.parse(JSON.stringify(identityFor(scope, "WI01")));
+    assert.deepEqual(scopeFrom(identity), ref);
+    assert.equal(identity.phaseId, topology === "direct" ? undefined : "P1");
+    assert.throws(() => rootFor({ ...scope, root: "planning/phases/fake" }), /Resolve routed artifact scope/);
+    assert.throws(() => targets(scope, { ...candidate, candidateId: "Unknown" }), /does not belong/);
+    assert.throws(() => scopeFrom({ ...identity, phaseId: "fake" }), /conflicts/);
+    await assert.rejects(resolve(root, { ...ref, phaseId: "fake" }), /no Phase|genuine declared Phase/);
+    await assert.rejects(resolve(root, { ...ref, planId: "another-plan" }), /current routed execution binding/);
+    if (topology === "phased") assert.throws(() => targets(scope, { ...candidate, candidateId: "WI02" }), /does not belong/);
+    assert.equal(fs.existsSync(path.join(root, "planning/phases")), false);
+    assert.equal(fs.existsSync(path.join(root, expectedRoot)), false, "addressing creates no workflow artifacts");
+    assert.equal(git("rev-parse", "HEAD"), initialHead);
+    const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+    await kernel.review(root, intake.intakeId, "plan", { expectedRevision: 1, disposition: "RevisionRequested", notes: "Revisit export criteria" });
+    await assert.rejects(resolve(root, ref), /current approved/);
+  });
+});
+
 test("work card intake selects eligible candidate and writes Markdown-only handoff", () => {
   const root = tempWorkspace("champcity-work-card-intake-");
   seedApprovedProjectPlanning(root);

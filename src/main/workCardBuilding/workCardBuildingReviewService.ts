@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { workItemArtifactIdentity, workItemReportPath, workItemReportPrefix } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
@@ -565,8 +566,7 @@ function buildImplementerReportDocument(
       artifactRevision: 1,
       participationRole: "gatingReview",
       identity: {
-        phaseId: context.phaseId,
-        workCardId: context.workCardId,
+        ...workItemArtifactIdentity(context.phaseId, context.workCardId),
         ...(context.repairId ? { repairId: context.repairId } : {}),
         ...(context.parentWorkCardId ? { parentWorkCardId: context.parentWorkCardId } : {}),
       },
@@ -661,7 +661,7 @@ function findConflictingReports(
   return listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((document) => document.markdownPath !== context.implementerReportPath)
     .filter((document) =>
-      document.markdownPath.startsWith(`planning/phases/${context.phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${context.workCardId}`) ||
+      document.markdownPath.startsWith(workItemReportPrefix(context.phaseId, context.workCardId)) ||
       (
         document.metadata.artifactType === "implementer-report" &&
         document.metadata.phaseId === context.phaseId &&
@@ -801,13 +801,7 @@ function implementerReportPathForContract(input: {
   formalWorkCardPath: string;
   implementationContractType: "formal-work-card" | "repair-work-card";
 }): string {
-  if (input.implementationContractType === "repair-work-card") {
-    return `planning/phases/${input.phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${input.workCardId}.md`;
-  }
-  const displayFilename = path.posix.basename(input.formalWorkCardPath, ".md");
-  const escapedWorkCardId = input.workCardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const slug = displayFilename.replace(new RegExp(`^${escapedWorkCardId}_?`, "i"), "") || "implementation";
-  return `planning/phases/${input.phaseId}/Implementer_Reports/IMPLEMENTER_REPORT_${input.workCardId}_${slug}.md`;
+  return workItemReportPath(input.phaseId, input.workCardId, input.formalWorkCardPath, input.implementationContractType === "repair-work-card");
 }
 
 function readCanonical(workspaceRoot: string, relativePath: string) {
