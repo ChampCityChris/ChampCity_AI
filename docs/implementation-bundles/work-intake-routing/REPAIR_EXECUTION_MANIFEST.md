@@ -26,7 +26,7 @@ Do not preload later Repair Cards.
 
 ## Exact Execution Order
 
-`WIR22-REPAIR01 → WIR22-REPAIR02 → WIR22-REPAIR03 → WIR22-REPAIR04 → WIR22-REPAIR05 → WIR22-REPAIR06 → WIR04-REPAIR01 → WIR22 → WIR23`
+`WIR22-REPAIR01 → WIR22-REPAIR02 → WIR22-REPAIR03 → WIR22-REPAIR04 → WIR22-REPAIR05 → WIR22-REPAIR06A → WIR22-REPAIR06B → WIR22-REPAIR06 → WIR04-REPAIR01 → WIR22 → WIR23`
 
 For each Repair Card:
 
@@ -59,6 +59,8 @@ No merge to dev/main, tag, release, or publication occurs during repairs, WIR22,
 WIR04-REPAIR01 owns the Work Intake form defect proven by Operator screenshots. It does not redesign the Workflow Hub. The current Hub screenshot is acceptance evidence for original WIR22.
 
 ## Resume Rule
+
+REPAIR06A and REPAIR06B are intentionally executed in separate fresh chats. After both pass, execute the original REPAIR06 in another fresh chat.
 
 After WIR04-REPAIR01 passes, read the original WIR22 card fresh from the repository and execute it against the repaired dependency surface. Do not reuse the blocked WIR22 conclusions as a substitute for rerunning its required validation.
 

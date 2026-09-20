@@ -46,16 +46,22 @@ This compatibility scope is an implementation/persistence adapter, not a new can
 5. **WIR22-REPAIR05 — Connect Routed Phase and Plan Completion to Generic Execution**  
    Feed actual Work Item/Phase evidence back into the generic executor, preserve Phase criteria, and derive real Plan completion.
 
-6. **WIR22-REPAIR06 — Wire Routed Completion to Machine-Owned Git and Integration Services**  
-   Connect successful routed Work Item/Plan completion to WIR19–WIR21 checkpoint/integration services through production callers.
+6. **WIR22-REPAIR06A — Establish Project Integration Validation Policy**  
+   Provide repository-owned trusted integration check identities/runners for production candidate validation.
 
-7. **WIR04-REPAIR01 — Repair Work Intake Workspace Layout and Form UX**  
+7. **WIR22-REPAIR06B — Establish Integration Repair Scope Policy**  
+   Provide deterministic governing evidence and bounded editable-source resolution for Integration Repair.
+
+8. **WIR22-REPAIR06 — Wire Routed Completion to Machine-Owned Git and Integration Services**  
+   Consume the 06A/06B providers and connect successful routed Work Item/Plan completion to WIR19–WIR21 through production callers.
+
+9. **WIR04-REPAIR01 — Repair Work Intake Workspace Layout and Form UX**  
    Correct the visually failed Work Intake Workspace while leaving Workflow Hub redesign to original WIR22.
 
 Then resume:
 
-8. **WIR22 — Make Start Work the Canonical Workflow Hub Entry**
-9. **WIR23 — End-to-End Routing, Execution, Git, and Integration Acceptance**
+10. **WIR22 — Make Start Work the Canonical Workflow Hub Entry**
+11. **WIR23 — End-to-End Routing, Execution, Git, and Integration Acceptance**
 
 ## Why These Are Separate Repairs
 
@@ -64,7 +70,9 @@ Then resume:
 - REPAIR03 owns planning/build entry into the existing lifecycle.
 - REPAIR04 owns downstream validation/Repair/close semantics.
 - REPAIR05 owns generic Plan/Phase progression and completion.
-- REPAIR06 owns production source-control/integration orchestration.
+- REPAIR06A owns trusted production integration-validation policy.
+- REPAIR06B owns deterministic Integration Repair scope policy.
+- REPAIR06 owns only final production source-control/integration orchestration after those providers exist.
 - WIR04-REPAIR01 owns the confirmed UI defect and no execution semantics.
 
 Combining these would create another broad multi-domain card and recreate the drift risk this bundle was designed to prevent.
@@ -89,3 +97,8 @@ Each passing Repair Card receives exactly one checkpoint commit through the exec
 Do not create a WIR22 checkpoint for the blocked attempt. Preserve the blocked WIR22 report as failed-review evidence.
 
 After the repair sequence passes, resume WIR22 on top of the final repair checkpoint.
+
+
+## Second Repair Stop
+
+WIR22-REPAIR06 correctly stopped at checkpoint `89744cb2704596aeb9acda6f254c845b7775c1af` because production integration validation and Integration Repair policy providers did not exist. Its blocked report is evidence for REPAIR06A/06B. REPAIR06 resumes only after both new repairs pass.
