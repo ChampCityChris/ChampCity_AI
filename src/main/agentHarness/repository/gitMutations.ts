@@ -538,6 +538,7 @@ export async function commitGitChanges(root: string, message: string): Promise<{
 export async function pushGitBranch(root: string, input: {
   remote?: string;
   branch?: string;
+  expectedCommit?: string;
 } = {}): Promise<{
   remote: string;
   branch: string;
@@ -550,8 +551,11 @@ export async function pushGitBranch(root: string, input: {
     throw gitPrecondition(`Local branch not found: ${branch}.`);
   }
   const commit = await resolveCommit(root, `refs/heads/${branch}`);
+  if (input.expectedCommit !== undefined && (!/^[a-f0-9]{40,64}$/.test(input.expectedCommit) || commit !== input.expectedCommit)) {
+    throw gitPrecondition("Branch changed before exact-commit synchronization.");
+  }
   const ref = `refs/heads/${branch}`;
-  await runBoundedGit({ cwd: root, args: ["push", "--", remote, `${ref}:${ref}`] });
+  await runBoundedGit({ cwd: root, args: ["push", "--", remote, `${input.expectedCommit ?? ref}:${ref}`] });
   return { remote, branch, commit };
 }
 

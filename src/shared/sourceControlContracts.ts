@@ -7,7 +7,8 @@ export interface SourceControlPosition {
 export type SourceControlOperation =
   | "status" | "branches" | "history" | "diff" | "changed-files" | "readiness" | "commit-message"
   | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
-  | "fast-forward" | "delete-branch";
+  | "fast-forward" | "delete-branch" | "integration-target" | "integration-create"
+  | "integration-inspect" | "integration-merge" | "integration-advance" | "integration-abort";
 
 export interface SourceControlReceipt {
   repositoryId: string;

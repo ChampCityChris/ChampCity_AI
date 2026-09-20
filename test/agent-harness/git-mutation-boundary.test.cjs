@@ -8,6 +8,96 @@ const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 
+test("isolated integration candidates gate target advancement on current Plan and post-merge proof", async (t) => {
+  const { createIntegrationCandidateService } = require("../../dist/main/planExecution/integrationCandidateService.js");
+  const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
+  const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
+  const { execFileSync } = require("node:child_process");
+  for (const scenario of ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target"]) await t.test(scenario, async () => {
+    const root = createBoundWorkspace(`champcity-integration-${scenario}-`, true);
+    t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+    git(root, ["branch", "-m", "product-target"]);
+    fs.writeFileSync(path.join(root, "shared.txt"), "base\n");
+    commitAllFixtureState(root, "base");
+    const base = git(root, ["rev-parse", "HEAD"]);
+    const targetBranch = git(root, ["branch", "--show-current"]);
+    const incomingBranch = workIntakeBranchName(`intake-${scenario}`);
+    git(root, ["switch", "-c", incomingBranch]);
+    fs.writeFileSync(path.join(root, scenario === "conflict" ? "shared.txt" : "incoming.txt"), "incoming accepted behavior\n");
+    commitAllFixtureState(root, "accepted incoming source");
+    const incoming = git(root, ["rev-parse", "HEAD"]);
+    git(root, ["switch", targetBranch]);
+    if (scenario !== "unchanged") {
+      fs.writeFileSync(path.join(root, scenario === "conflict" ? "shared.txt" : "target.txt"), "target accepted behavior\n");
+      commitAllFixtureState(root, "independently accepted target");
+    }
+    const target = git(root, ["rev-parse", "HEAD"]);
+    let remote;
+    if (scenario === "remote-target" || scenario === "validation-failed") {
+      remote = path.join(path.dirname(root), "upstream.git");
+      fs.mkdirSync(remote); git(remote, ["init", "--bare"]);
+      git(root, ["remote", "add", "origin", remote]); git(root, ["push", "origin", targetBranch]);
+      if (scenario === "remote-target") {
+        const peer = path.join(path.dirname(root), "peer"); git(path.dirname(root), ["clone", remote, peer]);
+        git(peer, ["switch", targetBranch]); git(peer, ["config", "user.name", "Fixture"]); git(peer, ["config", "user.email", "fixture@example.invalid"]);
+        fs.writeFileSync(path.join(peer, "remote.txt"), "remote accepted behavior\n"); commitAllFixtureState(peer, "remote advances"); git(peer, ["push", "origin", targetBranch]);
+      }
+    }
+    git(root, ["switch", incomingBranch]);
+    const binding = { repositoryId: "integration-fixture", intakeId: `intake-${scenario}`, baseBranch: targetBranch, baseCommit: base, workBranch: incomingBranch, currentHead: incoming, ...(remote ? { remote: { name: "origin", syncState: "synced" } } : {}) };
+    const proof = { planRevision: 1, fresh: true, blockers: [], evidencePaths: ["accepted.md"], criteria: [{ criterion: "Behavior accepted", status: "passed", evidencePaths: ["accepted.md"] }] };
+    const plan = { planId: "PLAN01", planRevision: 1, approved: true, fresh: true, blockers: [], structure: { topology: "direct", topologyRationale: "One accepted item", acceptanceCriteria: ["Behavior accepted"], workItems: [{ workItemId: "WI01", title: "Accepted work", purpose: "Bounded change", dependsOn: [], acceptanceCriteria: ["Behavior accepted"] }] }, workItems: [{ ...proof, workItemId: "WI01", stage: "complete" }], phases: [], planEvidence: proof };
+    let validationCalls = 0;
+    const service = createIntegrationCandidateService({ repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }), checks: [{ checkId: "preserved-source", run: async (candidateRoot) => {
+      validationCalls++;
+      assert.notEqual(candidateRoot, root);
+      assert.equal(git(root, ["rev-parse", targetBranch]), target, "Target remains untouched during validation");
+      assert.equal(git(root, ["branch", "--show-current"]), incomingBranch);
+      const script = "const fs=require('node:fs');if(!fs.readFileSync('incoming.txt','utf8').includes('accepted'))process.exit(2);";
+      execFileSync(process.execPath, ["-e", script], { cwd: candidateRoot, windowsHide: true, stdio: "pipe" });
+      if (scenario === "validation-mutates") fs.writeFileSync(path.join(candidateRoot, "incoming.txt"), "changed during validation\n");
+      return { exitCode: scenario === "validation-failed" ? 1 : 0, summary: "Source preservation check" };
+    } }] });
+    plan.fresh = false; await assert.rejects(service.create(), /Plan completion/); plan.fresh = true;
+    const candidate = await service.create();
+    assert.equal(git(root, ["rev-parse", targetBranch]), target);
+    assert.equal(candidate.baseCommit, base); assert.equal(candidate.incomingCommit, incoming); assert.equal(candidate.localTargetCommit, target);
+    assert.equal(candidate.mergeBase, base);
+    assert.deepEqual(service.read(candidate.candidateId), candidate);
+    const checkout = integrationPaths(root, candidate.candidateId).checkout;
+    if (scenario === "conflict") {
+      assert.equal(candidate.status, "conflicted", candidate.message); assert.deepEqual(candidate.conflictingPaths, ["shared.txt"]); assert.equal(validationCalls, 0);
+      assert.match(fs.readFileSync(path.join(checkout, "shared.txt"), "utf8"), /<<<<<<< HEAD/);
+      await assert.rejects(service.advance(candidate.candidateId, true), /all current required checks passing/);
+    } else if (scenario.startsWith("validation-")) {
+      assert.equal(candidate.status, "validation-failed", candidate.message); assert.equal(validationCalls, 1);
+      await assert.rejects(service.advance(candidate.candidateId, true), /all current required checks passing/);
+      if (remote) assert.equal(git(remote, ["rev-parse", targetBranch]), target, "Failed candidate was never pushed");
+    } else {
+      assert.equal(candidate.status, "validated", candidate.message); assert.equal(validationCalls, 1);
+      if (scenario !== "unchanged") assert.match(fs.readFileSync(path.join(checkout, "target.txt"), "utf8"), /accepted/);
+      plan.fresh = false; await assert.rejects(service.advance(candidate.candidateId), /Plan completion/); plan.fresh = true;
+      if (scenario === "stale-target") {
+        git(root, ["switch", targetBranch]); fs.writeFileSync(path.join(root, "later.txt"), "later target\n"); commitAllFixtureState(root, "target changes after proof"); git(root, ["switch", incomingBranch]);
+        const later = git(root, ["rev-parse", targetBranch]);
+        const blocked = await service.advance(candidate.candidateId); assert.equal(blocked.status, "failed"); assert.match(blocked.message, /refs changed/); assert.equal(git(root, ["rev-parse", targetBranch]), later);
+      } else {
+        const integrated = await service.advance(candidate.candidateId, Boolean(remote));
+        assert.equal(integrated.status, "integrated", integrated.message); assert.equal(git(root, ["rev-parse", targetBranch]), candidate.candidateCommit);
+        assert.equal(git(root, ["rev-parse", incomingBranch]), incoming);
+        if (remote) { assert.equal(integrated.remoteSync, "synced"); assert.equal(git(remote, ["rev-parse", targetBranch]), candidate.candidateCommit); }
+      }
+    }
+    const beforeCleanupTarget = git(root, ["rev-parse", targetBranch]);
+    await service.abort(candidate.candidateId); await service.abort(candidate.candidateId);
+    assert.equal(fs.existsSync(checkout), false);
+    assert.equal(git(root, ["rev-parse", targetBranch]), beforeCleanupTarget); assert.equal(git(root, ["rev-parse", incomingBranch]), incoming);
+    assert.equal(git(root, ["status", "--porcelain"]), "");
+    assert.doesNotMatch(git(root, ["branch", "--list"]), /champcity-integration\//);
+    assert.equal(fs.existsSync(integrationPaths(root, candidate.candidateId).record), true, "Canonical failure/success receipt survives cleanup");
+  });
+});
+
 test("generic source completion checkpoints only attributed files on the Intake branch and keeps remote failure separate", async (t) => {
   const { submitWorkIntake, getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
   const { captureWorkItemCheckpoint, observeCheckpointChanges } = require("../../dist/main/planExecution/workItemCheckpointService.js");

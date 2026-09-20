@@ -8,6 +8,7 @@ import {
   stageGitChanges, switchGitBranch,
 } from "../agentHarness/repository/gitMutations";
 import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/repository/repositoryOperations";
+import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../agentHarness/repository/integrationGit";
 import type {
   SourceControlChangedFile, SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
@@ -107,6 +108,12 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   }
 
   return {
+    integrationTarget: (input: Parameters<typeof inspectIntegrationTarget>[1]) => run("integration-target", false, () => inspectIntegrationTarget(root, input)),
+    createIntegration: (input: Parameters<typeof createIntegrationCheckout>[1]) => run("integration-create", true, () => createIntegrationCheckout(root, input)),
+    inspectIntegration: (candidateId: string) => run("integration-inspect", false, () => inspectIntegrationCheckout(root, candidateId)),
+    mergeIntegration: (input: Parameters<typeof mergeIntegrationCheckout>[1]) => run("integration-merge", true, () => mergeIntegrationCheckout(root, input)),
+    advanceIntegration: (input: Parameters<typeof advanceIntegrationTarget>[1]) => run("integration-advance", true, () => advanceIntegrationTarget(root, input)),
+    abortIntegration: (candidateId: string) => run("integration-abort", true, () => abortIntegrationCheckout(root, candidateId)),
     readCommitMessage: (commit: string) => run("commit-message", false, async () => {
       if (!/^[a-f0-9]{40,64}$/.test(commit)) throw new AgentHarnessError("INVALID_INPUT", "An exact commit is required.");
       return (await runBoundedGit({ cwd: root, args: ["show", "--no-patch", "--format=%B", commit] })).stdout;
