@@ -7,6 +7,12 @@ const actions: Record<WorkItemExecutionStage, WorkItemExecutionAction[]> = {
   repair: ["repair", "implement", "review"], close: ["close"], complete: [],
 };
 const texts = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 100 && value.every((item) => typeof item === "string" && !!item.trim() && item.length <= 4000);
+/** Shared dependency query also supports real Phases before their detailed Work Items exist. */
+export function projectExecutionDependencies(nodes: readonly { id: string; dependsOn: readonly string[] }[], completedIds: readonly string[]) {
+  const completed = new Set(completedIds);
+  return nodes.map((node) => ({ id: node.id, complete: completed.has(node.id), waitingOn: node.dependsOn.filter((id) => !completed.has(id)),
+    eligible: !completed.has(node.id) && node.dependsOn.every((id) => completed.has(id)) }));
+}
 function validateEvidence(evidence: ExecutionBoundaryEvidence, criteria: string[]) {
   if (!evidence || !Number.isSafeInteger(evidence.planRevision) || evidence.planRevision < 1 || typeof evidence.fresh !== "boolean" || !texts(evidence.blockers) || !texts(evidence.evidencePaths) || !Array.isArray(evidence.criteria) || evidence.criteria.length > criteria.length ||
     evidence.criteria.some((entry) => !entry || !criteria.includes(entry.criterion) || !["pending", "passed", "failed"].includes(entry.status) || !texts(entry.evidencePaths)) ||
@@ -57,12 +63,13 @@ export function projectPlanExecution(input: PlanExecutionInput): PlanExecutionPr
     return { phaseId: phase.phaseId, eligible: reasons.length === 0, workItemsComplete: structure.workItems.filter((item) => item.phaseId === phase.phaseId).every((item) => completeItem(item.workItemId)),
       criteriaSatisfied: satisfied(phase.acceptanceCriteria, evidence), complete: blockers.length === 0 && completePhase(phase.phaseId), reasons };
   });
+  const dependencyProjection = projectExecutionDependencies(structure.workItems.map((item) => ({ id: item.workItemId, dependsOn: item.dependsOn })), structure.workItems.filter((item) => completeItem(item.workItemId)).map((item) => item.workItemId));
   const workItems: WorkItemExecutionProjection[] = structure.workItems.map((candidate) => {
     const evidence = itemsById.get(candidate.workItemId); const stage = evidence?.stage ?? "ready";
     const complete = completeItem(candidate.workItemId);
     const reasons = [...blockers, ...(evidence?.blockers ?? [])];
     if (evidence && !current(evidence)) reasons.push("Work Item evidence is stale.");
-    if (!candidate.dependsOn.every(completeItem)) reasons.push("Work Item prerequisites are incomplete.");
+    if (dependencyProjection.find((item) => item.id === candidate.workItemId)!.waitingOn.length) reasons.push("Work Item prerequisites are incomplete.");
     const phase = phaseProjections.find((entry) => entry.phaseId === candidate.phaseId);
     if (phase && !phase.eligible) reasons.push(...phase.reasons);
     if (stage === "complete" && !complete) reasons.push("Completion requires current accepted criteria, dependencies and durable close evidence.");

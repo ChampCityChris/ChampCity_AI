@@ -36,6 +36,8 @@ import {
   type EffectiveWorkCardCompletion,
 } from "./effectiveWorkCardCompletion";
 import { resolveWorkCardCloseReturnConsumption } from "./workCardCloseReturnLifecycle";
+import { developmentLifecycleStage, projectDevelopmentWorkItems } from "../planExecution/developmentExecutionAdapter";
+import type { PlanExecutionProjection } from "../../shared/planExecutionContracts";
 
 export type WorkCardLoopStateStatus =
   | "no-plan"
@@ -141,6 +143,7 @@ export type LatestCompletedWorkCardCloseState =
     };
 
 export interface WorkCardLoopStateProjection {
+  execution?: PlanExecutionProjection;
   status: WorkCardLoopStateStatus;
   phaseId?: string;
   workspaceId: WorkspaceId;
@@ -227,7 +230,8 @@ export function resolveWorkCardLoopState(
     phaseId,
     planningContext,
   );
-  const mapCandidates = buildMapCandidates(workspaceRoot, phaseId, candidates, activeState, planningContext);
+  const execution = projectDevelopmentWorkItems(workspaceRoot, phaseId, candidates, planningContext, activeState);
+  const mapCandidates = buildMapCandidates(workspaceRoot, phaseId, candidates, activeState, planningContext, execution);
 
   if (activeState.status === "conflict") {
     return {
@@ -264,27 +268,29 @@ export function resolveWorkCardLoopState(
   if (repairState) {
     return {
       ...repairState,
+      execution,
       candidates: mapCandidates,
       sourceWorkCardPlanPath: workCardPlan.markdownPath,
     };
   }
 
   if (activeState.status === "active") {
-    return activeLoopStateForCandidate(
+    return { ...activeLoopStateForCandidate(
       workspaceRoot,
       documents,
       activeState,
       mapCandidates,
       workCardPlan.markdownPath,
       planningContext,
-    );
+    ), execution };
   }
 
-  const allComplete = mapCandidates.length > 0 &&
+  const allComplete = execution?.workItemsComplete && mapCandidates.length > 0 &&
     mapCandidates.every((candidate) => candidate.status === "Complete");
   if (allComplete) {
     return {
       status: "all-complete",
+      execution,
       phaseId,
       workspaceId: "phase-work-card-selection",
       loopStep: "Map",
@@ -298,6 +304,7 @@ export function resolveWorkCardLoopState(
 
   return {
     status: "map-ready",
+    execution,
     phaseId,
     workspaceId: "phase-work-card-selection",
     loopStep: "Map",
@@ -362,10 +369,11 @@ export function selectNextWorkCardCandidateFromState(
     };
   }
 
+  const execution = projectDevelopmentWorkItems(workspaceRoot, phaseId, candidates, undefined, resolveActiveWorkCardStateFromLoop(workspaceRoot, phaseId));
   const explanations = candidates
     .slice()
     .sort((left, right) => left.order - right.order)
-    .map((candidate) => explainCandidate(workspaceRoot, phaseId, candidate, candidates));
+    .map((candidate) => explainCandidate(candidate, execution));
   const selected = explanations.find((entry) => entry.state === "eligible");
   if (selected) {
     return {
@@ -496,7 +504,8 @@ function activeLoopStateForCandidate(
     activeState.workCardId,
     planningContext,
   );
-  if (completion.state === "revision-requested") {
+  const stage = developmentLifecycleStage({ formalApproved: true, reportReady: projection.reportReadiness === "ready-for-review", validation: completion.state });
+  if (stage === "repair") {
     return {
       status: "active",
       phaseId: activeState.phaseId,
@@ -516,7 +525,7 @@ function activeLoopStateForCandidate(
     };
   }
 
-  if (completion.state === "approved") {
+  if (stage === "close") {
     const close = getWorkCardCloseProjection(workspaceRoot, activeState.phaseId, activeState.workCardId, planningContext);
     if (close.returnTarget === "phase-work-card-selection") {
       return {
@@ -819,12 +828,13 @@ function buildMapCandidates(
   candidates: WorkCardCandidate[],
   activeState: ActiveWorkCardState,
   planningContext?: PlanningProjectionContext,
+  execution?: PlanExecutionProjection,
 ): WorkCardMapCandidateProjection[] {
   return candidates
     .slice()
     .sort((left, right) => left.order - right.order)
     .map((candidate): WorkCardMapCandidateProjection => {
-      const explained = explainCandidate(workspaceRoot, phaseId, candidate, candidates, planningContext);
+      const explained = explainCandidate(candidate, execution);
       const targets = workCardIntakeTargets(phaseId, candidate);
       const isActive = activeState.status === "active" && activeState.workCardId === candidate.candidateId;
       return {
@@ -1061,11 +1071,8 @@ function activePlanningHandoffFromDocument(
 }
 
 function explainCandidate(
-  workspaceRoot: string,
-  phaseId: string,
   candidate: WorkCardCandidate,
-  candidates: WorkCardCandidate[],
-  planningContext?: PlanningProjectionContext,
+  execution: PlanExecutionProjection | undefined,
 ): CandidateSelectionExplanation {
   if (candidate.resolutionStatus === "deferred") {
     return explanation(candidate, "deferred", `Candidate is deferred: ${candidate.resolutionReason}`);
@@ -1079,44 +1086,14 @@ function explainCandidate(
   if (candidate.resolutionStatus === "carriedForward") {
     return explanation(candidate, "carried-forward", `Candidate is carried forward: ${candidate.resolutionReason}`);
   }
-  const completionEvidence = candidateCompletionEvidence(workspaceRoot, phaseId, candidate.candidateId, planningContext);
-  if (completionEvidence.length > 0) {
-    return explanation(candidate, "complete", "Candidate is complete because current Approved validation evidence exists.", completionEvidence);
+  const item = execution?.workItems.find((entry) => entry.candidate.workItemId === candidate.candidateId);
+  if (item?.complete) {
+    return explanation(candidate, "complete", "Candidate has current effective Approved validation and no pending active close boundary.", item.evidencePaths);
   }
-  const blocked = candidate.dependsOn.filter((dependencyId) =>
-    !dependencySatisfied(workspaceRoot, phaseId, dependencyId, candidates, planningContext),
-  );
-  if (blocked.length > 0) {
-    return explanation(candidate, "dependency-blocked", `Candidate is blocked by incomplete predecessors: ${blocked.join(", ")}.`);
+  if (!item?.eligible) {
+    return explanation(candidate, "dependency-blocked", `Candidate is blocked: ${item?.reasons.join(" ") || "Current execution evidence is unavailable."}`, item?.evidencePaths);
   }
   return explanation(candidate, "eligible", "Candidate is planned, incomplete, and all predecessors permit continuation.");
-}
-
-function dependencySatisfied(
-  workspaceRoot: string,
-  phaseId: string,
-  dependencyId: string,
-  candidates: WorkCardCandidate[],
-  planningContext?: PlanningProjectionContext,
-): boolean {
-  const dependency = candidates.find((candidate) => candidate.candidateId === dependencyId);
-  if (!dependency) {
-    return false;
-  }
-  if (dependency.resolutionStatus !== "planned") {
-    return true;
-  }
-  return candidateCompletionEvidence(workspaceRoot, phaseId, dependencyId, planningContext).length > 0;
-}
-
-function candidateCompletionEvidence(
-  workspaceRoot: string,
-  phaseId: string,
-  candidateId: string,
-  planningContext?: PlanningProjectionContext,
-): string[] {
-  const completion = resolveEffectiveWorkCardCompletion(workspaceRoot, phaseId, candidateId, planningContext);
-  return completion.complete ? completion.sourceEvidence : [];
 }
 
 function explanation(

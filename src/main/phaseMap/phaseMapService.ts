@@ -33,6 +33,7 @@ import {
   mergeRepositoryBindingIntoWorkflowData,
 } from "../documents/repositoryBinding";
 import { getPhaseCloseProjection } from "../phaseClose/phaseCloseService";
+import { projectDevelopmentPhases } from "../planExecution/developmentExecutionAdapter";
 
 export type { PhaseMapPhase };
 
@@ -286,24 +287,20 @@ export function selectNextPhaseByDependencies(
   phases: PhaseMapPhase[],
   completedPhaseIds: string[],
 ): Extract<PhaseMapProjection, { state: "first-incomplete" | "dependency-blocked" | "all-complete" }> {
-  const completed = new Set(completedPhaseIds);
-  const incomplete = phases
-    .filter((phase) => !completed.has(phase.phaseId))
-    .sort((left, right) => left.order - right.order);
+  const execution = projectDevelopmentPhases(phases, completedPhaseIds);
+  const incomplete = execution.filter((phase) => !phase.complete);
   if (incomplete.length === 0) {
     return { state: "all-complete", completedPhaseIds };
   }
 
-  const dependencyEligible = incomplete.find((phase) =>
-    phase.dependsOn.every((dependency) => completed.has(dependency))
-  );
+  const dependencyEligible = incomplete.find((phase) => phase.eligible);
   if (dependencyEligible) {
-    return { state: "first-incomplete", phase: dependencyEligible, completedPhaseIds };
+    return { state: "first-incomplete", phase: phases.find((phase) => phase.phaseId === dependencyEligible.id)!, completedPhaseIds };
   }
 
   const blockedPhases = incomplete.map((phase) => ({
-    phaseId: phase.phaseId,
-    waitingOnPhaseIds: phase.dependsOn.filter((dependency) => !completed.has(dependency)),
+    phaseId: phase.id,
+    waitingOnPhaseIds: phase.waitingOn,
   }));
   const reasoning = blockedPhases
     .map((phase) => `${phase.phaseId} waits on ${phase.waitingOnPhaseIds.join(", ") || "unknown dependency evidence"}`)
@@ -312,7 +309,7 @@ export function selectNextPhaseByDependencies(
     state: "dependency-blocked",
     reason: `Incomplete Phase Map phases remain, but none has all declared dependencies complete: ${reasoning}.`,
     completedPhaseIds,
-    incompletePhaseIds: incomplete.map((phase) => phase.phaseId),
+    incompletePhaseIds: incomplete.map((phase) => phase.id),
     blockedPhases,
   };
 }

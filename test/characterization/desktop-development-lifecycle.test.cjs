@@ -303,6 +303,18 @@ function assertState(actual, expected) {
   for (const [key, value] of Object.entries(expected)) {
     assert.equal(actual[key], value, `${key} should remain ${value}`);
   }
+  if (actual.status !== "conflict") {
+    assert.equal(actual.execution.topology, "direct", "the Work Card sequence runs through generic direct progression within its owning scope");
+    assert.equal(actual.execution.phases.length, 0, "no artificial Phase is created inside a direct sequence");
+    if (actual.status === "all-complete") assert.equal(actual.execution.workItemsComplete, true);
+    else if (actual.status === "active") {
+      const id = actual.parentWorkCardId ?? actual.candidateId ?? actual.workCardId;
+      const item = actual.execution.workItems.find((entry) => entry.candidate.workItemId === id);
+      assert.equal(actual.execution.nextWorkItemId, id);
+      assert.equal(item.stage, { Planning: "implement", Build: "implement", ReviewAndValidation: "review-validate", Repair: "repair", Close: "close" }[actual.loopStep]);
+      assert.equal(item.complete, false);
+    }
+  }
 }
 
 function writeReadyImplementerReport(root, phaseId, workCardId, artifactRevision = 1) {
