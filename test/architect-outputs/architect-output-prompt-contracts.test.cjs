@@ -4,6 +4,39 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
+test("Feature planning requires baseline delta and preservation while keeping candidates within the current capability boundary", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake } = await seedRoutedWorkIntake(t, "feature-change", { workRequest: "Add CSV export to existing schedules", desiredOutcome: "Export current schedules without changing scheduling behavior" });
+  const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const baselinePath = path.join(root, "planning", "existing-roadmap.md");
+  fs.writeFileSync(baselinePath, "# Existing roadmap\nExport later; unrelated sharing remains future work.\n");
+  const baselineBytes = fs.readFileSync(baselinePath, "utf8");
+  let prepared = await workPlanningKernel.prepare(root, intake.intakeId, "assessment");
+  for (const rule of [/current baseline/, /requested capability delta/, /affected services/i, /state\/UI\/contracts/, /integration points/, /compatibility, rollout, recovery/, /regression boundary/, /demonstrated hard dependencies/, /Do not regenerate the whole product roadmap/, /Every Work Item and Phase candidate must trace/]) assert.match(prepared.preparedInstruction, rule);
+  assert.doesNotMatch(prepared.preparedInstruction, /## Product Outcome and Users/);
+  assert.match(prepared.preparedInstruction, /direct Plan/); assert.match(prepared.preparedInstruction, /phased Plan only when/);
+  const submit = (model, body) => { const file = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath); fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, body); };
+  submit(prepared, "# Route Architect Assessment\n## Evidence\nExisting product.\n## Decisions\nExport.\n## Risks and Unresolved Questions\nCSV encoding.\n");
+  let result = await workPlanningKernel.get(root, intake.intakeId, "assessment");
+  assert.equal(result.submission.state, "promotion-failed"); assert.equal(result.artifact, null);
+  assert.match(result.error, /Current Product Baseline/);
+  prepared = await workPlanningKernel.prepare(root, intake.intakeId, "assessment");
+  submit(prepared, "# Route Architect Assessment\n## Evidence\nThe Intake requests export from the existing scheduler.\n## Decisions\nAdd read-only CSV export.\n## Risks and Unresolved Questions\nQuote CSV safely.\n## Current Product Baseline\nSchedules can be created and edited.\n## Requested Capability Delta\nExport the current schedule as CSV.\n## Behavior and Contracts to Preserve\nScheduling and persistence remain unchanged.\n## Affected Architecture and Integration Points\nA read-only export adapter consumes current schedule data.\n## Compatibility and Rollout\nAdd an export action with no storage change.\n## Regression Boundary\nProve scheduling behavior and CSV output.\n## Excluded Future Work\nSharing remains outside this Intake.\n");
+  result = await workPlanningKernel.get(root, intake.intakeId, "assessment");
+  assert.equal(result.artifact.disposition, "Pending", result.error);
+  await workPlanningKernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "Approved", notes: "Feature boundary accepted" });
+  const plan = await workPlanningKernel.prepare(root, intake.intakeId, "plan");
+  assert.match(plan.preparedInstruction, /## Feature Candidate Traceability/);
+  const structure = { topology: "direct", topologyRationale: "One bounded export capability.", acceptanceCriteria: ["CSV export preserves scheduling"],
+    workItems: [{ workItemId: "WI_EXPORT", title: "Add schedule CSV export", purpose: "Export existing schedule data", dependsOn: [], acceptanceCriteria: ["CSV values are correct and scheduling regression proof passes"] }] };
+  submit(plan, "# Work Plan\n## Scope\nCSV export only.\n## Preserved Behavior\nScheduling and persistence.\n## Acceptance\nExport and scheduling regression proof.\n## Execution Structure\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n## Baseline and Capability Delta\nAdd export to the existing scheduler.\n## Preservation and Regression Proof\nRetain scheduling operations.\n## Affected Services State UI and Contracts\nRead-only exporter and UI action.\n## Rollout and Compatibility\nAdditive action; unchanged data.\n## Hard Dependencies and Excluded Work\nNo hard dependency; sharing excluded.\n## Feature Candidate Traceability\nWI_EXPORT delivers exactly the export delta.\n");
+  const promoted = await workPlanningKernel.get(root, intake.intakeId, "plan");
+  assert.equal(promoted.artifact.structure.workItems.length, 1, promoted.error);
+  assert.equal(promoted.artifact.structure.workItems[0].workItemId, "WI_EXPORT");
+  assert.equal(promoted.artifact.structure.phases, undefined);
+  assert.equal(fs.readFileSync(baselinePath, "utf8"), baselineBytes, "existing roadmap remains untouched");
+});
+
 test("routing handoff constrains advisory work and its body rejects route-control or ambiguous primary values", () => {
   const { createRoutingAssessmentDefinition, parseRoutingAssessmentBody } = require("../../dist/main/workIntake/workRoutingAssessmentService.js");
   const definition = createRoutingAssessmentDefinition("intake-00000000-0000-0000-0000-000000000000");
