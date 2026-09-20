@@ -47,6 +47,9 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   assert.deepEqual(durable.metadata.workflowData.researchOutcome, outcome);
   assert.equal(durable.metadata.documentDisposition.status, "Approved");
   assert.equal((await createWorkPlanningKernel().get(root, intake.intakeId, "assessment")).researchClosed, true);
+  const { activateRoutedDevelopmentExecutionBinding, routedDevelopmentExecutionBindingPath } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
+  await assert.rejects(activateRoutedDevelopmentExecutionBinding(root, intake.intakeId), /no implementation Plan/);
+  assert.equal(fs.existsSync(path.join(root, routedDevelopmentExecutionBindingPath(intake.intakeId))), false);
   await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /no implementation Plan.*new Work Intake/);
   assert.equal(fs.existsSync(path.join(root, workPlanningArtifactPath(intake.intakeId, model.artifact.identity.routeDecisionId, "plan"))), false);
   assert.equal(model.artifact.structure, undefined, "No fake Work Items or Phases are manufactured");
@@ -224,6 +227,116 @@ test("shared planning kernel reviews direct and phased Plans under the Operator-
   assert.equal((await api.getWorkPlanning(intake.intakeId, "plan")).artifact.stale, true);
   await assert.rejects(api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 2, disposition: "Approved", notes: "" }), /stale/);
   assert.throws(() => resolveWorkPlanningProfile("unknown"), /Unknown/);
+});
+
+test("routed Development binding preserves approved direct and phased sources and rejects incompatible execution", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { activateRoutedDevelopmentExecutionBinding: activate, readRoutedDevelopmentExecutionBinding: read, routedDevelopmentExecutionBindingPath: bindingPath } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
+  const { parseCanonicalMarkdownDocument: parse, serializeCanonicalMarkdownDocument: serialize } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const { createHash } = require("node:crypto");
+  for (const topology of ["direct", "phased"]) await t.test(topology, async (t) => {
+    const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "feature-change");
+    const profile = resolveWorkPlanningProfile("feature-change");
+    assert.equal(await read(root, intake.intakeId), null);
+    const structure = { topology, topologyRationale: "A bounded export with preserved behavior", acceptanceCriteria: ["Export contract passes"],
+      workItems: [{ workItemId: "WI01", title: "Prepare export", purpose: "Establish the export contract", dependsOn: [], acceptanceCriteria: ["Export rows round-trip"] },
+        { workItemId: "WI02", title: "Enable export", purpose: "Expose the approved export contract", dependsOn: ["WI01"], acceptanceCriteria: ["Export preserves row values"] }] };
+    if (topology === "phased") {
+      structure.phases = [{ phaseId: "P1", title: "Foundation", purpose: "Establish contract", dependsOn: [], acceptanceCriteria: ["Contract ready"] },
+        { phaseId: "P2", title: "Cutover", purpose: "Enable contract", dependsOn: ["P1"], acceptanceCriteria: ["Cutover proven"] }];
+      structure.workItems.forEach((item, index) => { item.phaseId = `P${index + 1}`; });
+    }
+    for (const stage of ["assessment", "plan"]) {
+      let model = await kernel.prepare(root, intake.intakeId, stage);
+      const body = `# ${stage === "assessment" ? "Route Architect Assessment" : "Work Plan"}\n\n` +
+        profile[stage === "assessment" ? "assessmentSections" : "planSections"].map((heading) => `## ${heading}\nAdd bounded export while preserving all existing row operations.`).join("\n\n") +
+        (stage === "plan" ? `\n\n\`\`\`champcity-work-plan\n${JSON.stringify(structure)}\n\`\`\`\n` : "\n");
+      writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
+      model = await kernel.get(root, intake.intakeId, stage);
+      if (stage === "plan") await assert.rejects(activate(root, intake.intakeId), /current approved/);
+      await kernel.review(root, intake.intakeId, stage, { expectedRevision: 1, disposition: "Approved", notes: "Bounded export approved" });
+    }
+    const plan = (await kernel.get(root, intake.intakeId, "plan")).artifact;
+    const [binding, concurrent] = await Promise.all([activate(root, intake.intakeId), activate(root, intake.intakeId)]);
+    assert.deepEqual(binding, concurrent);
+    assert.deepEqual(binding.identity, plan.identity);
+    assert.equal(binding.identity.routeDecisionId, route.selection.decisionId);
+    assert.deepEqual(binding.structure, plan.structure);
+    assert.deepEqual(binding.branchBinding, intake.branchBinding);
+    assert.equal(binding.planRevision, plan.artifactRevision);
+    assert.equal(binding.planPath, plan.relativePath);
+    const planBytes = fs.readFileSync(path.join(root, plan.relativePath), "utf8");
+    assert.equal(binding.planDigest, createHash("sha256").update(planBytes).digest("hex"));
+    const target = path.join(root, binding.relativePath);
+    const bindingBytes = fs.readFileSync(target, "utf8");
+    assert.deepEqual(await read(root, intake.intakeId), binding);
+    assert.deepEqual(await activate(root, intake.intakeId), binding);
+    assert.equal(fs.readFileSync(target, "utf8"), bindingBytes, "reactivation is byte-idempotent");
+    assert.equal(fs.existsSync(path.join(root, "planning/phases")), false, "activation never creates legacy Phase artifacts");
+    if (topology === "direct") {
+      assert.equal(binding.structure.phases, undefined);
+      assert.ok(binding.structure.workItems.every((item) => item.phaseId === undefined));
+    }
+    const legacyPath = "planning/phases/P1/Work_Card_Plan_P1.md";
+    fs.unlinkSync(target);
+    writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath: legacyPath, metadata: {
+      ...parse(bindingBytes).metadata, artifactType: "work-card-plan", identity: { intakeId: intake.intakeId, phaseId: "P1" },
+    }, bodyMarkdown: "# Existing legacy execution\n" });
+    await assert.rejects(activate(root, intake.intakeId), /Existing legacy or routed/);
+    assert.equal(fs.existsSync(target), false, "competing Intake execution is never replaced");
+    fs.unlinkSync(path.join(root, legacyPath));
+    fs.writeFileSync(target, bindingBytes);
+    for (const mutate of [
+      (doc) => { doc.metadata.artifactRevision++; },
+      (doc) => { doc.metadata.documentDisposition.status = "Rejected"; },
+      (doc) => { doc.metadata.documentDisposition.status = "RevisionRequested"; },
+      (doc) => { doc.metadata.participationRole = "historical"; },
+      (doc) => { doc.bodyMarkdown += "\nChanged approved content.\n"; },
+    ]) {
+      const doc = parse(planBytes); mutate(doc);
+      fs.writeFileSync(path.join(root, plan.relativePath), serialize(doc.metadata, doc.bodyMarkdown));
+      await assert.rejects(read(root, intake.intakeId));
+      await assert.rejects(activate(root, intake.intakeId));
+      assert.equal(fs.readFileSync(target, "utf8"), bindingBytes);
+      fs.writeFileSync(path.join(root, plan.relativePath), planBytes);
+    }
+    for (const mutate of [
+      (doc) => { doc.metadata.artifactType = "legacy-execution-binding"; },
+      (doc) => { doc.metadata.identity.planId = "another-plan"; },
+      (doc) => { doc.metadata.workflowData.structure.workItems[0].title = "Different work"; },
+      (doc) => { doc.metadata.workflowData.branchBinding.baseBranch = "another-branch"; },
+      (doc) => { doc.metadata.workflowData.branchBinding.currentHead = "a".repeat(40); },
+    ]) {
+      const doc = parse(bindingBytes); mutate(doc); fs.writeFileSync(target, serialize(doc.metadata, doc.bodyMarkdown));
+      const conflictingBytes = fs.readFileSync(target, "utf8");
+      await assert.rejects(activate(root, intake.intakeId));
+      assert.equal(fs.readFileSync(target, "utf8"), conflictingBytes);
+      fs.writeFileSync(target, bindingBytes);
+    }
+    const assessment = (await kernel.get(root, intake.intakeId, "assessment")).artifact;
+    const assessmentBytes = fs.readFileSync(path.join(root, assessment.relativePath), "utf8");
+    fs.appendFileSync(path.join(root, assessment.relativePath), "\nChanged source without changing revision.\n");
+    await assert.rejects(read(root, intake.intakeId), /approved|stale/);
+    fs.writeFileSync(path.join(root, assessment.relativePath), assessmentBytes);
+    const decisions = require("../../dist/main/workIntake/workRouteDecisionService.js");
+    await decisions.recommendWorkRouteReroute(root, intake.intakeId, { priorDecisionId: route.selection.decisionId, replacementRouteId: "refactor-migration", rationale: "The export needs transformation planning", sourceEvidence: [{ path: plan.relativePath, revision: 1 }] });
+    await assert.rejects(read(root, intake.intakeId), /selected route/);
+    const pending = await decisions.getWorkRouteDecision(root, intake.intakeId);
+    await decisions.decideWorkRoute(root, intake.intakeId, { expectedDecisionRevision: pending.artifactRevision, sourceAssessment: pending.sourceAssessment, disposition: "accept", rationale: "Accept corrected route" });
+    assert.equal(parse(fs.readFileSync(target, "utf8")).metadata.participationRole, "historical", "route supersession includes execution binding");
+    await assert.rejects(activate(root, intake.intakeId));
+    assert.equal(git("rev-parse", "HEAD"), initialHead, "binding does not mutate Git");
+    git("switch", "main");
+    await assert.rejects(read(root, intake.intakeId), /current checkout/);
+  });
+  await t.test("Issue route cannot use Development binding", async (t) => {
+    const { root, intake } = await seedRoutedWorkIntake(t, "issue-resolution");
+    await assert.rejects(activate(root, intake.intakeId));
+    assert.equal(fs.existsSync(path.join(root, bindingPath(intake.intakeId))), false);
+  });
 });
 
 const {
