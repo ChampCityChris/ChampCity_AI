@@ -4,6 +4,32 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
+test("routing handoff constrains advisory work and its body rejects route-control or ambiguous primary values", () => {
+  const { createRoutingAssessmentDefinition, parseRoutingAssessmentBody } = require("../../dist/main/workIntake/workRoutingAssessmentService.js");
+  const definition = createRoutingAssessmentDefinition("intake-00000000-0000-0000-0000-000000000000");
+  const submission = createArchitectDraftSubmission(definition, {
+    sourceHandoff: { path: "planning/work-intake/intakes/intake-fixture.md", revision: 3 }, submissionKey: "prompt-proof",
+  });
+  const instruction = definition.buildPreparedInstruction({ workspaceRoot: os.tmpdir(), submission, sourceHandoff: submission.sourceHandoff,
+    domainContext: { intake: { workRequest: "Add export", desiredOutcome: "Portable output", knownConstraints: "Preserve architecture", hasExistingSourceOrPlanning: true, repositoryReviewContext: "src/export.ts" }, sourceDigests: {} } });
+  assert.match(instruction, /inspect materially relevant/i);
+  assert.match(instruction, /Do not conduct the full Greenfield, Feature, Refactor\/Migration/);
+  assert.match(instruction, /Do not generate a roadmap, Phase, Plan, Work Card/);
+  assert.match(instruction, /Do not activate a route or perform Git mutations/);
+  assert.match(instruction, /exactly one primary route/);
+  assert.match(instruction, /alternate only when genuine ambiguity/);
+  const invocation = JSON.parse(instruction.match(/```json\n([\s\S]+?)\n```/)[1]);
+  assert.equal(invocation.action, "write_markdown_artifact");
+  assert.equal(invocation.params.relativePath, submission.expectedDraftSlots[0].draftRelativePath);
+  assert.deepEqual(Object.keys(invocation.params).sort(), ["content", "overwrite", "relativePath"]);
+  const body = "# Work Intake Routing Assessment\n## Recommended Route\nrefactor-migration\n## Traits\nNone\n## Evidence\n- README.md\n## Rationale\nTransform existing architecture with preservation.\n## Alternate Route\nNone\n";
+  assert.equal(parseRoutingAssessmentBody(body).recommendedRouteId, "refactor-migration");
+  assert.throws(() => parseRoutingAssessmentBody(body.replace("refactor-migration", "unknown")), /exactly one/);
+  assert.throws(() => parseRoutingAssessmentBody(body + "## Selected Route\ngreenfield\n"), /Unexpected/);
+  assert.throws(() => parseRoutingAssessmentBody(body.replace("## Alternate Route\nNone", "## Alternate Route\ninfrastructure-platform")), /ambiguity/);
+  assert.throws(() => parseRoutingAssessmentBody(body.replace("README.md", "../outside.md")), /repository evidence paths/);
+});
+
 const {
   createArchitectDraftSubmission,
 } = require("../../dist/main/architectOutputs/architectDraftSubmissionService.js");

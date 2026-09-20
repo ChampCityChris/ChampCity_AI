@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { WorkIntakeProjection, WorkIntakeRecord, WorkIntakeSubmission } from "../../shared/workIntakeContracts";
+import { WorkRoutingAssessmentPanel } from "./WorkRoutingAssessmentPanel";
 
 export function WorkIntakeWorkspace({ projection, onReturn, onRefresh }: {
   projection: WorkIntakeProjection;
@@ -43,7 +44,6 @@ export function WorkIntakeWorkspace({ projection, onReturn, onRefresh }: {
       <p>{saved.workRequest}</p>
       <p>Work branch: {saved.branchBinding.workBranch}</p>
       <p>Base branch: {saved.branchBinding.baseBranch}</p>
-      <p>Routing assessment is the next step.</p>
     </section> : <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {projection.blockedReason ? <p role="status">{projection.blockedReason}</p> : null}
       <label>Project name<input value={value.projectName} readOnly={!!projection.project} required onChange={(event) => update("projectName", event.target.value)} /></label>
@@ -61,5 +61,6 @@ export function WorkIntakeWorkspace({ projection, onReturn, onRefresh }: {
       <button type="submit" disabled={busy || !!projection.blockedReason}>{busy ? "Saving…" : "Save Work Intake"}</button>
     </form>}
     {!saved && projection.currentIntake ? <p>Current Work Intake: {projection.currentIntake.workRequest}</p> : null}
+    {saved || projection.currentIntake ? <WorkRoutingAssessmentPanel key={(saved ?? projection.currentIntake)!.intakeId} intakeId={(saved ?? projection.currentIntake)!.intakeId} /> : null}
   </section>;
 }

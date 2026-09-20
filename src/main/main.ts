@@ -54,6 +54,7 @@ import {
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
+import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
 import type { WorkIntakeSubmission } from "../shared/workIntakeContracts";
 import {
   attachArchitectBrowserSurface,
@@ -749,6 +750,12 @@ ipcMain.handle(
 ipcMain.handle("workIntake:projection", () => getWorkIntakeProjection(getRequiredWorkspaceRoot()));
 ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
+ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
+ipcMain.handle("workRouting:status", (_event, intakeId: string) => getWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
+ipcMain.handle("workRouting:copy", async (_event, intakeId: string) => {
+  const instruction = await copyWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId);
+  clipboard.writeText(instruction);
+});
 
 ipcMain.handle(
   "projectIntake:submit",

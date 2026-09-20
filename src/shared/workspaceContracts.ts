@@ -1379,6 +1379,9 @@ export interface WorkspaceMigrationResult {
 
 export interface ChampCityApi {
   getWorkIntakeProjection: () => Promise<import("./workIntakeContracts").WorkIntakeProjection>;
+  prepareWorkRoutingAssessment: (intakeId: string) => Promise<import("./workRoutingAssessmentContracts").WorkRoutingAssessmentModel>;
+  getWorkRoutingAssessment: (intakeId: string) => Promise<import("./workRoutingAssessmentContracts").WorkRoutingAssessmentModel>;
+  copyWorkRoutingAssessment: (intakeId: string) => Promise<void>;
   readWorkIntake: (intakeId: string) => Promise<import("./workIntakeContracts").WorkIntakeRecord>;
   submitWorkIntake: (submission: import("./workIntakeContracts").WorkIntakeSubmission) => Promise<import("./workIntakeContracts").WorkIntakeSubmissionResult>;
   getGithubProviderStatus: () => Promise<GithubProviderStatus>;

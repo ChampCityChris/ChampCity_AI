@@ -36,11 +36,13 @@ export function prepareArchitectOutputRuntimeSubmission<
   workspaceRoot: string,
   outputKind: string,
   owningWorkspaceId: string,
+  registry: ArchitectOutputRegistry = productionRegistry(),
 ): ArchitectDraftSubmission<TSlotId, TSelection> {
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
   const definition = resolveDefinition<TSlotId, TSelection, TDomainContext>(
     outputKind,
     owningWorkspaceId,
+    registry,
   );
   const preparation = definition.resolvePreparation(resolvedWorkspaceRoot);
   const runtimeKey = workspaceRuntimeKey(resolvedWorkspaceRoot, owningWorkspaceId);
@@ -76,6 +78,7 @@ export function getArchitectOutputRuntimeStatus<
   workspaceRoot: string,
   outputKind: string,
   owningWorkspaceId: string,
+  registry: ArchitectOutputRegistry = productionRegistry(),
 ): ActiveArchitectOutputRuntimeSubmission<TSlotId, TSelection> | undefined {
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
   const runtimeKey = workspaceRuntimeKey(resolvedWorkspaceRoot, owningWorkspaceId);
@@ -90,7 +93,7 @@ export function getArchitectOutputRuntimeStatus<
 
   const result = promoteArchitectDraftSubmission({
     workspaceRoot: active.workspaceRoot,
-    registry: productionRegistry(),
+    registry,
     submission: active.submission,
     preparedContext: active.preparedContext,
   });
@@ -139,8 +142,9 @@ export function getActivePreparedArchitectOutputInstruction(
 function resolveDefinition<TSlotId extends string, TSelection, TDomainContext>(
   outputKind: string,
   owningWorkspaceId: string,
+  registry: ArchitectOutputRegistry,
 ): ArchitectOutputDefinition<TSlotId, TSelection, TDomainContext> {
-  return productionRegistry().resolve(outputKind, owningWorkspaceId) as ArchitectOutputDefinition<
+  return registry.resolve(outputKind, owningWorkspaceId) as ArchitectOutputDefinition<
     TSlotId,
     TSelection,
     TDomainContext

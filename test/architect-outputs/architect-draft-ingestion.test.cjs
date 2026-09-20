@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { execFileSync } = require("node:child_process");
 
 const {
   parseCanonicalMarkdownDocument,
@@ -37,6 +38,82 @@ function tempWorkspace() {
   fs.mkdirSync(path.join(root, "planning"), { recursive: true });
   return root;
 }
+
+test("Work Intake routing uses production IPC and draft promotion with advisory identity and stale-source rejection", async (t) => {
+  const root = tempWorkspace();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  fs.writeFileSync(path.join(root, "README.md"), "# Current product\n");
+  git("init", "-b", "main"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+  git("add", "README.md"); git("commit", "-m", "fixture baseline");
+  const initialHead = git("rev-parse", "HEAD");
+  const intakeService = require("../../dist/main/workIntake/workIntakeService.js");
+  const routing = require("../../dist/main/workIntake/workRoutingAssessmentService.js");
+  const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const { mainPreloadHarness } = require("../support/production-execution.cjs");
+  const created = await intakeService.submitWorkIntake(root, {
+    projectId: null, projectName: "Product", workRequest: "Add export", desiredOutcome: "Users export work",
+    knownConstraints: "Preserve current architecture", hasExistingSourceOrPlanning: true, repositoryReviewContext: "README.md",
+    baseBranch: "main", baseCommit: initialHead,
+  });
+  assert.equal(created.ok, true, JSON.stringify(created));
+  const intake = created.value;
+  const intakeFile = path.join(root, intake.relativePath);
+  const originalIntake = fs.readFileSync(intakeFile, "utf8");
+  let clipboardText = "";
+  const { api } = mainPreloadHarness(["workRouting:prepare", "workRouting:status", "workRouting:copy"], {
+    ...routing, getRequiredWorkspaceRoot: () => root, clipboard: { writeText: (value) => { clipboardText = value; } },
+  });
+  const prepared = await api.prepareWorkRoutingAssessment(intake.intakeId);
+  assert.equal(prepared.state, "waiting-for-drafts");
+  await api.copyWorkRoutingAssessment(intake.intakeId);
+  assert.equal(clipboardText, prepared.preparedInstruction);
+  const body = `# Work Intake Routing Assessment\n\n## Recommended Route\nfeature-change\n\n## Traits\n- existing-source\n\n## Evidence\n- ${intake.relativePath}\n- README.md\n\n## Rationale\nThe existing product gains export while preserving its architecture.\n\n## Alternate Route\nNone\n`;
+  const submit = (model, text = body) => {
+    const file = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text);
+    return file;
+  };
+  const draft = submit(prepared);
+  const promoted = await api.getWorkRoutingAssessment(intake.intakeId);
+  assert.equal(promoted.state, "promoted", promoted.error);
+  assert.equal(promoted.assessment.recommendedRouteId, "feature-change");
+  assert.equal(promoted.assessment.kind, "architect-route-assessment");
+  assert.equal(promoted.assessment.selectedRouteId, undefined);
+  assert.equal(fs.existsSync(draft), false, "shared promotion cleans up its exact draft");
+  assert.equal(fs.readFileSync(intakeFile, "utf8"), originalIntake, "advice cannot mutate Intake or route selection");
+  assert.equal(git("rev-parse", "HEAD"), initialHead, "Architect actions perform no commits");
+  const canonical = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, promoted.assessment.relativePath), "utf8"));
+  assert.deepEqual(canonical.metadata.sourceRevisions, [promoted.assessment.sourceIntake, ...intake.sourceRevisions]);
+  assert.equal(JSON.stringify(canonical).includes(root), false);
+  assert.equal(fs.existsSync(path.join(root, "planning/project/Project_Roadmaps")), false);
+
+  const next = await api.prepareWorkRoutingAssessment(intake.intakeId);
+  const changed = parseCanonicalMarkdownDocument(originalIntake);
+  writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath: intake.relativePath,
+    metadata: { ...changed.metadata, artifactRevision: 2 }, bodyMarkdown: changed.bodyMarkdown });
+  const staleDraft = submit(next);
+  const stale = await api.getWorkRoutingAssessment(intake.intakeId);
+  assert.equal(stale.state, "stale");
+  assert.equal(stale.submission.state, "superseded");
+  assert.equal(stale.assessment.artifactRevision, 1);
+  assert.equal(fs.existsSync(staleDraft), true, "stale evidence is not silently discarded or promoted");
+  await assert.rejects(api.copyWorkRoutingAssessment(intake.intakeId), /Prepare a current/);
+  const fresh = await api.prepareWorkRoutingAssessment(intake.intakeId);
+  assert.equal(fresh.submission.sourceHandoff.revision, 2);
+  assert.notEqual(fresh.submission.submissionId, next.submission.submissionId);
+  submit(fresh, body.replace("feature-change", "feature-change\nrefactor-migration"));
+  const invalid = await api.getWorkRoutingAssessment(intake.intakeId);
+  assert.equal(invalid.submission.state, "promotion-failed");
+  assert.equal(invalid.assessment.artifactRevision, 1);
+  const repaired = await api.prepareWorkRoutingAssessment(intake.intakeId);
+  submit(repaired);
+  const current = await api.getWorkRoutingAssessment(intake.intakeId);
+  assert.equal(current.state, "promoted", current.error);
+  assert.equal(current.assessment.artifactRevision, 2);
+  fs.appendFileSync(path.join(root, "README.md"), "Changed relevant source\n");
+  assert.equal((await api.getWorkRoutingAssessment(intake.intakeId)).state, "stale");
+});
 
 function context(submissionKey = "demo") {
   return {
