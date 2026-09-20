@@ -91,9 +91,7 @@ export function getPhaseCloseProjection(
     };
   }
   const freshnessState = evaluateDocumentFreshness(context, closeout.logicalDocumentId).state;
-  const complete = closeout.effectiveDisposition === "Approved" &&
-    closeout.metadata.closureDecision === "Close" &&
-    freshnessState === "fresh";
+  const complete = isAcceptedCloseout(closeout.effectiveDisposition, closeout.metadata.closureDecision, freshnessState === "fresh");
   return {
     phaseId,
     complete,
@@ -120,4 +118,9 @@ function latestCloseout(source: PlanningReadContext, phaseId: string) {
 
 function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "closeout";
+}
+
+/** Shared Phase/Plan close semantics; callers supply current boundary evidence. */
+export function isAcceptedCloseout(status: DocumentDispositionStatus, decision: unknown, fresh: boolean): boolean {
+  return status === "Approved" && decision === "Close" && fresh;
 }

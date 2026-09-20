@@ -91,7 +91,7 @@ export function projectPlanExecution(input: PlanExecutionInput): PlanExecutionPr
   const criteriaSatisfied = satisfied(structure.acceptanceCriteria, input.planEvidence);
   const complete = !blockers.length && workItemsComplete && phasesComplete && criteriaSatisfied;
   return { planId: input.planId, planRevision: input.planRevision, topology: structure.topology, fingerprint: createHash("sha256").update(JSON.stringify(input)).digest("hex"),
-    status: complete ? "complete" : blockers.length ? "blocked" : workItems.some((item) => item.status === "active") ? "active" : workItems.some((item) => item.status === "ready") ? "ready" : workItemsComplete && !phaseProjections.some((phase) => phase.reasons.length) ? "awaiting-criteria" : "blocked",
+    status: complete ? "complete" : blockers.length ? "blocked" : workItems.some((item) => item.status === "active") ? "active" : workItems.some((item) => item.status === "ready") ? "ready" : (workItemsComplete && !phaseProjections.some((phase) => phase.reasons.length) || phaseProjections.some((phase) => phase.eligible && phase.workItemsComplete && !phase.criteriaSatisfied)) ? "awaiting-criteria" : "blocked",
     complete, workItemsComplete, phasesComplete, criteriaSatisfied, blockers, workItems, phases: phaseProjections,
     nextWorkItemId: workItems.find((item) => item.status === "active")?.candidate.workItemId ?? workItems.find((item) => item.status === "ready")?.candidate.workItemId };
 }

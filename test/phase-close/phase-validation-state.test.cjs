@@ -15,6 +15,7 @@ test("generic phased executor distinguishes item, Phase, and Plan criteria and b
   assert.equal(result.phases.find((entry) => entry.phaseId === "P1").workItemsComplete, true);
   assert.equal(result.phases.find((entry) => entry.phaseId === "P1").complete, false);
   assert.equal(result.nextWorkItemId, undefined, "Phase criteria gate successors even when all child items complete");
+  assert.equal(result.status, "awaiting-criteria");
   input.phases = [{ ...boundary(["P1 accepted"]), phaseId: "P1" }];
   assert.equal(projectPlanExecution(input).nextWorkItemId, "B");
   input.phases[0].fresh = false;
@@ -290,4 +291,116 @@ function seedProjectThroughPhaseMap(twoPhases = false) {
     workflowData: { phases },
   });
   return root;
+}
+
+
+test("routed direct Plan requires explicit current Plan acceptance after durable Work Item close", async (t) => {
+  const fixture = await routedAcceptanceFixture(t, false);
+  const { root, binding, api, read, write, request, closedItem } = fixture;
+  const boundary = { kind: "plan" };
+  await assert.rejects(api.saveAcceptance({ ...await request(boundary), closureDecision: "Close", rationale: "Premature", criteria: [] }), /completed children/);
+  const evidencePath = await closedItem("WI01");
+  let state = await api.query();
+  assert.equal(state.status, "awaiting-criteria");
+  assert.equal(state.complete, false);
+  assert.deepEqual(state.phases, []);
+  assert.equal(state.acceptance[0].eligible, true);
+  await assert.rejects(api.saveAcceptance({ ...await request({ kind: "phase", phaseId: "P1" }), closureDecision: "Close", rationale: "Fake phase", criteria: [] }), /direct Plans have no Phase/);
+  const payload = { closureDecision: "Close", rationale: "Operator reviewed the integrated export outcome", criteria: [{ criterion: "Export accepted", status: "passed", evidencePaths: [evidencePath] }] };
+  const stale = await request(boundary);
+  const pending = await api.saveAcceptance({ ...stale, ...payload, criteria: [{ ...payload.criteria[0], status: "failed" }] });
+  await assert.rejects(api.reviewAcceptance({ ...stale, expectedRevision: pending.artifactRevision, disposition: "Approved" }), /evidence changed/);
+  await assert.rejects(api.reviewAcceptance({ ...await request(boundary), expectedRevision: pending.artifactRevision, disposition: "Approved" }), /every declared/);
+  const saved = await api.saveAcceptance({ ...await request(boundary), ...payload });
+  assert.equal((await api.query()).complete, false, "Pending acceptance cannot complete a Plan");
+  await api.reviewAcceptance({ ...await request(boundary), expectedRevision: saved.artifactRevision, disposition: "Approved" });
+  state = await api.query();
+  assert.equal(state.complete, true);
+  assert.equal(state.status, "complete");
+  const acceptance = read(saved.relativePath);
+  assert.equal(acceptance.metadata.identity.phaseId, undefined);
+  assert.equal(acceptance.metadata.sourceRevisions.some((source) => source.path === binding.planPath && source.revision === binding.planRevision), true);
+  const evidenceBytes = require("node:fs").readFileSync(require("node:path").join(root, evidencePath), "utf8");
+  require("node:fs").appendFileSync(require("node:path").join(root, evidencePath), "\nChanged close evidence.\n");
+  state = await api.query();
+  assert.equal(state.complete, false, "same-revision evidence edits invalidate acceptance");
+  assert.equal(state.acceptance[0].fresh, false);
+  require("node:fs").writeFileSync(require("node:path").join(root, evidencePath), evidenceBytes);
+  const plan = read(binding.planPath);
+  write(binding.planPath, { ...plan.metadata, artifactRevision: plan.metadata.artifactRevision + 1 }, plan.bodyMarkdown);
+  await assert.rejects(api.query(), /binding|stale|superseded/);
+  assert.equal(require("node:fs").existsSync(require("node:path").join(root, "planning/phases")), false);
+  assert.equal(fixture.git("rev-parse", "HEAD"), fixture.initialHead);
+});
+
+test("routed genuine Phase acceptance gates successors and remains separate from Plan acceptance", async (t) => {
+  const fixture = await routedAcceptanceFixture(t, true);
+  const { api, request, closedItem, root, read, write } = fixture;
+  const firstEvidence = await closedItem("WI01");
+  let state = await api.query();
+  assert.equal(state.status, "awaiting-criteria");
+  assert.equal(state.workItems[1].eligible, false);
+  const accept = async (boundary, criterion, evidencePath) => {
+    const saved = await api.saveAcceptance({ ...await request(boundary), closureDecision: "Close", rationale: "Explicit milestone acceptance", criteria: [{ criterion, status: "passed", evidencePaths: [evidencePath] }] });
+    await api.reviewAcceptance({ ...await request(boundary), expectedRevision: saved.artifactRevision, disposition: "Approved" });
+    return saved;
+  };
+  await assert.rejects(api.saveAcceptance({ ...await request({ kind: "phase", phaseId: "P2" }), closureDecision: "Close", rationale: "Premature milestone", criteria: [] }), /completed children/);
+  const first = await accept({ kind: "phase", phaseId: "P1" }, "P1 accepted", firstEvidence);
+  state = await api.query();
+  assert.equal(state.phases[0].complete, true);
+  assert.equal(state.workItems[1].eligible, true);
+  const secondEvidence = await closedItem("WI02");
+  state = await api.query();
+  assert.equal(state.phases[1].complete, false);
+  assert.equal(state.acceptance.find((entry) => entry.boundary.kind === "plan").eligible, false);
+  await accept({ kind: "phase", phaseId: "P2" }, "P2 accepted", secondEvidence);
+  state = await api.query();
+  assert.equal(state.phasesComplete, true);
+  assert.equal(state.complete, false);
+  assert.equal(state.status, "awaiting-criteria");
+  await accept({ kind: "plan" }, "Export accepted", secondEvidence);
+  assert.equal((await api.query()).complete, true);
+  const oldFirst = read(first.relativePath);
+  write(first.relativePath, { ...oldFirst.metadata, artifactRevision: oldFirst.metadata.artifactRevision + 1 }, oldFirst.bodyMarkdown);
+  state = await api.query();
+  assert.equal(state.phases[1].complete, false, "successor Phase acceptance binds predecessor revision and bytes");
+  assert.equal(state.complete, false);
+  assert.equal(require("node:fs").existsSync(require("node:path").join(root, "planning/phases")), false);
+});
+
+async function routedAcceptanceFixture(t, phased) {
+  const fs = require("node:fs"), path = require("node:path");
+  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { createRoutedDevelopmentExecutionService } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
+  const { resolveWorkItemArtifactScope, workItemArtifactIdentity } = require("../../dist/main/workCardLoop/workItemArtifactScope.js");
+  const { generateRoutedWorkCardIntakeHandoff } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
+  const { approveFormalWorkCardAndRegisterReport, getWorkCardBuildingReviewProjection } = require("../../dist/main/workCardBuilding/workCardBuildingReviewService.js");
+  const { applyOperatorValidationDecision } = require("../../dist/main/workCardValidation/workCardValidationService.js");
+  const { resolveEffectiveWorkCardCompletion } = require("../../dist/main/workCardLoop/effectiveWorkCardCompletion.js");
+  const { consumeWorkCardCloseReturn } = require("../../dist/main/workCardLoop/workCardCloseReturnLifecycle.js");
+  const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const item = (id, phaseId) => ({ workItemId: id, title: `Deliver ${id}`, purpose: "Bounded export", dependsOn: [], acceptanceCriteria: [`${id} accepted`], ...(phaseId ? { phaseId } : {}) });
+  const phase = (id, dependsOn) => ({ phaseId: id, title: id, purpose: "Independent milestone", dependsOn, acceptanceCriteria: [`${id} accepted`] });
+  const fixture = await seedApprovedRoutedWorkPlan(t, { topology: phased ? "phased" : "direct", topologyRationale: "Explicit acceptance boundaries", acceptanceCriteria: ["Export accepted"], workItems: phased ? [item("WI01", "P1"), item("WI02", "P2")] : [item("WI01")], ...(phased ? { phases: [phase("P1", []), phase("P2", ["P1"])] } : {}) });
+  const { root, intake, binding } = fixture;
+  const api = createRoutedDevelopmentExecutionService(root, intake.intakeId);
+  const read = (relative) => parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, relative), "utf8"));
+  const write = (relativePath, metadata, bodyMarkdown) => writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath, metadata, bodyMarkdown });
+  const request = async (boundary) => ({ boundary, expectedFingerprint: (await api.query()).fingerprint });
+  // Seed a curated approved contract, then use production report/validation/close mechanics.
+  const closedItem = async (id) => {
+    const candidate = binding.structure.workItems.find((item) => item.workItemId === id);
+    const scope = await resolveWorkItemArtifactScope(root, { intakeId: intake.intakeId, routeDecisionId: binding.identity.routeDecisionId, planId: binding.identity.planId, ...(phased ? { kind: "routed-phase", phaseId: candidate.phaseId } : { kind: "routed-direct-plan" }) });
+    const handoff = generateRoutedWorkCardIntakeHandoff(root, binding, scope, candidate);
+    const handoffDocument = read(handoff.handoffMarkdownPath);
+    write(handoff.formalWorkCardMarkdownPath, { ...handoffDocument.metadata, artifactType: "formal-work-card", participationRole: "gatingReview", identity: { ...workItemArtifactIdentity(scope, id), candidateId: id }, sourceRevisions: [...handoffDocument.metadata.sourceRevisions, { path: handoff.handoffMarkdownPath, revision: 1 }] }, `# ${id}\n\nDeliver the bounded export and verify row preservation.\n`);
+    approveFormalWorkCardAndRegisterReport({ workspaceRoot: root, formalWorkCardPath: handoff.formalWorkCardMarkdownPath, scope });
+    const reportPath = getWorkCardBuildingReviewProjection(root, scope, id).implementerReportPath;
+    write(reportPath, read(reportPath).metadata, "# Implementer Report\n\nImplemented the export. Synthetic row preservation checks passed.\n");
+    applyOperatorValidationDecision(root, scope, id, { decision: "ValidatePassed", operatorNotes: "Evidence inspected" });
+    return consumeWorkCardCloseReturn(root, resolveEffectiveWorkCardCompletion(root, scope, id)).recordPath;
+  };
+  return { ...fixture, api, read, write, request, closedItem };
 }

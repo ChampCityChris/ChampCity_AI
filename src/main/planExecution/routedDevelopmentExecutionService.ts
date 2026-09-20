@@ -24,6 +24,9 @@ import { createValidationAttempt, buildAdvisoryArchitectReviewPrompt, applyOpera
 import { resolveEffectiveWorkCardCompletion } from "../workCardLoop/effectiveWorkCardCompletion";
 import { resolveWorkCardCloseReturnConsumption, consumeWorkCardCloseReturn } from "../workCardLoop/workCardCloseReturnLifecycle";
 
+import { loadRoutedAcceptance, routedAcceptanceBoundaries, routedAcceptancePath, saveRoutedAcceptance, reviewRoutedAcceptance } from "../phaseClose/routedExecutionAcceptance";
+import type { RoutedAcceptanceRequest, RoutedAcceptanceInput, RoutedDevelopmentExecutionProjection } from "../../shared/routedDevelopmentExecutionContracts";
+
 const actionsInProgress = new Set<string>();
 export interface RoutedWorkItemRequest { workItemId: string; expectedFingerprint: string }
 
@@ -42,9 +45,10 @@ export async function loadRoutedDevelopmentExecution(workspaceRoot: string, inta
   if ([...scopes.values()].some((scope) => scope.planDigest !== binding.planDigest)) throw Error("Plan changed while resolving execution scope.");
   const prefix = `planning/work-intake/execution/${intakeId}/`;
   const documents = listPlanningDocuments(workspaceRoot).filter((document) => document.markdownPath.startsWith(prefix));
+  const acceptancePaths = routedAcceptanceBoundaries(binding).map((boundary) => routedAcceptancePath(binding, boundary));
   const blockers: string[] = [];
   const workItems: WorkItemExecutionEvidence[] = [];
-  for (const document of documents.filter((entry) => entry.markdownPath !== binding.relativePath)) {
+  for (const document of documents.filter((entry) => entry.markdownPath !== binding.relativePath && !acceptancePaths.includes(entry.markdownPath))) {
     try {
       const identity = document.metadata.canonical?.identity;
       if (!identity || document.documentReadState !== "readable") throw Error("Unreadable execution artifact.");
@@ -108,7 +112,9 @@ export async function loadRoutedDevelopmentExecution(workspaceRoot: string, inta
   }).join("\n")).digest("hex");
   const input: PlanExecutionInput & { evidenceFingerprint: string } = { planId: binding.identity.planId, planRevision: binding.planRevision,
     approved: true, fresh: true, structure: binding.structure, blockers, workItems, phases: [], evidenceFingerprint };
-  return { binding, entries, input, projection: projectPlanExecution(input) };
+  const acceptance = loadRoutedAcceptance(workspaceRoot, binding, input);
+  const projection: RoutedDevelopmentExecutionProjection = { ...projectPlanExecution(input), acceptance };
+  return { binding, entries, input, projection };
 }
 
 /** Every action re-resolves current Plan, branch, scope and artifact evidence before writing. */
@@ -123,6 +129,15 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
       const selected = state.projection.workItems.find((item) => item.candidate.workItemId === request.workItemId);
       if (!(allowCompleted && selected?.complete) && (!selected?.eligible || state.projection.nextWorkItemId !== request.workItemId)) throw Error("Requested Work Item is not the current eligible Work Item.");
       return await run(state, state.entries.find((entry) => entry.candidate.workItemId === request.workItemId)!);
+    } finally { actionsInProgress.delete(lockKey); }
+  }
+  async function acceptanceAction<T>(request: RoutedAcceptanceRequest, run: (state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>) => T): Promise<T> {
+    if (actionsInProgress.has(lockKey)) throw Error("A routed Work Item action is already in progress.");
+    actionsInProgress.add(lockKey);
+    try {
+      const state = await loadRoutedDevelopmentExecution(workspaceRoot, intakeId);
+      if (state.projection.fingerprint !== request.expectedFingerprint) throw Error("Presented Plan execution evidence changed; refresh before acting.");
+      return run(state);
     } finally { actionsInProgress.delete(lockKey); }
   }
   function formalContext(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number]): FormalWorkCardContext {
@@ -159,6 +174,10 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
   }
   return {
     async query() { return (await loadRoutedDevelopmentExecution(workspaceRoot, intakeId)).projection; },
+    saveAcceptance(request: RoutedAcceptanceInput) { return acceptanceAction(request, (state) => saveRoutedAcceptance(workspaceRoot, state.binding, state.input, request)); },
+    reviewAcceptance(request: RoutedAcceptanceRequest & { expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }) {
+      return acceptanceAction(request, (state) => reviewRoutedAcceptance(workspaceRoot, state.binding, state.input, request));
+    },
     begin(request: RoutedWorkItemRequest) { return action(request, (state, entry) => generateRoutedWorkCardIntakeHandoff(workspaceRoot, state.binding, entry.scope, entry.candidate)); },
     prepare(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, true)); },
     getDraft(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, false)); },
