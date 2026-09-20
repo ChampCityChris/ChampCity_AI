@@ -55,6 +55,8 @@ import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedRes
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
+import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
+import type { WorkRouteDecisionInput } from "../shared/workRouteDecisionContracts";
 import type { WorkIntakeSubmission } from "../shared/workIntakeContracts";
 import {
   attachArchitectBrowserSurface,
@@ -751,6 +753,8 @@ ipcMain.handle("workIntake:projection", () => getWorkIntakeProjection(getRequire
 ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
 ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
+ipcMain.handle("workRoute:status", (_event, intakeId: string) => getWorkRouteDecision(getRequiredWorkspaceRoot(), intakeId));
+ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
 ipcMain.handle("workRouting:status", (_event, intakeId: string) => getWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workRouting:copy", async (_event, intakeId: string) => {
   const instruction = await copyWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId);

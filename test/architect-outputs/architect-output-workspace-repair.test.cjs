@@ -3,6 +3,94 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { execFileSync } = require("node:child_process");
+
+test("Operator route decisions preserve authority, revisions and branch while reroutes supersede only explicit downstream lineage", async (t) => {
+  const root = tempWorkspace("champcity-route-decisions-");
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "-b", "main"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+  git("add", "--all"); git("commit", "--allow-empty", "-m", "baseline");
+  const initialHead = git("rev-parse", "HEAD");
+  const { submitWorkIntake } = require("../../dist/main/workIntake/workIntakeService.js");
+  const routing = require("../../dist/main/workIntake/workRoutingAssessmentService.js");
+  const decisions = require("../../dist/main/workIntake/workRouteDecisionService.js");
+  const { mainPreloadHarness } = require("../support/production-execution.cjs");
+  const { api } = mainPreloadHarness(["workRoute:status", "workRoute:decide"], { ...decisions, getRequiredWorkspaceRoot: () => root });
+  const created = await submitWorkIntake(root, { projectId: null, projectName: "Product", workRequest: "Change existing architecture", desiredOutcome: "Preserve behavior",
+    knownConstraints: "Preserve product", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: initialHead });
+  assert.equal(created.ok, true, JSON.stringify(created));
+  const intake = created.value;
+  const originalIntake = fs.readFileSync(path.join(root, intake.relativePath), "utf8");
+  async function promote() {
+    const prepared = await routing.prepareWorkRoutingAssessment(root, intake.intakeId);
+    const file = path.join(root, prepared.submission.expectedDraftSlots[0].draftRelativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `# Work Intake Routing Assessment\n## Recommended Route\nfeature-change\n## Traits\n- existing-source\n## Evidence\n- ${intake.relativePath}\n## Rationale\nA bounded capability change.\n## Alternate Route\nNone\n`);
+    const model = await routing.getWorkRoutingAssessment(root, intake.intakeId);
+    assert.equal(model.state, "promoted", model.error);
+    return model;
+  }
+  await promote();
+  let model = await api.getWorkRouteDecision(intake.intakeId);
+  assert.equal(model.state, "awaiting-decision"); assert.equal(model.selection, null);
+  const input = (model, disposition, extra = {}) => ({ expectedDecisionRevision: model.artifactRevision, sourceAssessment: model.sourceAssessment, disposition, rationale: "Operator rationale", ...extra });
+  const originalAdvice = model.sourceAssessment;
+  model = await api.decideWorkRoute(intake.intakeId, input(model, "request-revision", { rationale: "Assess preservation and migration boundaries." }));
+  assert.equal(model.state, "revision-requested"); assert.equal(model.selection, null);
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "accept")), /revised assessment/);
+  const revised = await routing.prepareWorkRoutingAssessment(root, intake.intakeId);
+  assert.match(revised.preparedInstruction, /Assess preservation and migration boundaries/);
+  await promote();
+  model = await api.getWorkRouteDecision(intake.intakeId);
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, { ...input(model, "accept"), sourceAssessment: originalAdvice }), /stale/);
+  model = await api.decideWorkRoute(intake.intakeId, input(model, "accept"));
+  assert.equal(model.selection.selectedRouteId, "feature-change");
+  const accepted = model.selection;
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, { ...input(model, "accept"), expectedDecisionRevision: 0 }), /changed/);
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "override", { selectedRouteId: "unknown" })), /Invalid/);
+  model = await api.decideWorkRoute(intake.intakeId, input(model, "override", { selectedRouteId: "refactor-migration" }));
+  assert.equal(model.selection.selectedRouteId, "refactor-migration");
+  assert.equal(model.history.length, 3);
+  assert.equal(model.history[1].decision.decisionId, accepted.decisionId);
+  assert.equal(model.history[2].sourceIntake.revision, intake.artifactRevision);
+
+  const assessmentPath = "planning/route-proof/ASSESSMENT.md";
+  const planPath = "planning/route-proof/PLAN.md";
+  const unrelatedPath = "planning/route-proof/OTHER.md";
+  writeDoc(root, assessmentPath, "route-proof-assessment", "Approved", { identity: { intakeId: intake.intakeId }, sourceRevisions: [{ path: model.relativePath, revision: model.artifactRevision }] });
+  writeDoc(root, planPath, "route-proof-plan", "Approved", { identity: { intakeId: intake.intakeId }, sourceRevisions: [{ path: assessmentPath, revision: 1 }] });
+  writeDoc(root, unrelatedPath, "route-proof-unrelated", "Approved", { identity: { intakeId: "different-intake" } });
+  const priorAssessmentBody = readCanonical(root, assessmentPath).bodyMarkdown;
+  const priorPlanBytes = fs.readFileSync(path.join(root, planPath), "utf8");
+  const unrelated = fs.readFileSync(path.join(root, unrelatedPath), "utf8");
+  const priorSelection = model.selection;
+  const priorRevision = model.artifactRevision;
+  model = await decisions.recommendWorkRouteReroute(root, intake.intakeId, { priorDecisionId: priorSelection.decisionId,
+    replacementRouteId: "integration-composition", rationale: "Existing integration ownership changes the planning focus.", sourceEvidence: [{ path: assessmentPath, revision: 1 }] });
+  assert.equal(model.state, "reroute-required"); assert.deepEqual(model.selection, priorSelection);
+  assert.equal(model.artifactRevision, priorRevision, "advice cannot revise Operator selection");
+  assert.equal(fs.readFileSync(path.join(root, planPath), "utf8"), priorPlanBytes);
+  const decisionBytes = fs.readFileSync(path.join(root, model.relativePath), "utf8");
+  __setCanonicalMarkdownWriterTestHooks({ failInstalledVerification: (relative) => relative === model.relativePath ? Error("atomic reroute failure") : undefined });
+  try { await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "accept")), /atomic reroute failure/); }
+  finally { __setCanonicalMarkdownWriterTestHooks(); }
+  assert.equal(fs.readFileSync(path.join(root, model.relativePath), "utf8"), decisionBytes);
+  assert.equal(fs.readFileSync(path.join(root, planPath), "utf8"), priorPlanBytes);
+  model = await api.decideWorkRoute(intake.intakeId, input(model, "accept"));
+  assert.equal(model.state, "selected"); assert.equal(model.selection.selectedRouteId, "integration-composition");
+  assert.deepEqual(model.supersessions.at(-1).supersededArtifacts.map(({ path }) => path).sort(), [assessmentPath, planPath].sort());
+  assert.equal(readCanonical(root, assessmentPath).bodyMarkdown, priorAssessmentBody);
+  assert.equal(readCanonical(root, assessmentPath).metadata.participationRole, "historical");
+  assert.equal(readCanonical(root, planPath).metadata.workflowData.supersededByRouteDecision, model.selection.decisionId);
+  assert.equal(fs.readFileSync(path.join(root, unrelatedPath), "utf8"), unrelated);
+  assert.equal(fs.readFileSync(path.join(root, intake.relativePath), "utf8"), originalIntake);
+  assert.equal(git("branch", "--show-current"), intake.branchBinding.workBranch);
+  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  const restored = await api.getWorkRouteDecision(intake.intakeId);
+  assert.deepEqual(restored.selection, model.selection);
+  assert.equal(restored.history.length, 4);
+});
 
 const {
   copyArchitectOutputHandoffResult,

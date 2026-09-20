@@ -17,7 +17,7 @@ import { readWorkIntake } from "./workIntakeService";
 const outputKind = "work-routing-assessment";
 const owner = (intakeId: string) => `routing-${intakeId}`;
 const target = (intakeId: string) => `planning/work-intake/routing/${intakeId}.md`;
-interface RoutingContext { intake: WorkIntakeRecord; sourceDigests: Record<string, string> }
+interface RoutingContext { intake: WorkIntakeRecord; sourceDigests: Record<string, string>; priorAssessment?: { revision: number; status: string; notes: string } }
 
 function boundedPath(root: string, relativePath: string): string {
   const resolved = resolveRepositoryPath(root, relativePath, { allowMissingLeaf: true });
@@ -37,8 +37,11 @@ function digest(root: string, relativePath: string): string {
 
 function context(root: string, intakeId: string): RoutingContext {
   const intake = readWorkIntake(root, intakeId);
+  const existingPath = target(intakeId);
+  const prior = fs.existsSync(boundedPath(root, existingPath)) ? parseCanonicalMarkdownDocument(readBounded(root, existingPath)).metadata : null;
   return { intake, sourceDigests: Object.fromEntries([intake.relativePath, ...intake.sourceRevisions.map(({ path }) => path)]
-    .map((relativePath) => [relativePath, digest(root, relativePath)])) };
+    .map((relativePath) => [relativePath, digest(root, relativePath)])),
+    ...(prior ? { priorAssessment: { revision: prior.artifactRevision, status: prior.documentDisposition.status, notes: prior.documentDisposition.notes } } : {}) };
 }
 
 function assertCurrent(root: string, original: RoutingContext): RoutingContext {
@@ -127,7 +130,7 @@ export function createRoutingAssessmentDefinition(intakeId: string): ArchitectOu
         } };
       },
     }],
-    buildPreparedInstruction({ workspaceRoot, submission, domainContext: { intake }, sourceHandoff }) {
+    buildPreparedInstruction({ workspaceRoot, submission, domainContext: { intake, priorAssessment }, sourceHandoff }) {
       return [
         ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, undefined, { includeDiagnosticsToolboxHint: false }), "",
         "Perform only an advisory Work Intake routing assessment. Do not activate a route or perform Git mutations.",
@@ -135,6 +138,7 @@ export function createRoutingAssessmentDefinition(intakeId: string): ArchitectOu
         "Inspect materially relevant current repository source, planning, and architecture before recommending a route. Respect established architecture and distinguish current evidence from historical records and assumptions.",
         `Work request: ${intake.workRequest}`, `Desired outcome: ${intake.desiredOutcome}`, `Constraints: ${intake.knownConstraints || "None supplied."}`,
         `Existing source/planning: ${intake.hasExistingSourceOrPlanning ? "Yes" : "No"}. Repository review context: ${intake.repositoryReviewContext || "None supplied."}`,
+        ...(priorAssessment?.status === "RevisionRequested" ? [`Operator requested a revised routing assessment: ${priorAssessment.notes}`] : []),
         "Recommend exactly one primary route with relevant traits and concise evidence/rationale. Include one alternate only when genuine ambiguity remains; explain that ambiguity.",
         "Do not conduct the full Greenfield, Feature, Refactor/Migration, Integration, Infrastructure, Research, or Issue architecture discussion during routing. Do not generate a roadmap, Phase, Plan, Work Card, or implementation. Operator selection is a separate subsequent decision.",
         "Supported routes:", ...workRouteProfiles.map((profile) => `- ${profile.routeId}: ${profile.description}`),
