@@ -1386,6 +1386,10 @@ export interface ChampCityApi {
   runWorkIssueAction: (intakeId: string, action: import("./issueResolutionContracts").WorkIssueAction, input?: import("./issueResolutionContracts").WorkIssueActionInput) => Promise<import("./issueResolutionContracts").WorkIssueModel>;
   decideWorkRoute: (intakeId: string, input: import("./workRouteDecisionContracts").WorkRouteDecisionInput) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
   getWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
+  getWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;
+  prepareWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;
+  copyWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<void>;
+  reviewWorkItemDecomposition: (intakeId: string, workItemId: string, input: import("./workItemDecompositionContracts").WorkItemDecompositionReview) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;
   prepareWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
   copyWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<void>;
   reviewWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage, input: import("./workPlanningContracts").WorkPlanningReviewInput) => Promise<import("./workPlanningContracts").WorkPlanningModel>;

@@ -3,6 +3,100 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("Work Item decomposition uses explicit Operator review, preserves lineage, and corrects topology atomically", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "feature-change");
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { workItemDecompositionService } = require("../../dist/main/workCardPlanning/workItemDecompositionService.js");
+  const { applyWorkItemDecomposition } = require("../../dist/main/workCardPlanning/workItemDecomposition.js");
+  const { __setCanonicalMarkdownWriterTestHooks: hooks } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  t.after(() => hooks());
+  const { mainPreloadHarness } = require("../support/production-execution.cjs");
+  let copied;
+  const { api } = mainPreloadHarness(["workDecomposition:status", "workDecomposition:prepare", "workDecomposition:copy", "workDecomposition:review"], {
+    workItemDecompositionService, getRequiredWorkspaceRoot: () => root, clipboard: { writeText: (value) => { copied = value; } },
+  });
+  const profile = resolveWorkPlanningProfile("feature-change");
+  const item = (id, dependsOn = []) => ({ workItemId: id, title: `Outcome ${id}`, purpose: `Deliver the bounded ${id} outcome`, dependsOn, acceptanceCriteria: [`${id} demonstrated`] });
+  const direct = { topology: "direct", topologyRationale: "Ordered feature outcomes", acceptanceCriteria: ["Preserve existing behavior and demonstrate the added capability"], workItems: [item("WI00"), item("WI01", ["WI00"]), item("WI02", ["WI01"])] };
+  for (const stage of ["assessment", "plan"]) {
+    let model = await kernel.prepare(root, intake.intakeId, stage);
+    const body = `# ${stage === "assessment" ? "Route Architect Assessment" : "Work Plan"}\n` + profile[`${stage}Sections`].map((heading) => `## ${heading}\nInspect the existing capability; preserve its behavior while adding the bounded outcome.\n`).join("\n") +
+      (stage === "plan" ? "\n```champcity-work-plan\n" + JSON.stringify(direct) + "\n```\n" : "");
+    writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
+    model = await kernel.get(root, intake.intakeId, stage);
+    assert.equal(model.artifact.disposition, "Pending");
+    await kernel.review(root, intake.intakeId, stage, { expectedRevision: 1, disposition: "Approved", notes: "Fixture baseline accepted" });
+  }
+  let plan = (await kernel.get(root, intake.intakeId, "plan")).artifact;
+  const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
+  const originalPlan = read(plan.relativePath), originalIntake = read(intake.relativePath);
+  const block = (proposal) => "# Work Item Decomposition\n\n```champcity-work-item-decomposition\n" + JSON.stringify(proposal) + "\n```\n";
+  const siblings = { kind: "siblings", rationale: "Separate contract preparation from behavior delivery", evidence: ["Distinct acceptance outcomes found during detailed card inspection"], replacements: [item("WI01A"), item("WI01B", ["WI01A"])] };
+  const prepare = (id) => api.prepareWorkItemDecomposition(intake.intakeId, id);
+  const status = (id) => api.getWorkItemDecomposition(intake.intakeId, id);
+  const review = (id, model, disposition = "accept", notes = "Plan change accepted") => api.reviewWorkItemDecomposition(intake.intakeId, id, { disposition, expectedProposalRevision: model.revision, expectedPlanRevision: model.planRevision, notes });
+  let proposal = await prepare("WI01");
+  await api.copyWorkItemDecomposition(intake.intakeId, "WI01");
+  assert.match(copied, /not an implementation disposition/); assert.match(copied, /Do not split by length alone/);
+  writeDraft(root, proposal.submission.expectedDraftSlots[0].draftRelativePath, block(siblings));
+  proposal = await status("WI01");
+  assert.equal(proposal.state, "pending"); assert.equal(read(plan.relativePath), originalPlan);
+  assert.equal(proposal.resumeWorkItemId, "WI01A");
+  await review("WI01", proposal, "request-revision", "Clarify acceptance ownership");
+  assert.equal(read(plan.relativePath), originalPlan);
+  proposal = await prepare("WI01");
+  assert.match(proposal.preparedInstruction, /Clarify acceptance ownership/);
+  writeDraft(root, proposal.submission.expectedDraftSlots[0].draftRelativePath, block(siblings));
+  proposal = await status("WI01");
+  assert.equal(proposal.revision, 2);
+  await assert.rejects(review("WI01", { ...proposal, revision: 1 }), /stale/);
+  const pendingBytes = read(proposal.relativePath);
+  const historyPath = proposal.relativePath.replace(/\.md$/, "/PLAN_REVISION_1.md");
+  hooks({ failInstalledVerification: (relative) => relative === plan.relativePath ? Error("Injected Plan install failure") : undefined });
+  await assert.rejects(review("WI01", proposal), /Injected Plan install failure/);
+  hooks();
+  assert.equal(read(plan.relativePath), originalPlan); assert.equal(read(proposal.relativePath), pendingBytes);
+  assert.equal(fs.existsSync(path.join(root, historyPath)), false);
+  proposal = await review("WI01", proposal);
+  assert.equal(proposal.state, "accepted"); assert.equal(proposal.resumeWorkItemId, "WI01A");
+  plan = (await kernel.get(root, intake.intakeId, "plan")).artifact;
+  assert.equal(plan.disposition, "Approved"); assert.equal(plan.artifactRevision, 2);
+  assert.deepEqual(plan.structure.workItems.map((entry) => entry.workItemId), ["WI00", "WI01A", "WI01B", "WI02"]);
+  assert.deepEqual(plan.structure.workItems[1].dependsOn, ["WI00"]);
+  assert.deepEqual(plan.structure.workItems[2].dependsOn, ["WI00", "WI01A"]);
+  assert.deepEqual(plan.structure.workItems[3].dependsOn, ["WI01B"]);
+  const historical = parseCanonicalMarkdownDocument(read(historyPath));
+  assert.equal(historical.metadata.participationRole, "historical");
+  assert.equal(historical.bodyMarkdown, parseCanonicalMarkdownDocument(originalPlan).bodyMarkdown);
+  const saved = parseCanonicalMarkdownDocument(read(plan.relativePath));
+  assert.equal(saved.metadata.workflowData.decompositions[0].kind, "superseded-by-decomposition");
+  assert.deepEqual(saved.metadata.workflowData.decompositions[0].originalCandidate, direct.workItems[1]);
+  assert.throws(() => applyWorkItemDecomposition(direct, "WI01", { ...siblings, replacements: [item("X", ["Y"]), item("Y", ["X"])] }), /cycle/);
+  assert.throws(() => applyWorkItemDecomposition(direct, "WI01", { ...siblings, replacements: [item("X", ["WI02"]), item("Y")] }), /original prerequisites/);
+
+  const phase = (id, deps) => ({ phaseId: id, title: id === "P1" ? "Foundation milestone" : "Delivery milestone", purpose: `Complete ${id}`, dependsOn: deps, acceptanceCriteria: [`${id} accepted`] });
+  const topology = { kind: "direct-to-phased", rationale: "Detailed acceptance requires a foundation milestone before delivery", evidence: ["Different ownership and milestone acceptance"], topologyRationale: "Genuine foundation and delivery boundaries", phases: [phase("P1", []), phase("P2", ["P1"])],
+    phaseAssignments: { WI00: "P1", WI01A: "P1", WI01B: "P1" }, replacements: [{ ...item("WI02A", ["WI02B"]), phaseId: "P2" }, { ...item("WI02B"), phaseId: "P1" }] };
+  proposal = await prepare("WI02");
+  writeDraft(root, proposal.submission.expectedDraftSlots[0].draftRelativePath, block(topology));
+  proposal = await status("WI02");
+  assert.equal(proposal.resultingStructure.topology, "phased"); assert.equal(proposal.resumeWorkItemId, "WI02B", "resume follows dependencies, not array position");
+  await kernel.review(root, intake.intakeId, "plan", { expectedRevision: 2, disposition: "Approved", notes: "Changed review evidence" });
+  await assert.rejects(review("WI02", proposal), /stale/);
+  proposal = await prepare("WI02");
+  writeDraft(root, proposal.submission.expectedDraftSlots[0].draftRelativePath, block(topology));
+  proposal = await status("WI02");
+  await review("WI02", proposal);
+  plan = (await kernel.get(root, intake.intakeId, "plan")).artifact;
+  assert.equal(plan.structure.topology, "phased"); assert.equal(plan.structure.phases.length, 2);
+  assert.equal(plan.identity.routeDecisionId, route.selection.decisionId);
+  assert.equal(read(intake.relativePath), originalIntake); assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.equal(fs.existsSync(path.join(root, "planning/phases")), false, "no legacy executor or replacement implementation launched");
+  assert.equal((await status("WI01")).state, "accepted", "original decomposition remains inspectable after later correction");
+});
+
 const {
   metadataOpenDelimiter,
   parseCanonicalMarkdownDocument,
@@ -50,6 +144,8 @@ test("work card planning creates Markdown-only Formal Work Card and approves eli
 
   const prepared = prepareArchitectOutputHandoff(root, "work-card-planning");
   assert.match(prepared.preparedInstruction, /Use ChampCity MCP workspaceId "alpha" only/);
+  assert.match(prepared.preparedInstruction, /stop drafting the Formal Work Card and propose decomposition/);
+  assert.match(prepared.preparedInstruction, /Do not split by length alone/);
   const draftPath = prepared.submission.draftSlots[0].draftRelativePath;
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
   fs.writeFileSync(path.join(root, draftPath), formalWorkCardBody("WC01"), "utf8");
@@ -236,6 +332,12 @@ test("formal Work Card retained validators reject empty and metadata drafts with
     assert.match(failed.promotionError, /empty/);
     assert.equal(fs.existsSync(path.join(root, finalPath)), false);
     assert.equal(fs.existsSync(path.join(root, prepared.submission.draftSlots[0].draftRelativePath)), true);
+    const decomposition = prepareArchitectOutputHandoff(root, "work-card-planning");
+    writeDraft(root, decomposition.submission.draftSlots[0].draftRelativePath, "# Decomposition\n```champcity-work-item-decomposition\n{}\n```\n");
+    const stopped = getArchitectOutputWorkspaceModel(root, "work-card-planning");
+    assert.equal(stopped.state, "promotion-failed");
+    assert.match(stopped.promotionError, /decomposition proposal is not a Formal Work Card/);
+    assert.equal(fs.existsSync(path.join(root, finalPath)), false);
   }
 
   {

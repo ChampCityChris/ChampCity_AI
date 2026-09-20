@@ -5,6 +5,7 @@ const test = require("node:test");
 
 const {
   WorkCardPlanDocumentPreview,
+  WorkItemDecompositionPreview,
   workCardPlanProjectionFromDocument,
 } = require("./renderer-source-loader.cjs")
   .loadRendererSourceModule("src/renderer/app/workCardPlanPresentation.tsx");
@@ -54,6 +55,18 @@ function workCardPlanDocument(overrides = {}) {
     previewTruncated: false,
   };
 }
+
+test("decomposition preview shows ordered replacements, dependencies, real Phase acceptance, and resume identity", () => {
+  const model = { workItemId: "WI01", state: "pending", resumeWorkItemId: "WI01A", proposal: {
+    kind: "direct-to-phased", rationale: "Separate foundation from cutover", evidence: ["Independent milestone acceptance"],
+    replacements: [{ workItemId: "WI01A", title: "Foundation", purpose: "Establish seam", dependsOn: [], phaseId: "P1" }, { workItemId: "WI01B", title: "Cutover", purpose: "Move ownership", dependsOn: ["WI01A"], phaseId: "P2" }],
+  }, resultingStructure: { topology: "phased", topologyRationale: "Real ownership milestones", acceptanceCriteria: ["Behavior preserved"], workItems: [{ workItemId: "WI03", title: "Downstream", purpose: "Verify", dependsOn: ["WI01B"], acceptanceCriteria: ["Downstream verified"] }], phases: [{ phaseId: "P1", title: "Foundation milestone", purpose: "Prepare", dependsOn: [], acceptanceCriteria: ["Seam verified"] }] } };
+  const markup = renderToStaticMarkup(React.createElement(WorkItemDecompositionPreview, { model }));
+  for (const text of [/Separate foundation/, /direct to phased/, /Independent milestone acceptance/, /Dependencies: WI01A/, /Seam verified/, /Resume with WI01A/, /Original candidate history is preserved/]) assert.match(markup, text);
+  assert.ok(markup.indexOf("WI01A: Foundation") < markup.indexOf("WI01B: Cutover"));
+  assert.match(markup, /Downstream verified/); assert.match(markup, /Dependencies: WI01B/); assert.match(markup, /Behavior preserved/);
+  assert.doesNotMatch(markup, /champcity-work-item-decomposition|implementation disposition/);
+});
 
 test("Work Card Plan projection renders ordered operator-readable candidates from canonical metadata", () => {
   const markup = renderToStaticMarkup(

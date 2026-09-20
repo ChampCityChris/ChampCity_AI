@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { WorkPlanningModel, WorkPlanningReviewInput, WorkPlanningStage } from "../../shared/workPlanningContracts";
+import { WorkItemDecompositionPanel } from "./WorkItemDecompositionPanel";
 
 export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: string; planOnly?: boolean }) {
   const [stage, setStage] = useState<WorkPlanningStage>(planOnly ? "plan" : "assessment");
@@ -49,6 +50,7 @@ export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: st
       <button disabled={!reviewable} onClick={() => void act("Approved")}>Approve {stage === "plan" ? "Plan and topology" : model?.artifact?.researchOutcome ? "research outcome" : "assessment"}</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("RevisionRequested")}>Request revision</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("Rejected")}>Reject</button>
+      {stage === "plan" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <WorkItemDecompositionPanel intakeId={intakeId} workItems={model.artifact.structure.workItems} onAccepted={async () => { setModel(await window.champcity.getWorkPlanning(intakeId, "plan")); }} /> : null}
     </> : null}
   </section>;
 }

@@ -57,6 +57,8 @@ import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./wor
 import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
 import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
 import { runWorkIssueAction } from "./workPlanning/workIssueRoutingService";
+import { workItemDecompositionService } from "./workCardPlanning/workItemDecompositionService";
+import type { WorkItemDecompositionReview } from "../shared/workItemDecompositionContracts";
 import type { WorkIssueAction, WorkIssueActionInput } from "../shared/issueResolutionContracts";
 import type { WorkRouteDecisionInput } from "../shared/workRouteDecisionContracts";
 import { workPlanningKernel } from "./workPlanning/workPlanningKernel";
@@ -765,6 +767,10 @@ ipcMain.handle("workIssue:action", async (_event, intakeId: string, action: Work
 });
 ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
 ipcMain.handle("workPlanning:status", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.get(getRequiredWorkspaceRoot(), intakeId, stage));
+ipcMain.handle("workDecomposition:status", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.get(getRequiredWorkspaceRoot(), intakeId, workItemId));
+ipcMain.handle("workDecomposition:prepare", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.prepare(getRequiredWorkspaceRoot(), intakeId, workItemId));
+ipcMain.handle("workDecomposition:review", (_event, intakeId: string, workItemId: string, input: WorkItemDecompositionReview) => workItemDecompositionService.review(getRequiredWorkspaceRoot(), intakeId, workItemId, input));
+ipcMain.handle("workDecomposition:copy", async (_event, intakeId: string, workItemId: string) => { clipboard.writeText(await workItemDecompositionService.copy(getRequiredWorkspaceRoot(), intakeId, workItemId)); });
 ipcMain.handle("workPlanning:prepare", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.prepare(getRequiredWorkspaceRoot(), intakeId, stage));
 ipcMain.handle("workPlanning:review", (_event, intakeId: string, stage: WorkPlanningStage, input: WorkPlanningReviewInput) => workPlanningKernel.review(getRequiredWorkspaceRoot(), intakeId, stage, input));
 ipcMain.handle("workPlanning:copy", async (_event, intakeId: string, stage: WorkPlanningStage) => {

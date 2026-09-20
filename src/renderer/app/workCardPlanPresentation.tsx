@@ -1,5 +1,24 @@
 import { useState } from "react";
 import type { PlanningDocumentDetail } from "../../shared/documents/planningDocument";
+import type { WorkItemDecompositionModel } from "../../shared/workItemDecompositionContracts";
+
+export function WorkItemDecompositionPreview({ model }: { model: WorkItemDecompositionModel }) {
+  return <section aria-label="Work Item decomposition proposal">
+    <p>{model.workItemId}: {model.state}</p>
+    {model.proposal ? <>
+      <p>{model.proposal.rationale}</p>
+      <p>{model.proposal.kind === "direct-to-phased" ? "Proposed change from direct to phased Plan" : "Proposed ordered sibling Work Items"}</p>
+      <ul>{model.proposal.evidence.map((item, index) => <li key={index}>{item}</li>)}</ul>
+      <ol>{model.proposal.replacements.map((item) => <li key={item.workItemId}>{item.workItemId}: {item.title}. {item.purpose} Dependencies: {item.dependsOn.join(", ") || "Original prerequisites"}{item.phaseId ? `; Phase: ${item.phaseId}` : ""}</li>)}</ol>
+      {model.resultingStructure?.topology === "phased" ? <ul>{model.resultingStructure.phases.map((phase) => <li key={phase.phaseId}>{phase.title}: {phase.purpose}. Dependencies: {phase.dependsOn.join(", ") || "None"}. Acceptance: {phase.acceptanceCriteria.join("; ")}</li>)}</ul> : null}
+      {model.resultingStructure ? <details><summary>Review complete proposed Plan structure</summary>
+        <p>{model.resultingStructure.topologyRationale}</p><p>Plan acceptance: {model.resultingStructure.acceptanceCriteria.join("; ")}</p>
+        <ol>{model.resultingStructure.workItems.map((item) => <li key={item.workItemId}>{item.workItemId}: {item.title}. {item.purpose} Dependencies: {item.dependsOn.join(", ") || "None"}{item.phaseId ? `; Phase: ${item.phaseId}` : ""}. Acceptance: {item.acceptanceCriteria.join("; ")}</li>)}</ol>
+      </details> : null}
+      {model.resumeWorkItemId ? <p>Resume with {model.resumeWorkItemId} after its prerequisites. Original candidate history is preserved.</p> : null}
+    </> : null}
+  </section>;
+}
 
 export interface WorkCardPlanCandidateProjection {
   candidateId: string;

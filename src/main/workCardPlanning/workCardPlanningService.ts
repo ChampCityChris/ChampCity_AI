@@ -42,6 +42,7 @@ import {
 } from "../documents/repositoryBinding";
 import { parseDevelopmentEnvironmentContractFromMarkdown } from "../../shared/developmentEnvironment/developmentEnvironmentContract";
 import { buildImplementationValidationScopeGuidance } from "../validation/implementationValidationScopeGuidance";
+import { decompositionGuidance } from "./workItemDecomposition";
 
 export interface FormalWorkCardResult {
   phaseId: string;
@@ -92,6 +93,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     displayLabel: "Formal Work Card",
     draftPathComponent: "formal-work-card.md",
     validateBody(bodyMarkdown, context) {
+      if (/^```champcity-work-item-decomposition\b/m.test(bodyMarkdown)) throw Error("A decomposition proposal is not a Formal Work Card. Submit it through the approved Work Plan's optional decomposition handoff for Operator review.");
       validateFormalWorkCardBody(bodyMarkdown, context.workCardId);
     },
     buildCanonicalDocument({ workspaceRoot, domainContext: context, bodyMarkdown }) {
@@ -548,6 +550,8 @@ function buildFormalWorkCardPreparedInstruction(
     "",
     "Do not restate the Phase Plan except where a specific constraint directly governs this Work Card.",
     "",
+    decompositionGuidance,
+    "For a bounded candidate, continue on the existing path.",
     ...buildImplementationValidationScopeGuidance("work-card"),
     "Create one complete Formal Work Card body with exactly this structure:",
     "",
