@@ -5,12 +5,16 @@ const test = require("node:test");
 
 test("shared planning kernel reviews direct and phased Plans under the Operator-selected profile with freshness-safe revision", async (t) => {
   const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t);
+  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "refactor-migration", {
+    workRequest: "Move schedule storage from an embedded adapter to a service adapter", desiredOutcome: "A narrow storage cutover with scheduling behavior preserved",
+    knownConstraints: "Later sharing features and governance refactors remain separate Intakes",
+  });
   const { createWorkPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile, workPlanningProfiles } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const { validateWorkPlanStructure } = require("../../dist/main/workPlanning/workPlanStructure.js");
   const { mainPreloadHarness } = require("../support/production-execution.cjs");
-  const profile = { ...resolveWorkPlanningProfile("refactor-migration"), requiredEvidence: ["Fixture current baseline"], discoveryQuestions: ["Fixture preservation question"] };
+  const refactor = resolveWorkPlanningProfile("refactor-migration");
+  const profile = { ...refactor, requiredEvidence: [...refactor.requiredEvidence, "Fixture current baseline"], discoveryQuestions: [...refactor.discoveryQuestions, "Fixture preservation question"] };
   const kernel = createWorkPlanningKernel(workPlanningProfiles.map((entry) => entry.routeId === profile.routeId ? profile : entry));
   let copied = "";
   const { api } = mainPreloadHarness(["workPlanning:status", "workPlanning:prepare", "workPlanning:copy", "workPlanning:review"], {
@@ -22,7 +26,14 @@ test("shared planning kernel reviews direct and phased Plans under the Operator-
   await api.copyWorkPlanning(intake.intakeId, "assessment");
   assert.match(copied, /Fixture current baseline/); assert.match(copied, /Fixture preservation question/);
   assert.match(copied, /route identity does not select topology/);
-  writeDraft(root, assessment.submission.expectedDraftSlots[0].draftRelativePath, "# Route Architect Assessment\n\n## Evidence\nCurrent baseline.\n\n## Decisions\nPreserve the product.\n\n## Risks and Unresolved Questions\nBounded migration risks.\n");
+  for (const rule of [/current architecture/, /target architecture/, /ownership boundaries that move/, /migration seams/, /data\/state\/code transition/, /rollback\/recovery/, /cutover criteria/, /retirement conditions/, /reduces dual-architecture duration/, /separate Work Intakes/, /Do not substitute a generic Greenfield or MVP roadmap/]) assert.match(copied, rule);
+  const transformationAssessment = "# Route Architect Assessment\n\n## Evidence\nThe Intake limits this work to the schedule storage adapter.\n\n## Decisions\nMove storage ownership while preserving scheduling.\n\n## Risks and Unresolved Questions\nRecover safely if the new adapter fails.\n\n## Current Architecture and Baseline\nAn embedded adapter owns schedule persistence.\n\n## Target Architecture\nA service adapter owns persistence behind the same scheduling contract.\n\n## Architectural Delta and Behavior Classification\nPreserve scheduling behavior; replace storage ownership; add only the required service boundary.\n\n## Ownership Movement\nPersistence moves from embedded runtime to the service.\n\n## Migration Seams and Transition Slices\nExercise one real schedule through the service before moving remaining consumers.\n\n## Temporary Compatibility\nRetain the old adapter only until cutover proof passes.\n\n## Data State and Code Transition\nTransfer schedule state with verified counts and values.\n\n## Rollback and Recovery\nRestore the prior adapter and verified state snapshot.\n\n## Cutover Criteria\nAll schedule operations pass against the service with preserved data.\n\n## Retirement Conditions\nRemove the old adapter after cutover validation and recovery proof.\n\n## Separate Future Intakes\nSharing features and governance refactors remain excluded.\n";
+  writeDraft(root, assessment.submission.expectedDraftSlots[0].draftRelativePath, transformationAssessment.replace("## Target Architecture", "## Missing Target"));
+  const invalidAssessment = await api.getWorkPlanning(intake.intakeId, "assessment");
+  assert.equal(invalidAssessment.submission.state, "promotion-failed");
+  assert.match(invalidAssessment.error, /Target Architecture/);
+  assessment = await api.prepareWorkPlanning(intake.intakeId, "assessment");
+  writeDraft(root, assessment.submission.expectedDraftSlots[0].draftRelativePath, transformationAssessment);
   await api.copyWorkPlanning(intake.intakeId, "assessment");
   assert.equal(fs.existsSync(path.join(root, assessment.submission.expectedDraftSlots[0].draftRelativePath)), true, "copy does not promote");
   assessment = await api.getWorkPlanning(intake.intakeId, "assessment");
@@ -35,8 +46,11 @@ test("shared planning kernel reviews direct and phased Plans under the Operator-
 
   const item = { workItemId: "WI01", title: "Preserve and transform", purpose: "One bounded outcome", dependsOn: [], acceptanceCriteria: ["Preserved behavior verified"] };
   const direct = { topology: "direct", topologyRationale: "One bounded slice needs no Phase layer.", acceptanceCriteria: ["Complete the scoped change"], workItems: [item] };
-  const planBody = (structure) => "# Work Plan\n\n## Scope\nThe approved change.\n\n## Preserved Behavior\nExisting capability.\n\n## Acceptance\nObservable proof.\n\n## Execution Structure\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n";
+  const planBody = (structure) => "# Work Plan\n\n## Scope\nThe narrow storage cutover.\n\n## Preserved Behavior\nScheduling operations.\n\n## Acceptance\nPreserved data and schedule behavior.\n\n## Execution Structure\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n## Current and Target Architecture\nMove embedded storage behind a service adapter.\n## Transformation Delta and Preservation\nPreserve scheduling; replace storage ownership.\n## Ownership and Migration Seams\nMove persistence ownership through the existing adapter boundary.\n## Transition Slice Sequencing\nProve a real schedule first, then cut over remaining consumers.\n## Compatibility and State Transition\nVerify transferred state and retire temporary dual access.\n## Rollback and Recovery Plan\nRestore the prior adapter and verified snapshot.\n## Cutover Proof\nProve all schedule operations and retained state.\n## Retirement Plan\nRemove the embedded path only after accepted cutover and recovery proof.\n## Excluded Governance and Feature Work\nSharing and governance changes are separate Intakes.\n";
   let plan = await api.prepareWorkPlanning(intake.intakeId, "plan");
+  assert.match(plan.preparedInstruction, /## Cutover Proof/);
+  assert.match(plan.preparedInstruction, /## Retirement Plan/);
+  assert.match(plan.preparedInstruction, /## Compatibility and State Transition/);
   writeDraft(root, plan.submission.expectedDraftSlots[0].draftRelativePath, planBody(direct));
   plan = await api.getWorkPlanning(intake.intakeId, "plan");
   assert.equal(plan.artifact.structure.topology, "direct"); assert.equal(plan.artifact.structure.phases, undefined);
