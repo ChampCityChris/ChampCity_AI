@@ -5,7 +5,7 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
-  | "status" | "branches" | "history" | "diff" | "changed-files" | "readiness"
+  | "status" | "branches" | "history" | "diff" | "changed-files" | "readiness" | "commit-message"
   | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
   | "fast-forward" | "delete-branch";
 

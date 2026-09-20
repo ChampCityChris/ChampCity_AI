@@ -89,6 +89,7 @@ export async function getWorkIntakeProjection(root: string): Promise<WorkIntakeP
   const currentBranch = state.ok ? state.result.currentBranch : null;
   const matching = intakes.filter(({ branchBinding }) => branchBinding.workBranch === currentBranch);
   if (matching.length > 1) throw Error("Multiple Work Intakes claim the selected branch.");
+  if (matching[0]) matching[0].branchBinding = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId: matching[0].branchBinding.repositoryId }).verify(matching[0].branchBinding);
   const status = state.ok ? await sourceControl.status() : null;
   return {
     project, suggestedProjectName: project?.name ?? path.basename(root),

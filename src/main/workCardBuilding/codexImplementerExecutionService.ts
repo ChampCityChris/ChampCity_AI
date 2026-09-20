@@ -1,6 +1,9 @@
 import { codexRuntimeManager, type CodexRuntimeManager } from "./codexRuntimeManager";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import crypto from "node:crypto";
+import { captureWorkItemCheckpoint, observeCheckpointChanges, type WorkItemCheckpointCapture } from "../planExecution/workItemCheckpointService";
+import { completePlanWorkItemSource } from "../planExecution/planExecutor";
+import type { WorkItemCheckpointResult } from "../../shared/workItemCheckpointContracts";
 import fs from "node:fs";
 import path from "node:path";
 import type {
@@ -107,6 +110,8 @@ interface IssueExecutionSelector {
 }
 
 interface SessionRecord extends ExecutionContext {
+  checkpointCapture?: WorkItemCheckpointCapture;
+  checkpoint?: WorkItemCheckpointResult;
   selection?: CodexModelSelection;
   executionKind: CodexImplementerExecutionKind;
   executionPolicy: CodexImplementerExecutionPolicy;
@@ -371,6 +376,8 @@ export class CodexImplementerExecutionService {
       cancellationRequested: false,
     };
     this.sessionsByWorkspaceRoot.set(key, session);
+    try { session.checkpointCapture = await captureWorkItemCheckpoint(session.projectRoot, session); }
+    catch { session.checkpoint = { status: "blocked", message: "Source checkpoint capture failed; implementation may continue, but Git state will be preserved for inspection.", remote: "not-requested", receipts: [] }; }
     session.executionPromise = this.executeWithAppServer(session, appServer);
     void session.executionPromise;
     return modelFromSession(session, this.now(), {
@@ -665,6 +672,13 @@ export class CodexImplementerExecutionService {
       session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
       for await (const event of streamed.events) {
         appendTail(session.eventTail, summarizeEvent(event));
+        if (event.type === "item.completed" && event.item.type === "file_change" && session.checkpointCapture) {
+          try {
+            if (!Array.isArray(event.item.changes)) throw Error("Missing change evidence.");
+            observeCheckpointChanges(session.projectRoot, session.checkpointCapture, event.item.changes);
+          }
+          catch { session.checkpoint = { status: "blocked", message: "Worker file-change attribution is incomplete; source checkpoint requires inspection.", remote: "not-requested", receipts: [] }; }
+        }
         if (event.type === "item.completed" && event.item.type === "agent_message") {
           appendTail(session.finalResponseTail, String(event.item.text));
         }
@@ -764,6 +778,11 @@ export class CodexImplementerExecutionService {
       }
       if (session.executionKind === "work-card-implementation" && terminalState === "completed" && !session.reportUpdated) {
         session.failureReason = "Codex completed, but the Implementer Report was not updated.";
+      }
+      if (session.executionKind === "work-card-implementation" && session.checkpointCapture && !session.checkpoint) {
+        session.checkpoint = await completePlanWorkItemSource(session.projectRoot, { capture: session.checkpointCapture,
+          implementationSucceeded: terminalState === "completed", reportReady: session.reportUpdated && !session.failureReason,
+          synchronize: Boolean(session.checkpointCapture.binding.remote) });
       }
       session.completedAt = this.now();
       session.state = terminalState;
@@ -949,8 +968,9 @@ Project instructions:
 
 Execution rules:
 - Implement only the approved implementation contract.
+- ChampCity owns routine source-control checkpoints. Do not stage, commit, push, merge, tag, switch branches, or script Git mutations during this implementation run.
 - Preserve all negative constraints in the implementation contract.
-- Do not perform Git mutation when the Operator or the current task or implementation contract prohibits it. Follow every explicit Git constraint supplied for this turn.
+- Preserve the selected Work Intake branch and report unexpected repository state to ChampCity. Follow every explicit Git constraint supplied for this turn.
 - Do not disclose or commit secrets, credentials, authentication tokens, API/provider keys, or private environment-file contents unless the ${approvedContractLabel} explicitly requires handling them through an established secure mechanism.
 - A missing development capability required by the ${approvedContractLabel} is not by itself a blocker when its champcity-development-environment contract marks it managed. Use the application-owned development-environment provisioning path when available, verify the capability, then continue the implementation contract. Report a blocker only when provisioning itself fails after the application-owned remediation path is attempted or when the requirement is explicitly external.
 - Repository-native dependency installation or restoration is implementation work when required by the implementation contract or project-local instructions. Package or dependency absence alone is not a reason to return the task to a nontechnical Operator.
@@ -1241,6 +1261,7 @@ function modelFromSession(
     session.state !== "running";
   return {
     state: session.state,
+    checkpoint: session.checkpoint,
     executionKind: session.executionKind,
     lastRunState,
     canRunAgain: session.executionKind === "work-card-implementation"

@@ -436,6 +436,10 @@ export function CodexExecutionConsole({
       {execution?.failureReason ? (
         <div className="codex-execution-message error" role="status">{execution.failureReason}</div>
       ) : null}
+      {execution?.checkpoint ? <div className="codex-execution-message" role="status">
+        Source checkpoint: {execution.checkpoint.status}. {execution.checkpoint.message}
+        {execution.checkpoint.commit ? <p>Commit: <code>{execution.checkpoint.commit}</code></p> : null}
+      </div> : null}
       {execution?.retryBlocker && !execution.canRunAgain ? (
         <div className="codex-execution-message error" role="status">{execution.retryBlocker}</div>
       ) : null}

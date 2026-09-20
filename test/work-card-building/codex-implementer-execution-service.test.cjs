@@ -46,8 +46,20 @@ const {
   writeDoc,
 } = require("../support/canonical-markdown-fixtures.cjs");
 
-test("Codex Implementer service starts App Server thread from current Implement context and exact prompt", async () => {
+test("Codex Implementer service starts App Server thread from current Implement context and exact prompt", async (t) => {
   const root = seedBuildReviewWorkspace();
+  const fixtureGit = (...args) => require("node:child_process").execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
+  fixtureGit("init", "-b", "main"); fixtureGit("config", "user.name", "Fixture"); fixtureGit("config", "user.email", "fixture@example.invalid");
+  fixtureGit("add", "--all"); fixtureGit("commit", "-m", "fixture baseline");
+  const { submitWorkIntake } = require("../../dist/main/workIntake/workIntakeService.js");
+  const submitted = await submitWorkIntake(root, { projectId: null, projectName: "Implementation fixture", workRequest: "Bounded implementation", desiredOutcome: "Current behavior passes", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: fixtureGit("rev-parse", "HEAD") });
+  assert.equal(submitted.ok, true);
+  const formalFile = path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
+  const formal = parseCanonicalMarkdownDocument(fs.readFileSync(formalFile, "utf8"));
+  formal.metadata.sourceRevisions.push({ path: submitted.value.relativePath, revision: 1 });
+  fs.writeFileSync(formalFile, serializeCanonicalMarkdownDocument(formal.metadata, formal.bodyMarkdown));
   const captured = {};
   const service = createService(async () => ({
     startThread(options) {
@@ -57,7 +69,11 @@ test("Codex Implementer service starts App Server thread from current Implement 
         async runStreamed(prompt, turnOptions) {
           captured.prompt = prompt;
           captured.turnOptions = turnOptions;
-          return { events: successfulEvents(root) };
+          return { events: (async function* () {
+            fs.writeFileSync(path.join(root, "bounded-correction.txt"), "implemented source\n");
+            yield { type: "item.completed", item: { type: "file_change", changes: [{ path: "bounded-correction.txt" }], status: "completed" } };
+            yield* successfulEvents(root);
+          })() };
         },
       };
     },
@@ -74,7 +90,11 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.equal(captured.threadOptions.approvalsReviewer, "user");
   assert.equal(captured.threadOptions.networkAccessEnabled, true);
 
-  const completed = await waitForState(service, root, "completed");
+  const completed = await waitForState(service, root, "completed", 1500);
+  assert.equal(completed.checkpoint?.status, "committed", completed.checkpoint?.message);
+  assert.equal(completed.checkpoint.remote, "not-requested");
+  assert.equal(fixtureGit("rev-parse", "HEAD"), completed.checkpoint.commit);
+  assert.equal(fixtureGit("status", "--porcelain"), "");
   assert.equal(completed.reportUpdated, true);
   assert.equal(completed.failureReason, null);
   assert.equal(completed.lastRunState, "completed");
@@ -92,7 +112,8 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.doesNotMatch(captured.prompt, /test:full/);
   assert.doesNotMatch(captured.prompt, /full-suite cleanliness/i);
   assert.doesNotMatch(captured.prompt, /complete-corpus/i);
-  assert.match(captured.prompt, /Do not perform Git mutation when the Operator or the current task or implementation contract prohibits it/);
+  assert.match(captured.prompt, /ChampCity owns routine source-control checkpoints/);
+  assert.match(captured.prompt, /Do not stage, commit, push, merge, tag, switch branches, or script Git mutations/);
   assert.match(captured.prompt, /Follow every explicit Git constraint supplied for this turn/);
   assert.doesNotMatch(captured.prompt, /implementation contract explicitly authorizes/);
   assert.doesNotMatch(captured.prompt, /Do not modify files outside this repository root\./);
@@ -503,6 +524,7 @@ test("Codex Implementer service surfaces parent environment refresh failure befo
 
 test("Issue Fix Card Codex status isolates running and terminal sessions by exact context", async () => {
   const root = seedIssueFixCardCodexWorkspace("ISSUE_120");
+  seedIssueFixCardCodexWorkspace("ISSUE_123", root);
   let releaseExecution;
   const executionMayComplete = new Promise((resolve) => {
     releaseExecution = resolve;
@@ -524,21 +546,21 @@ test("Issue Fix Card Codex status isolates running and terminal sessions by exac
   );
 
   const fc01 = { ownerKind: "issue", issueId: "ISSUE_120", fixCardId: "ISSUE_120-FC01" };
-  const fc02 = { ownerKind: "issue", issueId: "ISSUE_120", fixCardId: "ISSUE_120-FC02" };
+  const fc02 = { ownerKind: "issue", issueId: "ISSUE_123", fixCardId: "ISSUE_123-FC01" };
   const started = await service.start(root, fc01);
   assert.equal(started.state, "running");
 
   const blockedOtherCard = await service.getStatus(root, fc02);
   assert.equal(blockedOtherCard.state, "unavailable");
   assert.match(blockedOtherCard.failureReason, /ISSUE_120 ISSUE_120-FC01/);
-  assert.match(blockedOtherCard.failureReason, /ISSUE_120 ISSUE_120-FC02 is blocked/);
+  assert.match(blockedOtherCard.failureReason, /ISSUE_123 ISSUE_123-FC01 is blocked/);
 
   releaseExecution();
   const completed = await waitForIssueState(service, root, fc01, "completed");
   assert.equal(completed.workCardId, "ISSUE_120-FC01");
   const fc02Status = await service.getStatus(root, fc02);
   assert.equal(fc02Status.state, "ready");
-  assert.equal(fc02Status.workCardId, "ISSUE_120-FC02");
+  assert.equal(fc02Status.workCardId, "ISSUE_123-FC01");
   assert.notEqual(fc02Status.lastRunState, "completed");
 });
 
@@ -609,6 +631,7 @@ test("Issue Repair Codex completion and retry preserve root Fix Card and exact R
 
 test("Issue Fix Card preflight and Environment Resolution cache are keyed by contract context", async () => {
   const root = seedIssueFixCardCodexWorkspace("ISSUE_121");
+  seedIssueFixCardCodexWorkspace("ISSUE_124", root);
   let preflightCalls = 0;
   const captured = {};
   const service = createService(
@@ -639,7 +662,7 @@ test("Issue Fix Card preflight and Environment Resolution cache are keyed by con
   );
 
   const fc01 = { ownerKind: "issue", issueId: "ISSUE_121", fixCardId: "ISSUE_121-FC01" };
-  const fc02 = { ownerKind: "issue", issueId: "ISSUE_121", fixCardId: "ISSUE_121-FC02" };
+  const fc02 = { ownerKind: "issue", issueId: "ISSUE_124", fixCardId: "ISSUE_124-FC01" };
   const fc01Unavailable = await service.start(root, fc01);
   assert.equal(fc01Unavailable.state, "unavailable");
   assert.equal(fc01Unavailable.canResolveEnvironment, true);
@@ -1605,8 +1628,8 @@ function fakeRuntimeState() {
   };
 }
 
-async function waitForState(service, root, expectedState) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+async function waitForState(service, root, expectedState, attempts = 40) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     const status = await service.getStatus(root);
     if (status.state === expectedState) {
       return status;
@@ -1709,8 +1732,8 @@ function seedBuildReviewWorkspace() {
   return root;
 }
 
-function seedIssueFixCardCodexWorkspace(issueId) {
-  const root = tempWorkspace("champcity-issue-codex-");
+function seedIssueFixCardCodexWorkspace(issueId, existingRoot) {
+  const root = existingRoot ?? tempWorkspace("champcity-issue-codex-");
   const issueRoot = path.join(root, "issues", issueId);
   fs.mkdirSync(issueRoot, { recursive: true });
   fs.writeFileSync(path.join(issueRoot, "ISSUE_RECORD.md"), `# ${issueId} - Codex Issue\n\n## Issue\nNeeds Issue Fix Card Codex execution.`, "utf8");
@@ -1725,7 +1748,6 @@ function seedIssueFixCardCodexWorkspace(issueId) {
   promoteIssuePlanningDraftBundle(root, issueId);
   applyIssuePlanningReview(root, issueId, { disposition: "Approved", operatorNotes: "Approved." });
   approveIssueFixCard(root, issueId, `${issueId}-FC01`);
-  approveIssueFixCard(root, issueId, `${issueId}-FC02`);
   return root;
 }
 

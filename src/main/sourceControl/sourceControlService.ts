@@ -107,6 +107,10 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   }
 
   return {
+    readCommitMessage: (commit: string) => run("commit-message", false, async () => {
+      if (!/^[a-f0-9]{40,64}$/.test(commit)) throw new AgentHarnessError("INVALID_INPUT", "An exact commit is required.");
+      return (await runBoundedGit({ cwd: root, args: ["show", "--no-patch", "--format=%B", commit] })).stdout;
+    }),
     status: () => run("status", false, async () => {
       const status = await gitStatus(root, true);
       return { ...status, clean: status.shortStatus.length === 0 };

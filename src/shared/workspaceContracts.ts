@@ -1240,6 +1240,7 @@ export interface CodexApprovalResponse {
 }
 
 export interface CodexImplementerExecutionModel {
+  checkpoint?: import("./workItemCheckpointContracts").WorkItemCheckpointResult;
   state: CodexImplementerExecutionState;
   executionKind: CodexImplementerExecutionKind | null;
   lastRunState: Exclude<CodexImplementerExecutionState, "unavailable" | "ready" | "running"> | null;

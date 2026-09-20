@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import type { ExecutionBoundaryEvidence, PlanExecutionHooks, PlanExecutionInput, PlanExecutionProjection, WorkItemExecutionAction, WorkItemExecutionProjection, WorkItemExecutionStage } from "../../shared/planExecutionContracts";
 import { validateWorkPlanStructure } from "../workPlanning/workPlanStructure";
+import { checkpointWorkItemSource, type WorkItemCheckpointCapture } from "./workItemCheckpointService";
+import type { WorkItemCheckpointResult } from "../../shared/workItemCheckpointContracts";
+
+/** Source completion precedes Operator review/validation; checkpoint outcomes never rewrite those lifecycle facts. */
+export async function completePlanWorkItemSource(root: string, input: { capture: WorkItemCheckpointCapture; implementationSucceeded: boolean; reportReady: boolean; synchronize?: boolean }): Promise<WorkItemCheckpointResult> {
+  if (!input.implementationSucceeded || !input.reportReady) return { status: "blocked", message: "Source checkpoint requires successful implementation and a current review-ready report.", remote: "not-requested", receipts: [] };
+  return checkpointWorkItemSource(root, input.capture, input.synchronize);
+}
 
 const actions: Record<WorkItemExecutionStage, WorkItemExecutionAction[]> = {
   ready: ["implement"], implement: ["review"], "review-validate": ["review", "validate", "repair"],
