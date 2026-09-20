@@ -4,6 +4,85 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
+test("routed defect preserves Intake and branch through RCA, phased correction, stale evidence, and general reroute", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "issue-resolution", { workRequest: "Schedule saves fail after reconnect", desiredOutcome: "Existing schedules survive reconnect" });
+  const { runWorkIssueAction } = require("../../dist/main/workPlanning/workIssueRoutingService.js");
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { getWorkRouteDecision, decideWorkRoute } = require("../../dist/main/workIntake/workRouteDecisionService.js");
+  const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const { __setCanonicalMarkdownWriterTestHooks } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const { mainPreloadHarness } = require("../support/production-execution.cjs");
+  let copied = "";
+  const { api } = mainPreloadHarness(["workIssue:action"], { runWorkIssueAction, getRequiredWorkspaceRoot: () => root, clipboard: { writeText: (text) => { copied = text; } } });
+  assert.equal((await api.runWorkIssueAction(intake.intakeId, "status")).issueId, null);
+  await assert.rejects(kernel.prepare(root, intake.intakeId, "assessment"), /existing RCA workflow/);
+  __setCanonicalMarkdownWriterTestHooks({ failInstalledVerification: (target) => target.endsWith("HANDOFF.md") ? Error("Injected handoff failure") : undefined });
+  try { await assert.rejects(api.runWorkIssueAction(intake.intakeId, "open"), /Injected handoff failure/); }
+  finally { __setCanonicalMarkdownWriterTestHooks({}); }
+  assert.equal(fs.existsSync(path.join(root, "issues", "ISSUE_001", "ISSUE_RECORD.md")), false, "Issue creation rolls back when canonical handoff fails");
+  let model = await api.runWorkIssueAction(intake.intakeId, "open");
+  assert.equal((await api.runWorkIssueAction(intake.intakeId, "open")).issueId, model.issueId);
+  const handoff = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, model.handoffPath), "utf8"));
+  assert.equal(handoff.metadata.identity.intakeId, intake.intakeId);
+  assert.equal(handoff.metadata.identity.routeDecisionId, route.selection.decisionId);
+  assert.deepEqual(handoff.metadata.workflowData.branchBinding, intake.branchBinding);
+  const recordPath = path.join(root, "issues", model.issueId, "ISSUE_RECORD.md");
+  const recordBytes = fs.readFileSync(recordPath, "utf8");
+  model = await api.runWorkIssueAction(intake.intakeId, "prepare");
+  await api.runWorkIssueAction(intake.intakeId, "copy");
+  assert.ok(copied.includes(intake.relativePath)); assert.ok(copied.includes(intake.branchBinding.workBranch));
+  assert.match(copied, /direct or phased correction planning/); assert.doesNotMatch(copied, /too broad\/multi-phase/);
+  let draftPath = path.join(root, model.architect.activeSubmission.temporaryDraftPath);
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+  fs.writeFileSync(draftPath, validInvestigation(model.issueId));
+  model = await api.runWorkIssueAction(intake.intakeId, "status");
+  assert.equal(model.correctionPlanningReady, false);
+  await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /approved route-specific assessment/);
+  model = await api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "Approved", operatorNotes: "Root cause requires restore and reconnect proof milestones" } });
+  assert.equal(model.correctionPlanningReady, true);
+  let plan = await kernel.prepare(root, intake.intakeId, "plan");
+  assert.match(plan.preparedInstruction, /phased correction/);
+  const item = (id, phaseId, dependsOn) => ({ workItemId: id, phaseId, title: id, purpose: "Correct reconnect lifecycle", dependsOn, acceptanceCriteria: ["Schedule state survives reconnect"] });
+  const structure = { topology: "phased", topologyRationale: "Restore state before proving reconnect lifecycle", acceptanceCriteria: ["Schedules survive reconnect"],
+    phases: [{ phaseId: "restore", title: "Restore", purpose: "Correct state ownership", dependsOn: [], acceptanceCriteria: ["Restored state matches baseline"] }, { phaseId: "reconnect", title: "Reconnect", purpose: "Prove lifecycle recovery", dependsOn: ["restore"], acceptanceCriteria: ["Repeated reconnect preserves state"] }],
+    workItems: [item("WI_RESTORE", "restore", []), item("WI_RECONNECT", "reconnect", ["WI_RESTORE"])] };
+  const body = "# Work Plan\n\n" + resolveWorkPlanningProfile("issue-resolution").planSections.map((heading) => `## ${heading}\nPreserve schedules; correct state restoration before reconnect, with regression proof from the approved RCA.`).join("\n\n") + "\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n";
+  draftPath = path.join(root, plan.submission.expectedDraftSlots[0].draftRelativePath);
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true }); fs.writeFileSync(draftPath, body);
+  plan = await kernel.get(root, intake.intakeId, "plan");
+  assert.equal(plan.artifact.structure.topology, "phased");
+  assert.equal(plan.artifact.identity.intakeId, intake.intakeId);
+  assert.equal(fs.existsSync(path.join(root, "issues", model.issueId, "ISSUE_RESOLUTION_PLAN.md")), false, "No legacy execution Plan is forced by routed RCA");
+  fs.appendFileSync(path.join(root, model.architect.finalInvestigationPath), "\nAdditional lifecycle evidence.\n");
+  await assert.rejects(api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "Approved", operatorNotes: "Stale presented evidence" } }), /Presented RCA evidence is stale/);
+  await assert.rejects(kernel.get(root, intake.intakeId, "plan"), /approved route-specific assessment/);
+  model = await api.runWorkIssueAction(intake.intakeId, "status");
+  assert.equal(model.correctionPlanningReady, false, "An old review cannot silently approve changed RCA bytes");
+  await api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "RevisionRequested", operatorNotes: "Investigate whether the request is planned expansion" } });
+  model = await api.runWorkIssueAction(intake.intakeId, "prepare");
+  draftPath = path.join(root, model.architect.activeSubmission.temporaryDraftPath);
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true }); fs.writeFileSync(draftPath, validInvestigation(model.issueId, "Reframe to Development/Feature"));
+  model = await api.runWorkIssueAction(intake.intakeId, "status");
+  assert.equal(model.rerouteRecommended, true);
+  let pending = await getWorkRouteDecision(root, intake.intakeId);
+  assert.equal(pending.state, "reroute-required"); assert.equal(pending.selection.selectedRouteId, "issue-resolution");
+  const investigationPath = path.join(root, model.architect.finalInvestigationPath);
+  const investigationBytes = fs.readFileSync(investigationPath, "utf8");
+  fs.appendFileSync(investigationPath, "\nChanged reroute evidence.\n");
+  assert.equal((await getWorkRouteDecision(root, intake.intakeId)).state, "stale");
+  await assert.rejects(decideWorkRoute(root, intake.intakeId, { expectedDecisionRevision: pending.artifactRevision, sourceAssessment: pending.sourceAssessment, disposition: "accept", rationale: "Must not accept stale RCA" }), /evidence content changed/);
+  fs.writeFileSync(investigationPath, investigationBytes);
+  pending = await getWorkRouteDecision(root, intake.intakeId);
+  const selected = await decideWorkRoute(root, intake.intakeId, { expectedDecisionRevision: pending.artifactRevision, sourceAssessment: pending.sourceAssessment, disposition: "accept", rationale: "The observed behavior is an explicitly requested capability change" });
+  assert.equal(selected.selection.selectedRouteId, "feature-change");
+  assert.equal(parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, model.handoffPath), "utf8")).metadata.participationRole, "historical");
+  await assert.rejects(api.runWorkIssueAction(intake.intakeId, "status"), /Operator-selected Issue route/);
+  assert.equal(fs.readFileSync(recordPath, "utf8"), recordBytes);
+  assert.equal(git("rev-parse", "HEAD"), initialHead);
+});
+
 const {
   applyIssueArchitectReview,
   getIssueArchitectPlanningProjection,
@@ -65,6 +144,14 @@ test("prepare creates an Issue-specific temporary-draft handoff and copy require
   assert.match(instruction, /"overwrite": false/);
   assert.doesNotMatch(instruction, /"relativePath": "issues\/ISSUE_002\/ARCHITECT_INVESTIGATION\.md"/);
   assert.match(instruction, /Do not write, overwrite, edit, or create the final investigation path directly/);
+  const recordPath = path.join(root, "issues", "ISSUE_002", "ISSUE_RECORD.md");
+  fs.appendFileSync(recordPath, "\nChanged reported evidence.\n");
+  assert.throws(() => resolveIssueArchitectPlanningCopyHandoff(root, "ISSUE_002"), /Issue evidence changed/);
+  const draftPath = path.join(root, submission.temporaryDraftPath);
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+  fs.writeFileSync(draftPath, validInvestigation("ISSUE_002"));
+  assert.throws(() => promoteIssueArchitectPlanningDraft(root, "ISSUE_002"), /Issue evidence changed/);
+  assert.equal(fs.existsSync(path.join(root, "issues", "ISSUE_002", "ARCHITECT_INVESTIGATION.md")), false);
 });
 
 test("valid active draft promotes to final and cleans the temporary submission", () => {

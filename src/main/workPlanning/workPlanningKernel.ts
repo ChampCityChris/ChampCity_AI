@@ -16,6 +16,7 @@ import { getWorkRouteDecision } from "../workIntake/workRouteDecisionService";
 import { resolveWorkPlanningProfile, workPlanningProfiles } from "./workPlanningProfiles";
 import { workPlanStructureFromBody } from "./workPlanStructure";
 import { researchOutcomeFromBody, researchOutcomeInstruction } from "./profiles/researchPrototypeProfile";
+import { workIssueContext } from "./workIssueContext";
 
 const outputKind = (stage: WorkPlanningStage) => `work-planning-${stage}`;
 const owner = (decisionId: string, stage: WorkPlanningStage) => `${stage}-${decisionId}`;
@@ -39,7 +40,7 @@ function read(root: string, relativePath: string) {
   return content === null ? null : parseCanonicalMarkdownDocument(content);
 }
 function hash(content: string | null) { return content === null ? "missing" : createHash("sha256").update(content).digest("hex"); }
-function sourceDigests(root: string, sources: SourceRevision[]) { return Object.fromEntries(sources.map((source) => [source.path, hash(bytes(root, source.path))])); }
+export function sourceDigests(root: string, sources: SourceRevision[]) { return Object.fromEntries(sources.map((source) => [source.path, hash(bytes(root, source.path))])); }
 
 interface PlanningContext {
   identity: WorkPlanningIdentity;
@@ -53,7 +54,7 @@ interface PlanningContext {
   prior: ReturnType<typeof read>;
 }
 function sourcesCurrent(root: string, sources: SourceRevision[], digests: Record<string, string>): boolean {
-  try { return sources.every((source) => read(root, source.path)?.metadata.artifactRevision === source.revision && hash(bytes(root, source.path)) === digests[source.path]); }
+  try { return sources.every((source) => read(root, source.path)?.metadata.artifactRevision === source.revision && hash(bytes(root, source.path)) === digests[source.path]) && Object.entries(digests).every(([filePath, digest]) => hash(bytes(root, filePath)) === digest); }
   catch { return false; }
 }
 function readArtifact(root: string, context: PlanningContext): WorkPlanningArtifact | null {
@@ -78,6 +79,8 @@ function contextFor(root: string, route: WorkRouteDecisionModel, stage: WorkPlan
   const routeSource = { path: route.relativePath, revision: route.artifactRevision };
   const targetPath = workPlanningArtifactPath(intake.intakeId, identity.routeDecisionId, stage);
   const sourceRevisions: SourceRevision[] = [{ path: intake.relativePath, revision: intake.artifactRevision }, routeSource];
+  const issueContext = identity.routeId === "issue-resolution" ? workIssueContext(root, intake.intakeId, identity.routeDecisionId) : null;
+  if (issueContext) sourceRevisions.push(issueContext.source);
   let sourceHandoff = routeSource;
   if (stage === "plan") {
     const assessmentContext = contextFor(root, route, "assessment", profile);
@@ -87,11 +90,12 @@ function contextFor(root: string, route: WorkRouteDecisionModel, stage: WorkPlan
     sourceHandoff = { path: assessment.relativePath, revision: assessment.artifactRevision };
     sourceRevisions.push(sourceHandoff);
   }
-  return { identity, profile, stage, targetPath, sourceHandoff, sourceRevisions, digests: sourceDigests(root, sourceRevisions),
+  return { identity, profile, stage, targetPath, sourceHandoff, sourceRevisions, digests: { ...sourceDigests(root, sourceRevisions), ...issueContext?.evidenceDigests },
     targetDigest: hash(bytes(root, targetPath)), prior: read(root, targetPath) };
 }
 function sameContext(left: PlanningContext, right: PlanningContext) { return JSON.stringify(left) === JSON.stringify(right); }
 function canPrepare(root: string, context: PlanningContext): boolean {
+  if (context.identity.routeId === "issue-resolution" && context.stage === "assessment") return false;
   const artifact = readArtifact(root, context);
   return !artifact || artifact.stale || artifact.disposition === "RevisionRequested";
 }
@@ -199,7 +203,8 @@ export function createWorkPlanningKernel(profiles: readonly WorkPlanningProfile[
     get,
     async prepare(root: string, intakeId: string, stage: WorkPlanningStage) {
       await get(root, intakeId, stage);
-      const { definition, registry } = await resolve(root, intakeId, stage);
+      const { current, definition, registry } = await resolve(root, intakeId, stage);
+      if (stage === "assessment" && current.identity.routeId === "issue-resolution") throw Error("Routed Issue assessment uses the existing RCA workflow.");
       prepareArchitectOutputRuntimeSubmission(root, definition.outputKind, definition.owningWorkspaceId, registry);
       return get(root, intakeId, stage);
     },
@@ -213,6 +218,7 @@ export function createWorkPlanningKernel(profiles: readonly WorkPlanningProfile[
       if (!input || Object.keys(input).some((key) => !["expectedRevision", "disposition", "notes"].includes(key)) || !["Approved", "RevisionRequested", "Rejected"].includes(input.disposition) ||
         !Number.isInteger(input.expectedRevision) || typeof input.notes !== "string" || input.notes.length > 4000 || input.disposition !== "Approved" && !input.notes.trim()) throw Error("Planning review requires an explicit disposition and revision/rejection notes.");
       const { current } = await resolve(root, intakeId, stage);
+      if (stage === "assessment" && current.identity.routeId === "issue-resolution") throw Error("Review the original Issue RCA through its routed handoff.");
       const artifact = readArtifact(root, current);
       if (!artifact || artifact.stale || artifact.artifactRevision !== input.expectedRevision) throw Error("Presented planning revision or its source evidence is stale.");
       validateBody(artifact.bodyMarkdown, current);

@@ -56,6 +56,8 @@ import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeS
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
 import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
+import { runWorkIssueAction } from "./workPlanning/workIssueRoutingService";
+import type { WorkIssueAction, WorkIssueActionInput } from "../shared/issueResolutionContracts";
 import type { WorkRouteDecisionInput } from "../shared/workRouteDecisionContracts";
 import { workPlanningKernel } from "./workPlanning/workPlanningKernel";
 import type { WorkPlanningReviewInput, WorkPlanningStage } from "../shared/workPlanningContracts";
@@ -756,6 +758,11 @@ ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(g
 ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
 ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workRoute:status", (_event, intakeId: string) => getWorkRouteDecision(getRequiredWorkspaceRoot(), intakeId));
+ipcMain.handle("workIssue:action", async (_event, intakeId: string, action: WorkIssueAction, input?: WorkIssueActionInput) => {
+  const result = await runWorkIssueAction(getRequiredWorkspaceRoot(), intakeId, action, input);
+  if (result.instruction) clipboard.writeText(result.instruction);
+  return result.model;
+});
 ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
 ipcMain.handle("workPlanning:status", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.get(getRequiredWorkspaceRoot(), intakeId, stage));
 ipcMain.handle("workPlanning:prepare", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.prepare(getRequiredWorkspaceRoot(), intakeId, stage));

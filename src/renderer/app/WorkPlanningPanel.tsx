@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { WorkPlanningModel, WorkPlanningReviewInput, WorkPlanningStage } from "../../shared/workPlanningContracts";
 
-export function WorkPlanningPanel({ intakeId }: { intakeId: string }) {
-  const [stage, setStage] = useState<WorkPlanningStage>("assessment");
+export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: string; planOnly?: boolean }) {
+  const [stage, setStage] = useState<WorkPlanningStage>(planOnly ? "plan" : "assessment");
   const [model, setModel] = useState<WorkPlanningModel | null>(null);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
@@ -28,7 +28,7 @@ export function WorkPlanningPanel({ intakeId }: { intakeId: string }) {
   const reviewable = !!model?.artifact && !model.artifact.stale && !busy;
   return <section aria-label="Route planning">
     <h3>Route planning</h3>
-    <label>Planning stage<select disabled={busy} value={stage} onChange={(event) => setStage(event.target.value as WorkPlanningStage)}>
+    <label>Planning stage<select disabled={busy || planOnly} value={stage} onChange={(event) => setStage(event.target.value as WorkPlanningStage)}>
       <option value="assessment">Architect assessment</option><option value="plan" disabled={model?.researchClosed}>Work Plan</option>
     </select></label>
     {error || model?.error ? <p role="alert">{error || model?.error}</p> : null}

@@ -6,6 +6,7 @@ import { refactorMigrationProfile } from "./profiles/refactorMigrationProfile";
 import { integrationCompositionProfile } from "./profiles/integrationCompositionProfile";
 import { infrastructurePlatformProfile } from "./profiles/infrastructurePlatformProfile";
 import { researchPrototypeProfile } from "./profiles/researchPrototypeProfile";
+import { issueResolutionProfile } from "./profiles/issueResolutionProfile";
 
 // Common contracts remain separate from the route-specific discovery content.
 const minimalProfiles: readonly WorkPlanningProfile[] = workRouteIds.map((routeId) => Object.freeze({
@@ -19,7 +20,7 @@ const minimalProfiles: readonly WorkPlanningProfile[] = workRouteIds.map((routeI
   ]),
 }));
 
-const implementedProfiles: readonly WorkPlanningProfile[] = [greenfieldProfile, featureProfile, refactorMigrationProfile, integrationCompositionProfile, infrastructurePlatformProfile, researchPrototypeProfile];
+const implementedProfiles: readonly WorkPlanningProfile[] = [greenfieldProfile, featureProfile, refactorMigrationProfile, integrationCompositionProfile, infrastructurePlatformProfile, researchPrototypeProfile, issueResolutionProfile];
 export const workPlanningProfiles: readonly WorkPlanningProfile[] = Object.freeze(minimalProfiles.map((base) => {
   const content = implementedProfiles.find((profile) => profile.routeId === base.routeId);
   return content ? Object.freeze({ ...base,

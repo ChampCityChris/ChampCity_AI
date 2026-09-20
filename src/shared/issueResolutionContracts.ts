@@ -1,5 +1,21 @@
 import type { DocumentDispositionStatus } from "./documents/documentDisposition";
 
+export type WorkIssueAction = "open" | "status" | "prepare" | "copy" | "review";
+export interface WorkIssueModel {
+  intakeId: string;
+  issueId: string | null;
+  handoffPath: string | null;
+  architect: IssueArchitectPlanningProjection | null;
+  correctionPlanningReady: boolean;
+  rerouteRecommended: boolean;
+  reviewEvidenceDigest: string | null;
+}
+export interface WorkIssueActionInput {
+  review?: IssueArchitectReviewInput;
+  expectedEvidenceDigest?: string;
+  screenshots?: IssueScreenshotEvidenceInput[];
+}
+
 export type IssueResolutionStageId =
   | "intake"
   | "architect-planning"
@@ -283,6 +299,7 @@ export interface IssueArchitectDraftSubmission {
   submissionId: string;
   temporaryDraftPath: string;
   preparedInstruction: string;
+  issueRecordSha256?: string;
 }
 
 export interface IssueArchitectPlanningProjection {

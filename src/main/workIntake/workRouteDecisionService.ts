@@ -10,6 +10,7 @@ import { listPlanningDocuments } from "../documents/planningDocumentService";
 import { createWorkIntakeBranchService } from "./workIntakeBranchService";
 import { readWorkIntake } from "./workIntakeService";
 import { readRoutingAssessment } from "./workRoutingAssessmentService";
+import { issueEvidenceBytes, issueEvidenceDigest } from "../workPlanning/workIssueContext";
 
 export const workRouteDecisionPath = (intakeId: string) => `planning/work-intake/routes/${intakeId}.md`;
 const reroutePath = (intakeId: string) => `planning/work-intake/reroutes/${intakeId}.md`;
@@ -26,7 +27,13 @@ async function verify(root: string, intakeId: string) {
   return intake;
 }
 function assertSources(root: string, sources: readonly SourceRevision[]) {
-  for (const source of sources) if (read(root, source.path)?.metadata.artifactRevision !== source.revision) throw Error("Route evidence is stale; refresh before deciding.");
+  for (const source of sources) {
+    const document = read(root, source.path);
+    if (document?.metadata.artifactRevision !== source.revision) throw Error("Route evidence is stale; refresh before deciding.");
+    const digests = document.metadata.workflowData.sourceDigests;
+    if (digests !== undefined && (!digests || typeof digests !== "object" || Array.isArray(digests) ||
+      Object.entries(digests).some(([filePath, digest]) => typeof digest !== "string" || issueEvidenceDigest(issueEvidenceBytes(root, filePath)) !== digest))) throw Error("Route evidence content changed; refresh before deciding.");
+  }
 }
 function metadata(artifactType: string, intakeId: string, revision: number, sources: SourceRevision[], data: Record<string, unknown>): CanonicalDocumentMetadata {
   return { schemaVersion: 1, artifactType, artifactRevision: revision, participationRole: "contextOnly", identity: { intakeId },

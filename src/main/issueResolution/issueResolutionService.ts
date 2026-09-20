@@ -425,6 +425,7 @@ export function discoverIssueInventory(workspaceRoot: string): IssueInventoryPro
 export function createLightweightIssueRecord(
   workspaceRoot: string,
   input: NewIssueInput,
+  afterCreate?: (created: { createdIssueId: string; createdRecordPath: string }) => void,
 ): CreateIssueResult {
   const resolvedRoot = path.resolve(workspaceRoot);
   const title = requiredInput(input.title, "Title is required.");
@@ -479,10 +480,12 @@ export function createLightweightIssueRecord(
       createdFiles,
     );
 
+    const inventory = discoverIssueInventory(resolvedRoot);
+    afterCreate?.({ createdIssueId, createdRecordPath });
     return {
       createdIssueId,
       createdRecordPath,
-      inventory: discoverIssueInventory(resolvedRoot),
+      inventory,
     };
   } catch (error) {
     const cleanupFailures = cleanupCreatedIssueArtifacts(
@@ -963,6 +966,7 @@ export function prepareIssueArchitectPlanningHandoff(
     submissionId,
     temporaryDraftPath,
     preparedInstruction,
+    issueRecordSha256: sha256ForMarkdown(issue.bodyMarkdown ?? ""),
   });
   architectAutoPromotionFailures.delete(submissionKey(resolvedRoot, issue.issueId));
 
@@ -984,6 +988,7 @@ export function resolveIssueArchitectPlanningCopyHandoff(
   if (!activeSubmission) {
     throw new Error("Prepare an Issue Architect handoff before copying.");
   }
+  if (activeSubmission.issueRecordSha256 && activeSubmission.issueRecordSha256 !== sha256ForMarkdown(issue.bodyMarkdown ?? "")) throw Error("Issue evidence changed; prepare a fresh RCA handoff.");
   return {
     instruction: activeSubmission.preparedInstruction,
     result: {
@@ -1005,6 +1010,10 @@ export function promoteIssueArchitectPlanningDraft(
   const activeSubmission = activeArchitectSubmissions.get(key);
   if (!activeSubmission) {
     throw new Error("Prepare a fresh Issue Architect handoff before promoting a draft.");
+  }
+  if (activeSubmission.issueRecordSha256 && activeSubmission.issueRecordSha256 !== sha256ForMarkdown(issue.bodyMarkdown ?? "")) {
+    activeArchitectSubmissions.delete(key);
+    throw Error("Issue evidence changed; prepare a fresh RCA handoff.");
   }
 
   const finalInvestigationPath = normalizeRelativePath(path.join("issues", issue.issueId, "ARCHITECT_INVESTIGATION.md"));
@@ -7688,7 +7697,7 @@ function buildIssueArchitectHandoffInstruction(
     "",
     "Issue Resolution is broader than software-defect repair. Proceed in Issue Resolution covers supported bounded corrections including code defects, UX/design deficiencies, configuration/environment problems, documentation problems, and missing bounded capabilities. Absence of a pre-existing defective code path is not by itself a reason to reframe.",
     "",
-    "Determine whether the Issue should proceed in Issue Resolution, is unsupported/no action, or should be reframed as Feature/Development work. Reframe applies only when the work is primarily new planned product expansion or too broad/multi-phase for the Issue workflow. Unsupported applies when evidence does not support the reported project problem or no correction is warranted. If proceeding, identify root cause rather than restating the symptom, identify the current architecture and lifecycle state, state the correction direction without decomposing Fix Cards, protect accepted behavior and Operator decisions, identify risks and constraints, and distinguish verified evidence from Issue claims or inference.",
+    "Determine whether the Issue should proceed in Issue Resolution, is unsupported/no action, or warrants an advisory reroute because its primary objective is planned product expansion. Complexity or multiple correction milestones alone is not a reason to reframe: approved RCA may lead to direct or phased correction planning. Unsupported applies when evidence does not support the reported project problem or no correction is warranted. If proceeding, identify root cause rather than restating the symptom, identify the current architecture and lifecycle state, state the bounded correction direction without decomposing Fix Cards, protect accepted behavior and Operator decisions, identify risks and constraints, and distinguish verified evidence from Issue claims or inference. For routed Work Intakes, Reframe to Development/Feature maps to a general feature-change reroute recommendation; only the Operator may select or override the replacement route.",
     ...revisionLines,
     "",
     "Ask only one genuinely material Operator question at a time when a real Operator-owned choice remains. Repository evidence and ordinary Architect judgment do not require extra approval questions. Once material choices are resolved, create the body-only Markdown draft.",
