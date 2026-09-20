@@ -3,6 +3,52 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("composition planning requires capability dispositions and carries non-code outcomes through the shared kernel", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "integration-composition", {
+    workRequest: "Compose a bounded document export from existing provider components", desiredOutcome: "Export through verified component contracts",
+  });
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const profile = resolveWorkPlanningProfile("integration-composition");
+  let model = await kernel.prepare(root, intake.intakeId, "assessment");
+  const instruction = await kernel.copy(root, intake.intakeId, "assessment");
+  for (const rule of [/build-versus-integrate disposition for every material capability/, /Characterize existing components first/, /Custom code is justified only by demonstrated gaps/, /authentication\/access/, /lifecycle\/health/, /upgrade\/version risk/, /Do not substitute a Greenfield/]) assert.match(instruction, rule);
+  const evidence = {
+    "Evidence": "The export component has a characterized CSV contract; the preview component is uncharacterized.",
+    "Decisions": "Integrate CSV export; characterize preview before deciding whether to integrate or reject it.",
+    "Risks and Unresolved Questions": "Preview access behavior requires characterization before commitment.",
+    "Components and Characterization Evidence": "Synthetic export v1 accepts document rows and returns CSV; preview is uncharacterized.",
+    "Capability Build-versus-Integrate Dispositions": "CSV export: integrate existing exporter, owner export team, round-trip contract proof. Preview: characterize, owner UI team. Filenames: adapt only the demonstrated incompatible naming format. Legacy preview: reject after failed format proof.",
+    "Ownership and External Contracts": "The export team owns the CSV contract; the application owns a bounded filename adapter.",
+    "Authentication and Access": "Use the existing secure access strategy; do not copy credentials into artifacts.",
+    "Data and Control Flow": "Application rows flow to exporter and CSV returns to the caller; no provider owns application state.",
+    "Failure Lifecycle and Health": "Close sessions; report unavailable providers; prove timeout and retry behavior without duplicate exports.",
+    "Version and Upgrade Risk": "Pin the characterized major contract and repeat contract proof before upgrade.",
+    "Demonstrated Gaps and Adapter Boundaries": "Only filename normalization is a demonstrated gap; no custom CSV generator is authorized.",
+  };
+  const body = "# Route Architect Assessment\n\n" + Object.entries(evidence).map(([heading, value]) => `## ${heading}\n${value}`).join("\n\n");
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body.replace("## Capability Build-versus-Integrate Dispositions", "## Missing Capability Decisions"));
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  assert.equal(model.submission.state, "promotion-failed");
+  assert.match(model.error, /Capability Build-versus-Integrate Dispositions/);
+  model = await kernel.prepare(root, intake.intakeId, "assessment");
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Characterized contract and bounded adapter accepted" });
+  model = await kernel.prepare(root, intake.intakeId, "plan");
+  const outcomes = ["characterize", "configure", "integrate", "adapt", "validate", "replace", "reject"];
+  const structure = { topology: "direct", topologyRationale: "Bounded composition fits ordered Work Items", acceptanceCriteria: ["Export follows characterized component contract"],
+    workItems: outcomes.map((outcome, index) => ({ workItemId: `WI${index + 1}`, title: `${outcome} component`, purpose: `${outcome} the evidenced contract boundary`, dependsOn: index ? [`WI${index}`] : [], acceptanceCriteria: [`Prove ${outcome} disposition against the characterized contract`] })) };
+  const planBody = "# Work Plan\n\n" + profile.planSections.map((heading) => `## ${heading}\n${heading === "Gap-driven Custom Code" ? evidence["Demonstrated Gaps and Adapter Boundaries"] : evidence["Capability Build-versus-Integrate Dispositions"]}`).join("\n\n") + "\n\n```champcity-work-plan\n" + JSON.stringify(structure) + "\n```\n";
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, planBody);
+  model = await kernel.get(root, intake.intakeId, "plan");
+  assert.equal(model.artifact.identity.routeId, "integration-composition");
+  assert.deepEqual(model.artifact.structure.workItems.map((item) => item.title.split(" ")[0]), outcomes);
+  assert.match(model.artifact.bodyMarkdown, /no custom CSV generator is authorized/);
+  assert.equal(git("rev-parse", "HEAD"), initialHead);
+});
+
 test("shared planning kernel reviews direct and phased Plans under the Operator-selected profile with freshness-safe revision", async (t) => {
   const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
   const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "refactor-migration", {
