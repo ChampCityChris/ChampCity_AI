@@ -53,6 +53,8 @@ import {
 } from "./documents/developmentPostMutationProjection";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
+import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
+import type { WorkIntakeSubmission } from "../shared/workIntakeContracts";
 import {
   attachArchitectBrowserSurface,
   confirmArchitectSignedIn,
@@ -743,6 +745,10 @@ ipcMain.handle(
     });
   },
 );
+
+ipcMain.handle("workIntake:projection", () => getWorkIntakeProjection(getRequiredWorkspaceRoot()));
+ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
+ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
 
 ipcMain.handle(
   "projectIntake:submit",

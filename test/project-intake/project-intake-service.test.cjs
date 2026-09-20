@@ -2,6 +2,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { execFileSync } = require("node:child_process");
+const workIntake = require("../../dist/main/workIntake/workIntakeService.js");
+const { mainPreloadHarness } = require("../support/production-execution.cjs");
 
 const {
   submitProjectIntake,
@@ -263,6 +266,99 @@ test("project intake without explicit MCP binding still persists repository bind
   assert.deepEqual(prompt.metadata.workflowData.repositoryBinding, intake.metadata.workflowData.repositoryBinding);
   assert.equal(prompt.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
   assert.equal(prompt.metadata.workflowData.repositoryBinding.mcpWorkspaceBinding, undefined);
+});
+
+test("Work Intake production APIs persist branch-bound intent and reuse Project identity without planning output", async (t) => {
+  const root = tempWorkspace("champcity-work-intake-");
+  const historical = submitProjectIntake({
+    projectName: "Existing Product", projectPurpose: "Existing product baseline", desiredOutcome: "Preserve this history",
+    projectType: "Desktop application", projectRepository: root, hasExistingSourceOrPlanning: true,
+  });
+  const originalIntake = fs.readFileSync(path.join(root, historical.projectIntakeMarkdownPath), "utf8");
+  const originalPrompt = fs.readFileSync(path.join(root, historical.architectPromptMarkdownPath), "utf8");
+  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "-b", "integration-target");
+  git("config", "user.name", "ChampCity Test");
+  git("config", "user.email", "champcity-test@example.invalid");
+  git("add", "--all");
+  git("commit", "-m", "historical baseline");
+  const { api, invocations } = mainPreloadHarness(["workIntake:projection", "workIntake:read", "workIntake:submit"], {
+    ...workIntake, getRequiredWorkspaceRoot: () => root,
+  });
+  const before = await api.getWorkIntakeProjection();
+  assert.equal(before.currentIntake, null, "historical Project Intake is not active Work Intake");
+  assert.deepEqual(before.intakes, []);
+  const input = {
+    projectId: null, projectName: "Existing Product", workRequest: "Add export", desiredOutcome: "Users can export their work",
+    knownConstraints: "Preserve existing behavior", hasExistingSourceOrPlanning: true, repositoryReviewContext: "README.md",
+    baseBranch: "integration-target", baseCommit: git("rev-parse", "HEAD"),
+  };
+  await assert.rejects(api.submitWorkIntake({ ...input, projectRepository: root }), /unsupported fields/);
+  const result = await api.submitWorkIntake(input);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  const persisted = await api.readWorkIntake(result.value.intakeId);
+  assert.deepEqual(persisted.branchBinding, result.binding);
+  assert.equal(persisted.branchBinding.currentHead, input.baseCommit);
+  assert.equal(git("branch", "--show-current"), result.binding.workBranch);
+  assert.equal(persisted.projectId, (await api.getWorkIntakeProjection()).project.projectId);
+  assert.equal((await api.getWorkIntakeProjection()).currentIntake.intakeId, persisted.intakeId);
+  assert.equal(fs.readFileSync(path.join(root, historical.projectIntakeMarkdownPath), "utf8"), originalIntake);
+  assert.equal(fs.readFileSync(path.join(root, historical.architectPromptMarkdownPath), "utf8"), originalPrompt);
+  const createdPaths = git("ls-files", "--others", "--exclude-standard").split(/\r?\n/).sort();
+  assert.deepEqual(createdPaths, ["planning/work-intake/PROJECT.md", persisted.relativePath].sort());
+  const canonical = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, persisted.relativePath), "utf8"));
+  assert.equal(canonical.metadata.artifactType, "work-intake");
+  assert.equal(canonical.metadata.sourceRevisions[0].revision, 1);
+  assert.equal(JSON.stringify(canonical).includes(root), false);
+
+  // Fixture checkpoint simulates a clean committed baseline for the next bounded body of work.
+  git("add", "--all");
+  git("commit", "-m", "first intake fixture baseline");
+  const identityBytes = fs.readFileSync(path.join(root, "planning/work-intake/PROJECT.md"), "utf8");
+  const second = await api.submitWorkIntake({
+    ...input, projectId: persisted.projectId, workRequest: "Improve import", baseBranch: result.binding.workBranch,
+    baseCommit: git("rev-parse", "HEAD"),
+  });
+  assert.equal(second.ok, true, JSON.stringify(second));
+  assert.equal(second.value.projectId, persisted.projectId);
+  assert.notEqual(second.value.intakeId, persisted.intakeId);
+  assert.notEqual(second.binding.workBranch, result.binding.workBranch);
+  assert.equal(fs.readFileSync(path.join(root, "planning/work-intake/PROJECT.md"), "utf8"), identityBytes);
+  assert.equal(fs.readFileSync(path.join(root, historical.projectIntakeMarkdownPath), "utf8"), originalIntake);
+  assert.equal((await api.getWorkIntakeProjection()).intakes.length, 2);
+  assert.ok(invocations.some(({ channel }) => channel === "workIntake:submit"));
+  await assert.rejects(api.readWorkIntake("../outside"), /identity/);
+});
+
+test("new Project Work Intake persists atomically and retains a clean base on write failure", async () => {
+  const root = tempWorkspace("champcity-new-work-intake-");
+  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "-b", "initial-product");
+  git("config", "user.name", "ChampCity Test");
+  git("config", "user.email", "champcity-test@example.invalid");
+  git("add", "--all");
+  git("commit", "--allow-empty", "-m", "new product baseline");
+  const input = {
+    projectId: null, projectName: "New Product", workRequest: "Create the product", desiredOutcome: "A useful product",
+    knownConstraints: "", hasExistingSourceOrPlanning: false, repositoryReviewContext: "",
+    baseBranch: "initial-product", baseCommit: git("rev-parse", "HEAD"),
+  };
+  const writer = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  writer.__setCanonicalMarkdownWriterTestHooks({ failInstalledVerification: () => Error("synthetic verification failure") });
+  try {
+    const failed = await workIntake.submitWorkIntake(root, input);
+    assert.equal(failed.ok, false);
+    assert.equal(failed.recovery, "restored");
+    assert.equal(git("branch", "--show-current"), "initial-product");
+    assert.equal(git("status", "--porcelain"), "");
+    assert.equal((await workIntake.getWorkIntakeProjection(root)).project, null);
+  } finally { writer.__setCanonicalMarkdownWriterTestHooks(); }
+  const created = await workIntake.submitWorkIntake(root, input);
+  assert.equal(created.ok, true, JSON.stringify(created));
+  assert.equal(created.value.projectName, "New Product");
+  assert.equal(fs.existsSync(path.join(root, "planning/project/Project_Architect_Interview_Prompts")), false);
+  assert.equal(fs.existsSync(path.join(root, "planning/project/Project_Intake")), false);
+  assert.equal(fs.existsSync(path.join(root, created.value.relativePath.replace(/\.md$/, ".json"))), false);
 });
 
 function escapeRegex(value) {

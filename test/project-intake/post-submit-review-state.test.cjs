@@ -1,5 +1,8 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const React = require("react");
+const { renderToStaticMarkup } = require("react-dom/server");
+const { loadRendererSourceModule } = require("../renderer/renderer-source-loader.cjs");
 
 const {
   applySuccessfulProjectIntakeSubmission,
@@ -115,4 +118,22 @@ test("repository change clears Project Intake confirmation without inventing nav
     ...state,
     confirmation: null,
   });
+});
+
+test("Work Intake capture asks for bounded work and a base branch without route selection", () => {
+  const { WorkIntakeWorkspace } = loadRendererSourceModule("src/renderer/app/WorkIntakeWorkspace.tsx");
+  const markup = renderToStaticMarkup(React.createElement(WorkIntakeWorkspace, {
+    projection: {
+      project: null, suggestedProjectName: "New Product", branches: [{ name: "integration-target", commit: "a".repeat(40) }],
+      currentBranch: "integration-target", currentIntake: null, intakes: [], blockedReason: null,
+    },
+    onReturn() {}, onRefresh: async () => {},
+  }));
+  assert.match(markup, /Work request, problem, or change/);
+  assert.match(markup, /Desired outcome/);
+  assert.match(markup, /Non-negotiable constraints/);
+  assert.match(markup, /Integrate into branch/);
+  assert.match(markup, /integration-target/);
+  assert.match(markup, /Save Work Intake/);
+  assert.doesNotMatch(markup, /Project Type|Select.*route|greenfield|refactor-migration|Submit Project Intake/);
 });

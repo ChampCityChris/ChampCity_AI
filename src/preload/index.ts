@@ -14,6 +14,9 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getWorkIntakeProjection: () => ipcRenderer.invoke("workIntake:projection"),
+  readWorkIntake: (intakeId) => ipcRenderer.invoke("workIntake:read", intakeId),
+  submitWorkIntake: (submission) => ipcRenderer.invoke("workIntake:submit", submission),
   getGithubProviderStatus: () => ipcRenderer.invoke("githubProvider:status"),
   connectGithubProvider: () => ipcRenderer.invoke("githubProvider:connect"),
   restartGithubProvider: () => ipcRenderer.invoke("githubProvider:restart"),

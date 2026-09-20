@@ -138,6 +138,8 @@ import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
+import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
+import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { WorkflowId } from "../../shared/workflowHubContracts";
 import type {
@@ -206,9 +208,9 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
 ]);
 export const settingsWorkspaceId = "settings" as WorkspaceId;
 
-type ShellView = "landing" | "workflow-hub" | "workflow" | "settings";
+type ShellView = "landing" | "workflow-hub" | "workflow" | "settings" | "work-intake";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
-type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
+type ProjectEntryDestination = "workflow-hub" | "project-intake-capture" | "work-intake";
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -274,6 +276,7 @@ export function App(): JSX.Element {
     workspaceDefinitions[0].id,
   );
   const [shellView, setShellView] = useState<ShellView>("landing");
+  const [workIntakeProjection, setWorkIntakeProjection] = useState<WorkIntakeProjection | null>(null);
   const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
@@ -450,6 +453,7 @@ export function App(): JSX.Element {
     activeIssueFixCardStepId === "implement";
   const isLandingForeground = shellView === "landing";
   const isWorkflowHubForeground = shellView === "workflow-hub";
+  const isWorkIntakeForeground = shellView === "work-intake";
   const shouldAttachEmbeddedArchitectSurface =
     ((isDevelopmentForeground &&
       (architectBrowserWorkspaceAvailable || isWorkCardRepair)) ||
@@ -2440,7 +2444,7 @@ export function App(): JSX.Element {
     try {
       await activateWorkspaceSelection(
         await window.champcity.chooseWorkspaceFolder(),
-        "project-intake-capture",
+        "work-intake",
       );
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "New project directory could not be selected.");
@@ -2468,6 +2472,10 @@ export function App(): JSX.Element {
       projectRepository: selection.workspaceRoot,
     }));
 
+    if (destination === "work-intake") {
+      await openWorkIntake();
+      return;
+    }
     if (destination === "project-intake-capture") {
       setShellView("workflow");
       setActiveWorkflowId("development");
@@ -2482,6 +2490,7 @@ export function App(): JSX.Element {
   }
 
   function clearRepositoryDerivedState(): void {
+    setWorkIntakeProjection(null);
     const clearedPostSubmitState = clearProjectIntakePostSubmitReviewState({
       confirmation: projectIntakeConfirmation,
       viewedWorkspaceId: activeWorkspaceId,
@@ -2697,6 +2706,16 @@ export function App(): JSX.Element {
     setShellView("workflow");
     setActiveWorkflowId("development");
     await refreshDocuments({ useResolver: true });
+  }
+
+  async function openWorkIntake(): Promise<void> {
+    try {
+      setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection());
+      setActiveWorkflowId(null);
+      setShellView("work-intake");
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Work Intake could not be opened.");
+    }
   }
 
   function returnToWorkflowHub(): void {
@@ -3958,6 +3977,13 @@ export function App(): JSX.Element {
               onOpenExistingProject={() => void openExistingProjectFromLanding()}
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
+          ) : isWorkIntakeForeground && workIntakeProjection ? (
+            <WorkIntakeWorkspace
+              key={workspace.workspaceRoot}
+              projection={workIntakeProjection}
+              onReturn={returnToWorkflowHub}
+              onRefresh={async () => setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection())}
+            />
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (
@@ -3971,6 +3997,8 @@ export function App(): JSX.Element {
                 projectName={projectDisplayName(workspace)}
                 workspace={workspace}
               />
+              {workspace.ok ? <button type="button" onClick={() => void openWorkIntake()}>Capture Work Intake</button> : null}
+              {documentError ? <p role="alert">{documentError}</p> : null}
             </>
           ) : isIssueResolutionForeground && activeIssueStageId === "intake" ? (
             <IssueResolutionWorkspace
