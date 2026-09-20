@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { workItemArtifactIdentity, workItemFormalPrefix, workItemValidationPath, workItemValidationPrefix } from "../workCardLoop/workItemArtifactScope";
+import { workItemArtifactIdentity, workItemFormalPrefix, workItemValidationPath, workItemValidationPrefix, workItemMatchesScope, workItemScopePhaseId, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
@@ -11,7 +11,7 @@ import {
   type PlanningProjectionContext,
 } from "../documents/planningProjectionContext";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
-import { requireReadyImplementerReportForReview } from "../workCardBuilding/workCardBuildingReviewService";
+import { requireReadyImplementerReportForReview, resolveWorkCardImplementerReportContext } from "../workCardBuilding/workCardBuildingReviewService";
 import { buildMcpWorkspaceBindingPromptBlock } from "../integrations/mcpWorkspacePromptContract";
 import {
   inheritRepositoryBindingFromSourceRevisions,
@@ -65,8 +65,8 @@ export interface OperatorValidationAdvisoryPromptInput {
   changedFiles?: unknown;
 }
 
-export function createValidationAttempt(workspaceRoot: string, phaseId: string, workCardId: string): ValidationAttemptResult {
-  const workCard = requiredApproved(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
+export function createValidationAttempt(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): ValidationAttemptResult {
+  const workCard = currentApprovedFormalWorkCard(workspaceRoot, phaseId, workCardId);
   const report = latestApprovedReport(workspaceRoot, phaseId, workCardId);
   const attemptNumber = nextAttemptNumber(workspaceRoot, phaseId, workCardId);
   const markdownPath = workItemValidationPath(phaseId, workCardId, attemptNumber);
@@ -105,7 +105,7 @@ export function createValidationAttempt(workspaceRoot: string, phaseId: string, 
 
 export function buildAdvisoryArchitectReviewPrompt(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
 ): AdvisoryPromptResult {
   const formal = currentApprovedFormalWorkCard(workspaceRoot, phaseId, workCardId);
@@ -124,15 +124,15 @@ export function buildAdvisoryArchitectReviewPrompt(
   const instruction = buildOperatorValidationAdvisoryPrompt(workspaceRoot, {
     subjectId: workCardId,
     subjectLabel: "Work Card",
-    contractSourceLabel: "Approved Formal Work Card",
-    contractDocumentLabel: "Approved Work Card",
+    contractSourceLabel: typeof phaseId !== "string" && formal.metadata.artifactType === "repair-work-card" ? "Approved Repair Work Card Contract" : "Approved Formal Work Card",
+    contractDocumentLabel: typeof phaseId !== "string" && formal.metadata.artifactType === "repair-work-card" ? "Approved Repair Work Card Contract" : "Approved Work Card",
     contractPath: formal.markdownPath,
     contractRevision: formalRevision,
     contractSha256: formalSha256,
     implementerReportPath: report.markdownPath,
     implementerReportRevision: reportRevision,
     implementerReportSha256: reportSha256,
-    identityLines: [`- Phase ID: ${phaseId}`, `- Work Card ID: ${workCardId}`],
+    identityLines: [...(workItemScopePhaseId(phaseId) ? [`- Phase ID: ${workItemScopePhaseId(phaseId)}`] : []), `- Work Card ID: ${workCardId}`],
     changedFiles: report.metadata.canonical?.workflowData.filesChanged,
   });
   return {
@@ -219,7 +219,7 @@ export function buildOperatorValidationAdvisoryPrompt(
 
 export function applyOperatorValidationDecision(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   input: OperatorValidationDecisionInput,
 ): OperatorValidationDecisionResult {
@@ -238,12 +238,14 @@ export function applyOperatorValidationDecision(
   }
   const reportSource = { path: report.markdownPath, revision: report.metadata.artifactRevision ?? 1 };
   const existing = validationRecordForReportRevision(workspaceRoot, phaseId, workCardId, reportSource);
+  if (typeof phaseId !== "string" && existing && !workItemMatchesScope(existing.metadata.canonical?.identity ?? {}, phaseId, workCardId)) throw Error("Validation record conflicts with the current Work Item scope.");
   if (existing && existing.effectiveDisposition !== "Pending") {
     throw new Error(`Validation decision already exists for this Implementer Report revision: ${existing.markdownPath}`);
   }
   const attemptNumber = existing
     ? attemptNumberFromValidationRecord(existing)
     : nextAttemptNumber(workspaceRoot, phaseId, workCardId);
+  if (typeof phaseId !== "string" && existing && (existing.markdownPath !== workItemValidationPath(phaseId, workCardId, attemptNumber) || existing.metadata.canonical?.identity.attemptNumber !== attemptNumber)) throw Error("Validation record has a mismatched attempt identity or target.");
   const markdownPath = existing?.markdownPath ??
     workItemValidationPath(phaseId, workCardId, attemptNumber);
   const sourceRevisions = [
@@ -259,6 +261,10 @@ export function applyOperatorValidationDecision(
     implementerReportPath: report.markdownPath,
     implementerReportRevision: reportSource.revision,
   });
+  if (typeof phaseId !== "string") workflowData.sourceDigests = {
+    [workCard.markdownPath]: sha256RelativeFile(workspaceRoot, workCard.markdownPath),
+    [report.markdownPath]: sha256RelativeFile(workspaceRoot, report.markdownPath),
+  };
   const workflowDataWithBinding = mergeRepositoryBindingIntoWorkflowData(
     workflowData,
     inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
@@ -293,7 +299,7 @@ export function applyOperatorValidationDecision(
   };
 }
 
-export function setValidationRecordDisposition(workspaceRoot: string, phaseId: string, workCardId: string, status: DocumentDispositionStatus) {
+export function setValidationRecordDisposition(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string, status: DocumentDispositionStatus) {
   const record = latestValidationRecord(workspaceRoot, phaseId, workCardId);
   if (!record) throw new Error("Validation Record is required.");
   return setDocumentDisposition(workspaceRoot, record.logicalDocumentId, status);
@@ -301,7 +307,7 @@ export function setValidationRecordDisposition(workspaceRoot: string, phaseId: s
 
 export function getWorkCardCloseProjection(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   planningContext?: PlanningProjectionContext,
 ) {
@@ -310,7 +316,7 @@ export function getWorkCardCloseProjection(
   const closed = completion.complete;
   return {
     closed,
-    returnTarget: closed ? "phase-work-card-selection" : "work-card-validation",
+    returnTarget: closed ? typeof phaseId === "string" ? "phase-work-card-selection" : "routed-work-item-selection" : "work-card-validation",
     reason: closed
       ? completion.repairId
         ? `Current Approved Repair validation closes the original parent Work Card ${workCardId}.`
@@ -319,7 +325,7 @@ export function getWorkCardCloseProjection(
   };
 }
 
-function latestApprovedReport(workspaceRoot: string, phaseId: string, workCardId: string) {
+function latestApprovedReport(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string) {
   const report = requireReadyImplementerReportForReview(workspaceRoot, phaseId, workCardId);
   if (report.effectiveDisposition !== "Approved") {
     throw new Error("Current Approved implementation or repair report is required.");
@@ -327,11 +333,16 @@ function latestApprovedReport(workspaceRoot: string, phaseId: string, workCardId
   return report;
 }
 
-function currentApprovedFormalWorkCard(workspaceRoot: string, phaseId: string, workCardId: string): PlanningDocumentSummary {
-  return requiredApproved(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
+function currentApprovedFormalWorkCard(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): PlanningDocumentSummary {
+  if (typeof phaseId === "string") return requiredApproved(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
+  const context = resolveWorkCardImplementerReportContext(workspaceRoot, { scope: phaseId, workCardId });
+  const document = listPlanningDocuments(workspaceRoot).find((entry) => entry.markdownPath === context.formalWorkCardPath);
+  if (!document || document.documentReadState !== "readable" || document.effectiveDisposition !== "Approved" ||
+    !workItemMatchesScope(document.metadata.canonical?.identity ?? {}, phaseId, workCardId) || evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state !== "fresh") throw Error("Current Approved scoped Work Card contract is required.");
+  return document;
 }
 
-function currentImplementerReport(workspaceRoot: string, phaseId: string, workCardId: string): PlanningDocumentSummary {
+function currentImplementerReport(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): PlanningDocumentSummary {
   return requireReadyImplementerReportForReview(workspaceRoot, phaseId, workCardId);
 }
 
@@ -342,7 +353,7 @@ function requiredApproved(workspaceRoot: string, prefix: string, extension: ".md
   return document;
 }
 
-function latestValidationRecord(workspaceRoot: string, phaseId: string, workCardId: string) {
+function latestValidationRecord(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string) {
   return listPlanningDocuments(workspaceRoot)
     .filter((document) => document.markdownPath.startsWith(workItemValidationPrefix(phaseId, workCardId)))
     .at(-1);
@@ -350,7 +361,7 @@ function latestValidationRecord(workspaceRoot: string, phaseId: string, workCard
 
 function validationRecordForReportRevision(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   reportSource: SourceRevision,
 ): PlanningDocumentSummary | undefined {
@@ -362,7 +373,7 @@ function validationRecordForReportRevision(
     ));
 }
 
-function nextAttemptNumber(workspaceRoot: string, phaseId: string, workCardId: string): number {
+function nextAttemptNumber(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): number {
   return listPlanningDocuments(workspaceRoot)
     .filter((document) => document.markdownPath.startsWith(workItemValidationPrefix(phaseId, workCardId)))
     .map((document) => Number(document.displayFilename.match(/ATTEMPT(\d+)/i)?.[1] ?? 0))
@@ -382,7 +393,7 @@ function statusForDecision(decision: OperatorValidationDecision): "Approved" | "
 
 function validationMetadata(input: {
   existing?: PlanningDocumentSummary;
-  phaseId: string;
+  phaseId: WorkItemArtifactScope;
   workCardId: string;
   attemptNumber: number;
   sourceRevisions: SourceRevision[];
@@ -398,8 +409,7 @@ function validationMetadata(input: {
     participationRole: "gatingReview",
     identity: {
       ...(existingMetadata?.identity ?? {}),
-      phaseId: input.phaseId,
-      workCardId: input.workCardId,
+      ...workItemArtifactIdentity(input.phaseId, input.workCardId),
       candidateId: input.workCardId,
       attemptNumber: input.attemptNumber,
     },

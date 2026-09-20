@@ -1,5 +1,7 @@
+import { sourceDigestsCurrent } from "../workCardLoop/workCardEvidence";
 import fs from "node:fs";
-import { workItemRepairTargets, workItemArtifactRoot } from "../workCardLoop/workItemArtifactScope";
+import { createHash } from "node:crypto";
+import { workItemRepairTargets, workItemArtifactRoot, workItemArtifactIdentity, workItemMatchesScope, workItemScopePhaseId, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import {
   type CanonicalDocumentMetadata,
@@ -57,7 +59,7 @@ export interface RepairCreationResult {
 }
 
 export interface RepairWorkCardSaveResult {
-  phaseId: string;
+  phaseId?: string;
   repairId: string;
   repairWorkCardMarkdownPath: string;
 }
@@ -68,7 +70,8 @@ const slotId = "repair-work-card";
 
 export interface RepairWorkCardContext {
   handoff: PlanningDocumentSummary;
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   repairId: string;
   parentWorkCardId: string;
   workflowData: Record<string, unknown>;
@@ -93,13 +96,17 @@ export type ExactActiveRepairWorkCardContextResolution =
 
 export type ApprovedRepairImplementationContextResolution = ExactActiveRepairWorkCardContextResolution;
 
-export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
+export function createRepairWorkCardArchitectOutputDefinition(
+  resolveContext: (workspaceRoot: string) => RepairWorkCardContext = requireRepairWorkCardContext,
+  owner = owningWorkspaceId,
+): ArchitectOutputDefinition<
   typeof slotId,
   RepairWorkCardSaveResult,
   RepairWorkCardContext
-> = {
+> {
+  return {
   outputKind,
-  owningWorkspaceId,
+  owningWorkspaceId: owner,
   bundleMode: "single-output",
   slots: [{
     slotId,
@@ -116,8 +123,7 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
         ? {
             ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
             identity: {
-              phaseId: context.phaseId,
-              workCardId: context.repairId,
+              ...workItemArtifactIdentity(repairScope(context), context.repairId),
               repairId: context.repairId,
               parentWorkCardId: context.parentWorkCardId,
             },
@@ -130,6 +136,7 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
             workspaceRoot,
             relativePath: context.targetPath,
             phaseId: context.phaseId,
+            scope: context.scope,
             repairId: context.repairId,
             parentWorkCardId: context.parentWorkCardId,
             workflowData: context.workflowData,
@@ -141,19 +148,19 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
   buildSubmissionId(context) {
     return buildDeterministicArchitectDraftSubmissionId({
       outputKind,
-      owningWorkspaceId,
+      owningWorkspaceId: owner,
       ...context,
     });
   },
   buildPromotionGroupId(context) {
     return buildDeterministicArchitectDraftSubmissionId({
       outputKind,
-      owningWorkspaceId,
+      owningWorkspaceId: owner,
       ...context,
     });
   },
   resolvePreparation(workspaceRoot) {
-    const context = requireRepairWorkCardContext(workspaceRoot);
+    const context = resolveContext(workspaceRoot);
     assertRepairWorkCardEligible(workspaceRoot, context);
     return {
       sourceHandoff: { path: context.handoff.markdownPath, revision: context.handoff.metadata.artifactRevision ?? 1 },
@@ -161,7 +168,7 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
     };
   },
   resolvePromotionContext({ workspaceRoot, submission, preparedContext }) {
-    const context = requireRepairWorkCardContext(workspaceRoot);
+    const context = resolveContext(workspaceRoot);
     const original = preparedContext as RepairWorkCardContext;
     if (
       context.handoff.markdownPath !== submission.sourceHandoff.path ||
@@ -184,7 +191,10 @@ export const repairWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
       repairWorkCardMarkdownPath: promotedDocuments[0].relativePath,
     };
   },
-};
+  };
+}
+
+export const repairWorkCardArchitectOutputDefinition = createRepairWorkCardArchitectOutputDefinition();
 
 export function prepareRepairWorkCardDraftSubmission(
   workspaceRoot: string,
@@ -204,12 +214,16 @@ export function getActiveRepairWorkCardDraftSubmission(
   return getActiveArchitectOutputRuntimeSubmission(workspaceRoot, owningWorkspaceId);
 }
 
+type LegacyRepairResolution = Exclude<ExactActiveRepairWorkCardContextResolution, { status: "ready" }> | (Extract<ExactActiveRepairWorkCardContextResolution, { status: "ready" }> & { context: RepairWorkCardContext & { phaseId: string } });
+export function resolveExactActiveRepairWorkCardContext(workspaceRoot: string, planningContext?: PlanningProjectionContext): LegacyRepairResolution;
+export function resolveExactActiveRepairWorkCardContext(workspaceRoot: string, planningContext: PlanningProjectionContext | undefined, scope: WorkItemArtifactScope): ExactActiveRepairWorkCardContextResolution;
 export function resolveExactActiveRepairWorkCardContext(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
+  scope?: WorkItemArtifactScope,
 ): ExactActiveRepairWorkCardContextResolution {
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
-  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
+  const documents = scopedRepairDocuments(listPlanningDocuments(planningContext ?? workspaceRoot), scope);
   const handoffs = approvedRepairHandoffs(documents);
   const activeRepairOutputs = documents
     .filter((document) => document.metadata.artifactType === "repair-work-card")
@@ -241,7 +255,7 @@ export function resolveExactActiveRepairWorkCardContext(
         evidencePaths: [],
       };
     }
-    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, handoff, planningContext);
+    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, handoff, planningContext, scope);
     return {
       status: "ready",
       reason: "Exact active Repair Architect handoff resolved.",
@@ -257,6 +271,7 @@ export function resolveExactActiveRepairWorkCardContext(
   }
 }
 
+export function resolveApprovedRepairImplementationContext(workspaceRoot: string, planningContext?: PlanningProjectionContext): LegacyRepairResolution;
 export function resolveApprovedRepairImplementationContext(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
@@ -272,7 +287,7 @@ export function resolveApprovedRepairImplementationContext(
       evidencePaths: [],
     };
   }
-  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
+  const documents = scopedRepairDocuments(listPlanningDocuments(planningContext ?? workspaceRoot));
   const handoffs = approvedRepairHandoffs(documents).filter((handoff) => {
     const workflowData = handoff.metadata.canonical?.workflowData ?? {};
     const identity = handoff.metadata.canonical?.identity ?? {};
@@ -333,14 +348,16 @@ export function resolveApprovedRepairImplementationContext(
   }
 }
 
+export function resolveTerminalApprovedRepairImplementationContext(workspaceRoot: string, phaseId: string, parentWorkCardId: string, planningContext?: PlanningProjectionContext): LegacyRepairResolution;
+export function resolveTerminalApprovedRepairImplementationContext(workspaceRoot: string, phaseId: WorkItemArtifactScope, parentWorkCardId: string, planningContext?: PlanningProjectionContext): ApprovedRepairImplementationContextResolution;
 export function resolveTerminalApprovedRepairImplementationContext(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   parentWorkCardId: string,
   planningContext?: PlanningProjectionContext,
 ): ApprovedRepairImplementationContextResolution {
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
-  const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
+  const documents = scopedRepairDocuments(listPlanningDocuments(planningContext ?? workspaceRoot), phaseId);
   const candidates = approvedRepairHandoffs(documents)
     .map((handoff) => {
       const identity = handoff.metadata.canonical?.identity ?? {};
@@ -349,7 +366,7 @@ export function resolveTerminalApprovedRepairImplementationContext(
       const generation = repairId
         ? repairGenerationForParent(repairId, parentWorkCardId)
         : undefined;
-      return identity.phaseId === phaseId &&
+      return workItemMatchesScope(identity, phaseId) &&
         workflowData.originalParentWorkCardId === parentWorkCardId &&
         repairId && generation !== undefined
         ? { handoff, repairId, generation }
@@ -362,6 +379,19 @@ export function resolveTerminalApprovedRepairImplementationContext(
       reason: `No Approved Repair Work Card chain exists for ${parentWorkCardId}.`,
       evidencePaths: [],
     };
+  }
+
+  if (typeof phaseId !== "string") {
+    try {
+      const ordered = [...candidates].sort((left, right) => left.generation - right.generation);
+      for (const [index, candidate] of ordered.entries()) {
+        const immediateParent = index === 0 ? parentWorkCardId : ordered[index - 1].repairId;
+        if (candidate.generation !== index + 1 || candidate.handoff.metadata.canonical?.workflowData.immediateParentWorkCardId !== immediateParent) throw Error("Routed Repair chain has a missing generation or mismatched immediate parent.");
+        repairWorkCardContextFromHandoff(workspaceRoot, documents, candidate.handoff, planningContext, phaseId);
+      }
+    } catch (error) {
+      return { status: "needs-attention", reason: (error as Error).message, evidencePaths: candidates.map((candidate) => candidate.handoff.markdownPath) };
+    }
   }
 
   const highestGeneration = candidates.reduce(
@@ -401,7 +431,7 @@ export function resolveTerminalApprovedRepairImplementationContext(
   }
 
   try {
-    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, terminal.handoff, planningContext);
+    const context = repairWorkCardContextFromHandoff(workspaceRoot, documents, terminal.handoff, planningContext, phaseId);
     return {
       status: "ready",
       reason: `Terminal Approved Repair Work Card ${terminal.repairId} resolved for ${parentWorkCardId}.`,
@@ -681,14 +711,15 @@ function repairStateEvidencePaths(
 
 export function createRepairWorkCard(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   parentWorkCardId: string,
   evidencePath: string,
   origin: RepairOrigin,
   defect: string,
 ): RepairCreationResult {
   const evidence = requiredRevisionRequestedEvidence(workspaceRoot, evidencePath, origin);
-  const documents = listPlanningDocuments(workspaceRoot);
+  const documents = scopedRepairDocuments(listPlanningDocuments(workspaceRoot), typeof phaseId === "string" ? undefined : phaseId);
+  if (typeof phaseId !== "string" && !workItemMatchesScope(evidence.metadata.canonical?.identity ?? {}, phaseId, parentWorkCardId)) throw Error("Repair evidence does not match the current scoped execution Work Card.");
   const originalParentId = parentWorkCardId.replace(/-REPAIR\d+$/i, "");
   const trimmedDefect = defect.trim();
   if (!trimmedDefect) {
@@ -717,6 +748,7 @@ export function createRepairWorkCard(
     handoffKind: "repair",
     repairId,
     originalParentWorkCardId: originalParentId,
+    ...(typeof phaseId === "string" ? {} : { immediateParentWorkCardId: parentWorkCardId, sourceDigests: { [evidencePath]: createHash("sha256").update(fs.readFileSync(path.join(workspaceRoot, evidencePath))).digest("hex") } }),
     origin,
     evidencePath,
     boundedDefect: trimmedDefect,
@@ -731,7 +763,7 @@ export function createRepairWorkCard(
       artifactType: "generated-handoff",
       artifactRevision: 1,
       participationRole: "nonReviewHandoff",
-      identity: { handoffKind: "repair", phaseId, repairId },
+      identity: typeof phaseId === "string" ? { handoffKind: "repair", phaseId, repairId } : { ...workItemArtifactIdentity(phaseId, repairId), handoffKind: "repair", repairId, parentWorkCardId: originalParentId },
       sourceRevisions,
       workflowData: mergeRepositoryBindingIntoWorkflowData(
         { ...content, repairWorkCardTarget: repairMarkdownPath },
@@ -749,7 +781,7 @@ export function resolveCurrentRepairEvidence(
   planningContext?: PlanningProjectionContext,
 ): CurrentRepairEvidence {
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
-  const candidates = listPlanningDocuments(planningContext ?? workspaceRoot)
+  const candidates = scopedRepairDocuments(listPlanningDocuments(planningContext ?? workspaceRoot))
     .filter((document) => document.effectiveDisposition === "RevisionRequested")
     .map(currentRepairEvidenceFromDocument)
     .filter((value): value is CurrentRepairEvidence => Boolean(value));
@@ -831,7 +863,7 @@ function currentRepairEvidenceFromDocument(document: PlanningDocumentSummary): C
 function findExistingRepairHandoffForEvidence(
   workspaceRoot: string,
   documents: PlanningDocumentSummary[],
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   parentWorkCardId: string,
   evidencePath: string,
   evidenceRevision: number,
@@ -845,7 +877,7 @@ function findExistingRepairHandoffForEvidence(
       source.path === evidencePath && source.revision === evidenceRevision
     );
     return sourceMatches &&
-      identity.phaseId === phaseId &&
+      workItemMatchesScope(identity, phaseId) &&
       workflowData.originalParentWorkCardId === parentWorkCardId &&
       workflowData.origin === origin &&
       workflowData.evidencePath === evidencePath &&
@@ -858,6 +890,7 @@ function findExistingRepairHandoffForEvidence(
     return null;
   }
   const match = matches[0];
+  if (typeof phaseId !== "string" && !sourceDigestsCurrent(workspaceRoot, match)) throw Error("Existing Repair handoff evidence changed.");
   const workflowData = match.metadata.canonical?.workflowData ?? {};
   const repairId = requiredString(workflowData.repairId, "repairId");
   const currentTarget = repairWorkCardTargetFromHandoff(match);
@@ -883,7 +916,7 @@ function findExistingRepairHandoffForEvidence(
   };
 }
 
-function deterministicRepairWorkCardTargetPath(phaseId: string, repairId: string): string {
+function deterministicRepairWorkCardTargetPath(phaseId: WorkItemArtifactScope, repairId: string): string {
   return workItemRepairTargets(phaseId, repairId).repairMarkdownPath;
 }
 
@@ -1023,12 +1056,14 @@ function repairWorkCardContextFromHandoff(
   documents: PlanningDocumentSummary[],
   handoff: PlanningDocumentSummary,
   planningContext?: PlanningProjectionContext,
+  scope?: WorkItemArtifactScope,
 ): RepairWorkCardContext {
   if (evaluateDocumentFreshness(planningContext ?? workspaceRoot, handoff.logicalDocumentId).state === "stale") {
     throw new Error("Current Repair Architect handoff is stale.");
   }
   const workflowData = handoff.metadata.canonical?.workflowData ?? {};
-  const phaseId = requiredString(handoff.metadata.canonical?.identity.phaseId, "phaseId");
+  const phaseId = scope ? workItemScopePhaseId(scope) : requiredString(handoff.metadata.canonical?.identity.phaseId, "phaseId");
+  if (scope && !workItemMatchesScope(handoff.metadata.canonical?.identity ?? {}, scope)) throw Error("Repair handoff scope mismatch.");
   const repairId = requiredString(workflowData.repairId, "repairId");
   const identityRepairId = requiredString(handoff.metadata.canonical?.identity.repairId, "identity.repairId");
   if (identityRepairId !== repairId) {
@@ -1046,6 +1081,19 @@ function repairWorkCardContextFromHandoff(
   if (!evidence) {
     throw new Error("Repair Architect handoff evidence path is missing.");
   }
+  if (scope && typeof scope !== "string" && (
+    !sourceDigestsCurrent(workspaceRoot, handoff) ||
+    handoff.markdownPath !== workItemRepairTargets(scope, repairId).handoffMarkdownPath || targetPath !== workItemRepairTargets(scope, repairId).repairMarkdownPath ||
+    evidence.effectiveDisposition !== "RevisionRequested" || !workItemMatchesScope(evidence.metadata.canonical?.identity ?? {}, scope, requiredString(workflowData.immediateParentWorkCardId, "immediateParentWorkCardId"))
+  )) throw Error("Repair handoff does not match exact scoped evidence and targets.");
+  if (scope && typeof scope !== "string" && origin === "postValidationRecord") {
+    const sources = evidence.metadata.sourceRevisions ?? [];
+    const sourceDocuments = sources.map((source) => documents.find((document) => document.markdownPath === source.path));
+    if (sources.length !== 2 || !sourceDigestsCurrent(workspaceRoot, evidence) ||
+      !sourceDocuments.every((document) => document && workItemMatchesScope(document.metadata.canonical?.identity ?? {}, scope, String(workflowData.immediateParentWorkCardId))) ||
+      !sourceDocuments.some((document) => document?.metadata.artifactType === "implementer-report") ||
+      !sourceDocuments.some((document) => ["formal-work-card", "repair-work-card"].includes(document?.metadata.artifactType ?? ""))) throw Error("Repair validation source evidence changed or has incompatible lineage.");
+  }
   const evidenceWorkflowData = repairEvidenceWorkflowData(evidence);
   const expectedEvidenceType = origin === "preValidationReportReview" ? "implementer-report" : "validation-record";
   const expectedReturnTarget = origin === "preValidationReportReview" ? "work-card-building-review" : "work-card-validation";
@@ -1060,6 +1108,7 @@ function repairWorkCardContextFromHandoff(
   if (existing) {
     assertExistingRepairOutputMatchesContext(existing, {
       phaseId,
+      scope,
       repairId,
       parentWorkCardId,
       workflowData: { ...workflowData, ...evidenceWorkflowData },
@@ -1072,6 +1121,7 @@ function repairWorkCardContextFromHandoff(
   return {
     handoff,
     phaseId,
+    scope,
     repairId,
     parentWorkCardId,
     workflowData: { ...workflowData, ...evidenceWorkflowData },
@@ -1120,7 +1170,8 @@ function safeRepairWorkCardTargetFromHandoff(handoff: PlanningDocumentSummary): 
 function assertExistingRepairOutputMatchesContext(
   existing: PlanningDocumentSummary,
   expected: {
-    phaseId: string;
+    phaseId?: string;
+    scope?: WorkItemArtifactScope;
     repairId: string;
     parentWorkCardId: string;
     workflowData: Record<string, unknown>;
@@ -1132,13 +1183,14 @@ function assertExistingRepairOutputMatchesContext(
   if (
     existing.metadata.artifactType !== "repair-work-card" ||
     existing.metadata.participationRole !== "gatingReview" ||
-    identity.phaseId !== expected.phaseId ||
+    !workItemMatchesScope(identity, repairScope(expected), expected.repairId) ||
     identity.workCardId !== expected.repairId ||
     identity.repairId !== expected.repairId ||
     identity.parentWorkCardId !== expected.parentWorkCardId ||
     workflowData.repairId !== expected.repairId ||
     workflowData.parentWorkCardId !== expected.parentWorkCardId ||
     workflowData.originalParentWorkCardId !== expected.parentWorkCardId ||
+    (expected.scope && typeof expected.scope !== "string" && workflowData.immediateParentWorkCardId !== expected.workflowData.immediateParentWorkCardId) ||
     workflowData.origin !== expected.workflowData.origin ||
     workflowData.evidencePath !== expected.workflowData.evidencePath ||
     workflowData.boundedDefect !== expected.workflowData.boundedDefect ||
@@ -1158,7 +1210,8 @@ function sourceRevisionsEqual(actual: SourceRevision[], expected: SourceRevision
 function outputMetadata(input: {
   workspaceRoot: string;
   relativePath: string;
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   repairId: string;
   parentWorkCardId: string;
   workflowData: Record<string, unknown>;
@@ -1171,8 +1224,7 @@ function outputMetadata(input: {
     artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
     participationRole: "gatingReview",
     identity: {
-      phaseId: input.phaseId,
-      workCardId: input.repairId,
+      ...workItemArtifactIdentity(repairScope(input), input.repairId),
       repairId: input.repairId,
       parentWorkCardId: input.parentWorkCardId,
     },
@@ -1194,6 +1246,7 @@ function repairWorkflowData(input: {
     repairId: input.repairId,
     parentWorkCardId: input.parentWorkCardId,
     originalParentWorkCardId: input.workflowData.originalParentWorkCardId,
+    ...(input.workflowData.immediateParentWorkCardId ? { immediateParentWorkCardId: input.workflowData.immediateParentWorkCardId } : {}),
     origin: input.workflowData.origin,
     evidencePath: input.workflowData.evidencePath,
     boundedDefect: input.workflowData.boundedDefect,
@@ -1245,7 +1298,7 @@ function buildRepairWorkCardPreparedInstruction(
     "Read the exact current Approved Repair Architect handoff:",
     `- Handoff path: ${sourceHandoff.path}`,
     `- Handoff revision: ${sourceHandoff.revision}`,
-    `Phase ID: ${context.phaseId}`,
+    ...(context.phaseId ? [`Phase ID: ${context.phaseId}`] : []),
     `Repair ID: ${context.repairId}`,
     `Parent Work Card: ${context.parentWorkCardId}`,
     `Bounded defect: ${boundedDefect}`,
@@ -1361,7 +1414,7 @@ function sourcePathForArtifactType(sources: SourceRevision[], artifactType: "for
   })?.path;
 }
 
-function nextRepairId(workspaceRoot: string, phaseId: string, parentId: string): string {
+function nextRepairId(workspaceRoot: string, phaseId: WorkItemArtifactScope, parentId: string): string {
   const regex = new RegExp(`^${parentId}-REPAIR(\\d+)`, "i");
   const max = listPlanningDocuments(workspaceRoot)
     .filter((document) =>
@@ -1387,4 +1440,16 @@ function repairGenerationForParent(repairId: string, parentWorkCardId: string): 
   }
   const generation = Number(match[1]);
   return Number.isInteger(generation) && generation > 0 ? generation : undefined;
+}
+
+function repairScope(context: { phaseId?: string; scope?: WorkItemArtifactScope }): WorkItemArtifactScope {
+  const scope = context.scope ?? context.phaseId;
+  if (!scope) throw Error("Repair Work Card requires its artifact scope.");
+  return scope;
+}
+function scopedRepairDocuments(documents: PlanningDocumentSummary[], scope?: WorkItemArtifactScope): PlanningDocumentSummary[] {
+  return documents.filter((document) => {
+    const identity = document.metadata.canonical?.identity ?? { phaseId: document.metadata.phaseId };
+    return scope ? workItemMatchesScope(identity, scope) : identity.artifactScope === undefined && identity.intakeId === undefined;
+  });
 }

@@ -28,6 +28,10 @@ test("work card repair creates Markdown-only repair handoff from RevisionRequest
   assert.equal(result.handoffMarkdownPath, "planning/phases/phase-01/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_WC01-REPAIR01.md");
   assert.equal(result.repairMarkdownPath, "planning/phases/phase-01/Work_Cards/WC01-REPAIR01.md");
   assert.equal(["repair", "Json", "Path"].join("") in result, false);
+  const otherEvidence = writeDoc(root, "planning/phases/phase-02/Implementer_Reports/IMPLEMENTER_REPORT_WC02_second.md", "implementer-report", "RevisionRequested", {
+    identity: { phaseId: "phase-02", workCardId: "WC02" }, notes: "Another defect.",
+  });
+  assert.throws(() => createRepairWorkCard(root, "phase-02", "WC02", otherEvidence, "preValidationReportReview", "Another defect"), /active Repair Architect handoff already exists/);
 });
 
 test("work card repair resolves MVP phase metadata and reuses evidence-matched handoff", () => {

@@ -13,6 +13,16 @@ export interface ResolvedWorkItemArtifactScope {
 }
 /** Strings are retained solely for established legacy Phase callers. */
 export type WorkItemArtifactScope = string | ResolvedWorkItemArtifactScope;
+export function workItemScopePhaseId(scope: WorkItemArtifactScope): string | undefined {
+  return typeof scope === "string" ? scope : scope.reference.kind === "routed-direct-plan" ? undefined : scope.reference.phaseId;
+}
+/** Scope equality does not require a Work Card ID on legacy generated handoffs. */
+export function workItemMatchesScope(identity: Record<string, unknown>, scope: WorkItemArtifactScope, workCardId?: string): boolean {
+  workItemArtifactRoot(scope);
+  if (workCardId !== undefined && identity.workCardId !== workCardId) return false;
+  if (typeof scope === "string") return identity.phaseId === scope && identity.intakeId === undefined && identity.artifactScope === undefined;
+  try { return isDeepStrictEqual(workItemArtifactScopeFromIdentity(identity), scope.reference); } catch { return false; }
+}
 const resolvedScopes = new WeakMap<ResolvedWorkItemArtifactScope, readonly string[] | null>();
 
 function identifier(value: unknown): asserts value is string {
@@ -118,4 +128,8 @@ export function workItemRepairTargets(scope: WorkItemArtifactScope, repairId: st
   if (!/-REPAIR\d+$/i.test(repairId)) throw Error("Repair identity is required.");
   return { handoffMarkdownPath: `${workItemArtifactRoot(scope)}/Architect_Handoffs/REPAIR_ARCHITECT_HANDOFF_${repairId}.md`,
     repairMarkdownPath: `${workItemFormalPrefix(scope, repairId)}.md` };
+}
+
+export function workItemCloseReturnPath(scope: WorkItemArtifactScope, workCardId: string): string {
+  return `${workItemArtifactRoot(scope)}/Close_Return_Records/WORK_CARD_CLOSE_RETURN_${cardId(scope, workCardId)}.md`;
 }

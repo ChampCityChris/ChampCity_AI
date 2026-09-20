@@ -217,6 +217,7 @@ export function buildApprovedRepairWorkCardAndReportDocuments(input: {
   approvedStatus: DocumentDispositionStatus;
   notes: string;
   reviewedAt: string;
+  scope?: WorkItemArtifactScope;
 }): Array<Parameters<typeof writeCanonicalMarkdownDocuments>[0][number]> {
   const existingRepair = readCanonical(input.workspaceRoot, input.repairWorkCardPath);
   const phaseId = stringValue(existingRepair.metadata.identity.phaseId);
@@ -225,12 +226,13 @@ export function buildApprovedRepairWorkCardAndReportDocuments(input: {
   const parentWorkCardId = stringValue(existingRepair.metadata.identity.parentWorkCardId) ??
     stringValue(existingRepair.metadata.workflowData.parentWorkCardId) ??
     stringValue(existingRepair.metadata.workflowData.originalParentWorkCardId);
-  if (!phaseId || !repairId || !parentWorkCardId) {
+  if ((!phaseId && !input.scope) || !repairId || !parentWorkCardId) {
     throw new Error("Repair Work Card approval requires phase, repair, and parent Work Card identity.");
   }
   const repairRevision = existingRepair.metadata.artifactRevision ?? 1;
   const context = resolveWorkCardImplementerReportContext(input.workspaceRoot, {
     phaseId,
+    scope: input.scope,
     workCardId: repairId,
     formalWorkCardPath: input.repairWorkCardPath,
     formalWorkCardRevision: repairRevision,
@@ -379,6 +381,7 @@ export function classifyExpectedImplementerReportReadiness(
   workspaceRoot: string,
   context: WorkCardImplementerReportContext,
   planningContext?: PlanningProjectionContext,
+  allowRevisionRequested = false,
 ): ImplementerReportReadinessClassification {
   const conflicts = findConflictingReports(workspaceRoot, context, planningContext);
   if (conflicts.length > 0) {
@@ -459,7 +462,7 @@ export function classifyExpectedImplementerReportReadiness(
       report,
     };
   }
-  if (!["Pending", "Approved"].includes(report.effectiveDisposition)) {
+  if (!["Pending", "Approved", ...(allowRevisionRequested ? ["RevisionRequested"] : [])].includes(report.effectiveDisposition)) {
     return {
       reportReadiness: "invalid",
       reportReadinessReason: "Expected Implementer Report disposition is not reviewable.",
@@ -521,6 +524,14 @@ export function requireReadyImplementerReportForReview(
   if (readiness.reportReadiness !== "ready-for-review" || !readiness.report) {
     throw new Error(readiness.reportReadinessReason);
   }
+  return readiness.report;
+}
+
+/** Repair evidence uses the same identity/source/body checks, with its distinct disposition. */
+export function requireCurrentImplementerReportForRepair(workspaceRoot: string, scope: WorkItemArtifactScope, workCardId: string): PlanningDocumentSummary {
+  const context = resolveApprovedReportContext(workspaceRoot, scope, workCardId);
+  const readiness = classifyExpectedImplementerReportReadiness(workspaceRoot, context, undefined, true);
+  if (readiness.reportReadiness !== "ready-for-review" || readiness.report?.effectiveDisposition !== "RevisionRequested") throw Error("Current substantive RevisionRequested Implementer Report is required for Repair.");
   return readiness.report;
 }
 

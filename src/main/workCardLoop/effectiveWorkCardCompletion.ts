@@ -1,3 +1,5 @@
+import { workItemScopePhaseId, workItemMatchesScope, workItemValidationPath, type WorkItemArtifactScope } from "./workItemArtifactScope";
+import { sourceDigestsCurrent } from "./workCardEvidence";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import {
   evaluateDocumentFreshness,
@@ -19,7 +21,8 @@ export type EffectiveWorkCardCompletionState =
 export interface EffectiveWorkCardCompletion {
   state: EffectiveWorkCardCompletionState;
   complete: boolean;
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   parentWorkCardId: string;
   executionWorkCardId: string;
   executionKind: "parent" | "repair";
@@ -33,9 +36,11 @@ export interface EffectiveWorkCardCompletion {
   reason: string;
 }
 
+export function resolveEffectiveWorkCardCompletion(workspaceRoot: string, phaseId: string, parentWorkCardId: string, planningContext?: PlanningProjectionContext): EffectiveWorkCardCompletion & { phaseId: string };
+export function resolveEffectiveWorkCardCompletion(workspaceRoot: string, phaseId: WorkItemArtifactScope, parentWorkCardId: string, planningContext?: PlanningProjectionContext): EffectiveWorkCardCompletion;
 export function resolveEffectiveWorkCardCompletion(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   parentWorkCardId: string,
   planningContext?: PlanningProjectionContext,
 ): EffectiveWorkCardCompletion {
@@ -48,7 +53,7 @@ export function resolveEffectiveWorkCardCompletion(
   );
   if (terminalRepair.status === "ready") {
     return resolveExecutionCompletion(workspaceRoot, {
-      phaseId,
+      scope: phaseId,
       parentWorkCardId,
       executionWorkCardId: terminalRepair.context.repairId,
       executionKind: "repair",
@@ -61,7 +66,8 @@ export function resolveEffectiveWorkCardCompletion(
     return {
       state: "incomplete",
       complete: false,
-      phaseId,
+      phaseId: workItemScopePhaseId(phaseId),
+      scope: phaseId,
       parentWorkCardId,
       executionWorkCardId: parentWorkCardId,
       executionKind: "parent",
@@ -71,7 +77,7 @@ export function resolveEffectiveWorkCardCompletion(
   }
 
   return resolveExecutionCompletion(workspaceRoot, {
-    phaseId,
+    scope: phaseId,
     parentWorkCardId,
     executionWorkCardId: parentWorkCardId,
     executionKind: "parent",
@@ -82,7 +88,7 @@ export function resolveEffectiveWorkCardCompletion(
 function resolveExecutionCompletion(
   workspaceRoot: string,
   input: {
-    phaseId: string;
+    scope: WorkItemArtifactScope;
     parentWorkCardId: string;
     executionWorkCardId: string;
     executionKind: "parent" | "repair";
@@ -96,7 +102,7 @@ function resolveExecutionCompletion(
   try {
     projection = getWorkCardBuildingReviewProjection(
       workspaceRoot,
-      input.phaseId,
+      input.scope,
       input.executionWorkCardId,
       planningContext,
     );
@@ -104,7 +110,8 @@ function resolveExecutionCompletion(
     return {
       state: "incomplete",
       complete: false,
-      phaseId: input.phaseId,
+      phaseId: workItemScopePhaseId(input.scope),
+      scope: input.scope,
       parentWorkCardId: input.parentWorkCardId,
       executionWorkCardId: input.executionWorkCardId,
       executionKind: input.executionKind,
@@ -121,7 +128,8 @@ function resolveExecutionCompletion(
     document.markdownPath === projection.implementerReportPath
   );
   const base = {
-    phaseId: input.phaseId,
+    phaseId: workItemScopePhaseId(input.scope),
+    scope: input.scope,
     parentWorkCardId: input.parentWorkCardId,
     executionWorkCardId: input.executionWorkCardId,
     executionKind: input.executionKind,
@@ -151,7 +159,7 @@ function resolveExecutionCompletion(
   const validationRecords = exactCurrentValidationRecords(
     workspaceRoot,
     documents,
-    input.phaseId,
+    input.scope,
     input.executionWorkCardId,
     implementerReport,
     planningContext,
@@ -186,7 +194,7 @@ function resolveExecutionCompletion(
 function exactCurrentValidationRecords(
   workspaceRoot: string,
   documents: PlanningDocumentSummary[],
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   executionWorkCardId: string,
   report: PlanningDocumentSummary,
   planningContext?: PlanningProjectionContext,
@@ -194,12 +202,19 @@ function exactCurrentValidationRecords(
   const reportRevision = report.metadata.artifactRevision ?? 1;
   return documents
     .filter((document) => document.metadata.artifactType === "validation-record")
-    .filter((document) => document.metadata.phaseId === phaseId || document.metadata.canonical?.identity.phaseId === phaseId)
+    .filter((document) => workItemMatchesScope(document.metadata.canonical?.identity ?? { phaseId: document.metadata.phaseId, workCardId: document.metadata.workCardId }, phaseId, executionWorkCardId))
     .filter((document) =>
       document.metadata.workCardId === executionWorkCardId ||
       document.metadata.canonical?.identity.workCardId === executionWorkCardId
     )
     .filter((document) => document.documentReadState === "readable" && !document.readError)
+    .filter((document) => typeof phaseId === "string" || (
+      Number.isSafeInteger(document.metadata.canonical?.identity.attemptNumber) && Number(document.metadata.canonical?.identity.attemptNumber) > 0 &&
+      document.markdownPath === workItemValidationPath(phaseId, executionWorkCardId, Number(document.metadata.canonical?.identity.attemptNumber)) &&
+      document.metadata.sourceRevisions?.length === 2 && (report.metadata.sourceRevisions ?? []).length === 1 &&
+      document.metadata.sourceRevisions.some((source) => source.path === report.metadata.sourceRevisions![0].path && source.revision === report.metadata.sourceRevisions![0].revision) &&
+      sourceDigestsCurrent(workspaceRoot, document)
+    ))
     .filter((document) => (document.metadata.sourceRevisions ?? []).some((source) =>
       source.path === report.markdownPath && source.revision === reportRevision
     ))
@@ -209,6 +224,7 @@ function exactCurrentValidationRecords(
       document.effectiveDisposition === "RevisionRequested"
     );
 }
+
 
 function unique(values: string[]): string[] {
   return values.filter((value, index, all) => Boolean(value) && all.indexOf(value) === index);

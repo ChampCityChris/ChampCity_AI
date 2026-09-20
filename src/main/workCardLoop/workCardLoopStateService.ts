@@ -136,7 +136,7 @@ export type LatestCompletedWorkCardCloseState =
       phaseId: string;
       parentWorkCardId: string;
       handoff: ActiveWorkCardPlanningHandoff;
-      completion: EffectiveWorkCardCompletion & { validationRecord: PlanningDocumentSummary };
+      completion: EffectiveWorkCardCompletion & { phaseId: string; validationRecord: PlanningDocumentSummary };
       consumed: boolean;
       closeReturnRecordPath: string;
       reason: string;
@@ -968,7 +968,7 @@ function resolveLatestCompletedWorkCardCloseStateFromHandoffs(
     }))
     .filter((entry): entry is {
       handoff: ActiveWorkCardPlanningHandoff;
-      completion: EffectiveWorkCardCompletion & { validationRecord: PlanningDocumentSummary };
+      completion: EffectiveWorkCardCompletion & { phaseId: string; validationRecord: PlanningDocumentSummary };
     } => entry.completion.complete && Boolean(entry.completion.validationRecord));
   if (completed.length === 0) {
     return {

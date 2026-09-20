@@ -1,4 +1,6 @@
+import { workItemCloseReturnPath, workItemArtifactIdentity, workItemMatchesScope, type WorkItemArtifactScope } from "./workItemArtifactScope";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
@@ -18,7 +20,7 @@ export interface WorkCardCloseReturnConsumption {
 }
 
 export interface WorkCardCloseReturnConsumptionResult {
-  phaseId: string;
+  phaseId?: string;
   parentWorkCardId: string;
   recordPath: string;
   artifactRevision: number;
@@ -26,10 +28,10 @@ export interface WorkCardCloseReturnConsumptionResult {
 }
 
 export function workCardCloseReturnRecordPath(
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   parentWorkCardId: string,
 ): string {
-  return `planning/phases/${phaseId}/Close_Return_Records/WORK_CARD_CLOSE_RETURN_${parentWorkCardId}.md`;
+  return workItemCloseReturnPath(phaseId, parentWorkCardId);
 }
 
 export function resolveWorkCardCloseReturnConsumption(
@@ -37,7 +39,7 @@ export function resolveWorkCardCloseReturnConsumption(
   completion: EffectiveWorkCardCompletion,
   planningContext?: PlanningProjectionContext,
 ): WorkCardCloseReturnConsumption {
-  const recordPath = workCardCloseReturnRecordPath(completion.phaseId, completion.parentWorkCardId);
+  const recordPath = workCardCloseReturnRecordPath(completionScope(completion), completion.parentWorkCardId);
   if (!isApprovedCompletion(completion)) {
     return {
       consumed: false,
@@ -83,17 +85,16 @@ export function resolveWorkCardCloseReturnConsumption(
   const canonical = record.metadata.canonical;
   const sourceMatches = (record.metadata.sourceRevisions ?? []).some((source) =>
     source.path === validationRecord.markdownPath && source.revision === validationRevision
-  );
+  ) && (typeof completionScope(completion) === "string" || canonical?.workflowData.completionValidationDigest === validationDigest(workspaceRoot, validationRecord.markdownPath));
   const identityMatches =
-    canonical?.identity.phaseId === completion.phaseId &&
-    canonical.identity.workCardId === completion.parentWorkCardId &&
+    canonical && workItemMatchesScope(canonical.identity, completionScope(completion), completion.parentWorkCardId) &&
     canonical.identity.parentWorkCardId === completion.parentWorkCardId &&
     canonical.identity.executionWorkCardId === completion.executionWorkCardId &&
     canonical.identity.executionKind === completion.executionKind &&
     optionalStringMatches(canonical.identity.repairId, completion.repairId);
   const workflowMatches =
     canonical?.workflowData.transition === "close-return-consumed" &&
-    canonical.workflowData.returnTarget === "phase-work-card-selection" &&
+    canonical.workflowData.returnTarget === closeReturnTarget(completion) &&
     canonical.workflowData.completionValidationRecordPath === validationRecord.markdownPath &&
     canonical.workflowData.parentWorkCardId === completion.parentWorkCardId &&
     canonical.workflowData.executionWorkCardId === completion.executionWorkCardId &&
@@ -160,8 +161,7 @@ export function consumeWorkCardCloseReturn(
       artifactRevision,
       participationRole: "contextOnly",
       identity: {
-        phaseId: completion.phaseId,
-        workCardId: completion.parentWorkCardId,
+        ...workItemArtifactIdentity(completionScope(completion), completion.parentWorkCardId),
         parentWorkCardId: completion.parentWorkCardId,
         executionWorkCardId: completion.executionWorkCardId,
         executionKind: completion.executionKind,
@@ -172,7 +172,8 @@ export function consumeWorkCardCloseReturn(
       ],
       workflowData: {
         transition: "close-return-consumed",
-        returnTarget: "phase-work-card-selection",
+        ...(typeof completionScope(completion) === "string" ? {} : { completionValidationDigest: validationDigest(workspaceRoot, validationRecord.markdownPath) }),
+        returnTarget: closeReturnTarget(completion),
         completionValidationRecordPath: validationRecord.markdownPath,
         parentWorkCardId: completion.parentWorkCardId,
         executionWorkCardId: completion.executionWorkCardId,
@@ -191,7 +192,7 @@ export function consumeWorkCardCloseReturn(
       "Close / Next was consumed for the exact current Approved completion evidence.",
       "",
       `Completion Validation Record: ${validationRecord.markdownPath}`,
-      `Return target: phase-work-card-selection`,
+      `Return target: ${closeReturnTarget(completion)}`,
       "",
     ].join("\n"),
   });
@@ -213,4 +214,16 @@ function isApprovedCompletion(
 
 function optionalStringMatches(value: unknown, expected: string | undefined): boolean {
   return expected ? value === expected : value === undefined;
+}
+
+function completionScope(completion: EffectiveWorkCardCompletion): WorkItemArtifactScope {
+  const scope = completion.scope ?? completion.phaseId;
+  if (!scope) throw Error("Completion requires its exact Work Item artifact scope.");
+  return scope;
+}
+function closeReturnTarget(completion: EffectiveWorkCardCompletion): string {
+  return typeof completionScope(completion) === "string" ? "phase-work-card-selection" : "routed-work-item-selection";
+}
+function validationDigest(root: string, relativePath: string): string {
+  return createHash("sha256").update(fs.readFileSync(path.join(root, relativePath))).digest("hex");
 }

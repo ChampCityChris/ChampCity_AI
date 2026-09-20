@@ -3,6 +3,128 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("routed direct Work Item preserves sequential Repairs and completes only after durable close", async (t) => {
+  const run = await routedLifecycleFixture(t, false);
+  const { api, request, read, write, root, intake, binding } = run;
+  let validation = await api.validate({ ...await request(), decision: { decision: "RequestRepair", operatorNotes: "Export omitted a row", repairDefectText: "Preserve all export rows" } });
+  assert.equal((await api.query()).workItems[0].stage, "repair");
+  for (let generation = 1; generation <= 2; generation++) {
+    const repairId = `WI01-REPAIR0${generation}`;
+    const repair = await api.createRepair({ ...await request(), defect: "Preserve all export rows" });
+    assert.equal(repair.repairId, repairId);
+    const handoff = read(repair.handoffMarkdownPath);
+    assert.equal(handoff.metadata.identity.phaseId, undefined);
+    assert.equal(handoff.metadata.workflowData.originalParentWorkCardId, "WI01");
+    assert.equal(handoff.metadata.workflowData.immediateParentWorkCardId, generation === 1 ? "WI01" : "WI01-REPAIR01");
+    assert.equal(handoff.metadata.sourceRevisions[0].path, validation.markdownPath);
+    const planning = await request();
+    const draft = await api.prepareRepair(planning);
+    run.draft(draft, `# ${repairId}\n\nRestore every export row and prove the bounded correction. Return to work-card-validation.\n`);
+    const promoted = await api.getRepairDraft(planning);
+    assert.equal(promoted.submission.state, "promoted", promoted.promotionError);
+    await api.reviewRepair({ ...await request(), repairId, expectedRevision: 1, disposition: "Approved" });
+    const reportPath = repair.repairMarkdownPath.replace(`/Work_Cards/${repairId}.md`, `/Implementer_Reports/IMPLEMENTER_REPORT_${repairId}.md`);
+    const report = read(reportPath);
+    assert.equal(report.metadata.identity.parentWorkCardId, "WI01");
+    assert.equal(report.metadata.identity.repairId, repairId);
+    write(reportPath, report.metadata, "# Implementer Report\n\nCorrected row preservation; synthetic export checks passed.\n");
+    validation = await api.validate({ ...await request(), decision: generation === 1
+      ? { decision: "RequestRepair", operatorNotes: "One edge case remains", repairDefectText: "Preserve all export rows" }
+      : { decision: "ValidatePassed", operatorNotes: "All export rows now preserved" } });
+  }
+  const beforeClose = await api.query();
+  assert.equal(beforeClose.workItems[0].stage, "close");
+  assert.equal(beforeClose.workItems[0].complete, false);
+  assert.equal(beforeClose.workItems[1].eligible, false);
+  const originalValidation = read(validation.markdownPath);
+  write(validation.markdownPath, { ...originalValidation.metadata, sourceRevisions: originalValidation.metadata.sourceRevisions.map((source, index) => ({ ...source, revision: index === 1 ? 99 : source.revision })) }, originalValidation.bodyMarkdown);
+  const stale = await api.query();
+  assert.equal(stale.workItems[0].complete, false);
+  await assert.rejects(api.close({ workItemId: "WI01", expectedFingerprint: stale.fingerprint }), /Approved completion/);
+  write(validation.markdownPath, originalValidation.metadata, originalValidation.bodyMarkdown);
+  const closed = await api.close(await request());
+  const complete = await api.query();
+  assert.equal(complete.workItems[0].stage, "complete");
+  assert.equal(complete.workItems[1].eligible, true);
+  assert.equal(complete.complete, false, "Plan acceptance belongs to REPAIR05");
+  assert.equal(read(closed.recordPath).metadata.identity.phaseId, undefined);
+  assert.equal(read(closed.recordPath).metadata.workflowData.returnTarget, "routed-work-item-selection");
+  assert.equal((await api.close({ workItemId: "WI01", expectedFingerprint: complete.fingerprint })).reusedExisting, true);
+  const { loadRoutedDevelopmentExecution } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
+  const evidence = (await loadRoutedDevelopmentExecution(root, intake.intakeId)).input.workItems[0];
+  assert.deepEqual(evidence.criteria.map((criterion) => criterion.status), ["passed"]);
+  assert.equal(evidence.criteria[0].evidencePaths.includes(closed.recordPath), true);
+  await api.begin({ workItemId: "WI02", expectedFingerprint: (await api.query()).fingerprint });
+  assert.equal(await api.getDraft({ workItemId: "WI02", expectedFingerprint: (await api.query()).fingerprint }), undefined, "a successor cannot reuse the previous Work Item's promoted draft status");
+  const reportPath = originalValidation.metadata.sourceRevisions[1].path;
+  const reportBytes = fs.readFileSync(path.join(root, reportPath), "utf8");
+  fs.appendFileSync(path.join(root, reportPath), "\nSame-revision evidence change.\n");
+  assert.equal((await api.query()).workItems[0].complete, false, "accepted validation cannot cover changed report bytes");
+  fs.writeFileSync(path.join(root, reportPath), reportBytes);
+  fs.appendFileSync(path.join(root, run.reportPath), "\nChanged earlier failed-validation evidence.\n");
+  assert.equal((await api.query()).status, "blocked", "sequential Repair completion requires its earlier validation basis to remain current");
+  assert.equal(run.git("rev-parse", "HEAD"), run.initialHead);
+  assert.equal(fs.existsSync(path.join(root, "planning/phases")), false);
+  assert.equal(read(binding.relativePath).metadata.identity.planId, binding.identity.planId);
+});
+
+test("routed phased Work Item repairs report review and closes within its genuine Phase", async (t) => {
+  const run = await routedLifecycleFixture(t, true);
+  const { api, request, read, write } = run;
+  await api.reviewReport({ ...await request(), expectedRevision: 1, disposition: "RevisionRequested", notes: "Add the missing export evidence" });
+  const repair = await api.createRepair({ ...await request(), defect: "Add the missing export evidence" });
+  assert.match(repair.repairMarkdownPath, /\/phases\/P1\/Work_Cards\/WI01-REPAIR01.md$/);
+  assert.equal(read(repair.handoffMarkdownPath).metadata.workflowData.returnTarget, "work-card-building-review");
+  const planning = await request();
+  const draft = await api.prepareRepair(planning);
+  run.draft(draft, "# WI01-REPAIR01\n\nProvide the export evidence. Return to work-card-building-review.\n");
+  assert.equal((await api.getRepairDraft(planning)).submission.state, "promoted");
+  await api.reviewRepair({ ...await request(), repairId: repair.repairId, expectedRevision: 1, disposition: "Approved" });
+  const reportPath = repair.repairMarkdownPath.replace("/Work_Cards/WI01-REPAIR01.md", "/Implementer_Reports/IMPLEMENTER_REPORT_WI01-REPAIR01.md");
+  const report = read(reportPath);
+  write(reportPath, report.metadata, "# Implementer Report\n\nExport evidence now shows all expected rows.\n");
+  const advisory = await api.advisoryReview(await request());
+  assert.match(advisory.instruction, /Phase ID: P1/);
+  assert.match(advisory.instruction, /Approved Repair Work Card Contract/);
+  assert.match(advisory.instruction, /Operator is the final authority/);
+  const validation = await api.validate({ ...await request(), decision: { decision: "ValidatePassed", operatorNotes: "Evidence reviewed" } });
+  assert.equal(read(validation.markdownPath).metadata.identity.phaseId, "P1");
+  const close = await api.close(await request());
+  assert.match(close.recordPath, /\/phases\/P1\/Close_Return_Records\//);
+  const projected = await api.query();
+  assert.equal(projected.workItems[0].complete, true);
+  assert.equal(projected.workItems[1].eligible, false, "Phase acceptance is not supplied by Work Item close");
+  assert.equal(projected.phases[0].complete, false);
+  assert.equal(projected.complete, false);
+  assert.equal(fs.existsSync(path.join(run.root, "planning/phases")), false);
+});
+
+async function routedLifecycleFixture(t, phased) {
+  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { createRoutedDevelopmentExecutionService } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
+  const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const item = (id, deps, phaseId) => ({ workItemId: id, title: `Deliver ${id}`, purpose: "Bounded export", dependsOn: deps, acceptanceCriteria: [`${id} export accepted`], ...(phaseId ? { phaseId } : {}) });
+  const phase = (id, deps) => ({ phaseId: id, title: id, purpose: "Distinct milestone", dependsOn: deps, acceptanceCriteria: [`${id} milestone accepted`] });
+  const structure = { topology: phased ? "phased" : "direct", topologyRationale: phased ? "Distinct milestone gates" : "One bounded delivery", acceptanceCriteria: ["Export accepted"], workItems: [item("WI01", [], phased ? "P1" : undefined), item("WI02", ["WI01"], phased ? "P2" : undefined)], ...(phased ? { phases: [phase("P1", []), phase("P2", ["P1"])] } : {}) };
+  const fixture = await seedApprovedRoutedWorkPlan(t, structure);
+  const { root, intake } = fixture;
+  const api = createRoutedDevelopmentExecutionService(root, intake.intakeId);
+  const request = async () => ({ workItemId: "WI01", expectedFingerprint: (await api.query()).fingerprint });
+  const read = (relative) => parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, relative), "utf8"));
+  const write = (relativePath, metadata, bodyMarkdown) => writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath, metadata, bodyMarkdown });
+  const draft = (submission, body) => { const target = path.join(root, submission.expectedDraftSlots[0].draftRelativePath); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, body); };
+  const handoff = await api.begin(await request());
+  const planning = await request();
+  const submission = await api.prepare(planning);
+  draft(submission, "# WI01\n\nImplement the bounded export and prove row preservation.\n");
+  assert.equal((await api.getDraft(planning)).submission.state, "promoted");
+  await api.reviewFormal({ ...await request(), expectedRevision: 1, disposition: "Approved" });
+  const reportPath = handoff.formalWorkCardMarkdownPath.replace("/Work_Cards/WI01_", "/Implementer_Reports/IMPLEMENTER_REPORT_WI01_");
+  write(reportPath, read(reportPath).metadata, "# Implementer Report\n\nImplemented the export; synthetic row checks recorded.\n");
+  return { ...fixture, api, request, read, write, draft, reportPath };
+}
+
 const {
   resolveWorkCardLoopState,
 } = require("../../dist/main/workCardLoop/workCardLoopStateService.js");
