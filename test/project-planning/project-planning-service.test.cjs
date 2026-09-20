@@ -3,6 +3,59 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("research closes durably on reviewed evidence without manufacturing a Plan or promoting prototypes", async (t) => {
+  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "research-prototype", {
+    workRequest: "Compare two bounded export approaches", desiredOutcome: "Evidence for an Operator decision", knownConstraints: "Prototype only; no production promotion",
+  });
+  const { createWorkPlanningKernel, workPlanningArtifactPath } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { researchOutcomeFromBody } = require("../../dist/main/workPlanning/profiles/researchPrototypeProfile.js");
+  const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const kernel = createWorkPlanningKernel();
+  const outcome = { outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["Synthetic experiment A met the bounded export criteria; B did not"], decisionEnabled: "Stop investigation and discard both prototypes", successFailureResult: "Comparison criteria satisfied; no product commitment", closureCondition: "Required comparison evidence obtained within the one-session bound" };
+  const block = (value) => "\n```champcity-research-outcome\n" + JSON.stringify(value) + "\n```\n";
+  for (const invalid of [{ ...outcome, productionFollowUp: "promote-to-production" }, { ...outcome, prototypeDisposition: "candidate-for-later-work" }, { ...outcome, evidence: [] }, { ...outcome, approved: true }]) assert.throws(() => researchOutcomeFromBody(block(invalid)), /Research outcome requires/);
+  assert.throws(() => researchOutcomeFromBody(block(outcome) + block(outcome)), /exactly one/);
+  const laterWork = { ...outcome, prototypeDisposition: "candidate-for-later-work", productionFollowUp: "new-work-intake-required" };
+  assert.deepEqual(researchOutcomeFromBody(block(laterWork)), laterWork);
+  assert.equal(researchOutcomeFromBody(block({ ...outcome, outcome: "research-plan-required" })).outcome, "research-plan-required");
+  let model = await kernel.prepare(root, intake.intakeId, "assessment");
+  for (const rule of [/question\/hypothesis/, /expiration\/closure/, /no implementation Plan required and zero Work Items/, /new Work Intake and explicit later planning/, /Never silently promote prototype output/]) assert.match(model.preparedInstruction, rule);
+  const evidence = {
+    "Evidence": outcome.evidence.join(". "), "Decisions": outcome.decisionEnabled, "Risks and Unresolved Questions": "Neither prototype is hardened for production.",
+    "Question Hypothesis and Decision": "Which export approach can satisfy the bounded contract? Enable an informed stop or later-work decision.",
+    "Alternatives": "Compare synthetic export approaches A and B using the same inputs.",
+    "Bounded Prototype and Evidence": "One-session disposable comparison; A met the contract, B failed it.",
+    "Success Failure and Findings": outcome.successFailureResult, "Output Classification": "Disposable experiments; no production architecture adopted.",
+    "Expiration and Closure": outcome.closureCondition, "Research Outcome": block(outcome),
+  };
+  const body = "# Route Architect Assessment\n\n" + Object.entries(evidence).map(([heading, value]) => `## ${heading}\n${value}`).join("\n\n");
+  assert.deepEqual(Object.keys(evidence), resolveWorkPlanningProfile("research-prototype").assessmentSections);
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body.replace(block(outcome), "No structured outcome supplied."));
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  assert.equal(model.submission.state, "promotion-failed");
+  assert.match(model.error, /champcity-research-outcome/);
+  model = await kernel.prepare(root, intake.intakeId, "assessment");
+  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  assert.equal(model.researchClosed, false, "Architect proposal cannot close the research");
+  assert.deepEqual(model.artifact.researchOutcome, outcome);
+  model = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "Approved", notes: "Evidence accepted; close investigation with no implementation" });
+  assert.equal(model.researchClosed, true);
+  const durable = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, model.artifact.relativePath), "utf8"));
+  assert.deepEqual(durable.metadata.workflowData.researchOutcome, outcome);
+  assert.equal(durable.metadata.documentDisposition.status, "Approved");
+  assert.equal((await createWorkPlanningKernel().get(root, intake.intakeId, "assessment")).researchClosed, true);
+  await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /no implementation Plan.*new Work Intake/);
+  assert.equal(fs.existsSync(path.join(root, workPlanningArtifactPath(intake.intakeId, model.artifact.identity.routeDecisionId, "plan"))), false);
+  assert.equal(model.artifact.structure, undefined, "No fake Work Items or Phases are manufactured");
+  model = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "RevisionRequested", notes: "Reconsider the bounded comparison evidence" });
+  assert.equal(model.researchClosed, false, "Closure follows current review state");
+  await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /approved route-specific assessment/);
+  assert.equal(git("rev-parse", "HEAD"), initialHead);
+});
+
 test("infrastructure planning requires operational recovery evidence and excludes unrelated product features", async (t) => {
   const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
   const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "infrastructure-platform", {

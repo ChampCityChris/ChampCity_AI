@@ -29,7 +29,7 @@ export function WorkPlanningPanel({ intakeId }: { intakeId: string }) {
   return <section aria-label="Route planning">
     <h3>Route planning</h3>
     <label>Planning stage<select disabled={busy} value={stage} onChange={(event) => setStage(event.target.value as WorkPlanningStage)}>
-      <option value="assessment">Architect assessment</option><option value="plan">Work Plan</option>
+      <option value="assessment">Architect assessment</option><option value="plan" disabled={model?.researchClosed}>Work Plan</option>
     </select></label>
     {error || model?.error ? <p role="alert">{error || model?.error}</p> : null}
     {copied ? <p role="status">Planning handoff copied.</p> : null}
@@ -38,10 +38,15 @@ export function WorkPlanningPanel({ intakeId }: { intakeId: string }) {
     <button disabled={busy} onClick={() => void act("refresh")}>Check submitted draft</button>
     {model?.artifact ? <>
       <p>Revision {model.artifact.artifactRevision}: {model.artifact.stale ? "Stale" : model.artifact.disposition}</p>
+      {model.artifact.researchOutcome ? <div>
+        <p>{model.researchClosed ? "Research closed — no implementation Plan required." : model.artifact.disposition === "Approved" && !model.artifact.stale ? "Research outcome approved — bounded research planning may continue." : "Research outcome awaiting current Operator approval."}</p>
+        <p>Prototype output: {model.artifact.researchOutcome.prototypeDisposition === "disposable" ? "Disposable" : "Candidate for later work"}.</p>
+        <p>{model.artifact.researchOutcome.productionFollowUp === "new-work-intake-required" ? "Production follow-up requires a new Work Intake and approved planning." : "No production follow-up proposed."}</p>
+      </div> : null}
       {model.artifact.structure ? <p>Proposed topology: {model.artifact.structure.topology}. {model.artifact.structure.topologyRationale}</p> : null}
       <pre style={{ whiteSpace: "pre-wrap" }}>{model.artifact.bodyMarkdown}</pre>
       <label>Review notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-      <button disabled={!reviewable} onClick={() => void act("Approved")}>Approve {stage === "plan" ? "Plan and topology" : "assessment"}</button>
+      <button disabled={!reviewable} onClick={() => void act("Approved")}>Approve {stage === "plan" ? "Plan and topology" : model?.artifact?.researchOutcome ? "research outcome" : "assessment"}</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("RevisionRequested")}>Request revision</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("Rejected")}>Reject</button>
     </> : null}

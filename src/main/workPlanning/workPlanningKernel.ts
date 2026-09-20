@@ -15,6 +15,7 @@ import { readWorkIntake } from "../workIntake/workIntakeService";
 import { getWorkRouteDecision } from "../workIntake/workRouteDecisionService";
 import { resolveWorkPlanningProfile, workPlanningProfiles } from "./workPlanningProfiles";
 import { workPlanStructureFromBody } from "./workPlanStructure";
+import { researchOutcomeFromBody, researchOutcomeInstruction } from "./profiles/researchPrototypeProfile";
 
 const outputKind = (stage: WorkPlanningStage) => `work-planning-${stage}`;
 const owner = (decisionId: string, stage: WorkPlanningStage) => `${stage}-${decisionId}`;
@@ -67,7 +68,8 @@ function readArtifact(root: string, context: PlanningContext): WorkPlanningArtif
     JSON.stringify(document.metadata.sourceRevisions) !== JSON.stringify(context.sourceRevisions);
   return { identity, relativePath: context.targetPath, artifactRevision: document.metadata.artifactRevision, sourceRevisions: document.metadata.sourceRevisions,
     disposition: document.metadata.documentDisposition.status, reviewNotes: document.metadata.documentDisposition.notes, stale, bodyMarkdown: document.bodyMarkdown,
-    ...(context.stage === "plan" ? { structure: workPlanStructureFromBody(document.bodyMarkdown) } : {}) };
+    ...(context.stage === "plan" ? { structure: workPlanStructureFromBody(document.bodyMarkdown) } : {}),
+    ...(context.stage === "assessment" && identity.routeId === "research-prototype" ? { researchOutcome: researchOutcomeFromBody(document.bodyMarkdown) } : {}) };
 }
 function contextFor(root: string, route: WorkRouteDecisionModel, stage: WorkPlanningStage, profile: WorkPlanningProfile): PlanningContext {
   if (!route.selection || route.state !== "selected") throw Error("Planning requires a current Operator-selected route without a pending reroute or revision.");
@@ -81,6 +83,7 @@ function contextFor(root: string, route: WorkRouteDecisionModel, stage: WorkPlan
     const assessmentContext = contextFor(root, route, "assessment", profile);
     const assessment = readArtifact(root, assessmentContext);
     if (!assessment || assessment.stale || assessment.disposition !== "Approved") throw Error("Plan drafting requires the current approved route-specific assessment.");
+    if (assessment.researchOutcome?.outcome === "no-implementation-plan-required") throw Error("Approved research outcome requires no implementation Plan. Production follow-up requires a new Work Intake and explicit planning.");
     sourceHandoff = { path: assessment.relativePath, revision: assessment.artifactRevision };
     sourceRevisions.push(sourceHandoff);
   }
@@ -101,6 +104,7 @@ function validateBody(body: string, context: PlanningContext) {
     if (index < 0 || !lines.slice(index + 1, lines.findIndex((line, next) => next > index && /^##? /.test(line)) < 0 ? undefined : lines.findIndex((line, next) => next > index && /^##? /.test(line))).join("\n").trim()) throw Error(`Planning draft requires substantive ${heading}.`);
   }
   if (context.stage === "plan") workPlanStructureFromBody(body);
+  if (context.stage === "assessment" && context.identity.routeId === "research-prototype") researchOutcomeFromBody(body);
 }
 
 function definitionFor(root: string, route: WorkRouteDecisionModel, stage: WorkPlanningStage, profile: WorkPlanningProfile): ArchitectOutputDefinition<string, { markdownPath: string }, PlanningContext> {
@@ -129,7 +133,8 @@ function definitionFor(root: string, route: WorkRouteDecisionModel, stage: WorkP
         return { relativePath: current.targetPath, metadata: {
           schemaVersion: 1, artifactType: kind, artifactRevision: (current.prior?.metadata.artifactRevision ?? 0) + 1,
           participationRole: "gatingReview", identity, sourceRevisions: current.sourceRevisions,
-          workflowData: { sourceDigests: current.digests, ...(stage === "plan" ? { structure: workPlanStructureFromBody(bodyMarkdown) } : {}) },
+          workflowData: { sourceDigests: current.digests, ...(stage === "plan" ? { structure: workPlanStructureFromBody(bodyMarkdown) } : {}),
+            ...(stage === "assessment" && current.identity.routeId === "research-prototype" ? { researchOutcome: researchOutcomeFromBody(bodyMarkdown) } : {}) },
           documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
         } };
       },
@@ -145,6 +150,7 @@ function definitionFor(root: string, route: WorkRouteDecisionModel, stage: WorkP
         "Inspect material current repository evidence before asking unresolved Operator-owned questions. Preserve the bounded Intake and adopted architecture. Do not infer additional future work or assume MVP semantics.",
         ...profile.requiredEvidence.map((value) => `Required evidence: ${value}`),
         ...profile.discoveryQuestions.map((value) => `Discovery priority: ${value}`),
+        ...(stage === "assessment" && current.identity.routeId === "research-prototype" ? [researchOutcomeInstruction] : []),
         "Use the existing Architect conversation to resolve material decisions. Ask only questions not resolved by current evidence; confirm material Operator decisions before finalizing the draft.",
         "If the selected route is wrong, stop and return a bounded reroute recommendation for Operator decision. Do not silently select another route.",
         ...profile.topologyCriteria,
@@ -185,7 +191,9 @@ export function createWorkPlanningKernel(profiles: readonly WorkPlanningProfile[
     const artifact = readArtifact(root, current);
     return { intakeId, routeId: current.identity.routeId, stage, artifact, submission: status?.submission,
       preparedInstruction: status && ["waiting-for-drafts", "partial-draft-set"].includes(status.submission.state) ? status.preparedInstruction : undefined,
-      canPrepare: canPrepare(root, current), error: status?.promotionError ?? (status?.submission.state === "superseded" ? "Planning evidence changed; prepare a fresh draft." : undefined) };
+      canPrepare: canPrepare(root, current),
+      ...(current.identity.routeId === "research-prototype" && stage === "assessment" ? { researchClosed: !!artifact && !artifact.stale && artifact.disposition === "Approved" && artifact.researchOutcome?.outcome === "no-implementation-plan-required" } : {}),
+      error: status?.promotionError ?? (status?.submission.state === "superseded" ? "Planning evidence changed; prepare a fresh draft." : undefined) };
   }
   return {
     get,

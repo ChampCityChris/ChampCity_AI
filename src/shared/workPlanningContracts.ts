@@ -5,6 +5,15 @@ import type { WorkRouteId } from "./workIntakeRoutingContracts";
 
 export type PlanTopology = "direct" | "phased";
 export type WorkPlanningStage = "assessment" | "plan";
+export interface WorkResearchOutcome {
+  outcome: "no-implementation-plan-required" | "research-plan-required";
+  prototypeDisposition: "disposable" | "candidate-for-later-work";
+  productionFollowUp: "none" | "new-work-intake-required";
+  evidence: string[];
+  decisionEnabled: string;
+  successFailureResult: string;
+  closureCondition: string;
+}
 export interface WorkPlanningIdentity {
   intakeId: string;
   projectId: string;
@@ -53,6 +62,7 @@ export interface WorkPlanningArtifact {
   stale: boolean;
   bodyMarkdown: string;
   structure?: WorkPlanStructure;
+  researchOutcome?: WorkResearchOutcome;
 }
 export interface WorkPlanningModel {
   intakeId: string;
@@ -62,6 +72,7 @@ export interface WorkPlanningModel {
   submission?: ArchitectDraftSubmission;
   preparedInstruction?: string;
   canPrepare: boolean;
+  researchClosed?: boolean;
   error?: string;
 }
 export interface WorkPlanningReviewInput {
