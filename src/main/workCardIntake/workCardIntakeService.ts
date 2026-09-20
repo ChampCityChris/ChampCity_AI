@@ -1,5 +1,7 @@
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
-import { workItemArtifactIdentity } from "../workCardLoop/workItemArtifactScope";
+import { workItemArtifactIdentity, workItemIntakeTargets, type ResolvedWorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
+import type { RoutedDevelopmentExecutionBinding } from "../../shared/routedDevelopmentExecutionContracts";
+import type { PlanWorkItemCandidate } from "../../shared/workPlanningContracts";
 import {
   evaluateDocumentFreshness,
   listPlanningDocuments,
@@ -112,6 +114,35 @@ export function selectNextWorkCardCandidate(
   phaseId: string,
 ): CandidateSelectionResult {
   return selectNextWorkCardCandidateFromState(workspaceRoot, phaseId);
+}
+
+/** The routed owner verifies executor eligibility before invoking this shared handoff writer. */
+export function generateRoutedWorkCardIntakeHandoff(workspaceRoot: string, binding: RoutedDevelopmentExecutionBinding,
+  scope: ResolvedWorkItemArtifactScope, item: PlanWorkItemCandidate) {
+  const identity = workItemArtifactIdentity(scope, item.workItemId);
+  if (identity.planId !== binding.identity.planId || identity.intakeId !== binding.identity.intakeId ||
+    scope.planDigest !== binding.planDigest || !binding.structure.workItems.some((candidate) => JSON.stringify(candidate) === JSON.stringify(item))) {
+    throw Error("Routed Work Card Intake requires the exact current Plan candidate.");
+  }
+  const targets = workItemIntakeTargets(scope, { candidateId: item.workItemId, title: item.title });
+  const sourceRevisions = [{ path: binding.planPath, revision: binding.planRevision }, { path: binding.relativePath, revision: binding.artifactRevision }];
+  const candidate = { ...item, candidateId: item.workItemId };
+  const existing = listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === targets.handoffMarkdownPath);
+  if (existing) {
+    const metadata = existing.metadata.canonical;
+    if (existing.documentReadState !== "readable" || existing.effectiveDisposition !== "Approved" ||
+      metadata?.artifactType !== "work-card-intake-handoff" || JSON.stringify(metadata.identity) !== JSON.stringify(identity) ||
+      JSON.stringify(metadata.sourceRevisions) !== JSON.stringify(sourceRevisions) ||
+      JSON.stringify(metadata.workflowData.candidate) !== JSON.stringify(candidate) || metadata.workflowData.formalWorkCardTarget !== targets.formalWorkCardMarkdownPath ||
+      evaluateDocumentFreshness(workspaceRoot, existing.logicalDocumentId).state !== "fresh") throw Error("Routed Work Card handoff conflicts with current Plan evidence.");
+    return { ...targets, reusedExisting: true };
+  }
+  writeCanonicalMarkdownDocument({ workspaceRoot, relativePath: targets.handoffMarkdownPath, metadata: {
+    schemaVersion: 1, artifactType: "work-card-intake-handoff", artifactRevision: 1, participationRole: "nonReviewHandoff", identity, sourceRevisions,
+    workflowData: mergeRepositoryBindingIntoWorkflowData({ candidate, formalWorkCardTarget: targets.formalWorkCardMarkdownPath }, inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions)),
+    documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
+  }, bodyMarkdown: `# Work Card Intake Architect Handoff — ${item.workItemId}\n\nApproved Plan: ${binding.planPath}\n\nFormal Work Card Markdown: ${targets.formalWorkCardMarkdownPath}\n` });
+  return { ...targets, reusedExisting: false };
 }
 
 export function generateWorkCardIntakeHandoff(

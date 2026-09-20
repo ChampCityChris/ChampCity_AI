@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { workItemFormalPrefix, workItemArtifactIdentity } from "../workCardLoop/workItemArtifactScope";
+import { workItemFormalPrefix, workItemArtifactIdentity, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import {
   type CanonicalDocumentMetadata,
@@ -46,7 +46,7 @@ import { buildImplementationValidationScopeGuidance } from "../validation/implem
 import { decompositionGuidance } from "./workItemDecomposition";
 
 export interface FormalWorkCardResult {
-  phaseId: string;
+  phaseId?: string;
   workCardId: string;
   formalWorkCardMarkdownPath: string;
 }
@@ -60,9 +60,10 @@ const outputKind = "formal-work-card";
 const owningWorkspaceId = "work-card-planning";
 const slotId = "formal-work-card";
 
-interface FormalWorkCardContext {
+export interface FormalWorkCardContext {
   handoff: PlanningDocumentSummary;
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   workCardId: string;
   candidateId: string;
   candidate: Record<string, unknown>;
@@ -81,13 +82,17 @@ interface SelectedWorkspaceTargetDescriptor {
   implementerReportTargetPath: string;
 }
 
-export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
+export function createFormalWorkCardArchitectOutputDefinition(
+  resolveContext: (workspaceRoot: string) => FormalWorkCardContext = requireFormalWorkCardContext,
+  owner = owningWorkspaceId,
+): ArchitectOutputDefinition<
   typeof slotId,
   FormalWorkCardResult,
   FormalWorkCardContext
-> = {
+> {
+  return {
   outputKind,
-  owningWorkspaceId,
+  owningWorkspaceId: owner,
   bundleMode: "single-output",
   slots: [{
     slotId,
@@ -105,8 +110,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
         ? {
             ...metadataWithSubstantiveRevision(existing.metadata, context.sourceRevisions),
             identity: {
-              phaseId: context.phaseId,
-              workCardId: context.workCardId,
+              ...workItemArtifactIdentity(formalScope(context), context.workCardId),
               candidateId: context.candidateId,
             },
             workflowData: mergeRepositoryBindingIntoWorkflowData(
@@ -115,7 +119,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
                 workCardId: context.workCardId,
                 candidateId: context.candidateId,
                 candidate: context.candidate,
-                returnToPhasePlanningOnRejected: true,
+                returnToPhasePlanningOnRejected: !context.scope,
               },
               inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
             ),
@@ -124,6 +128,7 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
             workspaceRoot,
             relativePath: context.targetPath,
             phaseId: context.phaseId,
+            scope: context.scope,
             workCardId: context.workCardId,
             candidateId: context.candidateId,
             candidate: context.candidate,
@@ -135,27 +140,30 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
   buildSubmissionId(context) {
     return buildDeterministicArchitectDraftSubmissionId({
       outputKind,
-      owningWorkspaceId,
+      owningWorkspaceId: owner,
       ...context,
     });
   },
   buildPromotionGroupId(context) {
     return buildDeterministicArchitectDraftSubmissionId({
       outputKind,
-      owningWorkspaceId,
+      owningWorkspaceId: owner,
       ...context,
     });
   },
   resolvePreparation(workspaceRoot) {
-    return resolveFormalWorkCardPreparation(workspaceRoot);
+    const context = resolveContext(workspaceRoot);
+    assertFormalWorkCardEligible(workspaceRoot, context);
+    return { sourceHandoff: { path: context.handoff.markdownPath, revision: context.handoff.metadata.artifactRevision ?? 1 }, domainContext: context };
   },
   resolvePromotionContext({ workspaceRoot, submission, preparedContext }) {
-    const context = requireFormalWorkCardContext(workspaceRoot);
+    const context = resolveContext(workspaceRoot);
     const original = preparedContext as FormalWorkCardContext;
     if (
       context.handoff.markdownPath !== submission.sourceHandoff.path ||
       (context.handoff.metadata.artifactRevision ?? 1) !== submission.sourceHandoff.revision ||
       context.phaseId !== original.phaseId ||
+      JSON.stringify(context.handoff.metadata.canonical?.identity) !== JSON.stringify(original.handoff.metadata.canonical?.identity) ||
       context.workCardId !== original.workCardId ||
       context.candidateId !== original.candidateId ||
       context.targetPath !== original.targetPath ||
@@ -177,7 +185,10 @@ export const formalWorkCardArchitectOutputDefinition: ArchitectOutputDefinition<
       formalWorkCardMarkdownPath: promotedDocuments[0].relativePath,
     };
   },
-};
+  };
+}
+
+export const formalWorkCardArchitectOutputDefinition = createFormalWorkCardArchitectOutputDefinition();
 
 export function resolveFormalWorkCardPreparation(
   workspaceRoot: string,
@@ -413,7 +424,8 @@ function resolveCurrentFormalWorkCardSelection(
 function outputMetadata(input: {
   workspaceRoot: string;
   relativePath: string;
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   workCardId: string;
   candidateId: string;
   candidate: Record<string, unknown>;
@@ -426,7 +438,7 @@ function outputMetadata(input: {
     artifactRevision: existing ? existing.metadata.artifactRevision + 1 : 1,
     participationRole: "gatingReview",
     identity: {
-      ...workItemArtifactIdentity(input.phaseId, input.workCardId),
+      ...workItemArtifactIdentity(formalScope(input), input.workCardId),
       candidateId: input.candidateId,
     },
     sourceRevisions: input.sourceRevisions,
@@ -436,7 +448,7 @@ function outputMetadata(input: {
         workCardId: input.workCardId,
         candidateId: input.candidateId,
         candidate: input.candidate,
-        returnToPhasePlanningOnRejected: true,
+        returnToPhasePlanningOnRejected: !input.scope,
       },
       inheritRepositoryBindingFromSourceRevisions(input.workspaceRoot, input.sourceRevisions),
     ),
@@ -507,7 +519,7 @@ function buildFormalWorkCardPreparedInstruction(
     "",
     "Selected Work Card:",
     `- ID: ${context.workCardId}`,
-    `- phase ID: ${context.phaseId}`,
+    ...(context.phaseId ? [`- phase ID: ${context.phaseId}`] : []),
     `- candidate ID: ${context.candidateId}`,
     `- title: ${candidateTitle}`,
     `- candidate context: ${JSON.stringify(context.candidate)}`,
@@ -548,7 +560,7 @@ function buildFormalWorkCardPreparedInstruction(
     "\u2192 persistence or rendering result",
     "\u2192 Operator-visible outcome",
     "",
-    "Do not restate the Phase Plan except where a specific constraint directly governs this Work Card.",
+    "Do not restate the approved Plan except where a specific constraint directly governs this Work Card.",
     "",
     decompositionGuidance,
     "For a bounded candidate, continue on the existing path.",
@@ -642,4 +654,10 @@ const formalWorkCardHeadings = [
 function validateFormalWorkCardBody(bodyMarkdown: string, _workCardId: string): void {
   substantiveMarkdown(bodyMarkdown, "Formal Work Card");
   parseDevelopmentEnvironmentContractFromMarkdown(bodyMarkdown);
+}
+
+function formalScope(context: { phaseId?: string; scope?: WorkItemArtifactScope }): WorkItemArtifactScope {
+  const scope = context.scope ?? context.phaseId;
+  if (!scope) throw Error("Formal Work Card requires an artifact scope.");
+  return scope;
 }

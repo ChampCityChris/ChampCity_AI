@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import { workItemArtifactIdentity, workItemReportPath, workItemReportPrefix } from "../workCardLoop/workItemArtifactScope";
+import { isDeepStrictEqual } from "node:util";
+import { workItemArtifactIdentity, workItemReportPath, workItemReportPrefix, workItemFormalPrefix, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
@@ -33,7 +34,8 @@ export interface ImplementerReportResult {
 }
 
 export interface WorkCardImplementerReportContext {
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   workCardId: string;
   workCardTitle: string;
   formalWorkCardPath: string;
@@ -60,7 +62,7 @@ export interface ImplementerReportReadinessClassification {
 }
 
 export interface WorkCardImplementerReportProjection {
-  phaseId: string;
+  phaseId?: string;
   workCardId: string;
   workCardTitle: string;
   formalWorkCardPath: string;
@@ -84,7 +86,8 @@ export interface WorkCardImplementerReportProjection {
 }
 
 export interface ResolveWorkCardReportContextInput {
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   workCardId: string;
   formalWorkCardPath?: string;
   formalWorkCardRevision?: number;
@@ -125,14 +128,16 @@ export function resolveWorkCardImplementerReportContext(
     stringValue(formal?.metadata.canonical?.workflowData.parentWorkCardId) ??
     stringValue(formal?.metadata.canonical?.workflowData.originalParentWorkCardId);
   const implementerReportPath = implementerReportPathForContract({
-    phaseId: input.phaseId,
+    phaseId: phaseIdentity(reportScope(input)),
+    scope: reportScope(input),
     workCardId: input.workCardId,
     formalWorkCardPath,
     implementationContractType,
   });
   const existingReport = documents.find((document) => document.markdownPath === implementerReportPath);
   return {
-    phaseId: input.phaseId,
+    phaseId: phaseIdentity(reportScope(input)),
+    scope: reportScope(input),
     workCardId: input.workCardId,
     workCardTitle,
     formalWorkCardPath,
@@ -150,7 +155,7 @@ export function resolveWorkCardImplementerReportContext(
 
 export function createImplementerReportForApprovedWorkCard(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
 ): ImplementerReportResult {
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
@@ -169,16 +174,18 @@ export function buildApprovedFormalWorkCardAndReportDocuments(input: {
   approvedStatus: DocumentDispositionStatus;
   notes: string;
   reviewedAt: string;
+  scope?: WorkItemArtifactScope;
 }): Array<Parameters<typeof writeCanonicalMarkdownDocuments>[0][number]> {
   const existingFormal = readCanonical(input.workspaceRoot, input.formalWorkCardPath);
   const phaseId = stringValue(existingFormal.metadata.identity.phaseId);
   const workCardId = stringValue(existingFormal.metadata.identity.workCardId);
-  if (!phaseId || !workCardId) {
+  if ((!phaseId && !input.scope) || !workCardId) {
     throw new Error("Formal Work Card approval requires phase and Work Card identity.");
   }
   const formalRevision = existingFormal.metadata.artifactRevision ?? 1;
   const context = resolveWorkCardImplementerReportContext(input.workspaceRoot, {
     phaseId,
+    scope: input.scope,
     workCardId,
     formalWorkCardPath: input.formalWorkCardPath,
     formalWorkCardRevision: formalRevision,
@@ -257,11 +264,13 @@ export function approveFormalWorkCardAndRegisterReport(input: {
   formalWorkCardPath: string;
   notes?: string;
   reviewedAt?: string;
+  scope?: WorkItemArtifactScope;
 }): void {
   const reviewedAt = input.reviewedAt ?? new Date().toISOString();
   writeCanonicalMarkdownDocuments(buildApprovedFormalWorkCardAndReportDocuments({
     workspaceRoot: input.workspaceRoot,
     formalWorkCardPath: input.formalWorkCardPath,
+    scope: input.scope,
     approvedStatus: "Approved",
     notes: input.notes ?? "",
     reviewedAt,
@@ -277,9 +286,11 @@ function approvedContractMetadata(
   return metadataWithDisposition(metadata, status, notes, reviewedAt);
 }
 
+export function getWorkCardBuildingReviewProjection(workspaceRoot: string, phaseId: string, workCardId: string, planningContext?: PlanningProjectionContext): WorkCardImplementerReportProjection & { phaseId: string };
+export function getWorkCardBuildingReviewProjection(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string, planningContext?: PlanningProjectionContext): WorkCardImplementerReportProjection;
 export function getWorkCardBuildingReviewProjection(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   planningContext?: PlanningProjectionContext,
 ): WorkCardImplementerReportProjection {
@@ -319,7 +330,7 @@ export function getWorkCardBuildingReviewProjection(
 
 export function setImplementerReportDisposition(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   status: DocumentDispositionStatus,
   notes = "",
@@ -341,7 +352,7 @@ export function setImplementerReportDisposition(
 
 export function getOperatorValidationEligibility(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
 ) {
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
@@ -403,8 +414,7 @@ export function classifyExpectedImplementerReportReadiness(
   if (
     metadata.artifactType !== "implementer-report" ||
     metadata.participationRole !== "gatingReview" ||
-    metadata.identity.phaseId !== context.phaseId ||
-    metadata.identity.workCardId !== context.workCardId
+    !matchesScopeIdentity(metadata.identity, reportScope(context), context.workCardId)
   ) {
     return {
       reportReadiness: "invalid",
@@ -503,7 +513,7 @@ function reportRepositoryBindingMismatch(
 
 export function requireReadyImplementerReportForReview(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
 ): PlanningDocumentSummary {
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
@@ -514,7 +524,7 @@ export function requireReadyImplementerReportForReview(
   return readiness.report;
 }
 
-export function reviseImplementerReport(workspaceRoot: string, phaseId: string, workCardId: string): void {
+export function reviseImplementerReport(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): void {
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
   if (!context.existingReport) {
     throw new Error(`Implementer Report is missing: ${context.implementerReportPath}`);
@@ -524,14 +534,15 @@ export function reviseImplementerReport(workspaceRoot: string, phaseId: string, 
 
 function resolveApprovedReportContext(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   planningContext?: PlanningProjectionContext,
 ): WorkCardImplementerReportContext {
   const implementationContractType = /-REPAIR\d+$/i.test(workCardId) ? "repair-work-card" : "formal-work-card";
   const formal = requiredApprovedImplementationContract(workspaceRoot, phaseId, workCardId, implementationContractType, planningContext);
   return resolveWorkCardImplementerReportContext(workspaceRoot, {
-    phaseId,
+    phaseId: phaseIdentity(phaseId),
+    scope: phaseId,
     workCardId,
     formalWorkCardPath: formal.markdownPath,
     formalWorkCardRevision: formal.metadata.artifactRevision ?? 1,
@@ -566,7 +577,7 @@ function buildImplementerReportDocument(
       artifactRevision: 1,
       participationRole: "gatingReview",
       identity: {
-        ...workItemArtifactIdentity(context.phaseId, context.workCardId),
+        ...workItemArtifactIdentity(reportScope(context), context.workCardId),
         ...(context.repairId ? { repairId: context.repairId } : {}),
         ...(context.parentWorkCardId ? { parentWorkCardId: context.parentWorkCardId } : {}),
       },
@@ -619,8 +630,7 @@ function assertExistingReportMatchesContext(
   if (
     metadata.artifactType !== "implementer-report" ||
     metadata.participationRole !== "gatingReview" ||
-    metadata.identity.phaseId !== context.phaseId ||
-    metadata.identity.workCardId !== context.workCardId
+    !matchesScopeIdentity(metadata.identity, reportScope(context), context.workCardId)
   ) {
     throw new Error(`Existing Implementer Report identity conflicts with the ${context.implementationContractLabel}.`);
   }
@@ -661,17 +671,9 @@ function findConflictingReports(
   return listPlanningDocuments(planningContext ?? workspaceRoot)
     .filter((document) => document.markdownPath !== context.implementerReportPath)
     .filter((document) =>
-      document.markdownPath.startsWith(workItemReportPrefix(context.phaseId, context.workCardId)) ||
-      (
-        document.metadata.artifactType === "implementer-report" &&
-        document.metadata.phaseId === context.phaseId &&
-        document.metadata.workCardId === context.workCardId
-      ) ||
-      (
-        document.metadata.canonical?.artifactType === "implementer-report" &&
-        document.metadata.canonical.identity.phaseId === context.phaseId &&
-        document.metadata.canonical.identity.workCardId === context.workCardId
-      )
+      document.markdownPath.startsWith(workItemReportPrefix(reportScope(context), context.workCardId)) ||
+      (document.metadata.artifactType === "implementer-report" &&
+        matchesScopeIdentity(document.metadata.canonical?.identity ?? { phaseId: document.metadata.phaseId, workCardId: document.metadata.workCardId }, reportScope(context), context.workCardId))
     );
 }
 
@@ -744,18 +746,19 @@ function isEmptyArray(value: unknown): boolean {
 
 function requiredApprovedImplementationContract(
   workspaceRoot: string,
-  phaseId: string,
+  phaseId: WorkItemArtifactScope,
   workCardId: string,
   implementationContractType: "formal-work-card" | "repair-work-card",
   planningContext?: PlanningProjectionContext,
 ): PlanningDocumentSummary {
   const formal = findImplementationContract(listPlanningDocuments(planningContext ?? workspaceRoot), {
-    phaseId,
+    phaseId: phaseIdentity(phaseId),
+    scope: phaseId,
     workCardId,
     implementationContractType,
   });
   if (!formal) {
-    throw new Error(`Approved Work Card Contract document is missing: planning/phases/${phaseId}/Work_Cards/${workCardId}`);
+    throw new Error(`Approved Work Card Contract document is missing: ${workItemFormalPrefix(phaseId, workCardId)}`);
   }
   if (formal.documentReadState !== "readable" || formal.readError) {
     throw new Error(formal.readError ?? "Work Card Contract is not readable.");
@@ -785,23 +788,24 @@ function findImplementationContract(
   if (input.formalWorkCardPath) {
     const exact = documents.find((document) => document.markdownPath === input.formalWorkCardPath);
     if (exact) {
+      if (!matchesScopeIdentity(exact.metadata.canonical?.identity ?? {}, reportScope(input), input.workCardId)) throw Error("Work Card contract scope mismatch.");
       return exact;
     }
   }
   return documents
     .filter((document) => document.metadata.artifactType === input.implementationContractType)
-    .filter((document) => document.metadata.phaseId === input.phaseId || document.metadata.canonical?.identity.phaseId === input.phaseId)
-    .filter((document) => document.metadata.workCardId === input.workCardId || document.metadata.canonical?.identity.workCardId === input.workCardId)
+    .filter((document) => matchesScopeIdentity(document.metadata.canonical?.identity ?? { phaseId: document.metadata.phaseId, workCardId: document.metadata.workCardId }, reportScope(input), input.workCardId))
     .at(-1);
 }
 
 function implementerReportPathForContract(input: {
-  phaseId: string;
+  phaseId?: string;
+  scope?: WorkItemArtifactScope;
   workCardId: string;
   formalWorkCardPath: string;
   implementationContractType: "formal-work-card" | "repair-work-card";
 }): string {
-  return workItemReportPath(input.phaseId, input.workCardId, input.formalWorkCardPath, input.implementationContractType === "repair-work-card");
+  return workItemReportPath(reportScope(input), input.workCardId, input.formalWorkCardPath, input.implementationContractType === "repair-work-card");
 }
 
 function readCanonical(workspaceRoot: string, relativePath: string) {
@@ -848,4 +852,18 @@ function stringValue(value: unknown): string | undefined {
 
 function nonEmpty(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function reportScope(input: { phaseId?: string; scope?: WorkItemArtifactScope }): WorkItemArtifactScope {
+  const scope = input.scope ?? input.phaseId;
+  if (!scope) throw Error("Work Card artifact scope is required.");
+  return scope;
+}
+function phaseIdentity(scope: WorkItemArtifactScope): string | undefined {
+  return typeof scope === "string" ? scope : scope.reference.kind === "routed-direct-plan" ? undefined : scope.reference.phaseId;
+}
+function matchesScopeIdentity(identity: Record<string, unknown>, scope: WorkItemArtifactScope, id: string): boolean {
+  const expected = workItemArtifactIdentity(scope, id);
+  return Object.entries(expected).every(([key, value]) => isDeepStrictEqual(identity[key], value)) &&
+    (typeof scope === "string" ? identity.intakeId === undefined : scope.reference.kind !== "routed-direct-plan" || identity.phaseId === undefined);
 }
