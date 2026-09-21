@@ -4,7 +4,7 @@ import type { WorkRouteDecisionInput, WorkRouteDecisionModel } from "../../share
 import { WorkPlanningPanel } from "./WorkPlanningPanel";
 import { WorkIssuePanel } from "./WorkIssuePanel";
 
-export function WorkRouteDecisionPanel({ intakeId, assessmentRevision }: { intakeId: string; assessmentRevision: number }) {
+export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIssue }: { intakeId: string; assessmentRevision: number; onOpenIssue?: (issueId: string) => void }) {
   const [model, setModel] = useState<WorkRouteDecisionModel | null>(null);
   const [selected, setSelected] = useState<WorkRouteId>("greenfield");
   const [rationale, setRationale] = useState("");
@@ -42,7 +42,7 @@ export function WorkRouteDecisionPanel({ intakeId, assessmentRevision }: { intak
     <button disabled={disabled} onClick={() => void decide("request-revision")}>Request revised assessment</button>
     {model?.history.length ? <details><summary>Decision history</summary><ol>{model.history.map((entry) => <li key={entry.decision.decisionId}>{entry.decision.disposition}: {entry.decision.rationale}</li>)}</ol></details> : null}
     {model?.selection?.selectedRouteId === "issue-resolution" && ["selected", "reroute-required", "revision-requested", "stale"].includes(model.state)
-      ? <WorkIssuePanel key={model.selection.decisionId} intakeId={intakeId} onRoutingChanged={async () => { setModel(await window.champcity.getWorkRouteDecision(intakeId)); }} />
+      ? <WorkIssuePanel key={model.selection.decisionId} intakeId={intakeId} onOpenIssue={onOpenIssue} onRoutingChanged={async () => { setModel(await window.champcity.getWorkRouteDecision(intakeId)); }} />
       : model?.state === "selected" && model.selection ? <WorkPlanningPanel key={model.selection.decisionId} intakeId={intakeId} /> : null}
   </section>;
 }

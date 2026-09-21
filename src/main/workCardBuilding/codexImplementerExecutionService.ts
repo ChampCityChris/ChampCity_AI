@@ -177,6 +177,12 @@ export class CodexImplementerExecutionService {
     private readonly runtimeManager: CodexRuntimeManager = codexRuntimeManager,
   ) {}
 
+  getRunningRoutedSession(workspaceRoot: string, intakeId: string) {
+    const session = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+    if (!session || session.state !== "running" || session.ownerKind !== "routed-development" || session.intakeId !== intakeId || !session.rootWorkItemId) return undefined;
+    return { workItemId: session.rootWorkItemId, status: modelFromSession(session, this.now(), { canRunAgain: false, retryBlocker: "Codex execution is already running for this workspace." }) };
+  }
+
   async getStatus(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const runningOrCompleted = this.sessionsByWorkspaceRoot.get(key);

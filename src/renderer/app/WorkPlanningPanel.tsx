@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { WorkPlanningModel, WorkPlanningReviewInput, WorkPlanningStage } from "../../shared/workPlanningContracts";
 import { WorkItemDecompositionPanel } from "./WorkItemDecompositionPanel";
+import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 
 export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: string; planOnly?: boolean }) {
   const [stage, setStage] = useState<WorkPlanningStage>(planOnly ? "plan" : "assessment");
@@ -51,6 +52,7 @@ export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: st
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("RevisionRequested")}>Request revision</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("Rejected")}>Reject</button>
       {stage === "plan" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <WorkItemDecompositionPanel intakeId={intakeId} workItems={model.artifact.structure.workItems} onAccepted={async () => { setModel(await window.champcity.getWorkPlanning(intakeId, "plan")); }} /> : null}
+      {stage === "plan" && model.routeId !== "issue-resolution" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <RoutedExecutionPanel key={model.artifact.identity.planId} intakeId={intakeId} /> : null}
     </> : null}
   </section>;
 }

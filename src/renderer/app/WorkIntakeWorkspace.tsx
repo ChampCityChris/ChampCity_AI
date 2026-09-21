@@ -2,10 +2,11 @@ import { useState } from "react";
 import type { WorkIntakeProjection, WorkIntakeRecord, WorkIntakeSubmission } from "../../shared/workIntakeContracts";
 import { WorkRoutingAssessmentPanel } from "./WorkRoutingAssessmentPanel";
 
-export function WorkIntakeWorkspace({ projection, onReturn, onRefresh }: {
+export function WorkIntakeWorkspace({ projection, onReturn, onRefresh, onOpenIssue }: {
   projection: WorkIntakeProjection;
   onReturn: () => void;
   onRefresh: () => Promise<void>;
+  onOpenIssue: (issueId: string) => void;
 }) {
   const [value, setValue] = useState<WorkIntakeSubmission>(() => {
     const base = projection.branches.find(({ name }) => name === projection.currentBranch) ?? projection.branches[0];
@@ -68,7 +69,7 @@ export function WorkIntakeWorkspace({ projection, onReturn, onRefresh }: {
     </form>}
     {saved && error ? <p role="alert">{error}</p> : null}
     {!saved && projection.currentIntake ? <p>Current Work Intake: {projection.currentIntake.workRequest}</p> : null}
-    {saved || projection.currentIntake ? <WorkRoutingAssessmentPanel key={(saved ?? projection.currentIntake)!.intakeId} intakeId={(saved ?? projection.currentIntake)!.intakeId} /> : null}
+    {saved || projection.currentIntake ? <WorkRoutingAssessmentPanel key={(saved ?? projection.currentIntake)!.intakeId} intakeId={(saved ?? projection.currentIntake)!.intakeId} onOpenIssue={onOpenIssue} /> : null}
     </div>
   </section>;
 }

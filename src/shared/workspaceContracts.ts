@@ -1378,6 +1378,7 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  runRoutedWorkflow: (intakeId: string, action: import("./routedWorkflowContracts").RoutedWorkflowAction, input?: import("./routedWorkflowContracts").RoutedWorkflowInput) => Promise<import("./routedWorkflowContracts").RoutedWorkflowModel>;
   getWorkIntakeProjection: () => Promise<import("./workIntakeContracts").WorkIntakeProjection>;
   prepareWorkRoutingAssessment: (intakeId: string) => Promise<import("./workRoutingAssessmentContracts").WorkRoutingAssessmentModel>;
   getWorkRoutingAssessment: (intakeId: string) => Promise<import("./workRoutingAssessmentContracts").WorkRoutingAssessmentModel>;

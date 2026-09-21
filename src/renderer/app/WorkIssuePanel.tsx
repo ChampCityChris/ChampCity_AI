@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { IssueArchitectReviewDisposition, WorkIssueAction, WorkIssueModel } from "../../shared/issueResolutionContracts";
 import { WorkPlanningPanel } from "./WorkPlanningPanel";
+import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 
-export function WorkIssuePanel({ intakeId, onRoutingChanged }: { intakeId: string; onRoutingChanged: () => Promise<void> }) {
+export function WorkIssuePanel({ intakeId, onRoutingChanged, onOpenIssue }: { intakeId: string; onRoutingChanged: () => Promise<void>; onOpenIssue?: (issueId: string) => void }) {
   const [model, setModel] = useState<WorkIssueModel | null>(null);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
@@ -45,6 +46,7 @@ export function WorkIssuePanel({ intakeId, onRoutingChanged }: { intakeId: strin
       {model.execution ? <section aria-label="Correction execution">
         <h3>Correction execution — {model.execution.topology}</h3>
         <p>Continue Fix Card implementation, review, Repair, and close in the Issue workspace for {model.issueId}.</p>
+        {onOpenIssue && model.issueId ? <button disabled={busy} onClick={() => onOpenIssue(model.issueId!)}>Continue this Issue</button> : null}
         <button disabled={busy} onClick={() => void act("status")}>Refresh correction evidence</button>
         {model.execution.workItems.map((item) => <p key={item.candidate.workItemId}>{item.candidate.title}: {item.stage} — {item.reasons.join(" ")}</p>)}
         {model.execution.phases.length ? <label>Phase acceptance evidence<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label> : null}
@@ -53,6 +55,7 @@ export function WorkIssuePanel({ intakeId, onRoutingChanged }: { intakeId: strin
           <ul>{phase.acceptanceCriteria.map((criterion) => <li key={criterion}>{criterion}</li>)}</ul>
           <button disabled={busy || !notes.trim() || phase.reasons.some((reason) => reason !== "Phase evidence is stale.") || !phase.workItemsComplete || phase.complete} onClick={() => void act("accept-phase", undefined, phase.phaseId)}>Accept {phase.phaseId} criteria</button>
         </div>)}
+        <RoutedExecutionPanel intakeId={intakeId} />
       </section> : null}
     </>}
   </section>;

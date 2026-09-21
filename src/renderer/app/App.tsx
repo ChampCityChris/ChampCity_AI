@@ -3983,6 +3983,10 @@ export function App(): JSX.Element {
               projection={workIntakeProjection}
               onReturn={returnToWorkflowHub}
               onRefresh={async () => setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection())}
+              onOpenIssue={(issueId) => {
+                setShellView("workflow"); setActiveWorkflowId("issue-resolution");
+                void refreshIssueInventory(issueId, true);
+              }}
             />
           ) : isWorkflowHubForeground ? (
             <>
@@ -3994,10 +3998,10 @@ export function App(): JSX.Element {
               <WorkflowHubWorkspace
                 isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
                 onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
+                onStartWork={() => void openWorkIntake()}
                 projectName={projectDisplayName(workspace)}
                 workspace={workspace}
               />
-              {workspace.ok ? <button type="button" onClick={() => void openWorkIntake()}>Capture Work Intake</button> : null}
               {documentError ? <p role="alert">{documentError}</p> : null}
             </>
           ) : isIssueResolutionForeground && activeIssueStageId === "intake" ? (

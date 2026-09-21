@@ -54,6 +54,8 @@ import {
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
+import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
+import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routedWorkflowContracts";
 import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
 import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
 import { runWorkIssueAction } from "./workPlanning/workIssueRoutingService";
@@ -756,6 +758,11 @@ ipcMain.handle(
 );
 
 ipcMain.handle("workIntake:projection", () => getWorkIntakeProjection(getRequiredWorkspaceRoot()));
+ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action: RoutedWorkflowAction, input?: RoutedWorkflowInput) => {
+  const result = await runRoutedWorkflow(getRequiredWorkspaceRoot(), intakeId, action, input);
+  if (result.instruction) clipboard.writeText(result.instruction);
+  return result.model;
+});
 ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
 ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));

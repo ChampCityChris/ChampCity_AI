@@ -3,7 +3,7 @@ import type { WorkRoutingAssessmentModel } from "../../shared/workRoutingAssessm
 import { workRouteProfileRegistry } from "../../shared/workIntakeRoutingContracts";
 import { WorkRouteDecisionPanel } from "./WorkRouteDecisionPanel";
 
-export function WorkRoutingAssessmentPanel({ intakeId }: { intakeId: string }) {
+export function WorkRoutingAssessmentPanel({ intakeId, onOpenIssue }: { intakeId: string; onOpenIssue?: (issueId: string) => void }) {
   const [model, setModel] = useState<WorkRoutingAssessmentModel | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,6 +41,6 @@ export function WorkRoutingAssessmentPanel({ intakeId }: { intakeId: string }) {
       {model.assessment.alternate ? <p>Alternate: {workRouteProfileRegistry[model.assessment.alternate.routeId].label}. {model.assessment.alternate.rationale}</p> : null}
       <p>The recommendation is advisory; your decision below controls the selected route.</p>
     </article> : null}
-    <WorkRouteDecisionPanel intakeId={intakeId} assessmentRevision={routeRefresh + (model?.assessment?.artifactRevision ?? 0)} />
+    <WorkRouteDecisionPanel intakeId={intakeId} assessmentRevision={routeRefresh + (model?.assessment?.artifactRevision ?? 0)} onOpenIssue={onOpenIssue} />
   </section>;
 }
