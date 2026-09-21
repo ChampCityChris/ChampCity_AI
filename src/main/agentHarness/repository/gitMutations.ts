@@ -912,11 +912,11 @@ export async function deleteGitBranch(root: string, branchName: string): Promise
   return { branchName, deletedCommit, currentBranch: current };
 }
 
-export async function stageGitChanges(root: string, paths: string[]): Promise<{
+export async function stageGitChanges(root: string, paths: string[], options: { includeIgnored?: boolean } = {}): Promise<{
   stagedPaths: string[];
 }> {
   const stagedPaths = normalizePathspecs(paths);
-  await runBoundedGit({ cwd: root, args: ["add", "--all", "--", ...stagedPaths] });
+  await runBoundedGit({ cwd: root, args: ["add", ...(options.includeIgnored ? ["--force"] : ["--all"]), "--", ...stagedPaths] });
   return { stagedPaths };
 }
 

@@ -157,7 +157,7 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     deleteRemoteBranch: (input: Parameters<typeof deleteGitRemoteBranch>[1]) => run("delete-remote-branch", true, () => deleteGitRemoteBranch(root, input)),
     prepareBranch: (branchName: string) => run("prepare-branch", true, () => prepareGitBranch(root, branchName)),
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
-    stage: (paths: string[]) => run("stage", true, () => stageGitChanges(root, paths)),
+    stage: (paths: string[], options?: { includeIgnored?: boolean }) => run("stage", true, () => stageGitChanges(root, paths, options)),
     commit: (message: string, expectedHead?: string) => run("commit", true, () => commitGitChanges(root, message, expectedHead)),
     amendCommit: (input: Parameters<typeof amendGitCommit>[1]) => run("amend-commit", true, () => amendGitCommit(root, input)),
     revertCommit: (input: Parameters<typeof revertGitCommit>[1]) => run("revert-commit", true, () => revertGitCommit(root, input)),

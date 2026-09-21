@@ -10,7 +10,8 @@ import { loadRoutedDevelopmentExecution } from "./routedDevelopmentExecutionServ
 import { createIntegrationCandidateService } from "./integrationCandidateService";
 import { createIntegrationPolicyProvider } from "./integrationPolicyProvider";
 import { createIntegrationRepairPolicyProvider } from "./integrationRepairPolicyProvider";
-import { readCheckpointReceipt } from "./workItemCheckpointReceipt";
+import { readApplicationCheckpointReceipt } from "./applicationCheckpointReceipt";
+import type { WorkItemCheckpointEvidence } from "../../shared/workItemCheckpointContracts";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { workPlanningKernel } from "../workPlanning/workPlanningKernel";
 import { workIssueContext } from "../workPlanning/workIssueContext";
@@ -54,15 +55,16 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
     const current = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId }).verify(state.binding.branchBinding);
     const history = await source.history({ ref: current.currentHead, maxCount: 100 });
     if (!history.ok) throw Error(history.error.message);
-    const commits = new Map<string, { commit: string; evidence: ReturnType<typeof readCheckpointReceipt> }>();
+    const commits = new Map<string, { commit: string; evidence: WorkItemCheckpointEvidence }>();
     for (const commit of history.result.commits) {
       if (commit.commit === intake.branchBinding.currentHead) break;
-      const id = /: source checkpoint ([a-f0-9]{64})$/.exec(commit.subject)?.[1];
-      if (!id) throw Error("Routed source history contains an unverified checkpoint.");
       const receipt = await source.readCommitMessage(commit.commit);
       if (!receipt.ok) throw Error(receipt.error.message);
-      const evidence = readCheckpointReceipt(receipt.result, id);
-      if (evidence.intakeId !== intakeId || evidence.repositoryId !== repositoryId || evidence.workBranch !== current.workBranch) throw Error("Checkpoint belongs to different routed work.");
+      const parsed = readApplicationCheckpointReceipt(commit.subject, receipt.result);
+      const checkpointEvidence = parsed.evidence;
+      if (commit.parents.length !== 1 || checkpointEvidence.beforeHead !== commit.parents[0] || checkpointEvidence.intakeId !== intakeId || checkpointEvidence.repositoryId !== repositoryId || checkpointEvidence.workBranch !== current.workBranch) throw Error("Checkpoint belongs to different routed work.");
+      if (parsed.kind === "lifecycle") continue;
+      const evidence = parsed.evidence;
       if (!commits.has(evidence.implementationId)) commits.set(evidence.implementationId, { commit: commit.commit, evidence });
     }
     return state.entries.map((entry) => {

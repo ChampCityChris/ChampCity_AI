@@ -13,6 +13,8 @@ test("routed application checkpoints source and integrates only after real Plan 
   const { createRoutedDevelopmentApplicationService } = require("../../dist/main/planExecution/routedDevelopmentApplicationService.js");
   const { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
   const { readCheckpointReceipt } = require("../../dist/main/planExecution/workItemCheckpointReceipt.js");
+  const { readLifecycleCheckpointReceipt } = require("../../dist/main/planExecution/lifecycleEvidenceCheckpointReceipt.js");
+  const { createWorkIntakeBranchService } = require("../../dist/main/workIntake/workIntakeBranchService.js");
   for (const conflicted of [true]) await t.test(conflicted ? "conflicted target" : "clean target", async (t) => {
     const fixture = await seedApprovedRoutedWorkPlan(t, { topology: "direct", topologyRationale: "One bounded source change", acceptanceCriteria: ["Product behavior accepted"],
       workItems: [{ workItemId: "WI01", title: "Preserve accepted source", purpose: "One bounded source change", dependsOn: [], acceptanceCriteria: ["Incoming behavior accepted"] }] }, "feature-change", {
@@ -72,9 +74,24 @@ test("routed application checkpoints source and integrates only after real Plan 
     assert.equal((await api.query()).workItems[0].stage, "review-validate");
     await api.validate({ ...await request(), decision: { decision: "ValidatePassed", operatorNotes: "Current source behavior checked" } });
     const close = await api.close(await request());
+    assert.equal(close.checkpoint.status, "committed", close.checkpoint.message);
+    const workItemReceipt = readLifecycleCheckpointReceipt(git("show", "--no-patch", "--format=%B", close.checkpoint.commit), close.checkpoint.checkpointId);
+    assert.equal(workItemReceipt.beforeHead, completed.checkpoint.commit);
+    assert.deepEqual(workItemReceipt.boundary, { kind: "work-item", routeDecisionId: fixture.binding.identity.routeDecisionId,
+      planId: fixture.binding.identity.planId, planRevision: fixture.binding.planRevision, workItemId: "WI01", implementationId: "WI01" });
+    assert.deepEqual(workItemReceipt.files.map((entry) => entry.artifactType).sort(), ["formal-work-card", "implementer-report", "validation-record", "work-card-close-return-record"]);
+    assert.equal(git("status", "--porcelain"), "", "Work Item lifecycle boundary leaves the incoming checkout clean");
     const boundary = { kind: "plan" };
     const saved = await api.saveAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, closureDecision: "Close", rationale: "Complete product behavior proven", criteria: [{ criterion: "Product behavior accepted", status: "passed", evidencePaths: [close.recordPath] }] });
-    await api.reviewAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, expectedRevision: saved.artifactRevision, disposition: "Approved" });
+    const accepted = await api.reviewAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, expectedRevision: saved.artifactRevision, disposition: "Approved" });
+    assert.equal(accepted.checkpoint.status, "committed", accepted.checkpoint.message);
+    const planReceipt = readLifecycleCheckpointReceipt(git("show", "--no-patch", "--format=%B", accepted.checkpoint.commit), accepted.checkpoint.checkpointId);
+    assert.deepEqual(planReceipt.boundary, { kind: "plan", routeDecisionId: fixture.binding.identity.routeDecisionId,
+      planId: fixture.binding.identity.planId, planRevision: fixture.binding.planRevision });
+    assert.deepEqual(planReceipt.files.map((entry) => entry.artifactType), ["plan-closeout"]);
+    assert.equal(git("status", "--porcelain"), "", "Plan acceptance is durable before integration");
+    assert.equal((await createWorkIntakeBranchService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root }).verify(intake.branchBinding)).currentHead,
+      accepted.checkpoint.commit, "branch verification accepts the exact mixed source/lifecycle chain");
     const ready = await app.integration.query(); assert.equal(ready.status, "ready", ready.reasons.join("\n"));
     assert.deepEqual(ready.checkpointCommits, [completed.checkpoint.commit]);
     stage("validation-close-and-plan-acceptance");

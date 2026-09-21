@@ -27,9 +27,19 @@ import { resolveWorkCardCloseReturnConsumption, consumeWorkCardCloseReturn } fro
 
 import { loadRoutedAcceptance, routedAcceptanceBoundaries, routedAcceptancePath, saveRoutedAcceptance, reviewRoutedAcceptance } from "../phaseClose/routedExecutionAcceptance";
 import type { RoutedAcceptanceRequest, RoutedAcceptanceInput, RoutedDevelopmentExecutionProjection } from "../../shared/routedDevelopmentExecutionContracts";
+import { checkpointLifecycleEvidence } from "./lifecycleEvidenceCheckpointService";
+import type { LifecycleEvidenceCheckpointResult } from "../../shared/lifecycleEvidenceCheckpointContracts";
 
 const actionsInProgress = new Set<string>();
 export interface RoutedWorkItemRequest { workItemId: string; expectedFingerprint: string }
+
+function requireDurableLifecycleCheckpoint(result: LifecycleEvidenceCheckpointResult): LifecycleEvidenceCheckpointResult {
+  if (result.status !== "committed" && result.status !== "not-applicable") {
+    const operation = result.receipts.at(-1)?.operation;
+    throw Error(`Lifecycle evidence was written but its machine checkpoint did not complete${operation ? ` during ${operation}` : ""}: ${result.message}`);
+  }
+  return result;
+}
 
 /** Resolve existing lifecycle evidence; the generic executor alone decides progression. */
 export async function loadRoutedDevelopmentExecution(workspaceRoot: string, intakeId: string) {
@@ -139,7 +149,7 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
     try {
       const state = await loadRoutedDevelopmentExecution(workspaceRoot, intakeId);
       if (state.projection.fingerprint !== request.expectedFingerprint) throw Error("Presented Plan execution evidence changed; refresh before acting.");
-      return run(state);
+      return await run(state);
     } finally { actionsInProgress.delete(lockKey); }
   }
   function formalContext(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number]): FormalWorkCardContext {
@@ -182,7 +192,16 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
     async query() { return (await loadRoutedDevelopmentExecution(workspaceRoot, intakeId)).projection; },
     saveAcceptance(request: RoutedAcceptanceInput) { return acceptanceAction(request, (state) => saveRoutedAcceptance(workspaceRoot, state.binding, state.input, request, state.planningContext)); },
     reviewAcceptance(request: RoutedAcceptanceRequest & { expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }) {
-      return acceptanceAction(request, (state) => reviewRoutedAcceptance(workspaceRoot, state.binding, state.input, request, state.planningContext));
+      return acceptanceAction(request, async (state) => {
+        const result = reviewRoutedAcceptance(workspaceRoot, state.binding, state.input, request, state.planningContext);
+        if (request.disposition !== "Approved") return result;
+        const checkpoint = requireDurableLifecycleCheckpoint(await checkpointLifecycleEvidence(workspaceRoot, {
+          binding: state.binding.branchBinding,
+          boundary: { ...request.boundary, routeDecisionId: state.binding.identity.routeDecisionId, planId: state.binding.identity.planId, planRevision: state.binding.planRevision },
+          artifacts: { closeoutPath: result.relativePath }, synchronize: Boolean(state.binding.branchBinding.remote),
+        }));
+        return { ...result, checkpoint };
+      });
     },
     begin(request: RoutedWorkItemRequest) { return action(request, (state, entry) => generateRoutedWorkCardIntakeHandoff(workspaceRoot, state.binding, entry.scope, entry.candidate, state.planningContext)); },
     prepare(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, true)); },
@@ -217,7 +236,21 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
         else updateCanonicalMarkdownDisposition({ workspaceRoot, relativePath: repair.targetPath, status: request.disposition, notes: request.notes ?? "", reviewedAt: new Date().toISOString() });
       });
     },
-    close(request: RoutedWorkItemRequest) { return action(request, (_state, entry) => consumeWorkCardCloseReturn(workspaceRoot, entry.completion), true); },
+    close(request: RoutedWorkItemRequest) {
+      return action(request, async (state, entry) => {
+        const completion = entry.completion;
+        const result = consumeWorkCardCloseReturn(workspaceRoot, completion);
+        if (!completion.formalWorkCard || !completion.implementerReport || !completion.validationRecord) throw Error("Work Item lifecycle checkpoint requires exact current contract, report, and validation evidence.");
+        const checkpoint = requireDurableLifecycleCheckpoint(await checkpointLifecycleEvidence(workspaceRoot, {
+          binding: state.binding.branchBinding,
+          boundary: { kind: "work-item", routeDecisionId: state.binding.identity.routeDecisionId, planId: state.binding.identity.planId, planRevision: state.binding.planRevision,
+            workItemId: entry.candidate.workItemId, implementationId: completion.executionWorkCardId, ...(entry.candidate.phaseId ? { phaseId: entry.candidate.phaseId } : {}) },
+          artifacts: { contractPath: completion.formalWorkCard.markdownPath, reportPath: completion.implementerReport.markdownPath,
+            validationPath: completion.validationRecord.markdownPath, closePath: result.recordPath }, synchronize: Boolean(state.binding.branchBinding.remote),
+        }));
+        return { ...result, checkpoint };
+      }, true);
+    },
     buildingReview(request: RoutedWorkItemRequest) { return action(request, (_state, entry) => getWorkCardBuildingReviewProjection(workspaceRoot, entry.scope, entry.executionWorkCardId)); },
     reviewReport(request: RoutedWorkItemRequest & { expectedRevision: number; disposition: DocumentDispositionStatus; notes?: string }) {
       return action(request, (_state, entry) => {

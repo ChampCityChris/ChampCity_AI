@@ -44,16 +44,18 @@ test("Operator route decisions preserve authority, revisions and branch while re
   await promote();
   model = await api.getWorkRouteDecision(intake.intakeId);
   await assert.rejects(api.decideWorkRoute(intake.intakeId, { ...input(model, "accept"), sourceAssessment: originalAdvice }), /stale/);
+  const initialPendingModel = model;
   model = await api.decideWorkRoute(intake.intakeId, input(model, "accept"));
-  assert.equal(model.selection.selectedRouteId, "feature-change");
+  assert.equal(model.state, "selected"); assert.equal(model.selection.selectedRouteId, "feature-change");
   const accepted = model.selection;
   await assert.rejects(api.decideWorkRoute(intake.intakeId, { ...input(model, "accept"), expectedDecisionRevision: 0 }), /changed/);
   await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "override", { selectedRouteId: "unknown" })), /Invalid/);
-  model = await api.decideWorkRoute(intake.intakeId, input(model, "override", { selectedRouteId: "refactor-migration" }));
-  assert.equal(model.selection.selectedRouteId, "refactor-migration");
-  assert.equal(model.history.length, 3);
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "accept")), /not pending/);
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "override", { selectedRouteId: "refactor-migration" })), /not pending/);
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "request-revision")), /not pending/);
+  assert.equal(model.history.length, 2);
   assert.equal(model.history[1].decision.decisionId, accepted.decisionId);
-  assert.equal(model.history[2].sourceIntake.revision, intake.artifactRevision);
+  assert.equal(model.history[1].sourceIntake.revision, intake.artifactRevision);
 
   const assessmentPath = "planning/route-proof/ASSESSMENT.md";
   const planPath = "planning/route-proof/PLAN.md";
@@ -87,9 +89,59 @@ test("Operator route decisions preserve authority, revisions and branch while re
   assert.equal(fs.readFileSync(path.join(root, intake.relativePath), "utf8"), originalIntake);
   assert.equal(git("branch", "--show-current"), intake.branchBinding.workBranch);
   assert.equal(git("rev-parse", "HEAD"), initialHead);
+
+  const retainedAssessmentPath = "planning/route-proof/RETAINED_ASSESSMENT.md";
+  const retainedPlanPath = "planning/route-proof/RETAINED_PLAN.md";
+  writeDoc(root, retainedAssessmentPath, "route-proof-retained-assessment", "Approved", { identity: { intakeId: intake.intakeId }, sourceRevisions: [{ path: model.relativePath, revision: model.artifactRevision }] });
+  writeDoc(root, retainedPlanPath, "route-proof-retained-plan", "Approved", { identity: { intakeId: intake.intakeId }, sourceRevisions: [{ path: retainedAssessmentPath, revision: 1 }] });
+  const retainedAssessmentBytes = fs.readFileSync(path.join(root, retainedAssessmentPath), "utf8");
+  const retainedPlanBytes = fs.readFileSync(path.join(root, retainedPlanPath), "utf8");
+  const retainedSelection = model.selection;
+  const supersessionCount = model.supersessions.length;
+  model = await decisions.recommendWorkRouteReroute(root, intake.intakeId, { priorDecisionId: retainedSelection.decisionId,
+    replacementRouteId: "refactor-migration", rationale: "Reconsider the planning profile without discarding valid work.", sourceEvidence: [{ path: retainedAssessmentPath, revision: 1 }] });
+  assert.equal(model.state, "reroute-required");
+  const retainedPendingModel = model;
+  const retainedRecommendationId = model.recommendation.recommendationId;
+  model = await api.decideWorkRoute(intake.intakeId, input(model, "override", { selectedRouteId: retainedSelection.selectedRouteId }));
+  assert.equal(model.state, "selected"); assert.deepEqual(model.selection, retainedSelection, "same-route disposition retains authoritative selection identity");
+  assert.equal(model.history.at(-1).decision.disposition, "override");
+  assert.equal(model.history.at(-1).decision.selectedRouteId, retainedSelection.selectedRouteId);
+  assert.equal(model.history.at(-1).advice.recommendationId, retainedRecommendationId);
+  assert.equal(model.supersessions.length, supersessionCount);
+  assert.equal(fs.readFileSync(path.join(root, retainedAssessmentPath), "utf8"), retainedAssessmentBytes);
+  assert.equal(fs.readFileSync(path.join(root, retainedPlanPath), "utf8"), retainedPlanBytes);
+  const sameRouteResolvedModel = model;
+
+  model = await decisions.recommendWorkRouteReroute(root, intake.intakeId, { priorDecisionId: retainedSelection.decisionId,
+    replacementRouteId: "refactor-migration", rationale: "Request updated route advice while retaining current authority.", sourceEvidence: [{ path: retainedAssessmentPath, revision: 1 }] });
+  assert.equal(model.state, "reroute-required");
+  const revisionPendingModel = model;
+  const revisionRecommendationId = model.recommendation.recommendationId;
+  model = await api.decideWorkRoute(intake.intakeId, input(model, "request-revision", { rationale: "Reassess the evidence without changing the selected route." }));
+  assert.equal(model.state, "revision-requested"); assert.deepEqual(model.selection, retainedSelection);
+  assert.equal(model.history.at(-1).decision.disposition, "request-revision");
+  assert.equal(model.history.at(-1).advice.recommendationId, revisionRecommendationId);
+  assert.equal(model.supersessions.length, supersessionCount);
+  assert.equal(fs.readFileSync(path.join(root, retainedAssessmentPath), "utf8"), retainedAssessmentBytes);
+  assert.equal(fs.readFileSync(path.join(root, retainedPlanPath), "utf8"), retainedPlanBytes);
+  assert.equal(readCanonical(root, `planning/work-intake/reroutes/${intake.intakeId}.md`).metadata.documentDisposition.status, "RevisionRequested");
+  await assert.rejects(api.decideWorkRoute(intake.intakeId, input(model, "accept")), /revised assessment/);
+
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const { loadRendererSourceModule } = require("../renderer/renderer-source-loader.cjs");
+  const { WorkRouteDecisionControls } = loadRendererSourceModule("src/renderer/app/WorkRouteDecisionPanel.tsx");
+  const renderControls = (routeModel) => renderToStaticMarkup(React.createElement(WorkRouteDecisionControls, {
+    model: routeModel, selected: routeModel.selection?.selectedRouteId ?? "feature-change", rationale: "Operator rationale", busy: false,
+    onRationaleChange() {}, onSelectedChange() {}, onDecide() {},
+  }));
+  for (const pendingModel of [initialPendingModel, retainedPendingModel, revisionPendingModel]) assert.match(renderControls(pendingModel), /Accept recommendation/);
+  for (const resolvedModel of [sameRouteResolvedModel, model, { ...revisionPendingModel, state: "stale" }]) assert.doesNotMatch(renderControls(resolvedModel), /Accept recommendation|Decision rationale|Override with route/);
+
   const restored = await api.getWorkRouteDecision(intake.intakeId);
   assert.deepEqual(restored.selection, model.selection);
-  assert.equal(restored.history.length, 4);
+  assert.equal(restored.history.length, 5);
 });
 
 const {

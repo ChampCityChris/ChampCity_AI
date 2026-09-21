@@ -51,7 +51,9 @@ export async function getWorkRouteDecision(root: string, intakeId: string): Prom
     !["accept", "override", "request-revision"].includes(entry.decision.disposition) ||
     (entry.decision.disposition !== "request-revision" && !isWorkRouteId(entry.decision.selectedRouteId)))) throw Error("Route decision history is invalid.");
   const latest = history.at(-1);
-  const selection = [...history].reverse().find((entry) => entry.decision.disposition !== "request-revision")?.decision as OperatorRouteSelection | undefined;
+  let selection: OperatorRouteSelection | undefined;
+  for (const entry of history) if (entry.decision.disposition !== "request-revision" &&
+    (!selection || entry.decision.selectedRouteId !== selection.selectedRouteId)) selection = entry.decision;
   const assessment = readRoutingAssessment(root, intakeId);
   let recommendation: WorkRouteDecisionModel["recommendation"] = assessment.assessment;
   let sourceAssessment = assessment.assessment ? { path: assessment.assessment.relativePath, revision: assessment.assessment.artifactRevision } : null;
@@ -61,10 +63,18 @@ export async function getWorkRouteDecision(root: string, intakeId: string): Prom
   const pending = reroute?.metadata.workflowData.recommendation as WorkRouteRerouteRecommendation | undefined;
   if (pending && pending.priorDecisionId === selection?.decisionId) {
     if (reroute!.metadata.artifactType !== "work-route-reroute" || reroute!.metadata.identity.intakeId !== intakeId || pending.kind !== "architect-reroute-recommendation" || !isWorkRouteId(pending.replacementRouteId)) throw Error("Reroute recommendation identity is invalid.");
-    recommendation = pending; sourceAssessment = { path: reroutePath(intakeId), revision: reroute!.metadata.artifactRevision }; state = "reroute-required";
-    try { assertSources(root, reroute!.metadata.sourceRevisions); } catch { state = "stale"; error = "Reroute evidence changed; request a current recommendation."; }
+    const pendingSource = { path: reroutePath(intakeId), revision: reroute!.metadata.artifactRevision };
+    const disposition = [...history].reverse().find((entry) => entry.decision.assessmentId === pending.recommendationId &&
+      entry.decision.sourceAssessment.path === pendingSource.path && entry.decision.sourceAssessment.revision === pendingSource.revision);
+    if (!disposition) {
+      recommendation = pending; sourceAssessment = pendingSource; state = "reroute-required";
+      try { assertSources(root, reroute!.metadata.sourceRevisions); } catch { state = "stale"; error = "Reroute evidence changed; request a current recommendation."; }
+    } else if (disposition.decision.disposition === "request-revision") {
+      recommendation = pending; sourceAssessment = pendingSource; state = "revision-requested";
+    }
   } else if (assessment.stale && !selection) { state = "stale"; error = "Routing assessment is stale."; }
-  if (latest?.decision.disposition === "request-revision") state = latest.decision.sourceAssessment.path === sourceAssessment?.path && latest.decision.sourceAssessment.revision === sourceAssessment.revision ? "revision-requested" : "awaiting-decision";
+  if (!selection && latest?.decision.disposition === "request-revision" && latest.decision.sourceAssessment.path === sourceAssessment?.path &&
+    latest.decision.sourceAssessment.revision === sourceAssessment.revision) state = "revision-requested";
   if (latest && latest.sourceIntake.revision !== intake.artifactRevision) { state = "stale"; error = "Work Intake changed; a current route decision is required."; }
   return { intakeId, relativePath, artifactRevision: document?.metadata.artifactRevision ?? 0, state, selection: selection ?? null, history, supersessions, recommendation, sourceAssessment, error };
 }
@@ -97,10 +107,11 @@ export async function decideWorkRoute(root: string, intakeId: string, input: Wor
   const intake = readWorkIntake(root, intakeId);
   if (model.artifactRevision !== input.expectedDecisionRevision) throw Error("Route decision changed; refresh before deciding.");
   if (!model.recommendation || !model.sourceAssessment || model.sourceAssessment.path !== input.sourceAssessment?.path || model.sourceAssessment.revision !== input.sourceAssessment.revision) throw Error("Presented routing assessment is stale or missing.");
+  if (model.state === "revision-requested") throw Error("A revised assessment is required before deciding.");
   const source = read(root, model.sourceAssessment.path)!;
   assertSources(root, source.metadata.sourceRevisions);
   if (model.recommendation.kind === "architect-route-assessment" && readRoutingAssessment(root, intakeId).stale) throw Error("Routing assessment is stale; prepare it again.");
-  if (model.state === "revision-requested") throw Error("A revised assessment is required before deciding.");
+  if (model.state !== "awaiting-decision" && model.state !== "reroute-required") throw Error("A route decision is not pending.");
   const recommended = model.recommendation.kind === "architect-route-assessment" ? model.recommendation.recommendedRouteId : model.recommendation.replacementRouteId;
   const decisionId = `decision-${randomUUID()}`;
   const common = { kind: "operator-route-decision" as const, decisionId, intakeId,
@@ -114,7 +125,7 @@ export async function decideWorkRoute(root: string, intakeId: string, input: Wor
   if (history.length > 100) throw Error("Route decision history exceeds its supported bound.");
   const supersessions = [...model.supersessions];
   const writes: WriteCanonicalMarkdownDocumentInput[] = [];
-  if (model.selection && decision.disposition !== "request-revision") {
+  if (model.selection && decision.disposition !== "request-revision" && decision.selectedRouteId !== model.selection.selectedRouteId) {
     const artifacts = downstream(root, intakeId, model.relativePath);
     supersessions.push({ intakeId, priorDecisionId: model.selection.decisionId, replacementDecisionId: decisionId,
       priorRouteId: model.selection.selectedRouteId, replacementRouteId: decision.selectedRouteId, supersededArtifacts: artifacts });

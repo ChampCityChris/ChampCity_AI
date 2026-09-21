@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { readCheckpointReceipt } from "../planExecution/workItemCheckpointReceipt";
+import { readApplicationCheckpointReceipt } from "../planExecution/applicationCheckpointReceipt";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import type { SourceControlReceipt, SourceControlResult } from "../../shared/sourceControlContracts";
@@ -41,15 +41,16 @@ export function createWorkIntakeBranchService(repository: { repositoryId: string
       throw new AgentHarnessError("STALE_SOURCE", "Work Intake branch or recorded head is not the current checkout.");
     }
     if (state.head !== binding.currentHead) {
-      // Only the application's exact single-parent checkpoint chain may advance the bound source head.
+      // Only exact source or lifecycle-evidence checkpoint receipts may advance the bound source head.
       const lineage = unwrap(await sourceControl.history({ ref: state.head, maxCount: 100 }), []);
       let current = state.head;
       for (const commit of lineage.commits) {
         if (current === binding.currentHead) break;
-        const checkpointId = /: source checkpoint ([a-f0-9]{64})$/.exec(commit.subject)?.[1];
-        if (commit.commit !== current || commit.parents.length !== 1 || !checkpointId) throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkout differs from its recorded head and advanced outside its recorded checkpoint chain.");
-        const evidence = readCheckpointReceipt(unwrap(await sourceControl.readCommitMessage(commit.commit), []), checkpointId);
-        if (commit.subject !== `${evidence.workItemId}: source checkpoint ${checkpointId}` || evidence.intakeId !== binding.intakeId || evidence.repositoryId !== binding.repositoryId || evidence.workBranch !== binding.workBranch || evidence.beforeHead !== commit.parents[0]) throw new AgentHarnessError("STALE_SOURCE", "Checkpoint does not match the Work Intake branch lineage.");
+        if (commit.commit !== current || commit.parents.length !== 1) throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkout differs from its recorded head and advanced outside its recorded checkpoint chain.");
+        let evidence;
+        try { evidence = readApplicationCheckpointReceipt(commit.subject, unwrap(await sourceControl.readCommitMessage(commit.commit), [])).evidence; }
+        catch { throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkout differs from its recorded head and advanced outside its recorded checkpoint chain."); }
+        if (evidence.intakeId !== binding.intakeId || evidence.repositoryId !== binding.repositoryId || evidence.workBranch !== binding.workBranch || evidence.beforeHead !== commit.parents[0]) throw new AgentHarnessError("STALE_SOURCE", "Checkpoint does not match the Work Intake branch lineage.");
         current = commit.parents[0];
       }
       if (current !== binding.currentHead) throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkpoint lineage is incomplete or exceeds its bound.");
