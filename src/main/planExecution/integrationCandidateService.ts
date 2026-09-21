@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { createHash } from "node:crypto";
 import type { IntegrationCandidateRecord, IntegrationValidationEvidence } from "../../shared/integrationCandidateContracts";
 import type { PlanExecutionInput } from "../../shared/planExecutionContracts";
@@ -132,6 +133,20 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
   return {
     ...createIntegrationRepairController({ root, source, read, persist, current, validate, exclusive, policy: hooks.repairPolicy }),
     read,
+    list: (intakeId: string) => {
+      const directory = path.dirname(integrationPaths(root, "0".repeat(64)).base);
+      if (!fs.existsSync(directory)) return [];
+      const ids = fs.readdirSync(directory);
+      if (ids.length > 128 || ids.some((id) => !/^[a-f0-9]{64}$/.test(id))) throw Error("Integration candidate inventory exceeds its bounded identity set.");
+      return ids.map(read).filter((record) => record.intakeId === intakeId).sort((a, b) =>
+        (b.receipts[0]?.startedAt ?? "").localeCompare(a.receipts[0]?.startedAt ?? "") || b.candidateId.localeCompare(a.candidateId));
+    },
+    retryValidation: (candidateId: string) => exclusive(async () => {
+      const record = read(candidateId);
+      if (!["failed", "validation-failed"].includes(record.status)) throw Error("Only a retained failed candidate may retry validation.");
+      await current(record);
+      return validate(record);
+    }),
     create: () => exclusive(async () => {
       const { binding, plan } = await current();
       if (binding.remote) unwrap(await source.fetch(binding.remote.name));

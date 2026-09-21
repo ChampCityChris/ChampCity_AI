@@ -1,66 +1,69 @@
 # WIR22-REPAIR06 Implementer Report
 
-## Outcome
-
-**BLOCKED at dependency verification — not implemented and not checkpointed.**
-
 Repair Card: **WIR22-REPAIR06 — Wire Routed Completion to Machine-Owned Git and Integration Services**.
 
-The current package supplies candidate/Repair mechanics and completed routed Plan evidence, but does not supply the production validation policy required to instantiate a usable integration caller. Selecting that policy for arbitrary selected projects is a material product/execution decision. This pass stops under the Operator's explicit blocker/decomposition rule and the repository's bounded-scope contract.
+**Implementation complete; focused production-path proof passed. Remaining combined regression stopped under explicit Operator direction to skip testing.** The earlier blocked report is preserved in repository history at the REPAIR06B checkpoint. Its missing policy dependencies are now implemented.
 
-## Repository and dependency verification
+## Repository and dependencies
 
-- Verified the approved repository/Git top-level as `<PROJECT_REPO>`.
-- Current branch: `repair/work-intake-routing-wir22`.
-- Starting and retained HEAD: `89744cb2704596aeb9acda6f254c845b7775c1af`.
-- Verified the single REPAIR05 checkpoint, parent `d87a92cffa66a8b4d61c9ded20db715a162c07d1`, exact seven-file checkpoint, and clean starting working tree/index.
-- Remote `origin` remains configured; the branch has no upstream. No remote operation occurred.
-- Read this card only after REPAIR05 passed and its checkpoint was verified. Re-read the REPAIR05 report and WIR19, WIR20, and WIR21 dependency reports; inspected current execution/checkpoint, candidate/Repair, source-control, Codex implementation-session, Plan schema, workspace configuration, validation guidance, harness registry, and integration test source.
-- The original blocked `WIR22_IMPLEMENTER_REPORT.md` remains unchanged. Its SHA-256 is `9cfb9399fb60ceedcb28a9deeee91f457ef22bda901be5f7e47256c9072b17e1c`.
-- WIR04-REPAIR01, original WIR22, and WIR23 were not opened.
+Verified the approved repository and Git top-level as `<PROJECT_REPO>`. Starting repair checkpoint: `87cc8c9687806c9ff52bfd281f1635dc69e012be` (REPAIR06B), on `codex/work-intake-routing-finish`. REPAIR06A exists in the earlier consolidation checkpoint; REPAIR05's completion loader and REPAIR06B's policy provider were re-inspected. `origin` is configured; the repair branch has no upstream. No fetch or remote freshness claim. Independent documentation commits `b96fc27` and `795e7f0` occurred during this pass and were preserved without attributing them to this repair.
 
-## Confirmed missing dependency
+Read the current card, required dependency evidence, existing checkpoint/executor, routed execution binding and lifecycle, Codex session/context/readiness path, integration owners, source-control service, relevant tests and capability-map ownership. Later cards remain unopened.
 
-1. `src/main/planExecution/integrationCandidateService.ts` requires `IntegrationCandidateHooks.checks`: trusted main-process callbacks with bounded check identifiers. Its factory explicitly rejects an empty check set. Candidate validation executes those callbacks against the isolated checkout, and target advancement requires matching successful results for every configured check.
-2. Repository searches found no production caller/provider of those checks. `test/agent-harness/git-mutation-boundary.test.cjs` supplies scenario-specific Node checks directly to the factory. These are disposable fixture proof, not a production validation policy.
-3. `src/shared/workPlanningContracts.ts` declares topology, Work Items, Phases, dependencies, and textual acceptance criteria. It does not define executable integration checks or a trusted mapping from an approved Plan to an application-owned validation runner. The Intake/branch and registered-workspace contracts inspected do not provide that mapping either.
-4. The WIR20 report explicitly records that global validation commands for arbitrary selected projects were intentionally not created. The architecture requires post-merge validation but does not select checks or define how the application resolves them. `src/main/validation/implementationValidationScopeGuidance.ts` supplies Implementer guidance, not a deterministic candidate-validation runner. The harness registry's `validation_toolbox` name does not supply this missing production adapter.
-5. Integration Repair also expects an application-owned policy for bounded editable source and governing contracts. Its test provider is fixture-specific. The governing Intake and Plan can now be resolved from the repaired lifecycle, but production validation selection/execution still has no established authority to reuse.
+The Operator authorizes bounded checkpoints, completion of the remaining chain without routine review stops, and a final merge into `dev` after WIR23. One bounded implementation checkpoint is authorized after this report; the final merge remains after the remaining sequence.
 
-Hard-coding ChampCity's npm commands for every selected project, parsing arbitrary prose into executable commands, accepting renderer/model commands, or substituting a clean-merge/metadata check for required behavioral proof would invent policy or weaken WIR20's safety boundary. Creating another factory that merely accepts test callbacks would not satisfy REPAIR06's production-caller acceptance criterion. None of those substitutes was implemented.
+## Confirmed defect and implementation
 
-## Required next task
+The routed lifecycle resolves correct Work Item artifacts but the shared Codex service still selected Development through the legacy current-workspace projection. Integration factories also lacked an application caller that connected current Plan completion and source-checkpoint evidence to candidate/Repair operations.
 
-Provide an Operator-approved bounded dependency/Repair Card establishing the production integration-validation policy: where required check identities and trusted runners come from for a selected project; how they are bound to approved Plan intent; the behavior when required proof cannot run; and the bounded application policy for Integration Repair source scope. Then resume REPAIR06 at this checkpoint and reverify current dependencies.
+- Added application-owned routed selection to the existing Codex service. It resolves the current eligible Intake/Plan/Work Item through the repaired lifecycle, uses exact Formal/Repair and report paths, retains Plan identity/revision and root Work Item identity, and rechecks context after preflight.
+- Reused `captureWorkItemCheckpoint`, worker file-change attribution, and `completePlanWorkItemSource`. Routed Repair checkpoint identity resolves to its root Work Item; existing Issue and legacy behavior retain their prior paths. No alternate commit mechanism was added.
+- Added a routed application composition service using the production Codex singleton by default and the existing execution and integration services.
+- Added a service-owned integration projection and current-checkpoint verification. Only complete fresh Plan evidence and matching Work Item contract/checkpoint lineage can reach integration. Checkpoints do not supply validation or close acceptance.
+- Composed the target-owned validation and repair policy providers with the existing integration candidate service. Clean candidates advance through that service; conflict and validation failures reach the existing Integration Repair controller. Source patches, retry, Operator decisions and target advancement retain existing owners.
+- Added bounded receipt inventory and validation retry entry points to the existing candidate owner. No parallel workflow state, renderer Git authority or execution engine was introduced.
 
-This is a missing policy/provider contract, not a request for permission to commit, integrate this branch, or launch a test. No supplied skill or automatic approval reviewer caused the stop.
+A focused run exposed the direct-Plan representation mismatch in final report readiness: the routed projection uses an absent Phase while the existing Codex model uses null. Their comparison now normalizes absence; it does not manufacture a Phase.
 
-## Files and validation
+## Attributable files
 
-Created only:
+Created:
 
-- `docs/implementation-bundles/work-intake-routing/Implementer_Reports/WIR22-REPAIR06_IMPLEMENTER_REPORT.md`
+- `src/main/planExecution/routedImplementerContext.ts`
+- `src/main/planExecution/routedDevelopmentApplicationService.ts`
+- `src/main/planExecution/routedIntegrationService.ts`
+- `src/shared/routedIntegrationContracts.ts`
 
-Modified/deleted production, test, configuration, or dependency files: none. Intentionally not created: partial Codex runtime wiring, test-only orchestration factory presented as production, new validation configuration/schema, arbitrary command runner, integration candidate, or checkpoint commit.
+Modified:
 
-Read-only restricted Windows commands used `git status --short`, `git branch --show-current`, `git log -1 --format='%H%n%P%n%s'`, `git rev-list --count d87a92cffa66a8b4d61c9ded20db715a162c07d1..HEAD`, `git diff-tree --no-commit-id --name-only -r HEAD`, `git rev-parse HEAD`, `Get-Content`, and bounded `rg` searches. Baseline commands exited 0 with the expected branch, HEAD, parent, attributable paths, and clean state. Some exploratory reads/searches named absent paths; their diagnostics were followed by searches of the current source tree and are not validation failures or proof of absence by themselves.
+- `src/main/workCardBuilding/codexImplementerExecutionService.ts`
+- `src/main/planExecution/workItemCheckpointService.ts`
+- `src/main/planExecution/integrationCandidateService.ts`
+- `test/characterization/desktop-development-lifecycle.test.cjs`
+- `test/support/work-intake-fixtures.cjs`
+- This Implementer Report.
 
-Required `npm run typecheck`, `npm run build`, and `node --test --test-concurrency=1 test/agent-harness/git-mutation-boundary.test.cjs test/characterization/desktop-development-lifecycle.test.cjs test/work-card-building/codex-implementer-execution-service.test.cjs` were not run for this blocked card: no implementation was made, and tests cannot supply the missing production policy. No acceptance pass, launch, external integration, or full regression is claimed. REPAIR05's observed passing validation remains recorded in its committed report.
+Deleted: none. Intentionally not created: new Git shell path, alternate execution engine, synthetic Phase, renderer authority, workflow sidecars, dependency changes, migrations, or UI cutover.
 
-Report-only whitespace and bounded secret/local-path/generated-artifact checks passed (exit 0, no findings). Final read-only diff checks confirmed no tracked or staged changes; status shows only this untracked Markdown report. HEAD and the original blocked WIR22 report hash remain unchanged. No new permanent tests, consolidation, retirement, or capability-map edits.
+## Validation and evidence
 
-## Git and remaining work
+The existing Git-boundary and Codex suites are reused. The lifecycle suite is extended with a materially distinct routed application composition scenario: controlled Codex transport events feed the real source checkpoint, real Work Item validation/close and Plan acceptance, then target-policy npm validation and clean/conflicted integration. The shared fixture permits repository policy setup before Intake branch creation. No production policy callbacks are injected. Model output is a controlled boundary; no live external model acceptance is claimed. No tests are consolidated or retired.
 
-No Git mutation during REPAIR06. The blocked report remains uncommitted, since the Operator authorized one checkpoint only after a repair passes. No merge, push, tag, release, publication, integration, destructive cleanup, or Electron-to-service/browser refactor.
+| Exact command | Lane | Observed result |
+| --- | --- | --- |
+| `npm run typecheck` | Restricted Windows, static | Intermediate type errors corrected (nullable direct-Plan Phase and shared context comparison); latest exit 0. |
+| `npm run build` | Normal Windows, static/build | Exit 0 on initial and corrected builds; 1658 renderer modules. Uses the previously established normal lane after sandbox EPERM. |
+| `node --test --test-concurrency=1 --test-name-pattern='routed application checkpoints' test/characterization/desktop-development-lifecycle.test.cjs` | Normal Windows, focused production-path debugging | Exit 1; three reported tests failed (two cases plus parent); 630416.3721 ms. Both model runs completed, but final report readiness blocked checkpointing on the direct-Plan Phase representation mismatch. |
+| `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern='routed application checkpoints' test/characterization/desktop-development-lifecycle.test.cjs` | Normal Windows, corrected focused debugging | Exit 0; 3/3 tests passed, no skips; 2184020.4603 ms. Clean case 820196.0241 ms, conflicted case 1363357.6541 ms. |
+| `node --test --test-concurrency=1 test/agent-harness/git-mutation-boundary.test.cjs test/characterization/desktop-development-lifecycle.test.cjs test/work-card-building/codex-implementer-execution-service.test.cjs` | Required normal Windows regression | Interrupted with exit 1 solely on explicit Operator direction to skip testing. All emitted cases passed, including the complete Git-boundary suite and clean routed case (864429.6847 ms), with stale-Plan and checkpoint-separation assertions. No combined-suite pass claimed. |
+| `git diff --check` | Restricted Windows, hygiene | Exit 0. |
 
-Passing repair checkpoints retained:
+The corrected clean-target case passed through a real routed `WI01: source checkpoint`, durable validation/close, Plan acceptance, target-policy validation, integration and service recreation. The conflicted case also passed through production repair-policy resolution, rejection of an unapproved patch, bounded semantic repair, configured validation and target advancement. The combined required regression was interrupted during the second routed case when the Operator explicitly directed skipping tests. Its unfinished cases are unverified in that run. Full repository regression is reserved for WIR23. No launch, packaging, visual acceptance, live external integration or final product acceptance is claimed. Further test execution is skipped under current Operator direction.
 
-| Card | Verified checkpoint |
-| --- | --- |
-| WIR22-REPAIR01 | `7de1a95e3d61c6b50f19fd5e056bae745ca458a0` |
-| WIR22-REPAIR02 | `0716594eebe82fb888617168bc97561cb8fdfc63` |
-| WIR22-REPAIR03 | `0d75a0c035dedf8bb1689671e5ea9565f756eb55` |
-| WIR22-REPAIR04 | `d87a92cffa66a8b4d61c9ded20db715a162c07d1` |
-| WIR22-REPAIR05 | `89744cb2704596aeb9acda6f254c845b7775c1af` |
+## Safety, checkpoint and next task
 
-Remaining sequence: resolve the missing dependency, finish REPAIR06, then WIR04-REPAIR01, original WIR22, and original WIR23 in the prescribed order. The Work Intake screenshot repair and final visual/integration acceptance remain pending; no claims are made about those experiences.
+No source-repository Git mutation during this card so far. Fixture Git operations are confined to disposable repositories. Unrelated concurrent changes remain preserved. Runtime source stays under `src`, tests under `test`; authored durable artifacts use repository-relative paths. The 10 attributable files passed bounded secret/local-path/generated-artifact inspection and diff whitespace checks; exact staged-diff review is performed immediately before the single checkpoint.
+
+Checkpoint after the passing focused proof and Operator-directed waiver of remaining tests: `WIR22-REPAIR06: Wire Routed Completion to Machine-Owned Git and Integration Services`. Hash remains pending at report write time; report the actual hash after commit without amending solely to embed it.
+
+Manual Operator validation: none for this card; final presentation and user-flow judgment remain WIR23. Next card after this bounded checkpoint: **WIR04-REPAIR01**.

@@ -14,6 +14,7 @@ import { checkpointIdFor } from "./workItemCheckpointReceipt";
 export interface WorkItemCheckpointContext {
   formalWorkCardPath: string; implementerReportPath: string; workCardId: string;
   rootFixCardId?: string; currentImplementationId?: string;
+  rootWorkItemId?: string;
 }
 export interface WorkItemCheckpointCapture {
   binding: WorkIntakeBranchBinding; context: WorkItemCheckpointContext;
@@ -123,7 +124,7 @@ export async function checkpointWorkItemSource(root: string, capture: WorkItemCh
       } else if (capture.observed[entry.path] !== entry.sha256) throw Error("Unattributed or subsequently changed files block the Work Item checkpoint.");
     }
     const evidence: WorkItemCheckpointEvidence = { intakeId: binding.intakeId, repositoryId: binding.repositoryId, workBranch: binding.workBranch, beforeHead: binding.currentHead,
-      workItemId: context.rootFixCardId ?? context.workCardId, implementationId: context.currentImplementationId ?? context.workCardId,
+      workItemId: context.rootWorkItemId ?? context.rootFixCardId ?? context.workCardId, implementationId: context.currentImplementationId ?? context.workCardId,
       contractPath: context.formalWorkCardPath, contractSha256: capture.contractSha256, reportPath: context.implementerReportPath, reportSha256, files };
     checkpointId = checkpointIdFor(evidence);
     const receipt = serializeCanonicalMarkdownDocument({ schemaVersion: 1, artifactType: "work-item-checkpoint", artifactRevision: 1, participationRole: "contextOnly",

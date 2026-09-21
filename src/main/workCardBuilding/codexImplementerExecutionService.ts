@@ -3,6 +3,7 @@ import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import crypto from "node:crypto";
 import { captureWorkItemCheckpoint, observeCheckpointChanges, type WorkItemCheckpointCapture } from "../planExecution/workItemCheckpointService";
 import { completePlanWorkItemSource } from "../planExecution/planExecutor";
+import { resolveRoutedImplementerContext } from "../planExecution/routedImplementerContext";
 import type { WorkItemCheckpointResult } from "../../shared/workItemCheckpointContracts";
 import fs from "node:fs";
 import path from "node:path";
@@ -82,7 +83,11 @@ export interface CodexAppServerExecutionAdapter {
 export type CodexAppServerExecutionAdapterFactory = CodexAppServerAdapterFactory;
 
 interface ExecutionContext {
-  ownerKind?: "development" | "issue";
+  ownerKind?: "development" | "issue" | "routed-development";
+  intakeId?: string;
+  planId?: string;
+  planRevision?: number;
+  rootWorkItemId?: string;
   issueId?: string;
   rootFixCardId?: string;
   currentImplementationId?: string;
@@ -108,6 +113,7 @@ interface IssueExecutionSelector {
   fixCardId: string;
   currentImplementationId?: string;
 }
+export type CodexExecutionSelector = IssueExecutionSelector | { ownerKind: "routed-development"; intakeId: string; workItemId: string };
 
 interface SessionRecord extends ExecutionContext {
   checkpointCapture?: WorkItemCheckpointCapture;
@@ -171,12 +177,12 @@ export class CodexImplementerExecutionService {
     private readonly runtimeManager: CodexRuntimeManager = codexRuntimeManager,
   ) {}
 
-  async getStatus(workspaceRoot: string, selector?: IssueExecutionSelector): Promise<CodexImplementerExecutionModel> {
+  async getStatus(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const runningOrCompleted = this.sessionsByWorkspaceRoot.get(key);
     if (runningOrCompleted) {
       if (selector) {
-        const requestedContext = this.resolvePreflightContext(workspaceRoot, selector);
+        const requestedContext = await this.resolvePreflightContext(workspaceRoot, selector);
         if (requestedContext instanceof Error) {
           return unavailableFromPreflight(requestedContext);
         }
@@ -206,7 +212,7 @@ export class CodexImplementerExecutionService {
       }
     }
 
-    const context = this.resolvePreflightContext(workspaceRoot, selector);
+    const context = await this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       return unavailableFromPreflight(context);
     }
@@ -223,14 +229,14 @@ export class CodexImplementerExecutionService {
     return readyModel(context);
   }
 
-  async start(workspaceRoot: string, selector?: IssueExecutionSelector, selection?: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
+  async start(workspaceRoot: string, selector?: CodexExecutionSelector, selection?: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
     return this.startWithSelection(workspaceRoot, selector, selection, false);
   }
 
-  private async startWithSelection(workspaceRoot: string, selector: IssueExecutionSelector | undefined, selection: CodexModelSelection | undefined, environment: boolean): Promise<CodexImplementerExecutionModel> {
+  private async startWithSelection(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection | undefined, environment: boolean): Promise<CodexImplementerExecutionModel> {
     const active = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
     if (active?.state === "running") {
-      const context = this.resolvePreflightContext(workspaceRoot, selector);
+      const context = await this.resolvePreflightContext(workspaceRoot, selector);
       if (!(context instanceof Error) && !sameExecutionContext(active, context)) return busyModelForDifferentContext(context, active);
       return { ...await this.getStatus(workspaceRoot, selector), failureReason: "Codex execution is already running for this workspace.", canRunAgain: false, retryBlocker: "Codex execution is already running for this workspace." };
     }
@@ -249,10 +255,10 @@ export class CodexImplementerExecutionService {
     } catch (error) { lease.release(); throw error; }
   }
 
-  private async startSelected(workspaceRoot: string, selector: IssueExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
+  private async startSelected(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const active = this.sessionsByWorkspaceRoot.get(key);
-    const context = this.resolvePreflightContext(workspaceRoot, selector);
+    const context = await this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       if (active) {
         return modelFromSession(active, this.now(), {
@@ -326,6 +332,10 @@ export class CodexImplementerExecutionService {
       );
     }
 
+    if (context.ownerKind === "routed-development") {
+      const current = await this.resolvePreflightContext(workspaceRoot, selector);
+      if (current instanceof Error || !sameExecutionContext(context, current)) return unavailableFromPreflight(current instanceof Error ? current : Error("Routed implementation context changed during preflight."));
+    }
     let appServer: CodexAppServerExecutionAdapter;
     try {
       appServer = await this.appServerFactory();
@@ -378,6 +388,11 @@ export class CodexImplementerExecutionService {
     this.sessionsByWorkspaceRoot.set(key, session);
     try { session.checkpointCapture = await captureWorkItemCheckpoint(session.projectRoot, session); }
     catch { session.checkpoint = { status: "blocked", message: "Source checkpoint capture failed; implementation may continue, but Git state will be preserved for inspection.", remote: "not-requested", receipts: [] }; }
+    if (session.ownerKind === "routed-development" && (!session.checkpointCapture || session.checkpointCapture.contractSha256 !== session.formalWorkCardSha256)) {
+      session.state = "failed"; session.completedAt = this.now(); session.failureReason = "Current routed source checkpoint context could not be captured; refresh the Work Item before implementation.";
+      await session.appServerAdapter?.dispose?.();
+      return modelFromSession(session, this.now(), { canRunAgain: false, retryBlocker: session.failureReason });
+    }
     session.executionPromise = this.executeWithAppServer(session, appServer);
     void session.executionPromise;
     return modelFromSession(session, this.now(), {
@@ -386,14 +401,14 @@ export class CodexImplementerExecutionService {
     });
   }
 
-  async startEnvironmentResolution(workspaceRoot: string, selector?: IssueExecutionSelector): Promise<CodexImplementerExecutionModel> {
+  async startEnvironmentResolution(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
     return this.startWithSelection(workspaceRoot, selector, this.runtimeManager.getStatus().selection ?? undefined, true);
   }
 
-  private async startEnvironmentSelected(workspaceRoot: string, selector: IssueExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
+  private async startEnvironmentSelected(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
     const key = workspaceKey(workspaceRoot);
     const active = this.sessionsByWorkspaceRoot.get(key);
-    const context = this.resolvePreflightContext(workspaceRoot, selector);
+    const context = await this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       return unavailableFromPreflight(context);
     }
@@ -790,7 +805,7 @@ export class CodexImplementerExecutionService {
     }
   }
 
-  private resolvePreflightContext(workspaceRoot: string, selector?: IssueExecutionSelector): ExecutionContext | Error {
+  private async resolvePreflightContext(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<ExecutionContext | Error> {
     try {
       const projectRoot = path.resolve(workspaceRoot);
       if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
@@ -814,14 +829,15 @@ export class CodexImplementerExecutionService {
         };
       }
 
-      const current = getCurrentWorkspaceModel(projectRoot);
-      if (
-        current.activeWorkspaceId !== "work-card-building-review" &&
-        current.activeWorkspaceId !== "work-card-report-review"
-      ) {
+      const routed = selector?.ownerKind === "routed-development" ? await resolveRoutedImplementerContext(projectRoot, selector.intakeId, selector.workItemId) : undefined;
+      const current = routed ? undefined : getCurrentWorkspaceModel(projectRoot);
+      if (!routed && (
+        current?.activeWorkspaceId !== "work-card-building-review" &&
+        current?.activeWorkspaceId !== "work-card-report-review"
+      )) {
         throw new Error("Run Codex Implementer is available only in the Implement workspace.");
       }
-      const projection = current.workCardBuildingReview;
+      const projection = routed?.projection ?? current?.workCardBuildingReview;
       if (!projection) {
         throw new Error("Current Implement projection does not resolve an Approved Work Card Contract.");
       }
@@ -855,8 +871,10 @@ export class CodexImplementerExecutionService {
       const formalMetadata = readCanonicalMetadata(projectRoot, projection.formalWorkCardPath);
       const reportMetadata = readCanonicalMetadata(projectRoot, projection.implementerReportPath);
       return {
-        ownerKind: "development",
-        phaseId: projection.phaseId,
+        ownerKind: routed ? "routed-development" : "development",
+        ...(routed ? { intakeId: routed.state.binding.identity.intakeId, planId: routed.state.binding.identity.planId, planRevision: routed.state.binding.planRevision,
+          rootWorkItemId: routed.entry.candidate.workItemId, currentImplementationId: routed.entry.executionWorkCardId } : {}),
+        phaseId: projection.phaseId ?? null,
         workCardId: projection.workCardId,
         workCardTitle: projection.workCardTitle,
         projectRoot,
@@ -879,7 +897,10 @@ export class CodexImplementerExecutionService {
     workspaceRoot: string,
     session: SessionRecord,
   ): Promise<RetryReadiness> {
-    let selector: IssueExecutionSelector | undefined;
+    let selector: CodexExecutionSelector | undefined;
+    if (session.ownerKind === "routed-development" && session.intakeId && session.rootWorkItemId) {
+      selector = { ownerKind: "routed-development", intakeId: session.intakeId, workItemId: session.rootWorkItemId };
+    }
     if (session.ownerKind === "issue" && session.issueId) {
       if (!session.rootFixCardId || !session.currentImplementationId) {
         return {
@@ -894,7 +915,7 @@ export class CodexImplementerExecutionService {
         currentImplementationId: session.currentImplementationId,
       };
     }
-    const context = this.resolvePreflightContext(workspaceRoot, selector);
+    const context = await this.resolvePreflightContext(workspaceRoot, selector);
     if (context instanceof Error) {
       return {
         canRunAgain: false,
@@ -1305,10 +1326,10 @@ function isTerminalState(
   return state === "completed" || state === "failed" || state === "cancelled";
 }
 
-function sameExecutionContext(left: SessionRecord, right: ExecutionContext): boolean {
+function sameExecutionContext(left: ExecutionContext, right: ExecutionContext): boolean {
   return (
     left.ownerKind === right.ownerKind &&
-    left.issueId === right.issueId &&
+    left.issueId === right.issueId && left.intakeId === right.intakeId && left.planId === right.planId && left.planRevision === right.planRevision && left.rootWorkItemId === right.rootWorkItemId &&
     left.rootFixCardId === right.rootFixCardId &&
     left.currentImplementationId === right.currentImplementationId &&
     left.repairId === right.repairId &&
@@ -1326,6 +1347,7 @@ function preflightKey(context: ExecutionContext): string {
     workspaceKey(context.projectRoot),
     context.ownerKind ?? "development",
     context.issueId ?? "",
+    context.intakeId ?? "", context.planId ?? "", context.planRevision ?? "", context.rootWorkItemId ?? "",
     context.rootFixCardId ?? "",
     context.currentImplementationId ?? "",
     context.repairId ?? "",
@@ -1383,7 +1405,7 @@ async function refreshReportEvidence(
     return;
   }
 
-  const readinessBlocker = finalReportReadinessBlocker(session);
+  const readinessBlocker = await finalReportReadinessBlocker(session);
   if (readinessBlocker) {
     session.failureReason = readinessBlocker;
     appendTail(session.stderrTail, readinessBlocker);
@@ -1457,7 +1479,7 @@ function sameFinalReportEvidence(left: FinalReportEvidence, right: FinalReportEv
   );
 }
 
-function finalReportReadinessBlocker(session: SessionRecord): string | null {
+async function finalReportReadinessBlocker(session: SessionRecord): Promise<string | null> {
   if (session.ownerKind === "issue" && session.issueId) {
     if (!session.rootFixCardId || !session.currentImplementationId) {
       return "Issue Codex execution identity is incomplete; final report readiness cannot be resolved.";
@@ -1470,10 +1492,12 @@ function finalReportReadinessBlocker(session: SessionRecord): string | null {
     );
   }
   try {
-    const projection = getCurrentWorkspaceModel(session.projectRoot).workCardBuildingReview;
+    const projection = session.ownerKind === "routed-development" && session.intakeId && session.rootWorkItemId
+      ? (await resolveRoutedImplementerContext(session.projectRoot, session.intakeId, session.rootWorkItemId)).projection
+      : getCurrentWorkspaceModel(session.projectRoot).workCardBuildingReview;
     if (
       !projection ||
-      projection.phaseId !== session.phaseId ||
+      (projection.phaseId ?? null) !== session.phaseId ||
       projection.workCardId !== session.workCardId ||
       projection.implementerReportPath !== session.implementerReportPath
     ) {

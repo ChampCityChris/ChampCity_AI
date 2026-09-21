@@ -3,11 +3,12 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const { tempWorkspace } = require("./canonical-markdown-fixtures.cjs");
 
-async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", intent = {}) {
+async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", intent = {}, options = {}) {
   const root = tempWorkspace("champcity-routed-work-");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "main"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+  options.setupRepository?.(root, git);
   git("add", "--all"); git("commit", "--allow-empty", "-m", "baseline");
   const initialHead = git("rev-parse", "HEAD");
   const intakeService = require("../../dist/main/workIntake/workIntakeService.js");
@@ -27,8 +28,8 @@ async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", i
     disposition: "override", selectedRouteId, rationale: "Operator selects the intended planning focus." });
   return { root, intake, route, git, initialHead };
 }
-async function seedApprovedRoutedWorkPlan(t, structure, routeId = "feature-change") {
-  const fixture = await seedRoutedWorkIntake(t, routeId);
+async function seedApprovedRoutedWorkPlan(t, structure, routeId = "feature-change", options = {}) {
+  const fixture = await seedRoutedWorkIntake(t, routeId, {}, options);
   const { root, intake } = fixture;
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
