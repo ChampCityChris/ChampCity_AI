@@ -21,7 +21,7 @@ When documents overlap, use this precedence:
 3. **Adopted V2 product/foundational architecture:**
    - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md`;
    - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`.
-4. **Topic-specific adopted architecture/contracts**, including Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
+4. **Topic-specific adopted architecture/contracts**, including `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` for executable validation planning/lane execution, Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
 5. **Current migration/source mappings** such as `SOURCE_EXTRACTION_MAP.md`, the Desktop Source Mapping, and Vocabulary Migration Plan.
 6. **Historical/design-discussion documents**, which may explain rationale but may not override the adopted contracts above.
 
@@ -70,6 +70,7 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | `CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` | **Adopted V2 logical domain model** | Canonical Project State, revision/supersession, Decision/disposition, Validation/Evidence, completion semantics | Architecture |
 | `CHAMPCITY_CLIENT_SERVICE_CONTRACT.md` | **Adopted V2 semantic service contract** | Deployment-neutral client/service boundary | Architecture |
 | `CHAMPCITY_DETERMINISTIC_AUTOMATION_BOUNDARIES.md` | **Adopted V2 rulebook** | AI judgment vs deterministic ChampCity mechanics | Architecture / Governance |
+| `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` | **Adopted test execution architecture** | Executable validation catalog/profiles, lane scheduling, affected-capability selection, integration gate, build reuse, validation telemetry | Architecture / Validation |
 | `CHAMPCITY_AGENT_RUNTIME_INTERFACE_CONTRACT.md` | **V2 implementation baseline v1** | Portable agent-runtime contract; Codex first adapter | Architecture / Contract |
 | `CHAMPCITY_RUNTIME_RECOVERY_DECISION.md` | **Adopted architecture decision** | Runtime/external-action continuation and recovery semantics | Architecture |
 | `CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md` | **Adopted architecture decision** | Existing `ChampCity_AI` product monorepo; app/package boundaries | Architecture |
