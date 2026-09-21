@@ -3169,6 +3169,14 @@
         {
           "behaviorId": "work-card-and-repair-approval-ignore-git-wording-and-do-not-stamp-git-tool-metadata",
           "description": "Work Card and Repair approval ignore Git wording and do not stamp Git-tool metadata"
+        },
+        {
+          "behaviorId": "independent-branch-refs-preserve-dirty-checkout-and-exact-fast-forward-ownership",
+          "description": "independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership"
+        },
+        {
+          "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
+          "description": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures"
         }
       ]
     },
@@ -5215,6 +5223,18 @@
           "capabilityId": "release-and-git-operations",
           "behaviorId": "work-card-and-repair-approval-ignore-git-wording-and-do-not-stamp-git-tool-metadata",
           "proofLocator": "Work Card and Repair approval ignore Git wording and do not stamp Git-tool metadata",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "independent-branch-refs-preserve-dirty-checkout-and-exact-fast-forward-ownership",
+          "proofLocator": "independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
+          "proofLocator": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures",
           "proofRole": "primary"
         }
       ]

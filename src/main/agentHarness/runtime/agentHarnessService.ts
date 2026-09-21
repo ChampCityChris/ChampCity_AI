@@ -77,6 +77,7 @@ export class AgentHarnessService {
     });
     this.registry = createAgentHarnessToolRegistry({
       workspaceAccess: this.workspaceAccess,
+      managedWorkspaces: this.workspaceRegistry,
       userDataRoot: options.userDataRoot,
       runtimeDiagnostics: () => this.status() as unknown as Record<string, unknown>,
     });
