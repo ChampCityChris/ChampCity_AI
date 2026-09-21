@@ -8164,20 +8164,20 @@
     {
       "testPath": "test/characterization/desktop-development-lifecycle.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-development-lifecycle.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "value": 6,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-development-lifecycle.test.cjs during TSR03; the TAP summary reported 6 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 747,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-development-lifecycle.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 10982,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-development-lifecycle.test.cjs in the TSR03 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
         "process": false,
         "timing": false
@@ -8432,13 +8432,13 @@
     {
       "testPath": "test/characterization/routed-integration-focus.test.cjs",
       "currentTestCount": {
-        "value": 1,
-        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+        "value": 3,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/routed-integration-focus.test.cjs during TSR03; the TAP summary reported 3 tests including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 80050,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+        "milliseconds": 99885,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/routed-integration-focus.test.cjs in the TSR03 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8474,64 +8474,6 @@
           "behaviorId": "routed-checkpoint-integration-composition",
           "proofLocator": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary",
           "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/characterization/routed-lifecycle-acceptance.test.cjs",
-      "currentTestCount": {
-        "value": 1,
-        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 740155,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
-      },
-      "proposedValidationLane": "integration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": true,
-        "network": false,
-        "process": true,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "integration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "profileRestriction": [
-          "full-supported-platform",
-          "phase-close",
-          "release-qualification"
-        ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "routed-checkpoint-integration-composition",
-          "proofLocator": "routed application checkpoints source and integrates only after real Plan completion, including Integration Repair",
-          "proofRole": "supporting",
-          "primaryProof": {
-            "testPath": "test/characterization/routed-integration-focus.test.cjs",
-            "proofLocator": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary"
-          },
-          "relationshipToPrimary": "complementary"
         }
       ]
     },
@@ -11317,20 +11259,20 @@
     {
       "testPath": "test/phase-close/phase-validation-state.test.cjs",
       "currentTestCount": {
-        "value": 9,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-validation-state.test.cjs; the TAP summary reported 9 tests, including generated subtests."
+        "value": 12,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-validation-state.test.cjs during TSR03; the TAP summary reported 12 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 745,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-validation-state.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 7868,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-validation-state.test.cjs in the TSR03 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
         "process": false,
         "timing": false

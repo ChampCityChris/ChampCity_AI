@@ -371,7 +371,8 @@ test("routed genuine Phase acceptance gates successors and remains separate from
 
 async function routedAcceptanceFixture(t, phased) {
   const fs = require("node:fs"), path = require("node:path");
-  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { seedPreparedApprovedRoutedWorkPlan, bypassLifecycleEvidenceCheckpoints } = require("../support/work-intake-fixtures.cjs");
+  bypassLifecycleEvidenceCheckpoints(t);
   const { createRoutedDevelopmentExecutionService } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
   const { resolveWorkItemArtifactScope, workItemArtifactIdentity } = require("../../dist/main/workCardLoop/workItemArtifactScope.js");
   const { generateRoutedWorkCardIntakeHandoff } = require("../../dist/main/workCardIntake/workCardIntakeService.js");
@@ -383,7 +384,9 @@ async function routedAcceptanceFixture(t, phased) {
   const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
   const item = (id, phaseId) => ({ workItemId: id, title: `Deliver ${id}`, purpose: "Bounded export", dependsOn: [], acceptanceCriteria: [`${id} accepted`], ...(phaseId ? { phaseId } : {}) });
   const phase = (id, dependsOn) => ({ phaseId: id, title: id, purpose: "Independent milestone", dependsOn, acceptanceCriteria: [`${id} accepted`] });
-  const fixture = await seedApprovedRoutedWorkPlan(t, { topology: phased ? "phased" : "direct", topologyRationale: "Explicit acceptance boundaries", acceptanceCriteria: ["Export accepted"], workItems: phased ? [item("WI01", "P1"), item("WI02", "P2")] : [item("WI01")], ...(phased ? { phases: [phase("P1", []), phase("P2", ["P1"])] } : {}) });
+  const fixture = await seedPreparedApprovedRoutedWorkPlan(t, { topology: phased ? "phased" : "direct", topologyRationale: "Explicit acceptance boundaries", acceptanceCriteria: ["Export accepted"], workItems: phased ? [item("WI01", "P1"), item("WI02", "P2")] : [item("WI01")], ...(phased ? { phases: [phase("P1", []), phase("P2", ["P1"])] } : {}) }, "feature-change", {
+    setupRepository(root) { fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n"); },
+  });
   const { root, intake, binding } = fixture;
   const api = createRoutedDevelopmentExecutionService(root, intake.intakeId);
   const read = (relative) => parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, relative), "utf8"));

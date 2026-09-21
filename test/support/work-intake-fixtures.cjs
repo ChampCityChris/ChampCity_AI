@@ -58,11 +58,12 @@ async function seedApprovedRoutedWorkPlan(t, structure, routeId = "feature-chang
  * prepared fixture still uses production canonical writers, a real repository,
  * and the exact branch binding verified by the planning kernel.
  */
-function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", intent = {}) {
+function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", intent = {}, options = {}) {
   const root = tempWorkspace("champcity-prepared-routed-work-");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "main"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+  options.setupRepository?.(root, git);
   git("add", "--all"); git("commit", "--allow-empty", "-m", "baseline");
   const initialHead = git("rev-parse", "HEAD");
 
@@ -134,9 +135,21 @@ function bypassWorkIntakeBranchVerification(t) {
   }));
 }
 
-async function seedPreparedApprovedRoutedWorkPlan(t, structure, routeId = "feature-change") {
-  const fixture = seedPreparedRoutedWorkIntake(t, routeId);
-  const branchVerificationMock = bypassWorkIntakeBranchVerification(t);
+function bypassLifecycleEvidenceCheckpoints(t) {
+  const checkpoints = require("../../dist/main/planExecution/lifecycleEvidenceCheckpointService.js");
+  return t.mock.method(checkpoints, "checkpointLifecycleEvidence", async (_root, input) => ({
+    status: "committed",
+    message: "Prepared lifecycle fixture checkpoint.",
+    checkpointId: `fixture-${input.boundary.kind}`,
+    commit: input.binding.currentHead,
+    remote: "not-requested",
+    receipts: [],
+  }));
+}
+
+async function seedPreparedApprovedRoutedWorkPlan(t, structure, routeId = "feature-change", options = {}) {
+  const fixture = seedPreparedRoutedWorkIntake(t, routeId, {}, options);
+  const branchVerificationMock = options.bypassBranchVerification === false ? null : bypassWorkIntakeBranchVerification(t);
   const { root, intake } = fixture;
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
@@ -161,4 +174,5 @@ module.exports = {
   seedPreparedRoutedWorkIntake,
   seedPreparedApprovedRoutedWorkPlan,
   bypassWorkIntakeBranchVerification,
+  bypassLifecycleEvidenceCheckpoints,
 };

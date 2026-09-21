@@ -116,14 +116,15 @@ test("routed phased Work Item repairs report review and closes within its genuin
 });
 
 async function routedLifecycleFixture(t, phased) {
-  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { seedPreparedApprovedRoutedWorkPlan, bypassLifecycleEvidenceCheckpoints } = require("../support/work-intake-fixtures.cjs");
+  bypassLifecycleEvidenceCheckpoints(t);
   const { createRoutedDevelopmentExecutionService } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
   const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
   const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
   const item = (id, deps, phaseId) => ({ workItemId: id, title: `Deliver ${id}`, purpose: "Bounded export", dependsOn: deps, acceptanceCriteria: [`${id} export accepted`], ...(phaseId ? { phaseId } : {}) });
   const phase = (id, deps) => ({ phaseId: id, title: id, purpose: "Distinct milestone", dependsOn: deps, acceptanceCriteria: [`${id} milestone accepted`] });
   const structure = { topology: phased ? "phased" : "direct", topologyRationale: phased ? "Distinct milestone gates" : "One bounded delivery", acceptanceCriteria: ["Export accepted"], workItems: [item("WI01", [], phased ? "P1" : undefined), item("WI02", ["WI01"], phased ? "P2" : undefined)], ...(phased ? { phases: [phase("P1", []), phase("P2", ["P1"])] } : {}) };
-  const fixture = await seedApprovedRoutedWorkPlan(t, structure, "feature-change", {
+  const fixture = await seedPreparedApprovedRoutedWorkPlan(t, structure, "feature-change", {
     setupRepository(root) { fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n"); },
   });
   const { root, intake } = fixture;
