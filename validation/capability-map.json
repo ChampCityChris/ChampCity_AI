@@ -86,6 +86,10 @@
           "description": "capacity overload, initialization failure, clean close, and runtime close use bounded idempotent cleanup"
         },
         {
+          "behaviorId": "chatgpt-style-stream-churn-remains-bounded-without-admission-rejection-growth",
+          "description": "ChatGPT-style stream churn remains bounded without admission rejection growth"
+        },
+        {
           "behaviorId": "concurrent-broad-work-does-not-block-exact-path-requests-and-live-audit-metadata-is-bounded",
           "description": "concurrent broad work does not block exact-path requests and live audit metadata is bounded"
         },
@@ -94,8 +98,20 @@
           "description": "controlled HTTP runtime restart publishes one new immutable tool-contract generation"
         },
         {
-          "behaviorId": "default-per-principal-cap-evicts-only-that-principal-s-idle-lru-session",
-          "description": "default per-principal cap evicts only that principal's idle LRU session"
+          "behaviorId": "controlled-restart-drains-executing-work-but-not-transport-only-streams",
+          "description": "controlled restart drains executing work but not transport-only streams"
+        },
+        {
+          "behaviorId": "default-diagnostics-align-per-principal-and-global-session-caps",
+          "description": "default diagnostics align the per-principal and global session caps"
+        },
+        {
+          "behaviorId": "executing-work-survives-pressure-while-a-stream-only-session-is-reclaimed",
+          "description": "executing work survives pressure while a stream-only session is reclaimed"
+        },
+        {
+          "behaviorId": "explicit-lower-per-principal-cap-evicts-only-that-principal-s-idle-lru-session",
+          "description": "an explicit lower per-principal cap evicts only that principal's idle LRU session"
         },
         {
           "behaviorId": "idle-pressure-and-expiration-never-reap-an-in-flight-production-tool-request",
@@ -120,6 +136,10 @@
         {
           "behaviorId": "one-runtime-contract-generation-remains-constant-across-32-sessions-and-one-simulated-idle-hour",
           "description": "one runtime contract generation remains constant across 32 sessions and one simulated idle hour"
+        },
+        {
+          "behaviorId": "open-sse-sessions-are-reclaimed-oldest-first-under-principal-pressure",
+          "description": "open SSE sessions are reclaimed oldest-first under principal pressure"
         },
         {
           "behaviorId": "operational-diagnostics-enforce-audit-bounding-and-metadata-only-privacy",
@@ -180,6 +200,10 @@
         {
           "behaviorId": "streamable-http-publishes-and-executes-the-controlled-markdown-body-write-contract",
           "description": "Streamable HTTP publishes and executes the controlled Markdown body-write contract"
+        },
+        {
+          "behaviorId": "true-executing-work-saturation-rejects-initialization-with-retry-guidance",
+          "description": "true executing-work saturation rejects initialization with retry guidance"
         },
         {
           "behaviorId": "two-batch-abrupt-reconnect-soak-plateaus-at-the-cap-without-linear-rss-growth",
@@ -5281,13 +5305,13 @@
     {
       "testPath": "test/agent-harness/mcp-session-lifecycle.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/mcp-session-lifecycle.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "value": 14,
+        "basis": "Measured by node --test --test-concurrency=1 test/agent-harness/mcp-session-lifecycle.test.cjs; the summary reported 14 tests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 19523,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/mcp-session-lifecycle.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 21191,
+        "basis": "Measured by node --test --test-concurrency=1 test/agent-harness/mcp-session-lifecycle.test.cjs in the HOTFIX20 normal Windows focused lane; value is the rounded-up duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5344,14 +5368,44 @@
         },
         {
           "capabilityId": "agent-harness-mcp-runtime",
-          "behaviorId": "default-per-principal-cap-evicts-only-that-principal-s-idle-lru-session",
-          "proofLocator": "default per-principal cap evicts only that principal's idle LRU session",
+          "behaviorId": "chatgpt-style-stream-churn-remains-bounded-without-admission-rejection-growth",
+          "proofLocator": "ChatGPT-style stream churn remains bounded without admission rejection growth",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "controlled-restart-drains-executing-work-but-not-transport-only-streams",
+          "proofLocator": "controlled restart drains executing work but not transport-only streams",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "default-diagnostics-align-per-principal-and-global-session-caps",
+          "proofLocator": "default diagnostics align the per-principal and global session caps",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "executing-work-survives-pressure-while-a-stream-only-session-is-reclaimed",
+          "proofLocator": "executing work survives pressure while a stream-only session is reclaimed",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "explicit-lower-per-principal-cap-evicts-only-that-principal-s-idle-lru-session",
+          "proofLocator": "an explicit lower per-principal cap evicts only that principal's idle LRU session",
           "proofRole": "primary"
         },
         {
           "capabilityId": "agent-harness-mcp-runtime",
           "behaviorId": "idle-pressure-and-expiration-never-reap-an-in-flight-production-tool-request",
           "proofLocator": "idle pressure and expiration never reap an in-flight production tool request",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "open-sse-sessions-are-reclaimed-oldest-first-under-principal-pressure",
+          "proofLocator": "open SSE sessions are reclaimed oldest-first under principal pressure",
           "proofRole": "primary"
         },
         {
@@ -5364,6 +5418,12 @@
           "capabilityId": "agent-harness-mcp-runtime",
           "behaviorId": "session-diagnostics-are-aggregate-only-and-ordinary-stateful-read-write-behavior-remains-compati",
           "proofLocator": "session diagnostics are aggregate-only and ordinary stateful read/write behavior remains compatible",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "true-executing-work-saturation-rejects-initialization-with-retry-guidance",
+          "proofLocator": "true executing-work saturation rejects initialization with retry guidance",
           "proofRole": "primary"
         }
       ]
