@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { AgentHarnessError } from "../core/errors";
-import { assertSafeRelativePath } from "./pathPolicy";
+import { assertSafeRelativePath, resolveRepositoryPath } from "./pathPolicy";
 import { runBoundedGit } from "./boundedGit";
 
 const MAX_COMMIT_MESSAGE_BYTES = 20_000;
@@ -298,6 +300,163 @@ async function inspectRemoteBranchCommit(root: string, remote: string, ref: stri
   const fields = lines[0].split("\t");
   if (lines.length !== 1 || fields.length !== 2 || fields[1] !== ref) throw gitPrecondition("Remote branch inspection returned ambiguous metadata.");
   return exactRefCommit(fields[0]);
+}
+
+export interface GitDiffInput {
+  view?: "unstaged" | "staged" | "between_refs";
+  baseRef?: string;
+  targetRef?: string;
+  paths?: string[];
+}
+
+export async function inspectGitDiff(root: string, input: GitDiffInput = {}) {
+  const view = input.view ?? "unstaged";
+  if (!["unstaged", "staged", "between_refs"].includes(view)) throw new AgentHarnessError("INVALID_INPUT", "Invalid diff view.");
+  const paths = input.paths === undefined ? ["."] : containedGitPaths(root, input.paths);
+  const args = ["--no-pager", "diff", "--no-ext-diff", "--no-textconv"];
+  let baseCommit: string | undefined;
+  let targetCommit: string | undefined;
+  if (view === "between_refs") {
+    baseCommit = await resolveCommit(root, validateRevision(input.baseRef as string, "baseRef"));
+    targetCommit = await resolveCommit(root, validateRevision(input.targetRef as string, "targetRef"));
+    args.push(baseCommit, targetCommit);
+  } else {
+    if (input.baseRef !== undefined || input.targetRef !== undefined) throw new AgentHarnessError("INVALID_INPUT", "Refs require the between_refs view.");
+    if (view === "staged") args.push("--cached");
+  }
+  const result = await runRefGit(root, [...args, "--", ...paths]);
+  return { gitBacked: true, diff: result.stdout, ...(baseCommit ? { baseCommit, targetCommit } : {}) };
+}
+
+/** Shared porcelain parser previously owned only by SourceControlService. */
+export async function inspectGitChangedFiles(root: string): Promise<import("../../../shared/sourceControlContracts").SourceControlChangedFile[]> {
+  const output = await runRefGit(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+  const records = output.stdout.split("\0");
+  if (records.pop() !== "") throw gitPrecondition("Git returned incomplete changed-file evidence.");
+  const files: import("../../../shared/sourceControlContracts").SourceControlChangedFile[] = [];
+  for (let index = 0; index < records.length; index++) {
+    const record = records[index];
+    if (record.length < 4 || record[2] !== " ") throw gitPrecondition("Git returned invalid changed-file evidence.");
+    const file: import("../../../shared/sourceControlContracts").SourceControlChangedFile = {
+      path: record.slice(3), indexStatus: record[0], worktreeStatus: record[1],
+    };
+    if (/[RC]/.test(record.slice(0, 2))) {
+      const originalPath = records[++index];
+      if (!originalPath) throw gitPrecondition("Git returned incomplete rename evidence.");
+      file.originalPath = originalPath;
+    }
+    files.push(file);
+  }
+  return files;
+}
+
+export async function inspectGitCommit(root: string, input: { ref: string; includePatch?: boolean }) {
+  const commit = await resolveCommit(root, validateRevision(input.ref, "ref"));
+  const metadata = await runRefGit(root, ["show", "--no-patch", "--format=format:%H%x00%P%x00%aI%x00%B", commit]);
+  const [object, parentsText, authoredAt, ...message] = metadata.stdout.split("\0");
+  if (object !== commit || !authoredAt) throw gitPrecondition("Invalid commit metadata.");
+  const parents = parentsText.split(" ").filter(Boolean);
+  // A merge commit is inspected against its first parent; all parents remain explicit metadata.
+  const range = parents.length ? [parents[0], commit] : [commit];
+  const changed = await runRefGit(root, ["diff-tree", "--root", "--no-commit-id", "--no-ext-diff", "--no-textconv", "--name-status", "-r", "-z", "-M", ...range, "--"]);
+  const fields = changed.stdout.split("\0").filter(Boolean);
+  const changedFiles: Array<{ path: string; status: string; originalPath?: string }> = [];
+  for (let i = 0; i < fields.length;) {
+    const status = fields[i++];
+    const first = fields[i++];
+    const renamed = /^[RC]\d+$/.test(status);
+    const filename = renamed ? fields[i++] : first;
+    if (!first || !filename || !/^[ACDMRTUXB][0-9]*$/.test(status)) throw gitPrecondition("Invalid commit path evidence.");
+    changedFiles.push({ path: filename, status, ...(renamed ? { originalPath: first } : {}) });
+  }
+  const patch = input.includePatch ? (await runRefGit(root, ["diff-tree", "--root", "--no-commit-id", "--no-ext-diff", "--no-textconv", "-p", "-r", ...range, "--"])).stdout : undefined;
+  return { commit, parents, authoredAt, message: safeGitMetadata(root, message.join("\0")), changedFiles,
+    ...(patch === undefined ? {} : { patch: safeGitMetadata(root, patch) }) };
+}
+
+export async function compareGitRefs(root: string, input: { leftRef: string; rightRef: string }) {
+  const leftCommit = await resolveCommit(root, validateRevision(input.leftRef, "leftRef"));
+  const rightCommit = await resolveCommit(root, validateRevision(input.rightRef, "rightRef"));
+  const { ahead, behind } = await aheadBehindCounts(root, leftCommit, rightCommit);
+  const bases = await runBoundedGit({ cwd: root, args: ["merge-base", "--all", leftCommit, rightCommit], rejectNonZero: false });
+  if (bases.exitCode !== 0 && bases.exitCode !== 1) throw gitPrecondition("Git could not inspect merge bases.");
+  const mergeBases = bases.stdout.trim().split(/\s+/).filter(Boolean).map(exactRefCommit);
+  if (mergeBases.length > 100) throw gitPrecondition("Merge-base inventory exceeds its bound.");
+  return { leftCommit, rightCommit, ahead, behind, mergeBases, leftIsAncestorOfRight: ahead === 0, rightIsAncestorOfLeft: behind === 0 };
+}
+
+export async function listGitTags(root: string) {
+  const output = await runRefGit(root, ["for-each-ref", "--format=%(refname:strip=2)%00%(objecttype)%00%(objectname)%00%(*objecttype)%00%(*objectname)", "refs/tags"]);
+  const refs = output.stdout.split(/\r?\n/).filter(Boolean);
+  if (refs.length > 1000) throw gitPrecondition("Tag inventory exceeds its bound.");
+  const tags = [];
+  const deadline = Date.now() + 15_000;
+  for (const row of refs) {
+    const [tagName, kind, object, peeledKind, peeledObject] = row.split("\0");
+    if (Date.now() > deadline) throw gitPrecondition("Tag inventory exceeded its deadline.");
+    const targetCommit = kind === "commit" ? object : peeledKind === "commit" ? peeledObject : await resolveCommit(root, `refs/tags/${tagName}`);
+    tags.push({ tagName, tagType: kind === "tag" ? "annotated" as const : "lightweight" as const, targetCommit });
+  }
+  return { tags };
+}
+
+export async function inspectGitRemotes(root: string) {
+  const remotes = await configuredRemoteNames(root);
+  const tracking = (await runRefGit(root, ["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/remotes"])).stdout;
+  const mappings = (await runRefGit(root, ["for-each-ref", "--format=%(refname:strip=2)%00%(upstream)", "refs/heads"])).stdout;
+  return { remotes,
+    remoteTrackingRefs: tracking.split(/\r?\n/).filter(Boolean).map(line => { const [ref, commit] = line.split("\0"); return { ref, commit }; }),
+    upstreams: mappings.split(/\r?\n/).filter(Boolean).map(line => { const [branchName, upstream] = line.split("\0"); return { branchName, upstream: upstream || null }; }),
+  };
+}
+
+export async function unstageGitChanges(root: string, paths: string[]) {
+  const unstagedPaths = containedGitPaths(root, paths);
+  const head = await runBoundedGit({ cwd: root, args: ["rev-parse", "--verify", "--quiet", "HEAD"], rejectNonZero: false });
+  if (head.exitCode === 0) {
+    await runRefGit(root, ["restore", "--staged", `--source=${exactRefCommit(head.stdout.trim())}`, "--", ...unstagedPaths]);
+  } else if (head.exitCode === 1) {
+    await runRefGit(root, ["rm", "--cached", "--force", "--ignore-unmatch", "-r", "--", ...unstagedPaths]);
+  } else throw gitPrecondition("Git could not inspect HEAD before unstaging.");
+  return { unstagedPaths };
+}
+
+export async function restoreGitFiles(root: string, input: { paths: string[]; sourceRef?: string }) {
+  const restoredPaths = containedGitPaths(root, input.paths);
+  const sourceCommit = await resolveCommit(root, validateRevision(input.sourceRef ?? "HEAD", "sourceRef"));
+  for (const selected of restoredPaths) {
+    if (selected === "." || /[*?\[\]{}]/.test(selected) || selected.split("/").some(p => p === ".git" || p === ".")) {
+      throw new AgentHarnessError("PATH_DENIED", "Restore requires explicit tracked file paths.");
+    }
+    let current = root;
+    for (const segment of selected.split("/")) {
+      current = path.join(current, segment);
+      let stat: fs.Stats | null = null;
+      try { stat = fs.lstatSync(current); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw gitPrecondition("Restore path could not be inspected."); }
+      if (stat?.isSymbolicLink()) throw new AgentHarnessError("PATH_DENIED", "Restore cannot traverse symlinks.");
+    }
+    if (fs.existsSync(current) && !fs.lstatSync(current).isFile()) throw new AgentHarnessError("PATH_DENIED", "Restore requires regular tracked files.");
+    const index = (await runRefGit(root, ["--literal-pathspecs", "ls-files", "--stage", "-z", "--", selected])).stdout.split("\0").filter(Boolean);
+    if (index.length !== 1 || !/^100(?:644|755) [a-f0-9]+ 0\t/.test(index[0]) || index[0].slice(index[0].indexOf("\t") + 1) !== selected) {
+      throw gitPrecondition("Every restore path must be an ordinary tracked, unconflicted file.");
+    }
+    const source = (await runRefGit(root, ["--literal-pathspecs", "ls-tree", "-z", sourceCommit, "--", selected])).stdout;
+    if (source && !/^100(?:644|755) blob [a-f0-9]+\t/.test(source)) throw gitPrecondition("Restore source must contain ordinary files or a tracked deletion.");
+  }
+  await runRefGit(root, ["--literal-pathspecs", "restore", "--worktree", `--source=${sourceCommit}`, "--", ...restoredPaths]);
+  return { restoredPaths, sourceCommit };
+}
+
+function containedGitPaths(root: string, paths: string[]): string[] {
+  const normalized = normalizePathspecs(paths);
+  for (const filename of normalized) resolveRepositoryPath(root, filename, { allowMissingLeaf: true });
+  return normalized;
+}
+
+function safeGitMetadata(root: string, value: string): string {
+  return value.replaceAll(root, "<PROJECT_REPO>")
+    .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[redacted]@")
+    .replace(/\b[A-Z]:[\\/][^\s"<>]+|\/(?:Users|home|tmp)\/[^\s"<>]+/gi, "<LOCAL_PATH>");
 }
 
 export async function prepareGitBranch(root: string, branchName: string): Promise<{

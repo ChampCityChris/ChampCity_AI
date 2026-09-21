@@ -23,6 +23,7 @@ import {
   writeTextArtifact,
 } from "../repository/repositoryOperations";
 import {
+  inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
   createGitBranchFromRef,
   advanceGitBranchRef,
   renameGitBranch,
@@ -127,6 +128,8 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "unstage_changes"
+  | "restore_files"
   | "create_branch_from_ref"
   | "advance_branch_ref"
   | "rename_branch"
@@ -490,7 +493,19 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
         gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root, context.gitBacked)),
-        gitInspectionAction("diff", {}, ({ context }) => gitDiff(context.root, context.gitBacked)),
+        gitInspectionAction("diff", {
+          view: { type: "string", allowedValues: ["unstaged", "staged", "between_refs"] },
+          ...optionalParams({ baseRef: "string", targetRef: "string", paths: "string-array" }),
+        }, ({ context, params }) => gitDiff(context.root, context.gitBacked, {
+          view: stringValue(params.view) as "unstaged" | "staged" | "between_refs" | undefined,
+          baseRef: stringValue(params.baseRef), targetRef: stringValue(params.targetRef),
+          paths: params.paths === undefined ? undefined : requiredStringArray(params.paths, "paths"),
+        })),
+        gitInspectionAction("changed_files", {}, ({ context }) => inspectGitChangedFiles(context.root)),
+        gitInspectionAction("inspect_commit", { ...requiredParams({ ref: "string" }), ...optionalParams({ includePatch: "boolean" }) }, ({ context, params }) => inspectGitCommit(context.root, { ref: requiredString(params.ref, "ref"), includePatch: booleanValue(params.includePatch) })),
+        gitInspectionAction("compare_refs", requiredParams({ leftRef: "string", rightRef: "string" }), ({ context, params }) => compareGitRefs(context.root, { leftRef: requiredString(params.leftRef, "leftRef"), rightRef: requiredString(params.rightRef, "rightRef") })),
+        gitInspectionAction("list_tags", {}, ({ context }) => listGitTags(context.root)),
+        gitInspectionAction("inspect_remotes", {}, ({ context }) => inspectGitRemotes(context.root)),
         gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("readiness_summary", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("inspect_branch_state", optionalParams({ branchName: "string" }), ({ context, params }) => (
@@ -543,6 +558,8 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           ...optionalParams({ remote: "string" }),
         }),
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("unstage_changes", requiredParams({ paths: "string-array" })),
+        gitMutationAction("restore_files", { ...requiredParams({ paths: "string-array" }), ...optionalParams({ sourceRef: "string" }) }),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
         gitMutationAction("commit", requiredParams({ message: "string" })),
         gitMutationAction("push", optionalParams({ remote: "string", branch: "string", expectedCommit: "string", remoteBranch: "string", setUpstream: "boolean" })),
@@ -903,6 +920,10 @@ function gitMutationAction(
           });
         case "delete_branch":
           return deleteGitBranch(context.root, requiredString(values.branchName, "branchName"));
+        case "unstage_changes":
+          return unstageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
+        case "restore_files":
+          return restoreGitFiles(context.root, { paths: requiredStringArray(values.paths, "paths"), sourceRef: stringValue(values.sourceRef) });
         case "stage_changes":
           return stageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
         case "commit":

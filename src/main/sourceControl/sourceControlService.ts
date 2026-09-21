@@ -3,6 +3,7 @@ import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/boundedGit";
 import {
+  inspectGitDiff, inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
   createGitBranchFromRef, advanceGitBranchRef, renameGitBranch, setGitBranchUpstream, unsetGitBranchUpstream, deleteGitRemoteBranch,
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
   inspectGitBranchState, inspectGitHistory, prepareGitBranch, pushGitBranch,
@@ -12,7 +13,7 @@ import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/reposit
 import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../agentHarness/repository/integrationGit";
 import { commitIntegrationRepair, integrationRepairDiffs, snapshotIntegrationRepair } from "../agentHarness/repository/integrationRepairGit";
 import type {
-  SourceControlChangedFile, SourceControlOperation, SourceControlPosition,
+  SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
 
@@ -80,34 +81,7 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     }
   }
 
-  async function changedFiles(): Promise<SourceControlChangedFile[]> {
-    const output = await runBoundedGit({
-      cwd: root, args: ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
-    });
-    const records = output.stdout.split("\0");
-    if (records.pop() !== "") {
-      throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Git returned incomplete changed-file evidence.");
-    }
-    const files: SourceControlChangedFile[] = [];
-    for (let index = 0; index < records.length; index += 1) {
-      const record = records[index];
-      if (record.length < 4 || record[2] !== " ") {
-        throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Git returned invalid changed-file evidence.");
-      }
-      const file: SourceControlChangedFile = {
-        path: record.slice(3), indexStatus: record[0], worktreeStatus: record[1],
-      };
-      if (/[RC]/.test(record.slice(0, 2))) {
-        const originalPath = records[++index];
-        if (!originalPath) {
-          throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Git returned incomplete rename evidence.");
-        }
-        file.originalPath = originalPath;
-      }
-      files.push(file);
-    }
-    return files;
-  }
+  const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
     snapshotIntegrationRepair: (candidateId: string, editablePaths: string[]) => run("integration-repair-snapshot", false, () => snapshotIntegrationRepair(root, candidateId, editablePaths)),
@@ -132,10 +106,15 @@ export function createSourceControlService(binding: { repositoryId: string; repo
       run("history", false, () => inspectGitHistory(root, input)),
     diff: () => run("diff", false, async () => ({
       unstaged: (await gitDiff(root, true)).diff,
-      staged: (await runBoundedGit({
-        cwd: root, args: ["--no-pager", "diff", "--cached", "--no-ext-diff", "--no-textconv", "--", "."],
-      })).stdout,
+      staged: (await inspectGitDiff(root, { view: "staged" })).diff,
     })),
+    inspectDiff: (input: Parameters<typeof inspectGitDiff>[1] = {}) => run("diff", false, () => inspectGitDiff(root, input)),
+    inspectCommit: (input: Parameters<typeof inspectGitCommit>[1]) => run("inspect-commit", false, () => inspectGitCommit(root, input)),
+    compareRefs: (input: Parameters<typeof compareGitRefs>[1]) => run("compare-refs", false, () => compareGitRefs(root, input)),
+    listTags: () => run("list-tags", false, () => listGitTags(root)),
+    inspectRemotes: () => run("inspect-remotes", false, () => inspectGitRemotes(root)),
+    unstage: (paths: string[]) => run("unstage", true, () => unstageGitChanges(root, paths)),
+    restoreFiles: (input: Parameters<typeof restoreGitFiles>[1]) => run("restore-files", true, () => restoreGitFiles(root, input)),
     changedFiles: () => run("changed-files", false, changedFiles),
     readiness: () => run("readiness", false, async () => {
       const status = await gitStatus(root, true);

@@ -5,6 +5,7 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
+  | "inspect-commit" | "compare-refs" | "list-tags" | "inspect-remotes" | "unstage" | "restore-files"
   | "create-branch-from-ref"
   | "advance-branch-ref"
   | "rename-branch"
