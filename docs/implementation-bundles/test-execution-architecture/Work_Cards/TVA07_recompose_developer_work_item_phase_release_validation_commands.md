@@ -80,8 +80,8 @@ The full profile is run once as migration acceptance, not repeatedly during impl
 
 ## Implementer Report
 
-Provide old/new command table, workflow/profile mapping, docs changed, one measured example of each primary command, tests/commands/results, and checkpoint commit.
+Provide old/new command table, workflow/profile mapping, docs changed, one measured example of each primary command, tests/commands/results,.
 
 ## Post-Implementation
 
-Checkpoint TVA07 only, then read TVA08.
+After implementation, validation, and report completion, read TVA08. Do not pause for source-control mechanics.

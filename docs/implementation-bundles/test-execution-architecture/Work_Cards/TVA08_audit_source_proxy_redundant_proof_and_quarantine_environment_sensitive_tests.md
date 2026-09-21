@@ -54,8 +54,8 @@ This card is not a test-count reduction exercise.
 
 ## Implementer Report
 
-Include a disposition table for every touched/retired/moved test, replacement proof, reason, commands/results, resulting capability-map changes, and checkpoint commit.
+Include a disposition table for every touched/retired/moved test, replacement proof, reason, commands/results, resulting capability-map changes,.
 
 ## Post-Implementation
 
-Checkpoint TVA08 only, then read TVA09.
+After implementation, validation, and report completion, read TVA09. Do not pause for source-control mechanics.

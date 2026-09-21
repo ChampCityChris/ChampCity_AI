@@ -100,8 +100,7 @@ Provide:
 - any remaining performance debt;
 - tests reused/extended/consolidated/retired/new;
 - exact commands/results;
-- final checkpoint commit.
 
 ## Completion
 
-Checkpoint TVA09 and return the entire TVA bundle for Architect review and integration. Do not tag or release.
+After TVA09 implementation, validation, and report completion, return the entire TVA bundle for Architect review. Do not tag, release, or perform repository integration.

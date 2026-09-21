@@ -77,8 +77,8 @@ Run build/static proof required by the changed scripts/modules, but do not run t
 
 ## Implementer Report
 
-Record catalog/profile schema, files changed, exact planning semantics, error behavior, tests reused/extended/new, command results, deviations/blockers, and checkpoint commit.
+Record catalog/profile schema, files changed, exact planning semantics, error behavior, tests reused/extended/new, command results, deviations/blockers,.
 
 ## Post-Implementation
 
-Checkpoint TVA01 only, then read TVA02.
+After implementation, validation, and report completion, read TVA02. Do not pause for source-control mechanics.

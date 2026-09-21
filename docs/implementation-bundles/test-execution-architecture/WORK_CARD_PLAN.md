@@ -4,6 +4,10 @@
 
 Implement the adopted test execution and validation architecture so routine implementation and integration use fast, capability-mapped proof while expensive Desktop, packaging, performance/soak, and full-regression evidence remain available at the correct workflow boundaries.
 
+## Execution Placement
+
+Astra implements this bundle in the repository context supplied by ChampCity. Source-control topology is outside the bundle's execution contract. Do not stop, pause, or alter implementation because of provider-specific repository placement, concurrent development, or integration bookkeeping. ChampCity/Operator-owned infrastructure handles placement and integration into `dev`.
+
 ## Governing Architecture and Evidence
 
 1. `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`

@@ -59,8 +59,8 @@ A full repository regression is not required by this bounded structural card.
 
 ## Implementer Report
 
-List every moved/split test case, old/new file, lane, preserved behavior mapping, measured/estimated duration updates, commands/results, and checkpoint commit.
+List every moved/split test case, old/new file, lane, preserved behavior mapping, measured/estimated duration updates, commands/results,.
 
 ## Post-Implementation
 
-Checkpoint TVA02 only, then read TVA03.
+After implementation, validation, and report completion, read TVA03. Do not pause for source-control mechanics.

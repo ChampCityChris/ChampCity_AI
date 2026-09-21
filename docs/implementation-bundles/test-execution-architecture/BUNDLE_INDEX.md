@@ -8,6 +8,10 @@
 4. `docs/implementation-bundles/test-execution-architecture/ASTRA_EXECUTION_MANIFEST.md`
 5. `docs/implementation-bundles/test-execution-architecture/WORK_CARD_PLAN.md`
 
+## Execution Placement
+
+This bundle is source-control-topology agnostic from the Implementer's perspective. Astra works in the repository context supplied for the run and does not manage or validate provider-specific repository placement. Concurrent integration into `dev` is handled outside the individual Work Cards.
+
 ## Execution Order
 
 1. `TVA01` — `Work_Cards/TVA01_make_capability_map_executable_and_establish_validation_profiles.md`

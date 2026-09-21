@@ -13,7 +13,7 @@ Use exact changed paths plus capability-map ownership to select the smallest com
 
 1. Implement changed-path → capability matching from catalog `sourcePatterns`.
 2. Accept exact changed repository-relative paths from:
-   - a Work Item/checkpoint change set; or
+   - a Work Item's attributed changed-path set; or
    - exact source-control revision diff supplied by application code.
 3. Include explicit Work Item capability scope when available; explicit scope may broaden but never weaken mechanically detected ownership.
 4. Traverse capability dependencies according to the catalog's declared graph and validated direction.
@@ -57,8 +57,8 @@ Run catalog/planner tests and representative selected test execution.
 
 ## Implementer Report
 
-Record matching/dependency algorithm, selection examples, failure behavior, files changed, tests/commands/results, and checkpoint commit.
+Record matching/dependency algorithm, selection examples, failure behavior, files changed, tests/commands/results,.
 
 ## Post-Implementation
 
-Checkpoint TVA05 only, then read TVA06.
+After implementation, validation, and report completion, read TVA06. Do not pause for source-control mechanics.

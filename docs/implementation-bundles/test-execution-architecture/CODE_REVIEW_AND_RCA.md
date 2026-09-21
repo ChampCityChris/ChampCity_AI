@@ -22,6 +22,12 @@ integration candidate
 
 As a result, routine integration synchronously pays for unrelated expensive evidence including performance/soak and real process/Desktop behavior.
 
+## Implementer Execution Boundary
+
+The RCA necessarily references Git/source-control mechanics because they were visible in the incident. Those references are explanatory evidence, not execution instructions for Astra.
+
+Astra's implementation task is code, tests, validation behavior, and reporting in the repository context supplied by ChampCity. Provider-specific repository placement, concurrent source topology, and integration into `dev` are external infrastructure concerns and must not become card preconditions or stop conditions.
+
 ## Code Review Findings
 
 ### CRITICAL — Integration policy requires full repository regression for every candidate
@@ -48,7 +54,7 @@ and every listed check is in `requiredIntegrationChecks`.
 
 Impact:
 
-- every ordinary hotfix, Repair, feature, and isolated branch integration pays for repository-wide regression;
+- every ordinary hotfix, Repair, feature, and isolated work integration pays for repository-wide regression;
 - integration latency grows with the entire repository rather than the affected behavior;
 - expensive tests become a hard source-control critical path;
 - concurrent agent throughput collapses at integration even if implementation itself is parallel.
@@ -353,7 +359,7 @@ integration latency
 
 Because all test files are serial, adding an unrelated new test makes every future integration slower.
 
-That is structurally unsustainable for the intended multi-agent model. Five agents can implement concurrently, but if each completed branch must queue behind a 10–30 minute global regression, the integration gate becomes the throughput bottleneck.
+That is structurally unsustainable for the intended multi-agent model. Five agents can implement concurrently, but if each completed implementation must queue behind a 10–30 minute global regression, the integration gate becomes the throughput bottleneck.
 
 ## Target State
 

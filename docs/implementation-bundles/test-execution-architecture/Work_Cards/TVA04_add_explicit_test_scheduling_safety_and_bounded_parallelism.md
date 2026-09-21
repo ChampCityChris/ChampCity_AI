@@ -65,8 +65,8 @@ Do not benchmark by reducing assertions or lowering waits that are themselves th
 
 ## Implementer Report
 
-Document classification vocabulary, file classifications changed, chosen concurrency ceiling and evidence, before/after representative timings, flake observations, commands/results, and checkpoint commit.
+Document classification vocabulary, file classifications changed, chosen concurrency ceiling and evidence, before/after representative timings, flake observations, commands/results,.
 
 ## Post-Implementation
 
-Checkpoint TVA04 only, then read TVA05.
+After implementation, validation, and report completion, read TVA05. Do not pause for source-control mechanics.

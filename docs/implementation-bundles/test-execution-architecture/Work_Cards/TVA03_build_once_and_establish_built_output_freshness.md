@@ -60,8 +60,8 @@ Focused validation runner tests plus:
 
 ## Implementer Report
 
-Record previous/new command graph, duplicate work removed, freshness mechanism, measured build counts, tests/commands/results, and checkpoint commit.
+Record previous/new command graph, duplicate work removed, freshness mechanism, measured build counts, tests/commands/results,.
 
 ## Post-Implementation
 
-Checkpoint TVA03 only, then read TVA04.
+After implementation, validation, and report completion, read TVA04. Do not pause for source-control mechanics.

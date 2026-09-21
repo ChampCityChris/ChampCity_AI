@@ -24,7 +24,7 @@ Replace the routine integration full-regression check with a target-owned, candi
    - target revision;
    - incoming revision;
    - candidate revision;
-   - target branch/source line;
+   - target integration identity;
    - supported platform/environment facts required by planner.
 4. Compute target→candidate changed paths mechanically through application-owned source-control code.
 5. Use TVA05 planner to create the `integration-gate` plan.
@@ -45,7 +45,7 @@ Replace the routine integration full-regression check with a target-owned, candi
 - No candidate advances without all selected required checks passing.
 - Candidate selection is based on exact immutable revisions, not working-tree guesses.
 - Unknown changed source blocks planning/integration.
-- An incoming branch cannot weaken the target-owned validation profile that judges it.
+- Incoming implementation changes cannot weaken the target-owned validation profile that judges them.
 - Integration Repair revalidation uses the same profile identity and candidate-aware plan semantics.
 
 ## Acceptance Criteria
@@ -78,8 +78,8 @@ Do not use the legacy monolithic full suite as the only proof that the new gate 
 
 ## Implementer Report
 
-Include old/new policy composition, exact selected plans for representative candidates, target-policy safety proof, measured integration-gate duration, excluded lanes with reasons, commands/results, and checkpoint commit.
+Include old/new policy composition, exact selected plans for representative candidates, target-policy safety proof, measured integration-gate duration, excluded lanes with reasons, commands/results,.
 
 ## Post-Implementation
 
-Checkpoint TVA06 only, then read TVA07.
+After implementation, validation, and report completion, read TVA07. Do not pause for source-control mechanics.
