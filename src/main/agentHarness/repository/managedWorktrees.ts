@@ -3,7 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { AgentHarnessError } from "../core/errors";
 import { runBoundedGit } from "./boundedGit";
-import { createGitBranchFromRef, inspectGitBranchState, inspectGitHistory } from "./gitMutations";
+import { createGitBranchFromRef, inspectGitBranchState, inspectGitHistory, inspectGitChangedFiles } from "./gitMutations";
 import type { AgentHarnessWorkspaceContext } from "../workspace/workspaceAccess";
 
 export interface ManagedWorkspaceStore {
@@ -142,5 +142,20 @@ export async function removeManagedWorktree(root: string, input: { workspaceId: 
     try { await managedGit(root, ["worktree", "remove", state.root]); }
     catch (error) { await store.registerManaged(state.root, state.commonDirectory, state.checkoutName); throw error; }
     return { workspaceId: input.workspaceId, removed: true, branchName: state.branchName, headCommit: state.headCommit };
+  });
+}
+
+export async function discardManagedWorktree(root: string, input: { workspaceId: string; expectedBranch: string; confirmDiscard: boolean }, store: ManagedWorkspaceStore) {
+  if (input.confirmDiscard !== true) throw fail("Managed worktree discard requires confirmDiscard=true.");
+  return withManagedRepositoryLock(root, async () => {
+    const state = await resolveManagedCheckout(root, input.workspaceId, store);
+    if (path.resolve(root) === state.root || state.branchName !== input.expectedBranch) throw fail("Discard requires another managed checkout at the exact expected branch.");
+    const changedFiles = await inspectGitChangedFiles(state.root);
+    const ignoredPaths = (await managedGit(state.root, ["ls-files", "--others", "--ignored", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
+    if (changedFiles.length > 256 || ignoredPaths.length > 256) throw fail("Discard evidence exceeds the bounded path limit.");
+    store.unregister(input.workspaceId);
+    try { await managedGit(root, ["worktree", "remove", "--force", state.root]); }
+    catch (error) { await store.registerManaged(state.root, state.commonDirectory, state.checkoutName); throw error; }
+    return { workspaceId: input.workspaceId, discarded: true, branchName: state.branchName, headCommit: state.headCommit, changedFiles, ignoredPaths };
   });
 }

@@ -270,6 +270,20 @@ async function assertBranchCheckoutState(root: string, name: string, allowCurren
   const matches = output.stdout.split("\0").filter((field) => field === `branch refs/heads/${name}`);
   const permitted = allowCurrent && await currentBranchOrNull(root) === name ? 1 : 0;
   if (matches.length > permitted) throw gitPrecondition("Branch is checked out in a conflicting worktree.");
+  const detached = output.stdout.split("\0\0").map((entry) => entry.split("\0")).filter((entry) => entry.includes("detached"));
+  if (detached.length > 256) throw gitPrecondition("Worktree ownership exceeds its bound.");
+  for (const record of detached) {
+    const checkout = record.find((entry) => entry.startsWith("worktree "))?.slice(9);
+    if (!checkout) throw gitPrecondition("Detached checkout identity is unavailable.");
+    for (const backend of ["rebase-merge", "rebase-apply"]) {
+      const marker = path.resolve(checkout, (await runRefGit(checkout, ["rev-parse", "--git-path", backend + "/head-name"])).stdout.trim());
+      if (fs.existsSync(marker)) {
+        const stat = fs.lstatSync(marker);
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4096) throw gitPrecondition("Rebase branch ownership cannot be verified.");
+        if (fs.readFileSync(marker, "utf8").trim() === "refs/heads/" + name) throw gitPrecondition("Branch is owned by an active worktree rebase.");
+      }
+    }
+  }
 }
 
 function exactRefCommit(value: string): string {
@@ -459,6 +473,103 @@ function safeGitMetadata(root: string, value: string): string {
     .replace(/\b[A-Z]:[\\/][^\s"<>]+|\/(?:Users|home|tmp)\/[^\s"<>]+/gi, "<LOCAL_PATH>");
 }
 
+export async function inspectGitReflog(root: string, input: { ref?: string; maxCount?: number } = {}) {
+  const ref = validateRevision(input.ref ?? "HEAD", "ref");
+  if (/[~^:@{}\s]/.test(ref)) throw gitPrecondition("Reflog inspection requires HEAD or one named ref.");
+  await resolveCommit(root, ref);
+  const maxCount = validateHistoryCount(input.maxCount);
+  const output = (await runRefGit(root, ["reflog", "show", `--max-count=${maxCount + 1}`, "--date=iso-strict", "--format=%H%x00%gD%x00%gs", ref, "--"])).stdout;
+  const rows = output.split(/\r?\n/).filter(Boolean).map((line) => line.split("\0"));
+  return { ref, entries: rows.slice(0, maxCount).map(([commit, datedSelector, message], index) => ({
+    newCommit: exactRefCommit(commit), oldCommit: rows[index + 1] ? exactRefCommit(rows[index + 1][0]) : null,
+    index, selector: safeGitMetadata(root, `${ref}@{${index}}`), timestamp: /@\{([^}]+)\}$/.exec(datedSelector)?.[1] ?? null,
+    message: safeGitMetadata(root, message ?? "").replace(/\b(?:https?|ssh):\/\/\S+/gi, "<REMOTE>").replace(/\b(?:gh[pousr]_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{16,})\b/g, "[redacted]").replace(/\b(token|password|secret|api[_-]?key)=\S+/gi, "$1=[redacted]").replace(/(?:^|\s)\/[^\s]+/g, " <LOCAL_PATH>").slice(0, 1000),
+  })) };
+}
+
+export async function replaceGitBranchRef(root: string, input: { branchName: string; expectedCurrentCommit: string; sourceRef: string }) {
+  await assertExistingDirectBranch(root, input.branchName);
+  const previousCommit = exactRefCommit(input.expectedCurrentCommit);
+  if (await resolveCommit(root, `refs/heads/${input.branchName}`) !== previousCommit) throw gitPrecondition("Branch changed before ref replacement.");
+  const commit = await resolveCommit(root, validateRevision(input.sourceRef, "sourceRef"));
+  const forward = await runBoundedGit({ cwd: root, args: ["merge-base", "--is-ancestor", previousCommit, commit], rejectNonZero: false });
+  const backward = await runBoundedGit({ cwd: root, args: ["merge-base", "--is-ancestor", commit, previousCommit], rejectNonZero: false });
+  if (![0, 1].includes(forward.exitCode ?? -1) || ![0, 1].includes(backward.exitCode ?? -1)) throw gitPrecondition("Cannot determine ref replacement ancestry.");
+  await assertBranchCheckoutState(root, input.branchName, false);
+  await runRefGit(root, ["update-ref", "--no-deref", "--create-reflog", "-m", "ChampCity explicit branch replacement", `refs/heads/${input.branchName}`, commit, previousCommit]);
+  return { branchName: input.branchName, previousCommit, commit, movement: forward.exitCode === 0 ? "fast-forward" as const : backward.exitCode === 0 ? "rewind" as const : "divergent" as const };
+}
+
+export async function pushGitWithLease(root: string, input: { remote: string; localBranch: string; remoteBranch: string; expectedLocalCommit: string; expectedRemoteCommit: string; setUpstream?: boolean }) {
+  const remote = await assertConfiguredRemote(root, input.remote);
+  await assertExistingDirectBranch(root, input.localBranch);
+  await assertValidBranchRefName(root, input.remoteBranch, "remoteBranch");
+  const commit = exactRefCommit(input.expectedLocalCommit);
+  const previousRemoteCommit = exactRefCommit(input.expectedRemoteCommit);
+  if (input.setUpstream !== undefined && typeof input.setUpstream !== "boolean") throw gitPrecondition("setUpstream must be boolean.");
+  await assertSingleRemoteDestination(root, remote);
+  const ref = `refs/heads/${input.remoteBranch}`;
+  if (await inspectRemoteBranchCommit(root, remote, ref) !== previousRemoteCommit) throw gitPrecondition("Remote branch changed before lease push.");
+  if (await resolveCommit(root, `refs/heads/${input.localBranch}`) !== commit) throw gitPrecondition("Local branch changed before lease push.");
+  await runRefGit(root, ["push", "--no-follow-tags", "--no-mirror", `--force-with-lease=${ref}:${previousRemoteCommit}`, "--", remote, `${commit}:${ref}`]);
+  const remoteCommit = await inspectRemoteBranchCommit(root, remote, ref);
+  if (remoteCommit !== commit) throw gitPrecondition("Push finished but remote endpoint verification failed; inspect before retrying.");
+  if (input.setUpstream) await setGitBranchUpstream(root, { branchName: input.localBranch, remote, remoteBranch: input.remoteBranch });
+  return { remote, localBranch: input.localBranch, remoteBranch: input.remoteBranch, previousRemoteCommit, remoteCommit, commit, ...(input.setUpstream ? { upstream: `${remote}/${input.remoteBranch}` } : {}) };
+}
+
+export async function deleteGitUntrackedPaths(root: string, paths: string[]) {
+  const selected = containedGitPaths(root, paths);
+  const deny = () => new AgentHarnessError("PATH_DENIED", "Untracked deletion requires exact ordinary untracked, nonignored paths without repository metadata or symlinks.");
+  for (const entry of selected) {
+    if (entry === "." || /[*?\[\]{}\r\n]/.test(entry) || entry.split("/").some((part) => part === "." || /^\.git(?:$|ignore$|attributes$|modules$)/i.test(part))) throw deny();
+    if (selected.some((other) => other !== entry && entry.startsWith(other + "/"))) throw deny();
+    let current = root;
+    for (const part of entry.split("/")) {
+      if (!fs.readdirSync(current).includes(part)) throw deny();
+      current = path.join(current, part);
+      if (fs.lstatSync(current).isSymbolicLink()) throw deny();
+    }
+  }
+  const tracked = await runRefGit(root, ["--literal-pathspecs", "ls-files", "--cached", "-z", "--", ...selected]);
+  if (tracked.stdout) throw deny();
+  const head = await runBoundedGit({ cwd: root, args: ["rev-parse", "--verify", "HEAD"], rejectNonZero: false });
+  if (head.exitCode === 0 && (await runRefGit(root, ["--literal-pathspecs", "ls-tree", "-r", "--name-only", "-z", exactRefCommit(head.stdout.trim()), "--", ...selected])).stdout) throw deny();
+  const ignored = await runBoundedGit({ cwd: root, args: ["check-ignore", "--no-index", "--", ...selected], rejectNonZero: false });
+  if (ignored.exitCode !== 1 || (await runRefGit(root, ["--literal-pathspecs", "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ...selected])).stdout) throw deny();
+  const entries: Array<{ relativePath: string; stat: fs.Stats }> = [];
+  const deadline = Date.now() + 15_000;
+  const visit = (relativePath: string, depth: number) => {
+    if (depth > 64 || entries.length >= 4096 || Date.now() > deadline || relativePath.length > 4096 || relativePath.split("/").some((part) => /^\.git(?:$|ignore$|attributes$|modules$)/i.test(part))) throw deny();
+    const resolved = resolveRepositoryPath(root, relativePath);
+    const stat = fs.lstatSync(resolved.requestedPath);
+    if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) throw deny();
+    entries.push({ relativePath, stat });
+    if (stat.isDirectory()) for (const child of fs.readdirSync(resolved.requestedPath)) visit(`${relativePath}/${child}`, depth + 1);
+  };
+  for (const entry of selected) visit(entry, 0);
+  // Check ignored empty directories too; ls-files only reports file entries.
+  const directories = entries.filter((entry) => entry.stat.isDirectory()).map((entry) => entry.relativePath);
+  for (let index = 0; index < directories.length; index += 32) {
+    if (Date.now() > deadline) throw deny();
+    const ignoredDirectory = await runBoundedGit({ cwd: root, args: ["check-ignore", "--no-index", "--", ...directories.slice(index, index + 32)], rejectNonZero: false });
+    if (ignoredDirectory.exitCode !== 1) throw deny();
+  }
+  // All selections have passed before the first deletion; never use recursive removal.
+  for (const entry of entries) {
+    const resolved = resolveRepositoryPath(root, entry.relativePath);
+    if (resolved.requestedPath !== resolved.resolvedPath) throw deny();
+    const current = fs.lstatSync(resolved.requestedPath);
+    if (current.isSymbolicLink() || current.dev !== entry.stat.dev || current.ino !== entry.stat.ino || current.mtimeMs !== entry.stat.mtimeMs || current.size !== entry.stat.size) throw deny();
+  }
+  for (const entry of [...entries].reverse()) {
+    const resolved = resolveRepositoryPath(root, entry.relativePath);
+    if (resolved.requestedPath !== resolved.resolvedPath) throw deny();
+    if (fs.lstatSync(resolved.requestedPath).isSymbolicLink()) throw deny();
+    if (entry.stat.isDirectory()) fs.rmdirSync(resolved.requestedPath); else fs.unlinkSync(resolved.requestedPath);
+  }
+  return { deletedPaths: selected, deletedFiles: entries.filter((entry) => entry.stat.isFile()).map((entry) => entry.relativePath) };
+}
 export async function prepareGitBranch(root: string, branchName: string): Promise<{
   branchName: string;
   head: string;

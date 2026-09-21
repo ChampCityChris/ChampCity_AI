@@ -5,6 +5,7 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
+  | "inspect-reflog" | "replace-branch-ref" | "push-with-lease" | "delete-untracked-paths" | "discard-managed-worktree" | "isolated-skip"
   | "isolated-begin" | "isolated-inspect" | "isolated-continue" | "isolated-abort" | "isolated-advance"
   | "amend-commit" | "revert-commit" | "cherry-pick-commit"
   | "inspect-commit" | "compare-refs" | "list-tags" | "inspect-remotes" | "unstage" | "restore-files"

@@ -3,10 +3,10 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { AgentHarnessError } from "../core/errors";
 import { runBoundedGit } from "./boundedGit";
-import { advanceGitBranchRef, assertNoGitOperation, inspectGitBranchState, inspectGitHistory, inspectGitOperationState, inspectGitCheckout, resolveGitTransformCommit } from "./gitMutations";
+import { replaceGitBranchRef, advanceGitBranchRef, assertNoGitOperation, inspectGitBranchState, inspectGitHistory, inspectGitOperationState, inspectGitCheckout, resolveGitTransformCommit } from "./gitMutations";
 import { commonGitDirectory, createManagedWorktree, managedGit, managedWorkspaceId, resolveManagedCheckout, type ManagedWorkspaceStore } from "./managedWorktrees";
 
-export type IsolatedOperationKind = "merge" | "cherry-pick" | "revert";
+export type IsolatedOperationKind = "merge" | "cherry-pick" | "revert" | "rebase";
 interface OperationRecord {
   operationId: string; operation: IsolatedOperationKind; targetBranch: string; targetCommit: string; sourceCommit: string;
   workspaceId: string; temporaryBranch: string; checkoutName: string; mainline?: number;
@@ -40,7 +40,7 @@ async function loadRecord(root: string, operationId: string): Promise<OperationR
   if (!match) throw fail("Isolated operation record is invalid.");
   const record = JSON.parse(match[1]) as OperationRecord;
   const common = await commonGitDirectory(root);
-  if (record.operationId !== operationId || !["merge", "cherry-pick", "revert"].includes(record.operation)
+  if (record.operationId !== operationId || !["merge", "cherry-pick", "revert", "rebase"].includes(record.operation)
     || record.checkoutName !== `op-${operationId}` || record.temporaryBranch !== `champcity-mcp/op-${operationId}`
     || record.workspaceId !== managedWorkspaceId(common, record.checkoutName)
     || !/^[a-f0-9]{40,64}$/.test(record.targetCommit) || !/^[a-f0-9]{40,64}$/.test(record.sourceCommit)
@@ -51,11 +51,26 @@ async function loadRecord(root: string, operationId: string): Promise<OperationR
 }
 async function ownedCheckout(root: string, record: OperationRecord, store: ManagedWorkspaceStore) {
   const checkout = await resolveManagedCheckout(root, record.workspaceId, store);
-  if (checkout.branchName !== record.temporaryBranch || checkout.checkoutName !== record.checkoutName) throw fail("Operation checkout ownership changed.");
+  if (checkout.checkoutName !== record.checkoutName) throw fail("Operation checkout ownership changed.");
+  if (checkout.branchName !== record.temporaryBranch) {
+    if (record.operation !== "rebase" || checkout.branchName !== null) throw fail("Operation branch ownership changed.");
+    await verifyRebaseState(checkout.root, record);
+  }
   return checkout;
 }
+async function verifyRebaseState(checkoutRoot: string, record: OperationRecord) {
+  const directory = path.resolve(checkoutRoot, (await managedGit(checkoutRoot, ["rev-parse", "--git-path", "rebase-merge"])).trim());
+  if (!fs.existsSync(directory) || fs.lstatSync(directory).isSymbolicLink() || !fs.lstatSync(directory).isDirectory()) throw fail("Expected managed rebase state is unavailable.");
+  const field = (name: string) => {
+    const target = path.join(directory, name);
+    const stat = fs.lstatSync(target);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4096) throw fail("Invalid rebase ownership metadata.");
+    return fs.readFileSync(target, "utf8").trim();
+  };
+  if (field("head-name") !== "refs/heads/" + record.temporaryBranch || field("orig-head") !== record.targetCommit || field("onto") !== record.sourceCommit) throw fail("Rebase endpoints or ownership changed.");
+}
 function expectedMarker(record: OperationRecord) {
-  return record.operation === "merge" ? "MERGE_HEAD" : record.operation === "revert" ? "REVERT_HEAD" : "CHERRY_PICK_HEAD";
+  return record.operation === "rebase" ? "rebase-merge" : record.operation === "merge" ? "MERGE_HEAD" : record.operation === "revert" ? "REVERT_HEAD" : "CHERRY_PICK_HEAD";
 }
 async function inspectRecord(root: string, record: OperationRecord, store: ManagedWorkspaceStore) {
   if (record.state === "aborted") return { ...record, headCommit: record.candidateCommit, clean: true, conflictingPaths: [] as string[], operationActive: false, sequencerState: [] as string[] };
@@ -78,11 +93,11 @@ async function finishStep(root: string, record: OperationRecord, checkoutRoot: s
   return inspectRecord(root, record, store);
 }
 export async function beginIsolatedOperation(root: string, input: { operation: IsolatedOperationKind; targetBranch: string; sourceRef: string; expectedTargetCommit: string; mainline?: number }, store: ManagedWorkspaceStore) {
-  if (!["merge", "cherry-pick", "revert"].includes(input.operation)) throw fail("Unsupported isolated operation.");
+  if (!["merge", "cherry-pick", "revert", "rebase"].includes(input.operation)) throw fail("Unsupported isolated operation.");
   const target = await inspectGitBranchState(root, input.targetBranch);
   if (!/^[a-f0-9]{40,64}$/.test(input.expectedTargetCommit) || target.selectedBranch?.commit !== input.expectedTargetCommit) throw fail("Target branch changed before operation creation.");
-  if (input.operation === "merge" && input.mainline !== undefined) throw fail("Merge does not accept a mainline parent.");
-  const sourceCommit = input.operation === "merge" ? (await inspectGitHistory(root, { ref: input.sourceRef, maxCount: 1 })).resolvedCommit : (await resolveGitTransformCommit(root, { commit: input.sourceRef, mainline: input.mainline })).commit;
+  if ((input.operation === "merge" || input.operation === "rebase") && input.mainline !== undefined) throw fail("Merge does not accept a mainline parent.");
+  const sourceCommit = (input.operation === "merge" || input.operation === "rebase") ? (await inspectGitHistory(root, { ref: input.sourceRef, maxCount: 1 })).resolvedCommit : (await resolveGitTransformCommit(root, { commit: input.sourceRef, mainline: input.mainline })).commit;
   const operationId = randomBytes(16).toString("hex");
   const checkoutName = `op-${operationId}`;
   const temporaryBranch = `champcity-mcp/${checkoutName}`;
@@ -91,21 +106,23 @@ export async function beginIsolatedOperation(root: string, input: { operation: I
   try { await saveRecord(root, record); }
   catch { await cleanupOperation(root, record, store); throw fail("Operation record could not be persisted; candidate cleaned up."); }
   const checkout = await ownedCheckout(root, record, store);
-  const args = input.operation === "merge" ? ["merge", "--no-edit", "--no-stat", "--no-gpg-sign", sourceCommit]
+  const args = input.operation === "rebase" ? ["rebase", "--merge", "--no-autosquash", "--no-autostash", "--no-update-refs", "--no-rebase-merges", "--no-fork-point", "--no-gpg-sign", sourceCommit]
+    : input.operation === "merge" ? ["merge", "--no-edit", "--no-stat", "--no-gpg-sign", sourceCommit]
     : [input.operation, "--no-edit", "--no-gpg-sign", ...(input.mainline === undefined ? [] : ["--mainline", String(input.mainline)]), sourceCommit];
   let succeeded = false;
-  try { await managedGit(checkout.root, ["-c", "rerere.enabled=false", ...args]); succeeded = true; } catch { /* Preserve inspectable operation evidence. */ }
+  try { await managedGit(checkout.root, ["-c", "rerere.enabled=false", "-c", "core.editor=true", "-c", "sequence.editor=true", ...args]); succeeded = true; } catch { /* Preserve inspectable operation evidence. */ }
   return finishStep(root, record, checkout.root, succeeded, store);
 }
-export async function continueIsolatedOperation(root: string, operationId: string, store: ManagedWorkspaceStore) {
+async function continueIsolatedOperationImpl(root: string, operationId: string, store: ManagedWorkspaceStore) {
   const record = await loadRecord(root, operationId);
   if (["aborted", "advanced", "ready"].includes(record.state)) throw fail("Operation is not awaiting continuation.");
   const checkout = await ownedCheckout(root, record, store);
   const state = await inspectGitCheckout(checkout.root);
   if (state.conflictingPaths.length) throw fail("Stage every conflict resolution before continuing.");
   const markers = await inspectGitOperationState(checkout.root);
-  if (!markers.includes(expectedMarker(record)) || markers.some((entry) => ![expectedMarker(record), "sequencer"].includes(entry))) throw fail("Unexpected Git operation state; continuation refused.");
-  if (state.commit !== record.targetCommit || (await managedGit(checkout.root, ["rev-parse", "--verify", `${expectedMarker(record)}^{commit}`])).trim() !== record.sourceCommit) throw fail("Operation endpoints changed before continuation.");
+  if (!markers.includes(expectedMarker(record)) || markers.some((entry) => ![expectedMarker(record), "sequencer", ...(record.operation === "rebase" ? ["CHERRY_PICK_HEAD"] : [])].includes(entry))) throw fail("Unexpected Git operation state; continuation refused.");
+  if (record.operation === "rebase") await verifyRebaseState(checkout.root, record);
+  else if (state.commit !== record.targetCommit || (await managedGit(checkout.root, ["rev-parse", "--verify", expectedMarker(record) + "^{commit}"])).trim() !== record.sourceCommit) throw fail("Operation endpoints changed before continuation.");
   let succeeded = false;
   try {
     await managedGit(checkout.root, ["-c", "core.editor=true", "-c", "commit.gpgSign=false", record.operation, "--continue"]);
@@ -123,7 +140,7 @@ async function cleanupOperation(root: string, record: OperationRecord, store: Ma
   catch (error) { await store.registerManaged(checkout.root, checkout.commonDirectory, checkout.checkoutName); throw error; }
   await managedGit(root, ["update-ref", "--no-deref", "-d", `refs/heads/${record.temporaryBranch}`, head]);
 }
-export async function abortIsolatedOperation(root: string, operationId: string, store: ManagedWorkspaceStore) {
+async function abortIsolatedOperationImpl(root: string, operationId: string, store: ManagedWorkspaceStore) {
   const record = await loadRecord(root, operationId);
   if (record.state === "aborted") return { operationId, state: "aborted" as const, cleaned: true };
   if (record.state === "advanced") throw fail("The completed target advancement cannot be aborted.");
@@ -139,22 +156,44 @@ export async function abortIsolatedOperation(root: string, operationId: string, 
   await saveRecord(root, record);
   return { operationId, state: "aborted" as const, cleaned: true };
 }
-export async function advanceIsolatedOperation(root: string, input: { operationId: string; expectedTargetCommit: string; expectedCandidateCommit: string }, store: ManagedWorkspaceStore) {
+async function advanceIsolatedOperationImpl(root: string, input: { operationId: string; expectedTargetCommit: string; expectedCandidateCommit: string }, store: ManagedWorkspaceStore) {
   const record = await loadRecord(root, input.operationId);
   const state = await inspectRecord(root, record, store);
   if (state.state !== "ready" || input.expectedTargetCommit !== record.targetCommit || input.expectedCandidateCommit !== record.candidateCommit || state.headCommit !== record.candidateCommit) throw fail("Operation endpoints changed or candidate is not clean and complete.");
   const checkout = await ownedCheckout(root, record, store);
   await assertNoGitOperation(checkout.root);
-  if (record.operation === "merge") {
+  if (record.operation === "merge" || record.operation === "rebase") {
     const ancestry = await runBoundedGit({ cwd: root, args: ["merge-base", "--is-ancestor", record.sourceCommit, input.expectedCandidateCommit], rejectNonZero: false });
     if (ancestry.exitCode !== 0) throw fail("Merge candidate does not preserve source history.");
   } else {
     const parents = (await managedGit(root, ["show", "--no-patch", "--format=%P", input.expectedCandidateCommit])).trim();
     if (parents !== record.targetCommit) throw fail("Commit-transform candidate must be one commit after the captured target.");
   }
-  const advanced = await advanceGitBranchRef(root, { branchName: record.targetBranch, sourceRef: input.expectedCandidateCommit, expectedCurrentCommit: input.expectedTargetCommit });
+  const advanced = await (record.operation === "rebase" ? replaceGitBranchRef : advanceGitBranchRef)(root, { branchName: record.targetBranch, sourceRef: input.expectedCandidateCommit, expectedCurrentCommit: input.expectedTargetCommit });
   // Retain the clean candidate for evidence; explicit managed cleanup remains available.
   record.state = "advanced";
   await saveRecord(root, record);
   return { operationId: record.operationId, workspaceId: record.workspaceId, state: "advanced" as const, targetBranch: record.targetBranch, commit: advanced.commit };
 }
+
+async function skipIsolatedOperationStepImpl(root: string, operationId: string, store: ManagedWorkspaceStore) {
+  const record = await loadRecord(root, operationId);
+  if (record.operation !== "rebase" || ["ready", "advanced", "aborted"].includes(record.state)) throw fail("Skip requires an active isolated rebase.");
+  const checkout = await ownedCheckout(root, record, store);
+  await verifyRebaseState(checkout.root, record);
+  let succeeded = false;
+  try { await managedGit(checkout.root, ["-c", "core.editor=true", "-c", "commit.gpgSign=false", "rebase", "--skip"]); succeeded = true; } catch { /* Retain next conflict or recovery evidence. */ }
+  return finishStep(root, record, checkout.root, succeeded, store);
+}
+
+const operationLocks = new Map<string, Promise<unknown>>();
+async function withOperationLock<T>(root: string, operationId: string, action: () => Promise<T>): Promise<T> {
+  const key = (await commonGitDirectory(root)) + ":" + operationId;
+  const pending = (operationLocks.get(key) ?? Promise.resolve()).catch(() => {}).then(action);
+  operationLocks.set(key, pending);
+  try { return await pending; } finally { if (operationLocks.get(key) === pending) operationLocks.delete(key); }
+}
+export const continueIsolatedOperation = (root: string, operationId: string, store: ManagedWorkspaceStore) => withOperationLock(root, operationId, () => continueIsolatedOperationImpl(root, operationId, store));
+export const abortIsolatedOperation = (root: string, operationId: string, store: ManagedWorkspaceStore) => withOperationLock(root, operationId, () => abortIsolatedOperationImpl(root, operationId, store));
+export const skipIsolatedOperationStep = (root: string, operationId: string, store: ManagedWorkspaceStore) => withOperationLock(root, operationId, () => skipIsolatedOperationStepImpl(root, operationId, store));
+export const advanceIsolatedOperation = (root: string, input: Parameters<typeof advanceIsolatedOperationImpl>[1], store: ManagedWorkspaceStore) => withOperationLock(root, input.operationId, () => advanceIsolatedOperationImpl(root, input, store));

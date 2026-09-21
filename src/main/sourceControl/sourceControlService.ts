@@ -1,10 +1,11 @@
-import { beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../agentHarness/repository/isolatedGitOperations";
-import type { ManagedWorkspaceStore } from "../agentHarness/repository/managedWorktrees";
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../agentHarness/repository/isolatedGitOperations";
+import { discardManagedWorktree, type ManagedWorkspaceStore } from "../agentHarness/repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/boundedGit";
 import {
+  inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
   inspectGitDiff, inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
   createGitBranchFromRef, advanceGitBranchRef, renameGitBranch, setGitBranchUpstream, unsetGitBranchUpstream, deleteGitRemoteBranch,
   amendGitCommit, revertGitCommit, cherryPickGitCommit,
@@ -95,6 +96,12 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    inspectReflog: (input: Parameters<typeof inspectGitReflog>[1] = {}) => run("inspect-reflog", false, () => inspectGitReflog(root, input)),
+    replaceBranchRef: (input: Parameters<typeof replaceGitBranchRef>[1]) => run("replace-branch-ref", true, () => replaceGitBranchRef(root, input)),
+    pushWithLease: (input: Parameters<typeof pushGitWithLease>[1]) => run("push-with-lease", true, () => pushGitWithLease(root, input)),
+    deleteUntrackedPaths: (paths: string[]) => run("delete-untracked-paths", true, () => deleteGitUntrackedPaths(root, paths)),
+    discardManagedWorktree: (input: Parameters<typeof discardManagedWorktree>[1]) => run("discard-managed-worktree", true, () => discardManagedWorktree(root, input, managedStore())),
+    skipIsolatedOperationStep: (operationId: string) => run("isolated-skip", true, () => skipIsolatedOperationStep(root, operationId, managedStore())),
     beginIsolatedOperation: (input: Parameters<typeof beginIsolatedOperation>[1]) => run("isolated-begin", true, () => beginIsolatedOperation(root, input, managedStore())),
     inspectIsolatedOperation: (operationId: string) => run("isolated-inspect", false, () => inspectIsolatedOperation(root, operationId, managedStore())),
     continueIsolatedOperation: (operationId: string) => run("isolated-continue", true, () => continueIsolatedOperation(root, operationId, managedStore())),

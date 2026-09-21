@@ -1,5 +1,5 @@
-import { beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../repository/isolatedGitOperations";
-import { createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../repository/isolatedGitOperations";
+import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
 import { AgentHarnessError, toBoundedError } from "../core/errors";
 import { writeAttachedImage } from "../repository/attachedImages";
 import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
@@ -25,6 +25,7 @@ import {
   writeTextArtifact,
 } from "../repository/repositoryOperations";
 import {
+  inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
   inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
   createGitBranchFromRef,
   advanceGitBranchRef,
@@ -131,6 +132,7 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "replace_branch_ref" | "push_with_lease" | "delete_untracked_paths" | "discard_managed_worktree" | "skip_isolated_operation_step"
   | "begin_isolated_operation" | "continue_isolated_operation" | "abort_isolated_operation" | "advance_isolated_operation"
   | "amend_commit" | "revert_commit" | "cherry_pick_commit"
   | "create_worktree_from_ref"
@@ -315,7 +317,9 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           ok: false,
           toolName: call.name,
           action,
-          error: toBoundedError(error),
+          error: call.name === "git_toolbox" && /worktree|isolated_operation|reflog|delete_untracked_paths/.test(action) && !(error instanceof AgentHarnessError)
+            ? { code: "GIT_EXECUTION_FAILED", message: "Managed Git operation is unavailable or its filesystem state changed; inspect before retrying." }
+            : toBoundedError(error),
           attemptId,
           timestamp,
         };
@@ -515,6 +519,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("changed_files", {}, ({ context }) => inspectGitChangedFiles(context.root)),
         gitInspectionAction("inspect_commit", { ...requiredParams({ ref: "string" }), ...optionalParams({ includePatch: "boolean" }) }, ({ context, params }) => inspectGitCommit(context.root, { ref: requiredString(params.ref, "ref"), includePatch: booleanValue(params.includePatch) })),
         gitInspectionAction("compare_refs", requiredParams({ leftRef: "string", rightRef: "string" }), ({ context, params }) => compareGitRefs(context.root, { leftRef: requiredString(params.leftRef, "leftRef"), rightRef: requiredString(params.rightRef, "rightRef") })),
+        gitInspectionAction("inspect_reflog", optionalParams({ ref: "string", maxCount: "number" }), ({ context, params }) => inspectGitReflog(context.root, { ref: stringValue(params.ref), maxCount: numberValue(params.maxCount) })),
         gitInspectionAction("inspect_isolated_operation", requiredParams({ operationId: "string" }), ({ context, params, managedWorkspaces }) => inspectIsolatedOperation(context.root, requiredString(params.operationId, "operationId"), requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("list_worktrees", {}, ({ context, managedWorkspaces }) => listManagedWorktrees(context.root, requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("inspect_worktree", requiredParams({ workspaceId: "string" }), ({ context, params, managedWorkspaces }) => inspectManagedWorktree(context.root, requiredString(params.workspaceId, "workspaceId"), requiredManagedStore(managedWorkspaces))),
@@ -572,7 +577,12 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           ...optionalParams({ remote: "string" }),
         }),
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
-        gitMutationAction("begin_isolated_operation", { ...requiredParams({ targetBranch: "string", sourceRef: "string", expectedTargetCommit: "string" }), operation: { type: "string", required: true, allowedValues: ["merge", "cherry-pick", "revert"] }, ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("replace_branch_ref", requiredParams({ branchName: "string", expectedCurrentCommit: "string", sourceRef: "string" })),
+        gitMutationAction("push_with_lease", { ...requiredParams({ remote: "string", localBranch: "string", remoteBranch: "string", expectedLocalCommit: "string", expectedRemoteCommit: "string" }), ...optionalParams({ setUpstream: "boolean" }) }),
+        gitMutationAction("delete_untracked_paths", requiredParams({ paths: "string-array" })),
+        gitMutationAction("discard_managed_worktree", requiredParams({ workspaceId: "string", expectedBranch: "string", confirmDiscard: "boolean" })),
+        gitMutationAction("skip_isolated_operation_step", requiredParams({ operationId: "string" })),
+        gitMutationAction("begin_isolated_operation", { ...requiredParams({ targetBranch: "string", sourceRef: "string", expectedTargetCommit: "string" }), operation: { type: "string", required: true, allowedValues: ["merge", "cherry-pick", "revert", "rebase"] }, ...optionalParams({ mainline: "number" }) }),
         gitMutationAction("continue_isolated_operation", requiredParams({ operationId: "string" })),
         gitMutationAction("abort_isolated_operation", requiredParams({ operationId: "string" })),
         gitMutationAction("advance_isolated_operation", requiredParams({ operationId: "string", expectedTargetCommit: "string", expectedCandidateCommit: "string" })),
@@ -895,6 +905,16 @@ function gitMutationAction(
     params,
     dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
+        case "replace_branch_ref":
+          return replaceGitBranchRef(context.root, { branchName: requiredString(values.branchName, "branchName"), expectedCurrentCommit: requiredString(values.expectedCurrentCommit, "expectedCurrentCommit"), sourceRef: requiredString(values.sourceRef, "sourceRef") });
+        case "push_with_lease":
+          return pushGitWithLease(context.root, { remote: requiredString(values.remote, "remote"), localBranch: requiredString(values.localBranch, "localBranch"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch"), expectedLocalCommit: requiredString(values.expectedLocalCommit, "expectedLocalCommit"), expectedRemoteCommit: requiredString(values.expectedRemoteCommit, "expectedRemoteCommit"), setUpstream: booleanValue(values.setUpstream) });
+        case "delete_untracked_paths":
+          return deleteGitUntrackedPaths(context.root, requiredStringArray(values.paths, "paths"));
+        case "discard_managed_worktree":
+          return discardManagedWorktree(context.root, { workspaceId: requiredString(values.workspaceId, "workspaceId"), expectedBranch: requiredString(values.expectedBranch, "expectedBranch"), confirmDiscard: values.confirmDiscard === true }, requiredManagedStore(managedWorkspaces));
+        case "skip_isolated_operation_step":
+          return skipIsolatedOperationStep(context.root, requiredString(values.operationId, "operationId"), requiredManagedStore(managedWorkspaces));
         case "begin_isolated_operation":
           return beginIsolatedOperation(context.root, { operation: requiredString(values.operation, "operation") as IsolatedOperationKind, targetBranch: requiredString(values.targetBranch, "targetBranch"), sourceRef: requiredString(values.sourceRef, "sourceRef"), expectedTargetCommit: requiredString(values.expectedTargetCommit, "expectedTargetCommit"), mainline: numberValue(values.mainline) }, requiredManagedStore(managedWorkspaces));
         case "continue_isolated_operation":
