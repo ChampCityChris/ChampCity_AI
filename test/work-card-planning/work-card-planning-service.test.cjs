@@ -4,11 +4,11 @@ const path = require("node:path");
 const test = require("node:test");
 
 test("routed Work Items reuse Formal planning and report review without legacy Phase artifacts", async (t) => {
-  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
   const { createRoutedDevelopmentExecutionService: service, loadRoutedDevelopmentExecution: load } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
   const { writeCanonicalMarkdownDocument: write } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
   const item = (id, deps = []) => ({ workItemId: id, title: `Deliver ${id}`, purpose: "Bounded export behavior", dependsOn: deps, acceptanceCriteria: [`${id} export accepted`] });
-  const { root, intake, binding, git, initialHead } = await seedApprovedRoutedWorkPlan(t, { topology: "direct", topologyRationale: "One bounded export", acceptanceCriteria: ["Export accepted"], workItems: [item("WI01"), item("WI02", ["WI01"])] });
+  const { root, intake, binding, git, initialHead } = await seedPreparedApprovedRoutedWorkPlan(t, { topology: "direct", topologyRationale: "One bounded export", acceptanceCriteria: ["Export accepted"], workItems: [item("WI01"), item("WI02", ["WI01"])] });
   const api = service(root, intake.intakeId);
   const request = async (id = "WI01") => ({ workItemId: id, expectedFingerprint: (await api.query()).fingerprint });
   const first = await request();
@@ -55,11 +55,11 @@ test("routed Work Items reuse Formal planning and report review without legacy P
 });
 
 test("routed phased eligibility retains genuine phase barriers and rejects wrong lineage", async (t) => {
-  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
   const { createRoutedDevelopmentExecutionService: service } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
   const phase = (id, deps) => ({ phaseId: id, title: id, purpose: "Independent milestone", dependsOn: deps, acceptanceCriteria: [`${id} accepted`] });
   const item = (id, phaseId) => ({ workItemId: id, phaseId, title: `Deliver ${id}`, purpose: "Bounded export", dependsOn: [], acceptanceCriteria: [`${id} accepted`] });
-  const { root, intake } = await seedApprovedRoutedWorkPlan(t, { topology: "phased", topologyRationale: "Real milestone acceptance gates", acceptanceCriteria: ["Delivery accepted"], phases: [phase("P1", []), phase("P2", ["P1"])], workItems: [item("WI01", "P1"), item("WI02", "P2")] });
+  const { root, intake } = await seedPreparedApprovedRoutedWorkPlan(t, { topology: "phased", topologyRationale: "Real milestone acceptance gates", acceptanceCriteria: ["Delivery accepted"], phases: [phase("P1", []), phase("P2", ["P1"])], workItems: [item("WI01", "P1"), item("WI02", "P2")] });
   const api = service(root, intake.intakeId);
   const projection = await api.query();
   assert.equal(projection.nextWorkItemId, "WI01");
@@ -84,8 +84,9 @@ test("routed phased eligibility retains genuine phase barriers and rejects wrong
 });
 
 test("Work Item decomposition uses explicit Operator review, preserves lineage, and corrects topology atomically", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "feature-change");
+  const { seedPreparedRoutedWorkIntake, bypassWorkIntakeBranchVerification } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git, initialHead } = seedPreparedRoutedWorkIntake(t, "feature-change");
+  bypassWorkIntakeBranchVerification(t);
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const { workItemDecompositionService } = require("../../dist/main/workCardPlanning/workItemDecompositionService.js");

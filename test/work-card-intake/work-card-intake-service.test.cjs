@@ -29,7 +29,7 @@ test("Work Item artifact scopes preserve legacy paths and bind direct or genuine
   const fs = require("node:fs");
   const path = require("node:path");
   const scopeService = require("../../dist/main/workCardLoop/workItemArtifactScope.js");
-  const { seedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
   const { resolveWorkItemArtifactScope: resolve, workItemArtifactRoot: rootFor, workItemArtifactIdentity: identityFor,
     workItemArtifactScopeFromIdentity: scopeFrom, workItemIntakeTargets: targets, workItemReportPath: report,
     workItemValidationPath: validation, workItemRepairTargets: repair } = scopeService;
@@ -54,7 +54,7 @@ test("Work Item artifact scopes preserve legacy paths and bind direct or genuine
       structure.phases = ["P1", "P2"].map((phaseId, i) => ({ phaseId, title: "Export milestone", purpose: "Prove the export boundary", dependsOn: i ? ["P1"] : [], acceptanceCriteria: ["Milestone proven"] }));
       structure.workItems.forEach((item, i) => { item.phaseId = `P${i + 1}`; });
     }
-    const { root, intake, binding, initialHead, git } = await seedApprovedRoutedWorkPlan(t, structure);
+    const { root, intake, binding, initialHead, git } = await seedPreparedApprovedRoutedWorkPlan(t, structure);
     const ref = { kind: topology === "direct" ? "routed-direct-plan" : "routed-phase", intakeId: intake.intakeId,
       routeDecisionId: binding.identity.routeDecisionId, planId: binding.identity.planId, ...(topology === "phased" ? { phaseId: "P1" } : {}) };
     const scope = await resolve(root, ref);

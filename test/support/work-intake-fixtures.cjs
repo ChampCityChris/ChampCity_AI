@@ -127,4 +127,38 @@ function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration",
   return { root, intake, route, git, initialHead };
 }
 
-module.exports = { seedRoutedWorkIntake, seedApprovedRoutedWorkPlan, seedPreparedRoutedWorkIntake };
+function bypassWorkIntakeBranchVerification(t) {
+  const branchService = require("../../dist/main/workIntake/workIntakeBranchService.js");
+  return t.mock.method(branchService, "createWorkIntakeBranchService", () => ({
+    verify: async (binding) => binding,
+  }));
+}
+
+async function seedPreparedApprovedRoutedWorkPlan(t, structure, routeId = "feature-change") {
+  const fixture = seedPreparedRoutedWorkIntake(t, routeId);
+  const branchVerificationMock = bypassWorkIntakeBranchVerification(t);
+  const { root, intake } = fixture;
+  const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const profile = resolveWorkPlanningProfile(routeId);
+  for (const stage of ["assessment", "plan"]) {
+    let model = await kernel.prepare(root, intake.intakeId, stage);
+    const body = `# ${stage === "assessment" ? "Route Architect Assessment" : "Work Plan"}\n\n` +
+      profile[stage === "assessment" ? "assessmentSections" : "planSections"].map((heading) => `## ${heading}\nDeliver the bounded export contract while preserving existing row operations.`).join("\n\n") +
+      (stage === "plan" ? `\n\n\`\`\`champcity-work-plan\n${JSON.stringify(structure)}\n\`\`\`\n` : "\n");
+    const target = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, body);
+    model = await kernel.get(root, intake.intakeId, stage);
+    await kernel.review(root, intake.intakeId, stage, { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Bounded export approved" });
+  }
+  const { activateRoutedDevelopmentExecutionBinding } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
+  return { ...fixture, binding: await activateRoutedDevelopmentExecutionBinding(root, intake.intakeId), branchVerificationMock };
+}
+
+module.exports = {
+  seedRoutedWorkIntake,
+  seedApprovedRoutedWorkPlan,
+  seedPreparedRoutedWorkIntake,
+  seedPreparedApprovedRoutedWorkPlan,
+  bypassWorkIntakeBranchVerification,
+};

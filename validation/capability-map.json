@@ -15668,20 +15668,20 @@
     {
       "testPath": "test/work-card-intake/work-card-intake-service.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-intake/work-card-intake-service.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "value": 9,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-intake/work-card-intake-service.test.cjs during TSR02; the TAP summary reported 9 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 642,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-intake/work-card-intake-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 3449,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-intake/work-card-intake-service.test.cjs in the TSR02 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
         "process": false,
         "timing": false
@@ -15959,20 +15959,20 @@
     {
       "testPath": "test/work-card-planning/work-card-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/work-card-planning-service.test.cjs; the TAP summary reported 13 tests, including generated subtests. The WC02 assertion-only extension retained the declaration and generation structure."
+        "value": 17,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/work-card-planning-service.test.cjs during TSR02; the TAP summary reported 17 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1630,
-        "basis": "Measured by node --test --test-concurrency=1 test/work-card-planning/work-card-planning-service.test.cjs in the WC02 normal Windows focused-validation run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 14053,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/work-card-planning-service.test.cjs in the TSR02 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
         "process": false,
         "timing": false
