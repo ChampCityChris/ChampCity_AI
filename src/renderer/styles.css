@@ -7022,6 +7022,42 @@ body {
   min-height: 46px;
 }
 
+/* Single-task variant of the shared intake workspace; the form owns its columns. */
+.figma-intake-workspace.work-intake-workspace {
+  display: block;
+  overflow-y: auto;
+}
+
+.work-intake-content {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  max-width: 56rem;
+  min-width: 0;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+}
+
+.work-intake-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.work-intake-header > div {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.work-intake-content p { margin: 0; }
+.work-intake-header h1 { margin: 0 0 8px; }
+.work-intake-actions { display: grid; justify-items: start; gap: 12px; }
+.work-intake-workspace .intake-form {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
 .figma-document-card {
   display: flex;
   flex: 1 1 auto;
