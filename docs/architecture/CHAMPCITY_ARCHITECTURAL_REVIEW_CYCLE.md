@@ -263,9 +263,9 @@ If it does, the finding is ACCEPTED or REJECTED rather than ESCALATED.
 
 This is consistent with `AUTH-16`, `AUTH-17`, and the default-to-proceed autonomy rules in the Authority and Delegation Governance Standard.
 
-## 8. Relationship to the Validator
+## 8. Relationship to the Tester and Validator
 
-The Design Reviewer and Validator are distinct roles operating at different boundaries.
+The Design Reviewer, Tester, and Validator are distinct roles operating at different boundaries.
 
 ### Design Reviewer
 
@@ -317,7 +317,9 @@ Intent -> Architect -> Final Contract
                        Validator
 ```
 
-The Design Reviewer protects against building the wrong solution well. The Validator protects against building the right solution incorrectly.
+The Design Reviewer protects against building the wrong solution well. The Tester owns permanent regression design. The Validator protects against building the right solution incorrectly.
+
+Until the Tester workflow is implemented, the current V1/manual Work Card validation path remains operational.
 
 ## 9. Relationship to the Implementer
 

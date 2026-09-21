@@ -56,6 +56,8 @@ import {
   registerPatchProposal,
 } from "../repository/patches";
 import { createReleaseToolbox, type ReleaseToolbox } from "../release/releaseToolbox";
+import { executeTestToolbox, type TestToolboxAction } from "../test/testToolbox";
+import { INTEGRATION_VALIDATION_LANES, INTEGRATION_VALIDATION_PROFILES } from "../../../shared/integrationPolicyContracts";
 import {
   type AgentHarnessWorkspaceAccessProvider,
   type AgentHarnessWorkspaceContext,
@@ -113,7 +115,6 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
   "skill_toolbox",
   "memory_toolbox",
   "validation_toolbox",
-  "test_toolbox",
   "development_toolbox",
   "system_toolbox",
   "network_toolbox",
@@ -166,6 +167,8 @@ interface ParamSpec {
   allowedValues?: readonly string[];
   minItems?: number;
   maxItems?: number;
+  minLength?: number;
+  maxLength?: number;
 }
 
 interface ToolActionContract {
@@ -184,6 +187,7 @@ interface ToolProvider {
 }
 
 interface DispatchInput {
+  signal?: AbortSignal;
   managedWorkspaces?: ManagedWorkspaceStore;
   context: AgentHarnessWorkspaceContext;
   params: Record<string, unknown>;
@@ -206,6 +210,7 @@ export interface AgentHarnessToolCall {
   name: string;
   arguments: Record<string, unknown>;
   scope?: string;
+  signal?: AbortSignal;
 }
 
 export interface AgentHarnessToolResult {
@@ -280,12 +285,16 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
             action,
           });
         }
+        if (contract.kind === "test-execution" && (typeof args.workspaceId !== "string" || !args.workspaceId.trim() || args.workspaceId.length > 160)) {
+          throw new AgentHarnessError("INVALID_INPUT", "workspaceId must be a bounded workspace identity.");
+        }
         const context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const params = validateParams(args.params, contract);
         assertActionAccess(context, contract.kind);
         const dispatchResult = await contract.dispatch({
           context,
           params,
+          signal: call.signal,
           managedWorkspaces: options.managedWorkspaces,
           userDataRoot: options.userDataRoot,
           workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
@@ -317,7 +326,9 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           ok: false,
           toolName: call.name,
           action,
-          error: call.name === "git_toolbox" && /worktree|isolated_operation|reflog|delete_untracked_paths/.test(action) && !(error instanceof AgentHarnessError)
+          error: call.name === "test_toolbox" && !(error instanceof AgentHarnessError)
+            ? { code: "RUNTIME_ERROR", message: "Bound validation execution is unavailable; inspect the repository toolkit and runtime." }
+            : call.name === "git_toolbox" && /worktree|isolated_operation|reflog|delete_untracked_paths/.test(action) && !(error instanceof AgentHarnessError)
             ? { code: "GIT_EXECUTION_FAILED", message: "Managed Git operation is unavailable or its filesystem state changed; inspect before retrying." }
             : toBoundedError(error),
           attemptId,
@@ -727,6 +738,29 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         )),
       ],
     },
+    {
+      name: "test_toolbox",
+      title: "test_toolbox",
+      description: "Bound repository validation through its authoritative catalog, planner and executor. Execution requires files.write and returns bounded per-file evidence; no shell, executable, environment or working-directory inputs.",
+      actions: [
+        readAction("status", {}, () => ({ toolbox: "test_toolbox", state: "implemented", implemented: true,
+          executionScope: "files.write", maximumCatalogFiles: 512, perStepTimeoutMs: 900_000 })),
+        testExecutionAction("run_test_file", { testPath: { type: "string", required: true, minLength: 1, maxLength: 4096 } }),
+        testExecutionAction("run_test_pattern", {
+          testPath: { type: "string", required: true, minLength: 1, maxLength: 4096 },
+          testNamePattern: { type: "string", required: true, minLength: 1, maxLength: 256 },
+        }),
+        testExecutionAction("run_validation_profile", {
+          profile: { type: "string", required: true, allowedValues: INTEGRATION_VALIDATION_PROFILES, minLength: 1, maxLength: 80 },
+          changedPaths: { type: "string-array", minItems: 0, maxItems: 256, minLength: 1, maxLength: 4096 },
+          capabilityIds: { type: "string-array", minItems: 0, maxItems: 256, minLength: 1, maxLength: 160 },
+        }),
+        testExecutionAction("run_validation_lane", {
+          lane: { type: "string", required: true, allowedValues: INTEGRATION_VALIDATION_LANES, minLength: 1, maxLength: 80 },
+        }),
+        testExecutionAction("audit_test_corpus", {}),
+      ],
+    },
     statusOnlyProvider("integration_toolbox"),
     statusOnlyProvider("browser_toolbox"),
     statusOnlyProvider("knowledge_toolbox"),
@@ -791,7 +825,7 @@ function buildActionInputSchema(action: ToolActionContract): Record<string, unkn
     additionalProperties: false,
     required,
     properties: {
-      workspaceId: { type: "string" },
+      workspaceId: { type: "string", ...(action.kind === "test-execution" ? { minLength: 1, maxLength: 160 } : {}) },
       action: { type: "string", const: action.name },
       params: buildParamsInputSchema(action.params),
     },
@@ -810,16 +844,18 @@ function buildParamsInputSchema(params: Record<string, ParamSpec>): Record<strin
             type: "array",
             minItems: spec.minItems ?? 1,
             maxItems: spec.maxItems ?? 256,
-            items: { type: "string", minLength: 1, maxLength: 4_096 },
+            items: { type: "string", minLength: spec.minLength ?? 1, maxLength: spec.maxLength ?? 4_096 },
           }
-        : { type: spec.type, ...(spec.allowedValues ? { enum: spec.allowedValues } : {}) },
+        : { type: spec.type, ...(spec.allowedValues ? { enum: spec.allowedValues } : {}),
+            ...(spec.minLength === undefined ? {} : { minLength: spec.minLength }),
+            ...(spec.maxLength === undefined ? {} : { maxLength: spec.maxLength }) },
     ])),
   };
 }
 
 function buildInputZodSchema(actions: ToolActionContract[]): z.ZodType<Record<string, unknown>> {
   const actionSchemas = actions.map((action) => z.object({
-    workspaceId: z.string(),
+    workspaceId: action.kind === "test-execution" ? z.string().min(1).max(160) : z.string(),
     action: z.literal(action.name),
     params: buildParamsZodSchema(action.params),
   }).strict());
@@ -847,7 +883,7 @@ function buildParamsZodSchema(params: Record<string, ParamSpec>): z.ZodType<Reco
 
 function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
   if (spec.type === "string-array") {
-    return z.array(z.string().min(1).max(4_096)).min(spec.minItems ?? 1).max(spec.maxItems ?? 256);
+    return z.array(z.string().min(spec.minLength ?? 1).max(spec.maxLength ?? 4_096)).min(spec.minItems ?? 1).max(spec.maxItems ?? 256);
   }
   if (spec.type === "number") {
     return z.number().refine((value) => Number.isFinite(value), "number must be finite");
@@ -855,10 +891,15 @@ function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
   if (spec.type === "boolean") {
     return z.boolean();
   }
-  if (spec.allowedValues) {
-    return z.string().refine((value) => spec.allowedValues?.includes(value) === true, "unsupported value");
-  }
-  return z.string();
+  let schema = z.string();
+  if (spec.minLength !== undefined) schema = schema.min(spec.minLength);
+  if (spec.maxLength !== undefined) schema = schema.max(spec.maxLength);
+  return spec.allowedValues ? schema.refine((value) => spec.allowedValues?.includes(value) === true, "unsupported value") : schema;
+}
+
+function testExecutionAction(name: TestToolboxAction, params: Record<string, ParamSpec>): ToolActionContract {
+  return { name, kind: "test-execution", requiredScope: "files.write", params,
+    dispatch: ({ context, params: values, signal }) => executeTestToolbox(context, name, values, signal) };
 }
 
 function readAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
@@ -1059,6 +1100,10 @@ function validateParams(value: unknown, contract: ToolActionContract): Record<st
     if (spec.type === "string" && typeof paramValue === "string" && !paramValue.trim()) {
       throw new AgentHarnessError("INVALID_INPUT", `${name} is required.`);
     }
+    if (typeof paramValue === "string" && ((spec.minLength !== undefined && paramValue.length < spec.minLength)
+      || (spec.maxLength !== undefined && paramValue.length > spec.maxLength))) {
+      throw new AgentHarnessError("INVALID_INPUT", `${name} exceeds its string bounds.`);
+    }
     if (spec.allowedValues && typeof paramValue === "string" && !spec.allowedValues.includes(paramValue)) {
       throw new AgentHarnessError("INVALID_INPUT", `${name} has an unsupported value.`);
     }
@@ -1083,7 +1128,8 @@ function requiredParamNames(params: Record<string, ParamSpec>): string[] {
 function paramMatchesType(value: unknown, spec: ParamSpec): boolean {
   if (spec.type === "string-array") {
     return Array.isArray(value) && value.length >= (spec.minItems ?? 1) && value.length <= (spec.maxItems ?? 256) &&
-      value.every((entry) => typeof entry === "string" && entry.trim() && Buffer.byteLength(entry, "utf8") <= 4_096);
+      value.every((entry) => typeof entry === "string" && entry.trim() && entry.length >= (spec.minLength ?? 1)
+        && entry.length <= (spec.maxLength ?? 4_096) && Buffer.byteLength(entry, "utf8") <= 4_096);
   }
   if (spec.type === "number") {
     return typeof value === "number" && Number.isFinite(value);

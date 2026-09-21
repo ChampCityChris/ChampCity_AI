@@ -11,6 +11,7 @@ export type HarnessActionKind =
   | "git-inspection"
   | "git-mutation"
   | "release-inspection"
+  | "test-execution"
   | "release-mutation";
 
 export interface AgentHarnessWorkspaceContext {

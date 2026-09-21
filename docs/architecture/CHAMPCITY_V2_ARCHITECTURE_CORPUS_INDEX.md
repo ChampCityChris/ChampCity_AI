@@ -21,7 +21,7 @@ When documents overlap, use this precedence:
 3. **Adopted V2 product/foundational architecture:**
    - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md`;
    - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`.
-4. **Topic-specific adopted architecture/contracts**, including `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` for executable validation planning/lane execution, Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
+4. **Topic-specific adopted architecture/contracts**, including `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` for executable validation planning/lane execution, `CHAMPCITY_TESTER_AND_TEST_LIFECYCLE_ARCHITECTURE.md` for Tester ownership and permanent-test lifecycle, Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
 5. **Current migration/source mappings** such as `SOURCE_EXTRACTION_MAP.md`, the Desktop Source Mapping, and Vocabulary Migration Plan.
 6. **Historical/design-discussion documents**, which may explain rationale but may not override the adopted contracts above.
 
@@ -172,7 +172,7 @@ No unresolved corpus contradiction requires another architecture hold before V2 
 - extract repository/source-control services from the proven V1 containment/Git mechanics;
 - implement Agent Runtime adapters against the portable runtime contract and conformance suite;
 - implement service RequestContext access/resource-scope and operation-idempotency semantics;
-- add Design Reviewer and Validator orchestration with the exact bounded semantics defined in their architecture;
+- add Design Reviewer, Tester, and Validator orchestration with the exact bounded semantics defined in their architecture;
 - build AI visual-validation tooling before relying on AI as the sole visual verifier for criteria that currently require the running product;
 - implement isolated writable checkouts/leases and cost/time/attempt guardrails before parallel autonomous Implementers; and
 - preserve a reproducible V1 source/characterization baseline per extraction Work Item.

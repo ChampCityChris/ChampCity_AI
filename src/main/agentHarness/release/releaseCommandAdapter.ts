@@ -524,7 +524,7 @@ function appendBoundedTail(
   return { value: combined.subarray(combined.length - limit), truncated: true };
 }
 
-function terminateProcessTree(child: ReturnType<typeof spawn>): void {
+export function terminateProcessTree(child: ReturnType<typeof spawn>): void {
   if (child.exitCode !== null) {
     return;
   }
@@ -534,6 +534,7 @@ function terminateProcessTree(child: ReturnType<typeof spawn>): void {
       windowsHide: true,
       stdio: "ignore",
     });
+    killer.on("error", () => child.kill("SIGKILL"));
     killer.unref();
     return;
   }

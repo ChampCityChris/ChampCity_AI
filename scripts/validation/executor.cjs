@@ -11,7 +11,8 @@ const { randomUUID } = require('node:crypto');
 const { runCommand, boundedText } = require('./process.cjs');
 const { runOwnedStep } = require('./build.cjs');
 async function runFile(root, file, options) {
-  const args = ['--require', path.join(__dirname, 'child-cleanup.cjs'), '--test', '--test-concurrency=1', '--test-reporter=tap', file.testPath];
+  const args = ['--require', path.join(__dirname, 'child-cleanup.cjs'), '--test', '--test-concurrency=1', '--test-reporter=tap',
+    ...(options.testNamePattern === undefined ? [] : ['--test-name-pattern=' + options.testNamePattern]), file.testPath];
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'champcity-validation-file-'));
   let result;
   try { result = await runCommand(root, process.execPath, args, { ...options, environment: { TMP: temporaryRoot, TEMP: temporaryRoot, TMPDIR: temporaryRoot } }); }
@@ -27,9 +28,14 @@ async function runFile(root, file, options) {
   }));
   return { testPath: file.testPath, lane: file.lane, command: ['node', '--require', 'scripts/validation/child-cleanup.cjs', ...args.slice(2)], ...result, counts };
 }
-async function executePlan(plan, { root = ROOT, catalog: trustedCatalog, ensureBuild, context: suppliedContext, outputLimit = 8192, timeoutMs = 900000 } = {}) {
+async function executePlan(plan, { root = ROOT, catalog: trustedCatalog, ensureBuild, context: suppliedContext, outputLimit = 8192, timeoutMs = 900000, testNamePattern, onFileResult } = {}) {
   assert.ok(Number.isInteger(outputLimit) && outputLimit > 0 && outputLimit <= 65536, 'Invalid output limit');
   assert.ok(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 900000, 'Invalid timeout');
+  if (testNamePattern !== undefined) {
+    assert.ok(typeof testNamePattern === 'string' && testNamePattern.trim() && testNamePattern.length <= 256
+      && !/[\x00-\x1f]/.test(testNamePattern) && plan.tests.length === 1, 'Name patterns require one exact test and at most 256 characters');
+    new RegExp(testNamePattern); // Compile only; matching occurs in the bounded test child.
+  }
   const catalog = trustedCatalog ? validateCatalog(trustedCatalog, root) : loadCatalog(root);
   const seen = new Set();
   for (const file of plan.tests) {
@@ -75,7 +81,9 @@ async function executePlan(plan, { root = ROOT, catalog: trustedCatalog, ensureB
     const schedulerWaitMs = Math.round(performance.now() - scheduledAt);
     if (file.platformRequirement === 'windows' && process.platform !== 'win32') return { testPath, lane: file.lane, status: 'unavailable', reason: 'requires-windows', durationMs: 0 };
     if (file.externalCapabilities.some(capability=>!availableCapabilities.includes(capability))) return { testPath, lane: file.lane, status: 'unavailable', reason: 'requires-external-capability', durationMs: 0 };
-    return { ...await runFile(root, file, { outputLimit, timeoutMs }), schedulerWaitMs, buildRunId: file.requiresBuild ? runId : null };
+    const result = { ...await runFile(root, file, { outputLimit, timeoutMs, testNamePattern }), schedulerWaitMs, buildRunId: file.requiresBuild ? runId : null };
+    onFileResult?.(result);
+    return result;
   });
   results.push(...plan.tests.map(file => completed.get(file.testPath)));
   return finish({ schemaVersion: 1, runId, steps, availableCapabilities, profile: plan.profile, platform: process.platform, nodeVersion: process.version,

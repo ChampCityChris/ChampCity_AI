@@ -63,4 +63,9 @@ function planValidation({ root = ROOT, catalog, profiles, lane, profile, testPat
     requiresBuild,
     estimatedDurationMs: tests.reduce((sum, t) => sum + t.duration.milliseconds, 0), tests };
 }
-module.exports = { loadProfiles, planValidation };
+// Execution policy shared by CLI and MCP; preview remains allowed without scope.
+function assertExecutionScope(profile, hasChanges, preview = false) {
+  assert.ok(!hasChanges || !['release-qualification', 'full-supported-platform'].includes(profile), 'Full qualification cannot narrow its scope with changes');
+  assert.ok(preview || !['work-item', 'repair', 'integration-gate', 'phase-close'].includes(profile) || hasChanges, 'Affected execution requires an explicit changed-path set');
+}
+module.exports = { loadProfiles, planValidation, assertExecutionScope };

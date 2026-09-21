@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { planValidation } = require('./planner.cjs');
+const { planValidation, assertExecutionScope } = require('./planner.cjs');
 const { executePlan } = require('./executor.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -15,8 +15,7 @@ function main(args, { root = ROOT } = {}) {
     else { assert.ok(typeof args[i + 1] === 'string' && !args[i + 1].startsWith('--'), 'Missing validation argument'); options[name] = args[++i]; }
   }
   const preview = args[0] === 'preview' || options['--preview'];
-  assert.ok(!options['--changes'] || !['release-qualification', 'full-supported-platform'].includes(options['--profile']), 'Full qualification cannot narrow its scope with changes');
-  assert.ok(preview || !['work-item', 'repair', 'integration-gate', 'phase-close'].includes(options['--profile']) || options['--changes'], 'Affected execution requires --changes <repository-relative JSON file>');
+  assertExecutionScope(options['--profile'], Boolean(options['--changes']), preview);
   let changes = {};
   if (options['--changes']) {
     const file = relativePath(options['--changes']);

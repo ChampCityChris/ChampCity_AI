@@ -108,6 +108,7 @@ export function createAgentHarnessMcpServer(
               name: tool.name,
               arguments: record,
               scope: contract.scope,
+              signal: extra?.signal,
             });
             observation?.finish(result, extra?.signal?.aborted === true);
             return projectCallToolResult(result);

@@ -1,61 +1,95 @@
 # TVA10 Implementer Report
 
-Status: deferred when the Operator redirected this task to repository consolidation; TVA10 implementation is not complete.
-
-The record below describes the initial TVA10 inspection before that redirection. The subsequent consolidation brings the existing validation infrastructure into the primary checkout on `dev`. It supersedes the repository-selection request and the initial no-Git-mutation scope. Future TVA10 implementation belongs on `dev`; no new branch or worktree is needed.
+Status: implemented in source on `dev`; ready for Architect code review. No tests were executed.
 
 ## Scope and repository verification
 
 - Work Card: TVA10, Add Bounded Test Execution Capabilities to test_toolbox.
-- Verified the supplied working directory and `git rev-parse --show-toplevel` identify the approved `<PROJECT_REPO>` before writing this report.
-- Current branch: `codex/work-intake-routing-finish`; observed HEAD: `f43b543b290724d7c34a6b6578aafa0a89e4db09`.
-- Remote: `origin`, GitHub repository `ChampCityChris/ChampCity_AI`; fetch/push configuration inspected only. Remote freshness was not checked; no fetch occurred.
-- Existing tracked and untracked changes were present before this pass and were preserved. The TVA10 card itself was already untracked.
+- Verified the working directory and Git top level identify the approved `<PROJECT_REPO>` before changes. The Operator directed implementation in this checkout on `dev`.
+- This report supersedes the initial deferred inspection. The earlier repository consolidation is recorded separately in `docs/dev/DEV_CONSOLIDATION_REPORT_2026-09-21.md`.
+- Implementation started from a clean `dev` at `ff8acce6fcfc6b7077d90f148ce985b66d3f93c3`, tracking `origin/dev` with no locally reported divergence. No fetch was performed during this implementation pass; remote freshness is not independently asserted.
+- No branch, worktree, staging, commit, push, or other Git mutation occurred during this implementation pass. No implementation commit exists.
 
-## Blocker and source evidence
+## Files changed
 
-The approved checkout does not contain the shared validation infrastructure required by TVA10. `scripts/validation/` is absent. `validation/` contains only `capability-map.json` (schema version 1), and `src/main/validation/` contains only implementation scope guidance. A case-insensitive source search across `src`, `scripts`, `test`, and `validation` found no ValidationCatalog, ValidationPlanner, ValidationExecutor, ValidationReceipt, or ValidationProfile implementation. Package scripts still use the legacy serial aggregate. `test_toolbox` remains a reserved namespace in `src/main/agentHarness/tools/toolRegistry.ts`.
+Created:
 
-TVA01 explicitly owns creating the catalog loader, profiles, planner, and executor. TVA10 requires reusing those components and prohibits a second selection system or test architecture redesign. Implementing those prerequisites in this checkout would exceed TVA10.
+- `src/main/agentHarness/test/testToolbox.ts`
+- `scripts/validation/toolbox-runner.cjs`
 
-Read-only `git worktree list` inspection identified a separate worktree on `codex/test-execution-architecture` at abbreviated HEAD `31afc16`. That worktree was clean when inspected and contains `scripts/validation/catalog.cjs`, `planner.cjs`, `executor.cjs`, `profile-runner.cjs`, `process.cjs`, `scheduler.cjs`, and `telemetry.cjs`. Reading those files confirmed shared catalog/profile planning, bounded execution, process cleanup, and source-context/receipt machinery. This establishes that the blocker concerns the supplied checkout, not absence of the implementation everywhere.
+Modified:
 
-Repository selection was requested because the alternate worktree lies outside the approved write root. No files were changed there. No branch switch, prerequisite copying, or integration was attempted.
+- `src/main/agentHarness/tools/toolRegistry.ts`
+- `src/main/agentHarness/workspace/workspaceAccess.ts`
+- `src/main/agentHarness/runtime/mcpServer.ts`
+- `src/main/agentHarness/release/releaseCommandAdapter.ts`
+- `scripts/validation/planner.cjs`
+- `scripts/validation/executor.cjs`
+- `scripts/validation/cli.cjs`
+- This report.
 
-## Changes and acceptance status
+Deleted: none. Intentionally unchanged/not created: tests and fixtures, classifications and capability ownership, validation profiles, dependencies, package scripts, generated builds, additional worktrees, IntegrationCandidate policy, and release behavior.
 
-- Created: `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA10_IMPLEMENTER_REPORT.md`.
-- Modified/deleted existing files: none.
-- Intentionally not created: runtime adapters, toolbox request schemas, executor extensions, tests, or validation configuration pending repository selection.
-- Actions and request schemas added: none. All five requested execution actions remain unimplemented in this checkout.
-- Execution/provider boundaries reused: none at runtime; prerequisite boundaries inspected only.
-- Evidence returned by new actions: none; no new action exists yet.
-- No arbitrary command execution surface was introduced. This is not an assertion that the requested future implementation has been validated.
-- A complete per-file timing audit is blocked in this checkout by missing prerequisites and toolbox actions. Audit execution is also explicitly forbidden during TVA10 implementation.
+## Actions and request schemas
 
-## Inspection and validation
+The existing registry now registers `test_toolbox` as implemented. Its provider feeds MCP tool discovery and `diagnostics_toolbox.tool_inventory`; status reports implementation and execution bounds. JSON Schema, Zod validation, and direct-call parameter validation carry the new string bounds. Execution requires the bound workspace and `files.write` scope. The common envelope uses the existing action/params contract; execution workspaceId is required, nonempty, and at most 160 characters. Unknown actions and parameter fields fail closed.
 
-All commands used the restricted PowerShell inspection lane. No application, validation module, build, test, or audit was executed.
-
-Relevant exact inspection commands and observed results:
-
-| Command | Result |
+| Action | Accepted params |
 | --- | --- |
-| `Get-Location` and `git rev-parse --show-toplevel` | Exit 0; supplied repository root verified. |
-| `git status --short`, `git status --short --branch`, `git branch --show-current`, `git rev-parse HEAD`, `git remote -v` | Exit 0; local branch, revision, remote configuration, and pre-existing changes inspected. |
-| `Get-ChildItem scripts/validation` | Failed: directory does not exist; the containing inspection command exited 1. |
-| `rg -n 'test_toolbox\|ValidationPlanner\|ValidationExecutor' src scripts/validation` | Source inspection found reserved toolbox references; missing scripts directory produced an error. No execution attempted. |
-| `Get-ChildItem src/main/validation; Get-ChildItem validation; Get-ChildItem scripts` | Exit 0; prerequisite directories/files inspected. |
-| `rg -n -i 'validation.?catalog\|validation.?planner\|validation.?executor\|validation.?receipt\|validation.?profile' src scripts test validation` | No matches (rg exit 1); no test module was loaded. |
-| `git worktree list` and `git branch --list` | Exit 0; separate validation worktree identified. |
-| `Get-Content validation/capability-map.json -TotalCount 55` | Exit 0; schema version 1 inspected. |
+| `run_test_file` | Required `testPath`: string, 1-4096 characters; exact repository-relative catalogued executable `.test.cjs` path. |
+| `run_test_pattern` | Required `testPath` as above and `testNamePattern`: string, 1-256 characters, nonblank, no control characters, valid regular expression. Only one exact catalogued file. |
+| `run_validation_profile` | Required `profile`: registered enum, 1-80 characters. Optional `changedPaths`: array of 0-256 exact relative paths, each 1-4096 characters. Optional `capabilityIds`: array of 0-256 strings, each 1-160 characters. Planner validates scope and ownership. Capability scope requires changed paths. |
+| `run_validation_lane` | Required `lane`: registered enum, 1-80 characters. |
+| `audit_test_corpus` | No caller selection or execution parameters; omitted or empty params. Inventory comes entirely from the catalog. |
 
-Additional `Get-Content`/`rg` reads inspected the active card, repository contract, boundary and validation-lane documents, TVA01, bundle plan, registry, workspace access, error handling, and the alternate worktree's shared validation sources. Alternate worktree path operands are intentionally not persisted as machine-specific paths in this artifact. Its `git status --short --branch` inspection exited 0 and reported a clean checkout.
+Profiles: `implementation-fast`, `work-item`, `repair`, `integration-gate`, `phase-close`, `release-qualification`, `full-supported-platform`.
 
-Skipped: typecheck, build, all capability and production-path tests, launch smoke, external integration checks, validation profiles/lanes, individual files, named patterns, and corpus audit. TVA10 limits proof to source/contract/schema inspection and non-executing static review. No tests were executed; there is no test count or passing test claim.
+Lanes: `static`, `fast`, `affected-capability`, `integration`, `desktop-platform`, `packaging`, `migration`, `performance-soak`, `full-regression`.
 
-## Safety and next step
+The existing CLI execution-scope rules now reside in one shared planner helper used by CLI and MCP. Work-item, repair, integration-gate, and phase-close execution require an explicit changed-path set; release-qualification and full-supported-platform reject narrowing. Existing planner selection and profile configuration remain authoritative.
 
-No Git mutations occurred; no commit was requested or created. Existing runtime/test changes were untouched. No dependencies, generated output, classifications, profiles, or test behavior were changed. This report uses repository-relative paths and `<PROJECT_REPO>`; no credentials or secret-bearing files were read or persisted. Artifact review found no concrete local-machine paths or secret values in the report.
+## Execution boundaries and returned evidence
 
-Recommended next task after the Operator-directed consolidation: resume TVA10 directly on `dev`, perform its permitted static review, and submit the completed report for Architect code review. Do not execute the test corpus under this card. No visual/manual acceptance was requested during this initial inspection.
+The workspace provider supplies the repository root. The main-process adapter checks the fixed validation toolkit through existing repository containment policy, selects the existing standalone Node resolver, and launches only the fixed adapter with cleanup preload, a fixed working directory, shell disabled, and bounded JSON on stdin. It strips inherited Node/npm override variables. MCP cancellation reaches the adapter; termination reuses existing process-tree cleanup. Only one toolbox execution per bound repository is admitted at a time.
+
+The child adapter reuses the catalog loader, ValidationPlanner, ValidationExecutor, scheduler, owned build, process timeouts, source-context capture, receipts, and existing redaction. File and lane selections are planner inputs; there is no second selection system. Unknown catalog paths, lanes, profiles, capabilities, and invalid scope are rejected before execution. The executor's optional pattern parameter adds exactly one fixed Node test-name argument for one file; existing callers retain their defaults. Its optional completion callback streams bounded per-file evidence.
+
+Corpus audit derives every file from the catalog and requests concurrency one. The shared scheduler retains cohort policy; each executable file runs individually, with a separate timing/result record. Returned inventories and records retain deterministic test-path order. Shared build work occurs once where required rather than being attributed to an individual test. Source context is checked before planning against execution provenance, in addition to the executor's existing source-stability checks.
+
+Every action returns workspace/repository identity, its exact request, selected file paths, source context, observed adapter duration, overall status, timeout and execution-failure flags, bounded failure evidence, per-file records, and the shared ValidationReceipt when completed. Each file record includes path, lane, capability ownership, observed duration, reported test count, detailed counts, pass/fail/incomplete/timeout status, executor status, exit code, and bounded failure reason. Missing, zero, skipped, cancelled, or unmatched counts cannot silently become a complete pass. Unobserved fields remain null. Cancellation or adapter failure retains completed rows and marks remaining rows incomplete without inventing a receipt.
+
+The toolbox accepts no command, executable, shell text, extra Node/npm arguments, caller cwd, or environment overrides. Arbitrary command execution cannot be requested through this API. Catalogued repository tests and their owned build remain executable repository code; this is not an operating-system sandbox for that code.
+
+## Bounds and audit limitations
+
+- Maximum catalog inventory: 512 files. Source-only JSON inspection observed 143 files and 27 capabilities in the current catalog; no file was executed.
+- Metadata bounds: catalog 2,000,000 bytes; profiles and each fixed toolkit module 128,000 bytes; each selected test file 4,000,000 bytes. Inputs must be ordinary contained files.
+- Request transport: 1,200,000 bytes. Combined adapter output: 2,000,000 bytes. Failure text: 1,200 characters; receipt string leaves: at most 4,096 characters, using shared redaction. Raw stdout/stderr is not returned unbounded.
+- Shared executor timeout: 900,000 ms per step. Adapter watchdog allows build plus first test, then per-file progress, with cleanup allowance and a finite total bound derived from the inventory cap.
+- A later complete audit requires compatible standalone Node/npm, successful owned build, required platform/external capabilities, stable source, and a client connection that remains active. There is no durable background job or resume protocol. Unavailable files, timeout, cancellation, or output bounds can yield incomplete evidence rather than a falsely complete audit. Windows process cleanup is reused; no runtime cleanup proof is claimed in this pass.
+
+## Static validation and safety
+
+All following commands used the restricted Windows PowerShell lane. No spawn-EPERM lane fallback was needed.
+
+| Exact command | Exit/result |
+| --- | --- |
+| `npm run typecheck` | Initial exit 2: three TS18048 errors in the new adapter's optional completed response handling. Corrected the narrowing; subsequent and final execution exited 0. This is `tsc --noEmit`, not test execution. |
+| `node --check scripts/validation/toolbox-runner.cjs` | Exit 0; syntax parse only. |
+| `node --check scripts/validation/executor.cjs` | Exit 0; syntax parse only. |
+| `node --check scripts/validation/planner.cjs` | Exit 0; syntax parse only. |
+| `node --check scripts/validation/cli.cjs` | Exit 0; syntax parse only. |
+| `git diff --check` | Exit 0. |
+| `git diff --name-only -- test validation package.json` | Exit 0; no changes. |
+
+Additional source/schema inspection covered repository boundaries, validation lanes, current catalog/profile data, planner/executor/scheduler/process behavior, MCP registration and cancellation, OAuth scopes, request schemas, and existing capability tests without loading or executing those tests.
+
+Skipped by the card: all tests, `npm test`, `test:full`, `node --test`, individual files, named patterns, profiles, lanes, and corpus audit. Also not performed: build, packaging, launch smoke, runtime adapter invocation, service restart, and live ChatGPT connector discovery. There is no runtime or external-integration pass claim.
+
+A bounded scan of all 10 changed/new artifacts found zero matches for secret-like credential patterns, concrete user-machine paths, or generated/dependency artifact paths. Matching values were not printed. This is a bounded pattern scan, not a claim of exhaustive secret detection. No credentials or secret-bearing configuration were requested or persisted. Durable report paths are repository-relative. Final `git diff --check` exited 0; test, validation configuration, and package inputs remained unchanged.
+
+## Completion and next step
+
+Implementation and source schema are ready for Architect code review. The running Agent Harness and ChatGPT plugin have not been rebuilt or reloaded, so this report does not claim their currently cached/live schema has changed. Loading the updated harness and verifying discovery and bounded execution follow Architect review under the governing authorization. No corpus audit has begun.
+
+No visual acceptance is needed for this source implementation. Residual risk is the deliberately unexercised runtime path, including actual client timeouts, process cleanup, build outcomes, and platform capabilities. Recommended next task: Architect review, followed by authorized runtime discovery and bounded execution validation. Do not interpret the source checks as test or release acceptance.
