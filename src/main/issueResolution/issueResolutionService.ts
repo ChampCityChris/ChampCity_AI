@@ -5465,6 +5465,23 @@ export function approveIssueCorrectionPhase(workspaceRoot: string, issueId: stri
   return getIssueCorrectionExecution(workspaceRoot, issueId);
 }
 
+/** Integration consumes the same current close/Repair and aggregate validation owners. */
+export function getIssueCorrectionIntegrationEvidence(workspaceRoot: string, issueId: string) {
+  const issue = requireReadableIssue(workspaceRoot, issueId);
+  const planning = getIssuePlanningProjectionWithoutAutoPromotion(workspaceRoot, issueId);
+  if (!planning.fixCardsEligible) throw Error("Current Approved correction planning and RCA are required.");
+  const state = deriveIssueCorrectionExecution(workspaceRoot, issue, planning);
+  const validation = state.execution?.workItemsComplete && state.execution.phasesComplete ? getIssueValidationProjection(workspaceRoot, issueId) : undefined;
+  const acceptedPath = validation?.status === "approved" && validation.currentDecision === "ValidateResolved" ? validation.currentRecordPath : undefined;
+  const execution = projectIssueExecution(workspaceRoot, issueId, state.candidates, acceptedPath ?? undefined);
+  if (!execution?.plan) throw Error("Current routed Issue Plan is required for integration.");
+  const checkpoints = execution.projection.complete ? state.candidates.map((candidate) => {
+    const context = resolveCurrentIssueFixCardContext(workspaceRoot, issueFixCardContextForRoot(workspaceRoot, issue, planning, candidate));
+    return { workItemId: candidate.fixCardId, implementationId: context.implementationId, contractPath: context.contractPath };
+  }) : [];
+  return { ...execution, checkpoints };
+}
+
 function deriveIssueFixCardCandidateLifecycles(
   workspaceRoot: string, issue: IssueRecordProjection, planning: IssuePlanningProjection, readContext?: IssueProjectionReadContext,
 ): IssueFixCardPlanCandidate[] {

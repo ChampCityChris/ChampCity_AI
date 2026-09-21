@@ -1,5 +1,5 @@
 import type { IssueFixCardPlanCandidate } from "../../shared/issueResolutionContracts";
-import type { PhaseExecutionEvidence, WorkItemExecutionStage } from "../../shared/planExecutionContracts";
+import type { PhaseExecutionEvidence, PlanExecutionInput, WorkItemExecutionStage } from "../../shared/planExecutionContracts";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import { issueEvidenceBytes, issueEvidenceDigest } from "../workPlanning/workIssueContext";
@@ -45,7 +45,7 @@ export function projectIssueExecution(root: string, issueId: string, candidates:
     return [{ phaseId: phase.phaseId, planRevision: revision, fresh, blockers: [], evidencePaths: [relativePath],
       criteria: phase.acceptanceCriteria.map((criterion) => ({ criterion, status: "passed" as const, evidencePaths: [relativePath] })) }];
   }) : [];
-  const projection = projectPlanExecution({ planId: String(plan?.metadata.identity.planId ?? issueId), planRevision: revision, approved: true, fresh: true, structure, blockers: [], phases,
+  const input: PlanExecutionInput = { planId: String(plan?.metadata.identity.planId ?? issueId), planRevision: revision, approved: true, fresh: true, structure, blockers: [], phases,
     planEvidence: acceptedPlanPath ? { planRevision: revision, fresh: true, blockers: [], evidencePaths: [acceptedPlanPath],
       criteria: structure.acceptanceCriteria.map((criterion) => ({ criterion, status: "passed", evidencePaths: [acceptedPlanPath] })) } : undefined,
     workItems: structure.workItems.map((item) => {
@@ -57,12 +57,13 @@ export function projectIssueExecution(root: string, issueId: string, candidates:
         blockers: candidate.lifecycle?.state === "needs-attention" && !candidate.lifecycle.selectable ? [candidate.lifecycle.reason] : [], evidencePaths,
         criteria: complete ? item.acceptanceCriteria.map((criterion) => ({ criterion, status: "passed" as const, evidencePaths })) : [] };
     }),
-  });
+  };
+  const projection = projectPlanExecution(input);
   // Include exact approval/close bytes in the review token, including edits that retain metadata revisions.
   projection.fingerprint = issueEvidenceDigest(JSON.stringify({ fingerprint: projection.fingerprint, plan: plan?.planDigest,
     closes: candidates.map((candidate) => issueEvidenceDigest(issueEvidenceBytes(root, closePath(issueId, candidate.fixCardId)))),
     phases: phases.map((phase) => issueEvidenceDigest(issueEvidenceBytes(root, phase.evidencePaths[0]))), acceptedPlan: acceptedPlanPath ? issueEvidenceDigest(issueEvidenceBytes(root, acceptedPlanPath)) : null }));
-  return { projection, mapping, plan };
+  return { projection, mapping, plan, input: { ...input, evidenceFingerprint: projection.fingerprint } };
 }
 export function acceptIssueExecutionPhase(root: string, issueId: string, candidates: IssueFixCardPlanCandidate[], input: { phaseId: string; expectedFingerprint: string; notes: string }) {
   const state = projectIssueExecution(root, issueId, candidates);

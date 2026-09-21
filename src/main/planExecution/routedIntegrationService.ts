@@ -12,6 +12,10 @@ import { createIntegrationPolicyProvider } from "./integrationPolicyProvider";
 import { createIntegrationRepairPolicyProvider } from "./integrationRepairPolicyProvider";
 import { readCheckpointReceipt } from "./workItemCheckpointReceipt";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { workPlanningKernel } from "../workPlanning/workPlanningKernel";
+import { workIssueContext } from "../workPlanning/workIssueContext";
+import { getIssueCorrectionIntegrationEvidence } from "../issueResolution/issueResolutionService";
+import { projectPlanExecution } from "./planExecutor";
 
 const sha = (text: Buffer) => createHash("sha256").update(text).digest("hex");
 const message = (error: unknown) => error instanceof Error && !/(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp)\/)/.test(error.message)
@@ -22,14 +26,31 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
   const intake = readWorkIntake(root, intakeId);
   const repositoryId = intake.branchBinding.repositoryId;
   const source = createSourceControlService({ repositoryRoot: root, repositoryId });
-  async function load() {
+  async function executionState() {
+    const planning = await workPlanningKernel.get(root, intakeId, "plan");
+    if (planning.routeId === "issue-resolution") {
+      const plan = planning.artifact;
+      if (!plan || plan.stale || plan.disposition !== "Approved") throw Error("Current approved correction Plan is required.");
+      const issue = workIssueContext(root, intakeId, plan.identity.routeDecisionId);
+      if (!issue) throw Error("Current routed Issue identity is required.");
+      const state = getIssueCorrectionIntegrationEvidence(root, issue.issueId);
+      return { binding: { branchBinding: intake.branchBinding, identity: { planId: state.input.planId }, planRevision: state.input.planRevision, planPath: state.plan!.planPath },
+        input: state.input, projection: projectPlanExecution(state.input),
+        entries: state.checkpoints.map((entry) => ({ executionWorkCardId: entry.implementationId, workItemId: entry.workItemId, contractPath: entry.contractPath, issueId: issue.issueId })) };
+    }
     const state = await loadRoutedDevelopmentExecution(root, intakeId);
+    return { binding: state.binding, input: state.input, projection: state.projection,
+      entries: state.entries.map((entry) => ({ executionWorkCardId: entry.executionWorkCardId, workItemId: entry.candidate.workItemId,
+        contractPath: (entry.repairContext ? entry.repairContext.existing : entry.formal)?.markdownPath, issueId: undefined })) };
+  }
+  async function load() {
+    const state = await executionState();
     return { binding: state.binding.branchBinding, plan: state.input, intakePath: readWorkIntake(root, intakeId).relativePath, planPath: state.binding.planPath };
   }
   const candidate = createIntegrationCandidateService({ repositoryRoot: root, repositoryId, load,
     ...createIntegrationPolicyProvider(root), ...createIntegrationRepairPolicyProvider({ repositoryRoot: root, repositoryId, load }) });
 
-  async function checkpoints(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>) {
+  async function checkpoints(state: Awaited<ReturnType<typeof executionState>>) {
     const current = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId }).verify(state.binding.branchBinding);
     const history = await source.history({ ref: current.currentHead, maxCount: 100 });
     if (!history.ok) throw Error(history.error.message);
@@ -46,22 +67,28 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
     }
     return state.entries.map((entry) => {
       const proof = commits.get(entry.executionWorkCardId);
-      const contract = entry.repairContext?.existing ?? entry.formal;
-      if (!proof || !contract || proof.evidence.workItemId !== entry.candidate.workItemId || proof.evidence.contractPath !== contract.markdownPath) throw Error(`Work Item ${entry.candidate.workItemId} requires its current machine-owned source checkpoint.`);
-      const resolved = resolveRepositoryPath(root, contract.markdownPath);
+      if (!proof || !entry.contractPath || proof.evidence.workItemId !== entry.workItemId || proof.evidence.contractPath !== entry.contractPath) throw Error(`Work Item ${entry.workItemId} requires its current machine-owned source checkpoint.`);
+      const resolved = resolveRepositoryPath(root, entry.contractPath);
       const bytes = fs.readFileSync(resolved.resolvedPath);
       const identity = parseCanonicalMarkdownDocument(bytes.toString("utf8")).metadata.identity;
-      if (resolved.relativePath !== contract.markdownPath || sha(bytes) !== proof.evidence.contractSha256 || identity.planId !== state.binding.identity.planId || identity.intakeId !== intakeId) throw Error("Checkpoint contract is inconsistent with the current approved Plan.");
+      const owned = entry.issueId ? identity.issueId === entry.issueId : identity.planId === state.binding.identity.planId && identity.intakeId === intakeId;
+      if (resolved.relativePath !== entry.contractPath || sha(bytes) !== proof.evidence.contractSha256 || !owned) throw Error("Checkpoint contract is inconsistent with the current approved Plan.");
       return proof.commit;
     });
   }
   async function query(): Promise<RoutedIntegrationProjection> {
     try {
-      const state = await loadRoutedDevelopmentExecution(root, intakeId);
+      const state = await executionState();
       if (!state.projection.complete) return { status: "not-ready", reasons: ["Complete the current Plan, including Work Item close and declared acceptance criteria."], planFingerprint: state.projection.fingerprint, checkpointCommits: [] };
       const checkpointCommits = await checkpoints(state);
-      const records = candidate.list(intakeId).filter((entry) => entry.planId === state.binding.identity.planId && entry.status !== "aborted");
-      const record = records[0];
+      const records = candidate.list(intakeId).filter((entry) => entry.planId === state.binding.identity.planId);
+      let record = records.at(0);
+      if (record?.status === "aborted") {
+        const target = await source.integrationTarget({ baseCommit: state.binding.branchBinding.baseCommit, incomingBranch: state.binding.branchBinding.workBranch, targetBranch: state.binding.branchBinding.baseBranch, remote: state.binding.branchBinding.remote?.name });
+        if (!target.ok) throw Error(target.error.message);
+        if (record.planFingerprint === state.projection.fingerprint && record.incomingCommit === target.result.incomingCommit && record.targetCommit === target.result.targetCommit && record.localTargetCommit === target.result.localTargetCommit) return { status: "not-ready", reasons: ["This exact integration candidate was aborted. A changed Plan or source baseline is required to create another candidate; the retained receipt remains available."], planFingerprint: state.projection.fingerprint, checkpointCommits, candidate: record };
+        record = undefined;
+      }
       if (record && (record.planRevision !== state.binding.planRevision || record.planFingerprint !== state.projection.fingerprint)) return { status: "not-ready", reasons: ["Retained candidate belongs to changed Plan evidence; abort it before constructing a fresh candidate."], planFingerprint: state.projection.fingerprint, checkpointCommits, candidate: record };
       const status: RoutedIntegrationProjection["status"] = !record || record.status === "validated" ? "ready" : record.status === "integrated" ? "integration-complete" : record.status === "operator-decision" ? "operator-decision-required"
         : ["conflicted", "validation-failed"].includes(record.status) ? "repair-required" : record.status === "failed" ? "failed" : "candidate-validating";
@@ -76,6 +103,10 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
   }
   return {
     query,
+    readRepair(candidateId: string, repairId: string) {
+      if (!candidate.list(intakeId).some((record) => record.candidateId === candidateId && record.activeRepairId === repairId)) throw Error("The current Intake Integration Repair is required.");
+      return candidate.readRepair(candidateId, repairId);
+    },
     async integrate(request: RoutedIntegrationRequest) {
       const current = await eligible(request, Boolean(request.candidateId));
       const record = current.candidate ?? await candidate.create();
