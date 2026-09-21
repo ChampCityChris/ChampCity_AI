@@ -1,3 +1,4 @@
+import { createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
 import { AgentHarnessError, toBoundedError } from "../core/errors";
 import { writeAttachedImage } from "../repository/attachedImages";
 import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
@@ -128,6 +129,9 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "create_worktree_from_ref"
+  | "create_worktree_for_branch"
+  | "remove_worktree"
   | "unstage_changes"
   | "restore_files"
   | "create_branch_from_ref"
@@ -174,6 +178,7 @@ interface ToolProvider {
 }
 
 interface DispatchInput {
+  managedWorkspaces?: ManagedWorkspaceStore;
   context: AgentHarnessWorkspaceContext;
   params: Record<string, unknown>;
   userDataRoot: string;
@@ -220,6 +225,7 @@ export interface AgentHarnessToolRegistry {
 }
 
 interface RegistryOptions {
+  managedWorkspaces?: ManagedWorkspaceStore;
   workspaceAccess: AgentHarnessWorkspaceAccessProvider;
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
@@ -274,6 +280,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         const dispatchResult = await contract.dispatch({
           context,
           params,
+          managedWorkspaces: options.managedWorkspaces,
           userDataRoot: options.userDataRoot,
           workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
           runtimeDiagnostics: options.runtimeDiagnostics,
@@ -504,6 +511,8 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("changed_files", {}, ({ context }) => inspectGitChangedFiles(context.root)),
         gitInspectionAction("inspect_commit", { ...requiredParams({ ref: "string" }), ...optionalParams({ includePatch: "boolean" }) }, ({ context, params }) => inspectGitCommit(context.root, { ref: requiredString(params.ref, "ref"), includePatch: booleanValue(params.includePatch) })),
         gitInspectionAction("compare_refs", requiredParams({ leftRef: "string", rightRef: "string" }), ({ context, params }) => compareGitRefs(context.root, { leftRef: requiredString(params.leftRef, "leftRef"), rightRef: requiredString(params.rightRef, "rightRef") })),
+        gitInspectionAction("list_worktrees", {}, ({ context, managedWorkspaces }) => listManagedWorktrees(context.root, requiredManagedStore(managedWorkspaces))),
+        gitInspectionAction("inspect_worktree", requiredParams({ workspaceId: "string" }), ({ context, params, managedWorkspaces }) => inspectManagedWorktree(context.root, requiredString(params.workspaceId, "workspaceId"), requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("list_tags", {}, ({ context }) => listGitTags(context.root)),
         gitInspectionAction("inspect_remotes", {}, ({ context }) => inspectGitRemotes(context.root)),
         gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
@@ -558,6 +567,9 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           ...optionalParams({ remote: "string" }),
         }),
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("create_worktree_from_ref", requiredParams({ checkoutName: "string", branchName: "string", sourceRef: "string" })),
+        gitMutationAction("create_worktree_for_branch", requiredParams({ checkoutName: "string", branchName: "string" })),
+        gitMutationAction("remove_worktree", requiredParams({ workspaceId: "string", expectedBranch: "string" })),
         gitMutationAction("unstage_changes", requiredParams({ paths: "string-array" })),
         gitMutationAction("restore_files", { ...requiredParams({ paths: "string-array" }), ...optionalParams({ sourceRef: "string" }) }),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
@@ -869,8 +881,13 @@ function gitMutationAction(
     kind: "git-mutation",
     requiredScope: "files.write",
     params,
-    dispatch: async ({ context, params: values }) => {
+    dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
+        case "create_worktree_from_ref":
+        case "create_worktree_for_branch":
+          return createManagedWorktree(context.root, { checkoutName: requiredString(values.checkoutName, "checkoutName"), branchName: requiredString(values.branchName, "branchName"), sourceRef: name === "create_worktree_from_ref" ? requiredString(values.sourceRef, "sourceRef") : undefined }, requiredManagedStore(managedWorkspaces));
+        case "remove_worktree":
+          return removeManagedWorktree(context.root, { workspaceId: requiredString(values.workspaceId, "workspaceId"), expectedBranch: requiredString(values.expectedBranch, "expectedBranch") }, requiredManagedStore(managedWorkspaces));
         case "create_branch_from_ref":
           return createGitBranchFromRef(context.root, { branchName: requiredString(values.branchName, "branchName"), sourceRef: requiredString(values.sourceRef, "sourceRef") });
         case "advance_branch_ref":
@@ -1098,4 +1115,9 @@ function isImageBearingDispatchResult(value: unknown): value is ImageBearingDisp
     typeof value === "object" &&
     (value as Partial<ImageBearingDispatchResult>)[IMAGE_BEARING_DISPATCH_RESULT] === true,
   );
+}
+
+function requiredManagedStore(store: ManagedWorkspaceStore | undefined): ManagedWorkspaceStore {
+  if (!store) throw new AgentHarnessError("WORKSPACE_UNAVAILABLE", "Managed workspace registration is unavailable.");
+  return store;
 }
